@@ -1,0 +1,329 @@
+<div class="action-bar" style="flex-wrap: wrap; gap: 15px;">
+    <h3 style="color: var(--text-primary); margin: 0; align-self: center;">  Gestão de Manutenção (O.S.)</h3>
+    <div class="button-group" style="margin-left: auto;">
+        <button class="btn-primary-blue" onclick="alternarTelaOS('lista')">  Acompanhamento (Abertas)</button>
+        <button class="btn-danger-outline" onclick="alternarTelaOS('sinistro')" style="border-color: #ef4444; color: #ef4444;">  Acompanhamento (Sinistros)</button>
+        <button class="btn-secondary-dark" onclick="alternarTelaOS('historico'); carregarFiltrosSelectHistoricoOS();">  Histórico (Todas)</button>
+        <button class="btn-primary-blue" onclick="alternarTelaOS('painel_tv')" style="background-color: #8b5cf6; border-color: #8b5cf6;">  Modo TV (Tempo Real)</button>
+        <button class="btn-primary-green" onclick="alternarTelaOS('nova'); carregarSelectCavalosOS(); carregarMotoristasSelectOS();">  Abrir Nova O.S.</button>
+        <button class="btn-secondary-dark" onclick="alternarTelaOS('disponibilidade')" style="background-color: #047857; border-color: #047857; color: white;">  Disponibilidade (Geral)</button>
+    </div>
+</div>
+
+<div id="telaListaOS" class="content-panel">
+    <div class="panel-header">
+        <h3>Acompanhamento de O.S. (Somente Abertas/Andamento)</h3>
+        <div class="panel-controls">
+            <input type="text" id="searchOS" placeholder="Buscar placa ou motorista..." class="search-input-dark" onkeyup="renderizarTabelaOS()">
+        </div>
+    </div>
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Nº O.S.</th>
+                    <th>Abertura</th>
+                    <th>Conclusão</th>
+                    <th>Placa (Cavalo/GO)</th>
+                    <th>Motorista</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaAcompanhamentoOS"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="telaListaSinistro" class="content-panel" style="display: none;">
+    <div class="panel-header">
+        <h3 style="color: #ef4444;">  Acompanhamento de Veículos Sinistrados (Frota Inativa)</h3>
+        <div class="panel-controls">
+            <input type="text" id="searchSinistro" placeholder="Buscar placa ou motorista..." class="search-input-dark" onkeyup="renderizarTabelaSinistro()">
+        </div>
+    </div>
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Nº O.S.</th>
+                    <th>Abertura</th>
+                    <th>Conclusão</th>
+                    <th>Placa (Cavalo/GO)</th>
+                    <th>Motorista</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaAcompanhamentoSinistro"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="telaHistoricoOS" class="content-panel" style="display: none;">
+    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <h3 style="margin: 0;">  Histórico Geral de Ordens de Serviço</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn-primary-green" onclick="exportarHistoricoOSExcel()" style="padding: 8px 15px;">  Exportar (Excel)</button>
+            <button class="btn-primary-blue" onclick="imprimirTodasOSFiltradas()" style="padding: 8px 15px;"><i class="fas fa-print"></i>  Imprimir Todas</button>
+            <button class="btn-danger-outline" onclick="exportarHistoricoOSPDF()" style="padding: 8px 15px; border-color: #ef4444; color: #ef4444;">  Exportar (PDF)</button>
+        </div>
+    </div>
+    
+    <div class="form-grid" style="margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="form-group-dark">
+            <label>Nº da O.S.</label>
+            <input type="text" id="filtroHistOSNum" placeholder="Ex: 15" oninput="renderizarTabelaHistoricoOS()">
+        </div>
+        <div class="form-group-dark">
+            <label>Placa (Cavalo ou GO)</label>
+            <select id="filtroHistPlaca" class="dark-select" onchange="renderizarTabelaHistoricoOS()"><option value="">Todas as Placas</option></select>
+        </div>
+        <div class="form-group-dark">
+            <label>Motorista</label>
+            <select id="filtroHistMotorista" class="dark-select" onchange="renderizarTabelaHistoricoOS()"><option value="">Todos os Motoristas</option></select>
+        </div>
+        <div class="form-group-dark">
+            <label>Tipo de Serviço</label>
+            <select id="filtroHistTipo" class="dark-select" onchange="renderizarTabelaHistoricoOS()">
+                <option value="">Todos os Tipos</option>
+                <option value="Manutenção Corretiva - P.A Serrana">Manutenção Corretiva - P.A Serrana</option>
+                <option value="Manutenção Corretiva - C.M.C Suzano">Manutenção Corretiva - C.M.C Suzano</option>
+                <option value="Manutenção Preventiva - P.A Serrana">Manutenção Preventiva - P.A Serrana</option>
+                <option value="Manutenção Preventiva - C.M.C Suzano">Manutenção Preventiva - C.M.C Suzano</option>
+                <option value="Elétrica">Elétrica</option>
+                <option value="Lubrificação / Filtros">Lubrificação / Filtros</option>
+                <option value="Borracharia (PNEU)">Borracharia (PNEU)</option>
+                <option value="S.O.S (Socorro Externo)">S.O.S (Socorro Externo)</option>
+                <option value="Lavação / Estética">Lavação / Estética</option>
+                <option value="Maxtrack">Maxtrack</option>
+                <option value="Conferência e Reaperto de Fueiros">Conferência e Reaperto de Fueiros</option>
+                <option value="ITR ( Inspeção Técnica de Rotina )">ITR ( Inspeção Técnica de Rotina )</option>
+                <option value="Sinistro">Sinistro</option>
+            </select>
+        </div>
+        
+        <div class="form-group-dark">
+            <label style="color: var(--ccol-green-bright);">Mês Específico</label>
+            <select id="filtroHistMesAno" class="dark-select" onchange="renderizarTabelaHistoricoOS()" style="border-color: var(--ccol-green-bright);"><option value="">Todos os Meses</option></select>
+        </div>
+        
+        <div class="form-group-dark" style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; background: rgba(0,0,0,0.15); padding: 10px; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.1);">
+            <div><label style="color: var(--ccol-blue-bright);">Filtrar de (Data Início):</label><input type="date" id="filtroHistDataInicio" class="dark-select" onchange="renderizarTabelaHistoricoOS()"></div>
+            <div><label style="color: var(--ccol-blue-bright);">Até (Data Fim):</label><input type="date" id="filtroHistDataFim" class="dark-select" onchange="renderizarTabelaHistoricoOS()"></div>
+            <div><button class="btn-primary-blue" onclick="setFiltroMesAtualOS()" style="padding: 8px 15px; height: 38px;">Mês Atual</button></div>
+        </div>
+    </div>
+    
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Nº O.S.</th>
+                    <th>Abertura</th>
+                    <th>Conclusão</th>
+                    <th>Placa (Cavalo/GO)</th>
+                    <th>Motorista</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaHistoricoOS"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="telaNovaOS" class="content-panel form-panel-dark" style="display: none;">
+    <div class="panel-header"><h3>  Abertura de Nova O.S. / Sinistro</h3></div>
+    <div class="form-grid">
+        <div class="form-group-dark">
+            <label>O.S. para Conjunto ou apenas GO?</label>
+            <select id="osTipoReferencia" class="dark-select" onchange="mudarTipoReferenciaOS()">
+                <option value="cavalo" selected>Conjunto Completo (Cavalo + Carretas)</option>
+                <option value="go">Apenas GO (Sem Cavalo)</option>
+            </select>
+        </div>
+        <div class="form-group-dark">
+            <label id="labelOsPlaca">Selecione o Cavalo</label>
+            <select id="osPlaca" class="dark-select"></select>
+        </div>
+        <div class="form-group-dark" id="wrapperMotorista">
+            <label>Motorista Solicitante / Envolvido</label>
+            <select id="osMotorista" class="dark-select"></select>
+        </div>
+        <div class="form-group-dark">
+            <label>Modo de Entrada no Pátio</label>
+            <select id="osModoEntrada" class="dark-select" onchange="mudarModoEntrada()">
+                <option value="imediata">  Entrada Imediata (Aparece na TV agora)</option>
+                <option value="agendada">  Agendar para o Futuro (Não vai para a TV)</option>
+            </select>
+        </div>
+        <div class="form-group-dark">
+            <label id="labelDataAbertura">Data e Hora da Abertura / Ocorrência</label>
+            <input type="datetime-local" id="osDataAbertura" class="dark-select">
+        </div>
+        <div class="form-group-dark" id="wrapperHodometro">
+            <label>Hodômetro (Km Atual)</label>
+            <input type="number" id="osHodometro" placeholder="Ex: 150500">
+        </div>
+        <div class="form-group-dark">
+            <label>Prioridade da Manutenção</label>
+            <select id="osPrioridade" class="dark-select">
+                <option value="Baixa">  Baixa (Pode esperar rotina)</option>
+                <option value="Normal" selected>  Normal (Manutenção regular)</option>
+                <option value="Alta">  Alta (Risco de quebra/falha)</option>
+                <option value="Urgente">  Urgente (Veículo quebrado / S.O.S / Sinistro)</option>
+            </select>
+        </div>
+        <div class="form-group-dark">
+            <label>Classificação do Serviço</label>
+            <select id="osTipo" class="dark-select" onchange="togglePneuFields()">
+                <option value="Manutenção Corretiva - P.A Serrana">  Manutenção Corretiva - P.A Serrana</option>
+                <option value="Manutenção Corretiva - C.M.C Suzano">  Manutenção Corretiva - C.M.C Suzano</option>
+                <option value="Manutenção Preventiva - P.A Serrana">  Manutenção Preventiva - P.A Serrana</option>
+                <option value="Manutenção Preventiva - C.M.C Suzano">  Manutenção Preventiva - C.M.C Suzano</option>
+                <option value="Manutenção Externa">  Manutenção Externa</option>
+                <option value="Manutenção Externa Volvo">  Manutenção Externa Volvo</option>
+                <option value="Elétrica">  Elétrica</option>
+                <option value="Cavalo Disponível S/ Carreta">  Cavalo Disponível S/ Carreta</option>
+                <option value="Lubrificação / Filtros">  Lubrificação / Filtros</option>
+                <option value="Borracharia (PNEU)">  Borracharia (PNEU)</option>
+                <option value="S.O.S (Socorro Serrana)">  S.O.S (Socorro Serrana)</option>
+                <option value="S.O.S (Socorro Suzano)">  S.O.S (Socorro Suzano)</option>
+                <option value="Lavação / Estética">  Lavação / Limpeza</option>
+                <option value="Maxtrack">   Telemetria Maxtrack</option>
+                <option value="Conferência e Reaperto de Fueiros">   Conferência e Reaperto de Fueiros</option>
+                <option value="ITR ( Inspeção Técnica de Rotina )">   ITR ( Inspeção Técnica de Rotina )</option>
+                <option value="Sinistro" style="background-color: #7f1d1d; color: white;">  Sinistro (Acidente/Avaria Grave)</option>
+            </select>
+        </div>
+        <div id="camposPneu" style="display: none; grid-column: 1 / -1; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px dashed var(--ccol-blue-bright); margin-top: 10px;">
+            <h4 style="color: var(--ccol-blue-bright); margin-bottom: 10px; font-size: 0.9rem;">  Detalhes Específicos de Borracharia</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div class="form-group-dark"><label>Eixo / Posição</label><input type="text" id="osPneuPosicao" placeholder="Ex: 2º Eixo, Lado Esq. Ext."></div>
+                <div class="form-group-dark">
+                    <label>Serviço Necessário</label>
+                    <select id="osPneuServico" class="dark-select">
+                        <option value="">Selecione...</option>
+                        <option value="Calibragem">Calibragem / Rodízio</option>
+                        <option value="Conserto (Furo)">Conserto (Furo/Corte)</option>
+                        <option value="Troca / Substituição">Troca / Substituição</option>
+                        <option value="Ressulagem">Enviar para Ressulagem</option>
+                        <option value="Descarte (Sucata)">Descarte (Sucata)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark"><label>Motivo</label><input type="text" id="osPneuMotivo" placeholder="Ex: Estouro, Desgaste irregular..."></div>
+            </div>
+        </div>
+        <div class="form-group-dark" style="grid-column: 1 / -1; margin-top: 10px;">
+            <label>Problema Relatado / Descrição do Sinistro</label>
+            <input type="text" id="osProblema" placeholder="Descreva o problema detalhadamente...">
+        </div>
+        <div class="form-group-dark" style="grid-column: 1 / -1;">
+            <label>Observações Adicionais / Peças Específicas Requisitadas</label>
+            <input type="text" id="osObservacoes" placeholder="Ex: Lâmpada de freio queimada, rolamento roncando...">
+        </div>
+        <div class="form-actions" style="grid-column: 1 / -1; margin-top: 15px;">
+            <button class="btn-primary-green btn-full" onclick="salvarNovaOS()">  Salvar e Enviar Ordem de Serviço</button>
+        </div>
+    </div>
+</div>
+
+<div id="telaDisponibilidadeOS" class="content-panel" style="display: none;">
+    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <h3 style="color: var(--ccol-green-bright); margin: 0;">  Disponibilidade Mecânica (Diária / Tempo Real)</h3>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <div class="form-group-dark" style="margin: 0; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border-dim);">
+                <label style="color: var(--ccol-blue-bright); font-size: 0.85rem; font-weight: bold; margin: 0;">  Filtrar Histórico (Data):</label>
+                <input type="date" id="filtroDataDisponibilidade" class="dark-select" onchange="renderizarDisponibilidadeMecanica()" title="Deixe vazio para ver o momento ATUAL" style="padding: 4px; font-size: 0.9rem;">
+            </div>
+            <button class="btn-primary-green" onclick="exportarDisponibilidadeExcel()" style="padding: 8px 15px;">  Exportar p/ Excel</button>
+        </div>
+    </div>
+    
+    <div class="quick-stats-header" style="justify-content: space-between; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+        <div class="q-stat" style="flex: 1; text-align: center; min-width: 120px;">Total Cavalos<br><span id="kpiDispTotal" style="font-size: 1.8rem; color: #fff;">0</span></div>
+        <div class="q-stat" style="flex: 1; text-align: center; min-width: 120px; border-left: 3px solid var(--ccol-green-bright);">Disponíveis<br><span id="kpiDispDisponiveis" style="font-size: 1.8rem; color: var(--ccol-green-bright);">0</span></div>
+        <div class="q-stat" style="flex: 1; text-align: center; min-width: 120px; border-left: 3px solid #f59e0b;">Oficina/Manut.<br><span id="kpiDispManutencao" style="font-size: 1.8rem; color: #f59e0b;">0</span></div>
+        <div class="q-stat" style="flex: 1; text-align: center; min-width: 120px; border-left: 3px solid #ef4444;">Sinistrados<br><span id="kpiDispSinistro" style="font-size: 1.8rem; color: #ef4444;">0</span></div>
+        <div class="q-stat" style="flex: 1; text-align: center; min-width: 120px; border-left: 3px solid var(--ccol-blue-bright);">% Disp. Global<br><span id="kpiDispTaxa" style="font-size: 1.8rem; color: var(--ccol-blue-bright); font-weight: 900;">0%</span></div>
+    </div>
+    <div class="table-modern-wrapper">
+        <h4 id="tituloTabelaDisponibilidade" style="color: var(--text-secondary); margin-bottom: 10px; padding-left: 5px; font-weight: normal;">Situação da Frota (Tempo Real)</h4>
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Placa (Cavalo)</th>
+                    <th>GO</th>
+                    <th>Status na Data</th>
+                    <th>Nº O.S Vinculada</th>
+                    <th>Data Abertura O.S</th>
+                    <th>Motivo / Diagnóstico</th>
+                    <th>Tempo Indisponível</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaDisponibilidade"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="telaPainelTV" style="display: none; padding: 20px; background: #0f172a; min-height: 100vh;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #1e293b; padding-bottom: 15px;">
+        <h1 style="color: #fff; font-size: 2.5rem; margin: 0;">PÁTIO DE MANUTENÇÃO (TEMPO REAL)</h1>
+        <div style="display: flex; gap: 20px;">
+            <div style="text-align: right;">
+                <h2 id="tvRelogio" style="color: var(--ccol-green-bright); font-size: 2.5rem; margin: 0; font-family: monospace;">00:00:00</h2>
+                <span style="color: var(--text-secondary); font-size: 1.2rem;" id="tvData"></span>
+            </div>
+            <button onclick="sairModoTV()" class="btn-danger-outline" style="align-self: center; padding: 10px 20px; font-size: 1.2rem; cursor: pointer;">Sair (X)</button>
+        </div>
+    </div>
+    <div id="tvCardsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); gap: 25px;"></div>
+</div>
+
+<div id="modalConclusaoOS" class="modal-overlay">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3>  Concluir Ordem de Serviço</h3>
+            <button class="close-modal" onclick="fecharModalConclusaoOS()"> </button>
+        </div>
+        <div class="modal-body">
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">A ordem será encerrada com o horário abaixo. Fique à vontade para ajustá-lo caso a conclusão tenha ocorrido em outro momento:</p>
+            <div class="form-group-dark">
+                <label>Horário de Conclusão</label>
+                <input type="datetime-local" id="horaConclusaoOS" class="dark-select">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalConclusaoOS()">Cancelar</button>
+            <button class="btn-primary-green" onclick="salvarConclusaoOS()">Confirmar Conclusão</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalServicoExtra" class="modal-overlay">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3>  Adicionar Serviço Extra</h3>
+            <button class="close-modal" onclick="fecharModalServicoExtra()"> </button>
+        </div>
+        <div class="modal-body">
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">Descreva o serviço extra identificado e defina o novo prazo estendido para a finalização.</p>
+            <div class="form-group-dark">
+                <label>Descrição do Novo Serviço / Problema</label>
+                <input type="text" id="extraServicoDescricao" placeholder="Ex: Necessário também a troca da lona de freio...">
+            </div>
+            <div class="form-group-dark" style="margin-top: 15px; border-top: 1px dashed rgba(255,255,255,0.2); padding-top: 15px;">
+                <label style="color: var(--ccol-blue-bright);">Nova Previsão de Entrega (Ajustará a TV)</label>
+                <input type="datetime-local" id="extraServicoPrevisao" class="dark-select">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalServicoExtra()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="salvarServicoExtra()">Salvar Serviço Extra</button>
+        </div>
+    </div>
+</div>

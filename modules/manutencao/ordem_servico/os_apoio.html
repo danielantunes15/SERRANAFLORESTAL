@@ -1,0 +1,190 @@
+<div class="action-bar" style="flex-wrap: wrap; gap: 15px;">
+    <h3 style="color: var(--text-primary); margin: 0; align-self: center;">🛠️ Gestão de Manutenção (O.S. Apoio)</h3>
+    <div class="button-group" style="margin-left: auto;">
+        <button class="btn-primary-blue" onclick="alternarTelaOSApoio('lista')">Acompanhamento (Abertas)</button>
+        <button class="btn-secondary-dark" onclick="alternarTelaOSApoio('historico')">Histórico (Todas)</button>
+        <button class="btn-primary-green" onclick="alternarTelaOSApoio('nova'); carregarSelectVeiculosApoio();">Abrir Nova O.S. Apoio</button>
+        <button class="btn-secondary-dark" onclick="alternarTelaOSApoio('frota')">Cadastro Frota Apoio</button>
+    </div>
+</div>
+
+<div id="telaListaOSApoio" class="content-panel">
+    <div class="panel-header">
+        <h3>Acompanhamento de O.S. Apoio (Abertas)</h3>
+        <div class="panel-controls">
+            <input type="text" id="searchOSApoio" placeholder="Buscar placa ou motorista..." class="search-input-dark" onkeyup="renderizarTabelaOSApoio()">
+        </div>
+    </div>
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Nº O.S.</th>
+                    <th>Abertura</th>
+                    <th>Placa (Veículo)</th>
+                    <th>Motorista / Relator</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaAcompanhamentoOSApoio"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="telaHistoricoOSApoio" class="content-panel" style="display: none;">
+    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <h3 style="margin: 0;">Histórico Geral - Frota de Apoio</h3>
+    </div>
+    <div class="form-grid" style="margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+        <div class="form-group-dark">
+            <label>Nº da O.S.</label>
+            <input type="text" id="filtroHistOSNumApoio" placeholder="Ex: 10" oninput="renderizarTabelaHistoricoOSApoio()">
+        </div>
+        <div class="form-group-dark">
+            <label>Placa do Veículo</label>
+            <select id="filtroHistPlacaApoio" class="dark-select" onchange="renderizarTabelaHistoricoOSApoio()">
+                <option value="">Todas as Placas</option>
+            </select>
+        </div>
+        <div class="form-group-dark" style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <label style="color: var(--ccol-blue-bright);">Filtrar de (Data Início):</label>
+                <input type="date" id="filtroHistDataInicioApoio" class="dark-select" onchange="renderizarTabelaHistoricoOSApoio()">
+            </div>
+            <div>
+                <label style="color: var(--ccol-blue-bright);">Até (Data Fim):</label>
+                <input type="date" id="filtroHistDataFimApoio" class="dark-select" onchange="renderizarTabelaHistoricoOSApoio()">
+            </div>
+        </div>
+    </div>
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Nº O.S.</th>
+                    <th>Abertura</th>
+                    <th>Conclusão</th>
+                    <th>Placa</th>
+                    <th>Motorista</th>
+                    <th>Tipo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaHistoricoOSApoio"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="telaNovaOSApoio" class="content-panel form-panel-dark" style="display: none;">
+    <div class="panel-header"><h3>Abertura de Nova O.S. (Apoio / Prancha / Comboio)</h3></div>
+    <div class="form-grid">
+        <div class="form-group-dark">
+            <label>Veículo Apoio (Cadastrado)</label>
+            <select id="osApoioPlaca" class="dark-select">
+                <option value="">Selecione o Veículo...</option>
+            </select>
+        </div>
+        <div class="form-group-dark">
+            <label>Motorista / Responsável (Livre)</label>
+            <input type="text" id="osApoioMotorista" placeholder="Nome de quem solicita..." style="text-transform: uppercase;">
+        </div>
+        <div class="form-group-dark">
+            <label>Data e Hora da Abertura</label>
+            <input type="datetime-local" id="osApoioDataAbertura" class="dark-select">
+        </div>
+        <div class="form-group-dark">
+            <label>Horímetro / Quilometragem</label>
+            <input type="number" id="osApoioHodometro" placeholder="Ex: 12500">
+        </div>
+        <div class="form-group-dark">
+            <label>Prioridade</label>
+            <select id="osApoioPrioridade" class="dark-select">
+                <option value="Normal" selected>Normal</option>
+                <option value="Alta">Alta</option>
+                <option value="Urgente">Urgente (Quebra em Rota)</option>
+            </select>
+        </div>
+        <div class="form-group-dark">
+            <label>Classificação do Serviço</label>
+            <select id="osApoioTipo" class="dark-select">
+                <option value="Manutenção Preventiva">Manutenção Preventiva</option>
+                <option value="Manutenção Corretiva">Manutenção Corretiva</option>
+                <option value="Lubrificação / Filtros">Lubrificação / Filtros</option>
+                <option value="Hidráulico">Sistema Hidráulico (Prancha/Guincho)</option>
+                <option value="Pneus">Borracharia / Pneus</option>
+                <option value="Elétrica">Elétrica / Iluminação</option>
+                <option value="Lavação">Lavação / Estética</option>
+            </select>
+        </div>
+        <div class="form-group-dark" style="grid-column: 1 / -1; margin-top: 10px;">
+            <label>Problema Relatado / Diagnóstico</label>
+            <input type="text" id="osApoioProblema" placeholder="Descreva o defeito ou solicitação...">
+        </div>
+        <div class="form-group-dark" style="grid-column: 1 / -1;">
+            <label>Observações / Peças Necessárias</label>
+            <input type="text" id="osApoioObservacoes" placeholder="Ex: Necessário 20 litros de óleo hidráulico...">
+        </div>
+        <div class="form-actions" style="grid-column: 1 / -1; margin-top: 15px;">
+            <button class="btn-primary-green btn-full" onclick="salvarNovaOSApoio()">Salvar e Abrir Ordem de Serviço</button>
+        </div>
+    </div>
+</div>
+
+<div id="telaFrotaOSApoio" class="content-panel form-panel-dark" style="display: none;">
+    <div class="panel-header">
+        <h3 style="margin: 0;">Cadastro de Veículos de Apoio</h3>
+    </div>
+    <div class="form-grid">
+        <input type="hidden" id="osApoioFrotaId" value="">
+        <div class="form-group-dark">
+            <label>Placa do Veículo</label>
+            <input type="text" id="osApoioFrotaPlaca" placeholder="Ex: PRA-1234" style="text-transform: uppercase;">
+        </div>
+        <div class="form-group-dark">
+            <label>Descrição (Marca / Modelo / Tipo)</label>
+            <input type="text" id="osApoioFrotaModelo" placeholder="Ex: Caminhão Prancha, Comboio, Strada...">
+        </div>
+        <div class="form-group-dark">
+            <label>Cor / Prefixo</label>
+            <input type="text" id="osApoioFrotaCor" placeholder="Ex: Branco / PR-01">
+        </div>
+        <div class="form-actions" style="grid-column: 1 / -1; margin-top: 15px;">
+            <button class="btn-primary-blue btn-full" onclick="salvarFrotaApoio()">Salvar / Atualizar Veículo Apoio</button>
+        </div>
+    </div>
+    <div class="table-modern-wrapper" style="margin-top: 20px;">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Placa</th>
+                    <th>Descrição / Tipo</th>
+                    <th>Cor / Prefixo</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaFrotaApoio"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modalConclusaoOSApoio" class="modal-overlay" style="display:none;">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3>Concluir O.S. Apoio</h3>
+            <button class="close-modal" onclick="fecharModalConclusaoOSApoio()">X</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group-dark">
+                <label>Horário Real de Conclusão</label>
+                <input type="datetime-local" id="horaConclusaoOSApoio" class="dark-select">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalConclusaoOSApoio()">Cancelar</button>
+            <button class="btn-primary-green" onclick="salvarConclusaoOSApoio()">Confirmar Conclusão</button>
+        </div>
+    </div>
+</div>

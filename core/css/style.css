@@ -1,0 +1,93 @@
+/* ========================================================
+   SYSTEMA CCOL SERRANA FLORESTAL - CSS CENTRAL
+   ======================================================== */
+
+@import url('global.css');
+@import url('auth.css');
+@import url('conjuntos.css');
+@import url('escala.css');
+@import url('dashboard.css');
+
+/* Layout Duplo */
+.painel-operacional-duplo {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    margin-top: 20px;
+}
+
+.quadro-metade {
+    flex: 1;
+    min-width: 0; /* Evita que o flex quebre com textos longos */
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+.quadro-metade .card-header h3 {
+    margin: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    color: #333;
+    font-size: 1.2rem;
+}
+
+.lista-scroll {
+    max-height: 400px; /* Ajuste a altura conforme o seu monitor/TV */
+    overflow-y: auto;
+    padding: 0 15px 15px 15px;
+}
+
+/* Customização da barra de rolagem */
+.lista-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+.lista-scroll::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+}
+
+/* Estilos dos Itens de Frota Parada */
+.item-frota-parada {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    border-left: 5px solid #ccc;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Cores por tipo de parada */
+.item-frota-parada.preventiva { border-left-color: #f39c12; } /* Laranja */
+.item-frota-parada.corretiva { border-left-color: #e74c3c; } /* Vermelho */
+.item-frota-parada.borracharia { border-left-color: #3498db; } /* Azul */
+
+.item-frota-parada .cavalo-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.item-frota-parada .identificacao-cavalo {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #2c3e50;
+}
+
+.item-frota-parada .badge-tipo {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 20px;
+    color: white;
+}
+
+/* Cores das Badges (Pílulas) */
+.badge-tipo.preventiva { background-color: #f39c12; }
+.badge-tipo.corretiva { background-color: #e74c3c; }
+.badge-tipo.borracharia { background-color: #3498db; }

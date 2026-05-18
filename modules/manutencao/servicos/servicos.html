@@ -1,0 +1,229 @@
+<style>
+    .serv-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-dim); padding-bottom: 10px; flex-wrap: wrap; }
+    .serv-tab-btn { background: transparent; border: none; color: #94a3b8; font-size: 1rem; font-weight: bold; cursor: pointer; padding: 10px 15px; border-bottom: 3px solid transparent; transition: 0.3s; display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center; min-width: 150px; }
+    @media(min-width: 768px) { .serv-tab-btn { flex: none; justify-content: flex-start; } }
+    .serv-tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); border-radius: 6px 6px 0 0; }
+    .serv-tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
+    .serv-tab-btn .badge-count { background: #334155; color: #fff; font-size: 0.75rem; padding: 3px 8px; border-radius: 12px; }
+    
+    .card-os-aberta { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; margin-bottom: 15px; border-left: 5px solid #10b981; }
+    .os-header-flex { display: flex; justify-content: space-between; align-items: flex-start; flex-direction: column; gap: 15px; }
+    @media(min-width: 768px) { .os-header-flex { flex-direction: row; align-items: center; gap: 0; } }
+
+    .modal-overlay-fullscreen {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(4px);
+        display: flex; align-items: center; justify-content: center; z-index: 9999;
+    }
+    
+    .custom-modal-responsive {
+        background: #0f172a; color: #fff;
+        width: 100%; height: 100%;
+        display: flex; flex-direction: column;
+        animation: slideUp 0.3s ease-out;
+    }
+    
+    @media (min-width: 900px) {
+        .custom-modal-responsive {
+            width: 95%; max-width: 1200px; height: 90vh;
+            border-radius: 12px; border: 1px solid #334155;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .modal-pequeno {
+            max-width: 600px;
+            height: auto;
+            max-height: 80vh;
+        }
+    }
+
+    .modal-header-responsive {
+        background: #1e293b; padding: 15px 20px; border-bottom: 1px solid #334155;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-header-responsive h3 { margin: 0; font-size: 1.2rem; color: #6366f1; display: flex; align-items: center; gap: 10px; }
+    .close-btn-responsive { background: transparent; border: none; color: #94a3b8; font-size: 2rem; cursor: pointer; line-height: 1; }
+    .close-btn-responsive:hover { color: #ef4444; }
+
+    .modal-body-scroll { flex: 1; overflow-y: auto; padding: 20px; }
+    
+    .apontamento-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    @media(min-width: 900px) { .apontamento-grid { grid-template-columns: 1fr 1fr; } }
+    
+    .box-apontamento { background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 8px; padding: 20px; }
+    .label-oficina { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; display: block; }
+    
+    .input-otimizado { 
+        width: 100%; padding: 12px 15px; background: #1e293b; border: 1px solid #475569; 
+        border-radius: 8px; color: #fff; font-size: 1rem; outline: none; margin-bottom: 15px; 
+    }
+    .input-otimizado:focus { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.2); }
+    
+    .btn-acao-grande { 
+        width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; 
+        cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; border: none; transition: 0.2s;
+    }
+    .btn-acao-grande:active { transform: scale(0.98); }
+    
+    @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+
+<div class="content-panel" style="animation: fadeIn 0.4s ease-in-out;">
+    <div class="panel-header">
+        <h3 style="color: #6366f1; margin: 0;"><i class="fas fa-toolbox"></i> Painel da Oficina</h3>
+    </div>
+
+    <div class="serv-tabs">
+        <button id="btnAbaAceite" class="serv-tab-btn active" onclick="mecanicoMudarAba('aceite')">
+            <i class="fas fa-hand-holding-medical"></i> O.S. Disponíveis
+            <span class="badge-count" id="countAceite">0</span>
+        </button>
+        <button id="btnAbaAbertas" class="serv-tab-btn" onclick="mecanicoMudarAba('abertas')">
+            <i class="fas fa-wrench"></i> Em Execução
+            <span class="badge-count" id="countAbertas">0</span>
+        </button>
+        <button id="btnAbaRequisicoes" class="serv-tab-btn" onclick="mecanicoMudarAba('requisicoes')">
+            <i class="fas fa-clipboard-list"></i> Status Requisições
+            <span class="badge-count" id="countRequisicoes">0</span>
+        </button>
+    </div>
+
+    <div id="divServAceite">
+        <div class="table-modern-wrapper" style="overflow-x: auto;">
+            <table class="data-table-modern" style="min-width: 600px;">
+                <thead>
+                    <tr>
+                        <th>Nº O.S.</th>
+                        <th>Abertura</th>
+                        <th>Frota / Conjunto</th>
+                        <th>Descrição do Problema</th>
+                        <th style="text-align: right;">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaServicosDisponiveis">
+                    <tr><td colspan="5" style="text-align: center; padding: 20px; color:#94a3b8;">Buscando ordens...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="divServAbertas" style="display: none;">
+        <div id="listaMinhasOSAbertas"></div>
+    </div>
+
+    <div id="divServRequisicoes" style="display: none;">
+        <div class="table-modern-wrapper" style="overflow-x: auto;">
+            <table class="data-table-modern" style="min-width: 600px;">
+                <thead>
+                    <tr>
+                        <th>O.S. Vinculada</th>
+                        <th>Peça Solicitada</th>
+                        <th>Qtd</th>
+                        <th>Compartimento</th>
+                        <th style="text-align: right;">Status do Almoxarifado</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaMinhasRequisicoes">
+                    <tr><td colspan="5" style="text-align: center; padding: 20px; color:#94a3b8;">Buscando requisições...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="modalApontamentoOS" class="modal-overlay-fullscreen" style="display: none;">
+    <div class="custom-modal-responsive">
+        <div class="modal-header-responsive">
+            <h3 id="apontTitulo"><i class="fas fa-file-signature"></i> Preencher Oficina</h3>
+            <button class="close-btn-responsive" onclick="mecanicoFecharModal()">&times;</button>
+        </div>
+        <div class="modal-body-scroll">
+            <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid #6366f1; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span class="label-oficina" style="color: #818cf8;">Data e Hora de Término do Conjunto (Obrigatório)</span>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <input type="datetime-local" id="aponPrevisaoGlobal" class="input-otimizado" style="margin-bottom: 0; flex: 1; min-width: 200px; background: #0f172a;">
+                        <button class="btn-acao-grande" style="background: #4f46e5; color: #fff; flex: 1; min-width: 180px; padding: 12px;" onclick="mecanicoSalvarPrevisaoOS()"><i class="fas fa-save"></i> Salvar Previsão</button>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:15px; background:#1e293b; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #334155;">
+                <div style="flex: 1; min-width: 150px;"><span class="label-oficina">Frota / Conjunto</span><strong id="apontPlaca" style="font-size:1.3rem; color:#fff;">-</strong></div>
+                <div style="flex: 1; min-width: 150px;"><span class="label-oficina">Mecânico Logado</span><strong id="nomeMecanicoLabel" style="font-size:1.1rem; color:#3b82f6;">-</strong></div>
+            </div>
+            <div class="apontamento-grid">
+                <div class="box-apontamento">
+                    <h4 style="color:#6366f1; margin-top:0; border-bottom:1px solid #334155; padding-bottom:10px; font-size: 1.2rem;"><i class="fas fa-tools"></i> 1. Mão de Obra</h4>
+                    <div style="margin-top: 15px;">
+                        <label class="label-oficina">Compartimentos (Frota / Conjunto)</label>
+                        <div id="aponCheckboxesServico" style="display: flex; gap: 10px; flex-wrap: wrap; background: #1e293b; padding: 15px; border-radius: 8px; border: 1px solid #475569; margin-bottom: 15px;">
+                            <span style="color: #94a3b8; font-size: 0.9rem;">Buscando frota...</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label-oficina">Descrição do Serviço Realizado</label>
+                        <input type="text" id="aponDescServico" class="input-otimizado" placeholder="Ex: Troca de lona de freio">
+                    </div>
+                    <button class="btn-acao-grande" style="background: #3b82f6; color: white;" onclick="mecanicoAddServico()"><i class="fas fa-plus"></i> Adicionar Serviço à Lista</button>
+                    <div style="margin-top:20px; max-height:250px; overflow-y:auto; background:#1e293b; border-radius:8px; border:1px solid #334155;" id="tabelaServicosLancados"></div>
+                </div>
+
+                <div class="box-apontamento">
+                    <h4 style="color:#10b981; margin-top:0; border-bottom:1px solid #334155; padding-bottom:10px; font-size: 1.2rem;"><i class="fas fa-cubes"></i> 2. Requisição de Peças</h4>
+                    <p style="font-size: 0.85rem; color: #f59e0b; margin-bottom: 15px;"><i class="fas fa-info-circle"></i> As peças solicitadas precisam ser aprovadas pelo Almoxarifado.</p>
+                    <div>
+                        <label class="label-oficina">Para qual parte do Conjunto vai a peça?</label>
+                        <select id="aponCompartimentoPeca" class="input-otimizado"></select>
+                    </div>
+                    <div>
+                        <label class="label-oficina">Pesquisar Peça</label>
+                        <input type="text" id="pesquisaPeca" class="input-otimizado" placeholder="Digite o nome ou código..." onkeyup="mecanicoFiltrarPecas()">
+                    </div>
+                    <div>
+                        <label class="label-oficina">Selecione a Peça</label>
+                        <select id="aponPeca" class="input-otimizado"></select>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items: flex-end; margin-bottom: 15px;">
+                        <div style="flex: 1;">
+                            <label class="label-oficina">Quantidade</label>
+                            <input type="number" step="0.01" id="aponQtdPeca" value="1" class="input-otimizado" style="margin-bottom: 0;">
+                        </div>
+                    </div>
+                    <button class="btn-acao-grande" style="background: #10b981; color: white;" onclick="mecanicoAddPeca()"><i class="fas fa-cart-plus"></i> Enviar Requisição</button>
+                    <div style="margin-top:20px; max-height:250px; overflow-y:auto; background:#1e293b; border-radius:8px; border:1px solid #334155;" id="tabelaPecasLancadas"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modalFinalizarOS" class="modal-overlay-fullscreen" style="display: none;">
+    <div class="custom-modal-responsive modal-pequeno">
+        <div class="modal-header-responsive">
+            <h3 style="color: #10b981;"><i class="fas fa-flag-checkered"></i> Finalizar O.S.</h3>
+            <button class="close-btn-responsive" onclick="fecharModalFinalizarOS()">&times;</button>
+        </div>
+        <div class="modal-body-scroll">
+            <form onsubmit="mecanicoConfirmarFinalizacao(event)">
+                <input type="hidden" id="finOsId">
+                <div class="box-apontamento" style="margin-bottom: 20px; background: rgba(16, 185, 129, 0.05); border-color: #10b981;">
+                    <h4 style="color:#fff; margin-top:0; font-size: 1.2rem;">Frota / Conjunto: <span id="finOsPlaca" style="color: #10b981;"></span></h4>
+                    <p style="color:#94a3b8; font-size: 0.95rem; margin-bottom: 0;">Ao finalizar, esta ordem de serviço sumirá da sua tela e será enviada ao CCOL como Concluída.</p>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label class="label-oficina">Data e Hora de Saída / Término Real</label>
+                    <input type="datetime-local" id="finDataConclusao" class="input-otimizado" required>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label class="label-oficina">Observações Finais / Parecer da Oficina</label>
+                    <textarea id="finObservacoes" class="input-otimizado" rows="4" placeholder="Descreva os testes realizados, alguma observação para o motorista ou pendência de peça..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-acao-grande" style="background: #10b981; color: white;">
+                    <i class="fas fa-check-double"></i> Confirmar Finalização da O.S.
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

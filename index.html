@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>CCOL Dashboard - Serrana Florestal</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <link rel="stylesheet" href="core/css/global.css">
+    <link rel="stylesheet" href="core/css/auth.css">
+    <link rel="stylesheet" href="modules/logistica/frota_conjuntos/conjuntos.css">
+    <link rel="stylesheet" href="modules/logistica/escala/escala.css">
+    <link rel="stylesheet" href="modules/gerencial/painel/dashboard.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="dark-mode">
+
+    <div id="login-screen" class="auth-screen">
+        <div class="auth-box">
+            <img src="assets/logo.png" alt="Serrana Florestal Logo" class="auth-logo">
+            <h1 class="auth-title">CCOL</h1>
+            <p class="auth-subtitle">Controle Operacional de Logística</p>
+            
+            <div class="auth-input-group">
+                <label for="loginUser">Nome de Usuário (Ex: NOME.SOBRENOME)</label>
+                <input type="text" id="loginUser" placeholder="Digite seu usuário" autocomplete="username">
+            </div>
+            <div class="auth-input-group">
+                <label for="loginPass">Senha de Acesso</label>
+                <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+            </div>
+            
+            <button id="btnLogin" class="btn-auth" onclick="realizarLogin()">Entrar</button>
+        </div>
+    </div>
+
+    <div id="change-password-screen" class="auth-screen" style="display: none;">
+        <div class="auth-box">
+            <h1 class="auth-title">Bem-vindo(a) ao CCOL!</h1>
+            <p class="auth-subtitle">Configure sua segurança</p>
+            
+            <div class="auth-warning">
+                ⚠️ Por questões de segurança, você precisa criar uma senha pessoal no seu primeiro acesso.
+            </div>
+
+            <div class="auth-input-group">
+                <label for="newPass1">Nova Senha (Mín. 5 caracteres)</label>
+                <input type="password" id="newPass1" placeholder="Digite a nova senha">
+            </div>
+            <div class="auth-input-group">
+                <label for="newPass2">Confirme a Nova Senha</label>
+                <input type="password" id="newPass2" placeholder="Repita a nova senha">
+            </div>
+            
+            <button class="btn-primary-green btn-auth" onclick="salvarNovaSenha()">Salvar Nova Senha e Entrar</button>
+        </div>
+    </div>
+
+    <div id="appLayout" class="app-layout" style="display: none;">
+        <header class="main-header">
+            <div class="header-left">
+                <div class="ccol-logo-modern">CCOL</div>
+                <div class="header-titles">
+                    <h1>Serrana Florestal</h1>
+                    <p>Centro de Controle Operacional de Logística</p>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <div class="logo-container">
+                    <img src="assets/logo.png" alt="Serrana Florestal Logo" class="company-logo-img">
+                </div>
+                <div class="quick-stats-header">
+                    <div class="q-stat" title="Motoristas Disponíveis / Sem Conjunto">🚗 <span id="statDisponiveis">0</span></div>
+                    <div class="q-stat" title="Total de Cavalos">🚚 <span id="statCavalos">0</span></div>
+                    <div class="q-stat" title="Motoristas Cadastrados">👥 <span id="statMotoristas">0</span></div>
+                </div>
+                <div class="user-badge" style="background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--border-dim); display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.2rem;">👤</span>
+                    <div style="display: flex; flex-direction: column; line-height: 1.2;">
+                        <strong id="loggedUserName" style="font-size: 0.8rem; color: var(--ccol-blue-bright);">USUARIO</strong>
+                        <span id="loggedUserRole" style="font-size: 0.65rem; color: var(--text-secondary);">Role</span>
+                    </div>
+                    <button onclick="fazerLogout()" style="background: none; border: none; color: #ef4444; font-size: 1.2rem; cursor: pointer; margin-left: 5px;" title="Sair do Sistema">🚪</button>
+                </div>
+            </div>
+        </header>
+
+        <div id="menu-container"></div>
+        <main id="conteudo-principal" class="main-content"></main>
+        
+        <footer class="main-footer">
+            <p>&copy; 2026 Serrana Florestal - Divisão CCOL. Terminal v3.0 | <span id="statCaminhoes">0</span> Caminhões</p>
+        </footer>
+    </div>
+      
+    <div id="modalEdicaoMotorista" class="modal-overlay">
+        <div class="custom-modal">
+            <div class="modal-header">
+                <h3>✏️ Editar / Transferir Motorista</h3>
+                <button class="close-modal" onclick="fecharModalEdicao()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editMotoristaId">
+                <div class="form-group-dark">
+                    <label>Nome Completo</label>
+                    <input type="text" id="editMotoristaNome">
+                </div>
+                <div class="form-group-dark">
+                    <label>Transferir Conjunto</label>
+                    <select id="editMotoristaConjunto" class="dark-select">
+                        <option value="">Remover do Conjunto (Deixar Disponível)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Equipe (Dia / Noite / Folga)</label>
+                    <select id="editMotoristaEquipe" class="dark-select">
+                        <option value="-">Sem Equipe</option>
+                        <option value="A">A (Fixo Dia - Frota 1)</option>
+                        <option value="B">B (Fixo Dia - Frota 2)</option>
+                        <option value="C">C (🔄 FOLGUISTA DIA)</option>
+                        <option value="D">D (Fixo Noite - Frota 1)</option>
+                        <option value="E">E (Fixo Noite - Frota 2)</option>
+                        <option value="F">F (🔄 FOLGUISTA NOITE)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Turno Padrão</label>
+                    <select id="editMotoristaTurno" class="dark-select">
+                        <option value="-">Não Definido</option>
+                        <option value="06:00-18:00">06:00-18:00 (Dia)</option>
+                        <option value="18:00-06:00">18:00-06:00 (Noite)</option>
+                        <option value="Misto">Misto (Folguista)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Data Inicial (Início do Ciclo)</label>
+                    <input type="date" id="editMotoristaDataAncora" class="dark-select">
+                </div>
+                <div class="form-group-dark">
+                    <label>Curso Master Drive?</label>
+                    <select id="editMotoristaMasterDrive" class="dark-select">
+                        <option value="Sim">Sim</option>
+                        <option value="Não">Não</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Curso Destra?</label>
+                    <select id="editMotoristaDestra" class="dark-select">
+                        <option value="Sim">Sim</option>
+                        <option value="Não">Não</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Cidade que Mora</label>
+                    <select id="editMotoristaCidade" class="dark-select">
+                        <option value="">Selecione a cidade...</option>
+                        <option value="Itabatã - BA">Itabatã - BA</option>
+                        <option value="Posto da Mata - BA">Posto da Mata - BA</option>
+                        <option value="Mucuri - BA">Mucuri - BA</option>
+                        <option value="Nova Viçosa - BA">Nova Viçosa - BA</option>
+                        <option value="Teixeira de Freitas - BA">Teixeira de Freitas - BA</option>
+                        <option value="Caravelas - BA">Caravelas - BA</option>
+                        <option value="Alcobaça - BA">Alcobaça - BA</option>
+                        <option value="Prado - BA">Prado - BA</option>
+                        <option value="Ibirapuã - BA">Ibirapuã - BA</option>
+                        <option value="Medeiros Neto - BA">Medeiros Neto - BA</option>
+                        <option value="Pedro Canário - ES">Pedro Canário - ES</option>
+                        <option value="Conceição da Barra - ES">Conceição da Barra - ES</option>
+                        <option value="Braço do Rio - ES">Braço do Rio - ES</option>
+                        <option value="Pinheiros - ES">Pinheiros - ES</option>
+                        <option value="Montanha - ES">Montanha - ES</option>
+                        <option value="Nanuque - MG">Nanuque - MG</option>
+                        <option value="Carlos Chagas - MG">Carlos Chagas - MG</option>
+                        <option value="Serra dos Aimorés - MG">Serra dos Aimorés - MG</option>
+                        <option value="Outra Cidade">Outra Cidade</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary-dark" onclick="fecharModalEdicao()">Cancelar</button>
+                <button class="btn-primary-green" onclick="salvarEdicaoMotorista()">💾 Salvar Modificações</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalEscalaManual" class="modal-overlay">
+        <div class="custom-modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>📅 Ajustar Ciclo Manual</h3>
+                <button class="close-modal" onclick="fecharModalManual()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="manualMotId">
+                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-dim); margin-bottom: 10px;">
+                    <p style="margin-bottom: 5px; color: var(--text-secondary); font-size: 0.85rem;">Motorista Selecionado:</p>
+                    <strong id="manualMotNome" style="font-size: 1.1rem; color: var(--ccol-blue-bright);"></strong>
+                    <p style="margin-top: 5px; color: var(--text-secondary); font-size: 0.85rem;">Equipe: <span id="manualMotEquipe" style="color: #fff; font-weight: bold;"></span></p>
+                </div>
+                
+                <div class="form-group-dark">
+                    <label>Data Inicial do Ciclo (Dia em que ele começou ou começa a sequência de 4 dias)</label>
+                    <input type="date" id="manualDataInicio" class="dark-select" onchange="window.atualizarPreviewManual()">
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px;">Preview de como o Ciclo ficará:</label>
+                    <div id="previewManualContainer" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px;"></div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary-dark" onclick="fecharModalManual()">Cancelar</button>
+                <button class="btn-primary-green" onclick="salvarEscalaManual()">💾 Salvar Ciclo</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalImpressaoDiaria" class="modal-overlay">
+        <div class="custom-modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>🖨️ Imprimir Escala Diária</h3>
+                <button class="close-modal" onclick="fecharModalImpressao()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group-dark">
+                    <label>Data da Escala</label>
+                    <input type="date" id="printData" class="dark-select">
+                </div>
+                <div class="form-group-dark">
+                    <label>Turno para Imprimir</label>
+                    <select id="printTurno" class="dark-select">
+                        <option value="Todos">Todos os Turnos (Dia e Noite)</option>
+                        <option value="Dia">Apenas Turno do Dia</option>
+                        <option value="Noite">Apenas Turno da Noite</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary-dark" onclick="fecharModalImpressao()">Cancelar</button>
+                <button class="btn-primary-green" onclick="gerarRelatorioImpressao()">📑 Gerar Relatório</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalMasterDrive" class="modal-overlay">
+        <div class="custom-modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>👨‍🏫 Gestão de Master Drives</h3>
+                <button class="close-modal" onclick="fecharModalMasterDrive()">&times;</button>
+            </div>
+            <div class="modal-body">
+                
+                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; color: var(--ccol-blue-bright);">Cadastrar Novo Master</h4>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="novoMasterNome" placeholder="Nome do Master Drive" class="dark-select">
+                        <button class="btn-primary-green" onclick="salvarMasterDrive()">Adicionar</button>
+                    </div>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; color: #a855f7;">Realocar Cronogramas Existentes</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">Transfira todos os treinamentos agendados de um Master para outro.</p>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="realocarDe" class="dark-select" style="flex: 1;"><option value="">De...</option></select>
+                        <span style="color: #fff; font-weight: bold;">➡️</span>
+                        <select id="realocarPara" class="dark-select" style="flex: 1;"><option value="">Para...</option></select>
+                        <button class="btn-primary-blue" onclick="realocarTreinamentosMaster()">Transferir</button>
+                    </div>
+                </div>
+
+                <h4 style="margin-bottom: 10px; color: #fff;">Lista de Master Drives Cadastrados</h4>
+                <div id="listaMasterDrivesCadastrados" style="max-height: 200px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 5px;">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <script src="core/js/database.js"></script>
+    <script src="core/js/auth.js"></script> 
+    <script src="core/js/estado.js"></script>
+    <script src="core/js/menu.js"></script>
+    
+    <script src="modules/logistica/motoristas/motoristas.js"></script>
+    <script src="modules/logistica/frota_conjuntos/conjuntos.js"></script>
+    <script src="modules/logistica/frota_conjuntos/cadastro_frota.js"></script>
+    <!-- REFERÊNCIA DO NOVO MÓDULO ADICIONADA AQUI -->
+    <script src="modules/logistica/documentos_frota/documentos_frota.js"></script>
+    <script src="modules/logistica/escala/escala.js"></script>
+    <script src="modules/logistica/troca_turno/troca_turno.js"></script>
+    
+    <script src="modules/manutencao/ordem_servico/os_core.js"></script>
+    <script src="modules/manutencao/ordem_servico/os_tabelas.js"></script>
+    <script src="modules/manutencao/ordem_servico/os_formularios.js?v=9"></script>
+    <script src="modules/manutencao/ordem_servico/os_impressao.js"></script>
+    <script src="modules/manutencao/ordem_servico/os_painel.js"></script>
+    <script src="modules/manutencao/ordem_servico/os_apoio.js"></script>
+    <script src="modules/manutencao/servicos/servicos.js"></script>
+    <script src="modules/manutencao/almoxarifado/almoxarifado.js"></script>
+    
+    <script src="modules/ssma/recados/recados.js"></script>
+    <script src="modules/ssma/treinamento/treinamento.js"></script>
+    
+    <script src="modules/gerencial/indicadores/indicadores.js"></script>
+    <script src="modules/gerencial/indicadores/indicadores_serrana.js"></script> 
+    <script src="modules/gerencial/indicadores/grafico_evolucao_dm.js"></script>
+    
+    <script src="core/js/app.js"></script> 
+</body>
+</html>

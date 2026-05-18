@@ -1,0 +1,134 @@
+<div class="recados-dashboard">
+    <div class="recados-header-kanban">
+        <div class="header-titulos">
+            <h2>📝 Mural de Recados Kanban</h2>
+            <p>Gerencie anotações por prioridade e acompanhe o histórico.</p>
+        </div>
+        <div class="kanban-tabs">
+            <button id="btn-tab-quadro" class="tab-btn active" onclick="alternarAbaRecados('quadro')">📋 Quadro</button>
+            <button id="btn-tab-historico" class="tab-btn" onclick="alternarAbaRecados('historico')">🕰️ Histórico</button>
+        </div>
+    </div>
+
+    <div class="recados-form-top">
+        <form id="form-recado">
+            <div class="form-row">
+                <input type="text" id="titulo-recado" class="dark-input" placeholder="Título..." required>
+                <input type="text" id="desc-recado" class="dark-input" placeholder="Descrição..." required>
+                <select id="prioridade-recado" class="dark-input" required>
+                    <option value="baixa">🔵 Baixa</option>
+                    <option value="media" selected>🟡 Média</option>
+                    <option value="alta">🔴 Alta</option>
+                    <option value="troca">🟣 Troca de Turno</option>
+                </select>
+                <input type="datetime-local" id="data-recado" class="dark-input" required>
+                <button type="submit" class="btn-primary-green">➕ Adicionar</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="view-quadro" class="kanban-board">
+        
+        <div class="kanban-column">
+            <div class="kanban-column-header header-baixa">
+                <span>🔵 BAIXA</span>
+                <span class="badge-contador" id="count-baixa">0</span>
+            </div>
+            <div class="kanban-dropzone" id="lista-baixa" ondrop="soltarRecado(event, 'baixa')" ondragover="permitirSoltar(event)"></div>
+        </div>
+
+        <div class="kanban-column">
+            <div class="kanban-column-header header-media">
+                <span>🟡 MÉDIA</span>
+                <span class="badge-contador" id="count-media">0</span>
+            </div>
+            <div class="kanban-dropzone" id="lista-media" ondrop="soltarRecado(event, 'media')" ondragover="permitirSoltar(event)"></div>
+        </div>
+
+        <div class="kanban-column">
+            <div class="kanban-column-header header-alta">
+                <span>🔴 ALTA</span>
+                <span class="badge-contador" id="count-alta">0</span>
+            </div>
+            <div class="kanban-dropzone" id="lista-alta" ondrop="soltarRecado(event, 'alta')" ondragover="permitirSoltar(event)"></div>
+        </div>
+
+        <div class="kanban-column">
+            <div class="kanban-column-header header-troca">
+                <span>🟣 TROCA DE TURNO</span>
+                <span class="badge-contador" id="count-troca">0</span>
+            </div>
+            <div class="kanban-dropzone" id="lista-troca" ondrop="soltarRecado(event, 'troca')" ondragover="permitirSoltar(event)"></div>
+        </div>
+
+    </div>
+
+    <div id="view-historico" class="historico-panel" style="display: none;">
+        <div class="historico-header">
+            <h3>Concluídos (Ordem de Data)</h3>
+            <button class="btn-outline-red" onclick="limparHistoricoRecados()">🗑️ Limpar</button>
+        </div>
+        <div class="historico-grid" id="lista-historico"></div>
+    </div>
+</div>
+
+<style>
+    /* Estilos Dark Mode Kanban */
+    .recados-dashboard { padding: 20px; color: #f1f5f9; animation: fadeIn 0.3s; }
+    .recados-header-kanban { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+    .header-titulos h2 { margin: 0; color: #38bdf8; }
+    
+    .kanban-tabs { display: flex; gap: 10px; background: rgba(15,23,42,0.6); padding: 5px; border-radius: 8px; }
+    .tab-btn { background: transparent; border: none; color: #94a3b8; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .tab-btn.active { background: #38bdf8; color: #0f172a; }
+
+    .recados-form-top { background: rgba(30,41,59,0.8); border-radius: 8px; padding: 15px; margin-bottom: 25px; }
+    .form-row { display: flex; gap: 10px; }
+    .dark-input { flex: 1; padding: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #fff; }
+
+    .kanban-board { display: flex; gap: 15px; min-height: 500px; overflow-x: auto; padding-bottom: 10px; }
+    .kanban-column { flex: 1; min-width: 280px; background: rgba(30,41,59,0.4); border-radius: 8px; display: flex; flex-direction: column; }
+    .kanban-column-header { padding: 12px; font-weight: bold; display: flex; justify-content: space-between; border-radius: 8px 8px 0 0; background: #1e293b; font-size: 0.95rem; }
+    
+    .header-baixa { border-bottom: 3px solid #3b82f6; }
+    .header-media { border-bottom: 3px solid #f59e0b; }
+    .header-alta { border-bottom: 3px solid #ef4444; }
+    .header-troca { border-bottom: 3px solid #a855f7; }
+
+    .badge-contador { background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; }
+
+    .kanban-dropzone { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+    .kanban-dropzone::-webkit-scrollbar { width: 4px; }
+    .kanban-dropzone::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+    
+    .card-kanban { background: #1e293b; border-radius: 6px; padding: 12px; border: 1px solid #334155; cursor: grab; transition: transform 0.2s, box-shadow 0.2s; }
+    .card-kanban:active { cursor: grabbing; transform: scale(0.98); }
+    .card-kanban:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.2); }
+    
+    .card-baixa { border-left: 4px solid #3b82f6; }
+    .card-media { border-left: 4px solid #f59e0b; }
+    .card-alta { border-left: 4px solid #ef4444; }
+    .card-troca { border-left: 4px solid #a855f7; }
+
+    .card-title { margin: 0 0 5px 0; font-size: 1rem; color: #f8fafc; }
+    .card-desc { margin: 0 0 10px 0; font-size: 0.85rem; color: #94a3b8; line-height: 1.4; }
+    .card-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; border-top: 1px solid #334155; padding-top: 8px; }
+    .card-meta { background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 4px; color: #cbd5e1; }
+    
+    .btn-concluir-mini { background: transparent; border: 1px solid #10b981; color: #10b981; padding: 3px 8px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+    .btn-concluir-mini:hover { background: #10b981; color: #0f172a; }
+
+    .historico-panel { background: rgba(30, 41, 59, 0.4); border-radius: 8px; padding: 20px; border: 1px solid rgba(255,255,255,0.05); }
+    .historico-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .historico-header h3 { margin: 0; color: #10b981; }
+    .btn-outline-red { background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 8px 15px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+    .btn-outline-red:hover { background: #ef4444; color: #fff; }
+    
+    .historico-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+
+    @media (max-width: 1024px) {
+        .form-row { flex-direction: column; }
+    }
+    
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>

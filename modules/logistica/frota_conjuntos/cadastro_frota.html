@@ -1,0 +1,113 @@
+<div class="content-panel form-panel-dark" style="animation: fadeIn 0.4s ease-in-out;">
+    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <h3 style="margin: 0;"><i class="fas fa-truck-moving"></i> Cadastro de Conjuntos (Frota Manutenção)</h3>
+        <button class="btn-primary-green" onclick="exportarFrotaManutencaoExcel()" style="padding: 8px 15px;">  Exportar Frotas (Excel)</button>
+    </div>
+    <div style="padding: 15px 20px; font-size: 0.85rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border-bottom: 1px solid var(--border-dim); margin-bottom: 15px;">
+        Vincule os cavalos, Frota e carretas. Defina o Status como "Inativo" se a frota estiver chegando. Informe a <b>Data Inicial</b> para garantir que a DM (Disponibilidade Mecânica) só contabilize este veículo a partir do dia em que ele realmente entrou na operação.
+    </div>
+    
+    <div class="form-grid">
+        <div class="form-group-dark"><label>Placa do Cavalo</label><input type="text" id="osFrotaCavalo" placeholder="Ex: ABC-1234" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark">
+            <label>Status</label>
+            <select id="osFrotaStatus" class="dark-select">
+                <option value="Ativo">Ativo</option>
+                <option value="Inativo">Inativo</option>
+            </select>
+        </div>
+        <div class="form-group-dark"><label>Data Inicial (Entrada)</label><input type="date" id="osFrotaDataInicial" class="dark-select"></div>
+        <div class="form-group-dark">
+            <label>Cor Predominante</label>
+            <select id="osFrotaCor" class="dark-select">
+                <option value="">Selecione...</option>
+                <option>Branco</option><option>Preto</option><option>Cinza</option>
+                <option>Azul</option><option>Verde</option><option>Vermelho</option>
+                <option>Amarelo</option><option>Marrom</option>
+            </select>
+        </div>
+        <div class="form-group-dark"><label>Nº Frota</label><input type="text" id="osFrotaGo" placeholder="Ex: FROTA-01" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark"><label>Carreta 1 (1º Comp.)</label><input type="text" id="osFrotaCarreta1" placeholder="Placa Carreta 1" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark"><label>Carreta 2 (2º Comp.)</label><input type="text" id="osFrotaCarreta2" placeholder="Placa Carreta 2" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark"><label>Carreta 3 (3º Comp.)</label><input type="text" id="osFrotaCarreta3" placeholder="Placa Carreta 3" style="text-transform: uppercase;"></div>
+        <div class="form-actions" style="grid-column: 1 / -1; margin-top: 10px;">
+            <button class="btn-primary-blue btn-full" onclick="salvarFrotaManutencao()"><i class="fas fa-plus"></i> Criar Novo Conjunto de Frota</button>
+        </div>
+    </div>
+    
+    <div class="table-modern-wrapper" style="margin-top: 30px;">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Data Entrada</th>
+                    <th>Placa (Cavalo)</th>
+                    <th>Cor</th>
+                    <th>Frota</th>
+                    <th>Carreta 1</th>
+                    <th>Carreta 2</th>
+                    <th>Carreta 3</th>
+                    <th style="text-align: right;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaFrotaManutencaoCad">
+                <tr><td colspan="9" style="text-align: center;">Carregando frota...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modalTransferenciaFrota" class="modal-overlay" style="display:none;">
+    <div class="custom-modal form-panel-dark">
+        <div class="modal-header">
+            <h3><i class="fas fa-exchange-alt"></i> Trocar Carretas e Frota</h3>
+            <button class="close-modal" onclick="fecharModalTransferenciaFrota()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="transfFrotaOrigemId">
+            <p style="margin-bottom: 10px;">Origem: <strong id="transfFrotaOrigemText" style="color: var(--ccol-blue-bright); font-size: 1.2rem;"></strong></p>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px;">A composição (Frota e Carretas) deste Cavalo será movida para o Cavalo de destino selecionado abaixo. Se o destino já possuir carretas engatadas, elas serão transferidas de volta para este (Troca Dupla).</p>
+            <div class="form-group-dark">
+                <label>Selecione o Cavalo de Destino:</label>
+                <select id="selectFrotaDestino" class="dark-select"></select>
+            </div>
+        </div>
+        <div class="modal-footer" style="margin-top: 20px;">
+            <button class="btn-secondary-dark" onclick="fecharModalTransferenciaFrota()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="confirmarTransferenciaFrota()">Confirmar Troca</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalEditarFrota" class="modal-overlay" style="display:none;">
+    <div class="custom-modal form-panel-dark" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>✏️ Editar Conjunto</h3>
+            <button class="close-modal" onclick="fecharModalEditarFrota()">&times;</button>
+        </div>
+        <div class="modal-body form-grid">
+            <input type="hidden" id="editFrotaId">
+            <div class="form-group-dark" style="grid-column: 1 / -1;"><label>Placa Cavalo</label><input type="text" id="editFrotaCavalo" style="text-transform:uppercase;"></div>
+            <div class="form-group-dark">
+                <label>Status</label>
+                <select id="editFrotaStatus" class="dark-select">
+                    <option value="Ativo">Ativo</option>
+                    <option value="Inativo">Inativo</option>
+                </select>
+            </div>
+            <div class="form-group-dark"><label>Data Inicial</label><input type="date" id="editFrotaDataInicial" class="dark-select"></div>
+            <div class="form-group-dark">
+                <label>Cor</label>
+                <select id="editFrotaCor" class="dark-select"><option value="Branco">Branco</option><option value="Preto">Preto</option><option value="Cinza">Cinza</option><option value="Azul">Azul</option><option value="Verde">Verde</option><option value="Vermelho">Vermelho</option></select>
+            </div>
+            <div class="form-group-dark"><label>Nº Frota</label><input type="text" id="editFrotaGo" style="text-transform:uppercase;"></div>
+            <div class="form-group-dark"><label>Carreta 1</label><input type="text" id="editFrotaCarreta1" style="text-transform:uppercase;"></div>
+            <div class="form-group-dark"><label>Carreta 2</label><input type="text" id="editFrotaCarreta2" style="text-transform:uppercase;"></div>
+            <div class="form-group-dark"><label>Carreta 3</label><input type="text" id="editFrotaCarreta3" style="text-transform:uppercase;"></div>
+        </div>
+        <div class="modal-footer" style="grid-column: 1 / -1; margin-top: 20px;">
+            <button class="btn-secondary-dark" onclick="fecharModalEditarFrota()">Cancelar</button>
+            <button class="btn-primary-green" onclick="salvarEdicaoFrota()">Salvar Alterações</button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,104 @@
+<div class="action-bar" style="margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px 20px; border-radius: 8px; border: 1px solid var(--border-dim);">
+    <h3 style="color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 10px;">
+        <i class="fas fa-cogs"></i> Painel de Controle
+    </h3>
+    <div class="button-group" style="margin-left: auto;">
+        <button id="btnTabUsuarios" class="btn-primary-blue" onclick="alternarAbaConfig('usuarios')"><i class="fas fa-users"></i> Usuários e Acessos</button>
+        <button id="btnTabLogs" class="btn-secondary-dark" onclick="alternarAbaConfig('logs')"><i class="fas fa-history"></i> Logs do Sistema</button>
+    </div>
+</div>
+
+<div id="config-tab-usuarios" class="config-aba">
+    <div style="display: grid; grid-template-columns: 1.2fr 2fr; gap: 20px;">
+        
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div class="content-panel form-panel-dark" style="margin: 0; background: rgba(0,0,0,0.2);">
+                <div class="panel-header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
+                    <h4 style="color: var(--ccol-green-bright); margin: 0;"><i class="fas fa-user-plus"></i> Criar Novo Acesso</h4>
+                </div>
+                <div class="form-group-dark" style="margin-top: 15px;">
+                    <label>Login (Nome.Sobrenome)</label>
+                    <input type="text" id="novoUsername" placeholder="Ex: JOAO.SILVA" style="text-transform: uppercase;">
+                </div>
+                <div class="form-group-dark" style="margin-top: 10px;">
+                    <label>Perfil de Acesso</label>
+                    <select id="novoUserRole" class="dark-select">
+                        <option value="Controlador de Trefego">Controlador de Tráfego</option>
+                        <option value="SSMA">SSMA</option>
+                        <option value="Controle de Manutencao">Controle de Manutenção</option>
+                        <option value="Mecanico">Mecânico</option>
+                        <option value="Admin">Administrador Total</option>
+                    </select>
+                </div>
+                <div style="margin-top: 10px; font-size: 0.75rem; color: var(--text-secondary); text-align: center;">
+                    Senha inicial padrão: <strong style="color: #fff;">12345</strong>
+                </div>
+                <button class="btn-primary-green btn-full" onclick="adicionarUsuario()" style="margin-top: 15px;"><i class="fas fa-save"></i> Cadastrar Usuário</button>
+            </div>
+
+            <div class="content-panel form-panel-dark" style="margin: 0; background: rgba(0,0,0,0.2);">
+                <div class="panel-header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
+                    <h4 style="color: #fde047; margin: 0;"><i class="fas fa-key"></i> Controle de Menus (Acessos)</h4>
+                </div>
+                
+                <div class="form-group-dark" style="margin-top: 15px;">
+                    <label>1. Selecione o Perfil</label>
+                    <select id="selectPerfilPermissao" class="dark-select" onchange="carregarCheckboxesPermissoes()">
+                        <option value="Controlador de Trefego">Controlador de Tráfego</option>
+                        <option value="SSMA">SSMA</option>
+                        <option value="Controle de Manutencao">Controle de Manutenção</option>
+                        <option value="Mecanico">Mecânico</option>
+                        <option value="Admin">Administrador Total</option>
+                    </select>
+                </div>
+                
+                <label style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 15px; display: block;">2. Marque as telas liberadas:</label>
+                
+                <div id="container-permissoes-menus" style="margin-top: 8px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed var(--border-dim); display: flex; flex-direction: column; gap: 15px; max-height: 350px; overflow-y: auto;">
+                    </div>
+                
+                <button class="btn-primary-blue btn-full" onclick="salvarPermissoesPerfil()" style="margin-top: 15px;"><i class="fas fa-check"></i> Salvar Permissões</button>
+            </div>
+        </div>
+
+        <div class="content-panel" style="margin: 0; display: flex; flex-direction: column;">
+            <div class="panel-header">
+                <h4 style="color: var(--ccol-blue-bright); margin: 0;"><i class="fas fa-list"></i> Usuários Cadastrados no Sistema</h4>
+            </div>
+            <div class="table-modern-wrapper" style="flex: 1; border-radius: 0 0 8px 8px; border: none; padding: 0;">
+                <table class="data-table-modern" style="margin: 0;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding-left: 20px;">Usuário</th>
+                            <th>Perfil</th>
+                            <th>Status da Senha</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaUsuarios"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="config-tab-logs" class="config-aba" style="display: none;">
+    <div class="content-panel" style="margin: 0;">
+        <div class="panel-header">
+            <h3 style="color: var(--ccol-rust-bright); margin: 0;"><i class="fas fa-exclamation-triangle"></i> Histórico de Segurança e Exclusões</h3>
+        </div>
+        <div class="table-modern-wrapper" style="max-height: 500px; overflow-y: auto;">
+            <table class="data-table-modern">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Usuário Responsável</th>
+                        <th>Ação Realizada</th>
+                        <th style="text-align: left;">Detalhes da Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="listaLogs"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
