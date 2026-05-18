@@ -878,28 +878,6 @@ window.salvarEscalaManual = async function() {
     }
 }
 
-window.gerarEscala4x2 = async function(silencioso = false) {
-    if (!silencioso) {
-        alert("A escala 4x2 automática já é calculada infinitamente pelo sistema a partir da data do ciclo!\nA base de dados não sofrerá mais sobrecargas com dados repetitivos.");
-    }
-    window.renderizarEscala(); 
-}
-
-window.zerarEscala = async function() {
-    if(currentUser.role !== 'Admin') { alert('Acesso Negado.'); return; }
-    if (!confirm("Isto apagará TODAS as exceções manuais gravadas e a escala voltará para o ciclo automático perfeito. Continuar?")) return;
-
-    try {
-        await db.limparApenasEscalas();
-        escalas = {}; 
-        salvarBackupLocal();
-        window.renderizarEscala();
-        alert("Exceções removidas. Escala 100% no automático!");
-    } catch (e) {
-        console.error(e);
-    }
-}
-
 window.abrirModalImpressao = function() {
     const hojeData = new Date();
     document.getElementById('printData').value = `${hojeData.getFullYear()}-${String(hojeData.getMonth() + 1).padStart(2, '0')}-${String(hojeData.getDate()).padStart(2, '0')}`;
