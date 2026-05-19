@@ -1,0 +1,61 @@
+<div class="content-header">
+    <h2 style="color: #10b981;"><i class="fas fa-globe"></i> Administração Global</h2>
+    <p>Painel de gerenciamento exclusivo para configuração de bases e filiais do sistema.</p>
+</div>
+
+<div class="content-panel" style="margin-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+        <h3><i class="fas fa-network-wired"></i> Bases e Filiais Operacionais</h3>
+        <button class="btn-primary-green" onclick="abrirModalNovaFilial()"><i class="fas fa-plus"></i> Cadastrar Nova Filial</button>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="ccol-table">
+            <thead>
+                <tr>
+                    <th>Nome da Base/Filial</th>
+                    <th>CNPJ (Opcional)</th>
+                    <th>Cidade de Operação</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaFiliaisAdmin">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modalNovaFilial" class="modal-overlay" style="display:none; z-index: 9999;">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3>🏢 Cadastrar Nova Filial</h3>
+            <button class="close-modal" onclick="fecharModalNovaFilial()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group-dark">
+                <label>Nome da Base (Ex: Base - Aracruz (ES))</label>
+                <input type="text" id="novaFilialNome" class="dark-select" placeholder="Digite o nome da filial">
+            </div>
+            <div class="form-group-dark">
+                <label>CNPJ da Unidade</label>
+                <input type="text" id="novaFilialCnpj" class="dark-select" placeholder="Apenas números ou formato padrão">
+            </div>
+            <div class="form-group-dark">
+                <label>Cidade / Estado</label>
+                <input type="text" id="novaFilialCidade" class="dark-select" placeholder="Ex: Aracruz - ES">
+            </div>
+            <div class="form-group-dark">
+                <label>Status Inicial</label>
+                <select id="novaFilialStatus" class="dark-select">
+                    <option value="Ativa">🟢 Ativa (Visível no Login)</option>
+                    <option value="Inativa">🔴 Inativa (Bloqueada)</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalNovaFilial()">Cancelar</button>
+            <button class="btn-primary-green" onclick="salvarNovaFilial()"><i class="fas fa-save"></i> Gravar Filial no Banco</button>
+        </div>
+    </div>
+</div>

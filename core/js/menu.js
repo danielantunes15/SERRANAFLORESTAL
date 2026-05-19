@@ -18,7 +18,10 @@ const MAPA_MENUS = [
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
     { id: 'indicadores', label: 'Indicadores Suzano', setor: 'Indicadores', icon: 'fas fa-chart-area' },
-    { id: 'indicadores_serrana', label: 'Indicadores Serrana', setor: 'Indicadores', icon: 'fas fa-chart-bar' }
+    { id: 'indicadores_serrana', label: 'Indicadores Serrana', setor: 'Indicadores', icon: 'fas fa-chart-bar' },
+    
+    // NOVO MENU DE GESTÃO GLOBAL 
+    { id: 'central', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' }
 ];
 
 const pageCache = {};
@@ -36,13 +39,26 @@ window.renderizarMenu = async function() {
 
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
     let meusMenus = permissoesAtuais[userRole] || [];
-    const isAdmin = userRole === 'Admin';
+    const isAdmin = userRole === 'Admin' || userRole === 'SuperAdmin';
+    
+    // VERIFICA SE A SESSÃO ATUAL É A DO ADMINISTRADOR GLOBAL
+    const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
 
     let navHtml = '<nav class="main-nav">';
-
     const setores = [...new Set(MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
+        
+        // ============= ISOLAMENTO VISUAL =============
+        if (isSessaoCentral) {
+            // Se estiver no painel ADMINISTRADOR, mostra APENAS os recursos Globais
+            if (setor !== 'Global') return; 
+        } else {
+            // Se estiver em uma Filial Normal (Logística, Manutenção), ESCONDE o painel Global
+            if (setor === 'Global') return;
+        }
+        // =============================================
+
         const menusDoSetor = MAPA_MENUS.filter(m => m.setor === setor);
         const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
 
@@ -65,7 +81,7 @@ window.renderizarMenu = async function() {
     });
 
     if (isAdmin) {
-        navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-cog"></i> Configurações</button>`;
+        navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-users-cog"></i> Usuários e Permissões</button>`;
     }
 
     navHtml += '</nav>';
@@ -82,7 +98,8 @@ function getIconSetor(setor) {
         'Logística': 'fas fa-truck',
         'Manutenção': 'fas fa-tools',
         'SSMA': 'fas fa-hard-hat',
-        'Indicadores': 'fas fa-chart-line'
+        'Indicadores': 'fas fa-chart-line',
+        'Global': 'fas fa-globe'
     };
     return icones[setor] || 'fas fa-folder';
 }
@@ -103,7 +120,6 @@ window.carregarCheckboxesPermissoes = async function() {
     const meusAcessos = permissoesAtuais[perfil] || [];
 
     let html = '';
-    
     const setores = [...new Set(MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
@@ -143,9 +159,8 @@ window.fecharDropdown = function(dropdownElement) {
 window.navegarPara = async function(pagina, elementoClicado) {
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
 
-    if (pagina === 'config' && userRole !== 'Admin') {
-        alert('Acesso Negado.');
-        return; 
+    if (pagina === 'config' && userRole !== 'Admin' && userRole !== 'SuperAdmin') {
+        alert('Acesso Negado.'); return; 
     }
 
     if (elementoClicado) {
@@ -179,7 +194,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
         'relatorio_gerencial': 'modules/gerencial/painel/relatorio_gerencial.html',
         'indicadores': 'modules/gerencial/indicadores/indicadores.html',
         'indicadores_serrana': 'modules/gerencial/indicadores/indicadores_serrana.html',
-        'config': 'modules/gerencial/config/config.html'
+        'config': 'modules/gerencial/config/config.html',
+        'central': 'modules/gerencial/central/central.html'
     };
 
     try {
@@ -196,6 +212,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         mainContent.innerHTML = pageCache[pagina];
 
+        if (pagina === 'central' && typeof window.renderizarCentral === 'function') window.renderizarCentral();
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
         if (pagina === 'troca_turno' && typeof window.renderizarTrocaTurno === 'function') window.renderizarTrocaTurno();
         if (pagina === 'alocacao' && typeof window.renderizarAlocacao === 'function') window.renderizarAlocacao();
@@ -214,12 +231,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'documentos_frota' && typeof window.renderizarTelaDocumentosFrota === 'function') window.renderizarTelaDocumentosFrota();
 
         if (pagina === 'relatorio_gerencial') {
-            try {
-                if (typeof carregarDadosOS === 'function') {
-                    await carregarDadosOS(); 
-                }
-            } catch(e) { console.warn("Aviso ao carregar dados gerenciais", e); }
-
+            try { if (typeof carregarDadosOS === 'function') await carregarDadosOS(); } catch(e) {}
             if (typeof window.atualizarKPIsGlobais === 'function') window.atualizarKPIsGlobais();
             if (typeof window.renderizarRelatorioGerencialOS === 'function') window.renderizarRelatorioGerencialOS();
             if (typeof window.renderizarGraficoEvolucaoDM === 'function') window.renderizarGraficoEvolucaoDM();

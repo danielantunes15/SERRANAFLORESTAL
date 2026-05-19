@@ -20,11 +20,20 @@ async function iniciarSistemaAutorizado() {
     document.getElementById('loggedUserName').innerHTML = `<i class="fas fa-user-circle"></i> ${window.currentUser.username}`;
     document.getElementById('loggedUserRole').innerHTML = `<i class="fas fa-building"></i> ${filialNome} | Nível: ${window.currentUser.role}`;
 
-    // Busca as permissões do banco no momento que o usuário loga
+    // ============= LIMPEZA DO HEADER PARA ADMINISTRADOR =============
+    const statsHeader = document.querySelector('.quick-stats-header');
+    if (statsHeader) {
+        if (window.currentUser.filial_id === null || window.currentUser.filial_id === 'CENTRAL') {
+            statsHeader.style.display = 'none'; // Esconde na Central para manter o layout corporativo
+        } else {
+            statsHeader.style.display = 'flex'; // Garante exibição nas filiais
+        }
+    }
+    // ================================================================
+
     const permissoesDoBanco = await db.getPermissoesDB();
     window.permissoesGlobais = { ...permissoesPadrao, ...permissoesDoBanco };
 
-    // Aguarda obrigatoriamente a inicialização do dashboard (agora com tela de carregamento)
     if (typeof initDashboard === 'function') {
         await initDashboard(); 
     }

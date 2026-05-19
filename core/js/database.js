@@ -6,52 +6,48 @@ const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 window.supabaseClient = supabaseClient; 
 
 // ================= LÓGICA SAAS (MULTI-FILIAL) =================
-// Retorna a query filtrada pela filial do usuário, a não ser que ele seja SuperAdmin
 function aplicarFiltroFilial(query) {
-    if (!window.currentUser) return query; // Fallback segurança
-    if (window.currentUser.role === 'SuperAdmin') return query; // Vê tudo
+    if (!window.currentUser) return query; 
+    if (window.currentUser.role === 'SuperAdmin' || window.currentUser.role === 'Admin' && window.currentUser.filial_id === null) return query; 
     
-    // CORREÇÃO: Previne o erro "eq.undefined" caso a filial não exista na sessão
     if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) {
-        console.warn("Usuário logado não possui filial_id. Retornando dados sem filial.");
-        return query.is('filial_id', null); // Busca apenas registros que não têm filial atribuída
+        return query.is('filial_id', null); 
     }
     
     return query.eq('filial_id', window.currentUser.filial_id);
 }
 
-// Injeta a filial_id nos objetos antes de salvar no banco
 function injetarFilial(obj) {
-    if (!window.currentUser || window.currentUser.role === 'SuperAdmin') return obj; 
-    
-    // CORREÇÃO: Só injeta se realmente houver um filial_id na sessão do usuário
-    if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) {
-        return obj; 
-    }
+    if (!window.currentUser || (window.currentUser.role === 'Admin' && window.currentUser.filial_id === null)) return obj; 
+    if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) return obj; 
     
     return { ...obj, filial_id: window.currentUser.filial_id };
 }
 // ===============================================================
 
 const db = {
-    // --- FILIAIS (Usado na tela de login) ---
+    // --- GESTÃO DE FILIAIS ---
     async getFiliais() {
-        // Busca todas as filiais que estão ativas, ordenadas por nome
-        const { data, error } = await supabaseClient.from('filiais')
-            .select('*')
-            .eq('status', 'Ativa')
-            .order('nome', { ascending: true });
-            
-        if (error) {
-            console.error("Erro ao buscar filiais:", error);
-            return [];
-        }
+        const { data, error } = await supabaseClient.from('filiais').select('*').eq('status', 'Ativa').order('nome', { ascending: true });
+        if (error) return [];
         return data || [];
+    },
+    async getTodasFiliaisAdmin() {
+        // Puxa ativas e inativas para o painel do Administrador Central
+        const { data, error } = await supabaseClient.from('filiais').select('*').order('nome', { ascending: true });
+        return data || [];
+    },
+    async addFilial(filial) {
+        const { error } = await supabaseClient.from('filiais').insert([filial]);
+        if (error) throw error;
+    },
+    async updateFilialStatus(id, status) {
+        const { error } = await supabaseClient.from('filiais').update({ status }).eq('id', id);
+        if (error) throw error;
     },
 
     // --- LOGIN E USUÁRIOS ---
     async getUsuarioByUsername(username) {
-        // No login não aplicamos filtro de filial, pois não sabemos de qual filial ele é ainda
         const { data, error } = await supabaseClient.from('usuarios').select('*, filiais(nome)').eq('username', username).maybeSingle();
         if (error) return null;
         return data;
@@ -122,7 +118,7 @@ const db = {
     // --- EXCEÇÕES DA ESCALA ---
     async getEscalas() {
         const query = supabaseClient.from('escalas').select('*');
-        const { data, error } = await aplicarFiltroFilial(query);
+        const { data } = await aplicarFiltroFilial(query);
         return data || [];
     },
     async upsertEscala(escala) {
@@ -175,10 +171,10 @@ const db = {
         await supabaseClient.from('permissoes_perfis').upsert([{ perfil: perfil, menus: menus }]);
     },
 
-    // ==================== MÓDULO: ALMOXARIFADO ====================
+    // --- ALMOXARIFADO E DOCUMENTOS ---
     async getPecas() {
         const query = supabaseClient.from('almoxarifado_pecas').select('*').order('nome', { ascending: true });
-        const { data, error } = await aplicarFiltroFilial(query);
+        const { data } = await aplicarFiltroFilial(query);
         return data || [];
     },
     async upsertPeca(peca) {
@@ -189,54 +185,20 @@ const db = {
     },
     async getMovimentacoesEstoque() {
         const query = supabaseClient.from('almoxarifado_movimentacoes').select('*, almoxarifado_pecas(nome)').order('data_movimentacao', { ascending: false });
-        const { data, error } = await aplicarFiltroFilial(query);
+        const { data } = await aplicarFiltroFilial(query);
         return data || [];
     },
     async addMovimentacao(movimentacao) {
         await supabaseClient.from('almoxarifado_movimentacoes').insert([injetarFilial(movimentacao)]);
-        
         const { data: peca } = await supabaseClient.from('almoxarifado_pecas').select('quantidade').eq('id', movimentacao.peca_id).single();
         if (peca) {
             const novaQtd = movimentacao.tipo === 'entrada' ? peca.quantidade + parseFloat(movimentacao.quantidade) : peca.quantidade - parseFloat(movimentacao.quantidade);
             await supabaseClient.from('almoxarifado_pecas').update({ quantidade: novaQtd }).eq('id', movimentacao.peca_id);
         }
     },
-    async processarEntradaLote(itens, nota_fiscal, fornecedor) {
-        for (let item of itens) {
-            let peca_id = item.peca_id;
-
-            if (!peca_id) {
-                let queryExistente = supabaseClient.from('almoxarifado_pecas').select('id').eq('nome', item.nome);
-                const { data: pecaExistente } = await aplicarFiltroFilial(queryExistente).maybeSingle();
-
-                if (pecaExistente) {
-                    peca_id = pecaExistente.id;
-                } else {
-                    const novaPecaDados = injetarFilial({
-                        codigo: item.codigo, nome: item.nome, unidade: item.unidade || 'UN',
-                        quantidade: 0, estoque_minimo: item.estoque_minimo, preco_medio: item.valor_unitario
-                    });
-                    const { data: novaPeca, error } = await supabaseClient.from('almoxarifado_pecas').insert([novaPecaDados]).select().single();
-                    if (error) throw error;
-                    peca_id = novaPeca.id;
-                }
-            }
-
-            const movDados = injetarFilial({
-                peca_id: peca_id, tipo: 'entrada', quantidade: item.quantidade, valor_unitario: item.valor_unitario,
-                nota_fiscal: nota_fiscal, fornecedor: fornecedor, data_movimentacao: new Date().toISOString()
-            });
-            await supabaseClient.from('almoxarifado_movimentacoes').insert([movDados]);
-
-            const { data: pAtual } = await supabaseClient.from('almoxarifado_pecas').select('quantidade').eq('id', peca_id).single();
-            await supabaseClient.from('almoxarifado_pecas').update({ quantidade: pAtual.quantidade + parseFloat(item.quantidade) }).eq('id', peca_id);
-        }
-    },
-
-    // ==================== MÓDULO: DOCUMENTOS FROTA ====================
     async getDocumentosFrota(identificadores) {
         const query = supabaseClient.from('documentos_frota').select('*').in('identificador', identificadores);
-        const { data, error } = await aplicarFiltroFilial(query);
+        const { data } = await aplicarFiltroFilial(query);
         return data || [];
     },
     async uploadArquivoFrota(file, path) {
