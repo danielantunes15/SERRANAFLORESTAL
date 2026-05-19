@@ -66,25 +66,30 @@ const db = {
     async updateUsuarioSenha(id, senha_hash) {
         await supabaseClient.from('usuarios').update({ senha_hash: senha_hash, primeiro_acesso: false }).eq('id', id);
     },
-    // NOVO: Adicionado suporte para o SuperAdmin filtrar usuários por filial
-    async getUsuarios(filialId = null) {
-        let query = supabaseClient.from('usuarios').select('*, filiais(nome)').order('nome', { ascending: true });
+    
+    // CORREÇÃO APLICADA AQUI: Voltando a ordenação para 'id' para evitar o ERRO 400
+    async getUsuarios(filialId = 'TODAS') {
+        let query = supabaseClient.from('usuarios').select('*, filiais(nome)').order('id', { ascending: true });
         
-        if (window.currentUser && window.currentUser.filial_id === null && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
+        if (window.currentUser && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
             if (filialId && filialId !== 'TODAS') {
-                if (filialId === 'NULL') {
+                if (filialId === null || filialId === 'NULL') {
                      query = query.is('filial_id', null);
                 } else {
                      query = query.eq('filial_id', filialId);
                 }
             }
         } else {
-            query = await aplicarFiltroFilial(query);
+            query = aplicarFiltroFilial(query);
         }
         
-        const { data } = await query;
+        const { data, error } = await query;
+        if (error) {
+            console.error("ERRO CRÍTICO NA BUSCA DE USUÁRIOS (Verifique as colunas do banco):", error);
+        }
         return data || [];
     },
+    
     async addUsuario(usuario) {
         await supabaseClient.from('usuarios').insert([injetarFilial(usuario)]);
     },
@@ -97,13 +102,10 @@ const db = {
 
     // --- LOGS DE SEGURANÇA E AUDITORIA ---
     async getLogs() {
-        // Mantido para não quebrar módulos antigos
         const query = supabaseClient.from('logs_exclusao').select('*').order('data_hora', { ascending: false }).limit(50);
         const { data } = await aplicarFiltroFilial(query);
         return data || [];
     },
-    
-    // NOVO: Busca de Logs inteligente baseada em módulos e dropdown de usuários
     async getLogsPaginados(page = 1, limit = 30, filtros = {}) {
         const start = (page - 1) * limit;
         const end = start + limit - 1;
@@ -116,7 +118,7 @@ const db = {
         
         // 1. Filtro de Filial
         const filialId = filtros.filialId || 'TODAS';
-        if (window.currentUser && window.currentUser.filial_id === null && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
+        if (window.currentUser && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
             if (filialId !== 'TODAS') {
                 if (filialId === null || filialId === 'NULL') {
                      query = query.is('filial_id', null);
@@ -125,10 +127,10 @@ const db = {
                 }
             }
         } else {
-            query = await aplicarFiltroFilial(query);
+            query = aplicarFiltroFilial(query);
         }
 
-        // 2. Filtro Inteligente de Módulo (Busca palavras-chave na Ação ou Detalhes)
+        // 2. Filtro Inteligente de Módulo
         if (filtros.modulo && filtros.modulo !== 'TODOS') {
             let chaves = '';
             switch(filtros.modulo) {
@@ -143,7 +145,7 @@ const db = {
             }
         }
 
-        // 3. Filtro de Usuário Exato (Via Dropdown)
+        // 3. Filtro de Usuário Exato
         if (filtros.usuario && filtros.usuario !== 'TODOS') {
             query = query.eq('usuario', filtros.usuario);
         }
@@ -163,7 +165,6 @@ const db = {
         }
         return { data: data || [], total: count || 0 };
     },
-    
     async addLog(acao, detalhes) {
         if (!window.currentUser) return;
         await supabaseClient.from('logs_exclusao').insert([injetarFilial({ usuario: window.currentUser.username, acao, detalhes })]);
