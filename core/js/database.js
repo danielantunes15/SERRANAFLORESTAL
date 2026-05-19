@@ -66,9 +66,23 @@ const db = {
     async updateUsuarioSenha(id, senha_hash) {
         await supabaseClient.from('usuarios').update({ senha_hash: senha_hash, primeiro_acesso: false }).eq('id', id);
     },
-    async getUsuarios() {
-        const query = supabaseClient.from('usuarios').select('*, filiais(nome)').order('id', { ascending: true });
-        const { data } = await aplicarFiltroFilial(query);
+    // NOVO: Adicionado suporte para o SuperAdmin filtrar usuários por filial
+    async getUsuarios(filialId = null) {
+        let query = supabaseClient.from('usuarios').select('*, filiais(nome)').order('nome', { ascending: true });
+        
+        if (window.currentUser && window.currentUser.filial_id === null && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
+            if (filialId && filialId !== 'TODAS') {
+                if (filialId === 'NULL') {
+                     query = query.is('filial_id', null);
+                } else {
+                     query = query.eq('filial_id', filialId);
+                }
+            }
+        } else {
+            query = await aplicarFiltroFilial(query);
+        }
+        
+        const { data } = await query;
         return data || [];
     },
     async addUsuario(usuario) {
@@ -81,15 +95,16 @@ const db = {
         await supabaseClient.from('usuarios').delete().eq('id', id);
     },
 
-    // --- LOGS DE SEGURANÇA ---
+    // --- LOGS DE SEGURANÇA E AUDITORIA ---
     async getLogs() {
-        // Função legada mantida para compatibilidade, caso necessário
+        // Mantido para não quebrar módulos antigos
         const query = supabaseClient.from('logs_exclusao').select('*').order('data_hora', { ascending: false }).limit(50);
         const { data } = await aplicarFiltroFilial(query);
         return data || [];
     },
-    // NOVO: Função otimizada para buscar logs com paginação para evitar travamentos
-    async getLogsPaginados(page = 1, limit = 30, filialId = 'TODAS') {
+    
+    // NOVO: Busca de Logs inteligente baseada em módulos e dropdown de usuários
+    async getLogsPaginados(page = 1, limit = 30, filtros = {}) {
         const start = (page - 1) * limit;
         const end = start + limit - 1;
         
@@ -99,6 +114,8 @@ const db = {
             .order('data_hora', { ascending: false })
             .range(start, end);
         
+        // 1. Filtro de Filial
+        const filialId = filtros.filialId || 'TODAS';
         if (window.currentUser && window.currentUser.filial_id === null && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
             if (filialId !== 'TODAS') {
                 if (filialId === null || filialId === 'NULL') {
@@ -110,14 +127,43 @@ const db = {
         } else {
             query = await aplicarFiltroFilial(query);
         }
+
+        // 2. Filtro Inteligente de Módulo (Busca palavras-chave na Ação ou Detalhes)
+        if (filtros.modulo && filtros.modulo !== 'TODOS') {
+            let chaves = '';
+            switch(filtros.modulo) {
+                case 'Logistica': chaves = 'acao.ilike.%motorista%,acao.ilike.%conjunto%,acao.ilike.%escala%,acao.ilike.%frota%,acao.ilike.%documento%,detalhes.ilike.%motorista%,detalhes.ilike.%escala%'; break;
+                case 'Manutencao': chaves = 'acao.ilike.%os%,acao.ilike.%ordem%,acao.ilike.%serviço%,acao.ilike.%peça%,acao.ilike.%almoxarifado%,detalhes.ilike.%os%,detalhes.ilike.%ordem%'; break;
+                case 'SSMA': chaves = 'acao.ilike.%treinamento%,acao.ilike.%instrutor%,acao.ilike.%recado%,detalhes.ilike.%treinamento%'; break;
+                case 'Indicadores': chaves = 'acao.ilike.%indicador%,acao.ilike.%relatório%,detalhes.ilike.%painel%'; break;
+                case 'Configuracoes': chaves = 'acao.ilike.%usuário%,acao.ilike.%filial%,acao.ilike.%permiss%,detalhes.ilike.%usuário%'; break;
+            }
+            if (chaves !== '') {
+                query = query.or(chaves);
+            }
+        }
+
+        // 3. Filtro de Usuário Exato (Via Dropdown)
+        if (filtros.usuario && filtros.usuario !== 'TODOS') {
+            query = query.eq('usuario', filtros.usuario);
+        }
+
+        // 4. Filtro de Datas
+        if (filtros.dataInicio) {
+            query = query.gte('data_hora', `${filtros.dataInicio}T00:00:00`);
+        }
+        if (filtros.dataFim) {
+            query = query.lte('data_hora', `${filtros.dataFim}T23:59:59`);
+        }
         
         const { data, count, error } = await query;
         if (error) {
-            console.error("Erro na paginação de logs:", error);
+            console.error("Erro ao buscar logs paginados:", error);
             throw error;
         }
         return { data: data || [], total: count || 0 };
     },
+    
     async addLog(acao, detalhes) {
         if (!window.currentUser) return;
         await supabaseClient.from('logs_exclusao').insert([injetarFilial({ usuario: window.currentUser.username, acao, detalhes })]);
