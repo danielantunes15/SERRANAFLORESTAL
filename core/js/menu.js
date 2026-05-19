@@ -21,7 +21,8 @@ const MAPA_MENUS = [
     { id: 'indicadores_serrana', label: 'Indicadores Serrana', setor: 'Indicadores', icon: 'fas fa-chart-bar' },
     
     // NOVO MENU DE GESTÃO GLOBAL 
-    { id: 'central', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' }
+    { id: 'central', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
+    { id: 'logs_globais', label: 'Auditoria de Logs', setor: 'Global', icon: 'fas fa-shield-alt' } // ADICIONADO AQUI
 ];
 
 const pageCache = {};
@@ -201,7 +202,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
         'indicadores': 'modules/gerencial/indicadores/indicadores.html',
         'indicadores_serrana': 'modules/gerencial/indicadores/indicadores_serrana.html',
         'config': 'modules/gerencial/config/config.html',
-        'central': 'modules/gerencial/central/central.html'
+        'central': 'modules/gerencial/central/central.html',
+        'logs_globais': 'modules/gerencial/central/logs_globais.html' // ADICIONADO AQUI
     };
 
     try {
@@ -219,6 +221,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
         mainContent.innerHTML = pageCache[pagina];
 
         if (pagina === 'central' && typeof window.renderizarCentral === 'function') window.renderizarCentral();
+        if (pagina === 'logs_globais' && typeof window.renderizarLogsGlobais === 'function') window.renderizarLogsGlobais(); // ADICIONADO AQUI
+        
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
         if (pagina === 'troca_turno' && typeof window.renderizarTrocaTurno === 'function') window.renderizarTrocaTurno();
         if (pagina === 'alocacao' && typeof window.renderizarAlocacao === 'function') window.renderizarAlocacao();

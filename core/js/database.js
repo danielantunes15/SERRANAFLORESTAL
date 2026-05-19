@@ -52,7 +52,6 @@ const db = {
         const { error } = await supabaseClient.from('filiais').update({ status }).eq('id', id);
         if (error) throw error;
     },
-    // NOVO: Função para editar os dados da filial
     async updateFilialDados(id, dados) {
         const { error } = await supabaseClient.from('filiais').update(dados).eq('id', id);
         if (error) throw error;
@@ -84,9 +83,40 @@ const db = {
 
     // --- LOGS DE SEGURANÇA ---
     async getLogs() {
+        // Função legada mantida para compatibilidade, caso necessário
         const query = supabaseClient.from('logs_exclusao').select('*').order('data_hora', { ascending: false }).limit(50);
         const { data } = await aplicarFiltroFilial(query);
         return data || [];
+    },
+    // NOVO: Função otimizada para buscar logs com paginação para evitar travamentos
+    async getLogsPaginados(page = 1, limit = 30, filialId = 'TODAS') {
+        const start = (page - 1) * limit;
+        const end = start + limit - 1;
+        
+        let query = supabaseClient
+            .from('logs_exclusao')
+            .select('*, filiais(nome)', { count: 'exact' })
+            .order('data_hora', { ascending: false })
+            .range(start, end);
+        
+        if (window.currentUser && window.currentUser.filial_id === null && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
+            if (filialId !== 'TODAS') {
+                if (filialId === null || filialId === 'NULL') {
+                     query = query.is('filial_id', null);
+                } else {
+                     query = query.eq('filial_id', filialId);
+                }
+            }
+        } else {
+            query = await aplicarFiltroFilial(query);
+        }
+        
+        const { data, count, error } = await query;
+        if (error) {
+            console.error("Erro na paginação de logs:", error);
+            throw error;
+        }
+        return { data: data || [], total: count || 0 };
     },
     async addLog(acao, detalhes) {
         if (!window.currentUser) return;
