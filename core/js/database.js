@@ -10,12 +10,25 @@ window.supabaseClient = supabaseClient;
 function aplicarFiltroFilial(query) {
     if (!window.currentUser) return query; // Fallback segurança
     if (window.currentUser.role === 'SuperAdmin') return query; // Vê tudo
+    
+    // CORREÇÃO: Previne o erro "eq.undefined" caso a filial não exista na sessão
+    if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) {
+        console.warn("Usuário logado não possui filial_id. Retornando dados sem filial.");
+        return query.is('filial_id', null); // Busca apenas registros que não têm filial atribuída
+    }
+    
     return query.eq('filial_id', window.currentUser.filial_id);
 }
 
 // Injeta a filial_id nos objetos antes de salvar no banco
 function injetarFilial(obj) {
     if (!window.currentUser || window.currentUser.role === 'SuperAdmin') return obj; 
+    
+    // CORREÇÃO: Só injeta se realmente houver um filial_id na sessão do usuário
+    if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) {
+        return obj; 
+    }
+    
     return { ...obj, filial_id: window.currentUser.filial_id };
 }
 // ===============================================================
