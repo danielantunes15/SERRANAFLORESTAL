@@ -49,7 +49,7 @@ window.renderizarMenu = async function() {
 
     setores.forEach(setor => {
         
-        // ============= ISOLAMENTO VISUAL =============
+        // ============= ISOLAMENTO VISUAL DA BARRA DE NAVEGAÇÃO =============
         if (isSessaoCentral) {
             // Se estiver no painel ADMINISTRADOR, mostra APENAS os recursos Globais
             if (setor !== 'Global') return; 
@@ -57,7 +57,7 @@ window.renderizarMenu = async function() {
             // Se estiver em uma Filial Normal (Logística, Manutenção), ESCONDE o painel Global
             if (setor === 'Global') return;
         }
-        // =============================================
+        // ====================================================================
 
         const menusDoSetor = MAPA_MENUS.filter(m => m.setor === setor);
         const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
@@ -80,7 +80,8 @@ window.renderizarMenu = async function() {
         }
     });
 
-    if (isAdmin) {
+    // Só exibe a opção de configurações locais se NÃO estiver na Central Global e for Admin
+    if (isAdmin && !isSessaoCentral) {
         navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-cog"></i> Configurações</button>`;
     }
 
@@ -123,6 +124,11 @@ window.carregarCheckboxesPermissoes = async function() {
     const setores = [...new Set(MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
+        
+        // ============= TRAVA DE SEGURANÇA: OCULTA O SETOR GLOBAL DA TELA DE PERMISSÕES =============
+        // Impede que um administrador local dê acesso à gestão da rede para outras pessoas
+        if (setor === 'Global') return; 
+
         html += `
         <div>
             <strong style="display:block; margin-bottom: 8px; color: var(--ccol-blue-bright); font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
