@@ -81,7 +81,7 @@ window.renderizarMenu = async function() {
     });
 
     if (isAdmin) {
-        navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-users-cog"></i> Usuários e Permissões</button>`;
+        navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-cog"></i> Configurações</button>`;
     }
 
     navHtml += '</nav>';

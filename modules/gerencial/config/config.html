@@ -1,104 +1,199 @@
-<div class="action-bar" style="margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px 20px; border-radius: 8px; border: 1px solid var(--border-dim);">
-    <h3 style="color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 10px;">
-        <i class="fas fa-cogs"></i> Painel de Controle
-    </h3>
-    <div class="button-group" style="margin-left: auto;">
-        <button id="btnTabUsuarios" class="btn-primary-blue" onclick="alternarAbaConfig('usuarios')"><i class="fas fa-users"></i> Usuários e Acessos</button>
-        <button id="btnTabLogs" class="btn-secondary-dark" onclick="alternarAbaConfig('logs')"><i class="fas fa-history"></i> Logs do Sistema</button>
-    </div>
+<style>
+    .config-header { 
+        border-bottom: 1px solid rgba(255,255,255,0.1); 
+        padding-bottom: 15px; 
+        margin-bottom: 25px; 
+    }
+    .config-header h2 { 
+        color: #f8fafc; 
+        font-size: 1.8rem; 
+        font-weight: 700; 
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+        letter-spacing: -0.5px;
+    }
+    
+    .config-grid { 
+        display: grid; 
+        grid-template-columns: 1fr 1fr; 
+        gap: 20px; 
+        margin-bottom: 20px; 
+    }
+    .config-card { 
+        background: #1e293b; 
+        border: 1px solid rgba(255,255,255,0.08); 
+        border-radius: 12px; 
+        padding: 24px; 
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+    }
+    .config-card h3 { 
+        color: #fff; 
+        font-size: 1.15rem; 
+        font-weight: 600; 
+        margin-bottom: 20px; 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+        border-bottom: 1px solid rgba(255,255,255,0.05); 
+        padding-bottom: 10px; 
+    }
+    
+    .config-tabs { 
+        display: flex; 
+        gap: 15px; 
+        margin-bottom: 20px; 
+        border-bottom: 1px solid rgba(255,255,255,0.05); 
+        padding-bottom: 15px; 
+    }
+    .config-tab-btn { 
+        padding: 10px 20px; 
+        border-radius: 8px; 
+        font-weight: 600; 
+        cursor: pointer; 
+        transition: all 0.3s ease; 
+        border: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Padrão SaaS para as Tabelas Locais */
+    .saas-table-wrapper {
+        background: #0f172a;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.05);
+        overflow: hidden;
+    }
+    .saas-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .saas-table th {
+        background: rgba(30, 41, 59, 0.5);
+        padding: 16px 20px;
+        text-align: left;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        font-weight: 600;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .saas-table td {
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+        color: #e2e8f0;
+        font-size: 0.85rem;
+        vertical-align: middle;
+    }
+    .saas-table tr:hover td {
+        background: rgba(255,255,255,0.02);
+    }
+
+    @media (max-width: 900px) { 
+        .config-grid { grid-template-columns: 1fr; } 
+    }
+</style>
+
+<div class="config-header">
+    <h2><i class="fas fa-cog" style="color: #94a3b8;"></i> Configurações da Filial</h2>
+    <p style="color: #94a3b8; font-size: 0.95rem;">Painel administrativo local: gestão de usuários, controle de permissões e logs operacionais.</p>
 </div>
 
-<div id="config-tab-usuarios" class="config-aba">
-    <div style="display: grid; grid-template-columns: 1.2fr 2fr; gap: 20px;">
+<div class="config-grid">
+    <div class="config-card">
+        <h3><i class="fas fa-user-plus" style="color: #10b981;"></i> Criar Novo Acesso</h3>
         
-        <div style="display: flex; flex-direction: column; gap: 20px;">
-            <div class="content-panel form-panel-dark" style="margin: 0; background: rgba(0,0,0,0.2);">
-                <div class="panel-header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
-                    <h4 style="color: var(--ccol-green-bright); margin: 0;"><i class="fas fa-user-plus"></i> Criar Novo Acesso</h4>
-                </div>
-                <div class="form-group-dark" style="margin-top: 15px;">
-                    <label>Login (Nome.Sobrenome)</label>
-                    <input type="text" id="novoUsername" placeholder="Ex: JOAO.SILVA" style="text-transform: uppercase;">
-                </div>
-                <div class="form-group-dark" style="margin-top: 10px;">
-                    <label>Perfil de Acesso</label>
-                    <select id="novoUserRole" class="dark-select">
-                        <option value="Controlador de Trefego">Controlador de Tráfego</option>
-                        <option value="SSMA">SSMA</option>
-                        <option value="Controle de Manutencao">Controle de Manutenção</option>
-                        <option value="Mecanico">Mecânico</option>
-                        <option value="Admin">Administrador Total</option>
-                    </select>
-                </div>
-                <div style="margin-top: 10px; font-size: 0.75rem; color: var(--text-secondary); text-align: center;">
-                    Senha inicial padrão: <strong style="color: #fff;">12345</strong>
-                </div>
-                <button class="btn-primary-green btn-full" onclick="adicionarUsuario()" style="margin-top: 15px;"><i class="fas fa-save"></i> Cadastrar Usuário</button>
-            </div>
-
-            <div class="content-panel form-panel-dark" style="margin: 0; background: rgba(0,0,0,0.2);">
-                <div class="panel-header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
-                    <h4 style="color: #fde047; margin: 0;"><i class="fas fa-key"></i> Controle de Menus (Acessos)</h4>
-                </div>
-                
-                <div class="form-group-dark" style="margin-top: 15px;">
-                    <label>1. Selecione o Perfil</label>
-                    <select id="selectPerfilPermissao" class="dark-select" onchange="carregarCheckboxesPermissoes()">
-                        <option value="Controlador de Trefego">Controlador de Tráfego</option>
-                        <option value="SSMA">SSMA</option>
-                        <option value="Controle de Manutencao">Controle de Manutenção</option>
-                        <option value="Mecanico">Mecânico</option>
-                        <option value="Admin">Administrador Total</option>
-                    </select>
-                </div>
-                
-                <label style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 15px; display: block;">2. Marque as telas liberadas:</label>
-                
-                <div id="container-permissoes-menus" style="margin-top: 8px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed var(--border-dim); display: flex; flex-direction: column; gap: 15px; max-height: 350px; overflow-y: auto;">
-                    </div>
-                
-                <button class="btn-primary-blue btn-full" onclick="salvarPermissoesPerfil()" style="margin-top: 15px;"><i class="fas fa-check"></i> Salvar Permissões</button>
-            </div>
+        <div class="form-group-dark">
+            <label>Login de Acesso (Ex: NOME.SOBRENOME)</label>
+            <input type="text" id="novoUsername" class="dark-select" placeholder="Digite o login de rede..." style="text-transform: uppercase;">
         </div>
-
-        <div class="content-panel" style="margin: 0; display: flex; flex-direction: column;">
-            <div class="panel-header">
-                <h4 style="color: var(--ccol-blue-bright); margin: 0;"><i class="fas fa-list"></i> Usuários Cadastrados no Sistema</h4>
-            </div>
-            <div class="table-modern-wrapper" style="flex: 1; border-radius: 0 0 8px 8px; border: none; padding: 0;">
-                <table class="data-table-modern" style="margin: 0;">
-                    <thead>
-                        <tr>
-                            <th style="text-align: left; padding-left: 20px;">Usuário</th>
-                            <th>Perfil</th>
-                            <th>Status da Senha</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabelaUsuarios"></tbody>
-                </table>
-            </div>
+        
+        <div class="form-group-dark">
+            <label>Nível de Permissão (Role Operacional)</label>
+            <select id="novoUserRole" class="dark-select">
+                <option value="Operacional">Operacional (Padrão)</option>
+                <option value="Controlador de Trefego">Controlador de Tráfego</option>
+                <option value="Controle de Manutencao">Controle de Manutenção</option>
+                <option value="Mecanico">Mecânico</option>
+                <option value="Almoxarifado">Almoxarifado</option>
+                <option value="SSMA">SSMA</option>
+                <option value="Admin">Administrador Local (Da Filial)</option>
+            </select>
         </div>
+        
+        <div style="background: rgba(251, 146, 60, 0.08); border: 1px solid rgba(251, 146, 60, 0.2); padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+            <p style="color: #fdba74; font-size: 0.8rem; margin: 0; line-height: 1.4;"><i class="fas fa-info-circle"></i> A senha provisória de segurança será <strong>12345</strong>. O sistema solicitará a troca compulsória no primeiro acesso.</p>
+        </div>
+        
+        <button class="btn-primary-green" onclick="adicionarUsuario()" style="width: 100%; padding: 14px;"><i class="fas fa-check"></i> Registrar Usuário na Filial</button>
+    </div>
+
+    <div class="config-card">
+        <h3><i class="fas fa-shield-alt" style="color: #3b82f6;"></i> Controle de Menus e Acessos</h3>
+        
+        <div class="form-group-dark">
+            <label>Selecione o Perfil para Configuração</label>
+            <select id="selectPerfilPermissao" class="dark-select" onchange="carregarCheckboxesPermissoes()">
+                <option value="Controlador de Trefego">Controlador de Tráfego</option>
+                <option value="Controle de Manutencao">Controle de Manutenção</option>
+                <option value="Mecanico">Mecânico</option>
+                <option value="Almoxarifado">Almoxarifado</option>
+                <option value="SSMA">SSMA</option>
+                <option value="Admin">Administrador Local</option>
+            </select>
+        </div>
+        
+        <label style="display:block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: #94a3b8;">Módulos Liberados:</label>
+        <div id="container-permissoes-menus" style="height: 170px; overflow-y: auto; background: rgba(15, 23, 42, 0.5); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 20px;">
+            </div>
+        
+        <button class="btn-primary-blue" onclick="salvarPermissoesPerfil()" style="width: 100%; padding: 14px;"><i class="fas fa-save"></i> Gravar Permissões do Perfil</button>
     </div>
 </div>
 
-<div id="config-tab-logs" class="config-aba" style="display: none;">
-    <div class="content-panel" style="margin: 0;">
-        <div class="panel-header">
-            <h3 style="color: var(--ccol-rust-bright); margin: 0;"><i class="fas fa-exclamation-triangle"></i> Histórico de Segurança e Exclusões</h3>
-        </div>
-        <div class="table-modern-wrapper" style="max-height: 500px; overflow-y: auto;">
-            <table class="data-table-modern">
-                <thead>
-                    <tr>
-                        <th>Data e Hora</th>
-                        <th>Usuário Responsável</th>
-                        <th>Ação Realizada</th>
-                        <th style="text-align: left;">Detalhes da Ação</th>
-                    </tr>
-                </thead>
-                <tbody id="listaLogs"></tbody>
-            </table>
-        </div>
+<div class="config-card" style="margin-bottom: 40px;">
+    
+    <div class="config-tabs">
+        <button id="btnTabUsuarios" onclick="alternarAbaConfig('usuarios')" class="btn-primary-blue config-tab-btn">
+            <i class="fas fa-users"></i> Usuários Cadastrados
+        </button>
+        <button id="btnTabLogs" onclick="alternarAbaConfig('logs')" class="btn-secondary-dark config-tab-btn">
+            <i class="fas fa-history"></i> Logs de Segurança
+        </button>
     </div>
+
+    <div id="config-tab-usuarios" class="saas-table-wrapper" style="animation: fadeIn 0.3s ease;">
+        <table class="saas-table">
+            <thead>
+                <tr>
+                    <th>Identificação (Login)</th>
+                    <th>Nível Operacional</th>
+                    <th>Segurança de Conta</th>
+                    <th style="text-align: right;">Ações Disponíveis</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaUsuarios">
+                <tr><td colspan="4" style="text-align:center; padding: 30px;"><i class="fas fa-spinner fa-spin fa-2x"></i></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="config-tab-logs" class="saas-table-wrapper" style="display: none; animation: fadeIn 0.3s ease;">
+        <table class="saas-table">
+            <thead>
+                <tr>
+                    <th>Registro de Data e Hora</th>
+                    <th>Operador Responsável</th>
+                    <th>Ação Executada</th>
+                    <th>Detalhes do Evento</th>
+                </tr>
+            </thead>
+            <tbody id="listaLogs">
+                <tr><td colspan="4" style="text-align:center; padding: 30px;"><i class="fas fa-spinner fa-spin fa-2x"></i></td></tr>
+            </tbody>
+        </table>
+    </div>
+
 </div>
