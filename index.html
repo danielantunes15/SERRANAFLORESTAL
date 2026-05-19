@@ -24,47 +24,6 @@
 </head>
 <body class="dark-mode">
 
-    <div id="login-screen" class="auth-screen">
-        <div class="auth-box">
-            <img src="assets/logo.png" alt="Serrana Florestal Logo" class="auth-logo">
-            <h1 class="auth-title">CCOL</h1>
-            <p class="auth-subtitle">Controle Operacional de Logística</p>
-            
-            <div class="auth-input-group">
-                <label for="loginUser">Nome de Usuário (Ex: NOME.SOBRENOME)</label>
-                <input type="text" id="loginUser" placeholder="Digite seu usuário" autocomplete="username">
-            </div>
-            <div class="auth-input-group">
-                <label for="loginPass">Senha de Acesso</label>
-                <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
-            </div>
-            
-            <button id="btnLogin" class="btn-auth" onclick="realizarLogin()">Entrar</button>
-        </div>
-    </div>
-
-    <div id="change-password-screen" class="auth-screen" style="display: none;">
-        <div class="auth-box">
-            <h1 class="auth-title">Bem-vindo(a) ao CCOL!</h1>
-            <p class="auth-subtitle">Configure sua segurança</p>
-            
-            <div class="auth-warning">
-                ⚠️ Por questões de segurança, você precisa criar uma senha pessoal no seu primeiro acesso.
-            </div>
-
-            <div class="auth-input-group">
-                <label for="newPass1">Nova Senha (Mín. 5 caracteres)</label>
-                <input type="password" id="newPass1" placeholder="Digite a nova senha">
-            </div>
-            <div class="auth-input-group">
-                <label for="newPass2">Confirme a Nova Senha</label>
-                <input type="password" id="newPass2" placeholder="Repita a nova senha">
-            </div>
-            
-            <button class="btn-primary-green btn-auth" onclick="salvarNovaSenha()">Salvar Nova Senha e Entrar</button>
-        </div>
-    </div>
-
     <div id="appLayout" class="app-layout" style="display: none;">
         <header class="main-header">
             <div class="header-left">
@@ -299,7 +258,6 @@
     <script src="modules/logistica/motoristas/motoristas.js"></script>
     <script src="modules/logistica/frota_conjuntos/conjuntos.js"></script>
     <script src="modules/logistica/frota_conjuntos/cadastro_frota.js"></script>
-    <!-- REFERÊNCIA DO NOVO MÓDULO ADICIONADA AQUI -->
     <script src="modules/logistica/documentos_frota/documentos_frota.js"></script>
     <script src="modules/logistica/escala/escala.js"></script>
     <script src="modules/logistica/troca_turno/troca_turno.js"></script>

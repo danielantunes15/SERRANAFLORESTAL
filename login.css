@@ -1,0 +1,212 @@
+:root {
+    --primary-color: #047857; /* Verde escuro moderno */
+    --primary-hover: #065f46;
+    --bg-dark: #0f172a;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --input-bg: #f8fafc;
+    --input-border: #cbd5e1;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    background-color: var(--bg-dark);
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+}
+
+.login-container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+/* Lado Esquerdo - Banner com a Imagem do Caminhão */
+.login-banner {
+    flex: 6; /* Ocupa 60% da tela */
+    position: relative;
+    background-image: url('assets/caminhao.jpeg');
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 5rem;
+}
+
+.banner-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    /* Gradiente que escurece a imagem para o texto ficar legível */
+    background: linear-gradient(to right, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.4) 100%);
+    z-index: 1;
+}
+
+.banner-content {
+    position: relative;
+    z-index: 2;
+    color: #ffffff;
+    max-width: 600px;
+}
+
+.system-title {
+    font-size: 1.5rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    color: #cbd5e1;
+    margin-bottom: 0.5rem;
+}
+
+.company-name {
+    font-size: 3.5rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+}
+
+.divider {
+    height: 4px;
+    width: 60px;
+    background-color: var(--primary-color);
+    margin-bottom: 1.5rem;
+}
+
+.system-subtitle {
+    font-size: 1.1rem;
+    font-weight: 400;
+    line-height: 1.6;
+    color: #94a3b8;
+}
+
+/* Lado Direito - Formulário Clean */
+.login-panel {
+    flex: 4; /* Ocupa 40% da tela */
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 3rem;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.1);
+    z-index: 3;
+}
+
+.panel-content {
+    width: 100%;
+    max-width: 400px;
+}
+
+.panel-content h3 {
+    font-size: 1.75rem;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.instruction {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.input-group {
+    position: relative;
+}
+
+.input-group i {
+    position: absolute;
+    top: 50%;
+    left: 1rem;
+    transform: translateY(-50%);
+    color: #94a3b8;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 1rem 1rem 1rem 2.75rem;
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    background-color: var(--input-bg);
+    font-size: 1rem;
+    color: var(--text-main);
+    transition: all 0.3s ease;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.1);
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 1rem;
+    background-color: var(--primary-color);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.btn-primary:disabled {
+    background-color: #94a3b8;
+    cursor: not-allowed;
+}
+
+.footer-text {
+    margin-top: 3rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #cbd5e1;
+}
+
+/* Responsividade para telas menores */
+@media (max-width: 900px) {
+    .login-container {
+        flex-direction: column;
+    }
+    .login-banner {
+        flex: 3;
+        padding: 2rem;
+        justify-content: center;
+        text-align: center;
+    }
+    .banner-overlay {
+        background: rgba(15, 23, 42, 0.7);
+    }
+    .divider {
+        margin: 1.5rem auto;
+    }
+    .login-panel {
+        flex: 7;
+        border-radius: 20px 20px 0 0;
+        margin-top: -20px;
+    }
+}

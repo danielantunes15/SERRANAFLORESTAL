@@ -4,94 +4,16 @@ window.currentUser = null;
 let listaUsuarios = [];
 window.permissoesGlobais = null; // Variável global para segurar as permissões puxadas do banco
 
-async function hashPassword(password) {
-    const msgBuffer = new TextEncoder().encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-window.realizarLogin = async function(event) {
-    if (event && event.preventDefault) event.preventDefault(); // Previne o reload da página
-
-    const userStr = document.getElementById('loginUser').value.trim().toUpperCase();
-    const passStr = document.getElementById('loginPass').value;
-    const btn = document.getElementById('btnLogin');
-
-    if(!userStr || !passStr) { alert('Preencha seu usuário e senha.'); return; }
-
-    const prevText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Autenticando...';
-    btn.disabled = true;
-
-    try {
-        const hashedPass = await hashPassword(passStr);
-        const dbUser = await db.getUsuarioByUsername(userStr);
-
-        // A MÁGICA AQUI: Ele aceita a senha criptografada OU a senha em texto puro (caso você tenha criado manual no SQL)
-        if (dbUser && (dbUser.senha_hash === hashedPass || dbUser.senha_hash === passStr)) {
-            
-            // CARREGA A SESSÃO SAAS COM OS DADOS DA FILIAL
-            window.currentUser = {
-                id: dbUser.id,
-                username: dbUser.username,
-                role: dbUser.role || 'Operacional', 
-                filial_id: dbUser.filial_id,
-                filiais: dbUser.filiais,
-                primeiro_acesso: dbUser.primeiro_acesso
-            };
-
-            if (window.currentUser.primeiro_acesso) {
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('change-password-screen').style.display = 'flex';
-            } else {
-                // SALVA A SESSÃO DO USUÁRIO NO NAVEGADOR
-                localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
-                iniciarSistemaAutorizado();
-            }
-        } else {
-            alert('❌ Usuário ou senha incorretos.');
-            btn.innerHTML = prevText;
-            btn.disabled = false;
-        }
-    } catch(e) {
-        console.error(e);
-        alert('⚠️ Erro ao conectar com o servidor.');
-        btn.innerHTML = prevText;
-        btn.disabled = false;
-    }
-}
-
-window.salvarNovaSenha = async function() {
-    const p1 = document.getElementById('newPass1').value;
-    const p2 = document.getElementById('newPass2').value;
-    
-    if(p1.length < 5) { alert('⚠️ A nova senha deve ter no mínimo 5 caracteres.'); return; }
-    if(p1 !== p2) { alert('⚠️ As senhas digitadas não coincidem.'); return; }
-
-    const hashedNewPass = await hashPassword(p1);
-    await db.updateUsuarioSenha(window.currentUser.id, hashedNewPass);
-    
-    alert('✅ Senha alterada com sucesso! Bem-vindo(a) ao CCOL.');
-    window.currentUser.primeiro_acesso = false;
-    
-    // SALVA A SESSÃO DO USUÁRIO APÓS MUDAR A SENHA
-    localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
-    iniciarSistemaAutorizado();
-}
-
 window.fazerLogout = function() {
     if(confirm('Deseja realmente sair do sistema?')) {
         // APAGA A SESSÃO QUANDO CLICA EM SAIR
         localStorage.removeItem('ccol_user_session');
         window.currentUser = null;
-        location.reload();
+        window.location.href = 'login.html'; // Redireciona para a nova tela de login
     }
 }
 
 async function iniciarSistemaAutorizado() {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('change-password-screen').style.display = 'none';
     document.getElementById('appLayout').style.display = 'flex';
     
     const filialNome = window.currentUser.filiais ? window.currentUser.filiais.nome : 'Matriz';
@@ -112,12 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessaoSalva = localStorage.getItem('ccol_user_session');
     if (sessaoSalva) {
         window.currentUser = JSON.parse(sessaoSalva);
-        iniciarSistemaAutorizado(); // Pula o login e entra direto
+        iniciarSistemaAutorizado(); // Entra no sistema
+    } else {
+        // Se não existir sessão, manda para a tela de login correta
+        window.location.href = 'login.html';
     }
-
-    document.getElementById('loginPass')?.addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') realizarLogin();
-    });
 });
 
 // ---------------- GESTÃO DE USUÁRIOS E PERMISSÕES ----------------

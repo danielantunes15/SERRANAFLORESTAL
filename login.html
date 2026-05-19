@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA INTEGRADO - SERRANA FLORESTAL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="login-banner">
+            <div class="banner-overlay"></div>
+            <div class="banner-content">
+                <div class="branding">
+                    <h1 class="system-title">SISTEMA INTEGRADO</h1>
+                    <h2 class="company-name">SERRANA FLORESTAL</h2>
+                    <div class="divider"></div>
+                    <p class="system-subtitle">Plataforma de Gestão Estratégica, Controle de Frota e Logística Operacional.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="login-panel">
+            <div class="panel-content">
+                <div id="section-login">
+                    <h3>Acesso ao Sistema</h3>
+                    <p class="instruction">Insira suas credenciais corporativas para continuar.</p>
+                    
+                    <form id="loginForm" onsubmit="realizarLogin(event)">
+                        <div class="input-group">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="loginUser" placeholder="Usuário" required autocomplete="username">
+                        </div>
+                        <div class="input-group">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="loginPass" placeholder="Senha" required autocomplete="current-password">
+                        </div>
+                        <button type="submit" id="btnLogin" class="btn-primary">
+                            Entrar no Sistema <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </form>
+                </div>
+
+                <div id="section-primeiro-acesso" style="display: none;">
+                    <h3><i class="fas fa-shield-alt" style="color: #10b981;"></i> Segurança</h3>
+                    <p class="instruction">Este é seu primeiro acesso. Defina uma nova senha para sua conta.</p>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-key"></i>
+                        <input type="password" id="newPass1" placeholder="Nova Senha" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-check-circle"></i>
+                        <input type="password" id="newPass2" placeholder="Confirme a Nova Senha" required>
+                    </div>
+                    <button type="button" onclick="salvarNovaSenha()" id="btnSalvarSenha" class="btn-primary" style="background-color: #10b981;">
+                        Salvar e Acessar
+                    </button>
+                </div>
+                
+                <div class="footer-text">
+                    <p>&copy; 2026 SERRANA FLORESTAL. Todos os direitos reservados.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="core/js/database.js"></script>
+    <script src="login.js"></script>
+</body>
+</html>
