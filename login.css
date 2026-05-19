@@ -62,7 +62,8 @@ body.dark-theme {
 }
 
 .brand-logo {
-    width: 160px;
+    width: 210px;
+    margin-top: -40px;
     margin-bottom: 25px;
     filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
 }
@@ -75,7 +76,7 @@ body.dark-theme {
 }
 
 .company-name {
-    font-size: 3.2rem;
+    font-size: 3.8rem;
     font-weight: 800;
     color: #ffffff;
     margin-top: 5px;
@@ -102,6 +103,7 @@ body.dark-theme {
 
 /* Lado Direito (Painel de Login Fixo na Direita) */
 .login-panel {
+    position: relative;
     width: 480px;
     min-width: 400px;
     display: flex;
@@ -215,10 +217,13 @@ body.dark-theme {
 }
 
 .footer-text {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    right: 0;
     text-align: center;
-    margin-top: 50px;
     font-size: 0.8rem;
-    color: #475569;
+    color: #ffffff;
 }
 
 /* Responsividade para telas menores/tablets/celulares */
