@@ -9,26 +9,20 @@ window.supabaseClient = supabaseClient;
 function aplicarFiltroFilial(query) {
     if (!window.currentUser) return query; 
     
-    // Se for SuperAdmin/Admin operando na CENTRAL (filial_id === null), ele tem visão panorâmica de tudo (Modo Deus)
     if (window.currentUser.filial_id === null && (window.currentUser.role === 'SuperAdmin' || window.currentUser.role === 'Admin')) {
         return query; 
     }
     
-    // Se o usuário não tiver filial vinculada por erro, bloqueia os dados vazados
     if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) {
         return query.is('filial_id', null); 
     }
     
-    // Se ele selecionou uma filial (mesmo sendo SuperAdmin) ou for usuário padrão, puxa só os dados daquela filial
     return query.eq('filial_id', window.currentUser.filial_id);
 }
 
 function injetarFilial(obj) {
     if (!window.currentUser) return obj; 
-    // Se o SuperAdmin está operando na Central, o registro fica como global (sem filial vinculada)
     if (window.currentUser.filial_id === null) return obj; 
-    
-    // Injeta silenciosamente a filial selecionada
     return { ...obj, filial_id: window.currentUser.filial_id };
 }
 // ===============================================================
@@ -36,60 +30,58 @@ function injetarFilial(obj) {
 const db = {
     // --- GESTÃO DE FILIAIS ---
     async getFiliais() {
-        const { data, error } = await supabaseClient.from('filiais').select('*').eq('status', 'Ativa').order('nome', { ascending: true });
-        if (error) return [];
-        return data || [];
+        try {
+            const { data, error } = await supabaseClient.from('filiais').select('*').eq('status', 'Ativa').order('nome', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getFiliais:", e); return []; }
     },
     async getTodasFiliaisAdmin() {
-        const { data, error } = await supabaseClient.from('filiais').select('*').order('nome', { ascending: true });
-        return data || [];
+        try {
+            const { data, error } = await supabaseClient.from('filiais').select('*').order('nome', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getTodasFiliaisAdmin:", e); return []; }
     },
     async addFilial(filial) {
-        const { error } = await supabaseClient.from('filiais').insert([filial]);
-        if (error) throw error;
+        await supabaseClient.from('filiais').insert([filial]);
     },
     async updateFilialStatus(id, status) {
-        const { error } = await supabaseClient.from('filiais').update({ status }).eq('id', id);
-        if (error) throw error;
+        await supabaseClient.from('filiais').update({ status }).eq('id', id);
     },
     async updateFilialDados(id, dados) {
-        const { error } = await supabaseClient.from('filiais').update(dados).eq('id', id);
-        if (error) throw error;
+        await supabaseClient.from('filiais').update(dados).eq('id', id);
     },
 
     // --- LOGIN E USUÁRIOS ---
     async getUsuarioByUsername(username) {
-        const { data, error } = await supabaseClient.from('usuarios').select('*, filiais(nome)').eq('username', username).maybeSingle();
-        if (error) return null;
-        return data;
+        try {
+            const { data, error } = await supabaseClient.from('usuarios').select('*, filiais(nome)').eq('username', username).maybeSingle();
+            if (error) throw error;
+            return data;
+        } catch(e) { console.error("Erro getUsuarioByUsername:", e); return null; }
     },
     async updateUsuarioSenha(id, senha_hash) {
         await supabaseClient.from('usuarios').update({ senha_hash: senha_hash, primeiro_acesso: false }).eq('id', id);
     },
-    
-    // CORREÇÃO APLICADA AQUI: Voltando a ordenação para 'id' para evitar o ERRO 400
     async getUsuarios(filialId = 'TODAS') {
-        let query = supabaseClient.from('usuarios').select('*, filiais(nome)').order('id', { ascending: true });
-        
-        if (window.currentUser && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
-            if (filialId && filialId !== 'TODAS') {
-                if (filialId === null || filialId === 'NULL') {
-                     query = query.is('filial_id', null);
-                } else {
-                     query = query.eq('filial_id', filialId);
+        try {
+            let query = supabaseClient.from('usuarios').select('*, filiais(nome)').order('id', { ascending: true });
+            
+            if (window.currentUser && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
+                if (filialId && filialId !== 'TODAS') {
+                    if (filialId === null || filialId === 'NULL') query = query.is('filial_id', null);
+                    else query = query.eq('filial_id', filialId);
                 }
+            } else {
+                query = aplicarFiltroFilial(query);
             }
-        } else {
-            query = aplicarFiltroFilial(query);
-        }
-        
-        const { data, error } = await query;
-        if (error) {
-            console.error("ERRO CRÍTICO NA BUSCA DE USUÁRIOS (Verifique as colunas do banco):", error);
-        }
-        return data || [];
+            
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getUsuarios:", e); return []; }
     },
-    
     async addUsuario(usuario) {
         await supabaseClient.from('usuarios').insert([injetarFilial(usuario)]);
     },
@@ -102,79 +94,70 @@ const db = {
 
     // --- LOGS DE SEGURANÇA E AUDITORIA ---
     async getLogs() {
-        const query = supabaseClient.from('logs_exclusao').select('*').order('data_hora', { ascending: false }).limit(50);
-        const { data } = await aplicarFiltroFilial(query);
-        return data || [];
+        try {
+            const query = supabaseClient.from('logs_exclusao').select('*').order('data_hora', { ascending: false }).limit(50);
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getLogs:", e); return []; }
     },
     async getLogsPaginados(page = 1, limit = 30, filtros = {}) {
-        const start = (page - 1) * limit;
-        const end = start + limit - 1;
-        
-        let query = supabaseClient
-            .from('logs_exclusao')
-            .select('*, filiais(nome)', { count: 'exact' })
-            .order('data_hora', { ascending: false })
-            .range(start, end);
-        
-        // 1. Filtro de Filial
-        const filialId = filtros.filialId || 'TODAS';
-        if (window.currentUser && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
-            if (filialId !== 'TODAS') {
-                if (filialId === null || filialId === 'NULL') {
-                     query = query.is('filial_id', null);
-                } else {
-                     query = query.eq('filial_id', filialId);
+        try {
+            const start = (page - 1) * limit;
+            const end = start + limit - 1;
+            
+            let query = supabaseClient
+                .from('logs_exclusao')
+                .select('*, filiais(nome)', { count: 'exact' })
+                .order('data_hora', { ascending: false })
+                .range(start, end);
+            
+            const filialId = filtros.filialId || 'TODAS';
+            if (window.currentUser && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
+                if (filialId !== 'TODAS') {
+                    if (filialId === null || filialId === 'NULL') query = query.is('filial_id', null);
+                    else query = query.eq('filial_id', filialId);
                 }
+            } else {
+                query = aplicarFiltroFilial(query);
             }
-        } else {
-            query = aplicarFiltroFilial(query);
-        }
 
-        // 2. Filtro Inteligente de Módulo
-        if (filtros.modulo && filtros.modulo !== 'TODOS') {
-            let chaves = '';
-            switch(filtros.modulo) {
-                case 'Logistica': chaves = 'acao.ilike.%motorista%,acao.ilike.%conjunto%,acao.ilike.%escala%,acao.ilike.%frota%,acao.ilike.%documento%,detalhes.ilike.%motorista%,detalhes.ilike.%escala%'; break;
-                case 'Manutencao': chaves = 'acao.ilike.%os%,acao.ilike.%ordem%,acao.ilike.%serviço%,acao.ilike.%peça%,acao.ilike.%almoxarifado%,detalhes.ilike.%os%,detalhes.ilike.%ordem%'; break;
-                case 'SSMA': chaves = 'acao.ilike.%treinamento%,acao.ilike.%instrutor%,acao.ilike.%recado%,detalhes.ilike.%treinamento%'; break;
-                case 'Indicadores': chaves = 'acao.ilike.%indicador%,acao.ilike.%relatório%,detalhes.ilike.%painel%'; break;
-                case 'Configuracoes': chaves = 'acao.ilike.%usuário%,acao.ilike.%filial%,acao.ilike.%permiss%,detalhes.ilike.%usuário%'; break;
+            if (filtros.modulo && filtros.modulo !== 'TODOS') {
+                let chaves = '';
+                switch(filtros.modulo) {
+                    case 'Logistica': chaves = 'acao.ilike.%motorista%,acao.ilike.%conjunto%,acao.ilike.%escala%,acao.ilike.%frota%,acao.ilike.%documento%,detalhes.ilike.%motorista%,detalhes.ilike.%escala%'; break;
+                    case 'Manutencao': chaves = 'acao.ilike.%os%,acao.ilike.%ordem%,acao.ilike.%serviço%,acao.ilike.%peça%,acao.ilike.%almoxarifado%,detalhes.ilike.%os%,detalhes.ilike.%ordem%'; break;
+                    case 'SSMA': chaves = 'acao.ilike.%treinamento%,acao.ilike.%instrutor%,acao.ilike.%recado%,detalhes.ilike.%treinamento%'; break;
+                    case 'Indicadores': chaves = 'acao.ilike.%indicador%,acao.ilike.%relatório%,detalhes.ilike.%painel%'; break;
+                    case 'Configuracoes': chaves = 'acao.ilike.%usuário%,acao.ilike.%filial%,acao.ilike.%permiss%,detalhes.ilike.%usuário%'; break;
+                }
+                if (chaves !== '') query = query.or(chaves);
             }
-            if (chaves !== '') {
-                query = query.or(chaves);
-            }
-        }
 
-        // 3. Filtro de Usuário Exato
-        if (filtros.usuario && filtros.usuario !== 'TODOS') {
-            query = query.eq('usuario', filtros.usuario);
-        }
-
-        // 4. Filtro de Datas
-        if (filtros.dataInicio) {
-            query = query.gte('data_hora', `${filtros.dataInicio}T00:00:00`);
-        }
-        if (filtros.dataFim) {
-            query = query.lte('data_hora', `${filtros.dataFim}T23:59:59`);
-        }
-        
-        const { data, count, error } = await query;
-        if (error) {
-            console.error("Erro ao buscar logs paginados:", error);
-            throw error;
-        }
-        return { data: data || [], total: count || 0 };
+            if (filtros.usuario && filtros.usuario !== 'TODOS') query = query.eq('usuario', filtros.usuario);
+            if (filtros.dataInicio) query = query.gte('data_hora', `${filtros.dataInicio}T00:00:00`);
+            if (filtros.dataFim) query = query.lte('data_hora', `${filtros.dataFim}T23:59:59`);
+            
+            const { data, count, error } = await query;
+            if (error) throw error;
+            return { data: data || [], total: count || 0 };
+        } catch(e) { console.error("Erro getLogsPaginados:", e); return { data: [], total: 0 }; }
     },
     async addLog(acao, detalhes) {
-        if (!window.currentUser) return;
-        await supabaseClient.from('logs_exclusao').insert([injetarFilial({ usuario: window.currentUser.username, acao, detalhes })]);
+        try {
+            if (!window.currentUser) return;
+            await supabaseClient.from('logs_exclusao').insert([injetarFilial({ usuario: window.currentUser.username, acao, detalhes })]);
+        } catch(e) { console.error("Erro addLog", e); }
     },
 
     // --- CONJUNTOS / TRINCAS ---
     async getConjuntos() {
-        const query = supabaseClient.from('conjuntos').select('*').order('id', { ascending: true });
-        const { data } = await aplicarFiltroFilial(query);
-        return data || [];
+        try {
+            const query = supabaseClient.from('conjuntos').select('*').order('id', { ascending: true });
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getConjuntos:", e); return []; }
     },
     async addConjunto(conjunto) {
         await supabaseClient.from('conjuntos').insert([injetarFilial(conjunto)]);
@@ -188,17 +171,19 @@ const db = {
 
     // --- MOTORISTAS ---
     async getMotoristas() {
-        const query = supabaseClient.from('motoristas').select('*');
-        const { data } = await aplicarFiltroFilial(query);
-        return data || [];
+        try {
+            const query = supabaseClient.from('motoristas').select('*');
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getMotoristas:", e); return []; }
     },
     async addMotorista(motorista) {
         await supabaseClient.from('motoristas').insert([injetarFilial(motorista)]);
     },
     async updateMotorista(id, updates) {
         Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
-        const { data, error } = await supabaseClient.from('motoristas').update(updates).eq('id', id).select();
-        if (error) throw error;
+        await supabaseClient.from('motoristas').update(updates).eq('id', id).select();
     },
     async deleteMotorista(id) {
         await supabaseClient.from('motoristas').delete().eq('id', id);
@@ -206,9 +191,12 @@ const db = {
 
     // --- EXCEÇÕES DA ESCALA ---
     async getEscalas() {
-        const query = supabaseClient.from('escalas').select('*');
-        const { data } = await aplicarFiltroFilial(query);
-        return data || [];
+        try {
+            const query = supabaseClient.from('escalas').select('*');
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getEscalas:", e); return []; }
     },
     async upsertEscala(escala) {
         await supabaseClient.from('escalas').upsert([injetarFilial(escala)]);
@@ -226,9 +214,12 @@ const db = {
     
     // --- TREINAMENTOS ---
     async getInstrutores() {
-        const query = supabaseClient.from('instrutores').select('*');
-        const { data } = await aplicarFiltroFilial(query);
-        return data || [];
+        try {
+            const query = supabaseClient.from('instrutores').select('*');
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getInstrutores:", e); return []; }
     },
     async addInstrutor(instrutor) {
         await supabaseClient.from('instrutores').insert([injetarFilial(instrutor)]);
@@ -237,9 +228,12 @@ const db = {
         await supabaseClient.from('instrutores').delete().eq('nome', nome);
     },
     async getTreinamentos() {
-        const query = supabaseClient.from('treinamentos').select('*');
-        const { data } = await aplicarFiltroFilial(query);
-        return data || [];
+        try {
+            const query = supabaseClient.from('treinamentos').select('*');
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getTreinamentos:", e); return []; }
     },
     async upsertTreinamento(treinamento) {
         await supabaseClient.from('treinamentos').upsert([injetarFilial(treinamento)]);
@@ -250,11 +244,13 @@ const db = {
 
     // --- PERMISSÕES DE ACESSO ---
     async getPermissoesDB() {
-        const { data, error } = await supabaseClient.from('permissoes_perfis').select('*');
-        if (error || !data) return {};
-        const permissoesObj = {};
-        data.forEach(item => { permissoesObj[item.perfil] = item.menus; });
-        return permissoesObj;
+        try {
+            const { data, error } = await supabaseClient.from('permissoes_perfis').select('*');
+            if (error || !data) return {};
+            const permissoesObj = {};
+            data.forEach(item => { permissoesObj[item.perfil] = item.menus; });
+            return permissoesObj;
+        } catch(e) { console.error("Erro getPermissoesDB:", e); return {}; }
     },
     async updatePermissoesDB(perfil, menus) {
         await supabaseClient.from('permissoes_perfis').upsert([{ perfil: perfil, menus: menus }]);
@@ -262,9 +258,12 @@ const db = {
 
     // --- ALMOXARIFADO E DOCUMENTOS ---
     async getPecas() {
-        const query = supabaseClient.from('almoxarifado_pecas').select('*').order('nome', { ascending: true });
-        const { data } = await aplicarFiltroFilial(query);
-        return data || [];
+        try {
+            const query = supabaseClient.from('almoxarifado_pecas').select('*').order('nome', { ascending: true });
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getPecas:", e); return []; }
     },
     async upsertPeca(peca) {
         await supabaseClient.from('almoxarifado_pecas').upsert([injetarFilial(peca)]);
@@ -273,9 +272,12 @@ const db = {
         await supabaseClient.from('almoxarifado_pecas').delete().eq('id', id);
     },
     async getMovimentacoesEstoque() {
-        const query = supabaseClient.from('almoxarifado_movimentacoes').select('*, almoxarifado_pecas(nome)').order('data_movimentacao', { ascending: false });
-        const { data } = await aplicarFiltroFilial(query);
-        return data || [];
+        try {
+            const query = supabaseClient.from('almoxarifado_movimentacoes').select('*, almoxarifado_pecas(nome)').order('data_movimentacao', { ascending: false });
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getMovimentacoesEstoque:", e); return []; }
     },
     async addMovimentacao(movimentacao) {
         await supabaseClient.from('almoxarifado_movimentacoes').insert([injetarFilial(movimentacao)]);
@@ -286,9 +288,12 @@ const db = {
         }
     },
     async getDocumentosFrota(identificadores) {
-        const query = supabaseClient.from('documentos_frota').select('*').in('identificador', identificadores);
-        const { data } = await aplicarFiltroFilial(query);
-        return data || [];
+        try {
+            const query = supabaseClient.from('documentos_frota').select('*').in('identificador', identificadores);
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getDocumentosFrota:", e); return []; }
     },
     async uploadArquivoFrota(file, path) {
         const { data, error } = await supabaseClient.storage.from('documentos_frota').upload(path, file, { upsert: true });

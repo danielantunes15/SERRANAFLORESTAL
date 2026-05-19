@@ -1,51 +1,102 @@
 // ==================== MÓDULO: NAVEGAÇÃO E INICIALIZAÇÃO DO DASHBOARD ====================
 
 window.atualizarStats = function() {
-    const statConjuntos = document.getElementById('statConjuntos');
-    const statCaminhoes = document.getElementById('statCaminhoes');
-    const statMotoristas = document.getElementById('statMotoristas');
-    const statDisponiveis = document.getElementById('statDisponiveis');
-    const statCavalos = document.getElementById('statCavalos');
-    
-    const totalCaminhoes = conjuntos.reduce((acc, c) => acc + (c.caminhoes?.length || 0), 0);
+    try {
+        const statConjuntos = document.getElementById('statConjuntos');
+        const statCaminhoes = document.getElementById('statCaminhoes');
+        const statMotoristas = document.getElementById('statMotoristas');
+        const statDisponiveis = document.getElementById('statDisponiveis');
+        const statCavalos = document.getElementById('statCavalos');
+        
+        // Proteção caso os dados ainda não existam
+        const listaConjuntos = typeof conjuntos !== 'undefined' ? conjuntos : [];
+        const listaMotoristas = typeof motoristas !== 'undefined' ? motoristas : [];
 
-    if (statConjuntos) statConjuntos.innerText = conjuntos.length;
-    if (statCaminhoes) statCaminhoes.innerText = totalCaminhoes;
-    if (statCavalos) statCavalos.innerText = totalCaminhoes; 
-    if (statMotoristas) statMotoristas.innerText = motoristas.length;
-    
-    if (statDisponiveis) {
-        const qtdeDisponiveis = motoristas.filter(m => !m.conjuntoId).length;
-        statDisponiveis.innerText = qtdeDisponiveis;
+        const totalCaminhoes = listaConjuntos.reduce((acc, c) => acc + (c.caminhoes?.length || 0), 0);
+
+        if (statConjuntos) statConjuntos.innerText = listaConjuntos.length;
+        if (statCaminhoes) statCaminhoes.innerText = totalCaminhoes;
+        if (statCavalos) statCavalos.innerText = totalCaminhoes; 
+        if (statMotoristas) statMotoristas.innerText = listaMotoristas.length;
+        
+        if (statDisponiveis) {
+            const qtdeDisponiveis = listaMotoristas.filter(m => !m.conjuntoId).length;
+            statDisponiveis.innerText = qtdeDisponiveis;
+        }
+    } catch (e) {
+        console.error("Aviso: Erro rápido ao atualizar contadores (ignorado).", e);
     }
 }
 
 window.initDashboard = async function() {
     const containerApp = document.getElementById('conteudo-principal');
     
-    // Mostra um Loading Visual Bonito enquanto baixa os dados do banco
     if (containerApp) {
+        // Colocamos um ID "loadingSincronizacao" para podermos achar ele depois
         containerApp.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 50vh;">
+            <div id="loadingSincronizacao" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 50vh;">
                 <i class="fas fa-circle-notch fa-spin fa-3x" style="color: #10b981; margin-bottom: 20px;"></i>
                 <h2 style="color: #fff; font-weight: 500; font-family: 'Inter', sans-serif;">Sincronizando Sistema</h2>
-                <p style="color: #94a3b8; font-size: 0.95rem; margin-top: 5px;">Baixando dados da filial selecionada...</p>
+                <p id="loadingStatusText" style="color: #94a3b8; font-size: 0.95rem; margin-top: 5px;">Baixando dados da filial selecionada. Aguarde...</p>
             </div>
         `;
     }
     
-    // 1. CARREGA OS DADOS DO BANCO PRIMEIRO
-    await carregarDadosIniciais();
-    
-    if(typeof carregarDadosTreinamento === 'function') {
-        await carregarDadosTreinamento(); 
+    try {
+        // SISTEMA ANTI-TRAVAMENTO (Timeout máximo de 5 segundos para consultas)
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 5000));
+        
+        const chamadasBanco = async () => {
+            if (typeof carregarDadosIniciais === 'function') await carregarDadosIniciais();
+            if (typeof carregarDadosTreinamento === 'function') await carregarDadosTreinamento();
+            return 'OK';
+        };
+
+        const resultado = await Promise.race([chamadasBanco(), timeoutPromise]);
+        
+        if (resultado === 'TIMEOUT') {
+            console.warn("Aviso: Lentidão na rede. Iniciando a interface em modo de segurança...");
+        }
+    } catch (erroCritico) {
+        console.error("Erro na busca de dados (Ignorado para liberar a tela):", erroCritico);
     }
     
     atualizarStats();
 
-    // 2. RENDERIZA O MENU E ABRE A TELA PADRÃO
-    if (typeof window.renderizarMenu === 'function') {
-        window.renderizarMenu();
+    // 2. RENDERIZA O MENU E VERIFICA SE DESTRAVOU A TELA
+    try {
+        if (typeof window.renderizarMenu === 'function') {
+            await window.renderizarMenu();
+            
+            // =========================================================================
+            // A JOGADA DE MESTRE: Verifica se o sistema conseguiu clicar em algum menu.
+            // Se após 1 segundo a tela ainda mostrar "Sincronizando...", significa que 
+            // o usuário não tem menus liberados. Limpamos a tela à força!
+            // =========================================================================
+            setTimeout(() => {
+                const loadingAindaNaTela = document.getElementById('loadingSincronizacao');
+                if (loadingAindaNaTela && containerApp) {
+                    console.warn("Travamento evitado: Nenhum menu foi clicado automaticamente.");
+                    
+                    containerApp.innerHTML = `
+                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 50vh; text-align: center; padding: 20px;">
+                            <i class="fas fa-lock fa-4x" style="color: #64748b; margin-bottom: 20px;"></i>
+                            <h2 style="color: #f8fafc; margin-bottom: 10px;">Sistema Iniciado</h2>
+                            <p style="color: #94a3b8; font-size: 1.1rem; max-width: 600px; line-height: 1.5;">
+                                Se você está vendo esta tela, é porque o seu perfil de usuário <strong>ainda não possui menus liberados</strong>.<br><br>
+                                Solicite ao Administrador do sistema que acesse <br><span style="color: var(--ccol-blue-bright);">Configurações > Permissões de Acesso</span><br> e marque as caixinhas de liberação para a sua função.
+                            </p>
+                        </div>
+                    `;
+                }
+            }, 1000);
+
+        } else {
+            console.error("Função renderizarMenu não encontrada.");
+        }
+    } catch (errMenu) {
+        console.error("Erro ao desenhar os menus:", errMenu);
+        if (containerApp) containerApp.innerHTML = `<h3 style="color:red; text-align:center; margin-top: 50px;">Erro de interface. Recarregue a página.</h3>`;
     }
 }
 
