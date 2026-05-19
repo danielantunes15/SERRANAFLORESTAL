@@ -1,11 +1,12 @@
 :root {
-    --primary-color: #047857; /* Verde escuro moderno */
-    --primary-hover: #065f46;
-    --bg-dark: #0f172a;
-    --text-main: #1e293b;
-    --text-muted: #64748b;
-    --input-bg: #f8fafc;
-    --input-border: #cbd5e1;
+    --bg-dark: #0f172a;        
+    --bg-panel: #1e293b;       
+    --text-main: #f8fafc;      
+    --text-muted: #94a3b8;     
+    --accent-green: #10b981;   
+    --accent-green-hover: #059669; 
+    --border-color: #334155;   
+    --input-bg: #0f172a;       
 }
 
 * {
@@ -15,198 +16,236 @@
     font-family: 'Inter', sans-serif;
 }
 
-body {
+body.dark-theme {
     background-color: var(--bg-dark);
-    height: 100vh;
-    display: flex;
+    color: var(--text-main);
+    margin: 0;
+    padding: 0;
     overflow: hidden;
+    width: 100vw;
+    height: 100vh;
 }
 
+/* Container ocupando a tela cheia */
 .login-container {
     display: flex;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-color: var(--bg-panel);
 }
 
-/* Lado Esquerdo - Banner com a Imagem do Caminhão */
+/* Lado Esquerdo (Banner de fundo) */
 .login-banner {
-    flex: 6; /* Ocupa 60% da tela */
+    flex: 1.4;
     position: relative;
-    background-image: url('assets/caminhao.jpeg');
-    background-size: cover;
-    background-position: center;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(16, 185, 129, 0.1)), url('assets/caminhao.jpeg') center/cover no-repeat;
+    background-color: #0f172a;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    padding-left: 5rem;
+    justify-content: center;
+    padding: 60px;
+    transition: all 0.5s ease;
 }
 
 .banner-overlay {
     position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    /* Gradiente que escurece a imagem para o texto ficar legível */
-    background: linear-gradient(to right, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.4) 100%);
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.3);
     z-index: 1;
 }
 
 .banner-content {
     position: relative;
     z-index: 2;
-    color: #ffffff;
-    max-width: 600px;
+    text-align: center;
+}
+
+.brand-logo {
+    width: 160px;
+    margin-bottom: 25px;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
 }
 
 .system-title {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     font-weight: 300;
-    letter-spacing: 2px;
-    color: #cbd5e1;
-    margin-bottom: 0.5rem;
+    letter-spacing: 4px;
+    color: var(--text-muted);
 }
 
 .company-name {
-    font-size: 3.5rem;
+    font-size: 3.2rem;
     font-weight: 800;
-    letter-spacing: 1px;
-    line-height: 1.1;
-    margin-bottom: 1.5rem;
+    color: #ffffff;
+    margin-top: 5px;
+    text-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    letter-spacing: -1px;
 }
 
 .divider {
+    width: 100px;
     height: 4px;
-    width: 60px;
-    background-color: var(--primary-color);
-    margin-bottom: 1.5rem;
+    background-color: var(--accent-green);
+    margin: 30px auto;
+    border-radius: 2px;
 }
 
 .system-subtitle {
+    color: #cbd5e1;
     font-size: 1.1rem;
-    font-weight: 400;
     line-height: 1.6;
-    color: #94a3b8;
+    max-width: 450px;
+    margin: 0 auto;
+    font-weight: 400;
 }
 
-/* Lado Direito - Formulário Clean */
+/* Lado Direito (Painel de Login Fixo na Direita) */
 .login-panel {
-    flex: 4; /* Ocupa 40% da tela */
-    background-color: #ffffff;
+    width: 480px;
+    min-width: 400px;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
     align-items: center;
-    padding: 3rem;
-    box-shadow: -10px 0 30px rgba(0,0,0,0.1);
+    justify-content: center;
+    padding: 50px;
+    background-color: var(--bg-panel);
+    border-left: 1px solid var(--border-color);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.25);
     z-index: 3;
 }
 
 .panel-content {
     width: 100%;
-    max-width: 400px;
 }
 
 .panel-content h3 {
-    font-size: 1.75rem;
-    color: var(--text-main);
-    margin-bottom: 0.5rem;
-    font-weight: 600;
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #ffffff;
+    letter-spacing: -0.5px;
 }
 
 .instruction {
     color: var(--text-muted);
     font-size: 0.95rem;
-    margin-bottom: 2rem;
-}
-
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
+    margin-bottom: 35px;
+    line-height: 1.4;
 }
 
 .input-group {
     position: relative;
+    margin-bottom: 22px;
 }
 
 .input-group i {
     position: absolute;
+    left: 16px;
     top: 50%;
-    left: 1rem;
     transform: translateY(-50%);
-    color: #94a3b8;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    z-index: 2;
 }
 
-.input-group input {
+.input-group input,
+.input-group select {
     width: 100%;
-    padding: 1rem 1rem 1rem 2.75rem;
-    border: 1px solid var(--input-border);
-    border-radius: 6px;
+    padding: 16px 16px 16px 48px;
     background-color: var(--input-bg);
-    font-size: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
     color: var(--text-main);
-    transition: all 0.3s ease;
+    font-size: 0.95rem;
+    transition: all 0.25s ease;
+    position: relative;
+    z-index: 1;
 }
 
-.input-group input:focus {
+.input-group select {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px top 50%;
+    background-size: 0.65em auto;
+}
+
+.input-group select option {
+    background-color: var(--bg-panel);
+    color: var(--text-main);
+}
+
+.input-group input:focus,
+.input-group select:focus {
     outline: none;
-    border-color: var(--primary-color);
-    background-color: #ffffff;
-    box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.1);
+    border-color: var(--accent-green);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    background-color: var(--bg-dark);
 }
 
 .btn-primary {
     width: 100%;
-    padding: 1rem;
-    background-color: var(--primary-color);
+    padding: 16px;
+    background-color: var(--accent-green);
     color: #ffffff;
     border: none;
-    border-radius: 6px;
-    font-size: 1rem;
+    border-radius: 8px;
+    font-size: 1.05rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: all 0.25s ease;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 0.5rem;
-    margin-top: 1rem;
+    gap: 10px;
+    margin-top: 25px;
 }
 
 .btn-primary:hover {
-    background-color: var(--primary-hover);
+    background-color: var(--accent-green-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
 
-.btn-primary:disabled {
-    background-color: #94a3b8;
-    cursor: not-allowed;
+.btn-primary:active {
+    transform: translateY(0);
 }
 
 .footer-text {
-    margin-top: 3rem;
     text-align: center;
+    margin-top: 50px;
     font-size: 0.8rem;
-    color: #cbd5e1;
+    color: #475569;
 }
 
-/* Responsividade para telas menores */
+/* Responsividade para telas menores/tablets/celulares */
 @media (max-width: 900px) {
     .login-container {
         flex-direction: column;
     }
+    
     .login-banner {
-        flex: 3;
-        padding: 2rem;
-        justify-content: center;
-        text-align: center;
+        flex: 0.3;
+        padding: 30px;
     }
-    .banner-overlay {
-        background: rgba(15, 23, 42, 0.7);
+    
+    .company-name {
+        font-size: 2.2rem;
     }
-    .divider {
-        margin: 1.5rem auto;
+    
+    .system-subtitle, .divider {
+        display: none;
     }
+
     .login-panel {
-        flex: 7;
-        border-radius: 20px 20px 0 0;
-        margin-top: -20px;
+        width: 100%;
+        min-width: auto;
+        flex: 0.7;
+        padding: 30px;
+        border-left: none;
+        border-top: 1px solid var(--border-color);
     }
 }

@@ -1,7 +1,8 @@
 // Variável temporária para segurar o usuário durante a troca de senha
 let usuarioTemporario = null;
+let listaFiliais = [];
 
-// Função de criptografia (idêntica a que você já usava)
+// Função de criptografia da senha
 async function hashPassword(password) {
     const msgBuffer = new TextEncoder().encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -9,21 +10,76 @@ async function hashPassword(password) {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Verifica se já existe uma sessão ao carregar a página
+// Inicialização da página
 document.addEventListener('DOMContentLoaded', () => {
     const sessaoSalva = localStorage.getItem('ccol_user_session');
     if (sessaoSalva) {
-        // Se já está logado, manda direto para o sistema
         window.location.href = 'index.html';
+        return;
     }
+    
+    // Executa a busca automática das filiais no banco de dados
+    carregarFiliaisDoBanco();
 });
+
+// Função para buscar dinamicamente as filiais da tabela do banco de dados
+async function carregarFiliaisDoBanco() {
+    const select = document.getElementById('loginFilial');
+    if (!select) return;
+
+    try {
+        // 1. Tenta usar a estrutura existente no seu arquivo database.js
+        if (typeof db.getFiliais === 'function') {
+            listaFiliais = await db.getFiliais();
+        } 
+        // 2. Fallback estratégico: Caso a função não esteja mapeada no db, faz a consulta direta no client do Supabase
+        else if (db.client && typeof db.client.from === 'function') {
+            const { data, error } = await db.client.from('filiais').select('*').order('nome', { ascending: true });
+            if (error) throw error;
+            listaFiliais = data || [];
+        } 
+        else if (window.supabase) {
+            const { data, error } = await window.supabase.from('filiais').select('*').order('nome', { ascending: true });
+            if (error) throw error;
+            listaFiliais = data || [];
+        } 
+        // 3. Fallback de contingência visual para evitar tela travada
+        else {
+            console.warn("Instância do banco de dados não encontrada. Usando dados locais.");
+            listaFiliais = [
+                { id: 1, nome: "Matriz - Nanuque (MG)" },
+                { id: 2, nome: "Base - Itabatã (BA)" },
+                { id: 3, nome: "Base - Teixeira de Freitas (BA)" }
+            ];
+        }
+
+        // Renderiza as opções dentro do Select
+        select.innerHTML = '<option value="" disabled selected>Selecione a Base/Filial...</option>';
+        listaFiliais.forEach(filial => {
+            const option = document.createElement('option');
+            option.value = filial.id; // Define o ID como valor identificador
+            option.textContent = filial.nome; // Nome da filial visível para o usuário
+            select.appendChild(option);
+        });
+
+    } catch (e) {
+        console.error("Erro crítico ao carregar filiais do banco:", e);
+        select.innerHTML = '<option value="" disabled selected>⚠️ Erro ao carregar filiais</option>';
+    }
+}
 
 window.realizarLogin = async function(event) {
     if (event) event.preventDefault();
 
+    const filialId = document.getElementById('loginFilial').value;
     const userStr = document.getElementById('loginUser').value.trim().toUpperCase();
     const passStr = document.getElementById('loginPass').value;
     const btn = document.getElementById('btnLogin');
+
+    if (!filialId) {
+        alert('Por favor, selecione uma filial válida.');
+        return;
+    }
 
     if(!userStr || !passStr) { 
         alert('Preencha seu usuário e senha.'); 
@@ -36,29 +92,29 @@ window.realizarLogin = async function(event) {
 
     try {
         const hashedPass = await hashPassword(passStr);
-        // Usa a função do seu database.js para buscar no Supabase
         const dbUser = await db.getUsuarioByUsername(userStr);
 
         if (dbUser && (dbUser.senha_hash === hashedPass || dbUser.senha_hash === passStr)) {
             
-            // Monta o objeto de sessão
+            // Encontra o objeto completo da filial correspondente ao ID selecionado para validação
+            const filialSelecionada = listaFiliais.find(f => f.id == filialId);
+            const nomeFilialFinal = filialSelecionada ? filialSelecionada.nome : "Base Geral";
+
+            // Monta os dados estruturados de sessão
             const sessaoData = {
                 id: dbUser.id,
                 username: dbUser.username,
                 role: dbUser.role || 'Operacional', 
-                filial_id: dbUser.filial_id,
-                filiais: dbUser.filiais,
+                filial_id: filialId,
+                filiais: { nome: nomeFilialFinal }, // Alimenta dinamicamente o header do app
                 primeiro_acesso: dbUser.primeiro_acesso
             };
 
             if (sessaoData.primeiro_acesso) {
-                // Guarda os dados temporariamente para usar na troca de senha
                 usuarioTemporario = sessaoData;
-                // Alterna a interface
                 document.getElementById('section-login').style.display = 'none';
                 document.getElementById('section-primeiro-acesso').style.display = 'block';
             } else {
-                // Salva no navegador e redireciona para o sistema
                 localStorage.setItem('ccol_user_session', JSON.stringify(sessaoData));
                 window.location.href = 'index.html';
             }
@@ -68,7 +124,7 @@ window.realizarLogin = async function(event) {
             btn.disabled = false;
         }
     } catch(e) {
-        console.error("Erro no login:", e);
+        console.error("Erro no fluxo de login:", e);
         alert('⚠️ Erro ao conectar com o banco de dados.');
         btn.innerHTML = prevText;
         btn.disabled = false;
@@ -90,7 +146,6 @@ window.salvarNovaSenha = async function() {
         const hashedNewPass = await hashPassword(p1);
         await db.updateUsuarioSenha(usuarioTemporario.id, hashedNewPass);
         
-        // Atualiza a flag de acesso e salva a sessão
         usuarioTemporario.primeiro_acesso = false;
         localStorage.setItem('ccol_user_session', JSON.stringify(usuarioTemporario));
         
