@@ -15,7 +15,6 @@ for (let i = 0; i < 24; i++) {
 }
 
 function getDatasSemana(dataInicialStr = null) {
-    // Se não passar data, tenta pegar do input, senão usa a data atual
     let dataBase = new Date();
     
     if (dataInicialStr) {
@@ -30,7 +29,6 @@ function getDatasSemana(dataInicialStr = null) {
     const datas = [];
     const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     
-    // Mostra 7 dias a partir da data SELECIONADA
     for (let i = 0; i < 7; i++) {
         const data = new Date(dataBase);
         data.setDate(dataBase.getDate() + i);
@@ -52,7 +50,7 @@ function getDatasSemana(dataInicialStr = null) {
 
 let currentDatas = getDatasSemana();
 
-// SISTEMA DE BACKUP LOCAL (Evita perda de dados se o BD falhar)
+// SISTEMA DE BACKUP LOCAL
 function salvarBackupLocal() {
     localStorage.setItem('ccol_motoristas', JSON.stringify(motoristas));
     localStorage.setItem('ccol_conjuntos', JSON.stringify(conjuntos));
@@ -61,23 +59,25 @@ function salvarBackupLocal() {
 
 async function carregarDadosIniciais() {
     try {
-        const dbConjuntos = await db.getConjuntos();
-        const dbMotoristas = await db.getMotoristas();
-        const dbEscalas = await db.getEscalas();
-
-        // Alteração: Removido o bloco que puxava dados fantasmas do localStorage.
-        // Agora, o sistema sempre confia 100% no Supabase. Se o Supabase estiver vazio, a tela ficará vazia.
+        // LÓGICA DE ALTA PERFORMANCE: Busca as 3 tabelas simultaneamente no Banco!
+        const [dbConjuntos, dbMotoristas, dbEscalas] = await Promise.all([
+            db.getConjuntos(),
+            db.getMotoristas(),
+            db.getEscalas()
+        ]);
         
-        conjuntos = dbConjuntos;
-        motoristas = dbMotoristas;
+        conjuntos = dbConjuntos || [];
+        motoristas = dbMotoristas || [];
         escalas = {};
 
         motoristas.forEach(m => { escalas[m.id] = {}; });
 
-        dbEscalas.forEach(e => {
-            if (!escalas[e.motorista_id]) escalas[e.motorista_id] = {};
-            escalas[e.motorista_id][e.data] = { turno: e.turno, caminhao: e.caminhao, status: e.status };
-        });
+        if (dbEscalas) {
+            dbEscalas.forEach(e => {
+                if (!escalas[e.motorista_id]) escalas[e.motorista_id] = {};
+                escalas[e.motorista_id][e.data] = { turno: e.turno, caminhao: e.caminhao, status: e.status };
+            });
+        }
 
         // Garante que todos os dias existam na escala
         const datas = getDatasSemana();
@@ -108,7 +108,6 @@ function atualizarStats() {
     if (statMotoristas) statMotoristas.innerText = motoristas.length;
 
     if (statEscalasHoje) {
-        // CORREÇÃO DO FUSO: Forçando a data local exata
         const agora = new Date();
         const ano = agora.getFullYear();
         const mes = String(agora.getMonth() + 1).padStart(2, '0');

@@ -2,14 +2,13 @@
 
 window.currentUser = null;
 let listaUsuarios = [];
-window.permissoesGlobais = null; // Variável global para segurar as permissões puxadas do banco
+window.permissoesGlobais = null; 
 
 window.fazerLogout = function() {
     if(confirm('Deseja realmente sair do sistema?')) {
-        // APAGA A SESSÃO QUANDO CLICA EM SAIR
         localStorage.removeItem('ccol_user_session');
         window.currentUser = null;
-        window.location.href = 'login.html'; // Redireciona para a nova tela de login
+        window.location.href = 'login.html'; 
     }
 }
 
@@ -25,25 +24,27 @@ async function iniciarSistemaAutorizado() {
     const permissoesDoBanco = await db.getPermissoesDB();
     window.permissoesGlobais = { ...permissoesPadrao, ...permissoesDoBanco };
 
-    if (typeof initDashboard === 'function') initDashboard();
-    if (typeof window.iniciarSistema === 'function') window.iniciarSistema();
+    // Aguarda obrigatoriamente a inicialização do dashboard (agora com tela de carregamento)
+    if (typeof initDashboard === 'function') {
+        await initDashboard(); 
+    }
+    if (typeof window.iniciarSistema === 'function') {
+        window.iniciarSistema();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // VERIFICA SE EXISTE UMA SESSÃO SALVA AO ABRIR O SITE
     const sessaoSalva = localStorage.getItem('ccol_user_session');
     if (sessaoSalva) {
         window.currentUser = JSON.parse(sessaoSalva);
-        iniciarSistemaAutorizado(); // Entra no sistema
+        iniciarSistemaAutorizado(); 
     } else {
-        // Se não existir sessão, manda para a tela de login correta
         window.location.href = 'login.html';
     }
 });
 
 // ---------------- GESTÃO DE USUÁRIOS E PERMISSÕES ----------------
 
-// Permissões padrão caso o banco esteja vazio
 const permissoesPadrao = {
     "Admin": ["escala", "alocacao", "motoristas", "caminhoes", "os", "troca", "jornada", "treinamento", "indicadores", "indicadores_serrana", "servicos", "cadastro_frota", "almoxarifado"],
     "Controlador de Trefego": ["escala", "alocacao", "troca", "jornada"],
@@ -54,7 +55,6 @@ const permissoesPadrao = {
 };
 
 window.getPermissoes = function() {
-    // Agora lê da variável global puxada do banco
     return window.permissoesGlobais || permissoesPadrao;
 };
 
@@ -75,10 +75,8 @@ window.salvarPermissoesPerfil = async function() {
     const checkboxesMarcados = document.querySelectorAll('.chk-permissao:checked');
     const novasPermissoes = Array.from(checkboxesMarcados).map(chk => chk.value);
     
-    // Salva no Banco de Dados (Supabase)
     await db.updatePermissoesDB(perfil, novasPermissoes);
     
-    // Atualiza a memória local para não precisar deslogar quem está salvando
     if(!window.permissoesGlobais) window.permissoesGlobais = { ...permissoesPadrao };
     window.permissoesGlobais[perfil] = novasPermissoes;
     
@@ -87,7 +85,6 @@ window.salvarPermissoesPerfil = async function() {
     if (typeof window.renderizarMenu === 'function') window.renderizarMenu();
 };
 
-// --- CONTROLE DE SUB-ABAS DAS CONFIGURAÇÕES ---
 window.alternarAbaConfig = function(aba) {
     const tabUsuarios = document.getElementById('config-tab-usuarios');
     const tabLogs = document.getElementById('config-tab-logs');
