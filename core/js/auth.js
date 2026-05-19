@@ -15,7 +15,7 @@ window.fazerLogout = function() {
 // NOVO: Função para o SuperAdmin navegar entre filiais em tempo real
 window.trocarFilialSuperAdmin = async function(novoFilialIdRaw) {
     const filial_id = novoFilialIdRaw === 'CENTRAL' ? null : parseInt(novoFilialIdRaw);
-    let nomeFilial = "Administração Central";
+    let nomeFilial = "ADMINISTRADOR";
 
     if (filial_id !== null) {
         const filiais = await db.getFiliais();
@@ -44,9 +44,9 @@ async function iniciarSistemaAutorizado() {
     // ============= MAGIA DO SUPER ADMIN (CONTEXT SWITCHER) =============
     if (window.currentUser.role === 'SuperAdmin') {
         db.getFiliais().then(filiais => {
-            let options = `<option value="CENTRAL" ${window.currentUser.filial_id === null ? 'selected' : ''}>👑 Central Global (Ver Tudo)</option>`;
+            let options = `<option value="CENTRAL" ${window.currentUser.filial_id === null ? 'selected' : ''}>ADMINISTRADOR</option>`;
             filiais.forEach(f => {
-                options += `<option value="${f.id}" ${window.currentUser.filial_id == f.id ? 'selected' : ''}>📍 Navegar p/ ${f.nome}</option>`;
+                options += `<option value="${f.id}" ${window.currentUser.filial_id == f.id ? 'selected' : ''}>Navegar p/ ${f.nome}</option>`;
             });
 
             roleSpan.innerHTML = `

@@ -162,7 +162,7 @@ function preencherSelectsFiliais() {
     let optionsHTML = cacheFiliaisGlobais.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
     
     selectFiltro.innerHTML = '<option value="TODAS">Filtro: Todas as Filiais</option>' + optionsHTML;
-    selectNovo.innerHTML = '<option value="" disabled selected>Selecione a Filial de Destino...</option>' + optionsHTML + '<option value="NULL_GLOBAL">👑 Central Global (Sem Filial Fixa)</option>';
+    selectNovo.innerHTML = '<option value="" disabled selected>Selecione a Filial de Destino...</option>' + optionsHTML + '<option value="NULL_GLOBAL">ADMINISTRADOR</option>';
 }
 
 window.renderizarTabelaUsuariosGlobais = function() {
@@ -185,7 +185,7 @@ window.renderizarTabelaUsuariosGlobais = function() {
         const textBadgeSec = isPendente ? 'Troca de Senha Pendente' : 'Conta Segura';
         const isGlobal = (u.filial_id === null);
         const filialVisual = isGlobal 
-            ? '<span style="color:#a855f7; font-weight: 600;"><i class="fas fa-globe"></i> Central Global</span>' 
+            ? '<span style="color:#a855f7; font-weight: 600;">ADMINISTRADOR</span>' 
             : `<span style="color:#cbd5e1;"><i class="fas fa-building" style="color:#64748b; margin-right:5px;"></i> ${u.filiais ? u.filiais.nome : 'Erro'}</span>`;
         const letra = u.username.charAt(0).toUpperCase();
 
