@@ -34,6 +34,21 @@ function injetarFilial(obj) {
 // ===============================================================
 
 const db = {
+    // --- FILIAIS (Usado na tela de login) ---
+    async getFiliais() {
+        // Busca todas as filiais que estão ativas, ordenadas por nome
+        const { data, error } = await supabaseClient.from('filiais')
+            .select('*')
+            .eq('status', 'Ativa')
+            .order('nome', { ascending: true });
+            
+        if (error) {
+            console.error("Erro ao buscar filiais:", error);
+            return [];
+        }
+        return data || [];
+    },
+
     // --- LOGIN E USUÁRIOS ---
     async getUsuarioByUsername(username) {
         // No login não aplicamos filtro de filial, pois não sabemos de qual filial ele é ainda

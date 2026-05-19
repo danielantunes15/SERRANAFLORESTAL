@@ -28,33 +28,33 @@ async function carregarFiliaisDoBanco() {
     if (!select) return;
 
     try {
-        // 1. Tenta usar a estrutura existente no seu arquivo database.js
+        // 1. Usa a função nativa que criamos no database.js
         if (typeof db.getFiliais === 'function') {
             listaFiliais = await db.getFiliais();
         } 
-        // 2. Fallback estratégico: Caso a função não esteja mapeada no db, faz a consulta direta no client do Supabase
-        else if (db.client && typeof db.client.from === 'function') {
-            const { data, error } = await db.client.from('filiais').select('*').order('nome', { ascending: true });
+        // 2. Fallback de segurança usando o Client instanciado
+        else if (window.supabaseClient) { 
+            const { data, error } = await window.supabaseClient.from('filiais').select('*').eq('status', 'Ativa').order('nome', { ascending: true });
             if (error) throw error;
             listaFiliais = data || [];
         } 
-        else if (window.supabase) {
-            const { data, error } = await window.supabase.from('filiais').select('*').order('nome', { ascending: true });
-            if (error) throw error;
-            listaFiliais = data || [];
-        } 
-        // 3. Fallback de contingência visual para evitar tela travada
+        // 3. Fallback visual para evitar tela travada
         else {
             console.warn("Instância do banco de dados não encontrada. Usando dados locais.");
             listaFiliais = [
                 { id: 1, nome: "Matriz - Nanuque (MG)" },
-                { id: 2, nome: "Base - Itabatã (BA)" },
-                { id: 3, nome: "Base - Teixeira de Freitas (BA)" }
+                { id: 2, nome: "Base - Itabatã (BA)" }
             ];
         }
 
         // Renderiza as opções dentro do Select
         select.innerHTML = '<option value="" disabled selected>Selecione a Base/Filial...</option>';
+        
+        if(listaFiliais.length === 0) {
+            select.innerHTML = '<option value="" disabled selected>Nenhuma filial ativa cadastrada</option>';
+            return;
+        }
+        
         listaFiliais.forEach(filial => {
             const option = document.createElement('option');
             option.value = filial.id; // Define o ID como valor identificador
