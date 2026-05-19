@@ -85,9 +85,14 @@ function renderizarTabelaFiliaisAdmin() {
                 </span>
             </td>
             <td style="text-align: right;">
-                <button onclick="mudarStatusFilial(${f.id}, '${isAtiva ? 'Inativa' : 'Ativa'})" class="saas-btn-action" style="border-color: ${isAtiva ? '#ef4444' : '#10b981'}; color: ${isAtiva ? '#ef4444' : '#10b981'};">
-                    <i class="fas fa-power-off"></i> ${isAtiva ? 'Suspender' : 'Reativar'}
-                </button>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button onclick="abrirModalEditarFilial(${f.id}, '${f.nome}', '${f.cnpj || ''}', '${f.cidade || ''}')" class="saas-btn-action" style="border-color: #3b82f6; color: #3b82f6;" title="Editar Dados">
+                        <i class="fas fa-edit"></i> Editar
+                    </button>
+                    <button onclick="mudarStatusFilial(${f.id}, '${isAtiva ? 'Inativa' : 'Ativa'}')" class="saas-btn-action" style="border-color: ${isAtiva ? '#ef4444' : '#10b981'}; color: ${isAtiva ? '#ef4444' : '#10b981'};" title="Gerenciar Licença">
+                        <i class="fas fa-power-off"></i> ${isAtiva ? 'Suspender' : 'Reativar'}
+                    </button>
+                </div>
             </td>
         </tr>
     `}).join('');
@@ -100,33 +105,51 @@ window.fecharModalNovaFilial = function() {
     document.getElementById('novaFilialCnpj').value = '';
     document.getElementById('novaFilialCidade').value = '';
 };
-
 window.salvarNovaFilial = async function() {
     const nome = document.getElementById('novaFilialNome').value.trim();
     const cnpj = document.getElementById('novaFilialCnpj').value.trim();
     const cidade = document.getElementById('novaFilialCidade').value.trim();
     const status = document.getElementById('novaFilialStatus').value;
-
     if (!nome) { alert('O nome da filial é obrigatório.'); return; }
-
     try {
         await db.addFilial({ nome, cnpj, cidade, status });
         alert('✅ Nova filial implantada com sucesso no sistema!');
-        fecharModalNovaFilial();
-        carregarDadosCentrais(); 
-    } catch(e) {
-        alert('⚠️ Erro ao salvar a filial no banco de dados.');
-    }
+        fecharModalNovaFilial(); carregarDadosCentrais(); 
+    } catch(e) { alert('⚠️ Erro ao salvar a filial no banco de dados.'); }
+};
+
+// --- LOGICA DE EDIÇÃO ---
+window.abrirModalEditarFilial = function(id, nome, cnpj, cidade) {
+    document.getElementById('editFilialId').value = id;
+    document.getElementById('editFilialNome').value = nome !== 'null' ? nome : '';
+    document.getElementById('editFilialCnpj').value = cnpj !== 'null' ? cnpj : '';
+    document.getElementById('editFilialCidade').value = cidade !== 'null' ? cidade : '';
+    document.getElementById('modalEditarFilial').style.display = 'flex';
+};
+window.fecharModalEditarFilial = function() {
+    document.getElementById('modalEditarFilial').style.display = 'none';
+};
+window.salvarEdicaoFilial = async function() {
+    const id = document.getElementById('editFilialId').value;
+    const nome = document.getElementById('editFilialNome').value.trim();
+    const cnpj = document.getElementById('editFilialCnpj').value.trim();
+    const cidade = document.getElementById('editFilialCidade').value.trim();
+
+    if (!nome) { alert('O nome da filial é obrigatório.'); return; }
+    
+    try {
+        await db.updateFilialDados(id, { nome, cnpj, cidade });
+        alert('✅ Dados da filial atualizados com sucesso!');
+        fecharModalEditarFilial();
+        carregarDadosCentrais();
+    } catch(e) { alert('Erro ao atualizar a filial no banco de dados.'); }
 };
 
 window.mudarStatusFilial = async function(id, novoStatus) {
     if(confirm(`⚠️ Atenção: Deseja alterar o licenciamento desta filial para ${novoStatus.toUpperCase()}?\n\nSe suspensa, nenhum usuário da filial conseguirá logar no sistema.`)) {
         try {
-            await db.updateFilialStatus(id, novoStatus);
-            carregarDadosCentrais();
-        } catch(e) {
-            alert('Erro ao alterar o status da operação.');
-        }
+            await db.updateFilialStatus(id, novoStatus); carregarDadosCentrais();
+        } catch(e) { alert('Erro ao alterar o status da operação.'); }
     }
 };
 
@@ -134,7 +157,6 @@ window.mudarStatusFilial = async function(id, novoStatus) {
 function preencherSelectsFiliais() {
     const selectFiltro = document.getElementById('filtroFilialUsuarios');
     const selectNovo = document.getElementById('novoUsuarioGlobalFilial');
-    
     if(!selectFiltro || !selectNovo) return;
 
     let optionsHTML = cacheFiliaisGlobais.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
@@ -146,33 +168,25 @@ function preencherSelectsFiliais() {
 window.renderizarTabelaUsuariosGlobais = function() {
     const tbody = document.getElementById('tabelaUsuariosGlobais');
     const filtro = document.getElementById('filtroFilialUsuarios').value;
-    
     if (!tbody) return;
 
     let usuariosFiltrados = cacheUsuariosGlobais;
-    if (filtro !== 'TODAS') {
-        usuariosFiltrados = cacheUsuariosGlobais.filter(u => u.filial_id == filtro);
-    }
+    if (filtro !== 'TODAS') { usuariosFiltrados = cacheUsuariosGlobais.filter(u => u.filial_id == filtro); }
 
     if (usuariosFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 30px;">Nenhum usuário encontrado para este filtro.</td></tr>';
-        return;
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 30px;">Nenhum usuário encontrado para este filtro.</td></tr>'; return;
     }
 
     tbody.innerHTML = usuariosFiltrados.map(u => {
         const isCurrent = u.id === window.currentUser.id;
-        
         const isPendente = u.primeiro_acesso;
         const colorBadgeSec = isPendente ? '#f59e0b' : '#10b981';
         const bgBadgeSec = isPendente ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)';
         const textBadgeSec = isPendente ? 'Troca de Senha Pendente' : 'Conta Segura';
-            
         const isGlobal = (u.filial_id === null);
         const filialVisual = isGlobal 
             ? '<span style="color:#a855f7; font-weight: 600;"><i class="fas fa-globe"></i> Central Global</span>' 
             : `<span style="color:#cbd5e1;"><i class="fas fa-building" style="color:#64748b; margin-right:5px;"></i> ${u.filiais ? u.filiais.nome : 'Erro'}</span>`;
-
-        // Avatar Letra Inicial
         const letra = u.username.charAt(0).toUpperCase();
 
         return `
@@ -215,10 +229,7 @@ window.renderizarTabelaUsuariosGlobais = function() {
 };
 
 window.abrirModalNovoUsuarioGlobal = function() { document.getElementById('modalNovoUsuarioGlobal').style.display = 'flex'; };
-window.fecharModalNovoUsuarioGlobal = function() {
-    document.getElementById('modalNovoUsuarioGlobal').style.display = 'none';
-    document.getElementById('novoUsuarioGlobalNome').value = '';
-};
+window.fecharModalNovoUsuarioGlobal = function() { document.getElementById('modalNovoUsuarioGlobal').style.display = 'none'; document.getElementById('novoUsuarioGlobalNome').value = ''; };
 
 window.salvarNovoUsuarioGlobal = async function() {
     const nome = document.getElementById('novoUsuarioGlobalNome').value.trim().toUpperCase();
@@ -235,31 +246,22 @@ window.salvarNovoUsuarioGlobal = async function() {
     try {
         await db.addUsuario({ username: nome, senha_hash: hashPadrao, role: role, primeiro_acesso: true, filial_id: filial_id });
         alert(`✅ Usuário ${nome} criado com sucesso!\nSenha provisória: 12345`);
-        fecharModalNovoUsuarioGlobal();
-        carregarDadosCentrais(); 
-    } catch(e) {
-        console.error(e);
-        alert('Erro ao criar usuário.');
-    }
+        fecharModalNovoUsuarioGlobal(); carregarDadosCentrais(); 
+    } catch(e) { alert('Erro ao criar usuário.'); }
 };
 
 window.resetarSenhaGlobal = async function(id, nome) {
     if(confirm(`⚠️ Resetar a senha do usuário ${nome} para "12345"?`)) {
-        const hashPadrao = "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5";
         try {
-            await db.updateUsuarioSenhaEReset(id, hashPadrao);
-            alert(`Senha resetada com sucesso.`);
-            carregarDadosCentrais();
+            await db.updateUsuarioSenhaEReset(id, "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5");
+            alert(`Senha resetada com sucesso.`); carregarDadosCentrais();
         } catch (e) { alert("Erro ao resetar senha."); }
     }
 }
-
 window.excluirUsuarioGlobal = async function(id, nome) {
-    if(confirm(`🚨 PERIGO: Deseja realmente EXCLUIR e revogar o acesso do usuário ${nome} em todo o sistema?`)) {
+    if(confirm(`🚨 PERIGO: Deseja realmente EXCLUIR o acesso do usuário ${nome}?`)) {
         try {
-            await db.deleteUsuario(id);
-            alert('Acesso revogado.');
-            carregarDadosCentrais();
+            await db.deleteUsuario(id); alert('Acesso revogado.'); carregarDadosCentrais();
         } catch (e) { alert("Erro ao excluir usuário."); }
     }
 }

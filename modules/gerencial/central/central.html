@@ -70,7 +70,6 @@
         color: #f8fafc;
     }
 
-    /* Nova Tabela Padrão SaaS */
     .saas-table-wrapper {
         background: #1e293b;
         border-radius: 12px;
@@ -100,14 +99,10 @@
         font-size: 0.9rem;
         vertical-align: middle;
     }
-    .saas-table tr:last-child td {
-        border-bottom: none;
-    }
     .saas-table tr:hover td {
         background: rgba(255,255,255,0.02);
     }
 
-    /* Ações e Badges */
     .saas-badge {
         padding: 6px 12px;
         border-radius: 20px;
@@ -266,6 +261,34 @@
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="fecharModalNovaFilial()">Cancelar</button>
             <button class="btn-primary-blue" onclick="salvarNovaFilial()"><i class="fas fa-save"></i> Gravar Filial</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalEditarFilial" class="modal-overlay" style="display:none; z-index: 9999;">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3>✏️ Editar Dados da Filial</h3>
+            <button class="close-modal" onclick="fecharModalEditarFilial()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="editFilialId">
+            <div class="form-group-dark">
+                <label>Nome da Base</label>
+                <input type="text" id="editFilialNome" class="dark-select">
+            </div>
+            <div class="form-group-dark">
+                <label>CNPJ da Unidade</label>
+                <input type="text" id="editFilialCnpj" class="dark-select">
+            </div>
+            <div class="form-group-dark">
+                <label>Cidade / Estado</label>
+                <input type="text" id="editFilialCidade" class="dark-select">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalEditarFilial()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="salvarEdicaoFilial()"><i class="fas fa-save"></i> Salvar Alterações</button>
         </div>
     </div>
 </div>

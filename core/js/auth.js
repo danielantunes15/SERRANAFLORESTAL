@@ -12,34 +12,69 @@ window.fazerLogout = function() {
     }
 }
 
+// NOVO: Função para o SuperAdmin navegar entre filiais em tempo real
+window.trocarFilialSuperAdmin = async function(novoFilialIdRaw) {
+    const filial_id = novoFilialIdRaw === 'CENTRAL' ? null : parseInt(novoFilialIdRaw);
+    let nomeFilial = "Administração Central";
+
+    if (filial_id !== null) {
+        const filiais = await db.getFiliais();
+        const f = filiais.find(x => x.id == filial_id);
+        if (f) nomeFilial = f.nome;
+    }
+
+    // Atualiza a sessão silenciosamente
+    window.currentUser.filial_id = filial_id;
+    window.currentUser.filiais = { nome: nomeFilial };
+    localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
+
+    // Recarrega a página para puxar dados EXCLUSIVOS da filial selecionada
+    window.location.reload();
+}
+
 async function iniciarSistemaAutorizado() {
     document.getElementById('appLayout').style.display = 'flex';
     
     const filialNome = window.currentUser.filiais ? window.currentUser.filiais.nome : 'Matriz';
 
-    document.getElementById('loggedUserName').innerHTML = `<i class="fas fa-user-circle"></i> ${window.currentUser.username}`;
-    document.getElementById('loggedUserRole').innerHTML = `<i class="fas fa-building"></i> ${filialNome} | Nível: ${window.currentUser.role}`;
+    document.getElementById('loggedUserName').innerHTML = `<i class="fas fa-user-circle"></i> ${window.currentUser.username} <span style="font-size:0.7rem; color:#94a3b8;">(${window.currentUser.role})</span>`;
+    
+    const roleSpan = document.getElementById('loggedUserRole');
 
-    // ============= LIMPEZA DO HEADER PARA ADMINISTRADOR =============
+    // ============= MAGIA DO SUPER ADMIN (CONTEXT SWITCHER) =============
+    if (window.currentUser.role === 'SuperAdmin') {
+        db.getFiliais().then(filiais => {
+            let options = `<option value="CENTRAL" ${window.currentUser.filial_id === null ? 'selected' : ''}>👑 Central Global (Ver Tudo)</option>`;
+            filiais.forEach(f => {
+                options += `<option value="${f.id}" ${window.currentUser.filial_id == f.id ? 'selected' : ''}>📍 Navegar p/ ${f.nome}</option>`;
+            });
+
+            roleSpan.innerHTML = `
+                <select class="dark-select" style="font-size: 0.75rem; padding: 4px 6px; height: auto; background: #0f172a; border: 1px solid rgba(59, 130, 246, 0.5); border-radius: 4px; color: #38bdf8; font-weight: bold; margin-top: 4px; cursor: pointer; outline: none; width: 100%; max-width: 250px;" onchange="trocarFilialSuperAdmin(this.value)">
+                    ${options}
+                </select>
+            `;
+        });
+    } else {
+        // Usuário normal vê apenas seu vínculo fixo
+        roleSpan.innerHTML = `<i class="fas fa-building"></i> ${filialNome}`;
+    }
+    // ================================================================
+
     const statsHeader = document.querySelector('.quick-stats-header');
     if (statsHeader) {
         if (window.currentUser.filial_id === null || window.currentUser.filial_id === 'CENTRAL') {
-            statsHeader.style.display = 'none'; // Esconde na Central para manter o layout corporativo
+            statsHeader.style.display = 'none'; 
         } else {
-            statsHeader.style.display = 'flex'; // Garante exibição nas filiais
+            statsHeader.style.display = 'flex'; 
         }
     }
-    // ================================================================
 
     const permissoesDoBanco = await db.getPermissoesDB();
     window.permissoesGlobais = { ...permissoesPadrao, ...permissoesDoBanco };
 
-    if (typeof initDashboard === 'function') {
-        await initDashboard(); 
-    }
-    if (typeof window.iniciarSistema === 'function') {
-        window.iniciarSistema();
-    }
+    if (typeof initDashboard === 'function') { await initDashboard(); }
+    if (typeof window.iniciarSistema === 'function') { window.iniciarSistema(); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -52,8 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ---------------- GESTÃO DE USUÁRIOS E PERMISSÕES ----------------
-
 const permissoesPadrao = {
     "Admin": ["escala", "alocacao", "motoristas", "caminhoes", "os", "troca", "jornada", "treinamento", "indicadores", "indicadores_serrana", "servicos", "cadastro_frota", "almoxarifado"],
     "Controlador de Trefego": ["escala", "alocacao", "troca", "jornada"],
@@ -63,20 +96,13 @@ const permissoesPadrao = {
     "Mecanico": ["servicos"]
 };
 
-window.getPermissoes = function() {
-    return window.permissoesGlobais || permissoesPadrao;
-};
+window.getPermissoes = function() { return window.permissoesGlobais || permissoesPadrao; };
 
 window.carregarCheckboxesPermissoes = function() {
     const perfil = document.getElementById('selectPerfilPermissao')?.value;
     if(!perfil) return;
-    
-    const permissoesAtuais = window.getPermissoes();
-    const permitidos = permissoesAtuais[perfil] || [];
-
-    document.querySelectorAll('.chk-permissao').forEach(chk => {
-        chk.checked = permitidos.includes(chk.value);
-    });
+    const permitidos = (window.getPermissoes())[perfil] || [];
+    document.querySelectorAll('.chk-permissao').forEach(chk => { chk.checked = permitidos.includes(chk.value); });
 };
 
 window.salvarPermissoesPerfil = async function() {
@@ -89,8 +115,7 @@ window.salvarPermissoesPerfil = async function() {
     if(!window.permissoesGlobais) window.permissoesGlobais = { ...permissoesPadrao };
     window.permissoesGlobais[perfil] = novasPermissoes;
     
-    alert(`✅ Permissões para o perfil "${perfil}" salvas com sucesso no Banco de Dados!\nTodos os usuários deste perfil terão os acessos atualizados.`);
-    
+    alert(`✅ Permissões para o perfil "${perfil}" salvas com sucesso!`);
     if (typeof window.renderizarMenu === 'function') window.renderizarMenu();
 };
 
@@ -103,15 +128,11 @@ window.alternarAbaConfig = function(aba) {
     if(!tabUsuarios || !tabLogs) return;
 
     if (aba === 'usuarios') {
-        tabUsuarios.style.display = 'block';
-        tabLogs.style.display = 'none';
-        btnUsuarios.className = 'btn-primary-blue';
-        btnLogs.className = 'btn-secondary-dark';
+        tabUsuarios.style.display = 'block'; tabLogs.style.display = 'none';
+        btnUsuarios.className = 'btn-primary-blue'; btnLogs.className = 'btn-secondary-dark';
     } else {
-        tabUsuarios.style.display = 'none';
-        tabLogs.style.display = 'block';
-        btnUsuarios.className = 'btn-secondary-dark';
-        btnLogs.className = 'btn-primary-blue';
+        tabUsuarios.style.display = 'none'; tabLogs.style.display = 'block';
+        btnUsuarios.className = 'btn-secondary-dark'; btnLogs.className = 'btn-primary-blue';
     }
 };
 
@@ -123,19 +144,18 @@ window.renderizarUsuarios = async function() {
         listaUsuarios = await db.getUsuarios();
         
         if (listaUsuarios.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhum usuário encontrado.</td></tr>';
-            return;
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhum usuário encontrado.</td></tr>'; return;
         }
 
         tbody.innerHTML = listaUsuarios.map(u => {
             const isCurrent = u.id === window.currentUser.id;
             const statusBadge = u.primeiro_acesso 
-                ? `<span style="background: rgba(251, 146, 60, 0.1); color: var(--ccol-rust-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-rust-bright);">Pendente (1º Acesso)</span>`
+                ? `<span style="background: rgba(251, 146, 60, 0.1); color: var(--ccol-rust-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-rust-bright);">Pendente</span>`
                 : `<span style="background: rgba(61, 220, 132, 0.1); color: var(--ccol-green-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-green-bright);">Ativo</span>`;
                 
             return `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <td style="font-weight: bold; color: var(--ccol-blue-bright); text-align: left; padding: 12px;">${u.username} ${isCurrent ? '(Você)' : ''}</td>
+                <td style="font-weight: bold; color: var(--ccol-blue-bright); padding: 12px;">${u.username} ${isCurrent ? '(Você)' : ''}</td>
                 <td><span class="badge-role" style="font-size: 0.75rem;">${u.role}</span></td>
                 <td>${statusBadge}</td>
                 <td>
@@ -150,64 +170,39 @@ window.renderizarUsuarios = async function() {
 }
 
 window.adicionarUsuario = async function() {
-    const nomeInput = document.getElementById('novoUsername');
-    const roleInput = document.getElementById('novoUserRole');
-    
-    if(!nomeInput || !roleInput) return;
-
-    const nome = nomeInput.value.trim().toUpperCase();
-    const role = roleInput.value;
-
-    if (!nome) { alert('Digite o nome de usuário'); return; }
+    const nome = document.getElementById('novoUsername').value.trim().toUpperCase();
+    const role = document.getElementById('novoUserRole').value;
+    if (!nome) return;
     if (listaUsuarios.some(u => u.username === nome)) { alert('⚠️ Este usuário já existe!'); return; }
 
-    const hashPadrao = "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5";
-
     try {
-        await db.addUsuario({ username: nome, senha_hash: hashPadrao, role: role, primeiro_acesso: true });
-        nomeInput.value = '';
+        await db.addUsuario({ username: nome, senha_hash: "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5", role: role, primeiro_acesso: true });
+        document.getElementById('novoUsername').value = '';
         alert(`✅ Usuário ${nome} criado com sucesso!\nSenha provisória: 12345`);
         window.renderizarUsuarios();
     } catch(e) { alert('Erro ao criar usuário.'); }
 }
 
 window.resetarSenhaUsuario = async function(id) {
-    const u = listaUsuarios.find(x => x.id === id);
-    if (!u) return;
-    if(confirm(`Resetar a senha de ${u.username} para "12345"?`)) {
-        const hashPadrao = "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5";
-        await db.updateUsuarioSenhaEReset(id, hashPadrao);
-        alert(`A senha de ${u.username} foi resetada para 12345.`);
-        window.renderizarUsuarios();
+    if(confirm(`Resetar a senha para "12345"?`)) {
+        await db.updateUsuarioSenhaEReset(id, "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5");
+        alert(`Senha resetada.`); window.renderizarUsuarios();
     }
 }
 
 window.excluirUsuario = async function(id) {
-    const u = listaUsuarios.find(x => x.id === id);
-    if (!u) return;
-    if(confirm(`🚨 ATENÇÃO: Deseja EXCLUIR o acesso do usuário ${u.username}?`)) {
+    if(confirm(`🚨 ATENÇÃO: Deseja EXCLUIR o acesso?`)) {
         await db.deleteUsuario(id);
-        alert('Usuário excluído.');
-        
-        if (typeof db.addLog === 'function') {
-            await db.addLog('Exclusão de Usuário', `Acesso revogado: ${u.username}`);
-            window.renderizarLogs();
-        }
-        window.renderizarUsuarios();
+        alert('Usuário excluído.'); window.renderizarUsuarios();
     }
 }
 
 window.renderizarLogs = async function() {
     const tbody = document.getElementById('listaLogs');
     if (!tbody) return;
-
     try {
         const logs = await db.getLogs();
-        if (logs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhum registro de log encontrado.</td></tr>';
-            return;
-        }
-
+        if (logs.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhum registro.</td></tr>'; return; }
         tbody.innerHTML = logs.map(l => `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                 <td style="color: var(--text-secondary); font-size: 0.8rem;">${new Date(l.data_hora).toLocaleString('pt-BR')}</td>
@@ -216,7 +211,5 @@ window.renderizarLogs = async function() {
                 <td style="text-align: left; font-size: 0.85rem;">${l.detalhes}</td>
             </tr>
         `).join('');
-    } catch(e) {
-        tbody.innerHTML = '<tr><td colspan="4" style="color: #ef4444;">Erro ao carregar logs.</td></tr>';
-    }
+    } catch(e) { tbody.innerHTML = '<tr><td colspan="4">Erro</td></tr>'; }
 }

@@ -8,19 +8,27 @@ window.supabaseClient = supabaseClient;
 // ================= LÓGICA SAAS (MULTI-FILIAL) =================
 function aplicarFiltroFilial(query) {
     if (!window.currentUser) return query; 
-    if (window.currentUser.role === 'SuperAdmin' || window.currentUser.role === 'Admin' && window.currentUser.filial_id === null) return query; 
     
+    // Se for SuperAdmin/Admin operando na CENTRAL (filial_id === null), ele tem visão panorâmica de tudo (Modo Deus)
+    if (window.currentUser.filial_id === null && (window.currentUser.role === 'SuperAdmin' || window.currentUser.role === 'Admin')) {
+        return query; 
+    }
+    
+    // Se o usuário não tiver filial vinculada por erro, bloqueia os dados vazados
     if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) {
         return query.is('filial_id', null); 
     }
     
+    // Se ele selecionou uma filial (mesmo sendo SuperAdmin) ou for usuário padrão, puxa só os dados daquela filial
     return query.eq('filial_id', window.currentUser.filial_id);
 }
 
 function injetarFilial(obj) {
-    if (!window.currentUser || (window.currentUser.role === 'Admin' && window.currentUser.filial_id === null)) return obj; 
-    if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) return obj; 
+    if (!window.currentUser) return obj; 
+    // Se o SuperAdmin está operando na Central, o registro fica como global (sem filial vinculada)
+    if (window.currentUser.filial_id === null) return obj; 
     
+    // Injeta silenciosamente a filial selecionada
     return { ...obj, filial_id: window.currentUser.filial_id };
 }
 // ===============================================================
@@ -33,7 +41,6 @@ const db = {
         return data || [];
     },
     async getTodasFiliaisAdmin() {
-        // Puxa ativas e inativas para o painel do Administrador Central
         const { data, error } = await supabaseClient.from('filiais').select('*').order('nome', { ascending: true });
         return data || [];
     },
@@ -43,6 +50,11 @@ const db = {
     },
     async updateFilialStatus(id, status) {
         const { error } = await supabaseClient.from('filiais').update({ status }).eq('id', id);
+        if (error) throw error;
+    },
+    // NOVO: Função para editar os dados da filial
+    async updateFilialDados(id, dados) {
+        const { error } = await supabaseClient.from('filiais').update(dados).eq('id', id);
         if (error) throw error;
     },
 
