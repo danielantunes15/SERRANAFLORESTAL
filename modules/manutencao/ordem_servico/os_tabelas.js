@@ -132,7 +132,13 @@ function renderizarTabelaHistoricoOS() {
     }
     
     if (tipo) {
-        filtradas = filtradas.filter(o => o.tipo && o.tipo === tipo);
+        if (tipo === '_SUZANO_') {
+            // Se for "Todos da Suzano", busca qualquer tipo que tenha "SUZANO" no nome
+            filtradas = filtradas.filter(o => o.tipo && o.tipo.toUpperCase().includes('SUZANO'));
+        } else {
+            // Comportamento normal
+            filtradas = filtradas.filter(o => o.tipo && o.tipo === tipo);
+        }
     }
 
     tbody.innerHTML = filtradas.map(os => {

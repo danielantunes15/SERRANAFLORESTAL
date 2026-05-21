@@ -720,7 +720,6 @@ function renderizarCardsTV() {
         const bgStatus = os.status === 'Em Manutenção' ? '#1e3a8a' : '#1e293b'; 
         const borderStatus = os.status === 'Em Manutenção' ? '#3b82f6' : '#475569'; 
         
-        // CORREÇÃO AQUI: Lendo a coluna correta (mecanico_responsavel)
         const nomeDoMecanico = os.mecanico_responsavel || os.mecanico || 'NÃO ATRIBUÍDO';
 
         return `
@@ -809,7 +808,11 @@ function exportarHistoricoOSExcel() {
     }
 
     if (tipo) {
-        filtradas = filtradas.filter(o => o.tipo && o.tipo === tipo);
+        if (tipo === '_SUZANO_') {
+            filtradas = filtradas.filter(o => o.tipo && o.tipo.toUpperCase().includes('SUZANO'));
+        } else {
+            filtradas = filtradas.filter(o => o.tipo && o.tipo === tipo);
+        }
     }
     
     if (filtradas.length === 0) {
@@ -922,7 +925,11 @@ async function exportarHistoricoOSPDF() {
     }
 
     if (tipoFiltro) {
-        filtradas = filtradas.filter(o => o.tipo && o.tipo === tipoFiltro);
+        if (tipoFiltro === '_SUZANO_') {
+            filtradas = filtradas.filter(o => o.tipo && o.tipo.toUpperCase().includes('SUZANO'));
+        } else {
+            filtradas = filtradas.filter(o => o.tipo && o.tipo === tipoFiltro);
+        }
     }
     
     if (filtradas.length === 0) {
