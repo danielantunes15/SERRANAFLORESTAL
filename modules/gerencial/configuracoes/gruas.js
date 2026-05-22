@@ -1,166 +1,180 @@
 // ==========================================
-// js/configuracoes/gruas.js - GESTÃO DE GRUAS (DINÂMICO)
+// js/configuracoes/gruas.js - GERENCIAMENTO DE GRUAS
 // ==========================================
 
-var frentesData = {}; // Alterado de let para var
-
-async function carregarFrentesGruas() {
-    frentesData = {};
-
-    try {
-        const { data, error } = await supabaseClient.from('config_gruas').select('*');
-        
-        // Verifica se o erro foi de tabela inexistente (404/400) para ignorar elegantemente
-        if (error) {
-            console.warn("Tabela 'config_gruas' não encontrada ou schema incorreto. Rode o SQL no Supabase!");
-            return;
+(function() {
+    // Função auxiliar para aplicar o filtro de filial nativo da sessão
+    function aplicarFiltroLocal(query) {
+        if (!window.currentUser) return query; 
+        if (window.currentUser.filial_id === null && (window.currentUser.role === 'SuperAdmin' || window.currentUser.role === 'Admin')) {
+            return query; 
         }
-
-        // Se o banco tiver dados, cria as chaves dinamicamente
-        if (data && data.length > 0) {
-            data.forEach(item => {
-                const nomeFrente = String(item.frente || 'DESCONHECIDA').trim().toUpperCase();
-                const colGrua = item.codigos || ''; 
-                
-                frentesData[nomeFrente] = {
-                    id: item.id,
-                    gruas: colGrua.split(',').map(g => g.trim().toUpperCase()).filter(g => g)
-                };
-            });
-        } 
-        // Só carrega os padrões fixos se a tabela do banco estiver 100% vazia
-        else {
-            const fallbackData = [
-                { frente: 'SERRANA', codigos: 'GSR0001, GSR0002, GSR0003, GSR0007, GSR0008, GRB0015, GRB0022' },
-                { frente: 'REFLORESTAR', codigos: 'GRB0017, GRB0020,GRB0029,GRB0013,GRB0014,GRB0028,GRB0026,GRB0016,GRB0012,GRB0023,GRB0018' },
-                { frente: 'JSL', codigos: 'GSL0012, GSL0016' }
-            ];
-
-            try {
-                const { data: newData, error: errInsert } = await supabaseClient.from('config_gruas').insert(fallbackData).select();
-                
-                if (errInsert) {
-                    console.warn("Aviso: Tabela config_gruas não aceitou a inserção inicial. Verifique as colunas (frente, codigos).");
-                } else if (newData) {
-                    newData.forEach(item => {
-                        const nomeFrente = String(item.frente || '').trim().toUpperCase();
-                        frentesData[nomeFrente] = {
-                            id: item.id,
-                            gruas: (item.codigos || '').split(',').map(g => g.trim().toUpperCase()).filter(g => g)
-                        };
-                    });
-                }
-            } catch (fallbackError) {
-                console.warn("Ocorreu um problema ao salvar as frentes de gruas padrão.");
-            }
+        if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) {
+            return query.is('filial_id', null); 
         }
-        
-        renderizarGruas();
-        
-    } catch (e) {
-        console.error("Erro ao carregar gruas do banco:", e);
+        return query.eq('filial_id', window.currentUser.filial_id);
     }
-}
 
-function renderizarGruas() {
-    // Cores das frentes conhecidas. Frentes novas assumem a cor DEFAULT.
-    const cores = {
-        'SERRANA': 'bg-emerald-900/40 text-emerald-300 border-emerald-700/50 hover:bg-emerald-800',
-        'REFLORESTAR': 'bg-amber-900/40 text-amber-300 border-amber-700/50 hover:bg-amber-800',
-        'JSL': 'bg-indigo-900/40 text-indigo-300 border-indigo-700/50 hover:bg-indigo-800',
-        'DEFAULT': 'bg-slate-800/40 text-slate-300 border-slate-600/50 hover:bg-slate-700'
+    // CARREGAR E EXIBIR AS GRUAS NA TELA
+    window.carregarGruas = async function() {
+        const listaSerrana = document.getElementById('lista_serrana');
+        const listaReflorestar = document.getElementById('lista_reflorestar');
+        const listaJsl = document.getElementById('lista_jsl');
+
+        if (listaSerrana) listaSerrana.innerHTML = '<span class="text-xs text-slate-500">Carregando...</span>';
+        if (listaReflorestar) listaReflorestar.innerHTML = '<span class="text-xs text-slate-500">Carregando...</span>';
+        if (listaJsl) listaJsl.innerHTML = '<span class="text-xs text-slate-500">Carregando...</span>';
+
+        try {
+            let query = supabaseClient.from('config_gruas').select('*');
+            query = aplicarFiltroLocal(query);
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            if (listaSerrana) listaSerrana.innerHTML = '';
+            if (listaReflorestar) listaReflorestar.innerHTML = '';
+            if (listaJsl) listaJsl.innerHTML = '';
+
+            if (data) {
+                data.forEach(item => {
+                    const frente = String(item.frente || '').toUpperCase();
+                    const codigosStr = item.codigos || '';
+                    const codigosArr = codigosStr.split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+
+                    let targetContainer = null;
+                    let badgeClass = '';
+
+                    if (frente === 'SERRANA') {
+                        targetContainer = listaSerrana;
+                        badgeClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5';
+                    } else if (frente === 'REFLORESTAR') {
+                        targetContainer = listaReflorestar;
+                        badgeClass = 'bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5';
+                    } else if (frente === 'JSL') {
+                        targetContainer = listaJsl;
+                        badgeClass = 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5';
+                    }
+
+                    if (targetContainer) {
+                        codigosArr.forEach(code => {
+                            const html = `
+                                <div class="${badgeClass}">
+                                    <span>${code}</span>
+                                    <button onclick="window.removerGrua('${item.frente}', '${code}')" class="hover:text-rose-400 transition-colors ml-1 focus:outline-none" title="Remover Grua">
+                                        <i class="fas fa-times text-[10px]"></i>
+                                    </button>
+                                </div>
+                            `;
+                            targetContainer.insertAdjacentHTML('beforeend', html);
+                        });
+                    }
+                });
+            }
+
+            // Fallback amigável caso não existam códigos salvos
+            if (listaSerrana && !listaSerrana.innerHTML) listaSerrana.innerHTML = '<span class="text-xs text-slate-500 italic">Nenhuma grua mapeada</span>';
+            if (listaReflorestar && !listaReflorestar.innerHTML) listaReflorestar.innerHTML = '<span class="text-xs text-slate-500 italic">Nenhuma grua mapeada</span>';
+            if (listaJsl && !listaJsl.innerHTML) listaJsl.innerHTML = '<span class="text-xs text-slate-500 italic">Nenhuma grua mapeada</span>';
+
+        } catch (err) {
+            console.error("Erro ao carregar gruas:", err);
+        }
     };
 
-    // Varre todas as frentes que vieram do banco de dados dinamicamente
-    Object.keys(frentesData).forEach(frente => {
-        
-        // Pega o nome da frente (ex: REFLORESTAR) e transforma em ID do HTML (ex: lista_reflorestar)
-        const idFormatado = frente.toLowerCase().replace(/\s+/g, '_');
-        const container = document.getElementById(`lista_${idFormatado}`);
-        
-        if (!container) return; // Se a div não existir no HTML, apenas ignora
-        
-        container.innerHTML = '';
-        
-        if (frentesData[frente].gruas.length > 0) {
-            frentesData[frente].gruas.forEach(grua => {
-                const cor = cores[frente] || cores['DEFAULT'];
-                container.insertAdjacentHTML('beforeend', `
-                    <div class="inline-flex items-center gap-1.5 border px-2 py-1 rounded-md text-[11px] font-mono transition-all shadow-sm ${cor}">
-                        <i class="fas fa-truck-loading text-[10px] opacity-70"></i> ${grua}
-                        <button onclick="removerGrua('${frente}', '${grua}')" class="ml-1 opacity-50 hover:opacity-100 hover:text-white focus:outline-none transition-opacity" title="Remover">
-                            <i class="fas fa-times-circle text-[12px]"></i>
-                        </button>
-                    </div>
-                `);
-            });
-        } else {
-            container.innerHTML = '<span class="text-[11px] text-slate-500 italic w-full text-center mt-4">Nenhuma grua vinculada.</span>';
-        }
-    });
-}
+    // ADICIONAR UMA NOVA GRUA MANTENDO O ISOLAMENTO DE FILIAL
+    window.adicionarGrua = async function(frente, inputId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        const codigo = input.value.trim().toUpperCase();
+        if (!codigo) return;
 
-window.adicionarGrua = async function(frente, inputId) {
-    const inputEl = document.getElementById(inputId);
-    if (!inputEl) return;
-    
-    const valor = inputEl.value.trim().toUpperCase();
-    if (!valor) return;
-    
-    // Se a frente ainda não existir no objeto (caso o HTML tente inserir uma nova), a cria.
-    if (!frentesData[frente]) {
-        frentesData[frente] = { id: null, gruas: [] };
-    }
-    
-    const novasGruas = valor.split(',').map(g => g.trim()).filter(g => g);
-    let gruasAtuais = [...frentesData[frente].gruas];
-    let adicionou = false;
-    
-    novasGruas.forEach(ng => {
-        if (!gruasAtuais.includes(ng)) {
-            gruasAtuais.push(ng);
-            adicionou = true;
-        }
-    });
-    
-    if (adicionou) {
-        inputEl.disabled = true;
-        await salvarNoBanco(frente, gruasAtuais.join(', '));
-        inputEl.value = '';
-        inputEl.disabled = false;
-        inputEl.focus();
-    } else {
-        inputEl.value = ''; // Apenas limpa se já existia
-    }
-}
+        try {
+            let query = supabaseClient.from('config_gruas').select('*').eq('frente', frente);
+            query = aplicarFiltroLocal(query);
 
-window.removerGrua = async function(frente, gruaParaRemover) {
-    if (!frentesData[frente]) return;
-    if (!confirm(`Deseja excluir a grua ${gruaParaRemover} da frente ${frente}?`)) return;
-    
-    let gruasAtuais = frentesData[frente].gruas.filter(g => g !== gruaParaRemover);
-    await salvarNoBanco(frente, gruasAtuais.join(', '));
-}
+            const { data, error } = await query;
+            if (error) throw error;
 
-async function salvarNoBanco(frente, stringGruas) {
-    const id = frentesData[frente].id;
-    try {
-        if (id) {
-            // Se já tem ID, faz UPDATE
-            await supabaseClient.from('config_gruas').update({ codigos: stringGruas }).eq('id', id);
-        } else {
-            // Se não tem ID, faz INSERT
-            const { data, error } = await supabaseClient.from('config_gruas').insert([{ frente: frente, codigos: stringGruas }]).select();
-            if(error) {
-                console.error("Erro ao inserir gruas:", error);
-                alert("Erro ao salvar! Verifique a tabela config_gruas no Supabase.");
-                return;
+            if (data && data.length > 0) {
+                // A frente já existe para esta filial, adiciona o novo código à lista separada por vírgula
+                const registro = data[0];
+                let listaCodigos = registro.codigos ? registro.codigos.split(',').map(c => c.trim().toUpperCase()).filter(Boolean) : [];
+                
+                if (listaCodigos.includes(codigo)) {
+                    alert("Esta grua já está cadastrada nesta frente!");
+                    return;
+                }
+                
+                listaCodigos.push(codigo);
+                const { error: updErr } = await supabaseClient
+                    .from('config_gruas')
+                    .update({ codigos: listaCodigos.join(',') })
+                    .eq('id', registro.id);
+                    
+                if (updErr) throw updErr;
+            } else {
+                // Registro inédito desta frente para a filial logada
+                const payload = {
+                    frente: frente,
+                    codigos: codigo,
+                    filial_id: window.currentUser ? window.currentUser.filial_id : null
+                };
+                const { error: insErr } = await supabaseClient.from('config_gruas').insert([payload]);
+                if (insErr) throw insErr;
             }
-            if (data && data.length > 0) frentesData[frente].id = data[0].id;
+
+            input.value = '';
+            window.carregarGruas();
+        } catch (err) {
+            console.error("Erro ao adicionar grua:", err);
+            alert("Erro ao salvar grua: " + err.message);
         }
-        await carregarFrentesGruas();
-    } catch(e) {
-        console.error("Erro no update:", e);
-        alert('Erro ao sincronizar com o banco de dados!');
+    };
+
+    // REMOVER UMA GRUA DA LISTA
+    window.removerGrua = async function(frente, codigo) {
+        if (!confirm(`Deseja realmente remover a grua ${codigo} da frente ${frente}?`)) return;
+
+        try {
+            let query = supabaseClient.from('config_gruas').select('*').eq('frente', frente);
+            query = aplicarFiltroLocal(query);
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const registro = data[0];
+                let listaCodigos = registro.codigos ? registro.codigos.split(',').map(c => c.trim().toUpperCase()).filter(Boolean) : [];
+                
+                listaCodigos = listaCodigos.filter(c => c !== codigo.toUpperCase());
+
+                if (listaCodigos.length > 0) {
+                    const { error: updErr } = await supabaseClient
+                        .from('config_gruas')
+                        .update({ codigos: listaCodigos.join(',') })
+                        .eq('id', registro.id);
+                    if (updErr) throw updErr;
+                } else {
+                    // Se não sobrou nenhuma grua na string, remove a linha para manter a tabela limpa
+                    const { error: delErr } = await supabaseClient
+                        .from('config_gruas')
+                        .delete()
+                        .eq('id', registro.id);
+                    if (delErr) throw delErr;
+                }
+
+                window.carregarGruas();
+            }
+        } catch (err) {
+            console.error("Erro ao remover grua:", err);
+            alert("Erro ao remover grua: " + err.message);
+        }
+    };
+
+    // Execuções automáticas para carregar os chips na inicialização da view (SPA friendly)
+    document.addEventListener('DOMContentLoaded', window.carregarGruas);
+    if (document.getElementById('lista_serrana')) {
+        window.carregarGruas();
     }
-}
+})();

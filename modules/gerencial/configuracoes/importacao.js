@@ -2,6 +2,10 @@
 // js/configuracoes/importacao.js
 // ==========================================
 
+// Expondo globalmente para garantir que o HTML sempre as encontre
+window.processAndSaveFile = processAndSaveFile;
+window.processAndSaveJornadasFile = processAndSaveJornadasFile;
+
 async function processAndSaveJornadasFile(file) {
     const errorMsgDiv = document.getElementById('errorMsgJornadas');
     const loadingSpinner = document.getElementById('loadingSpinnerJornadas');
@@ -65,7 +69,8 @@ async function processAndSaveJornadasFile(file) {
                 horas_extras: timeParaDecimal(getVal(['extra normal', 'extranormal'])) + timeParaDecimal(getVal(['extra excedente', 'extraexcedente'])),
                 eps: 'SERRANALOG - BA',
                 unidade: 'BA',
-                semana: calcularSemanaImportacao(strInicio)
+                semana: calcularSemanaImportacao(strInicio),
+                filial_id: window.currentUser ? window.currentUser.filial_id : null // <--- MULTI-TENANCY AQUI
             };
         }).filter(item => {
             if (item === null || item.motorista === '' || item.total_trabalho_horas < 8) return false;
@@ -78,7 +83,10 @@ async function processAndSaveJornadasFile(file) {
         let existingJornadas = [];
         let startJor = 0; const stepJor = 1000;
         while (true) {
-            const { data, error: selErr } = await supabaseClient.from('historico_jornadas').select('motorista, inicio, fim').range(startJor, startJor + stepJor - 1);
+            let queryJor = supabaseClient.from('historico_jornadas').select('motorista, inicio, fim').range(startJor, startJor + stepJor - 1);
+            if (typeof window.aplicarFiltroLocal === 'function') queryJor = window.aplicarFiltroLocal(queryJor); // <--- MULTI-TENANCY BUSCA
+            
+            const { data, error: selErr } = await queryJor;
             if (selErr) throw selErr;
             if (!data || data.length === 0) break;
             existingJornadas.push(...data);
@@ -102,7 +110,8 @@ async function processAndSaveJornadasFile(file) {
         await supabaseClient.from('historico_importacoes').insert([{
             "dataBase": `Jornadas Ponto`,
             "qtdViagens": jornadasNovas.length,
-            "dataLancamento": new Date().toLocaleString('pt-PT')
+            "dataLancamento": new Date().toLocaleString('pt-PT'),
+            "filial_id": window.currentUser ? window.currentUser.filial_id : null // <--- MULTI-TENANCY AQUI
         }]);
         
         alert(`Sucesso! Salvas ${jornadasNovas.length} NOVAS jornadas.`);
@@ -171,7 +180,6 @@ function parseSheetToData(sheet) {
 
         const getSafeDate = (key) => {
             const d = getValue(key);
-            // Ignora células com um simples "-" pra não poluir o banco
             return (d !== null && d !== undefined && d !== "" && String(d).trim() !== "-") ? d : rawDtSaida; 
         };
 
@@ -232,7 +240,10 @@ function parseSheetToData(sheet) {
             dtSaidaCampo: formatDbDate(getValue(dtSaidaCampoKey)),
             hrSaidaCampo: formatDbTime(getValue(hrSaidaCampoKey)),
             dtInicioDescarFabrica: formatDbDate(getValue(dtInicioDescarFabKey)),
-            hrInicioDescarFabrica: formatDbTime(getValue(hrInicioDescarFabKey))
+            hrInicioDescarFabrica: formatDbTime(getValue(hrInicioDescarFabKey)),
+            
+            // <--- MULTI-TENANCY AQUI
+            filial_id: window.currentUser ? window.currentUser.filial_id : null 
         };
     });
     
@@ -251,7 +262,14 @@ async function processAndSaveFile(file) {
         const newRows = parseSheetToData(workbook.Sheets[workbook.SheetNames[0]]);
         if (!newRows || newRows.length === 0) throw new Error("Planilha vazia ou sem dados válidos.");
 
-        const { data: gruasData } = await supabaseClient.from('config_gruas').select('*');
+        // ---- MODIFICAÇÃO: MULTI-TENANCY GRUAS ----
+        let queryGruas = supabaseClient.from('config_gruas').select('*');
+        if (typeof window.aplicarFiltroLocal === 'function') {
+            queryGruas = window.aplicarFiltroLocal(queryGruas);
+        }
+        const { data: gruasData } = await queryGruas;
+        // ------------------------------------------
+        
         let allMappedLoaders = [];
         if (gruasData) {
             gruasData.forEach(item => {
@@ -288,7 +306,14 @@ async function processAndSaveFile(file) {
         let existingIds = [];
         let startVia = 0; const stepVia = 1000;
         while (true) {
-            const { data: dbData, error: selErr } = await supabaseClient.from('historico_viagens').select('movimento').range(startVia, startVia + stepVia - 1);
+            // ---- MODIFICAÇÃO: MULTI-TENANCY AO BUSCAR DUPLICADAS ----
+            let queryVia = supabaseClient.from('historico_viagens').select('movimento').range(startVia, startVia + stepVia - 1);
+            if (typeof window.aplicarFiltroLocal === 'function') {
+                queryVia = window.aplicarFiltroLocal(queryVia);
+            }
+            const { data: dbData, error: selErr } = await queryVia;
+            // ---------------------------------------------------------
+            
             if (selErr) throw selErr;
             if (!dbData || dbData.length === 0) break;
             existingIds.push(...dbData);
@@ -335,7 +360,12 @@ async function processAndSaveFile(file) {
         const { error: insErr } = await supabaseClient.from('historico_viagens').insert(viagensNovasArray);
         if (insErr) throw insErr;
 
-        await supabaseClient.from('historico_importacoes').insert([{ "dataBase": `Viagens: ${strHistoricoDatas}`, "qtdViagens": viagensNovasArray.length, "dataLancamento": new Date().toLocaleString('pt-PT') }]);
+        await supabaseClient.from('historico_importacoes').insert([{ 
+            "dataBase": `Viagens: ${strHistoricoDatas}`, 
+            "qtdViagens": viagensNovasArray.length, 
+            "dataLancamento": new Date().toLocaleString('pt-PT'),
+            "filial_id": window.currentUser ? window.currentUser.filial_id : null // <--- MULTI-TENANCY AQUI
+        }]);
         
         let msgSucesso = `Sucesso! Salvas ${viagensNovasArray.length} NOVAS viagens.\nDatas: ${strHistoricoDatas}`;
         
@@ -357,24 +387,34 @@ async function processAndSaveFile(file) {
     }
 }
 
+// Inicializa a funcionalidade de arrastar e soltar (Drag and Drop)
 function initImportacao() {
     const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    if(dropZone && fileInput){
-        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('bg-sky-900/20'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-sky-900/20'));
-        dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('bg-sky-900/20'); if (e.dataTransfer.files.length > 0) processAndSaveFile(e.dataTransfer.files[0]); });
-        dropZone.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', e => { if(e.target.files.length) processAndSaveFile(e.target.files[0]); });
+    if(dropZone){
+        dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('bg-sky-900/20'); };
+        dropZone.ondragleave = () => dropZone.classList.remove('bg-sky-900/20');
+        dropZone.ondrop = e => { 
+            e.preventDefault(); 
+            dropZone.classList.remove('bg-sky-900/20'); 
+            if (e.dataTransfer.files.length > 0) {
+                window.processAndSaveFile(e.dataTransfer.files[0]);
+            }
+        };
     }
 
     const dropZoneJornadas = document.getElementById('dropZoneJornadas');
-    const fileInputJornadas = document.getElementById('fileInputJornadas');
-    if(dropZoneJornadas && fileInputJornadas){
-        dropZoneJornadas.addEventListener('dragover', e => { e.preventDefault(); dropZoneJornadas.classList.add('bg-amber-900/20'); });
-        dropZoneJornadas.addEventListener('dragleave', () => dropZoneJornadas.classList.remove('bg-amber-900/20'));
-        dropZoneJornadas.addEventListener('drop', e => { e.preventDefault(); dropZoneJornadas.classList.remove('bg-amber-900/20'); if (e.dataTransfer.files.length > 0) processAndSaveJornadasFile(e.dataTransfer.files[0]); });
-        dropZoneJornadas.addEventListener('click', () => fileInputJornadas.click());
-        fileInputJornadas.addEventListener('change', e => { if(e.target.files.length) processAndSaveJornadasFile(e.target.files[0]); });
+    if(dropZoneJornadas){
+        dropZoneJornadas.ondragover = e => { e.preventDefault(); dropZoneJornadas.classList.add('bg-amber-900/20'); };
+        dropZoneJornadas.ondragleave = () => dropZoneJornadas.classList.remove('bg-amber-900/20');
+        dropZoneJornadas.ondrop = e => { 
+            e.preventDefault(); 
+            dropZoneJornadas.classList.remove('bg-amber-900/20'); 
+            if (e.dataTransfer.files.length > 0) {
+                window.processAndSaveJornadasFile(e.dataTransfer.files[0]);
+            }
+        };
     }
 }
+
+// Garante que o arrastar e soltar seja ativado 
+document.addEventListener('DOMContentLoaded', initImportacao);
