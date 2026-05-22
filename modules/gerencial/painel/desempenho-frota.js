@@ -8,7 +8,7 @@ if(typeof Chart !== 'undefined') {
     Chart.defaults.font.family = "'Inter', sans-serif";
 }
 
-// Trocado "let" por "var" para evitar conflitos de redeclaração em SPA
+// Usando 'var' para evitar erros em SPAs e navegações múltiplas
 var dadosHistoricoCompletos = window.dadosHistoricoCompletos || []; 
 var listaQuadroGeralAtual = window.listaQuadroGeralAtual || []; 
 var chartEvolucaoObj = window.chartEvolucaoObj || null;
@@ -161,13 +161,9 @@ async function buscarDadosSupabase() {
     const tbody1 = document.getElementById('tbodyQuadroGeral');
     const tbody2 = document.getElementById('tbodyFrota');
     
-    // Verificações essenciais com "if" para evitar o erro "Cannot set properties of null"
-    if (tbody1) {
-        tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANA FLORESTAL...</td></tr>`;
-    }
-    if (tbody2) {
-        tbody2.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANA FLORESTAL...</td></tr>`;
-    }
+    // Verificações de segurança
+    if (tbody1) tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
+    if (tbody2) tbody2.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
     
     dadosHistoricoCompletos = [];
     let from = 0;
@@ -175,11 +171,18 @@ async function buscarDadosSupabase() {
     let fetchMore = true;
 
     while (fetchMore) {
-        const { data, error } = await supabaseClient
+        let query = supabaseClient
             .from('historico_viagens')
             .select('dataDaBaseExcel, placa, transportadora, volumeReal, filaCampoHoras, cicloHoras')
-            .ilike('transportadora', '%SERRANALOG%')
+            .ilike('transportadora', '%SERRANALOG TRANSPORTES LTDA%')
             .range(from, from + step - 1);
+            
+        // --- Adicionando proteção Multi-Tenant se o seu back-end exigir ---
+        if (typeof aplicarFiltroLocal === 'function') {
+            query = aplicarFiltroLocal(query);
+        }
+
+        const { data, error } = await query;
         
         if (error) {
             console.error("Erro ao buscar historico:", error);
@@ -199,8 +202,8 @@ async function buscarDadosSupabase() {
 }
 
 function processarEExibirDados() {
-    const elMetaViagens = document.getElementById('metaViagens');
-    const metaEstipulada = elMetaViagens ? parseInt(elMetaViagens.value) || 2 : 2;
+    const metaInput = document.getElementById('metaViagens');
+    const metaEstipulada = metaInput ? (parseInt(metaInput.value) || 2) : 2;
     
     let dadosFiltrados = [];
     let diasParaGrafico = new Set(); 
@@ -225,10 +228,9 @@ function processarEExibirDados() {
         dadosFiltrados = dadosHistoricoCompletos.filter(x => x.dataDaBaseExcel === customDateStr);
         diasParaGrafico.add(customDateStr);
     } else if (activeFilter === 'MES') {
-        const elFilterMes = document.getElementById('filterMesFrota');
-        const selectedMesAno = elFilterMes ? elFilterMes.value : '';
+        const selectedMesAno = document.getElementById('filterMesFrota') ? document.getElementById('filterMesFrota').value : null;
         dadosFiltrados = dadosHistoricoCompletos.filter(x => {
-            if(!x.dataDaBaseExcel) return false;
+            if(!x.dataDaBaseExcel || !selectedMesAno) return false;
             const parts = x.dataDaBaseExcel.split('/');
             if (`${parts[1]}/${parts[2]}` === selectedMesAno) {
                 diasParaGrafico.add(x.dataDaBaseExcel);
@@ -307,11 +309,18 @@ function processarEExibirDados() {
     const totalCaminhoesUnicos = Object.keys(statsPorPlaca).length;
     const mediaGlobal = somaDiasGeral > 0 ? (somaViagensGeral / somaDiasGeral).toFixed(2) : 0;
 
-    if (document.getElementById('cardTotalCaminhoes')) document.getElementById('cardTotalCaminhoes').innerText = totalCaminhoesUnicos;
-    if (document.getElementById('cardAcimaMeta')) document.getElementById('cardAcimaMeta').innerText = qtdAcimaOuNaMeta;
-    if (document.getElementById('cardAbaixoMeta')) document.getElementById('cardAbaixoMeta').innerText = qtdAbaixoMetaGeral;
-    if (document.getElementById('cardMediaViagens')) document.getElementById('cardMediaViagens').innerText = mediaGlobal;
-
+    // Verificações de segurança nos cards de estatística
+    const cardTotalCaminhoes = document.getElementById('cardTotalCaminhoes');
+    if (cardTotalCaminhoes) cardTotalCaminhoes.innerText = totalCaminhoesUnicos;
+    
+    const cardAcimaMeta = document.getElementById('cardAcimaMeta');
+    if (cardAcimaMeta) cardAcimaMeta.innerText = qtdAcimaOuNaMeta;
+    
+    const cardAbaixoMeta = document.getElementById('cardAbaixoMeta');
+    if (cardAbaixoMeta) cardAbaixoMeta.innerText = qtdAbaixoMetaGeral;
+    
+    const cardMediaViagens = document.getElementById('cardMediaViagens');
+    if (cardMediaViagens) cardMediaViagens.innerText = mediaGlobal;
 
     const registrosAbaixoMeta = [];
     const evolucaoDiariaAbaixoMeta = {}; 
@@ -347,13 +356,12 @@ function processarEExibirDados() {
         }
     }
 
-    if (document.getElementById('cardVolumePerdido')) document.getElementById('cardVolumePerdido').innerText = volumeTotalPerdido.toLocaleString('pt-PT', {maximumFractionDigits:1}) + ' m³';
+    const cardVolumePerdido = document.getElementById('cardVolumePerdido');
+    if (cardVolumePerdido) cardVolumePerdido.innerText = volumeTotalPerdido.toLocaleString('pt-PT', {maximumFractionDigits:1}) + ' m³';
 
     // Gráficos
     desenharGraficoEvolucao(datasValidas, evolucaoDiariaAbaixoMeta);
     desenharGraficoMelhoresPlacas(listaQuadroGeralAtual);
-    
-    // Novo gráfico: Menores Ciclos
     desenharGraficoMenoresCiclos(listaQuadroGeralAtual);
 
     // Tabelas
@@ -376,7 +384,7 @@ function processarEExibirDados() {
 
 function desenharGraficoEvolucao(labels, dados) {
     const ctx = document.getElementById('chartEvolucao');
-    if (!ctx) return;
+    if(!ctx) return;
     if(chartEvolucaoObj) chartEvolucaoObj.destroy();
 
     const dataPoints = labels.map(l => dados[l] || 0);
@@ -464,7 +472,7 @@ function desenharGraficoMenoresCiclos(lista) {
 
 function desenharGraficoMelhoresPlacas(lista) {
     const ctx = document.getElementById('chartMelhoresPlacas');
-    if (!ctx) return;
+    if(!ctx) return;
     if(chartMelhoresObj) chartMelhoresObj.destroy();
 
     const top5 = [...lista].sort((a, b) => b.mediaDiaria - a.mediaDiaria).slice(0, 5);
@@ -510,7 +518,7 @@ function desenharGraficoMelhoresPlacas(lista) {
 
 function preencherQuadroGeral(lista, meta) {
     const tbody = document.getElementById('tbodyQuadroGeral');
-    if (!tbody) return;
+    if (!tbody) return; // Proteção adicional
     tbody.innerHTML = '';
 
     if(lista.length === 0) {
@@ -545,7 +553,7 @@ function preencherQuadroGeral(lista, meta) {
 
 function preencherTabelaDetalhes(registros) {
     const tbody = document.getElementById('tbodyFrota');
-    if (!tbody) return;
+    if (!tbody) return; // Proteção adicional
     tbody.innerHTML = '';
 
     if(registros.length === 0) {
@@ -580,11 +588,11 @@ function exportarParaExcel() {
         return;
     }
 
-    const elMeta = document.getElementById('metaViagens');
-    const metaEstipulada = elMeta ? parseInt(elMeta.value) || 2 : 2;
+    const metaInput = document.getElementById('metaViagens');
+    const metaEstipulada = metaInput ? (parseInt(metaInput.value) || 2) : 2;
     
-    const elMes = document.getElementById('filterMesFrota');
-    const nomeMes = (elMes && elMes.options.length > 0) ? elMes.options[elMes.selectedIndex]?.text : 'Periodo';
+    const filterMes = document.getElementById('filterMesFrota');
+    const nomeMes = filterMes && filterMes.options[filterMes.selectedIndex] ? filterMes.options[filterMes.selectedIndex].text : 'Periodo';
 
     const dadosExcel = listaQuadroGeralAtual.map(r => ({
         "Placa (Conjunto)": r.placa,

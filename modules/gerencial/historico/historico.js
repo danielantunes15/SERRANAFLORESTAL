@@ -2,7 +2,7 @@
 // js/historico.js - TELA DE AUDITORIA DE PRODUÇÃO (VIAGENS)
 // ==========================================
 
-// Trocado "let" por "var" e adicionado verificação de janela para evitar o erro de redeclaração no SPA
+// Declarando com "var" para evitar o erro "Identifier has already been declared" no SPA
 var fullHistoricoData = window.fullHistoricoData || [];
 var paginaAtual = 0;
 var itensPorPagina = 50;
@@ -141,6 +141,11 @@ async function loadHistoricoCompleto(reset = false) {
             .from('historico_viagens')
             .select('*')
             .range(de, ate);
+
+        // --- Adicionando proteção Multi-Tenant se o seu back-end exigir ---
+        if (typeof aplicarFiltroLocal === 'function') {
+            query = aplicarFiltroLocal(query);
+        }
 
         if (termoBuscaAtual) {
             query = query.or(`placa.ilike.%${termoBuscaAtual}%,transportadora.ilike.%${termoBuscaAtual}%,movimento.ilike.%${termoBuscaAtual}%`);
