@@ -58,7 +58,7 @@ function configurarFiltros() {
 }
 
 function renderizarPainelJornadas() {
-    // PROTEÇÃO CRÍTICA: Se não estivermos na tela de jornadas, pare a execução!
+    // PROTEÇÃO CRÍTICA PARA NÃO CRASHAR QUANDO ESTIVER EM OUTRA TELA
     const elFilterDataSelect = document.getElementById('filterDataSelect');
     if (!elFilterDataSelect) return; 
 

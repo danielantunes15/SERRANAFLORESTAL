@@ -2,14 +2,13 @@
 // js/historico.js - TELA DE AUDITORIA DE PRODUÇÃO (VIAGENS)
 // ==========================================
 
-// Usando var para evitar erro de "already been declared" em navegação SPA
-var fullHistoricoData = [];
+var fullHistoricoData = window.fullHistoricoData || [];
 var paginaAtual = 0;
 var itensPorPagina = 50;
 
-var termoBuscaAtual = '';
-var filtroPlacaAtual = '';
-var filtroDataAtual = '';
+var termoBuscaAtual = window.termoBuscaAtual || '';
+var filtroPlacaAtual = window.filtroPlacaAtual || '';
+var filtroDataAtual = window.filtroDataAtual || '';
 
 var carregando = false;
 var fimDosDados = false;

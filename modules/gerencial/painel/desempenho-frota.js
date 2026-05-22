@@ -8,15 +8,14 @@ if(typeof Chart !== 'undefined') {
     Chart.defaults.font.family = "'Inter', sans-serif";
 }
 
-// Transformados de "let" para "var" para evitar conflitos de redeclaração
-var dadosHistoricoCompletos = []; 
-var listaQuadroGeralAtual = []; 
-var chartEvolucaoObj = null;
-var chartPlacasObj = null;
-var chartMelhoresObj = null;
+var dadosHistoricoCompletos = window.dadosHistoricoCompletos || []; 
+var listaQuadroGeralAtual = window.listaQuadroGeralAtual || []; 
+var chartEvolucaoObj = window.chartEvolucaoObj || null;
+var chartPlacasObj = window.chartPlacasObj || null;
+var chartMelhoresObj = window.chartMelhoresObj || null;
 
-var activeFilter = 'MES'; 
-var customDateStr = ''; 
+var activeFilter = window.activeFilter || 'MES'; 
+var customDateStr = window.customDateStr || ''; 
 
 document.addEventListener('DOMContentLoaded', () => {
     setupFilters();
@@ -161,7 +160,7 @@ async function buscarDadosSupabase() {
     const tbody1 = document.getElementById('tbodyQuadroGeral');
     const tbody2 = document.getElementById('tbodyFrota');
     
-    // Proteção adicionada para não travar quando o elemento não existe
+    // Verificações essenciais para evitar "Cannot set properties of null"
     if (tbody1) {
         tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
     }
