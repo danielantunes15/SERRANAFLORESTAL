@@ -2,6 +2,19 @@
 // js/jornadas/jornadas_api.js
 // ==========================================
 
+// ================= LÓGICA SAAS (MULTI-FILIAL) =================
+function aplicarFiltroLocal(query) {
+    if (!window.currentUser) return query; 
+    if (window.currentUser.filial_id === null && (window.currentUser.role === 'SuperAdmin' || window.currentUser.role === 'Admin')) {
+        return query; 
+    }
+    if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) {
+        return query.is('filial_id', null); 
+    }
+    return query.eq('filial_id', window.currentUser.filial_id);
+}
+// ===============================================================
+
 async function carregarPainelJornadas() {
     try {
         let dadosBrutos = [];
@@ -10,11 +23,16 @@ async function carregarPainelJornadas() {
         
         // Loop de paginação para buscar TODOS os registros, não apenas os primeiros 1000
         while (true) {
-            const { data, error } = await supabaseClient
+            let queryJornadas = supabaseClient
                 .from('historico_jornadas')
                 .select('*')
                 .order('id', { ascending: false })
                 .range(start, start + step - 1);
+
+            // Injeta a proteção Multi-Tenancy
+            queryJornadas = aplicarFiltroLocal(queryJornadas);
+
+            const { data, error } = await queryJornadas;
 
             if (error) throw error;
             if (!data || data.length === 0) break;

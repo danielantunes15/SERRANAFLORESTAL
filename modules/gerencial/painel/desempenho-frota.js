@@ -8,6 +8,7 @@ if(typeof Chart !== 'undefined') {
     Chart.defaults.font.family = "'Inter', sans-serif";
 }
 
+// Trocado "let" por "var" para evitar conflitos de redeclaração em SPA
 var dadosHistoricoCompletos = window.dadosHistoricoCompletos || []; 
 var listaQuadroGeralAtual = window.listaQuadroGeralAtual || []; 
 var chartEvolucaoObj = window.chartEvolucaoObj || null;
@@ -160,12 +161,12 @@ async function buscarDadosSupabase() {
     const tbody1 = document.getElementById('tbodyQuadroGeral');
     const tbody2 = document.getElementById('tbodyFrota');
     
-    // Verificações essenciais para evitar "Cannot set properties of null"
+    // Verificações essenciais com "if" para evitar o erro "Cannot set properties of null"
     if (tbody1) {
-        tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
+        tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANA FLORESTAL...</td></tr>`;
     }
     if (tbody2) {
-        tbody2.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
+        tbody2.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANA FLORESTAL...</td></tr>`;
     }
     
     dadosHistoricoCompletos = [];
@@ -177,7 +178,7 @@ async function buscarDadosSupabase() {
         const { data, error } = await supabaseClient
             .from('historico_viagens')
             .select('dataDaBaseExcel, placa, transportadora, volumeReal, filaCampoHoras, cicloHoras')
-            .ilike('transportadora', '%SERRANALOG TRANSPORTES LTDA%')
+            .ilike('transportadora', '%SERRANALOG%')
             .range(from, from + step - 1);
         
         if (error) {

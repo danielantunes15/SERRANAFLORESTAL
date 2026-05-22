@@ -2,6 +2,7 @@
 // js/historico.js - TELA DE AUDITORIA DE PRODUÇÃO (VIAGENS)
 // ==========================================
 
+// Trocado "let" por "var" e adicionado verificação de janela para evitar o erro de redeclaração no SPA
 var fullHistoricoData = window.fullHistoricoData || [];
 var paginaAtual = 0;
 var itensPorPagina = 50;

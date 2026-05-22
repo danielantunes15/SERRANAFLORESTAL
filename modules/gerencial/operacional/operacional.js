@@ -22,6 +22,19 @@ var globalTopVol = [];
 var globalTopCiclo = [];
 var diasConsideradosGlobais = 1;
 
+// ================= LÓGICA SAAS (MULTI-FILIAL) =================
+function aplicarFiltroLocal(query) {
+    if (!window.currentUser) return query; 
+    if (window.currentUser.filial_id === null && (window.currentUser.role === 'SuperAdmin' || window.currentUser.role === 'Admin')) {
+        return query; 
+    }
+    if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) {
+        return query.is('filial_id', null); 
+    }
+    return query.eq('filial_id', window.currentUser.filial_id);
+}
+// ===============================================================
+
 document.addEventListener('DOMContentLoaded', () => {
     setupOperacionalFilters();
     loadOperacionalData();
@@ -166,8 +179,10 @@ function verificarStatusAtualizacao(datasArray) {
 
 async function loadOperacionalData() {
     try {
-        const { data: metas } = await supabaseClient.from('metas_globais').select('*').eq('id', 1).single();
-        if(metas) metasGlobais = metas;
+        let queryMetas = supabaseClient.from('metas_globais').select('*');
+        queryMetas = aplicarFiltroLocal(queryMetas);
+        const { data: metas } = await queryMetas.limit(1).maybeSingle();
+        if(metas) metasGlobais = metas; else metasGlobais = {};
 
         let historico = [];
         let from = 0;
@@ -175,10 +190,14 @@ async function loadOperacionalData() {
         let fetchMore = true;
         
         while (fetchMore) {
-            const { data, error } = await supabaseClient
+            let queryViagens = supabaseClient
                 .from('historico_viagens')
                 .select('*')
                 .range(from, from + step - 1);
+                
+            queryViagens = aplicarFiltroLocal(queryViagens);
+                
+            const { data, error } = await queryViagens;
                 
             if (error) {
                 console.error(error);
@@ -204,10 +223,14 @@ async function loadOperacionalData() {
             let fetchMoreManut = true;
             
             while (fetchMoreManut) {
-                const { data: mData, error: errManut } = await supabaseClient
+                let queryManutencao = supabaseClient
                     .from('ordens_servico')
                     .select('*')
                     .range(fromManut, fromManut + step - 1);
+                    
+                queryManutencao = aplicarFiltroLocal(queryManutencao);
+                    
+                const { data: mData, error: errManut } = await queryManutencao;
                     
                 if(errManut) break;
                 
