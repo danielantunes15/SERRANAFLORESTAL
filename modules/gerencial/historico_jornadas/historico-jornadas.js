@@ -2,20 +2,20 @@
 // js/historico-jornadas.js - TELA DE AUDITORIA DE JORNADAS
 // ==========================================
 
-let fullHistoricoJornadas = [];
-let paginaAtualJor = 0;
-const itensPorPaginaJor = 50;
-let termoBuscaJor = '';
-let motoristaFiltroJor = 'ALL';
-let carregandoJor = false;
-let fimDosDadosJor = false;
-let debounceTimerJor;
+var fullHistoricoJornadas = [];
+var paginaAtualJor = 0;
+var itensPorPaginaJor = 50;
+var termoBuscaJor = '';
+var motoristaFiltroJor = 'ALL';
+var carregandoJor = false;
+var fimDosDadosJor = false;
+var debounceTimerJor;
 
-const regexDate = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{4}-\d{1,2}-\d{1,2})/;
-const regexTime = /(\d{1,2}:\d{2}(:\d{2})?)/;
+var regexDate = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{4}-\d{1,2}-\d{1,2})/;
+var regexTime = /(\d{1,2}:\d{2}(:\d{2})?)/;
 
 // LISTA DE NOMES A SEREM IGNORADOS (NÃO SÃO MOTORISTAS)
-const MOTORISTAS_EXCLUIDOS = [
+var MOTORISTAS_EXCLUIDOS = [
     "KEVEN MELGACO DE JESUS",
     "GIVANILDO DA CONCEIÇÃO URSULINO",
     "DANILO TEIXEIRA SILVA",
@@ -25,7 +25,8 @@ const MOTORISTAS_EXCLUIDOS = [
     "JOSEMILDO SOARES DE SOUZA",
     "JULIO CESAR ALMEIDA NUNES",
     "DEYVISON DOS SANTOS CRUZ",
-    "KLEITON MELGAÇO DA SILVA"
+    "KLEITON MELGAÇO DA SILVA",
+    "WALAS RAMOS DA CRUZ"
 ];
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -54,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function carregarDropdownMotoristas() {
     try {
-        // Sem order('id')
         const { data } = await supabaseClient
             .from('historico_jornadas')
             .select('motorista')
@@ -64,7 +64,6 @@ async function carregarDropdownMotoristas() {
             const select = document.getElementById('filterMotoristaDropdown');
             if (!select) return;
 
-            // Filtra os que não são motoristas antes de preencher o dropdown
             const motoristasUnicos = [...new Set(data.map(d => d.motorista))]
                 .filter(Boolean)
                 .filter(m => !MOTORISTAS_EXCLUIDOS.includes(m.toUpperCase()))
@@ -96,7 +95,6 @@ async function loadHistoricoJornadasCompleto(reset = false) {
         const de = paginaAtualJor * itensPorPaginaJor;
         const ate = de + itensPorPaginaJor - 1;
 
-        // Sem order('id')
         let query = supabaseClient
             .from('historico_jornadas')
             .select('*')
@@ -117,15 +115,12 @@ async function loadHistoricoJornadasCompleto(reset = false) {
         if (data) { 
             if (data.length < itensPorPaginaJor) fimDosDadosJor = true;
             
-            // REMOVE DUPLICATAS E NOMES IGNORADOS AO CARREGAR
             const dadosLimpos = [];
             data.reverse().forEach(item => {
                 const nome = (item.motorista || "").toUpperCase();
                 
-                // Ignora se for nome da lista de exclusão
                 if (MOTORISTAS_EXCLUIDOS.includes(nome)) return;
                 
-                // Checa se já existe para não exibir linha duplicada
                 const chave = `${item.motorista || ''}-${item.inicio || ''}-${item.fim || ''}`;
                 
                 const isDuplicate = fullHistoricoJornadas.some(d => `${d.motorista || ''}-${d.inicio || ''}-${d.fim || ''}` === chave) || 

@@ -2,17 +2,17 @@
 // js/historico.js - TELA DE AUDITORIA DE PRODUÇÃO (VIAGENS)
 // ==========================================
 
-let fullHistoricoData = [];
-let paginaAtual = 0;
-const itensPorPagina = 50;
+var fullHistoricoData = [];
+var paginaAtual = 0;
+var itensPorPagina = 50;
 
-let termoBuscaAtual = '';
-let filtroPlacaAtual = '';
-let filtroDataAtual = '';
+var termoBuscaAtual = '';
+var filtroPlacaAtual = '';
+var filtroDataAtual = '';
 
-let carregando = false;
-let fimDosDados = false;
-let debounceTimer;
+var carregando = false;
+var fimDosDados = false;
+var debounceTimer;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadHistoricoCompleto(true);
@@ -74,18 +74,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- NOVA REGRA DO CICLO MÉDIO (VERSÃO BLINDADA) ---
 function normalizarCiclos(dataArr) {
     const pMap = new Map();
     
-    // Passo 1: Garantir que temos o valor original e somar os ciclos bons
     dataArr.forEach(d => {
-        // Se ainda não salvou o original, salva agora
         if (d.cicloHorasOriginal === undefined) {
             d.cicloHorasOriginal = d.cicloHoras;
         }
 
-        // Usamos sempre o original para calcular quem são os melhores
         if (d.cicloHorasOriginal > 0 && d.cicloHorasOriginal <= 12) { 
             const pl = d.placa || 'N/A';
             if (!pMap.has(pl)) pMap.set(pl, { ciclos: 0, count: 0 });
@@ -94,7 +90,6 @@ function normalizarCiclos(dataArr) {
         }
     });
     
-    // Passo 2: Calcula a média das frotas e pega as 20 com o menor tempo
     const frotas = Array.from(pMap.values())
         .map(x => x.ciclos / x.count)
         .sort((a, b) => a - b)
@@ -104,16 +99,14 @@ function normalizarCiclos(dataArr) {
     
     const mediaMenores = frotas.reduce((a, b) => a + b, 0) / frotas.length;
     
-    // Passo 3: Aplica a regra de substituição
     dataArr.forEach(d => {
         if (d.cicloHorasOriginal > 12) {
-            d.cicloHoras = mediaMenores; // Estourou, recebe a média
+            d.cicloHoras = mediaMenores;
         } else {
-            d.cicloHoras = d.cicloHorasOriginal; // Tá dentro da meta, mantém o real
+            d.cicloHoras = d.cicloHorasOriginal;
         }
     });
 }
-// ---------------------------------
 
 async function loadHistoricoCompleto(reset = false) {
     if (carregando) return;
@@ -161,13 +154,8 @@ async function loadHistoricoCompleto(reset = false) {
             if (data.length < itensPorPagina) {
                 fimDosDados = true;
             }
-            // Inverte os dados novos que chegarem para os mais recentes ficarem no topo
             let dadosTratados = data.reverse();
-            
-            // Junta os dados novos com os antigos PRIMEIRO
             fullHistoricoData = [...fullHistoricoData, ...dadosTratados];
-            
-            // APLICA REGRA PARA TODOS OS DADOS JUNTOS (Garante a média perfeita)
             normalizarCiclos(fullHistoricoData);
 
             paginaAtual++;
@@ -204,7 +192,6 @@ function renderHistoricoTable() {
     }
 
     fullHistoricoData.forEach(r => {
-        // Se o valor original existia e for maior que 12, avisa na tela que foi normalizado
         const cicloHtml = (r.cicloHorasOriginal && r.cicloHorasOriginal > 12)
             ? `<span class="text-amber-400 cursor-help border-b border-dashed border-amber-400/50" title="Ciclo original era de ${formatarHorasMinutos(r.cicloHorasOriginal)}. Foi normalizado para ${formatarHorasMinutos(r.cicloHoras)} pois passou de 12h.">${formatarHorasMinutos(r.cicloHoras)}*</span>`
             : formatarHorasMinutos(r.cicloHoras);

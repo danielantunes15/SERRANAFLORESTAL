@@ -2,19 +2,21 @@
 // js/producao-frota.js - LÓGICA DE PRODUÇÃO E VIAGENS POR FROTA E RECEITA
 // ==========================================
 
-Chart.register(ChartDataLabels);
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
-Chart.defaults.font.family = "'Inter', sans-serif";
+if(typeof Chart !== 'undefined') {
+    Chart.register(ChartDataLabels);
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+}
 
-let dadosHistoricoGlobal = [];
-let faturamentosGlobais = [];
-let dadosAgrupadosAtual = [];
-let dadosFiltradosAtual = [];
-let agrupamentoDiarioGlobal = {}; 
+var dadosHistoricoGlobal = [];
+var faturamentosGlobais = [];
+var dadosAgrupadosAtual = [];
+var dadosFiltradosAtual = [];
+var agrupamentoDiarioGlobal = {}; 
 
-let chartProducaoObj = null;
-let chartViagensObj = null;
+var chartProducaoObj = null;
+var chartViagensObj = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     configurarEventos();
@@ -24,24 +26,39 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function configurarEventos() {
-    document.getElementById('btnAplicarFiltros').addEventListener('click', processarFiltrosEExibir);
-    document.getElementById('btnExportarExcel').addEventListener('click', exportarParaExcel);
+    const btnFiltros = document.getElementById('btnAplicarFiltros');
+    if(btnFiltros) btnFiltros.addEventListener('click', processarFiltrosEExibir);
+
+    const btnExcel = document.getElementById('btnExportarExcel');
+    if(btnExcel) btnExcel.addEventListener('click', exportarParaExcel);
     
-    document.getElementById('btnExportarResumoProd').addEventListener('click', exportarResumoDiarioExcel);
-    document.getElementById('btnExportarResumoFin').addEventListener('click', exportarResumoDiarioExcel);
+    const btnResProd = document.getElementById('btnExportarResumoProd');
+    if(btnResProd) btnResProd.addEventListener('click', exportarResumoDiarioExcel);
+
+    const btnResFin = document.getElementById('btnExportarResumoFin');
+    if(btnResFin) btnResFin.addEventListener('click', exportarResumoDiarioExcel);
     
-    document.getElementById('btnSalvarFat').addEventListener('click', salvarFaturamentoEmLote);
-    document.getElementById('btnAdicionarLinhaFat').addEventListener('click', () => {
-        adicionarLinhaFaturamento('');
-    });
+    const btnSalvarF = document.getElementById('btnSalvarFat');
+    if(btnSalvarF) btnSalvarF.addEventListener('click', salvarFaturamentoEmLote);
+
+    const btnAddFat = document.getElementById('btnAdicionarLinhaFat');
+    if(btnAddFat) {
+        btnAddFat.addEventListener('click', () => {
+            adicionarLinhaFaturamento('');
+        });
+    }
 }
 
 function definirDatasPadrao() {
     const dataFim = new Date();
     const dataInicio = new Date();
     dataInicio.setDate(dataFim.getDate() - 7);
-    document.getElementById('dataFim').value = dataFim.toISOString().split('T')[0];
-    document.getElementById('dataInicio').value = dataInicio.toISOString().split('T')[0];
+    
+    const elFim = document.getElementById('dataFim');
+    if(elFim) elFim.value = dataFim.toISOString().split('T')[0];
+
+    const elInicio = document.getElementById('dataInicio');
+    if(elInicio) elInicio.value = dataInicio.toISOString().split('T')[0];
     
     resetarModalFaturamento();
 }
@@ -49,12 +66,14 @@ function definirDatasPadrao() {
 function verificarAberturaModal() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('modal') === 'faturamento') {
-        document.getElementById('modalFaturamento').classList.remove('hidden');
+        const modal = document.getElementById('modalFaturamento');
+        if(modal) modal.classList.remove('hidden');
     }
 }
 
 async function buscarTodosDadosSupabase() {
-    document.getElementById('tabelaStatus').innerText = "Baixando histórico...";
+    const tStatus = document.getElementById('tabelaStatus');
+    if(tStatus) tStatus.innerText = "Baixando histórico...";
     dadosHistoricoGlobal = [];
     faturamentosGlobais = [];
     
@@ -83,11 +102,9 @@ async function buscarTodosDadosSupabase() {
     processarFiltrosEExibir();
 }
 
-// ----------------------------------------------------
-// GERENCIAMENTO DA MODAL DE LANÇAMENTO EM LOTE
-// ----------------------------------------------------
 function adicionarLinhaFaturamento(dataPadrao = '') {
     const container = document.getElementById('linhasFaturamento');
+    if(!container) return;
     const div = document.createElement('div');
     div.className = 'flex items-center gap-3 fat-linha animate-fade-in';
     div.innerHTML = `
@@ -100,6 +117,7 @@ function adicionarLinhaFaturamento(dataPadrao = '') {
 
 function resetarModalFaturamento() {
     const container = document.getElementById('linhasFaturamento');
+    if(!container) return;
     container.innerHTML = '';
     const dataFim = new Date().toISOString().split('T')[0];
     adicionarLinhaFaturamento(dataFim);
@@ -122,14 +140,14 @@ async function salvarFaturamentoEmLote() {
     });
 
     const msg = document.getElementById('fatMsgStatus');
-    msg.classList.remove('hidden');
+    if(msg) msg.classList.remove('hidden');
 
     if (payload.length === 0) {
-        mostrarMensagem(msg, "Nenhum dado válido preenchido para salvar.", "text-rose-400");
+        if(msg) mostrarMensagem(msg, "Nenhum dado válido preenchido para salvar.", "text-rose-400");
         return;
     }
     if (temErro) {
-        mostrarMensagem(msg, "Preencha a data e o valor em todas as linhas utilizadas.", "text-amber-400");
+        if(msg) mostrarMensagem(msg, "Preencha a data e o valor em todas as linhas utilizadas.", "text-amber-400");
         return;
     }
 
@@ -144,12 +162,13 @@ async function salvarFaturamentoEmLote() {
 
     if (error) {
         console.error(error);
-        mostrarMensagem(msg, "Erro ao salvar faturamentos.", "text-rose-400");
+        if(msg) mostrarMensagem(msg, "Erro ao salvar faturamentos.", "text-rose-400");
     } else {
-        mostrarMensagem(msg, `${payload.length} lançamento(s) salvo(s) com sucesso!`, "text-emerald-400");
+        if(msg) mostrarMensagem(msg, `${payload.length} lançamento(s) salvo(s) com sucesso!`, "text-emerald-400");
         setTimeout(() => { 
-            document.getElementById('modalFaturamento').classList.add('hidden'); 
-            msg.classList.add('hidden');
+            const modal = document.getElementById('modalFaturamento');
+            if(modal) modal.classList.add('hidden'); 
+            if(msg) msg.classList.add('hidden');
             resetarModalFaturamento();
         }, 1500);
         buscarTodosDadosSupabase();
@@ -164,14 +183,11 @@ function mostrarMensagem(el, texto, color) {
     el.className = `text-center text-xs font-bold mt-2 block ${color}`;
 }
 
-// ----------------------------------------------------
-// LÓGICA DE FILTRAGEM E EXIBIÇÃO (SÓ SERRANA)
-// ----------------------------------------------------
 function popularDropdownTransportadoras(dados) {
     const select = document.getElementById('filtroTransportadora');
+    if(!select) return;
     const transpSet = new Set();
     
-    // Força popular apenas com a empresa Serrana
     dados.forEach(d => { 
         if (d.transportadora && d.transportadora.toUpperCase().includes('SERRANA')) {
             transpSet.add(d.transportadora.trim().toUpperCase()); 
@@ -194,16 +210,19 @@ function converterDataString(dataStr) {
 }
 
 function processarFiltrosEExibir() {
-    document.getElementById('tabelaStatus').innerText = "Processando dados...";
+    const tStatus = document.getElementById('tabelaStatus');
+    if(tStatus) tStatus.innerText = "Processando dados...";
     
-    const filtroTransp = document.getElementById('filtroTransportadora').value;
-    const strInicio = document.getElementById('dataInicio').value; 
-    const strFim = document.getElementById('dataFim').value; 
+    const elFiltroTransp = document.getElementById('filtroTransportadora');
+    const filtroTransp = elFiltroTransp ? elFiltroTransp.value : '';
+    const elStrInicio = document.getElementById('dataInicio');
+    const strInicio = elStrInicio ? elStrInicio.value : ''; 
+    const elStrFim = document.getElementById('dataFim');
+    const strFim = elStrFim ? elStrFim.value : ''; 
 
     let timeInicio = strInicio ? new Date(strInicio.split('-')[0], parseInt(strInicio.split('-')[1]) - 1, strInicio.split('-')[2]).getTime() : 0;
     let timeFim = strFim ? new Date(strFim.split('-')[0], parseInt(strFim.split('-')[1]) - 1, strFim.split('-')[2]).getTime() : Infinity;
 
-    // 1. Mapa de Receitas
     let receitaTotalGeral = 0;
     const fatDiarioMap = {}; 
     faturamentosGlobais.forEach(f => {
@@ -216,13 +235,9 @@ function processarFiltrosEExibir() {
         }
     });
 
-    // 2. Filtrar Histórico (FORÇA A SER APENAS SERRANA)
     dadosFiltradosAtual = dadosHistoricoGlobal.filter(registro => {
         const tr = registro.transportadora ? registro.transportadora.trim().toUpperCase() : '';
-        
-        // Bloqueia qualquer coisa que não seja Serrana
         if (!tr.includes('SERRANA')) return false;
-        
         if (filtroTransp && tr !== filtroTransp) return false;
 
         if (registro.dataDaBaseExcel) {
@@ -234,7 +249,6 @@ function processarFiltrosEExibir() {
         return true;
     });
 
-    // 3. Agrupamentos
     const agrupamentoTabela = {};
     const agrupamentoDiario = {}; 
     let viagensGerais = 0;
@@ -246,7 +260,6 @@ function processarFiltrosEExibir() {
         const tr = registro.transportadora ? registro.transportadora.toUpperCase() : 'N/A';
         const v = registro.volumeReal || 0;
 
-        // Tabela
         if (!agrupamentoTabela[pl]) agrupamentoTabela[pl] = { placa: pl, transp: tr, viagens: 0, volume: 0 };
         agrupamentoTabela[pl].viagens += 1;
         agrupamentoTabela[pl].volume += v;
@@ -254,7 +267,6 @@ function processarFiltrosEExibir() {
         viagensGerais += 1;
         volumeGeral += v;
 
-        // Diário
         if (d) {
             if (!agrupamentoDiario[d]) agrupamentoDiario[d] = { ativos: new Set(), vol: 0, via: 0, rec: 0 };
             agrupamentoDiario[d].ativos.add(pl);
@@ -275,7 +287,6 @@ function processarFiltrosEExibir() {
     dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => b.viagens - a.viagens);
     agrupamentoDiarioGlobal = agrupamentoDiario; 
 
-    // 4. Preencher Cards (Agora calculando a média de veículos ativos/dia)
     const diasOperacao = Object.keys(agrupamentoDiarioGlobal).length;
     let somaVeiculosAtivosDiario = 0;
     Object.values(agrupamentoDiarioGlobal).forEach(dia => {
@@ -283,24 +294,24 @@ function processarFiltrosEExibir() {
     });
     const mediaVeiculosAtivosDia = diasOperacao > 0 ? (somaVeiculosAtivosDiario / diasOperacao) : 0;
 
-    document.getElementById('cardVeiculosAtivos').innerText = mediaVeiculosAtivosDia.toLocaleString('pt-PT', { maximumFractionDigits: 1 });
+    const elCardAtivos = document.getElementById('cardVeiculosAtivos');
+    if(elCardAtivos) elCardAtivos.innerText = mediaVeiculosAtivosDia.toLocaleString('pt-PT', { maximumFractionDigits: 1 });
     
-    document.getElementById('cardVolumeTotal').innerText = volumeGeral.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const elCardVol = document.getElementById('cardVolumeTotal');
+    if(elCardVol) elCardVol.innerText = volumeGeral.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
     const caixaMediaGlobal = viagensGerais > 0 ? (volumeGeral / viagensGerais) : 0;
-    document.getElementById('cardCaixaMedia').innerText = caixaMediaGlobal.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const elCardCaixa = document.getElementById('cardCaixaMedia');
+    if(elCardCaixa) elCardCaixa.innerText = caixaMediaGlobal.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
-    document.getElementById('cardReceitaTotal').innerText = receitaTotalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const elCardRec = document.getElementById('cardReceitaTotal');
+    if(elCardRec) elCardRec.innerText = receitaTotalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-    // 5. Desenhar Gráficos e Tabela
     desenharGraficos(agrupamentoDiarioGlobal);
     renderizarTabela(dadosAgrupadosAtual);
-    document.getElementById('tabelaStatus').innerText = `${dadosAgrupadosAtual.length} placas listadas`;
+    if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} placas listadas`;
 }
 
-// ----------------------------------------------------
-// DESENHAR GRÁFICOS COMBINADOS
-// ----------------------------------------------------
 function desenharGraficos(agrupamento) {
     const datasOrdenadas = Object.keys(agrupamento).sort((a, b) => converterDataString(a).getTime() - converterDataString(b).getTime());
 
@@ -320,31 +331,35 @@ function desenharGraficos(agrupamento) {
 
     if (chartProducaoObj) chartProducaoObj.destroy();
     const ctx1 = document.getElementById('chartProducaoDiaria');
-    chartProducaoObj = new Chart(ctx1, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                { type: 'bar', label: 'Volume (m³)', data: volArr, backgroundColor: '#10b981', borderRadius: 4, yAxisID: 'y', order: 2 },
-                { type: 'line', label: 'Veículos Ativos', data: veiArr, borderColor: '#38bdf8', backgroundColor: '#38bdf8', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#38bdf8', tension: 0.3, yAxisID: 'y1', order: 1 }
-            ]
-        },
-        options: getDefaultChartOptions('Volume (m³)', '#10b981', 'Veículos Ativos', '#38bdf8')
-    });
+    if(ctx1) {
+        chartProducaoObj = new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { type: 'bar', label: 'Volume (m³)', data: volArr, backgroundColor: '#10b981', borderRadius: 4, yAxisID: 'y', order: 2 },
+                    { type: 'line', label: 'Veículos Ativos', data: veiArr, borderColor: '#38bdf8', backgroundColor: '#38bdf8', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#38bdf8', tension: 0.3, yAxisID: 'y1', order: 1 }
+                ]
+            },
+            options: getDefaultChartOptions('Volume (m³)', '#10b981', 'Veículos Ativos', '#38bdf8')
+        });
+    }
 
     if (chartViagensObj) chartViagensObj.destroy();
     const ctx2 = document.getElementById('chartViagensReceita');
-    chartViagensObj = new Chart(ctx2, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                { type: 'bar', label: 'Total Viagens', data: viaArr, backgroundColor: '#818cf8', borderRadius: 4, yAxisID: 'y', order: 2 },
-                { type: 'line', label: 'Receita (R$)', data: recArr, borderColor: '#34d399', backgroundColor: '#34d399', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#34d399', tension: 0.3, yAxisID: 'y1', order: 1 }
-            ]
-        },
-        options: getDefaultChartOptions('Viagens (Qtd)', '#818cf8', 'Receita (R$)', '#34d399', true)
-    });
+    if(ctx2) {
+        chartViagensObj = new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { type: 'bar', label: 'Total Viagens', data: viaArr, backgroundColor: '#818cf8', borderRadius: 4, yAxisID: 'y', order: 2 },
+                    { type: 'line', label: 'Receita (R$)', data: recArr, borderColor: '#34d399', backgroundColor: '#34d399', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#34d399', tension: 0.3, yAxisID: 'y1', order: 1 }
+                ]
+            },
+            options: getDefaultChartOptions('Viagens (Qtd)', '#818cf8', 'Receita (R$)', '#34d399', true)
+        });
+    }
 }
 
 function getDefaultChartOptions(titleY1, colorY1, titleY2, colorY2, isMoney = false) {
@@ -374,11 +389,9 @@ function getDefaultChartOptions(titleY1, colorY1, titleY2, colorY2, isMoney = fa
     };
 }
 
-// ----------------------------------------------------
-// TABELA E EXPORTAÇÃO EXCEL
-// ----------------------------------------------------
 function renderizarTabela(dados) {
     const tbody = document.getElementById('tbodyProducaoFrota');
+    if(!tbody) return;
     tbody.innerHTML = '';
     if (dados.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-slate-500">Sem dados.</td></tr>`; return; }
 
@@ -399,7 +412,9 @@ function renderizarTabela(dados) {
 
 function exportarParaExcel() {
     if (!dadosFiltradosAtual || dadosFiltradosAtual.length === 0) { alert("Sem dados."); return; }
-    const fileBase = `Placas_Serrana_${document.getElementById('dataInicio').value}_a_${document.getElementById('dataFim').value}`;
+    const dtInicio = document.getElementById('dataInicio') ? document.getElementById('dataInicio').value : '';
+    const dtFim = document.getElementById('dataFim') ? document.getElementById('dataFim').value : '';
+    const fileBase = `Placas_Serrana_${dtInicio}_a_${dtFim}`;
     
     const obj = {};
     dadosFiltradosAtual.forEach(r => {

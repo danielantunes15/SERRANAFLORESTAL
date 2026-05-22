@@ -2,7 +2,6 @@
 // js/operacional.js - LÓGICA DO PAINEL DE METAS
 // ==========================================
 
-// Configuração padrão do Chart.js
 if(typeof Chart !== 'undefined') {
     Chart.register(ChartDataLabels);
     Chart.defaults.color = '#94a3b8';
@@ -10,36 +9,32 @@ if(typeof Chart !== 'undefined') {
     Chart.defaults.font.family = "'Inter', sans-serif";
 }
 
-let fullHistoricoDataOp = [];
-let fullHistoricoManutencao = []; 
-let metasGlobais = {};
-let activeQuickFilterOp = 'ALL';
+var fullHistoricoDataOp = [];
+var fullHistoricoManutencao = []; 
+var metasGlobais = {};
+var activeQuickFilterOp = 'ALL';
 
-let chartCarregamento = null;
-let chartTransporte = null; 
-let chartManutencao = null; 
+var chartCarregamento = null;
+var chartTransporte = null; 
+var chartManutencao = null; 
 
-// Variáveis Globais para permitir Exportação
-let globalTopVol = [];
-let globalTopCiclo = [];
-let diasConsideradosGlobais = 1;
+var globalTopVol = [];
+var globalTopCiclo = [];
+var diasConsideradosGlobais = 1;
 
 document.addEventListener('DOMContentLoaded', () => {
     setupOperacionalFilters();
     loadOperacionalData();
 });
 
-// --- NOVA REGRA DO CICLO MÉDIO (VERSÃO BLINDADA) ---
 function normalizarCiclos(dataArr) {
     const pMap = new Map();
     
-    // Passo 1: Garantir que temos o valor original e somar os ciclos bons
     dataArr.forEach(d => {
         if (d.cicloHorasOriginal === undefined) {
             d.cicloHorasOriginal = d.cicloHoras;
         }
 
-        // Usamos sempre o original para calcular quem são os melhores
         if (d.cicloHorasOriginal > 0 && d.cicloHorasOriginal <= 12) { 
             const pl = d.placa || 'N/A';
             if (!pMap.has(pl)) pMap.set(pl, { ciclos: 0, count: 0 });
@@ -48,7 +43,6 @@ function normalizarCiclos(dataArr) {
         }
     });
     
-    // Passo 2: Calcula a média das frotas e pega as 20 com o menor tempo
     const frotas = Array.from(pMap.values())
         .map(x => x.ciclos / x.count)
         .sort((a, b) => a - b)
@@ -58,16 +52,14 @@ function normalizarCiclos(dataArr) {
     
     const mediaMenores = frotas.reduce((a, b) => a + b, 0) / frotas.length;
     
-    // Passo 3: Aplica a regra de substituição
     dataArr.forEach(d => {
         if (d.cicloHorasOriginal > 12) {
-            d.cicloHoras = mediaMenores; // Estourou, recebe a média
+            d.cicloHoras = mediaMenores;
         } else {
-            d.cicloHoras = d.cicloHorasOriginal; // Tá dentro da meta, mantém o real
+            d.cicloHoras = d.cicloHorasOriginal;
         }
     });
 }
-// ---------------------------------
 
 function setupOperacionalFilters() {
     const btnQFs = document.querySelectorAll('.btn-op-qf');
@@ -131,8 +123,8 @@ function verificarStatusAtualizacao(datasArray) {
 
     if (!datasArray || datasArray.length === 0) {
         indicador.className = "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-inner bg-slate-900/50 text-slate-400 border-slate-600";
-        icone.className = "fas fa-times-circle";
-        texto.innerText = "Sem Dados";
+        if(icone) icone.className = "fas fa-times-circle";
+        if(texto) texto.innerText = "Sem Dados";
         return;
     }
 
@@ -163,12 +155,12 @@ function verificarStatusAtualizacao(datasArray) {
 
     if (maxDateStr === hojeStr) {
         indicador.className = "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-inner bg-emerald-900/30 text-emerald-400 border-emerald-500/50 transition-colors";
-        icone.className = "fas fa-check-circle";
-        texto.innerText = "Atualizado Hoje";
+        if(icone) icone.className = "fas fa-check-circle";
+        if(texto) texto.innerText = "Atualizado Hoje";
     } else {
         indicador.className = "flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-inner bg-amber-900/30 text-amber-400 border-amber-500/50 transition-colors";
-        icone.className = "fas fa-exclamation-triangle";
-        texto.innerText = `Base: ${maxDateStr}`;
+        if(icone) icone.className = "fas fa-exclamation-triangle";
+        if(texto) texto.innerText = `Base: ${maxDateStr}`;
     }
 }
 
@@ -203,7 +195,6 @@ async function loadOperacionalData() {
         
         if(historico && historico.length > 0) {
             fullHistoricoDataOp = historico.reverse();
-            // APLICA REGRA PARA OS CICLOS ABSURDOS
             normalizarCiclos(fullHistoricoDataOp);
         }
 
@@ -213,7 +204,7 @@ async function loadOperacionalData() {
             let fetchMoreManut = true;
             
             while (fetchMoreManut) {
-                const { data: mData, error: errManut } = await supabaseManutencao
+                const { data: mData, error: errManut } = await supabaseClient
                     .from('ordens_servico')
                     .select('*')
                     .range(fromManut, fromManut + step - 1);
@@ -300,8 +291,10 @@ function parseDateTime(dateVal, timeVal) {
     let baseDate = null;
 
     if (typeof dateVal === 'number') {
-        const dateInfo = XLSX.SSF.parse_date_code(dateVal);
-        if (dateInfo) baseDate = new Date(dateInfo.y, dateInfo.m - 1, dateInfo.d);
+        if(typeof XLSX !== 'undefined') {
+            const dateInfo = XLSX.SSF.parse_date_code(dateVal);
+            if (dateInfo) baseDate = new Date(dateInfo.y, dateInfo.m - 1, dateInfo.d);
+        }
     } else if (typeof dateVal === 'string') {
         const str = dateVal.trim();
         if (str.includes('/')) {
@@ -346,13 +339,13 @@ function parseDateTime(dateVal, timeVal) {
 }
 
 function atualizarPainelOperacional() {
-    const dataRef = document.getElementById('opDatePicker') ? document.getElementById('opDatePicker').value : null;
-    const filterMesOp = document.getElementById('filterMesOp');
-    const mesRef = filterMesOp ? filterMesOp.value : 'ALL';
+    const elDatePicker = document.getElementById('opDatePicker');
+    const dataRef = elDatePicker ? elDatePicker.value : null;
+    const elFilterMesOp = document.getElementById('filterMesOp');
+    const mesRef = elFilterMesOp ? elFilterMesOp.value : 'ALL';
     
     let diasConsiderados = 1;
 
-    // Filtro de Viagens Global (Base para os cruzamentos)
     const filteredGlobal = fullHistoricoDataOp.filter(d => {
         const parsed = parseDateTime(d.dataDaBaseExcel, null);
         if(!parsed) return false;
@@ -393,13 +386,11 @@ function atualizarPainelOperacional() {
         return mesRef !== 'ALL';
     });
 
-    // Filtro Restrito para APENAS SERRANA
     const filteredSerrana = filteredGlobal.filter(d => {
         const transp = String(d.transportadora || "").toUpperCase();
         return transp.includes('SERRANA');
     });
 
-    // Filtro de Manutenção
     const filteredManutencao = fullHistoricoManutencao.filter(d => {
         const dateStr = d.data_abertura || d.created_at;
         if(!dateStr) return false;
@@ -459,9 +450,6 @@ function atualizarPainelOperacional() {
         `;
     }
     
-    // ----------------------------------------------------
-    // LÓGICA DA META MENSAL FIXA (APENAS SERRANA)
-    // ----------------------------------------------------
     let monthRefForGoal = new Date(); 
     if (mesRef !== 'ALL') {
         const parts = mesRef.split('/');
@@ -486,7 +474,6 @@ function atualizarPainelOperacional() {
     const totalViagensMesRealizado = viagensDoMes.length;
     const totalVolumeMesRealizado = viagensDoMes.reduce((s, x) => s + (parseFloat(String(x.volumeReal).replace(',', '.')) || 0), 0);
 
-    // Meta baseada na frota própria
     const frotaRealOuConfigurada = metasGlobais.tamanho_frota || (placasUnicasSerrana === 0 ? 0 : placasUnicasSerrana);
     const metaViagensMes = frotaRealOuConfigurada * (metasGlobais.v_prog || 0) * diasNoMes;
     const metaVolumeMes = (metasGlobais.vol_prog || 0) * diasNoMes; 
@@ -506,35 +493,33 @@ function atualizarPainelOperacional() {
         const percVol = metaVolumeMes > 0 ? (totalVolumeMesRealizado / metaVolumeMes) * 100 : 0;
         elPercVolMes.innerText = `${percVol.toFixed(1)}%`;
     }
-    // ----------------------------------------------------
 
-    // PROGRESS BAR DOS OBJETIVOS DO PERÍODO (APENAS SERRANA)
     const totalV_Serrana = filteredSerrana.length;
     const metaV = frotaRealOuConfigurada * (metasGlobais.v_prog || 0) * diasConsiderados;
     
-    document.getElementById('disp_v_prog').innerText = metaV;
-    document.getElementById('disp_v_real').innerText = totalV_Serrana;
+    if(document.getElementById('disp_v_prog')) document.getElementById('disp_v_prog').innerText = metaV;
+    if(document.getElementById('disp_v_real')) document.getElementById('disp_v_real').innerText = totalV_Serrana;
     atualizarBarra('bar_v_perc', 'disp_v_perc', totalV_Serrana, metaV);
 
     const totalVol_Serrana = filteredSerrana.reduce((s,x)=>s+(parseFloat(String(x.volumeReal).replace(',','.'))||0), 0);
     const metaVol = (metasGlobais.vol_prog || 0) * diasConsiderados;
     
-    document.getElementById('disp_vol_prog').innerText = metaVol.toLocaleString('pt-PT');
-    document.getElementById('disp_vol_real').innerText = totalVol_Serrana.toLocaleString('pt-PT', {maximumFractionDigits:1});
+    if(document.getElementById('disp_vol_prog')) document.getElementById('disp_vol_prog').innerText = metaVol.toLocaleString('pt-PT');
+    if(document.getElementById('disp_vol_real')) document.getElementById('disp_vol_real').innerText = totalVol_Serrana.toLocaleString('pt-PT', {maximumFractionDigits:1});
     atualizarBarra('bar_vol_perc', 'disp_vol_perc', totalVol_Serrana, metaVol);
 
     const mediaCx = totalV_Serrana > 0 ? (totalVol_Serrana / totalV_Serrana) : 0;
     const metaCx = metasGlobais.cx_prog || 0;
 
-    document.getElementById('disp_cx_prog').innerText = metaCx;
-    document.getElementById('disp_cx_real').innerText = mediaCx.toLocaleString('pt-PT', {maximumFractionDigits:2});
+    if(document.getElementById('disp_cx_prog')) document.getElementById('disp_cx_prog').innerText = metaCx;
+    if(document.getElementById('disp_cx_real')) document.getElementById('disp_cx_real').innerText = mediaCx.toLocaleString('pt-PT', {maximumFractionDigits:2});
     atualizarBarra('bar_cx_perc', 'disp_cx_perc', mediaCx, metaCx);
 
     const totalP_Serrana = filteredSerrana.reduce((s,x)=>s+(parseFloat(String(x.pesoLiquido).replace(',','.'))||0), 0)/1000;
     const mediaPbtc = totalV_Serrana > 0 ? (totalP_Serrana / totalV_Serrana) : 0;
     const metaPbtc = metasGlobais.pbtc_prog || 0;
 
-    document.getElementById('disp_pbtc_prog').innerText = metaPbtc;
+    if(document.getElementById('disp_pbtc_prog')) document.getElementById('disp_pbtc_prog').innerText = metaPbtc;
     
     let pbtcCor = "text-white";
     let pbtcIcone = "";
@@ -552,14 +537,12 @@ function atualizarPainelOperacional() {
         }
     }
 
-    document.getElementById('disp_pbtc_real').innerHTML = `<span class="${pbtcCor}">${mediaPbtc.toLocaleString('pt-PT', {maximumFractionDigits:2})}</span>${pbtcIcone}`;
+    if(document.getElementById('disp_pbtc_real')) document.getElementById('disp_pbtc_real').innerHTML = `<span class="${pbtcCor}">${mediaPbtc.toLocaleString('pt-PT', {maximumFractionDigits:2})}</span>${pbtcIcone}`;
     
     atualizarBarra('bar_pbtc_perc', 'disp_pbtc_perc', mediaPbtc, metaPbtc);
 
-    // Gráficos separados para Carregamento (Gruas Próprias) e Transporte (Frota Própria)
     const baseTransporte = filteredSerrana.length > 0 ? filteredSerrana : fullHistoricoDataOp.filter(d => String(d.transportadora||'').toUpperCase().includes('SERRANA'));
     
-    // O carregamento deve considerar todas as viagens carregadas pelas gruas da Serrana (GSR), independente de quem transportou.
     let baseCarregamento = filteredGlobal.filter(d => String(d.grua || '').trim().toUpperCase().startsWith('GSR'));
     if (baseCarregamento.length === 0) {
         baseCarregamento = fullHistoricoDataOp.filter(d => String(d.grua || '').trim().toUpperCase().startsWith('GSR'));
@@ -567,18 +550,11 @@ function atualizarPainelOperacional() {
 
     renderCarregamentoChart(baseCarregamento);
     renderTransporteChart(baseTransporte);
-
     renderManutencaoChart(filteredManutencao); 
 
-    // Renderiza APENAS os veículos da Serrana nas tabelas correspondentes
     renderLeaderboards(filteredSerrana, diasConsiderados);
-    
     renderManutencaoTables(filteredManutencao); 
-    
-    // Passa o Global APENAS aqui para a tabela Resumo Operacional manter a proporção vs Terceiros
     renderDashboardsGerenciais(filteredGlobal);
-    
-    // Indicadores Extras (Caixa Média, Gargalos e Piores Ciclos) SOMENTE SERRANA
     renderIndicadoresExtras(filteredSerrana);
 }
 
@@ -625,8 +601,8 @@ function renderCarregamentoChart(data) {
     
     const ctx = ctxCarreg.getContext('2d');
     let gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, '#10b981'); // emerald-500
-    gradient.addColorStop(1, '#047857'); // emerald-700
+    gradient.addColorStop(0, '#10b981'); 
+    gradient.addColorStop(1, '#047857'); 
 
     chartCarregamento = new Chart(ctx, {
         type: 'bar',
@@ -687,8 +663,8 @@ function renderTransporteChart(data) {
     
     const ctx = ctxTransp.getContext('2d');
     let gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, '#38bdf8'); // sky-400
-    gradient.addColorStop(1, '#0369a1'); // sky-700
+    gradient.addColorStop(0, '#38bdf8'); 
+    gradient.addColorStop(1, '#0369a1'); 
 
     chartTransporte = new Chart(ctx, {
         type: 'bar',
@@ -752,8 +728,8 @@ function renderManutencaoChart(data) {
     
     const ctx = ctxMan.getContext('2d');
     let gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, '#f43f5e'); // rose-500
-    gradient.addColorStop(1, '#be123c'); // rose-700
+    gradient.addColorStop(0, '#f43f5e'); 
+    gradient.addColorStop(1, '#be123c'); 
 
     chartManutencao = new Chart(ctx, {
         type: 'bar',
@@ -1037,7 +1013,6 @@ function renderIndicadoresExtras(data) {
         });
     }
 
-    // AQUI USAMOS O 'cicloHorasOriginal' PARA A TABELA DE PIORES CICLOS
     const pioresCiclos = data
         .filter(d => (d.cicloHorasOriginal || d.cicloHoras) > 0)
         .sort((a, b) => (b.cicloHorasOriginal || b.cicloHoras) - (a.cicloHorasOriginal || a.cicloHoras))
@@ -1053,7 +1028,6 @@ function renderIndicadoresExtras(data) {
                 const dt = x.dataDaBaseExcel || '-';
                 const mov = x.movimento || '-';
                 
-                // Exibe o ciclo real que estourou
                 const valorExibido = formatarHorasMinutos(x.cicloHorasOriginal || x.cicloHoras);
 
                 const tr = `<tr>

@@ -2,27 +2,29 @@
 // js/jornadas/jornadas_utils.js
 // ==========================================
 
-Chart.register(ChartDataLabels);
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
-Chart.defaults.font.family = "'Inter', sans-serif";
+if(typeof Chart !== 'undefined') {
+    Chart.register(ChartDataLabels);
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+}
 
-let fullJornadasData = []; 
-let jornadasGlobalData = [];
-let dadosFiltradosGlobal = [];
-let activeQuickFilterJor = 'ALL';
-let currentStatusFilter = 'ALL'; 
-let currentAnaliticoFilter = 'ALL'; 
+var fullJornadasData = []; 
+var jornadasGlobalData = [];
+var dadosFiltradosGlobal = [];
+var activeQuickFilterJor = 'ALL';
+var currentStatusFilter = 'ALL'; 
+var currentAnaliticoFilter = 'ALL'; 
 
-let chartStatusFrota = null;
-let chartFaixaHoras = null;
-let chartEvolucaoOcorrencias = null; 
+var chartStatusFrota = null;
+var chartFaixaHoras = null;
+var chartEvolucaoOcorrencias = null; 
 
-const regexDate = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{4}-\d{1,2}-\d{1,2})/;
-const regexTime = /(\d{1,2}:\d{2}(:\d{2})?)/;
+var regexDate = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{4}-\d{1,2}-\d{1,2})/;
+var regexTime = /(\d{1,2}:\d{2}(:\d{2})?)/;
 
-// LISTA DE NOMES A SEREM IGNORADOS (NÃO SÃO MOTORISTAS)
-const MOTORISTAS_EXCLUIDOS = [
+// LISTA DE NOMES A SEREM IGNORADOS
+var MOTORISTAS_EXCLUIDOS = window.MOTORISTAS_EXCLUIDOS || [
     "KEVEN MELGACO DE JESUS",
     "GIVANILDO DA CONCEIÇÃO URSULINO",
     "DANILO TEIXEIRA SILVA",
@@ -36,7 +38,6 @@ const MOTORISTAS_EXCLUIDOS = [
     "WALAS RAMOS DA CRUZ"
 ];
 
-// Função para auxiliar na ordenação por Data/Hora decrescente
 function obterDataHoraParaOrdenacao(inicioStr) {
     if (!inicioStr) return 0;
     const matchDate = inicioStr.match(regexDate);
@@ -158,6 +159,7 @@ function verificarStatusAtualizacao(datasArray) {
 
 function popularFiltroDatas() {
     const selectData = document.getElementById('filterDataSelect');
+    if (!selectData) return;
     const datasSet = new Set();
     fullJornadasData.forEach(d => {
         if (d.inicio) {
@@ -182,6 +184,6 @@ function popularFiltroDatas() {
     selectData.addEventListener('change', (e) => {
         if(e.target.value !== 'ALL') { activeQuickFilterJor = 'ALL'; atualizarBotoesFiltro(); }
         currentStatusFilter = 'ALL'; 
-        renderizarPainelJornadas();
+        if (typeof renderizarPainelJornadas === 'function') renderizarPainelJornadas();
     });
 }

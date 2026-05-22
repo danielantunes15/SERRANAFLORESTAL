@@ -2,49 +2,43 @@
 // js/jornadas/jornadas_exportacao.js
 // ==========================================
 
-// ==========================================
-// EXPORTAÇÃO PARA EXCEL/CSV (COM MODAL E NOVAS COLUNAS)
-// ==========================================
+const btnExportarJor = document.getElementById('btnExportarJornada');
+if (btnExportarJor) {
+    btnExportarJor.addEventListener('click', () => {
+        const modal = document.getElementById('modalExportacao');
+        if (modal) {
+            const exportStatusFilter = document.getElementById('exportStatusFilter');
+            const filtroStatus = exportStatusFilter ? exportStatusFilter.value : 'ALL';
+            
+            const colunasOcultar = ["H. Noturnas", "H. Extras (Soma)", "T. Trabalho (h)", "T. Direção (h)", "Refeição (h)", "Repouso (h)"];
+            
+            document.querySelectorAll('.chk-coluna').forEach(chk => {
+                const label = chk.closest('label');
+                if (filtroStatus === 'INFRACAO' && colunasOcultar.includes(chk.value)) {
+                    label.style.display = 'none'; 
+                    chk.checked = false;          
+                } else {
+                    label.style.display = 'flex'; 
+                    chk.checked = true;           
+                }
+            });
+            
+            const chkSelecionarTodas = document.getElementById('chkSelecionarTodasColunas');
+            if(chkSelecionarTodas) chkSelecionarTodas.checked = true;
 
-// 1. Abre o Modal quando clica no botão principal de exportar
-document.getElementById('btnExportarJornada').addEventListener('click', () => {
-    const modal = document.getElementById('modalExportacao');
-    if (modal) {
-        const filtroStatus = document.getElementById('exportStatusFilter').value;
-        
-        // Lista exata das colunas que NÃO devem aparecer se for infração
-        const colunasOcultar = ["H. Noturnas", "H. Extras (Soma)", "T. Trabalho (h)", "T. Direção (h)", "Refeição (h)", "Repouso (h)"];
-        
-        // Oculta/Mostra as colunas no modal com base no filtro
-        document.querySelectorAll('.chk-coluna').forEach(chk => {
-            const label = chk.closest('label');
-            if (filtroStatus === 'INFRACAO' && colunasOcultar.includes(chk.value)) {
-                label.style.display = 'none'; // Esconde a opção
-                chk.checked = false;          // Desmarca a opção
-            } else {
-                label.style.display = 'flex'; // Mostra a opção
-                chk.checked = true;           // Por padrão, deixa marcada
-            }
-        });
-        
-        // Reseta o checkbox 'Selecionar Todas' para checked
-        const chkSelecionarTodas = document.getElementById('chkSelecionarTodasColunas');
-        if(chkSelecionarTodas) chkSelecionarTodas.checked = true;
+            modal.classList.remove('hidden');
+        } else {
+            alert("Interface de opções de exportação não encontrada!");
+        }
+    });
+}
 
-        modal.classList.remove('hidden');
-    } else {
-        alert("Interface de opções de exportação não encontrada!");
-    }
-});
-
-// 2. Lógica dos Checkboxes do Modal
 const chkSelecionarTodas = document.getElementById('chkSelecionarTodasColunas');
 const chkColunas = document.querySelectorAll('.chk-coluna');
 
 if (chkSelecionarTodas) {
     chkSelecionarTodas.addEventListener('change', (e) => {
         chkColunas.forEach(chk => {
-            // Apenas altera o estado das colunas que estão visíveis na tela
             if (chk.closest('label').style.display !== 'none') {
                 chk.checked = e.target.checked;
             }
@@ -54,14 +48,12 @@ if (chkSelecionarTodas) {
 
 chkColunas.forEach(chk => {
     chk.addEventListener('change', () => {
-        // Verifica apenas as colunas que estão visíveis na tela
         const visiveis = Array.from(chkColunas).filter(c => c.closest('label').style.display !== 'none');
         const todasMarcadas = visiveis.every(c => c.checked);
         if (chkSelecionarTodas) chkSelecionarTodas.checked = todasMarcadas;
     });
 });
 
-// 3. Funções de Fechar o Modal
 const fecharModalExportacao = () => {
     document.getElementById('modalExportacao')?.classList.add('hidden');
 };
@@ -70,9 +62,8 @@ document.getElementById('btnFecharModalExportacao')?.addEventListener('click', f
 document.getElementById('btnCancelarExportacao')?.addEventListener('click', fecharModalExportacao);
 
 
-// 4. Lógica de Confirmação e Geração do Excel
 document.getElementById('btnConfirmarExportacao')?.addEventListener('click', () => {
-    const filtroStatus = document.getElementById('exportStatusFilter').value;
+    const filtroStatus = document.getElementById('exportStatusFilter')?.value || 'ALL';
     
     let dadosExportar = jornadasGlobalData.filter(d => {
         const isEstouro = (d.total_trabalho_horas || 0) > 12;
@@ -87,10 +78,8 @@ document.getElementById('btnConfirmarExportacao')?.addEventListener('click', () 
         return;
     }
 
-    // Identificar quais colunas foram marcadas no Modal
     let colunasSelecionadas = Array.from(document.querySelectorAll('.chk-coluna:checked')).map(chk => chk.value);
 
-    // GARANTIA EXTRA: Remove definitivamente do Excel se for infração (mesmo que estivessem marcadas)
     if (filtroStatus === 'INFRACAO') {
         const colunasOcultar = ["H. Noturnas", "H. Extras (Soma)", "T. Trabalho (h)", "T. Direção (h)", "Refeição (h)", "Repouso (h)"];
         colunasSelecionadas = colunasSelecionadas.filter(col => !colunasOcultar.includes(col));
@@ -101,7 +90,6 @@ document.getElementById('btnConfirmarExportacao')?.addEventListener('click', () 
         return;
     }
 
-    // Ordenação Crescente (Mais antigo para o mais recente)
     dadosExportar.sort((a, b) => obterDataHoraParaOrdenacao(a.inicio) - obterDataHoraParaOrdenacao(b.inicio));
 
     const wsDados = dadosExportar.map(d => {
@@ -129,13 +117,13 @@ document.getElementById('btnConfirmarExportacao')?.addEventListener('click', () 
             "Hora Início": hI, 
             "Data Fim": dF, 
             "Hora Fim": hF,
-            "H. Noturnas": formatarHorasMinutos(d.horas_noturnas), 
-            "H. Extras (Soma)": formatarHorasMinutos(d.horas_extras),
+            "H. Noturnas": typeof formatarHorasMinutos === 'function' ? formatarHorasMinutos(d.horas_noturnas) : d.horas_noturnas, 
+            "H. Extras (Soma)": typeof formatarHorasMinutos === 'function' ? formatarHorasMinutos(d.horas_extras) : d.horas_extras,
             "T. Trabalho (h)": d.total_trabalho_horas, 
             "T. Direção (h)": d.direcao_horas, 
             "Refeição (h)": d.refeicao_horas, 
             "Repouso (h)": d.repouso_horas,
-            "Tempo Excedido": formatarHorasMinutos(Math.max(0, (d.total_trabalho_horas || 0) - 12)),
+            "Tempo Excedido": typeof formatarHorasMinutos === 'function' ? formatarHorasMinutos(Math.max(0, (d.total_trabalho_horas || 0) - 12)) : Math.max(0, (d.total_trabalho_horas || 0) - 12),
             "Status": d.total_trabalho_horas > 12 ? 'INFRAÇÃO' : 'OK',
             "Auditado": d.auditado ? 'Sim' : (d.total_trabalho_horas > 12 ? 'Pendente' : '-'),
             "Motivo Auditoria": d.observacao_auditoria || '-',
@@ -154,33 +142,25 @@ document.getElementById('btnConfirmarExportacao')?.addEventListener('click', () 
 
     try {
         const ws = XLSX.utils.json_to_sheet(wsDados);
-
-        // ==== INÍCIO DA FORMATAÇÃO (ESTILOS E LARGURA) ====
         
-        // 1. Ajustar a largura das colunas dinamicamente para não ficar bagunçado
         const colWidths = Object.keys(wsDados[0] || {}).map(key => ({ 
-            wch: Math.max(16, key.length + 4) // No mínimo 16 de largura para ficar bem espaçado
+            wch: Math.max(16, key.length + 4)
         }));
         ws['!cols'] = colWidths;
 
-        // 2. Aplicar alinhamento centralizado e cor no cabeçalho
         for (let key in ws) {
-            // Ignorar as propriedades ocultas do SheetJS (como !cols, !ref, etc)
             if (key.startsWith('!')) continue;
             
-            // Verifica se a célula atual pertence à linha 1 (Cabeçalho)
             const isHeader = key.replace(/[A-Z]/g, '') === '1';
             
-            // Centralizar o conteúdo de todas as células
             ws[key].s = {
                 alignment: { horizontal: "center", vertical: "center" }
             };
 
-            // Se for cabeçalho, coloca fundo azul claro e texto em negrito
             if (isHeader) {
                 ws[key].s.fill = {
                     patternType: "solid",
-                    fgColor: { rgb: "ADD8E6" } // Azul Claro
+                    fgColor: { rgb: "ADD8E6" } 
                 };
                 ws[key].s.font = {
                     bold: true,
@@ -188,7 +168,6 @@ document.getElementById('btnConfirmarExportacao')?.addEventListener('click', () 
                 };
             }
         }
-        // ==== FIM DA FORMATAÇÃO ====
 
         const wb = XLSX.utils.book_new(); 
         XLSX.utils.book_append_sheet(wb, ws, "Jornadas");
@@ -202,11 +181,8 @@ document.getElementById('btnConfirmarExportacao')?.addEventListener('click', () 
 });
 
 
-// ==========================================
-// EXPORTAÇÃO PARA PDF
-// ==========================================
 document.getElementById('btnExportarPDFJornada')?.addEventListener('click', () => {
-    const filtroStatus = document.getElementById('exportStatusFilter').value;
+    const filtroStatus = document.getElementById('exportStatusFilter')?.value || 'ALL';
     
     let dadosExportar = jornadasGlobalData.filter(d => {
         const isEstouro = (d.total_trabalho_horas || 0) > 12;
@@ -217,7 +193,6 @@ document.getElementById('btnExportarPDFJornada')?.addEventListener('click', () =
 
     if (dadosExportar.length === 0) return alert("Nenhum dado para exportar com este filtro de status.");
 
-    // Ordenação Crescente (Mais antigo para o mais recente)
     dadosExportar.sort((a, b) => obterDataHoraParaOrdenacao(a.inicio) - obterDataHoraParaOrdenacao(b.inicio));
 
     const { jsPDF } = window.jspdf;
@@ -254,15 +229,16 @@ document.getElementById('btnExportarPDFJornada')?.addEventListener('click', () =
             d.placa || '-',
             `${dI} às ${hI}`,
             `${dF} às ${hF}`,
-            formatarHorasMinutos(d.horas_noturnas || 0),
-            formatarHorasMinutos(d.horas_extras || 0),
-            formatarHorasMinutos(totalHoras),
-            formatarHorasMinutos(excedido),
+            typeof formatarHorasMinutos === 'function' ? formatarHorasMinutos(d.horas_noturnas || 0) : d.horas_noturnas,
+            typeof formatarHorasMinutos === 'function' ? formatarHorasMinutos(d.horas_extras || 0) : d.horas_extras,
+            typeof formatarHorasMinutos === 'function' ? formatarHorasMinutos(totalHoras) : totalHoras,
+            typeof formatarHorasMinutos === 'function' ? formatarHorasMinutos(excedido) : excedido,
             statusTexto
         ]);
     });
 
-    let dataReferencia = document.getElementById('jorDataReferencia').textContent;
+    const elDataRef = document.getElementById('jorDataReferencia');
+    let dataReferencia = elDataRef ? elDataRef.textContent : new Date().toLocaleDateString();
     let textoFiltro = "Todos os Status";
     if (filtroStatus === 'OK') textoFiltro = "Apenas registros OK (<= 12h)";
     if (filtroStatus === 'INFRACAO') textoFiltro = "Apenas Infrações (> 12h)";

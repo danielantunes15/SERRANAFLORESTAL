@@ -1,19 +1,21 @@
 // ==========================================
 // js/desempenho-frota.js - LÓGICA DE FROTA (VOLUME EM M³)
 // ==========================================
-Chart.register(ChartDataLabels);
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
-Chart.defaults.font.family = "'Inter', sans-serif";
+if(typeof Chart !== 'undefined') {
+    Chart.register(ChartDataLabels);
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+}
 
-let dadosHistoricoCompletos = []; 
-let listaQuadroGeralAtual = []; 
-let chartEvolucaoObj = null;
-let chartPlacasObj = null;
-let chartMelhoresObj = null;
+var dadosHistoricoCompletos = []; 
+var listaQuadroGeralAtual = []; 
+var chartEvolucaoObj = null;
+var chartPlacasObj = null;
+var chartMelhoresObj = null;
 
-let activeFilter = 'MES'; 
-let customDateStr = ''; 
+var activeFilter = 'MES'; 
+var customDateStr = ''; 
 
 document.addEventListener('DOMContentLoaded', () => {
     setupFilters();
@@ -158,8 +160,8 @@ async function buscarDadosSupabase() {
     const tbody1 = document.getElementById('tbodyQuadroGeral');
     const tbody2 = document.getElementById('tbodyFrota');
     
-    tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
-    tbody2.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
+    if (tbody1) tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
+    if (tbody2) tbody2.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
     
     dadosHistoricoCompletos = [];
     let from = 0;
@@ -191,7 +193,8 @@ async function buscarDadosSupabase() {
 }
 
 function processarEExibirDados() {
-    const metaEstipulada = parseInt(document.getElementById('metaViagens').value) || 2;
+    const elMeta = document.getElementById('metaViagens');
+    const metaEstipulada = elMeta ? parseInt(elMeta.value) || 2 : 2;
     
     let dadosFiltrados = [];
     let diasParaGrafico = new Set(); 
@@ -216,7 +219,8 @@ function processarEExibirDados() {
         dadosFiltrados = dadosHistoricoCompletos.filter(x => x.dataDaBaseExcel === customDateStr);
         diasParaGrafico.add(customDateStr);
     } else if (activeFilter === 'MES') {
-        const selectedMesAno = document.getElementById('filterMesFrota').value;
+        const elMes = document.getElementById('filterMesFrota');
+        const selectedMesAno = elMes ? elMes.value : '';
         dadosFiltrados = dadosHistoricoCompletos.filter(x => {
             if(!x.dataDaBaseExcel) return false;
             const parts = x.dataDaBaseExcel.split('/');
@@ -297,10 +301,17 @@ function processarEExibirDados() {
     const totalCaminhoesUnicos = Object.keys(statsPorPlaca).length;
     const mediaGlobal = somaDiasGeral > 0 ? (somaViagensGeral / somaDiasGeral).toFixed(2) : 0;
 
-    document.getElementById('cardTotalCaminhoes').innerText = totalCaminhoesUnicos;
-    document.getElementById('cardAcimaMeta').innerText = qtdAcimaOuNaMeta;
-    document.getElementById('cardAbaixoMeta').innerText = qtdAbaixoMetaGeral;
-    document.getElementById('cardMediaViagens').innerText = mediaGlobal;
+    const elTotalCam = document.getElementById('cardTotalCaminhoes');
+    if(elTotalCam) elTotalCam.innerText = totalCaminhoesUnicos;
+    
+    const elAcimaM = document.getElementById('cardAcimaMeta');
+    if(elAcimaM) elAcimaM.innerText = qtdAcimaOuNaMeta;
+    
+    const elAbaixoM = document.getElementById('cardAbaixoMeta');
+    if(elAbaixoM) elAbaixoM.innerText = qtdAbaixoMetaGeral;
+    
+    const elMedVia = document.getElementById('cardMediaViagens');
+    if(elMedVia) elMedVia.innerText = mediaGlobal;
 
 
     const registrosAbaixoMeta = [];
@@ -337,16 +348,13 @@ function processarEExibirDados() {
         }
     }
 
-    document.getElementById('cardVolumePerdido').innerText = volumeTotalPerdido.toLocaleString('pt-PT', {maximumFractionDigits:1}) + ' m³';
+    const elVolPerd = document.getElementById('cardVolumePerdido');
+    if(elVolPerd) elVolPerd.innerText = volumeTotalPerdido.toLocaleString('pt-PT', {maximumFractionDigits:1}) + ' m³';
 
-    // Gráficos
     desenharGraficoEvolucao(datasValidas, evolucaoDiariaAbaixoMeta);
     desenharGraficoMelhoresPlacas(listaQuadroGeralAtual);
-    
-    // Novo gráfico: Menores Ciclos
     desenharGraficoMenoresCiclos(listaQuadroGeralAtual);
 
-    // Tabelas
     listaQuadroGeralAtual.sort((a, b) => b.mediaDiaria - a.mediaDiaria);
     preencherQuadroGeral(listaQuadroGeralAtual, metaEstipulada);
 
@@ -360,12 +368,9 @@ function processarEExibirDados() {
     preencherTabelaDetalhes(registrosAbaixoMeta);
 }
 
-// ----------------------
-// FUNÇÕES DE GRÁFICOS
-// ----------------------
-
 function desenharGraficoEvolucao(labels, dados) {
     const ctx = document.getElementById('chartEvolucao');
+    if(!ctx) return;
     if(chartEvolucaoObj) chartEvolucaoObj.destroy();
 
     const dataPoints = labels.map(l => dados[l] || 0);
@@ -412,7 +417,6 @@ function desenharGraficoMenoresCiclos(lista) {
     if (!ctx) return;
     if(chartPlacasObj) chartPlacasObj.destroy();
 
-    // Filtra placas com ciclo > 0, ordena do menor para o maior, pega as 5 primeiras
     const top5 = [...lista].filter(i => i.cicloMedio > 0).sort((a, b) => a.cicloMedio - b.cicloMedio).slice(0, 5);
 
     const labels = top5.map(i => i.placa);
@@ -425,7 +429,7 @@ function desenharGraficoMenoresCiclos(lista) {
             datasets: [{
                 label: 'Ciclo Médio',
                 data: values,
-                backgroundColor: '#38bdf8', // sky-400
+                backgroundColor: '#38bdf8', 
                 borderRadius: 4
             }]
         },
@@ -453,6 +457,7 @@ function desenharGraficoMenoresCiclos(lista) {
 
 function desenharGraficoMelhoresPlacas(lista) {
     const ctx = document.getElementById('chartMelhoresPlacas');
+    if(!ctx) return;
     if(chartMelhoresObj) chartMelhoresObj.destroy();
 
     const top5 = [...lista].sort((a, b) => b.mediaDiaria - a.mediaDiaria).slice(0, 5);
@@ -467,7 +472,7 @@ function desenharGraficoMelhoresPlacas(lista) {
             datasets: [{
                 label: 'Média de Viagens',
                 data: values,
-                backgroundColor: '#10b981', // emerald-500
+                backgroundColor: '#10b981', 
                 borderRadius: 4
             }]
         },
@@ -492,12 +497,9 @@ function desenharGraficoMelhoresPlacas(lista) {
     });
 }
 
-// ----------------------
-// FUNÇÕES DE TABELAS
-// ----------------------
-
 function preencherQuadroGeral(lista, meta) {
     const tbody = document.getElementById('tbodyQuadroGeral');
+    if(!tbody) return;
     tbody.innerHTML = '';
 
     if(lista.length === 0) {
@@ -532,6 +534,7 @@ function preencherQuadroGeral(lista, meta) {
 
 function preencherTabelaDetalhes(registros) {
     const tbody = document.getElementById('tbodyFrota');
+    if(!tbody) return;
     tbody.innerHTML = '';
 
     if(registros.length === 0) {
@@ -557,17 +560,16 @@ function preencherTabelaDetalhes(registros) {
     });
 }
 
-// ----------------------
-// EXPORTAÇÃO EXCEL
-// ----------------------
 function exportarParaExcel() {
     if (listaQuadroGeralAtual.length === 0) {
         alert("Não há dados para exportar no período selecionado.");
         return;
     }
-
-    const metaEstipulada = parseInt(document.getElementById('metaViagens').value) || 2;
-    const nomeMes = document.getElementById('filterMesFrota').options[document.getElementById('filterMesFrota').selectedIndex]?.text || 'Periodo';
+    
+    const elMeta = document.getElementById('metaViagens');
+    const metaEstipulada = elMeta ? parseInt(elMeta.value) || 2 : 2;
+    const elMes = document.getElementById('filterMesFrota');
+    const nomeMes = elMes && elMes.options.length > 0 ? elMes.options[elMes.selectedIndex].text : 'Periodo';
 
     const dadosExcel = listaQuadroGeralAtual.map(r => ({
         "Placa (Conjunto)": r.placa,
