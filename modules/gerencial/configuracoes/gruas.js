@@ -2,14 +2,19 @@
 // js/configuracoes/gruas.js - GESTÃO DE GRUAS (DINÂMICO)
 // ==========================================
 
-let frentesData = {}; // Agora o objeto nasce vazio e é preenchido dinamicamente pelo banco
+var frentesData = {}; // Alterado de let para var
 
 async function carregarFrentesGruas() {
     frentesData = {};
 
     try {
         const { data, error } = await supabaseClient.from('config_gruas').select('*');
-        if (error) throw error;
+        
+        // Verifica se o erro foi de tabela inexistente (404/400) para ignorar elegantemente
+        if (error) {
+            console.warn("Tabela 'config_gruas' não encontrada ou schema incorreto. Rode o SQL no Supabase!");
+            return;
+        }
 
         // Se o banco tiver dados, cria as chaves dinamicamente
         if (data && data.length > 0) {
@@ -31,16 +36,22 @@ async function carregarFrentesGruas() {
                 { frente: 'JSL', codigos: 'GSL0012, GSL0016' }
             ];
 
-            const { data: newData } = await supabaseClient.from('config_gruas').insert(fallbackData).select();
-            
-            if (newData) {
-                newData.forEach(item => {
-                    const nomeFrente = String(item.frente || '').trim().toUpperCase();
-                    frentesData[nomeFrente] = {
-                        id: item.id,
-                        gruas: (item.codigos || '').split(',').map(g => g.trim().toUpperCase()).filter(g => g)
-                    };
-                });
+            try {
+                const { data: newData, error: errInsert } = await supabaseClient.from('config_gruas').insert(fallbackData).select();
+                
+                if (errInsert) {
+                    console.warn("Aviso: Tabela config_gruas não aceitou a inserção inicial. Verifique as colunas (frente, codigos).");
+                } else if (newData) {
+                    newData.forEach(item => {
+                        const nomeFrente = String(item.frente || '').trim().toUpperCase();
+                        frentesData[nomeFrente] = {
+                            id: item.id,
+                            gruas: (item.codigos || '').split(',').map(g => g.trim().toUpperCase()).filter(g => g)
+                        };
+                    });
+                }
+            } catch (fallbackError) {
+                console.warn("Ocorreu um problema ao salvar as frentes de gruas padrão.");
             }
         }
         
@@ -139,7 +150,12 @@ async function salvarNoBanco(frente, stringGruas) {
             await supabaseClient.from('config_gruas').update({ codigos: stringGruas }).eq('id', id);
         } else {
             // Se não tem ID, faz INSERT
-            const { data } = await supabaseClient.from('config_gruas').insert([{ frente: frente, codigos: stringGruas }]).select();
+            const { data, error } = await supabaseClient.from('config_gruas').insert([{ frente: frente, codigos: stringGruas }]).select();
+            if(error) {
+                console.error("Erro ao inserir gruas:", error);
+                alert("Erro ao salvar! Verifique a tabela config_gruas no Supabase.");
+                return;
+            }
             if (data && data.length > 0) frentesData[frente].id = data[0].id;
         }
         await carregarFrentesGruas();

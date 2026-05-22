@@ -47,7 +47,10 @@ function configurarFiltros() {
         btn.addEventListener('click', (e) => {
             activeQuickFilterJor = e.currentTarget.getAttribute('data-qf');
             atualizarBotoesFiltro();
-            if (activeQuickFilterJor !== 'ALL') { document.getElementById('filterDataSelect').value = 'ALL'; }
+            const filterDataSelect = document.getElementById('filterDataSelect');
+            if (activeQuickFilterJor !== 'ALL' && filterDataSelect) { 
+                filterDataSelect.value = 'ALL'; 
+            }
             currentStatusFilter = 'ALL'; 
             renderizarPainelJornadas();
         });
@@ -55,8 +58,12 @@ function configurarFiltros() {
 }
 
 function renderizarPainelJornadas() {
+    // PROTEÇÃO CRÍTICA: Se não estivermos na tela de jornadas, pare a execução!
+    const elFilterDataSelect = document.getElementById('filterDataSelect');
+    if (!elFilterDataSelect) return; 
+
     let dados = fullJornadasData;
-    const dataEspec = document.getElementById('filterDataSelect').value;
+    const dataEspec = elFilterDataSelect.value;
 
     dados = dados.filter(d => {
         let dataParsedStr = '-';
@@ -97,21 +104,21 @@ function renderizarPainelJornadas() {
     jornadasGlobalData = dados;
 
     if (dados.length === 0) {
-         document.getElementById('jorFilterStatus').innerText = '0 Registros';
-        document.getElementById('jorTotalMotoristas').innerText = '0';
-        document.getElementById('jorQtdEstouros').innerText = '0';
-        if (document.getElementById('jorQtdExpurgadas')) document.getElementById('jorQtdExpurgadas').innerText = '0';
-        document.getElementById('jorMediaDirecao').innerText = '0h 00m';
-        if (document.getElementById('jorQtdAuditados')) document.getElementById('jorQtdAuditados').innerText = '0';
-        if (document.getElementById('jorQtdPendentes')) document.getElementById('jorQtdPendentes').innerText = '0';
+        if(document.getElementById('jorFilterStatus')) document.getElementById('jorFilterStatus').innerText = '0 Registros';
+        if(document.getElementById('jorTotalMotoristas')) document.getElementById('jorTotalMotoristas').innerText = '0';
+        if(document.getElementById('jorQtdEstouros')) document.getElementById('jorQtdEstouros').innerText = '0';
+        if(document.getElementById('jorQtdExpurgadas')) document.getElementById('jorQtdExpurgadas').innerText = '0';
+        if(document.getElementById('jorMediaDirecao')) document.getElementById('jorMediaDirecao').innerText = '0h 00m';
+        if(document.getElementById('jorQtdAuditados')) document.getElementById('jorQtdAuditados').innerText = '0';
+        if(document.getElementById('jorQtdPendentes')) document.getElementById('jorQtdPendentes').innerText = '0';
         
-        document.getElementById('jorTabelaAnaliticaBody').innerHTML = '<tr><td colspan="12" class="text-center py-4 text-slate-500">Nenhum dado encontrado para o filtro.</td></tr>';
-        document.getElementById('jorTopEstourosBody').innerHTML = '';
-        document.getElementById('jorTopNoturnasBody').innerHTML = '';
-        document.getElementById('jorTopExtrasBody').innerHTML = '';
-        document.getElementById('jorInfratoresRecorrentesBody').innerHTML = '';
+        if(document.getElementById('jorTabelaAnaliticaBody')) document.getElementById('jorTabelaAnaliticaBody').innerHTML = '<tr><td colspan="12" class="text-center py-4 text-slate-500">Nenhum dado encontrado para o filtro.</td></tr>';
+        if(document.getElementById('jorTopEstourosBody')) document.getElementById('jorTopEstourosBody').innerHTML = '';
+        if(document.getElementById('jorTopNoturnasBody')) document.getElementById('jorTopNoturnasBody').innerHTML = '';
+        if(document.getElementById('jorTopExtrasBody')) document.getElementById('jorTopExtrasBody').innerHTML = '';
+        if(document.getElementById('jorInfratoresRecorrentesBody')) document.getElementById('jorInfratoresRecorrentesBody').innerHTML = '';
 
-         if(chartStatusFrota) chartStatusFrota.destroy();
+        if(chartStatusFrota) chartStatusFrota.destroy();
         if(chartFaixaHoras) chartFaixaHoras.destroy();
         if(chartEvolucaoOcorrencias) chartEvolucaoOcorrencias.destroy();
         return; 
@@ -147,12 +154,13 @@ function renderizarPainelJornadas() {
 
     dadosFiltradosGlobal = dadosFiltrados;
 
-    document.getElementById('jorFilterStatus').innerText = `${dadosFiltrados.length} Registros`;
+    if(document.getElementById('jorFilterStatus')) document.getElementById('jorFilterStatus').innerText = `${dadosFiltrados.length} Registros`;
 
     let totalMinutosDirecao = 0; let qtdDirecao = 0;
     let fx8_10 = 0, fx10_12 = 0, fx12_14 = 0, fx14mais = 0;
     
-    const tbodyEstouro = document.getElementById('jorTopEstourosBody'); tbodyEstouro.innerHTML = '';
+    const tbodyEstouro = document.getElementById('jorTopEstourosBody'); 
+    if(tbodyEstouro) tbodyEstouro.innerHTML = '';
     
     const agregacaoMotoristas = new Map();
     let infracoesList = [];
@@ -220,45 +228,51 @@ function renderizarPainelJornadas() {
         }
     }
 
-    const topInfracoes = infracoesList.sort((a, b) => b.horas - a.horas).slice(0, 5);
-    if(topInfracoes.length === 0) {
-        tbodyEstouro.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-slate-500 text-xs">Sem infrações ativas registradas.</td></tr>';
-    } else {
-        topInfracoes.forEach(m => {
-            tbodyEstouro.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-rose-500">${formatarHorasMinutos(m.horas)}</td></tr>`);
-        });
+    if (tbodyEstouro) {
+        const topInfracoes = infracoesList.sort((a, b) => b.horas - a.horas).slice(0, 5);
+        if(topInfracoes.length === 0) {
+            tbodyEstouro.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-slate-500 text-xs">Sem infrações ativas registradas.</td></tr>';
+        } else {
+            topInfracoes.forEach(m => {
+                tbodyEstouro.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-rose-500">${formatarHorasMinutos(m.horas)}</td></tr>`);
+            });
+        }
     }
 
     const arrMot = Array.from(agregacaoMotoristas.values());
 
     const tbodyNoturnas = document.getElementById('jorTopNoturnasBody');
-    tbodyNoturnas.innerHTML = '';
-    const topNoturnas = arrMot.filter(m => m.noturnas > 0).sort((a,b) => b.noturnas - a.noturnas).slice(0,5);
-    if(topNoturnas.length === 0) tbodyNoturnas.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-slate-500 text-xs">Sem horas noturnas.</td></tr>';
-    topNoturnas.forEach(m => {
-        tbodyNoturnas.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-indigo-400">${formatarHorasMinutos(m.noturnas)}</td></tr>`);
-    });
+    if (tbodyNoturnas) {
+        tbodyNoturnas.innerHTML = '';
+        const topNoturnas = arrMot.filter(m => m.noturnas > 0).sort((a,b) => b.noturnas - a.noturnas).slice(0,5);
+        if(topNoturnas.length === 0) tbodyNoturnas.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-slate-500 text-xs">Sem horas noturnas.</td></tr>';
+        topNoturnas.forEach(m => {
+            tbodyNoturnas.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-indigo-400">${formatarHorasMinutos(m.noturnas)}</td></tr>`);
+        });
+    }
 
     const tbodyExtras = document.getElementById('jorTopExtrasBody');
-    tbodyExtras.innerHTML = '';
-    const topExtras = arrMot.filter(m => m.extras > 0).sort((a,b) => b.extras - a.extras).slice(0,5);
-    if(topExtras.length === 0) tbodyExtras.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-slate-500 text-xs">Sem horas extras.</td></tr>';
-    topExtras.forEach(m => {
-        tbodyExtras.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-amber-400">${formatarHorasMinutos(m.extras)}</td></tr>`);
-    });
+    if(tbodyExtras) {
+        tbodyExtras.innerHTML = '';
+        const topExtras = arrMot.filter(m => m.extras > 0).sort((a,b) => b.extras - a.extras).slice(0,5);
+        if(topExtras.length === 0) tbodyExtras.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-slate-500 text-xs">Sem horas extras.</td></tr>';
+        topExtras.forEach(m => {
+            tbodyExtras.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-amber-400">${formatarHorasMinutos(m.extras)}</td></tr>`);
+        });
+    }
 
     // Atualiza os dados dos Cards Superiores
-    document.getElementById('jorTotalMotoristas').textContent = arrMot.length;
-    document.getElementById('jorQtdEstouros').textContent = qtdEstouros;
-    if (document.getElementById('jorQtdExpurgadas')) document.getElementById('jorQtdExpurgadas').textContent = qtdExpurgadas;
-    document.getElementById('jorMediaDirecao').textContent = formatarHorasMinutos(qtdDirecao > 0 ? (totalMinutosDirecao / qtdDirecao) / 60 : 0);
+    if(document.getElementById('jorTotalMotoristas')) document.getElementById('jorTotalMotoristas').textContent = arrMot.length;
+    if(document.getElementById('jorQtdEstouros')) document.getElementById('jorQtdEstouros').textContent = qtdEstouros;
+    if(document.getElementById('jorQtdExpurgadas')) document.getElementById('jorQtdExpurgadas').textContent = qtdExpurgadas;
+    if(document.getElementById('jorMediaDirecao')) document.getElementById('jorMediaDirecao').textContent = formatarHorasMinutos(qtdDirecao > 0 ? (totalMinutosDirecao / qtdDirecao) / 60 : 0);
     
     if (document.getElementById('jorQtdAuditados')) document.getElementById('jorQtdAuditados').textContent = totalAuditados;
     if (document.getElementById('jorQtdPendentes')) document.getElementById('jorQtdPendentes').textContent = totalPendentes;
 
     let filterText = dataEspec !== 'ALL' ? dataEspec : activeQuickFilterJor;
     if (currentStatusFilter !== 'ALL') filterText += ` | Status: ${currentStatusFilter}`;
-    document.getElementById('jorDataReferencia').textContent = `Filtro: ${filterText}`;
+    if(document.getElementById('jorDataReferencia')) document.getElementById('jorDataReferencia').textContent = `Filtro: ${filterText}`;
 
     const selectMot = document.getElementById('filterAnaliticoMotorista');
     if (selectMot) {
@@ -291,71 +305,77 @@ function renderizarPainelJornadas() {
     if (currentStatusFilter === 'OK') bgColors[1] = '#f43f5e33'; 
     if (currentStatusFilter === 'INFRACAO') bgColors[0] = '#10b98133';
 
-    const ctxStatus = document.getElementById('statusFrotaChart').getContext('2d');
-    chartStatusFrota = new Chart(ctxStatus, {
-        type: 'doughnut',
-        data: { 
-            labels: ['OK / Expurgadas', 'Infração (> 12h)'], 
-            datasets: [{ 
-                data: [totalOKParaGrafico, qtdEstouros], 
-                backgroundColor: bgColors, 
-                borderWidth: 2, 
-                borderColor: '#1e293b' 
-            }] 
-        },
-        plugins: [centerTextPluginJornadas],
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            cutout: '60%', 
-            layout: { padding: { top: 40, bottom: 40, left: 20, right: 20 } },
-            onClick: (event, elements) => {
-                if (elements.length > 0) {
-                    const index = elements[0].index;
-                    if (index === 0) currentStatusFilter = currentStatusFilter === 'OK' ? 'ALL' : 'OK';
-                    else currentStatusFilter = currentStatusFilter === 'INFRACAO' ? 'ALL' : 'INFRACAO';
-                } else {
-                    currentStatusFilter = 'ALL';
-                }
-                renderizarPainelJornadas();
+    const canvasStatus = document.getElementById('statusFrotaChart');
+    if(canvasStatus) {
+        const ctxStatus = canvasStatus.getContext('2d');
+        chartStatusFrota = new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: { 
+                labels: ['OK / Expurgadas', 'Infração (> 12h)'], 
+                datasets: [{ 
+                    data: [totalOKParaGrafico, qtdEstouros], 
+                    backgroundColor: bgColors, 
+                    borderWidth: 2, 
+                    borderColor: '#1e293b' 
+                }] 
             },
-            onHover: (event, elements) => {
-                event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
-            },
-            plugins: { 
-                legend: { position: 'right', labels: { boxWidth: 12, font: { size: 12 } } }, 
-                datalabels: { 
-                    display: true, color: '#f8fafc', font: { weight: 'bold', size: 14 }, 
-                    textAlign: 'center', anchor: 'end', align: 'end', offset: 8, 
-                    formatter: (value) => {
-                        if (value === 0) return null;
-                        const perc = totalStatus > 0 ? ((value / totalStatus) * 100).toFixed(1) : 0;
-                        return `${value}\n(${perc}%)`;
+            plugins: [centerTextPluginJornadas],
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                cutout: '60%', 
+                layout: { padding: { top: 40, bottom: 40, left: 20, right: 20 } },
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        if (index === 0) currentStatusFilter = currentStatusFilter === 'OK' ? 'ALL' : 'OK';
+                        else currentStatusFilter = currentStatusFilter === 'INFRACAO' ? 'ALL' : 'INFRACAO';
+                    } else {
+                        currentStatusFilter = 'ALL';
                     }
+                    renderizarPainelJornadas();
+                },
+                onHover: (event, elements) => {
+                    event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+                },
+                plugins: { 
+                    legend: { position: 'right', labels: { boxWidth: 12, font: { size: 12 } } }, 
+                    datalabels: { 
+                        display: true, color: '#f8fafc', font: { weight: 'bold', size: 14 }, 
+                        textAlign: 'center', anchor: 'end', align: 'end', offset: 8, 
+                        formatter: (value) => {
+                            if (value === 0) return null;
+                            const perc = totalStatus > 0 ? ((value / totalStatus) * 100).toFixed(1) : 0;
+                            return `${value}\n(${perc}%)`;
+                        }
+                    } 
                 } 
-            } 
-        }
-    });
+            }
+        });
+    }
 
-    const ctxFaixas = document.getElementById('faixaHorasChart').getContext('2d');
-    let gradientBar = ctxFaixas.createLinearGradient(0, 0, 0, 400);
-    gradientBar.addColorStop(0, '#10b981'); gradientBar.addColorStop(1, '#059669'); 
-    chartFaixaHoras = new Chart(ctxFaixas, {
-        type: 'bar',
-        data: { 
-            labels: ['8h a 10h', '10h a 12h', '12h a 14h', '> 14h'], 
-            datasets: [{ 
-                label: 'Qtd de Jornadas', data: [fx8_10, fx10_12, fx12_14, fx14mais], 
-                backgroundColor: [gradientBar, gradientBar, '#f43f5e', '#9f1239'], 
-                borderRadius: 4, barPercentage: 0.6 
-            }] 
-        },
-        options: { 
-            responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25, bottom: 10 } }, 
-            plugins: { legend: { display: false }, datalabels: { color: '#fff', anchor: 'end', align: 'top', font: { weight: 'bold', size: 13 } } }, 
-            scales: { y: { display: false }, x: { grid: { display: false }, border: { display: false }, ticks: { color: '#cbd5e1', font: { size: 13, weight: '600' } } } } 
-        }
-    });
+    const canvasFaixas = document.getElementById('faixaHorasChart');
+    if(canvasFaixas) {
+        const ctxFaixas = canvasFaixas.getContext('2d');
+        let gradientBar = ctxFaixas.createLinearGradient(0, 0, 0, 400);
+        gradientBar.addColorStop(0, '#10b981'); gradientBar.addColorStop(1, '#059669'); 
+        chartFaixaHoras = new Chart(ctxFaixas, {
+            type: 'bar',
+            data: { 
+                labels: ['8h a 10h', '10h a 12h', '12h a 14h', '> 14h'], 
+                datasets: [{ 
+                    label: 'Qtd de Jornadas', data: [fx8_10, fx10_12, fx12_14, fx14mais], 
+                    backgroundColor: [gradientBar, gradientBar, '#f43f5e', '#9f1239'], 
+                    borderRadius: 4, barPercentage: 0.6 
+                }] 
+            },
+            options: { 
+                responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25, bottom: 10 } }, 
+                plugins: { legend: { display: false }, datalabels: { color: '#fff', anchor: 'end', align: 'top', font: { weight: 'bold', size: 13 } } }, 
+                scales: { y: { display: false }, x: { grid: { display: false }, border: { display: false }, ticks: { color: '#cbd5e1', font: { size: 13, weight: '600' } } } } 
+            }
+        });
+    }
 
     const dailyInfractions = new Map();
     
@@ -526,14 +546,17 @@ window.filtrarMotoristaAnalitico = function(nome) {
         atualizarTabelaAnalitica();
         toggleBtnLimparFiltro();
           
-        document.getElementById('jorTabelaAnaliticaBody').scrollIntoView({behavior: 'smooth', block: 'center'});
+        if(document.getElementById('jorTabelaAnaliticaBody')) {
+            document.getElementById('jorTabelaAnaliticaBody').scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
     }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    criarModaisAuditoria(); 
+    if(typeof criarModaisAuditoria === 'function') criarModaisAuditoria(); 
     configurarFiltros();
-    carregarPainelJornadas();
+    
+    if(typeof carregarPainelJornadas === 'function') carregarPainelJornadas();
 
     const filterAnaliticoSelect = document.getElementById('filterAnaliticoMotorista');
     const btnLimparFiltroMotorista = document.getElementById('btnLimparFiltroMotorista');
@@ -559,9 +582,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRelAuditoria = document.getElementById('btnAbrirModalRelatorioAuditoria');
     if (btnRelAuditoria) {
         btnRelAuditoria.addEventListener('click', () => {
-            document.getElementById('relAuditDataInicio').value = '';
-            document.getElementById('relAuditDataFim').value = '';
-            document.getElementById('modalRelatorioAuditoria').classList.remove('hidden');
+            if(document.getElementById('relAuditDataInicio')) document.getElementById('relAuditDataInicio').value = '';
+            if(document.getElementById('relAuditDataFim')) document.getElementById('relAuditDataFim').value = '';
+            if(document.getElementById('modalRelatorioAuditoria')) document.getElementById('modalRelatorioAuditoria').classList.remove('hidden');
         });
     }
 });
