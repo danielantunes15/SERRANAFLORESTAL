@@ -1,0 +1,151 @@
+<div class="max-w-[96rem] mx-auto px-6 py-8">
+    <div class="flex justify-between items-center mb-8 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+        <div>
+            <h1 class="text-2xl font-extrabold text-white">Configurações da Torre</h1>
+            <p class="text-sm text-slate-400 font-medium">Gerenciamento de Metas Globais e Base de Dados</p>
+        </div>
+    </div>
+    
+    <section class="space-y-6 animate-fade-in">
+        
+        <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden">
+            <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="font-bold text-white tracking-wide"><i class="fas fa-bullseye text-amber-500 mr-2"></i> Configurar Metas Globais</h3>
+                <button id="btnSalvarMetasGlobais" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-6 rounded-lg shadow transition-colors text-sm"><i class="fas fa-save"></i> Salvar Metas Base</button>
+            </div>
+            <div class="p-6 flex flex-col gap-6 bg-slate-900/50">
+                <h4 class="text-sky-400 font-bold text-xs uppercase border-b border-slate-700 pb-2">Metas de Produção</h4>
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+                    <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Tamanho da Frota</label><input type="number" id="cfg_tamanho_frota" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500" placeholder="Ex: 50"></div>
+                    <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Viagens/Dia (Caminhão)</label><input type="number" id="cfg_v_prog" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500"></div>
+                    <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Volume Diário Global</label><input type="number" id="cfg_vol_prog" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500"></div>
+                    <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Caixa Média (m³)</label><input type="number" id="cfg_cx_prog" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500"></div>
+                    <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">PBTC Médio (t)</label><input type="number" id="cfg_pbtc" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500"></div>
+                </div>
+                <h4 class="text-sky-400 font-bold text-xs uppercase border-b border-slate-700 pb-2 mt-2">Metas de Tempo Operacional (Formato HH:mm)</h4>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block"><i class="far fa-clock mr-1"></i> Padrão Ciclo Total</label><input type="time" id="cfg_meta_ciclo" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500 cursor-pointer"></div>
+                    <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block"><i class="far fa-clock mr-1"></i> Limite Fila no Campo</label><input type="time" id="cfg_meta_fila_campo" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500 cursor-pointer"></div>
+                    <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block"><i class="far fa-clock mr-1"></i> Padrão Carregamento</label><input type="time" id="cfg_meta_carga" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500 cursor-pointer"></div>
+                    <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block"><i class="far fa-clock mr-1"></i> Limite Fila na Fábrica</label><input type="time" id="cfg_meta_fila_fabrica" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500 cursor-pointer"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-2xl border border-sky-700/50 shadow-xl overflow-hidden mt-6 mb-6">
+            <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="font-bold text-white tracking-wide text-[13px] uppercase">
+                    <i class="fas fa-tractor text-sky-400 mr-2"></i> Mapeamento Dinâmico de Gruas
+                </h3>
+            </div>
+            <div class="p-6 bg-slate-900/50">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    
+                    <div class="bg-slate-800/60 border border-emerald-700/50 rounded-xl p-5 flex flex-col h-full shadow-inner">
+                        <h4 class="text-emerald-400 font-extrabold uppercase text-xs mb-4 text-center border-b border-emerald-700/50 pb-3 tracking-widest"><i class="fas fa-star mr-1"></i> FRENTE SERRANA</h4>
+                        <div id="lista_serrana" class="flex flex-wrap gap-2 mb-6 flex-1 content-start">
+                        </div>
+                        <div class="flex mt-auto shadow-lg rounded-lg">
+                            <input type="text" id="input_serrana" placeholder="Ex: GSR0009" class="w-full bg-slate-950 border border-slate-600 rounded-l-lg px-4 py-2.5 text-white outline-none focus:border-emerald-500 text-xs font-mono uppercase" onkeypress="if(event.key==='Enter') adicionarGrua('SERRANA', 'input_serrana')">
+                            <button onclick="adicionarGrua('SERRANA', 'input_serrana')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-r-lg font-bold transition-colors"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-800/60 border border-amber-700/50 rounded-xl p-5 flex flex-col h-full shadow-inner">
+                        <h4 class="text-amber-400 font-extrabold uppercase text-xs mb-4 text-center border-b border-amber-700/50 pb-3 tracking-widest"><i class="fas fa-tree mr-1"></i> FRENTE REFLORESTAR</h4>
+                        <div id="lista_reflorestar" class="flex flex-wrap gap-2 mb-6 flex-1 content-start"></div>
+                        <div class="flex mt-auto shadow-lg rounded-lg">
+                            <input type="text" id="input_reflorestar" placeholder="Ex: GRB0030" class="w-full bg-slate-950 border border-slate-600 rounded-l-lg px-4 py-2.5 text-white outline-none focus:border-amber-500 text-xs font-mono uppercase" onkeypress="if(event.key==='Enter') adicionarGrua('REFLORESTAR', 'input_reflorestar')">
+                            <button onclick="adicionarGrua('REFLORESTAR', 'input_reflorestar')" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 rounded-r-lg font-bold transition-colors"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/60 border border-indigo-700/50 rounded-xl p-5 flex flex-col h-full shadow-inner">
+                        <h4 class="text-indigo-400 font-extrabold uppercase text-xs mb-4 text-center border-b border-indigo-700/50 pb-3 tracking-widest"><i class="fas fa-leaf mr-1"></i> FRENTE JSL</h4>
+                        <div id="lista_jsl" class="flex flex-wrap gap-2 mb-6 flex-1 content-start"></div>
+                        <div class="flex mt-auto shadow-lg rounded-lg">
+                            <input type="text" id="input_jsl" placeholder="Ex: GSL0018" class="w-full bg-slate-950 border border-slate-600 rounded-l-lg px-4 py-2.5 text-white outline-none focus:border-indigo-500 text-xs font-mono uppercase" onkeypress="if(event.key==='Enter') adicionarGrua('JSL', 'input_jsl')">
+                            <button onclick="adicionarGrua('JSL', 'input_jsl')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-r-lg font-bold transition-colors"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-truck text-sky-400 mr-2"></i> Viagens (Produção)</h3></div>
+                <div class="p-6 bg-slate-900/50 flex-1">
+                    <div id="dropZone" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600">
+                        <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-file-excel text-emerald-500"></i></div>
+                        <h3 class="text-slate-200 font-bold text-xs">Arraste a planilha de Viagens</h3>
+                        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" class="hidden" />
+                        <button id="selectFileBtn" class="mt-3 bg-sky-600 hover:bg-sky-500 text-white px-3 py-1 rounded text-[10px] font-bold">BUSCAR</button>
+                    </div>
+                    <div id="loadingSpinner" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-sky-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-sky-200 text-[10px] font-bold">Processando...</span></div>
+                    <div id="errorMsg" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-user-clock text-amber-400 mr-2"></i> Jornadas (Ponto)</h3></div>
+                <div class="p-6 bg-slate-900/50 flex-1">
+                    <div id="dropZoneJornadas" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600">
+                        <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-file-csv text-amber-500"></i></div>
+                        <h3 class="text-slate-200 font-bold text-xs">Arraste o CSV de Jornadas</h3>
+                        <input type="file" id="fileInputJornadas" accept=".csv, .xlsx" class="hidden" />
+                        <button id="selectFileBtnJornadas" class="mt-3 bg-amber-600 hover:bg-amber-500 text-white px-3 py-1 rounded text-[10px] font-bold">BUSCAR</button>
+                    </div>
+                    <div id="loadingSpinnerJornadas" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-amber-200 text-[10px] font-bold">Processando...</span></div>
+                    <div id="errorMsgJornadas" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-exclamation-triangle text-rose-400 mr-2"></i> Eventos (Telemetria)</h3></div>
+                <div class="p-6 bg-slate-900/50 flex-1">
+                    <div id="dropZoneEventos" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600">
+                        <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-satellite-dish text-rose-500"></i></div>
+                        <h3 class="text-slate-200 font-bold text-xs">Arraste o CSV de Eventos</h3>
+                        <input type="file" id="fileInputEventos" accept=".csv" class="hidden" />
+                        <button id="selectFileBtnEventos" class="mt-3 bg-rose-600 hover:bg-rose-500 text-white px-3 py-1 rounded text-[10px] font-bold">BUSCAR</button>
+                    </div>
+                    <div id="loadingSpinnerEventos" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-rose-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-rose-200 text-[10px] font-bold">Processando...</span></div>
+                    <div id="errorMsgEventos" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden">
+            <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="font-bold text-white tracking-wide text-[13px] uppercase"><i class="fas fa-history text-emerald-400 mr-2"></i> Últimas Importações Realizadas</h3>
+                <button id="btnAtualizarHistorico" class="text-slate-400 hover:text-white transition-colors"><i class="fas fa-sync-alt"></i></button>
+            </div>
+            <div class="overflow-x-auto max-h-[250px] overflow-y-auto custom-scrollbar">
+                <table class="min-w-full text-xs text-left">
+                    <thead class="bg-slate-900/95 text-slate-400 uppercase text-[10px] border-b border-slate-700 sticky top-0">
+                        <tr><th class="px-6 py-3">Data/Hora</th><th class="px-6 py-3">Período/Módulo</th><th class="px-6 py-3 text-center">Registros</th></tr>
+                    </thead>
+                    <tbody id="importHistoryBody" class="divide-y divide-slate-800/80 text-slate-300"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-2xl border border-rose-900/30 shadow-xl bg-rose-950/20 p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h3 class="font-bold text-rose-400"><i class="fas fa-exclamation-triangle mr-2"></i> Zona de Risco</h3>
+                <p class="text-[10px] text-slate-400">Limpeza permanente de tabelas.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center gap-3">
+                <select id="tipoExclusao" onchange="toggleMesExclusao()" class="bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-bold rounded px-4 py-2 outline-none">
+                    <option value="tudo">Apagar TUDO (Viagens e Eventos)</option>
+                    <option value="viagens">Apagar Viagens (TUDO)</option>
+                    <option value="viagens_mes">Apagar Viagens (Mês Específico)</option>
+                    <option value="eventos">Apagar Eventos (TUDO)</option>
+                </select>
+                <input type="month" id="mesExclusao" style="display: none;" class="bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-bold rounded px-4 py-2 outline-none cursor-pointer">
+                <button id="btnLimparBanco" class="bg-rose-900/80 hover:bg-rose-700 text-white font-bold py-2 px-6 rounded text-xs transition-all">EXECUTAR EXCLUSÃO</button>
+            </div>
+        </div>
+    </section>
+</div>

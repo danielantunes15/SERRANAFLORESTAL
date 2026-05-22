@@ -1,0 +1,152 @@
+<div class="max-w-[96rem] mx-auto px-6 py-8">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold text-white flex items-center gap-3">
+                <i class="fas fa-truck-fast text-sky-500"></i> Desempenho da Frota
+            </h1>
+            <p class="text-sm text-slate-400 font-medium mt-1">Análise de produtividade e médias - <span class="text-sky-400 font-bold">SERRANALOG TRANSPORTES LTDA</span></p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <div class="bg-slate-900/50 p-1 pl-3 rounded-lg border border-slate-700/50 flex items-center">
+                <i class="fas fa-bullseye text-slate-500 mr-2"></i>
+                <span class="text-xs text-slate-400 mr-2">Meta (viagens/dia):</span>
+                <input type="number" id="metaViagens" value="2" min="1" class="w-16 bg-slate-800 text-white text-sm rounded-md border-none p-1 focus:ring-1 focus:ring-sky-500 text-center font-bold outline-none">
+            </div>
+            
+            <div class="flex bg-slate-900/50 p-1 rounded-lg border border-slate-700/50 gap-1">
+                <button class="btn-qf px-3 py-1.5 text-xs font-bold rounded-md transition-all border border-transparent text-slate-400 hover:bg-slate-700/50" data-qf="D-1">D-1</button>
+                <button class="btn-qf px-3 py-1.5 text-xs font-bold rounded-md transition-all border border-transparent text-slate-400 hover:bg-slate-700/50" data-qf="D-2">D-2</button>
+                <button class="btn-qf px-3 py-1.5 text-xs font-bold rounded-md transition-all border border-transparent text-slate-400 hover:bg-slate-700/50" data-qf="D-7">D-7</button>
+            </div>
+
+            <div class="bg-slate-900/50 p-1 px-3 rounded-lg border border-slate-700/50 flex items-center shadow-inner">
+                <i class="far fa-folder-open text-sky-400 mr-2"></i>
+                <select id="filterMesFrota" class="bg-transparent text-sm font-bold text-sky-400 border-none focus:ring-0 cursor-pointer outline-none appearance-none">
+                    <option value="" class="bg-slate-800 text-slate-300">Mês Específico</option>
+                </select>
+            </div>
+
+            <div class="bg-slate-900/50 p-1 px-3 rounded-lg border border-slate-700/50 flex items-center flex-1 lg:flex-initial">
+                <i class="far fa-calendar-alt text-slate-500 mr-2"></i>
+                <input type="date" id="filterDataFrota" class="bg-transparent text-sm text-white border-none focus:ring-0 w-full cursor-pointer outline-none">
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div class="bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 relative overflow-hidden">
+            <div class="absolute -right-4 -top-4 opacity-5"><i class="fas fa-truck text-8xl"></i></div>
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Conjuntos Analisados</p>
+            <h3 id="cardTotalCaminhoes" class="text-3xl font-black text-white mt-1">0</h3>
+            <p class="text-[10px] text-slate-500 mt-2">No período selecionado</p>
+        </div>
+        <div class="bg-emerald-900/20 p-5 rounded-2xl border border-emerald-800/30 relative overflow-hidden shadow-[inset_0_0_20px_rgba(16,185,129,0.05)]">
+            <div class="absolute -right-4 -top-4 opacity-5"><i class="fas fa-arrow-trend-up text-8xl"></i></div>
+            <p class="text-xs text-emerald-400 font-bold uppercase tracking-wider">Bateram a Meta</p>
+            <h3 id="cardAcimaMeta" class="text-3xl font-black text-white mt-1">0</h3>
+            <p class="text-[10px] text-emerald-300/60 mt-2">Médias >= Meta</p>
+        </div>
+        <div class="bg-rose-900/20 p-5 rounded-2xl border border-rose-800/30 relative overflow-hidden shadow-[inset_0_0_20px_rgba(225,29,72,0.05)]">
+            <div class="absolute -right-4 -top-4 opacity-5"><i class="fas fa-arrow-trend-down text-8xl"></i></div>
+            <p class="text-xs text-rose-400 font-bold uppercase tracking-wider">Abaixo da Meta</p>
+            <h3 id="cardAbaixoMeta" class="text-3xl font-black text-white mt-1">0</h3>
+            <p class="text-[10px] text-rose-300/60 mt-2">Médias < Meta</p>
+        </div>
+        <div class="bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 relative overflow-hidden">
+            <div class="absolute -right-4 -top-4 opacity-5"><i class="fas fa-route text-8xl"></i></div>
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Média Global</p>
+            <h3 id="cardMediaViagens" class="text-3xl font-black text-white mt-1">0.0</h3>
+            <p class="text-[10px] text-slate-500 mt-2">Viagens/dia (Geral)</p>
+        </div>
+        <div class="bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 relative overflow-hidden">
+            <div class="absolute -right-4 -top-4 opacity-5"><i class="fas fa-cube text-8xl"></i></div>
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Vol. Comprometido</p>
+            <h3 id="cardVolumePerdido" class="text-2xl font-black text-white mt-2">0 m³</h3>
+            <p class="text-[10px] text-slate-500 mt-2">Deixou de ganhar (Pela média)</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 shadow-lg">
+            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wide mb-4"><i class="fas fa-chart-line text-rose-400 mr-2"></i>Evolução (< Meta)</h3>
+            <div class="h-64 relative">
+                <canvas id="chartEvolucao"></canvas>
+            </div>
+        </div>
+        
+        <div class="bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 shadow-lg">
+            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wide mb-4"><i class="fas fa-stopwatch text-sky-400 mr-2"></i>Top 5 Menores Ciclos</h3>
+            <div class="h-64 relative">
+                <canvas id="chartMenoresCiclos"></canvas>
+            </div>
+        </div>
+
+        <div class="bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 shadow-lg relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-emerald-900/10 to-transparent pointer-events-none"></div>
+            <h3 class="text-sm font-bold text-emerald-400 uppercase tracking-wide mb-4 relative z-10"><i class="fas fa-trophy text-emerald-400 mr-2"></i>Top 5 Melhores (Média Viagens)</h3>
+            <div class="h-64 relative z-10">
+                <canvas id="chartMelhoresPlacas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-slate-800/40 rounded-2xl border border-slate-700/50 shadow-lg overflow-hidden flex flex-col mb-8">
+        <div class="p-5 border-b border-slate-700/50 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900/30 gap-4">
+            <div>
+                <h3 class="text-sm font-bold text-white uppercase tracking-wide">
+                    <i class="fas fa-table-columns text-sky-400 mr-2"></i>Quadro Geral de Desempenho
+                </h3>
+                <span class="text-xs text-slate-400 font-mono">Do maior para o menor - Média por Conjunto</span>
+            </div>
+            <button id="btnExportarExcel" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all shadow-lg border border-emerald-500/50">
+                <i class="fas fa-file-excel text-lg"></i>
+                Exportar Excel
+            </button>
+        </div>
+        
+        <div class="overflow-x-auto max-h-96 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-900/80 sticky top-0 z-10 shadow-sm backdrop-blur-md">
+                    <tr>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Placa (Conjunto)</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Dias Trab.</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Total Viagens</th>
+                        <th class="px-6 py-3 text-xs font-black text-sky-400 uppercase tracking-widest text-center">Média / Dia</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Ciclo Médio</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Vol. Total (m³)</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyQuadroGeral" class="divide-y divide-slate-700/50 bg-slate-800/20">
+                    <tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Carregando dados...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-slate-800/40 rounded-2xl border border-slate-700/50 shadow-lg overflow-hidden flex flex-col mb-8">
+        <div class="p-5 border-b border-slate-700/50 flex justify-between items-center bg-slate-900/30">
+            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wide">
+                <i class="fas fa-list text-rose-400 mr-2"></i>Detalhe de Conjuntos Abaixo da Meta (Dia a Dia)
+            </h3>
+        </div>
+        
+        <div class="overflow-x-auto max-h-96 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-900/80 sticky top-0 z-10 shadow-sm backdrop-blur-md">
+                    <tr>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Data</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Placa (Conjunto)</th>
+                        <th class="px-6 py-3 text-xs font-black text-rose-400 uppercase tracking-widest text-center">Viagens Rel.</th>
+                        <th class="px-6 py-3 text-xs font-black text-amber-400 uppercase tracking-widest text-center">Faltou (Viagens)</th>
+                        <th class="px-6 py-3 text-xs font-black text-emerald-400 uppercase tracking-widest text-right">Deixou de Ganhar (m³)</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Fila Carregamento</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyFrota" class="divide-y divide-slate-700/50 bg-slate-800/20">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
