@@ -2,7 +2,7 @@
 // js/historico-jornadas.js - TELA DE AUDITORIA DE JORNADAS
 // ==========================================
 
-var fullHistoricoJornadas = [];
+var fullHistoricoJornadas = window.fullHistoricoJornadas || [];
 var paginaAtualJor = 0;
 var itensPorPaginaJor = 50;
 var termoBuscaJor = '';
@@ -15,7 +15,7 @@ var regexDate = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{4}-\d{1,2}-\d{1,2})/;
 var regexTime = /(\d{1,2}:\d{2}(:\d{2})?)/;
 
 // LISTA DE NOMES A SEREM IGNORADOS (NÃO SÃO MOTORISTAS)
-var MOTORISTAS_EXCLUIDOS = [
+window.MOTORISTAS_EXCLUIDOS = window.MOTORISTAS_EXCLUIDOS || [
     "KEVEN MELGACO DE JESUS",
     "GIVANILDO DA CONCEIÇÃO URSULINO",
     "DANILO TEIXEIRA SILVA",
@@ -66,7 +66,7 @@ async function carregarDropdownMotoristas() {
 
             const motoristasUnicos = [...new Set(data.map(d => d.motorista))]
                 .filter(Boolean)
-                .filter(m => !MOTORISTAS_EXCLUIDOS.includes(m.toUpperCase()))
+                .filter(m => !window.MOTORISTAS_EXCLUIDOS.includes(m.toUpperCase()))
                 .sort();
                 
             select.innerHTML = '<option value="ALL">TODOS OS MOTORISTAS</option>';
@@ -119,7 +119,7 @@ async function loadHistoricoJornadasCompleto(reset = false) {
             data.reverse().forEach(item => {
                 const nome = (item.motorista || "").toUpperCase();
                 
-                if (MOTORISTAS_EXCLUIDOS.includes(nome)) return;
+                if (window.MOTORISTAS_EXCLUIDOS.includes(nome)) return;
                 
                 const chave = `${item.motorista || ''}-${item.inicio || ''}-${item.fim || ''}`;
                 

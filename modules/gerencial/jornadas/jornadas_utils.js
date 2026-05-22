@@ -9,22 +9,22 @@ if(typeof Chart !== 'undefined') {
     Chart.defaults.font.family = "'Inter', sans-serif";
 }
 
-var fullJornadasData = []; 
-var jornadasGlobalData = [];
-var dadosFiltradosGlobal = [];
-var activeQuickFilterJor = 'ALL';
-var currentStatusFilter = 'ALL'; 
-var currentAnaliticoFilter = 'ALL'; 
+var fullJornadasData = window.fullJornadasData || []; 
+var jornadasGlobalData = window.jornadasGlobalData || [];
+var dadosFiltradosGlobal = window.dadosFiltradosGlobal || [];
+var activeQuickFilterJor = window.activeQuickFilterJor || 'ALL';
+var currentStatusFilter = window.currentStatusFilter || 'ALL'; 
+var currentAnaliticoFilter = window.currentAnaliticoFilter || 'ALL'; 
 
-var chartStatusFrota = null;
-var chartFaixaHoras = null;
-var chartEvolucaoOcorrencias = null; 
+var chartStatusFrota = window.chartStatusFrota || null;
+var chartFaixaHoras = window.chartFaixaHoras || null;
+var chartEvolucaoOcorrencias = window.chartEvolucaoOcorrencias || null; 
 
 var regexDate = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{4}-\d{1,2}-\d{1,2})/;
 var regexTime = /(\d{1,2}:\d{2}(:\d{2})?)/;
 
-// LISTA DE NOMES A SEREM IGNORADOS
-var MOTORISTAS_EXCLUIDOS = window.MOTORISTAS_EXCLUIDOS || [
+// LISTA DE NOMES A SEREM IGNORADOS (NÃO SÃO MOTORISTAS)
+window.MOTORISTAS_EXCLUIDOS = window.MOTORISTAS_EXCLUIDOS || [
     "KEVEN MELGACO DE JESUS",
     "GIVANILDO DA CONCEIÇÃO URSULINO",
     "DANILO TEIXEIRA SILVA",
@@ -160,6 +160,7 @@ function verificarStatusAtualizacao(datasArray) {
 function popularFiltroDatas() {
     const selectData = document.getElementById('filterDataSelect');
     if (!selectData) return;
+    
     const datasSet = new Set();
     fullJornadasData.forEach(d => {
         if (d.inicio) {
@@ -184,6 +185,6 @@ function popularFiltroDatas() {
     selectData.addEventListener('change', (e) => {
         if(e.target.value !== 'ALL') { activeQuickFilterJor = 'ALL'; atualizarBotoesFiltro(); }
         currentStatusFilter = 'ALL'; 
-        if (typeof renderizarPainelJornadas === 'function') renderizarPainelJornadas();
+        if(typeof renderizarPainelJornadas === 'function') renderizarPainelJornadas();
     });
 }

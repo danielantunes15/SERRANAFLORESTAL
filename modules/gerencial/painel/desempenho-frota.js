@@ -1,6 +1,7 @@
 // ==========================================
 // js/desempenho-frota.js - LÓGICA DE FROTA (VOLUME EM M³)
 // ==========================================
+
 if(typeof Chart !== 'undefined') {
     Chart.register(ChartDataLabels);
     Chart.defaults.color = '#94a3b8';
@@ -8,14 +9,14 @@ if(typeof Chart !== 'undefined') {
     Chart.defaults.font.family = "'Inter', sans-serif";
 }
 
-var dadosHistoricoCompletos = []; 
-var listaQuadroGeralAtual = []; 
-var chartEvolucaoObj = null;
-var chartPlacasObj = null;
-var chartMelhoresObj = null;
+var dadosHistoricoCompletos = window.dadosHistoricoCompletos || []; 
+var listaQuadroGeralAtual = window.listaQuadroGeralAtual || []; 
+var chartEvolucaoObj = window.chartEvolucaoObj || null;
+var chartPlacasObj = window.chartPlacasObj || null;
+var chartMelhoresObj = window.chartMelhoresObj || null;
 
-var activeFilter = 'MES'; 
-var customDateStr = ''; 
+var activeFilter = window.activeFilter || 'MES'; 
+var customDateStr = window.customDateStr || ''; 
 
 document.addEventListener('DOMContentLoaded', () => {
     setupFilters();
@@ -160,8 +161,12 @@ async function buscarDadosSupabase() {
     const tbody1 = document.getElementById('tbodyQuadroGeral');
     const tbody2 = document.getElementById('tbodyFrota');
     
-    if (tbody1) tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
-    if (tbody2) tbody2.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
+    if (tbody1) {
+        tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
+    }
+    if (tbody2) {
+        tbody2.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
+    }
     
     dadosHistoricoCompletos = [];
     let from = 0;
@@ -172,7 +177,7 @@ async function buscarDadosSupabase() {
         const { data, error } = await supabaseClient
             .from('historico_viagens')
             .select('dataDaBaseExcel, placa, transportadora, volumeReal, filaCampoHoras, cicloHoras')
-            .ilike('transportadora', '%SERRANALOG TRANSPORTES LTDA%')
+            .ilike('transportadora', '%SERRANALOG%')
             .range(from, from + step - 1);
         
         if (error) {
@@ -312,7 +317,6 @@ function processarEExibirDados() {
     
     const elMedVia = document.getElementById('cardMediaViagens');
     if(elMedVia) elMedVia.innerText = mediaGlobal;
-
 
     const registrosAbaixoMeta = [];
     const evolucaoDiariaAbaixoMeta = {}; 

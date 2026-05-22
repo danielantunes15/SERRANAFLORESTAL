@@ -2,13 +2,13 @@
 // js/historico.js - TELA DE AUDITORIA DE PRODUÇÃO (VIAGENS)
 // ==========================================
 
-var fullHistoricoData = [];
+var fullHistoricoData = window.fullHistoricoData || [];
 var paginaAtual = 0;
 var itensPorPagina = 50;
 
-var termoBuscaAtual = '';
-var filtroPlacaAtual = '';
-var filtroDataAtual = '';
+var termoBuscaAtual = window.termoBuscaAtual || '';
+var filtroPlacaAtual = window.filtroPlacaAtual || '';
+var filtroDataAtual = window.filtroDataAtual || '';
 
 var carregando = false;
 var fimDosDados = false;
@@ -101,9 +101,9 @@ function normalizarCiclos(dataArr) {
     
     dataArr.forEach(d => {
         if (d.cicloHorasOriginal > 12) {
-            d.cicloHoras = mediaMenores;
+            d.cicloHoras = mediaMenores; 
         } else {
-            d.cicloHoras = d.cicloHorasOriginal;
+            d.cicloHoras = d.cicloHorasOriginal; 
         }
     });
 }
