@@ -2,7 +2,6 @@
 // js/configuracoes/banco_historico.js 
 // ==========================================
 
-// Função global ativada diretamente pelo HTML
 window.toggleMesExclusao = function() {
     const elTipo = document.getElementById('tipoExclusao');
     const elMes = document.getElementById('mesExclusao');
@@ -21,7 +20,7 @@ async function carregarHistoricoImportacoes() {
     if (!tb) return;
     tb.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Atualizando...</td></tr>';
     try {
-        const { data, error } = await supabaseClient.from('historico_importacoes').select('*').order('id', { ascending: false }).limit(10); 
+        const { data, error } = await window.supabaseClient.from('historico_importacoes').select('*').order('id', { ascending: false }).limit(10); 
         if (error) throw error;
         tb.innerHTML = '';
         if (!data || data.length === 0) {
@@ -30,8 +29,8 @@ async function carregarHistoricoImportacoes() {
         }
         data.forEach(d => {
             let icone = '<i class="fas fa-database text-slate-500"></i>';
-            if (d.dataBase.toUpperCase().includes('JORNADA')) icone = '<i class="fas fa-user-clock text-amber-500"></i>';
-            if (d.dataBase.toUpperCase().includes('VIAGEN')) icone = '<i class="fas fa-truck text-sky-500"></i>';
+            if (String(d.dataBase).toUpperCase().includes('JORNADA')) icone = '<i class="fas fa-user-clock text-amber-500"></i>';
+            if (String(d.dataBase).toUpperCase().includes('VIAGEN')) icone = '<i class="fas fa-truck text-sky-500"></i>';
 
             tb.insertAdjacentHTML('beforeend', `
                 <tr class="hover:bg-slate-800/30 transition-colors">
@@ -86,47 +85,41 @@ function initBancoHistorico() {
                     btnLimparBanco.disabled = true;
                     btnLimparBanco.classList.add('opacity-50', 'cursor-not-allowed');
 
-                    // Função Original: Apagar o banco completo
-                    async function apagarEmLotes(tabela, colunaReferencia) {
-                        let temDados = true;
-                        let contador = 0; 
-                        while (temDados && contador < 100) {
-                            contador++;
-                            const { data, error } = await supabaseClient.from(tabela).select(colunaReferencia).limit(1);
-                            if (error || !data || data.length === 0) temDados = false; 
-                            else await supabaseClient.from(tabela).delete().not(colunaReferencia, 'is', null);
-                        }
+                    // EXCLUSÃO IMEDIATA E À PROVA DE FALHAS (Sem usar loops)
+                    async function apagarMassa(tabela, colunaObrigatoria) {
+                        const { error } = await window.supabaseClient.from(tabela).delete().neq(colunaObrigatoria, 'VALOR_IMPOSSIVEL_DE_EXISTIR_123');
+                        if (error) throw new Error(`Falha no banco (${tabela}): ${error.message}`);
                     }
 
-                    // Nova Função: Apagar apenas os registros do mês selecionado
+                    // EXCLUSÃO RESTRITA POR MÊS
                     async function apagarPorMes(tabela, colunaData, mes, ano) {
-                        const likeStringBR = `%/${mes}/${ano}%`; // Ex: %/05/2026%
-                        const likeStringISO = `${ano}-${mes}-%`; // Ex: 2026-05-%
+                        const likeStringBR = `%/${mes}/${ano}%`; 
+                        const likeStringISO = `${ano}-${mes}-%`; 
                         
-                        const { error: err1 } = await supabaseClient.from(tabela).delete().like(colunaData, likeStringBR);
-                        const { error: err2 } = await supabaseClient.from(tabela).delete().like(colunaData, likeStringISO);
+                        const { error: err1 } = await window.supabaseClient.from(tabela).delete().like(colunaData, likeStringBR);
+                        const { error: err2 } = await window.supabaseClient.from(tabela).delete().like(colunaData, likeStringISO);
                         
                         if (err1 && err2) throw new Error("Falha ao apagar dados do mês no Supabase.");
                     }
 
                     // Viagens
-                    if (tipo === 'tudo' || tipo === 'viagens') await apagarEmLotes('historico_viagens', 'movimento');
+                    if (tipo === 'tudo' || tipo === 'viagens') await apagarMassa('historico_viagens', 'movimento');
                     if (tipo === 'viagens_mes') await apagarPorMes('historico_viagens', 'dataDaBaseExcel', mesStr, anoStr);
                     
                     // Eventos
-                    if (tipo === 'tudo' || tipo === 'eventos') await apagarEmLotes('historico_eventos', 'motorista');
+                    if (tipo === 'tudo' || tipo === 'eventos') await apagarMassa('historico_eventos', 'motorista');
                     
-                    // Registrar no Histórico de Importações
+                    // Registra a limpeza no Histórico de Importações
                     let logMsg = `[DADOS APAGADOS] - Módulo: ${tipo.toUpperCase()}`;
                     if (tipo.includes('_mes')) logMsg += ` (${mesTexto})`;
 
-                    await supabaseClient.from('historico_importacoes').insert([{
+                    await window.supabaseClient.from('historico_importacoes').insert([{
                         "dataBase": logMsg,
                         "qtdViagens": 0,
                         "dataLancamento": new Date().toLocaleString('pt-PT')
                     }]);
 
-                    alert("Operação concluída. Os dados foram apagados da nuvem.");
+                    alert("Operação concluída com sucesso. Os dados foram apagados da nuvem.");
                     carregarHistoricoImportacoes(); 
                 } catch (error) {
                     alert("Erro ao apagar os dados: " + error.message);

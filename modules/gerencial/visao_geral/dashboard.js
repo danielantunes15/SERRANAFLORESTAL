@@ -51,7 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- NOVA REGRA DO CICLO MÉDIO (VERSÃO BLINDADA) ---
 function normalizarCiclos(dataArr) {
     const pMap = new Map();
     
@@ -85,7 +84,6 @@ function normalizarCiclos(dataArr) {
         }
     });
 }
-// ---------------------------------
 
 function setupDashboardFilters() {
     if(filterTransportadora) filterTransportadora.addEventListener('change', () => loadDashboardData());
@@ -270,7 +268,8 @@ async function loadDashboardDataInit() {
     } catch (e) { console.error("Erro ao puxar dados da manutenção:", e); }
 
     try {
-        const { data: metasData } = await supabaseClient.from('metas_globais').select('*').eq('id', 1).single();
+        let queryMeta = window.supabaseClient.from('metas_globais').select('*').eq('id', 1).single();
+        const { data: metasData } = await queryMeta;
         if (metasData) {
             metasGlobaisObj = metasData;
         }
@@ -279,7 +278,11 @@ async function loadDashboardDataInit() {
     }
 
     try {
-        const { data: gruasData } = await window.supabaseClient.from('config_gruas').select('*').order('frente', { ascending: true });
+        let queryGruas = window.supabaseClient.from('config_gruas').select('*').order('frente', { ascending: true });
+        if (typeof window.aplicarFiltroLocal === 'function') {
+            queryGruas = window.aplicarFiltroLocal(queryGruas);
+        }
+        const { data: gruasData } = await queryGruas;
         if (gruasData) {
             configGruasObj = gruasData;
         }
@@ -293,13 +296,16 @@ async function loadDashboardDataInit() {
     let fetchMore = true;
 
     while (fetchMore) {
-        const { data, error } = await supabaseClient
-            .from('historico_viagens')
-            .select('*')
-            .range(from, from + step - 1);
+        let queryVia = window.supabaseClient.from('historico_viagens').select('*').range(from, from + step - 1);
+        
+        if (typeof window.aplicarFiltroLocal === 'function') {
+            queryVia = window.aplicarFiltroLocal(queryVia);
+        }
+
+        const { data, error } = await queryVia;
             
         if (error) {
-            console.error(error);
+            console.error("Erro Crítico ao buscar viagens no Supabase:", error);
             break;
         }
         
@@ -317,6 +323,8 @@ async function loadDashboardDataInit() {
         fullHistoricoData = allData;
         normalizarCiclos(fullHistoricoData);
         loadDashboardData();
+    } else {
+        loadDashboardData(); 
     }
 }
 
@@ -348,7 +356,12 @@ function calcStats(dataArr) {
 
 function loadDashboardData() {
     const storedData = fullHistoricoData;
-    if(!storedData.length) return;
+    if(!storedData.length) {
+        if(document.getElementById('dbStatusLabel')) document.getElementById('dbStatusLabel').innerText = "Sem dados no banco";
+        const tbodyComp = document.getElementById('comparativoBody');
+        if (tbodyComp) tbodyComp.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500">Nenhum dado encontrado</td></tr>';
+        return;
+    }
 
     // Popula Transportadoras
     const allTransps = [...new Set(storedData.map(d => d.transportadora))].filter(Boolean).sort();
@@ -366,12 +379,10 @@ function loadDashboardData() {
         allDates.forEach(dt => filterData.insertAdjacentHTML('beforeend', `<option value="${dt}" ${dt===currD?'selected':''}>${dt}</option>`));
     }
 
-    // Popula Meses
+    // --- CORREÇÃO DO BLOQUEIO DE MÊS: Agora abre mostrando TODOS OS MESES por padrão ---
     let currM = filterMes ? filterMes.value : 'ALL';
     if (!window.dashMesInicializado && filterMes) {
-        const hj = new Date();
-        const mesAtualStr = String(hj.getMonth() + 1).padStart(2, '0') + '/' + hj.getFullYear();
-        currM = mesAtualStr;
+        currM = 'ALL'; // Mostra tudo ao carregar
         window.dashMesInicializado = true;
     }
 
@@ -470,7 +481,7 @@ function loadDashboardData() {
     });
 
     if (filteredData.length === 0) {
-        if(document.getElementById('dbStatusLabel')) document.getElementById('dbStatusLabel').innerText = "Sem dados para o filtro";
+        if(document.getElementById('dbStatusLabel')) document.getElementById('dbStatusLabel').innerText = "Filtro Vazio";
         if(document.getElementById('totalViagens')) document.getElementById('totalViagens').innerText = '0';
         if(document.getElementById('totalPesoLiq')) document.getElementById('totalPesoLiq').innerHTML = '<span class="text-white">0 t</span>';
         if(document.getElementById('produtividadeGlobal')) document.getElementById('produtividadeGlobal').innerText = '0.0';
@@ -490,11 +501,6 @@ function loadDashboardData() {
         return;
     }
 
-    // =========================================================================================
-    // --- LÓGICA DE IDENTIFICAÇÃO DINÂMICA DE FRENTES E GRUAS ---
-    // =========================================================================================
-    
-    // Função universal para encontrar os códigos de grua nas colunas sujas do Excel
     function checkLoaderDynamic(d, loaderArray) {
         if (!loaderArray || loaderArray.length === 0) return false;
         let colunasPrioritarias = [];
@@ -525,29 +531,24 @@ function loadDashboardData() {
         return false;
     }
 
-    // Agrupa todas as gruas das frentes do tipo "Própria"
     let codesPropria = [];
     if (configGruasObj && configGruasObj.length > 0) {
         configGruasObj.forEach(item => {
-            if(item.tipo_frente === 'Propria') {
+            if(item.tipo_frente === 'Propria' || item.tipo_frente === 'Própria') {
                 const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
                 codesPropria.push(...codes);
             }
         });
     }
 
-    // Função que verifica se a viagem pertence a uma Frente Própria configurada
     function isViagemPropria(d) {
-        if (codesPropria.length === 0) return true; // Se não tiver frente configurada, engloba tudo
+        if (codesPropria.length === 0) return true; // Mostra tudo se nenhuma frente Própria estiver configurada
         return checkLoaderDynamic(d, codesPropria);
     }
-    // =========================================================================================
 
-    // === LÓGICA DE DADOS PARA OS CARDS (INDICADORES INICIAIS) ===
     let cardsData = filteredData;
     
     if (activeT === 'ALL') {
-        // Indicadores do topo focados em 100% das viagens feitas para as Frentes "Próprias"
         cardsData = filteredData.filter(d => isViagemPropria(d));
         if(document.getElementById('dbStatusLabel')) {
             document.getElementById('dbStatusLabel').innerHTML = `<i class="fas fa-database text-sky-500 mr-1"></i> Geral: ${filteredData.length} Vg | Frentes Próprias: ${cardsData.length} Vg`;
@@ -560,7 +561,6 @@ function loadDashboardData() {
 
     const totalViagens = cardsData.length;
     
-    // --- LÓGICA DE CÁLCULO DE DISPONIBILIDADE E METAS ---
     let diasConsideradosCalc = 1;
     let mediaAtivosReal = 0;
     const elMetaTexto = document.getElementById('metaViagensText');
@@ -767,7 +767,6 @@ function loadDashboardData() {
     if(document.getElementById('bestPlacaValue')) document.getElementById('bestPlacaValue').innerText = melhorPlacaProdutividade > 0 ? melhorPlacaProdutividade.toLocaleString('pt-PT', {maximumFractionDigits: 1}) : "0.0";
     if(document.getElementById('bestPlacaName')) document.getElementById('bestPlacaName').innerText = `Placa: ${melhorPlacaNome}`;
 
-    // === TABELA COMPARATIVA DE DESEMPENHO GERADA DINAMICAMENTE ===
     const theadComp = document.getElementById('comparativoHead');
     const tbodyComp = document.getElementById('comparativoBody');
 
@@ -775,7 +774,6 @@ function loadDashboardData() {
         
         let cenarios = [];
         
-        // Paleta de cores dinâmica para as frentes que surgirem
         const colorVariants = [
             { text: 'text-emerald-400', bg: 'bg-emerald-900/10' },
             { text: 'text-indigo-400', bg: 'bg-indigo-900/10' },
@@ -784,7 +782,6 @@ function loadDashboardData() {
             { text: 'text-cyan-400', bg: 'bg-cyan-900/10' }
         ];
 
-        // Mapeia todas as frentes cadastradas no banco de Configurações
         if (configGruasObj && configGruasObj.length > 0) {
             configGruasObj.forEach((item, index) => {
                 const nome = (item.frente || `Frente ${index+1}`).toUpperCase();
@@ -794,7 +791,6 @@ function loadDashboardData() {
                 const style = colorVariants[index % colorVariants.length];
                 const icon = tipo === 'Propria' ? 'fa-star' : 'fa-leaf';
 
-                // Filtra os dados dessa frente olhando na matriz principal
                 let dadosCenario = filteredData.filter(d => checkLoaderDynamic(d, codes));
                 
                 cenarios.push({
@@ -810,7 +806,6 @@ function loadDashboardData() {
 
         const stGlobal = calcStats(filteredData);
 
-        // Renderiza as COLUNAS da tabela dinamicamente
         let thHtml = `<tr><th class="px-6 py-4 text-slate-300">Indicador de Performance</th>`;
         cenarios.forEach((c, idx) => {
             thHtml += `<th class="px-6 py-4 text-white ${c.style.bg} text-right"><i class="fas ${c.icon} mr-1 ${c.style.text}"></i> C${idx+1}: ${c.nome}</th>`;
@@ -818,46 +813,37 @@ function loadDashboardData() {
         thHtml += `<th class="px-6 py-4 text-white bg-sky-900/10 text-right"><i class="fas fa-globe mr-1 text-sky-400"></i> Total (Geral)</th></tr>`;
         theadComp.innerHTML = thHtml;
 
-        // Renderiza os DADOS
         if (cenarios.length === 0) {
             tbodyComp.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500 italic">Nenhuma Frente de Carregamento cadastrada no Módulo de Configurações.</td></tr>';
         } else {
-            // Viagens Realizadas
             let trViagens = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-route text-slate-400 w-5"></i> Viagens Realizadas</td>`;
             cenarios.forEach(c => { trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right ${c.style.text}">${c.dados.length}</td>`; });
             trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${filteredData.length}</td></tr>`;
 
-            // Caixa de Carga Média
             let trCaixa = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-box-open text-indigo-400 w-5"></i> Caixa de Carga Média</td>`;
             cenarios.forEach(c => { trCaixa += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${c.stats.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>`; });
             trCaixa += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stGlobal.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td></tr>`;
 
-            // Volume Total
             let trVol = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-cubes text-cyan-400 w-5"></i> Volume Total</td>`;
             cenarios.forEach(c => { trVol += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${c.stats.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>`; });
             trVol += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stGlobal.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td></tr>`;
 
-            // Ciclo Médio Total
             let trCiclo = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-stopwatch text-blue-400 w-5"></i> Ciclo Médio Total</td>`;
             cenarios.forEach(c => { trCiclo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medCiclo)}</td>`; });
             trCiclo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medCiclo)}</td></tr>`;
 
-            // Espera Média no Campo
             let trFilaCpo = `<tr class="hover:bg-slate-800/30 transition-colors border-t border-slate-700/50"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-hourglass-half text-amber-500 w-5"></i> Espera Média no Campo</td>`;
             cenarios.forEach(c => { trFilaCpo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medFilaCpo)}</td>`; });
             trFilaCpo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medFilaCpo)}</td></tr>`;
 
-            // Tempo Médio Carregamento
             let trCarreg = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-truck-loading text-emerald-500 w-5"></i> Tempo Médio Carregamento</td>`;
             cenarios.forEach(c => { trCarreg += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medCarreg)}</td>`; });
             trCarreg += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medCarreg)}</td></tr>`;
 
-            // Espera Média na Fábrica
             let trFilaFab = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-industry text-rose-500 w-5"></i> Espera Média na Fábrica</td>`;
             cenarios.forEach(c => { trFilaFab += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medFilaFab)}</td>`; });
             trFilaFab += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medFilaFab)}</td></tr>`;
 
-            // Dist. Média (Asfalto / Terra)
             let trDist = `<tr class="hover:bg-slate-800/30 transition-colors border-t border-slate-700"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-road text-slate-400 w-5"></i> Dist. Média (Asfalto / Terra)</td>`;
             cenarios.forEach(c => {
                 trDist += `<td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
