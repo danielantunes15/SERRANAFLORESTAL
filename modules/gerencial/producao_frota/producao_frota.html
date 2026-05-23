@@ -1,4 +1,5 @@
 <div class="max-w-[96rem] mx-auto px-6 py-8">
+    
     <div class="flex justify-between items-center mb-8 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm flex-wrap gap-4">
         <div class="flex items-center gap-4 flex-wrap">
             <div>
@@ -38,31 +39,54 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="glass-card p-6 rounded-2xl glow-border-blue flex flex-col justify-between relative overflow-hidden group">
-                <div class="absolute -right-4 -top-4 text-blue-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-route"></i></div>
-                <h3 class="text-blue-400 font-bold tracking-widest text-[11px] uppercase mb-2 relative z-10">Média de Viagens / Dia</h3>
-                <p id="cardVeiculosAtivos" class="text-3xl font-black text-white relative z-10">0</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5 shadow-lg flex flex-col justify-center relative overflow-hidden group">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-sky-500/20 flex items-center justify-center text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.3)] transition-transform group-hover:scale-110">
+                        <i class="fas fa-truck text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Média de Ativos / Dia</h3>
+                        <p class="text-2xl font-black text-white font-mono mt-1" id="cardVeiculosAtivos">0,0</p>
+                    </div>
+                </div>
             </div>
-            <div class="glass-card p-6 rounded-2xl glow-border-emerald flex flex-col justify-between relative overflow-hidden group">
-                <div class="absolute -right-4 -top-4 text-emerald-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-cubes"></i></div>
-                <h3 class="text-emerald-400 font-bold tracking-widest text-[11px] uppercase mb-2 relative z-10">Volume Produzido (m³)</h3>
-                <p id="cardVolumeTotal" class="text-3xl font-black text-white relative z-10">0.00</p>
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5 shadow-lg flex flex-col justify-center relative overflow-hidden group">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-transform group-hover:scale-110">
+                        <i class="fas fa-cube text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Volume Produzido (m³)</h3>
+                        <p class="text-2xl font-black text-emerald-400 font-mono mt-1" id="cardVolumeTotal">0,00</p>
+                    </div>
+                </div>
             </div>
-            <div class="glass-card p-6 rounded-2xl glow-border-amber flex flex-col justify-between relative overflow-hidden group">
-                <div class="absolute -right-4 -top-4 text-amber-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-box-open"></i></div>
-                <h3 class="text-amber-400 font-bold tracking-widest text-[11px] uppercase mb-2 relative z-10">Caixa Média (m³)</h3>
-                <p id="cardCaixaMedia" class="text-3xl font-black text-white relative z-10">0.00</p>
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5 shadow-lg flex flex-col justify-center relative overflow-hidden group">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)] transition-transform group-hover:scale-110">
+                        <i class="fas fa-box-open text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Caixa Média (m³)</h3>
+                        <p class="text-2xl font-black text-amber-400 font-mono mt-1" id="cardCaixaMedia">0,00</p>
+                    </div>
+                </div>
             </div>
-            <div class="glass-card p-6 rounded-2xl glow-border-rose flex flex-col justify-between relative overflow-hidden group">
-                <div class="absolute -right-4 -top-4 text-emerald-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-money-bill-wave"></i></div>
-                <h3 class="text-emerald-400 font-bold tracking-widest text-[11px] uppercase mb-2 relative z-10">Receita Total</h3>
-                <p id="cardReceitaTotal" class="text-3xl font-black text-white relative z-10">R$ 0,00</p>
+            <div class="bg-slate-800 rounded-xl border border-slate-700 p-5 shadow-lg flex flex-col justify-center relative overflow-hidden group">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)] transition-transform group-hover:scale-110">
+                        <i class="fas fa-dollar-sign text-xl"></i>
+                    </div>
+                    <div class="overflow-hidden">
+                        <h3 class="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Receita Total</h3>
+                        <p class="text-2xl font-black text-indigo-400 font-mono mt-1 truncate" id="cardReceitaTotal" title="R$ 0,00">R$ 0,00</p>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="grid grid-cols-1 gap-6 mt-6 mb-6">
-            
             <div class="glass-card rounded-xl shadow-2xl p-5 border border-slate-700/50 flex flex-col w-full">
                 <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
                     <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
@@ -76,7 +100,6 @@
                     <canvas id="chartProducaoDiaria"></canvas>
                 </div>
             </div>
-
             <div class="glass-card rounded-xl shadow-2xl p-5 border border-slate-700/50 flex flex-col w-full">
                 <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
                     <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
@@ -121,7 +144,7 @@
     </section>
 </div>
 
-<div id="modalFaturamento" class="hidden fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+<div id="modalFaturamento" class="hidden fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl relative">
         <button onclick="document.getElementById('modalFaturamento').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
             <i class="fas fa-times text-xl"></i>
