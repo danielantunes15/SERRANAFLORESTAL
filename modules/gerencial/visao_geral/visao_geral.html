@@ -92,7 +92,7 @@
         <div id="comparativoContainer" class="glass-card rounded-xl border border-slate-700/50 shadow-xl overflow-hidden mb-6 bg-slate-900 relative">
             <div class="bg-slate-800/90 px-6 py-6 border-b border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <h3 class="font-extrabold text-white tracking-wide uppercase text-base flex items-center">
-                    <i class="fas fa-balance-scale text-sky-400 mr-3 text-xl"></i> Comparativo de Desempenho Operacional por Cenários
+                    <i class="fas fa-balance-scale text-sky-400 mr-3 text-xl"></i> Comparativo de Desempenho Operacional por Frentes
                 </h3>
                 
                 <div class="flex items-center gap-6">
@@ -105,18 +105,10 @@
 
             <div class="overflow-x-auto">
                 <table class="min-w-full text-xs text-left">
-                    <thead class="bg-slate-900/95 text-white font-semibold uppercase text-xs tracking-wider border-b border-slate-700">
-                        <tr>
-                            <th class="px-6 py-4 text-slate-300">Indicador de Performance</th>
-                            <th class="px-6 py-4 text-white bg-emerald-900/10 text-right"><i class="fas fa-star mr-1 text-emerald-400"></i> C1: Serrana</th>
-                            <th class="px-6 py-4 text-white bg-rose-900/10 text-right"><i class="fas fa-truck-loading mr-1 text-rose-400"></i> C2: TRANSP. ASN</th>
-                            <th class="px-6 py-4 text-white bg-amber-900/10 text-right"><i class="fas fa-tree mr-1 text-amber-400"></i> C3: Reflorestar</th>
-                            <th class="px-6 py-4 text-white bg-indigo-900/10 text-right"><i class="fas fa-leaf mr-1 text-indigo-400"></i> C4: JSL</th>
-                            <th class="px-6 py-4 text-white bg-sky-900/10 text-right"><i class="fas fa-globe mr-1 text-sky-400"></i> Total (Geral)</th>
-                        </tr>
-                    </thead>
+                    <thead id="comparativoHead" class="bg-slate-900/95 text-white font-semibold uppercase text-xs tracking-wider border-b border-slate-700">
+                        </thead>
                     <tbody id="comparativoBody" class="divide-y divide-slate-800/80 text-slate-300">
-                    </tbody>
+                        </tbody>
                 </table>
             </div>
         </div>

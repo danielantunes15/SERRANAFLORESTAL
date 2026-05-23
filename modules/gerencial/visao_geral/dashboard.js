@@ -279,7 +279,7 @@ async function loadDashboardDataInit() {
     }
 
     try {
-        const { data: gruasData } = await supabaseClient.from('config_gruas').select('*');
+        const { data: gruasData } = await window.supabaseClient.from('config_gruas').select('*').order('frente', { ascending: true });
         if (gruasData) {
             configGruasObj = gruasData;
         }
@@ -482,58 +482,21 @@ function loadDashboardData() {
         if(chartCiclo) chartCiclo.destroy();
         if(chartTransp) chartTransp.destroy();
 
+        const theadComp = document.getElementById('comparativoHead');
         const tbodyComp = document.getElementById('comparativoBody');
-        if (tbodyComp) tbodyComp.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500">Sem dados para comparar</td></tr>';
+        if (theadComp) theadComp.innerHTML = `<tr><th class="px-6 py-4 text-slate-300">Indicador de Performance</th></tr>`;
+        if (tbodyComp) tbodyComp.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500">Sem dados para comparar neste período</td></tr>';
 
         return;
     }
 
     // =========================================================================================
-    // --- LÓGICA DE IDENTIFICAÇÃO DE GRUAS E TRANSPORTADORAS - TOTALMENTE BLINDADA ---
+    // --- LÓGICA DE IDENTIFICAÇÃO DINÂMICA DE FRENTES E GRUAS ---
     // =========================================================================================
-
-    let serranaLoaders = ['GSR0001', 'GSR0002', 'GSR0003', 'GSR0007', 'GSR0008', 'GRB0015', 'GRB0022'];
-    let reflorestarLoaders = ['GRB0017', 'GRB0020', 'GRB0029', 'GRB0013', 'GRB0014', 'GRB0028', 'GRB0026', 'GRB0016', 'GRB0012', 'GRB0023', 'GRB0018'];
-    let jslLoaders = ['GSL0012', 'GSL0016'];
     
-    if (configGruasObj && configGruasObj.length > 0) {
-        serranaLoaders = [];
-        reflorestarLoaders = [];
-        jslLoaders = [];
-        
-        configGruasObj.forEach(item => {
-            const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(c => c !== '');
-            const fName = (item.frente || '').toUpperCase();
-            
-            if (fName.includes('SERRANA')) {
-                serranaLoaders.push(...codes);
-            } else if (fName.includes('REFLORESTAR')) {
-                reflorestarLoaders.push(...codes);
-            } else if (fName.includes('JSL')) {
-                jslLoaders.push(...codes);
-            }
-        });
-    }
-
-    // 1) Identifica de quem é a Transportadora
-    function isSerranaTransp(d) {
-        let valTransp = String(d.transportadora || d['Nome da Transportadora'] || d.nomeTransportadora || '').toUpperCase().replace(/\s+/g, '');
-        if (valTransp.includes('SERRANALOG') || valTransp.includes('SERRANA')) return true;
-
-        // Varredura extra em todas as colunas caso a coluna original tenha vindo com nome muito esquisito
-        for (let key in d) {
-            if (d[key] && typeof d[key] === 'string') {
-                let val = d[key].toUpperCase().replace(/\s+/g, '');
-                if (val.includes('SERRANALOG') || val.includes('SERRANATRANSPORTES')) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    // 2) Faz a verificação lógica das gruas cruzando com as Regras de Negócio (Sistema blindado)
-    function checkLoader(d, loaderArray, prefix = '') {
+    // Função universal para encontrar os códigos de grua nas colunas sujas do Excel
+    function checkLoaderDynamic(d, loaderArray) {
+        if (!loaderArray || loaderArray.length === 0) return false;
         let colunasPrioritarias = [];
         let outrasColunas = [];
 
@@ -556,30 +519,27 @@ function loadDashboardData() {
 
         for (let v of valoresParaChecar) {
             for (let code of loaderArray) {
-                let codeClean = code.replace(/\s+/g, '');
-                if (v === codeClean || v.includes(codeClean)) {
-                    return true;
-                }
-            }
-
-            if (prefix) {
-                if (prefix === 'GSR') {
-                    if (v.startsWith('GSR') || v.includes('GSR0')) return true;
-                    if (v.includes('GRB0015') || v.includes('GRB0022')) return true; 
-                } 
-                else if (prefix === 'GRB') {
-                    if (v.startsWith('GRB') || v.includes('GRB0')) {
-                        if (v.includes('0015') || v.includes('0022')) continue; 
-                        return true;
-                    }
-                } 
-                else if (prefix === 'GSL') {
-                    if (v.startsWith('GSL') || v.includes('GSL0')) return true;
-                }
+                if (v === code || v.includes(code)) return true;
             }
         }
-
         return false;
+    }
+
+    // Agrupa todas as gruas das frentes do tipo "Própria"
+    let codesPropria = [];
+    if (configGruasObj && configGruasObj.length > 0) {
+        configGruasObj.forEach(item => {
+            if(item.tipo_frente === 'Propria') {
+                const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
+                codesPropria.push(...codes);
+            }
+        });
+    }
+
+    // Função que verifica se a viagem pertence a uma Frente Própria configurada
+    function isViagemPropria(d) {
+        if (codesPropria.length === 0) return true; // Se não tiver frente configurada, engloba tudo
+        return checkLoaderDynamic(d, codesPropria);
     }
     // =========================================================================================
 
@@ -587,10 +547,10 @@ function loadDashboardData() {
     let cardsData = filteredData;
     
     if (activeT === 'ALL') {
-        // Indicadores do topo focados em 100% das viagens transportadas pela Serrana (ignora trava de grua)
-        cardsData = filteredData.filter(d => isSerranaTransp(d));
+        // Indicadores do topo focados em 100% das viagens feitas para as Frentes "Próprias"
+        cardsData = filteredData.filter(d => isViagemPropria(d));
         if(document.getElementById('dbStatusLabel')) {
-            document.getElementById('dbStatusLabel').innerHTML = `<i class="fas fa-database text-sky-500 mr-1"></i> Geral: ${filteredData.length} Viagens | Frota Própria: ${cardsData.length} Viagens`;
+            document.getElementById('dbStatusLabel').innerHTML = `<i class="fas fa-database text-sky-500 mr-1"></i> Geral: ${filteredData.length} Vg | Frentes Próprias: ${cardsData.length} Vg`;
         }
     } else {
         if(document.getElementById('dbStatusLabel')) {
@@ -600,7 +560,7 @@ function loadDashboardData() {
 
     const totalViagens = cardsData.length;
     
-    // --- LÓGICA DE CÁLCULO DE DISPONIBILIDADE E METAS (CORRIGIDO PARA A DATA DE ENTRADA DO VEÍCULO) ---
+    // --- LÓGICA DE CÁLCULO DE DISPONIBILIDADE E METAS ---
     let diasConsideradosCalc = 1;
     let mediaAtivosReal = 0;
     const elMetaTexto = document.getElementById('metaViagensText');
@@ -617,7 +577,6 @@ function loadDashboardData() {
         let dataFimCalc = new Date(); dataFimCalc.setHours(23,59,59,999);
         const hjCalc = new Date(); hjCalc.setHours(0,0,0,0);
 
-        // Identifica os dias considerados pelo filtro atual
         if (activeInicio || activeFim) {
             if(activeInicio) { const p = activeInicio.split('-'); dataInicioCalc = new Date(p[0], p[1]-1, p[2], 0,0,0); }
             if(activeFim) { const p = activeFim.split('-'); dataFimCalc = new Date(p[0], p[1]-1, p[2], 23,59,59,999); }
@@ -654,12 +613,10 @@ function loadDashboardData() {
         let msTotalPeriodo = dataFimCalc - dataInicioCalc;
         if (msTotalPeriodo <= 0) msTotalPeriodo = 1;
 
-        // Desconta tempo de oficina e cruza com a Data Inicial do veículo
         let msManutTotal = 0;
-        let totalMsDisponivelPeriodo = 0; // Calculado de forma inteligente
+        let totalMsDisponivelPeriodo = 0; 
 
         frotasAtivas.forEach(frota => {
-            // CORREÇÃO: Respeita a data de entrada (cadastro) do veículo no sistema para não somá-lo na frota global em dias anteriores
             let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
             let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
 
@@ -682,7 +639,6 @@ function loadDashboardData() {
                     osFim = new Date(osFimStr.replace('Z', '').replace('+00:00', ''));
                 }
                 
-                // CORREÇÃO: Respeita a entrada do veículo também para o histórico de manutenções
                 let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
                 const overlapInicio = inicioValido > dataInicioCalc ? inicioValido : dataInicioCalc;
                 const overlapFim = osFim < dataFimCalc ? osFim : dataFimCalc;
@@ -695,9 +651,8 @@ function loadDashboardData() {
         
         mediaAtivosReal = Math.round(dispNoPeriodoMs / msTotalPeriodo);
 
-        // Aplica validações no card do DOM
-        if (activeT === 'ALL' || activeT.toUpperCase().includes('SERRANALOG')) {
-            let metaViagensCalculada = mediaAtivosReal * 2 * diasConsideradosCalc; // Regra de 2 viagens/dia
+        if (activeT === 'ALL') {
+            let metaViagensCalculada = mediaAtivosReal * 2 * diasConsideradosCalc; 
             
             elMetaTexto.innerHTML = `Disp: <b class="text-emerald-400">${mediaAtivosReal}</b> carros | Meta: <b class="text-sky-400">${metaViagensCalculada}</b>`;
             elMetaTexto.classList.remove('hidden');
@@ -731,12 +686,9 @@ function loadDashboardData() {
     if(document.getElementById('totalViagens')) document.getElementById('totalViagens').innerText = totalViagens.toLocaleString('pt-PT');
 
     const totalPesoKg = cardsData.reduce((sum, r) => sum + r.pesoLiquido, 0);
-
     const mediaPBTC = totalViagens > 0 ? (totalPesoKg / 1000) / totalViagens : 0;
-    
     const totalVolumeReal = cardsData.reduce((sum, r) => sum + (parseFloat(String(r.volumeReal).replace(',','.')) || 0), 0);
     const mediaVolume = totalViagens > 0 ? totalVolumeReal / totalViagens : 0;
-    
     const mediaAsfalto = totalViagens > 0 ? cardsData.reduce((sum, r) => sum + (r.distanciaAsfalto||0), 0) / totalViagens : 0;
     const mediaTerra = totalViagens > 0 ? cardsData.reduce((sum, r) => sum + (r.distanciaTerra||0), 0) / totalViagens : 0;
     const mediaDistTotal = mediaAsfalto + mediaTerra;
@@ -815,103 +767,111 @@ function loadDashboardData() {
     if(document.getElementById('bestPlacaValue')) document.getElementById('bestPlacaValue').innerText = melhorPlacaProdutividade > 0 ? melhorPlacaProdutividade.toLocaleString('pt-PT', {maximumFractionDigits: 1}) : "0.0";
     if(document.getElementById('bestPlacaName')) document.getElementById('bestPlacaName').innerText = `Placa: ${melhorPlacaNome}`;
 
-    // === TABELAS COMPARATIVAS E GRÁFICOS ===
+    // === TABELA COMPARATIVA DE DESEMPENHO GERADA DINAMICAMENTE ===
+    const theadComp = document.getElementById('comparativoHead');
     const tbodyComp = document.getElementById('comparativoBody');
-    if (tbodyComp) {
+
+    if (theadComp && tbodyComp) {
         
-        // Passando a verificação reestruturada em todas as tabelas
-        const dataC1 = filteredData.filter(d => checkLoader(d, serranaLoaders, 'GSR') && isSerranaTransp(d));
-        const dataC2 = filteredData.filter(d => checkLoader(d, serranaLoaders, 'GSR') && !isSerranaTransp(d));
-        const dataC3 = filteredData.filter(d => checkLoader(d, reflorestarLoaders, 'GRB') && isSerranaTransp(d));
-        const dataC4 = filteredData.filter(d => checkLoader(d, jslLoaders, 'GSL') && isSerranaTransp(d));
+        let cenarios = [];
         
-        const stC1 = calcStats(dataC1);
-        const stC2 = calcStats(dataC2);
-        const stC3 = calcStats(dataC3);
-        const stC4 = calcStats(dataC4);
+        // Paleta de cores dinâmica para as frentes que surgirem
+        const colorVariants = [
+            { text: 'text-emerald-400', bg: 'bg-emerald-900/10' },
+            { text: 'text-indigo-400', bg: 'bg-indigo-900/10' },
+            { text: 'text-amber-400', bg: 'bg-amber-900/10' },
+            { text: 'text-rose-400', bg: 'bg-rose-900/10' },
+            { text: 'text-cyan-400', bg: 'bg-cyan-900/10' }
+        ];
+
+        // Mapeia todas as frentes cadastradas no banco de Configurações
+        if (configGruasObj && configGruasObj.length > 0) {
+            configGruasObj.forEach((item, index) => {
+                const nome = (item.frente || `Frente ${index+1}`).toUpperCase();
+                const tipo = item.tipo_frente || 'Outros';
+                const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
+                
+                const style = colorVariants[index % colorVariants.length];
+                const icon = tipo === 'Propria' ? 'fa-star' : 'fa-leaf';
+
+                // Filtra os dados dessa frente olhando na matriz principal
+                let dadosCenario = filteredData.filter(d => checkLoaderDynamic(d, codes));
+                
+                cenarios.push({
+                    nome: nome,
+                    tipo: tipo,
+                    style: style,
+                    icon: icon,
+                    dados: dadosCenario,
+                    stats: calcStats(dadosCenario)
+                });
+            });
+        }
+
         const stGlobal = calcStats(filteredData);
 
-        tbodyComp.innerHTML = `
-            <tr class="hover:bg-slate-800/30 transition-colors">
-                <td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-route text-slate-400 w-5"></i> Viagens Realizadas</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${dataC1.length}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${dataC2.length}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right text-emerald-400">${dataC3.length}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right text-indigo-400">${dataC4.length}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${filteredData.length}</td>
-            </tr>
-            <tr class="hover:bg-slate-800/30 transition-colors">
-                <td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-box-open text-indigo-400 w-5"></i> Caixa de Carga Média</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stC1.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stC2.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stC3.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stC4.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stGlobal.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>
-            </tr>
-            <tr class="hover:bg-slate-800/30 transition-colors">
-                <td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-cubes text-cyan-400 w-5"></i> Volume Total</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stC1.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stC2.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stC3.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stC4.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stGlobal.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>
-            </tr>
-            <tr class="hover:bg-slate-800/30 transition-colors">
-                <td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-stopwatch text-blue-400 w-5"></i> Ciclo Médio Total</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC1.medCiclo)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC2.medCiclo)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC3.medCiclo)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC4.medCiclo)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medCiclo)}</td>
-            </tr>
-            <tr class="hover:bg-slate-800/30 transition-colors border-t border-slate-700/50">
-                <td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-hourglass-half text-amber-500 w-5"></i> Espera Média no Campo</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC1.medFilaCpo)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC2.medFilaCpo)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC3.medFilaCpo)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC4.medFilaCpo)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medFilaCpo)}</td>
-            </tr>
-            <tr class="hover:bg-slate-800/30 transition-colors">
-                <td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-truck-loading text-emerald-500 w-5"></i> Tempo Médio Carregamento</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC1.medCarreg)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC2.medCarreg)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC3.medCarreg)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC4.medCarreg)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medCarreg)}</td>
-            </tr>
-            <tr class="hover:bg-slate-800/30 transition-colors">
-                <td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-industry text-rose-500 w-5"></i> Espera Média na Fábrica</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC1.medFilaFab)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC2.medFilaFab)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC3.medFilaFab)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stC4.medFilaFab)}</td>
-                <td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medFilaFab)}</td>
-            </tr>
-            <tr class="hover:bg-slate-800/30 transition-colors border-t border-slate-700">
-                <td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-road text-slate-400 w-5"></i> Dist. Média (Asfalto / Terra)</td>
-                <td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
-                    <span class="text-sky-300" title="Asfalto">Asf: ${stC1.medAsfalto.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
-                    <span class="text-amber-400" title="Terra">Ter: ${stC1.medTerra.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
-                </td>
-                <td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
-                    <span class="text-sky-300" title="Asfalto">Asf: ${stC2.medAsfalto.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
-                    <span class="text-amber-400" title="Terra">Ter: ${stC2.medTerra.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
-                </td>
-                <td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
-                    <span class="text-sky-300" title="Asfalto">Asf: ${stC3.medAsfalto.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
-                    <span class="text-amber-400" title="Terra">Ter: ${stC3.medTerra.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
-                </td>
-                <td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
-                    <span class="text-sky-300" title="Asfalto">Asf: ${stC4.medAsfalto.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
-                    <span class="text-amber-400" title="Terra">Ter: ${stC4.medTerra.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
-                </td>
-                <td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
+        // Renderiza as COLUNAS da tabela dinamicamente
+        let thHtml = `<tr><th class="px-6 py-4 text-slate-300">Indicador de Performance</th>`;
+        cenarios.forEach((c, idx) => {
+            thHtml += `<th class="px-6 py-4 text-white ${c.style.bg} text-right"><i class="fas ${c.icon} mr-1 ${c.style.text}"></i> C${idx+1}: ${c.nome}</th>`;
+        });
+        thHtml += `<th class="px-6 py-4 text-white bg-sky-900/10 text-right"><i class="fas fa-globe mr-1 text-sky-400"></i> Total (Geral)</th></tr>`;
+        theadComp.innerHTML = thHtml;
+
+        // Renderiza os DADOS
+        if (cenarios.length === 0) {
+            tbodyComp.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500 italic">Nenhuma Frente de Carregamento cadastrada no Módulo de Configurações.</td></tr>';
+        } else {
+            // Viagens Realizadas
+            let trViagens = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-route text-slate-400 w-5"></i> Viagens Realizadas</td>`;
+            cenarios.forEach(c => { trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right ${c.style.text}">${c.dados.length}</td>`; });
+            trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${filteredData.length}</td></tr>`;
+
+            // Caixa de Carga Média
+            let trCaixa = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-box-open text-indigo-400 w-5"></i> Caixa de Carga Média</td>`;
+            cenarios.forEach(c => { trCaixa += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${c.stats.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>`; });
+            trCaixa += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stGlobal.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td></tr>`;
+
+            // Volume Total
+            let trVol = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-cubes text-cyan-400 w-5"></i> Volume Total</td>`;
+            cenarios.forEach(c => { trVol += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${c.stats.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>`; });
+            trVol += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stGlobal.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td></tr>`;
+
+            // Ciclo Médio Total
+            let trCiclo = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-stopwatch text-blue-400 w-5"></i> Ciclo Médio Total</td>`;
+            cenarios.forEach(c => { trCiclo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medCiclo)}</td>`; });
+            trCiclo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medCiclo)}</td></tr>`;
+
+            // Espera Média no Campo
+            let trFilaCpo = `<tr class="hover:bg-slate-800/30 transition-colors border-t border-slate-700/50"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-hourglass-half text-amber-500 w-5"></i> Espera Média no Campo</td>`;
+            cenarios.forEach(c => { trFilaCpo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medFilaCpo)}</td>`; });
+            trFilaCpo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medFilaCpo)}</td></tr>`;
+
+            // Tempo Médio Carregamento
+            let trCarreg = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-truck-loading text-emerald-500 w-5"></i> Tempo Médio Carregamento</td>`;
+            cenarios.forEach(c => { trCarreg += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medCarreg)}</td>`; });
+            trCarreg += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medCarreg)}</td></tr>`;
+
+            // Espera Média na Fábrica
+            let trFilaFab = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-industry text-rose-500 w-5"></i> Espera Média na Fábrica</td>`;
+            cenarios.forEach(c => { trFilaFab += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medFilaFab)}</td>`; });
+            trFilaFab += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medFilaFab)}</td></tr>`;
+
+            // Dist. Média (Asfalto / Terra)
+            let trDist = `<tr class="hover:bg-slate-800/30 transition-colors border-t border-slate-700"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-road text-slate-400 w-5"></i> Dist. Média (Asfalto / Terra)</td>`;
+            cenarios.forEach(c => {
+                trDist += `<td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
+                    <span class="text-sky-300" title="Asfalto">Asf: ${c.stats.medAsfalto.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
+                    <span class="text-amber-400" title="Terra">Ter: ${c.stats.medTerra.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+                </td>`;
+            });
+            trDist += `<td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
                     <span class="text-sky-300" title="Asfalto">Asf: ${stGlobal.medAsfalto.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
                     <span class="text-amber-400" title="Terra">Ter: ${stGlobal.medTerra.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
-                </td>
-            </tr>
-        `;
+                </td></tr>`;
+
+            tbodyComp.innerHTML = trViagens + trCaixa + trVol + trCiclo + trFilaCpo + trCarreg + trFilaFab + trDist;
+        }
     }
 
     const transpCount = new Map();
