@@ -25,6 +25,9 @@ function injetarFilial(obj) {
     if (window.currentUser.filial_id === null) return obj; 
     return { ...obj, filial_id: window.currentUser.filial_id };
 }
+
+window.aplicarFiltroFilial = aplicarFiltroFilial;
+window.injetarFilial = injetarFilial;
 // ===============================================================
 
 const db = {
@@ -311,3 +314,6 @@ const db = {
         await aplicarFiltroFilial(queryDel);
     }
 };
+
+// EXPORTAÇÃO GLOBAL CRÍTICA PARA QUE O RESTO DO SISTEMA ENCONTRE AS FUNÇÕES
+window.db = db;

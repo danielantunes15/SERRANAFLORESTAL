@@ -18,17 +18,23 @@ let osParaMeta = [];
 let frotasParaMeta = [];
 const supabaseClientMan = window.supabase.createClient('https://ihgiyxzxdldqmrkziijl.supabase.co', 'sb_publishable_JpMZhW5ZrFKBr7m9KXBkoQ_cpxy1k3x');
 
-const filterTransportadora = document.getElementById('filterTransportadora');
-const filterData = document.getElementById('filterData');
-const filterMes = document.getElementById('filterMes');
-const filterDataInicio = document.getElementById('filterDataInicio');
-const filterDataFim = document.getElementById('filterDataFim');
-const btnQFs = document.querySelectorAll('.btn-qf');
+// Variáveis de escopo global para não perder a referência
+let filterTransportadora, filterData, filterMes, filterDataInicio, filterDataFim, btnQFs;
 
-document.addEventListener('DOMContentLoaded', () => {
+window.carregarDadosDashboardAnalitico = async function() {
+    // 1. Vincula elementos no DOM SOMENTE depois que a página HTML foi carregada pelo menu.js
+    filterTransportadora = document.getElementById('filterTransportadora');
+    filterData = document.getElementById('filterData');
+    filterMes = document.getElementById('filterMes');
+    filterDataInicio = document.getElementById('filterDataInicio');
+    filterDataFim = document.getElementById('filterDataFim');
+    btnQFs = document.querySelectorAll('.btn-qf');
+
+    // 2. Aciona configurações
     setupDashboardFilters();
-    loadDashboardDataInit();
+    await loadDashboardDataInit();
 
+    // 3. Botão Exportar Gráfico
     const btnExportarComparativo = document.getElementById('btnExportarComparativo');
     if(btnExportarComparativo) {
         btnExportarComparativo.addEventListener('click', () => {
@@ -49,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-});
+};
 
 function normalizarCiclos(dataArr) {
     const pMap = new Map();
@@ -279,8 +285,8 @@ async function loadDashboardDataInit() {
 
     try {
         let queryGruas = window.supabaseClient.from('config_gruas').select('*').order('frente', { ascending: true });
-        if (typeof window.aplicarFiltroLocal === 'function') {
-            queryGruas = window.aplicarFiltroLocal(queryGruas);
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            queryGruas = window.aplicarFiltroFilial(queryGruas);
         }
         const { data: gruasData } = await queryGruas;
         if (gruasData) {
@@ -298,8 +304,8 @@ async function loadDashboardDataInit() {
     while (fetchMore) {
         let queryVia = window.supabaseClient.from('historico_viagens').select('*').range(from, from + step - 1);
         
-        if (typeof window.aplicarFiltroLocal === 'function') {
-            queryVia = window.aplicarFiltroLocal(queryVia);
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            queryVia = window.aplicarFiltroFilial(queryVia);
         }
 
         const { data, error } = await queryVia;
@@ -379,10 +385,9 @@ function loadDashboardData() {
         allDates.forEach(dt => filterData.insertAdjacentHTML('beforeend', `<option value="${dt}" ${dt===currD?'selected':''}>${dt}</option>`));
     }
 
-    // --- CORREÇÃO DO BLOQUEIO DE MÊS: Agora abre mostrando TODOS OS MESES por padrão ---
     let currM = filterMes ? filterMes.value : 'ALL';
     if (!window.dashMesInicializado && filterMes) {
-        currM = 'ALL'; // Mostra tudo ao carregar
+        currM = 'ALL'; 
         window.dashMesInicializado = true;
     }
 

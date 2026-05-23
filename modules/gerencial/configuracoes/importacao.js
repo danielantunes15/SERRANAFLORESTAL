@@ -84,7 +84,7 @@ async function processAndSaveJornadasFile(file) {
         let startJor = 0; const stepJor = 1000;
         while (true) {
             let queryJor = supabaseClient.from('historico_jornadas').select('motorista, inicio, fim').range(startJor, startJor + stepJor - 1);
-            if (typeof window.aplicarFiltroLocal === 'function') queryJor = window.aplicarFiltroLocal(queryJor); // <--- MULTI-TENANCY BUSCA
+            if (typeof window.aplicarFiltroFilial === 'function') queryJor = window.aplicarFiltroFilial(queryJor); // <--- MULTI-TENANCY BUSCA
             
             const { data, error: selErr } = await queryJor;
             if (selErr) throw selErr;
@@ -264,8 +264,8 @@ async function processAndSaveFile(file) {
 
         // ---- MODIFICAÇÃO: MULTI-TENANCY GRUAS ----
         let queryGruas = supabaseClient.from('config_gruas').select('*');
-        if (typeof window.aplicarFiltroLocal === 'function') {
-            queryGruas = window.aplicarFiltroLocal(queryGruas);
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            queryGruas = window.aplicarFiltroFilial(queryGruas);
         }
         const { data: gruasData } = await queryGruas;
         // ------------------------------------------
@@ -308,8 +308,8 @@ async function processAndSaveFile(file) {
         while (true) {
             // ---- MODIFICAÇÃO: MULTI-TENANCY AO BUSCAR DUPLICADAS ----
             let queryVia = supabaseClient.from('historico_viagens').select('movimento').range(startVia, startVia + stepVia - 1);
-            if (typeof window.aplicarFiltroLocal === 'function') {
-                queryVia = window.aplicarFiltroLocal(queryVia);
+            if (typeof window.aplicarFiltroFilial === 'function') {
+                queryVia = window.aplicarFiltroFilial(queryVia);
             }
             const { data: dbData, error: selErr } = await queryVia;
             // ---------------------------------------------------------

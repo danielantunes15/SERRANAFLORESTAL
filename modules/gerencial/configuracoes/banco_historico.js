@@ -15,12 +15,16 @@ window.toggleMesExclusao = function() {
     }
 };
 
-async function carregarHistoricoImportacoes() {
+window.carregarHistoricoImportacoes = async function() {
     const tb = document.getElementById('importHistoryBody');
     if (!tb) return;
     tb.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Atualizando...</td></tr>';
     try {
-        const { data, error } = await window.supabaseClient.from('historico_importacoes').select('*').order('id', { ascending: false }).limit(10); 
+        let query = window.supabaseClient.from('historico_importacoes').select('*').order('id', { ascending: false }).limit(10);
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        }
+        const { data, error } = await query; 
         if (error) throw error;
         tb.innerHTML = '';
         if (!data || data.length === 0) {
@@ -43,11 +47,11 @@ async function carregarHistoricoImportacoes() {
     } catch (e) {
         tb.innerHTML = '<tr><td colspan="3" class="text-center py-6 text-rose-500">Erro ao carregar histórico.</td></tr>';
     }
-}
+};
 
-function initBancoHistorico() {
+window.initBancoHistorico = function() {
     const btnAtualizarHistorico = document.getElementById('btnAtualizarHistorico');
-    if(btnAtualizarHistorico) btnAtualizarHistorico.addEventListener('click', carregarHistoricoImportacoes);
+    if(btnAtualizarHistorico) btnAtualizarHistorico.addEventListener('click', window.carregarHistoricoImportacoes);
 
     const btnLimparBanco = document.getElementById('btnLimparBanco');
     const elTipoExclusao = document.getElementById('tipoExclusao');
@@ -87,7 +91,11 @@ function initBancoHistorico() {
 
                     // EXCLUSÃO IMEDIATA E À PROVA DE FALHAS (Sem usar loops)
                     async function apagarMassa(tabela, colunaObrigatoria) {
-                        const { error } = await window.supabaseClient.from(tabela).delete().neq(colunaObrigatoria, 'VALOR_IMPOSSIVEL_DE_EXISTIR_123');
+                        let query = window.supabaseClient.from(tabela).delete().neq(colunaObrigatoria, 'VALOR_IMPOSSIVEL_DE_EXISTIR_123');
+                        if (typeof window.aplicarFiltroFilial === 'function') {
+                            query = window.aplicarFiltroFilial(query);
+                        }
+                        const { error } = await query;
                         if (error) throw new Error(`Falha no banco (${tabela}): ${error.message}`);
                     }
 
@@ -96,8 +104,16 @@ function initBancoHistorico() {
                         const likeStringBR = `%/${mes}/${ano}%`; 
                         const likeStringISO = `${ano}-${mes}-%`; 
                         
-                        const { error: err1 } = await window.supabaseClient.from(tabela).delete().like(colunaData, likeStringBR);
-                        const { error: err2 } = await window.supabaseClient.from(tabela).delete().like(colunaData, likeStringISO);
+                        let query1 = window.supabaseClient.from(tabela).delete().like(colunaData, likeStringBR);
+                        let query2 = window.supabaseClient.from(tabela).delete().like(colunaData, likeStringISO);
+                        
+                        if (typeof window.aplicarFiltroFilial === 'function') {
+                            query1 = window.aplicarFiltroFilial(query1);
+                            query2 = window.aplicarFiltroFilial(query2);
+                        }
+
+                        const { error: err1 } = await query1;
+                        const { error: err2 } = await query2;
                         
                         if (err1 && err2) throw new Error("Falha ao apagar dados do mês no Supabase.");
                     }
@@ -113,14 +129,14 @@ function initBancoHistorico() {
                     let logMsg = `[DADOS APAGADOS] - Módulo: ${tipo.toUpperCase()}`;
                     if (tipo.includes('_mes')) logMsg += ` (${mesTexto})`;
 
-                    await window.supabaseClient.from('historico_importacoes').insert([{
+                    await window.supabaseClient.from('historico_importacoes').insert([window.injetarFilial({
                         "dataBase": logMsg,
                         "qtdViagens": 0,
                         "dataLancamento": new Date().toLocaleString('pt-PT')
-                    }]);
+                    })]);
 
                     alert("Operação concluída com sucesso. Os dados foram apagados da nuvem.");
-                    carregarHistoricoImportacoes(); 
+                    window.carregarHistoricoImportacoes(); 
                 } catch (error) {
                     alert("Erro ao apagar os dados: " + error.message);
                 } finally {
@@ -131,4 +147,4 @@ function initBancoHistorico() {
             }
         });
     }
-}
+};
