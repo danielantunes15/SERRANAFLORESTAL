@@ -201,32 +201,38 @@ function formatarHorasMinutos(horasDecimais) {
     return `${horas}h ${minutos.toString().padStart(2, '0')}m`;
 }
 
+// ===============================================
+// CORREÇÃO: Lógica estruturada para <div>
+// ===============================================
 function atualizarElementoTempo(idElemento, mediaReal, metaData) {
     const el = document.getElementById(idElemento);
     if (!el) return;
-    const strReal = formatarHorasMinutos(mediaReal);
     
-    if (!metaData || metaData <= 0) {
-        el.innerText = strReal;
-        return;
-    }
-    const strMeta = formatarHorasMinutos(metaData);
+    const strReal = formatarHorasMinutos(mediaReal);
+    const metaVal = (metaData && !isNaN(metaData)) ? metaData : 0;
+    const strMeta = formatarHorasMinutos(metaVal);
 
     let corClasse = "text-white";
     let icone = "";
 
-    if (mediaReal > metaData) {
-        corClasse = "text-rose-500";
-        icone = `<i class="fas fa-exclamation-circle text-rose-500 text-sm ml-2" title="Acima da meta"></i>`;
+    if (metaVal > 0) {
+        if (mediaReal > metaVal) {
+            corClasse = "text-rose-500";
+            icone = `<i class="fas fa-arrow-up text-rose-500 text-lg ml-2" title="Acima da meta"></i>`;
+        } else {
+            corClasse = "text-emerald-400";
+            icone = `<i class="fas fa-check text-emerald-400 text-lg ml-2" title="Dentro da meta"></i>`;
+        }
     } else {
-        corClasse = "text-emerald-400";
-        icone = `<i class="fas fa-check-circle text-emerald-400 text-sm ml-2" title="Dentro da meta"></i>`;
+        icone = `<i class="fas fa-minus-circle text-slate-600 text-sm ml-2" title="Meta não definida ou zero"></i>`;
     }
 
     el.innerHTML = `
-        <span class="${corClasse}">${strReal}</span>${icone}
-        <div class="text-[12px] text-slate-400 font-bold uppercase mt-4 pt-2 border-t border-slate-700/50 tracking-wider">
-            Padrão: <span class="text-slate-200 text-[15px] font-black ml-1">${strMeta}</span>
+        <div class="flex items-center w-full">
+            <span class="${corClasse} leading-none">${strReal}</span>${icone}
+        </div>
+        <div class="text-[11px] text-slate-400 font-bold uppercase mt-3 pt-2 border-t border-slate-700/50 tracking-wider w-full">
+            Meta: <span class="text-slate-200 text-xs font-black ml-1">${strMeta}</span>
         </div>
     `;
 }
@@ -360,9 +366,6 @@ function calcStats(dataArr) {
     return { volTotal: vol, medVol, medCiclo, prod, medFilaCpo, medCarreg, medFilaFab, medAsfalto, medTerra };
 }
 
-// -------------------------------------------------------------
-// FUNÇÕES AUXILIARES GLOBAIS PARA O COMPARATIVO
-// -------------------------------------------------------------
 function checkLoaderDynamic(d, loaderArray) {
     if (!loaderArray || loaderArray.length === 0) return false;
     let colunasPrioritarias = [];
@@ -420,7 +423,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         return transp.includes(transpPropriaConfig) || transp === transpPropriaConfig;
     }
 
-    // 1. FRENTES DINÂMICAS CADASTRADAS (Apenas as que rodaram com a NOSSAS Transportadora)
     if (configGruasObj && configGruasObj.length > 0) {
         const gruasSorted = [...configGruasObj].sort((a, b) => {
             const oa = a.ordem || 'ZZZ';
@@ -458,7 +460,23 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         });
     }
 
-    // 2. COLUNA FIXA: TRANSP. ASN (Qualquer transporte que NÃO for o nosso Próprio)
+    let codesPropria = [];
+    if (configGruasObj && configGruasObj.length > 0) {
+        configGruasObj.forEach(item => {
+            if(item.tipo_frente === 'Propria' || item.tipo_frente === 'Própria') {
+                const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
+                codesPropria.push(...codes);
+            }
+        });
+    }
+
+    function isASN(d) {
+        if (codesPropria.length > 0 && checkLoaderDynamic(d, codesPropria)) return true;
+        let grua = String(d.grua || '').trim().toUpperCase();
+        if (grua.startsWith('GSR')) return true; 
+        return false;
+    }
+
     let dadosASN = dadosFiltrados.filter(d => !isTransportadoraPropria(d));
 
     let cenarioASN = {
@@ -471,14 +489,10 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         ordemLabel: 'ASN'
     };
 
-    // Montagem exata: Frentes Próprias -> ASN -> Outras Frentes
     let cenarios = [...cenariosPropria, cenarioASN, ...cenariosOutros];
 
     const stGlobal = calcStats(dadosFiltrados);
 
-    // ========================================================
-    // DESENHANDO A TABELA HTML
-    // ========================================================
     let thHtml = `<tr><th class="px-6 py-4 text-slate-300">Indicador de Performance</th>`;
     
     cenarios.forEach((c) => {
@@ -907,7 +921,6 @@ function loadDashboardData() {
     if(document.getElementById('bestPlacaValue')) document.getElementById('bestPlacaValue').innerText = melhorPlacaProdutividade > 0 ? melhorPlacaProdutividade.toLocaleString('pt-PT', {maximumFractionDigits: 1}) : "0.0";
     if(document.getElementById('bestPlacaName')) document.getElementById('bestPlacaName').innerText = `Placa: ${melhorPlacaNome}`;
 
-    // RENDERIZA A TABELA COM A NOVA LÓGICA TRANSP. PRÓPRIA vs ASN
     renderizarTabelaComparativo(filteredData);
 
     const transpCount = new Map();
