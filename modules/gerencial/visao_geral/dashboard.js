@@ -393,14 +393,16 @@ function checkLoaderDynamic(d, loaderArray) {
     return false;
 }
 
-// NOVO: Função isolada para desenhar o Comparativo com Ordem e Coluna Fixa ASN
+// NOVO: Função isolada para desenhar o Comparativo com Ordem e TRANSP. ASN
 function renderizarTabelaComparativo(dadosFiltrados) {
     const theadComp = document.getElementById('comparativoHead');
     const tbodyComp = document.getElementById('comparativoBody');
     
     if (!theadComp || !tbodyComp) return;
 
-    let cenarios = [];
+    let cenariosPropria = [];
+    let cenariosOutros = [];
+
     const colorVariants = [
         { text: 'text-indigo-400', bg: 'bg-indigo-900/10' },
         { text: 'text-amber-400', bg: 'bg-amber-900/10' },
@@ -409,9 +411,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         { text: 'text-purple-400', bg: 'bg-purple-900/10' }
     ];
 
-    // ========================================================
-    // 1. COLUNA FIXA: ASN (Sempre a primeira)
-    // ========================================================
     let codesPropria = [];
     if (configGruasObj && configGruasObj.length > 0) {
         configGruasObj.forEach(item => {
@@ -422,30 +421,10 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         });
     }
 
-    function isASN(d) {
-        if (codesPropria.length > 0 && checkLoaderDynamic(d, codesPropria)) return true;
-        let grua = String(d.grua || '').trim().toUpperCase();
-        if (grua.startsWith('GSR')) return true; 
-        return false;
-    }
-
-    let dadosASN = dadosFiltrados.filter(isASN);
-
-    cenarios.push({
-        nome: 'GR. PRÓPRIAS',
-        tipo: 'Propria',
-        style: { text: 'text-emerald-400', bg: 'bg-emerald-900/10' }, 
-        icon: 'fa-star',
-        dados: dadosASN,
-        stats: calcStats(dadosASN),
-        ordemLabel: 'ASN'
-    });
-
     // ========================================================
-    // 2. FRENTES DINÂMICAS CADASTRADAS PELO USUÁRIO (Ordenadas)
+    // 1. FRENTES DINÂMICAS CADASTRADAS PELO USUÁRIO (Ordenadas)
     // ========================================================
     if (configGruasObj && configGruasObj.length > 0) {
-        
         const gruasSorted = [...configGruasObj].sort((a, b) => {
             const oa = a.ordem || 'ZZZ';
             const ob = b.ordem || 'ZZZ';
@@ -459,11 +438,12 @@ function renderizarTabelaComparativo(dadosFiltrados) {
             const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
             
             const style = colorVariants[index % colorVariants.length];
-            const icon = tipo === 'Propria' ? 'fa-star' : 'fa-leaf';
+            const isPropria = (tipo === 'Propria' || tipo === 'Própria');
+            const icon = isPropria ? 'fa-star' : 'fa-leaf';
 
             let dadosCenario = dadosFiltrados.filter(d => checkLoaderDynamic(d, codes));
             
-            cenarios.push({
+            let cenarioObj = {
                 nome: nome,
                 tipo: tipo,
                 style: style,
@@ -471,9 +451,43 @@ function renderizarTabelaComparativo(dadosFiltrados) {
                 dados: dadosCenario,
                 stats: calcStats(dadosCenario),
                 ordemLabel: ordemDefinida
-            });
+            };
+
+            if (isPropria) {
+                cenariosPropria.push(cenarioObj);
+            } else {
+                cenariosOutros.push(cenarioObj);
+            }
         });
     }
+
+    // ========================================================
+    // 2. COLUNA FIXA: TRANSP. ASN (Sempre após as frentes Próprias)
+    // ========================================================
+    function isASN(d) {
+        if (codesPropria.length > 0 && checkLoaderDynamic(d, codesPropria)) return true;
+        let grua = String(d.grua || '').trim().toUpperCase();
+        if (grua.startsWith('GSR')) return true; 
+        return false;
+    }
+
+    let dadosASN = dadosFiltrados.filter(isASN);
+
+    let cenarioASN = {
+        nome: 'TRANSP. ASN',
+        tipo: 'ASN',
+        style: { text: 'text-emerald-400', bg: 'bg-emerald-900/10' }, 
+        icon: 'fa-star',
+        dados: dadosASN,
+        stats: calcStats(dadosASN),
+        ordemLabel: 'ASN'
+    };
+
+    // ========================================================
+    // MONTAGEM FINAL DA ORDEM
+    // ========================================================
+    // Ordem exata: Próprias Cadastradas -> TRANSP. ASN Fixa -> Outras Cadastradas
+    let cenarios = [...cenariosPropria, cenarioASN, ...cenariosOutros];
 
     const stGlobal = calcStats(dadosFiltrados);
 
@@ -904,7 +918,7 @@ function loadDashboardData() {
     if(document.getElementById('bestPlacaValue')) document.getElementById('bestPlacaValue').innerText = melhorPlacaProdutividade > 0 ? melhorPlacaProdutividade.toLocaleString('pt-PT', {maximumFractionDigits: 1}) : "0.0";
     if(document.getElementById('bestPlacaName')) document.getElementById('bestPlacaName').innerText = `Placa: ${melhorPlacaNome}`;
 
-    // EXIBE AS FRENTES COM A ORDEM (C1, C2) E O ASN FIXO
+    // EXIBE AS FRENTES COM A ORDEM (C1, C2) E O TRANSP. ASN FIXO DEPOIS DELAS
     renderizarTabelaComparativo(filteredData);
 
     const transpCount = new Map();
