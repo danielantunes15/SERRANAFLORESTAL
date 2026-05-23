@@ -18,12 +18,57 @@ var agrupamentoDiarioGlobal = {};
 var chartProducaoObj = null;
 var chartViagensObj = null;
 
-document.addEventListener('DOMContentLoaded', () => {
-    configurarEventos();
-    definirDatasPadrao();
-    verificarAberturaModal();
-    buscarTodosDadosSupabase();
-});
+// Retorna o cliente do Supabase de forma segura
+function getSupabaseClient() {
+    if (window.supabaseClient) return window.supabaseClient;
+    if (typeof supabaseClient !== 'undefined') return supabaseClient;
+    console.error("[PRODUCAO] FATAL: Nenhum cliente Supabase encontrado!");
+    return null;
+}
+
+// =========================================================
+// INICIALIZAÇÃO BLINDADA (Espera o HTML carregar na tela)
+// =========================================================
+function iniciarModuloProducao() {
+    if (window.producaoIntervaloAtivo) return;
+    window.producaoIntervaloAtivo = true;
+
+    // Fica checando a cada 200ms se a página HTML já foi renderizada na tela
+    const checkHTML = setInterval(() => {
+        const elementoReferencia = document.getElementById('dataInicio'); // Input de data inicial
+        
+        if (elementoReferencia) {
+            clearInterval(checkHTML);
+            window.producaoIntervaloAtivo = false;
+            
+            // Garante que não vai atrelar os eventos 2 vezes
+            if (!elementoReferencia.dataset.iniciado) {
+                elementoReferencia.dataset.iniciado = "true";
+                console.log("[PRODUCAO] HTML 100% carregado. Iniciando módulo...");
+                configurarEventos();
+                definirDatasPadrao();
+                verificarAberturaModal();
+                buscarTodosDadosSupabase();
+            }
+        }
+    }, 200);
+
+    // Timeout de segurança de 10 segundos
+    setTimeout(() => {
+        clearInterval(checkHTML);
+        window.producaoIntervaloAtivo = false;
+    }, 10000);
+}
+
+// Aciona a inicialização
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', iniciarModuloProducao);
+} else {
+    iniciarModuloProducao();
+}
+
+// Expõe a função globalmente para o roteador do menu lateral
+window.carregarPainelProducao = iniciarModuloProducao;
 
 function configurarEventos() {
     const btnFiltros = document.getElementById('btnAplicarFiltros');
@@ -72,34 +117,74 @@ function verificarAberturaModal() {
 }
 
 async function buscarTodosDadosSupabase() {
+    const client = getSupabaseClient();
     const tStatus = document.getElementById('tabelaStatus');
-    if(tStatus) tStatus.innerText = "Baixando histórico...";
-    dadosHistoricoGlobal = [];
-    faturamentosGlobais = [];
     
-    let from = 0;
-    const step = 1000;
-    let fetchMore = true;
-    while (fetchMore) {
-        const { data, error } = await supabaseClient
-            .from('historico_viagens')
-            .select('dataDaBaseExcel, placa, transportadora, volumeReal')
-            .range(from, from + step - 1);
+    if (!client) {
+        if(tStatus) tStatus.innerText = "Erro: SupabaseClient não encontrado.";
+        return;
+    }
+
+    if(tStatus) tStatus.innerText = "Baixando histórico...";
+    console.log("[PRODUCAO] Buscando histórico de viagens...");
+
+    try {
+        dadosHistoricoGlobal = [];
+        faturamentosGlobais = [];
         
-        if (error) { console.error("Erro:", error); break; }
-        if (data && data.length > 0) { dadosHistoricoGlobal = dadosHistoricoGlobal.concat(data); from += step; }
-        if (!data || data.length < step) { fetchMore = false; }
-    }
+        let from = 0;
+        const step = 1000;
+        let fetchMore = true;
+        
+        // Busca Viagens
+        while (fetchMore) {
+            let query = client
+                .from('historico_viagens')
+                .select('*') // Busca tudo para evitar problemas de case nas colunas
+                .range(from, from + step - 1);
+                
+            if (typeof window.aplicarFiltroLocal === 'function') {
+                query = window.aplicarFiltroLocal(query);
+            }
 
-    const { data: fatData, error: fatError } = await supabaseClient
-        .from('faturamento_diario')
-        .select('*');
-    if (!fatError && fatData) {
-        faturamentosGlobais = fatData;
-    }
+            const { data, error } = await query;
+            
+            if (error) { 
+                console.error("[PRODUCAO] Erro ao buscar viagens:", error); 
+                break; 
+            }
+            if (data && data.length > 0) { 
+                dadosHistoricoGlobal = dadosHistoricoGlobal.concat(data); 
+                from += step; 
+            }
+            if (!data || data.length < step) { 
+                fetchMore = false; 
+            }
+        }
 
-    popularDropdownTransportadoras(dadosHistoricoGlobal);
-    processarFiltrosEExibir();
+        console.log(`[PRODUCAO] Viagens baixadas: ${dadosHistoricoGlobal.length}`);
+
+        // Busca Faturamentos
+        let queryFat = client.from('faturamento_diario').select('*');
+        if (typeof window.aplicarFiltroLocal === 'function') {
+            queryFat = window.aplicarFiltroLocal(queryFat);
+        }
+
+        const { data: fatData, error: fatError } = await queryFat;
+        if (!fatError && fatData) {
+            faturamentosGlobais = fatData;
+            console.log(`[PRODUCAO] Faturamentos baixados: ${fatData.length}`);
+        } else if (fatError) {
+            console.error("[PRODUCAO] Erro ao buscar faturamento:", fatError);
+        }
+
+        popularDropdownTransportadoras(dadosHistoricoGlobal);
+        processarFiltrosEExibir();
+        
+    } catch (e) {
+        console.error("[PRODUCAO] Erro global na busca:", e);
+        if(tStatus) tStatus.innerText = "Erro ao carregar dados (F12).";
+    }
 }
 
 function adicionarLinhaFaturamento(dataPadrao = '') {
@@ -124,16 +209,28 @@ function resetarModalFaturamento() {
 }
 
 async function salvarFaturamentoEmLote() {
+    const client = getSupabaseClient();
+    if (!client) return;
+
     const linhas = document.querySelectorAll('.fat-linha');
     const payload = [];
     let temErro = false;
+
+    // Configuração multi-filial se aplicável
+    let filial_id_atual = null;
+    if (window.currentUser && window.currentUser.filial_id) {
+        filial_id_atual = window.currentUser.filial_id;
+    }
 
     linhas.forEach(linha => {
         const data = linha.querySelector('.fat-data').value;
         const valor = parseFloat(linha.querySelector('.fat-valor').value);
         
         if (data && !isNaN(valor)) {
-            payload.push({ data_faturamento: data, valor: valor });
+            let objSalvar = { data_faturamento: data, valor: valor };
+            if (filial_id_atual) objSalvar.filial_id = filial_id_atual;
+            
+            payload.push(objSalvar);
         } else if (data || !isNaN(valor)) {
             temErro = true;
         }
@@ -156,12 +253,15 @@ async function salvarFaturamentoEmLote() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando Lote...';
     btn.disabled = true;
 
-    const { error } = await supabaseClient
+    // Se tiver filial usa um conflito diferente (caso sua tabela esteja preparada)
+    let configUpsert = { onConflict: 'data_faturamento' };
+
+    const { error } = await client
         .from('faturamento_diario')
-        .upsert(payload, { onConflict: 'data_faturamento' });
+        .upsert(payload, configUpsert);
 
     if (error) {
-        console.error(error);
+        console.error("[PRODUCAO] Erro upsert faturamento:", error);
         if(msg) mostrarMensagem(msg, "Erro ao salvar faturamentos.", "text-rose-400");
     } else {
         if(msg) mostrarMensagem(msg, `${payload.length} lançamento(s) salvo(s) com sucesso!`, "text-emerald-400");
@@ -184,22 +284,24 @@ function mostrarMensagem(el, texto, color) {
 }
 
 function popularDropdownTransportadoras(dados) {
-    const select = document.getElementById('filtroTransportadora');
-    if(!select) return;
-    const transpSet = new Set();
-    
-    dados.forEach(d => { 
-        if (d.transportadora && d.transportadora.toUpperCase().includes('SERRANA')) {
-            transpSet.add(d.transportadora.trim().toUpperCase()); 
+    try {
+        const select = document.getElementById('filtroTransportadora');
+        if(!select) return;
+        const transpSet = new Set();
+        
+        dados.forEach(d => { 
+            if (d.transportadora && d.transportadora.toUpperCase().includes('SERRANA')) {
+                transpSet.add(d.transportadora.trim().toUpperCase()); 
+            }
+        });
+        
+        if (transpSet.size === 0) {
+            select.innerHTML = '<option value="">Sem dados da Serrana</option>';
+        } else {
+            const ops = Array.from(transpSet).sort().map(t => `<option value="${t}">${t}</option>`).join('');
+            select.innerHTML = '<option value="">Todas as Próprias (Serrana)</option>' + ops;
         }
-    });
-    
-    if (transpSet.size === 0) {
-        select.innerHTML = '<option value="">Sem dados da Serrana</option>';
-    } else {
-        const ops = Array.from(transpSet).sort().map(t => `<option value="${t}">${t}</option>`).join('');
-        select.innerHTML = ops;
-    }
+    } catch(e) { console.error("[PRODUCAO] Erro dropdown transportadora:", e); }
 }
 
 function converterDataString(dataStr) { 
@@ -210,156 +312,165 @@ function converterDataString(dataStr) {
 }
 
 function processarFiltrosEExibir() {
-    const tStatus = document.getElementById('tabelaStatus');
-    if(tStatus) tStatus.innerText = "Processando dados...";
-    
-    const elFiltroTransp = document.getElementById('filtroTransportadora');
-    const filtroTransp = elFiltroTransp ? elFiltroTransp.value : '';
-    const elStrInicio = document.getElementById('dataInicio');
-    const strInicio = elStrInicio ? elStrInicio.value : ''; 
-    const elStrFim = document.getElementById('dataFim');
-    const strFim = elStrFim ? elStrFim.value : ''; 
-
-    let timeInicio = strInicio ? new Date(strInicio.split('-')[0], parseInt(strInicio.split('-')[1]) - 1, strInicio.split('-')[2]).getTime() : 0;
-    let timeFim = strFim ? new Date(strFim.split('-')[0], parseInt(strFim.split('-')[1]) - 1, strFim.split('-')[2]).getTime() : Infinity;
-
-    let receitaTotalGeral = 0;
-    const fatDiarioMap = {}; 
-    faturamentosGlobais.forEach(f => {
-        const [y, m, d] = f.data_faturamento.split('-');
-        const timeFat = new Date(y, m - 1, d).getTime();
-        if (timeFat >= timeInicio && timeFat <= timeFim) {
-            const dataDDMMYYYY = `${d}/${m}/${y}`;
-            fatDiarioMap[dataDDMMYYYY] = parseFloat(f.valor);
-            receitaTotalGeral += parseFloat(f.valor);
-        }
-    });
-
-    dadosFiltradosAtual = dadosHistoricoGlobal.filter(registro => {
-        const tr = registro.transportadora ? registro.transportadora.trim().toUpperCase() : '';
-        if (!tr.includes('SERRANA')) return false;
-        if (filtroTransp && tr !== filtroTransp) return false;
-
-        if (registro.dataDaBaseExcel) {
-            const trTime = converterDataString(registro.dataDaBaseExcel).getTime();
-            if (trTime < timeInicio || trTime > timeFim) return false;
-        } else { 
-            return false; 
-        }
-        return true;
-    });
-
-    const agrupamentoTabela = {};
-    const agrupamentoDiario = {}; 
-    let viagensGerais = 0;
-    let volumeGeral = 0;
-
-    dadosFiltradosAtual.forEach(registro => {
-        const d = registro.dataDaBaseExcel;
-        const pl = registro.placa ? registro.placa.trim().toUpperCase() : 'N/A';
-        const tr = registro.transportadora ? registro.transportadora.toUpperCase() : 'N/A';
-        const v = registro.volumeReal || 0;
-
-        if (!agrupamentoTabela[pl]) agrupamentoTabela[pl] = { placa: pl, transp: tr, viagens: 0, volume: 0 };
-        agrupamentoTabela[pl].viagens += 1;
-        agrupamentoTabela[pl].volume += v;
+    try {
+        console.log("[PRODUCAO] Processando filtros e calculando interface...");
+        const tStatus = document.getElementById('tabelaStatus');
+        if(tStatus) tStatus.innerText = "Processando dados...";
         
-        viagensGerais += 1;
-        volumeGeral += v;
+        const elFiltroTransp = document.getElementById('filtroTransportadora');
+        const filtroTransp = elFiltroTransp ? elFiltroTransp.value : '';
+        const elStrInicio = document.getElementById('dataInicio');
+        const strInicio = elStrInicio ? elStrInicio.value : ''; 
+        const elStrFim = document.getElementById('dataFim');
+        const strFim = elStrFim ? elStrFim.value : ''; 
 
-        if (d) {
+        let timeInicio = strInicio ? new Date(strInicio.split('-')[0], parseInt(strInicio.split('-')[1]) - 1, strInicio.split('-')[2]).getTime() : 0;
+        let timeFim = strFim ? new Date(strFim.split('-')[0], parseInt(strFim.split('-')[1]) - 1, strFim.split('-')[2]).getTime() : Infinity;
+
+        let receitaTotalGeral = 0;
+        const fatDiarioMap = {}; 
+        faturamentosGlobais.forEach(f => {
+            const [y, m, d] = f.data_faturamento.split('-');
+            const timeFat = new Date(y, m - 1, d).getTime();
+            if (timeFat >= timeInicio && timeFat <= timeFim) {
+                const dataDDMMYYYY = `${d}/${m}/${y}`;
+                fatDiarioMap[dataDDMMYYYY] = parseFloat(f.valor);
+                receitaTotalGeral += parseFloat(f.valor);
+            }
+        });
+
+        dadosFiltradosAtual = dadosHistoricoGlobal.filter(registro => {
+            const tr = registro.transportadora ? registro.transportadora.trim().toUpperCase() : '';
+            if (!tr.includes('SERRANA')) return false;
+            if (filtroTransp && tr !== filtroTransp) return false;
+
+            if (registro.dataDaBaseExcel) {
+                const trTime = converterDataString(registro.dataDaBaseExcel).getTime();
+                if (trTime < timeInicio || trTime > timeFim) return false;
+            } else { 
+                return false; 
+            }
+            return true;
+        });
+
+        const agrupamentoTabela = {};
+        const agrupamentoDiario = {}; 
+        let viagensGerais = 0;
+        let volumeGeral = 0;
+
+        dadosFiltradosAtual.forEach(registro => {
+            const d = registro.dataDaBaseExcel;
+            const pl = registro.placa ? registro.placa.trim().toUpperCase() : 'N/A';
+            const tr = registro.transportadora ? registro.transportadora.toUpperCase() : 'N/A';
+            const v = registro.volumeReal || 0;
+
+            if (!agrupamentoTabela[pl]) agrupamentoTabela[pl] = { placa: pl, transp: tr, viagens: 0, volume: 0 };
+            agrupamentoTabela[pl].viagens += 1;
+            agrupamentoTabela[pl].volume += v;
+            
+            viagensGerais += 1;
+            volumeGeral += v;
+
+            if (d) {
+                if (!agrupamentoDiario[d]) agrupamentoDiario[d] = { ativos: new Set(), vol: 0, via: 0, rec: 0 };
+                agrupamentoDiario[d].ativos.add(pl);
+                agrupamentoDiario[d].vol += v;
+                agrupamentoDiario[d].via += 1;
+            }
+        });
+
+        Object.keys(fatDiarioMap).forEach(d => {
             if (!agrupamentoDiario[d]) agrupamentoDiario[d] = { ativos: new Set(), vol: 0, via: 0, rec: 0 };
-            agrupamentoDiario[d].ativos.add(pl);
-            agrupamentoDiario[d].vol += v;
-            agrupamentoDiario[d].via += 1;
-        }
-    });
+            agrupamentoDiario[d].rec = fatDiarioMap[d];
+        });
+        
+        Object.keys(agrupamentoDiario).forEach(d => { 
+            if(agrupamentoDiario[d].rec === undefined) agrupamentoDiario[d].rec = fatDiarioMap[d] || 0; 
+        });
 
-    Object.keys(fatDiarioMap).forEach(d => {
-        if (!agrupamentoDiario[d]) agrupamentoDiario[d] = { ativos: new Set(), vol: 0, via: 0, rec: 0 };
-        agrupamentoDiario[d].rec = fatDiarioMap[d];
-    });
-    
-    Object.keys(agrupamentoDiario).forEach(d => { 
-        if(agrupamentoDiario[d].rec === undefined) agrupamentoDiario[d].rec = fatDiarioMap[d] || 0; 
-    });
+        dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => b.viagens - a.viagens);
+        agrupamentoDiarioGlobal = agrupamentoDiario; 
 
-    dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => b.viagens - a.viagens);
-    agrupamentoDiarioGlobal = agrupamentoDiario; 
+        const diasOperacao = Object.keys(agrupamentoDiarioGlobal).length;
+        let somaVeiculosAtivosDiario = 0;
+        Object.values(agrupamentoDiarioGlobal).forEach(dia => {
+            somaVeiculosAtivosDiario += dia.ativos.size;
+        });
+        const mediaVeiculosAtivosDia = diasOperacao > 0 ? (somaVeiculosAtivosDiario / diasOperacao) : 0;
 
-    const diasOperacao = Object.keys(agrupamentoDiarioGlobal).length;
-    let somaVeiculosAtivosDiario = 0;
-    Object.values(agrupamentoDiarioGlobal).forEach(dia => {
-        somaVeiculosAtivosDiario += dia.ativos.size;
-    });
-    const mediaVeiculosAtivosDia = diasOperacao > 0 ? (somaVeiculosAtivosDiario / diasOperacao) : 0;
+        const elCardAtivos = document.getElementById('cardVeiculosAtivos');
+        if(elCardAtivos) elCardAtivos.innerText = mediaVeiculosAtivosDia.toLocaleString('pt-PT', { maximumFractionDigits: 1 });
+        
+        const elCardVol = document.getElementById('cardVolumeTotal');
+        if(elCardVol) elCardVol.innerText = volumeGeral.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        const caixaMediaGlobal = viagensGerais > 0 ? (volumeGeral / viagensGerais) : 0;
+        const elCardCaixa = document.getElementById('cardCaixaMedia');
+        if(elCardCaixa) elCardCaixa.innerText = caixaMediaGlobal.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        const elCardRec = document.getElementById('cardReceitaTotal');
+        if(elCardRec) elCardRec.innerText = receitaTotalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-    const elCardAtivos = document.getElementById('cardVeiculosAtivos');
-    if(elCardAtivos) elCardAtivos.innerText = mediaVeiculosAtivosDia.toLocaleString('pt-PT', { maximumFractionDigits: 1 });
-    
-    const elCardVol = document.getElementById('cardVolumeTotal');
-    if(elCardVol) elCardVol.innerText = volumeGeral.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    
-    const caixaMediaGlobal = viagensGerais > 0 ? (volumeGeral / viagensGerais) : 0;
-    const elCardCaixa = document.getElementById('cardCaixaMedia');
-    if(elCardCaixa) elCardCaixa.innerText = caixaMediaGlobal.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    
-    const elCardRec = document.getElementById('cardReceitaTotal');
-    if(elCardRec) elCardRec.innerText = receitaTotalGeral.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-    desenharGraficos(agrupamentoDiarioGlobal);
-    renderizarTabela(dadosAgrupadosAtual);
-    if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} placas listadas`;
+        desenharGraficos(agrupamentoDiarioGlobal);
+        renderizarTabela(dadosAgrupadosAtual);
+        if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} placas listadas`;
+        
+        console.log("[PRODUCAO] Renderização de tela concluída.");
+    } catch (errInterface) {
+        console.error("[PRODUCAO] Erro Crítico na montagem da tela:", errInterface);
+    }
 }
 
 function desenharGraficos(agrupamento) {
-    const datasOrdenadas = Object.keys(agrupamento).sort((a, b) => converterDataString(a).getTime() - converterDataString(b).getTime());
+    try {
+        const datasOrdenadas = Object.keys(agrupamento).sort((a, b) => converterDataString(a).getTime() - converterDataString(b).getTime());
 
-    const labels = [];
-    const volArr = []; 
-    const veiArr = []; 
-    const viaArr = []; 
-    const recArr = [];
+        const labels = [];
+        const volArr = []; 
+        const veiArr = []; 
+        const viaArr = []; 
+        const recArr = [];
 
-    datasOrdenadas.forEach(d => {
-        labels.push(d.substring(0, 5)); 
-        volArr.push(parseFloat(agrupamento[d].vol.toFixed(2)));
-        veiArr.push(agrupamento[d].ativos.size);
-        viaArr.push(agrupamento[d].via);
-        recArr.push(parseFloat(agrupamento[d].rec.toFixed(2)));
-    });
-
-    if (chartProducaoObj) chartProducaoObj.destroy();
-    const ctx1 = document.getElementById('chartProducaoDiaria');
-    if(ctx1) {
-        chartProducaoObj = new Chart(ctx1, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    { type: 'bar', label: 'Volume (m³)', data: volArr, backgroundColor: '#10b981', borderRadius: 4, yAxisID: 'y', order: 2 },
-                    { type: 'line', label: 'Veículos Ativos', data: veiArr, borderColor: '#38bdf8', backgroundColor: '#38bdf8', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#38bdf8', tension: 0.3, yAxisID: 'y1', order: 1 }
-                ]
-            },
-            options: getDefaultChartOptions('Volume (m³)', '#10b981', 'Veículos Ativos', '#38bdf8')
+        datasOrdenadas.forEach(d => {
+            labels.push(d.substring(0, 5)); 
+            volArr.push(parseFloat(agrupamento[d].vol.toFixed(2)));
+            veiArr.push(agrupamento[d].ativos.size);
+            viaArr.push(agrupamento[d].via);
+            recArr.push(parseFloat(agrupamento[d].rec.toFixed(2)));
         });
-    }
 
-    if (chartViagensObj) chartViagensObj.destroy();
-    const ctx2 = document.getElementById('chartViagensReceita');
-    if(ctx2) {
-        chartViagensObj = new Chart(ctx2, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    { type: 'bar', label: 'Total Viagens', data: viaArr, backgroundColor: '#818cf8', borderRadius: 4, yAxisID: 'y', order: 2 },
-                    { type: 'line', label: 'Receita (R$)', data: recArr, borderColor: '#34d399', backgroundColor: '#34d399', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#34d399', tension: 0.3, yAxisID: 'y1', order: 1 }
-                ]
-            },
-            options: getDefaultChartOptions('Viagens (Qtd)', '#818cf8', 'Receita (R$)', '#34d399', true)
-        });
-    }
+        if (chartProducaoObj) chartProducaoObj.destroy();
+        const ctx1 = document.getElementById('chartProducaoDiaria');
+        if(ctx1) {
+            chartProducaoObj = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { type: 'bar', label: 'Volume (m³)', data: volArr, backgroundColor: '#10b981', borderRadius: 4, yAxisID: 'y', order: 2 },
+                        { type: 'line', label: 'Veículos Ativos', data: veiArr, borderColor: '#38bdf8', backgroundColor: '#38bdf8', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#38bdf8', tension: 0.3, yAxisID: 'y1', order: 1 }
+                    ]
+                },
+                options: getDefaultChartOptions('Volume (m³)', '#10b981', 'Veículos Ativos', '#38bdf8')
+            });
+        }
+
+        if (chartViagensObj) chartViagensObj.destroy();
+        const ctx2 = document.getElementById('chartViagensReceita');
+        if(ctx2) {
+            chartViagensObj = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { type: 'bar', label: 'Total Viagens', data: viaArr, backgroundColor: '#818cf8', borderRadius: 4, yAxisID: 'y', order: 2 },
+                        { type: 'line', label: 'Receita (R$)', data: recArr, borderColor: '#34d399', backgroundColor: '#34d399', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#34d399', tension: 0.3, yAxisID: 'y1', order: 1 }
+                    ]
+                },
+                options: getDefaultChartOptions('Viagens (Qtd)', '#818cf8', 'Receita (R$)', '#34d399', true)
+            });
+        }
+    } catch(e) { console.error("[PRODUCAO] Erro nos gráficos:", e); }
 }
 
 function getDefaultChartOptions(titleY1, colorY1, titleY2, colorY2, isMoney = false) {
@@ -390,28 +501,36 @@ function getDefaultChartOptions(titleY1, colorY1, titleY2, colorY2, isMoney = fa
 }
 
 function renderizarTabela(dados) {
-    const tbody = document.getElementById('tbodyProducaoFrota');
-    if(!tbody) return;
-    tbody.innerHTML = '';
-    if (dados.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-slate-500">Sem dados.</td></tr>`; return; }
+    try {
+        const tbody = document.getElementById('tbodyProducaoFrota');
+        if(!tbody) return;
+        tbody.innerHTML = '';
+        if (dados.length === 0) { tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-slate-500">Sem dados.</td></tr>`; return; }
 
-    dados.forEach(l => {
-        const cx = l.viagens > 0 ? (l.volume / l.viagens) : 0;
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-700/30 transition-colors";
-        tr.innerHTML = `
-            <td class="px-6 py-3 font-bold text-white"><span class="bg-slate-900 px-2 py-1 rounded border border-slate-700 font-mono tracking-widest">${l.placa}</span></td>
-            <td class="px-6 py-3 text-slate-300 font-medium text-xs uppercase">${l.transp}</td>
-            <td class="px-6 py-3 text-center text-sky-400 font-black">${l.viagens}</td>
-            <td class="px-6 py-3 text-right text-emerald-400 font-mono font-bold">${l.volume.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td class="px-6 py-3 text-right text-amber-400 font-mono">${cx.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        `;
-        tbody.appendChild(tr);
-    });
+        dados.forEach(l => {
+            const cx = l.viagens > 0 ? (l.volume / l.viagens) : 0;
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-700/30 transition-colors";
+            tr.innerHTML = `
+                <td class="px-6 py-3 font-bold text-white"><span class="bg-slate-900 px-2 py-1 rounded border border-slate-700 font-mono tracking-widest">${l.placa}</span></td>
+                <td class="px-6 py-3 text-slate-300 font-medium text-xs uppercase">${l.transp}</td>
+                <td class="px-6 py-3 text-center text-sky-400 font-black">${l.viagens}</td>
+                <td class="px-6 py-3 text-right text-emerald-400 font-mono font-bold">${l.volume.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td class="px-6 py-3 text-right text-amber-400 font-mono">${cx.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch(e) { console.error("[PRODUCAO] Erro ao renderizar tabela:", e); }
 }
 
 function exportarParaExcel() {
     if (!dadosFiltradosAtual || dadosFiltradosAtual.length === 0) { alert("Sem dados."); return; }
+    
+    if (typeof XLSX === 'undefined') {
+        alert("A biblioteca Excel ainda não foi carregada. Tente novamente em alguns segundos.");
+        return;
+    }
+    
     const dtInicio = document.getElementById('dataInicio') ? document.getElementById('dataInicio').value : '';
     const dtFim = document.getElementById('dataFim') ? document.getElementById('dataFim').value : '';
     const fileBase = `Placas_Serrana_${dtInicio}_a_${dtFim}`;
@@ -437,6 +556,11 @@ function exportarParaExcel() {
 function exportarResumoDiarioExcel() {
     const chaves = Object.keys(agrupamentoDiarioGlobal).sort((a, b) => converterDataString(a).getTime() - converterDataString(b).getTime());
     if (chaves.length === 0) { alert("Sem dados para resumo."); return; }
+
+    if (typeof XLSX === 'undefined') {
+        alert("A biblioteca Excel ainda não foi carregada. Tente novamente em alguns segundos.");
+        return;
+    }
 
     const excelArr = chaves.map(d => {
         const item = agrupamentoDiarioGlobal[d];
