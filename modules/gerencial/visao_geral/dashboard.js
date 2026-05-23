@@ -393,7 +393,6 @@ function checkLoaderDynamic(d, loaderArray) {
     return false;
 }
 
-// NOVO: Função isolada para desenhar o Comparativo com Ordem e TRANSP. ASN
 function renderizarTabelaComparativo(dadosFiltrados) {
     const theadComp = document.getElementById('comparativoHead');
     const tbodyComp = document.getElementById('comparativoBody');
@@ -411,19 +410,17 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         { text: 'text-purple-400', bg: 'bg-purple-900/10' }
     ];
 
-    let codesPropria = [];
-    if (configGruasObj && configGruasObj.length > 0) {
-        configGruasObj.forEach(item => {
-            if(item.tipo_frente === 'Propria' || item.tipo_frente === 'Própria') {
-                const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
-                codesPropria.push(...codes);
-            }
-        });
+    let transpPropriaConfig = 'SERRANALOG';
+    if (metasGlobaisObj && metasGlobaisObj.transp_propria) {
+        transpPropriaConfig = metasGlobaisObj.transp_propria.toUpperCase();
     }
 
-    // ========================================================
-    // 1. FRENTES DINÂMICAS CADASTRADAS PELO USUÁRIO (Ordenadas)
-    // ========================================================
+    function isTransportadoraPropria(d) {
+        const transp = String(d.transportadora || '').trim().toUpperCase();
+        return transp.includes(transpPropriaConfig) || transp === transpPropriaConfig;
+    }
+
+    // 1. FRENTES DINÂMICAS CADASTRADAS (Apenas as que rodaram com a NOSSAS Transportadora)
     if (configGruasObj && configGruasObj.length > 0) {
         const gruasSorted = [...configGruasObj].sort((a, b) => {
             const oa = a.ordem || 'ZZZ';
@@ -441,7 +438,7 @@ function renderizarTabelaComparativo(dadosFiltrados) {
             const isPropria = (tipo === 'Propria' || tipo === 'Própria');
             const icon = isPropria ? 'fa-star' : 'fa-leaf';
 
-            let dadosCenario = dadosFiltrados.filter(d => checkLoaderDynamic(d, codes));
+            let dadosCenario = dadosFiltrados.filter(d => checkLoaderDynamic(d, codes) && isTransportadoraPropria(d));
             
             let cenarioObj = {
                 nome: nome,
@@ -461,32 +458,20 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         });
     }
 
-    // ========================================================
-    // 2. COLUNA FIXA: TRANSP. ASN (Sempre após as frentes Próprias)
-    // ========================================================
-    function isASN(d) {
-        if (codesPropria.length > 0 && checkLoaderDynamic(d, codesPropria)) return true;
-        let grua = String(d.grua || '').trim().toUpperCase();
-        if (grua.startsWith('GSR')) return true; 
-        return false;
-    }
-
-    let dadosASN = dadosFiltrados.filter(isASN);
+    // 2. COLUNA FIXA: TRANSP. ASN (Qualquer transporte que NÃO for o nosso Próprio)
+    let dadosASN = dadosFiltrados.filter(d => !isTransportadoraPropria(d));
 
     let cenarioASN = {
         nome: 'TRANSP. ASN',
         tipo: 'ASN',
-        style: { text: 'text-emerald-400', bg: 'bg-emerald-900/10' }, 
-        icon: 'fa-star',
+        style: { text: 'text-purple-400', bg: 'bg-purple-900/10' }, 
+        icon: 'fa-truck-moving',
         dados: dadosASN,
         stats: calcStats(dadosASN),
         ordemLabel: 'ASN'
     };
 
-    // ========================================================
-    // MONTAGEM FINAL DA ORDEM
-    // ========================================================
-    // Ordem exata: Próprias Cadastradas -> TRANSP. ASN Fixa -> Outras Cadastradas
+    // Montagem exata: Frentes Próprias -> ASN -> Outras Frentes
     let cenarios = [...cenariosPropria, cenarioASN, ...cenariosOutros];
 
     const stGlobal = calcStats(dadosFiltrados);
@@ -544,7 +529,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
 
     tbodyComp.innerHTML = trViagens + trCaixa + trVol + trCiclo + trFilaCpo + trCarreg + trFilaFab + trDist;
 }
-// -------------------------------------------------------------
 
 function loadDashboardData() {
     const storedData = fullHistoricoData;
@@ -695,17 +679,22 @@ function loadDashboardData() {
         });
     }
 
-    function isViagemPropria(d) {
-        if (codesPropria.length === 0) return true; 
-        return checkLoaderDynamic(d, codesPropria);
+    let transpPropriaConfig = 'SERRANALOG';
+    if (metasGlobaisObj && metasGlobaisObj.transp_propria) {
+        transpPropriaConfig = metasGlobaisObj.transp_propria.toUpperCase();
+    }
+
+    function isViagemPropriaDashboard(d) {
+        const transp = String(d.transportadora || '').trim().toUpperCase();
+        return transp.includes(transpPropriaConfig) || transp === transpPropriaConfig;
     }
 
     let cardsData = filteredData;
     
     if (activeT === 'ALL') {
-        cardsData = filteredData.filter(d => isViagemPropria(d));
+        cardsData = filteredData.filter(d => isViagemPropriaDashboard(d));
         if(document.getElementById('dbStatusLabel')) {
-            document.getElementById('dbStatusLabel').innerHTML = `<i class="fas fa-database text-sky-500 mr-1"></i> Geral: ${filteredData.length} Vg | Frentes Próprias: ${cardsData.length} Vg`;
+            document.getElementById('dbStatusLabel').innerHTML = `<i class="fas fa-database text-sky-500 mr-1"></i> Geral: ${filteredData.length} Vg | Próprias: ${cardsData.length} Vg`;
         }
     } else {
         if(document.getElementById('dbStatusLabel')) {
@@ -918,7 +907,7 @@ function loadDashboardData() {
     if(document.getElementById('bestPlacaValue')) document.getElementById('bestPlacaValue').innerText = melhorPlacaProdutividade > 0 ? melhorPlacaProdutividade.toLocaleString('pt-PT', {maximumFractionDigits: 1}) : "0.0";
     if(document.getElementById('bestPlacaName')) document.getElementById('bestPlacaName').innerText = `Placa: ${melhorPlacaNome}`;
 
-    // EXIBE AS FRENTES COM A ORDEM (C1, C2) E O TRANSP. ASN FIXO DEPOIS DELAS
+    // RENDERIZA A TABELA COM A NOVA LÓGICA TRANSP. PRÓPRIA vs ASN
     renderizarTabelaComparativo(filteredData);
 
     const transpCount = new Map();

@@ -2,7 +2,6 @@
 // js/configuracoes/importacao.js
 // ==========================================
 
-// Expondo globalmente para garantir que o HTML sempre as encontre
 window.processAndSaveFile = processAndSaveFile;
 window.processAndSaveJornadasFile = processAndSaveJornadasFile;
 
@@ -70,7 +69,7 @@ async function processAndSaveJornadasFile(file) {
                 eps: 'SERRANALOG - BA',
                 unidade: 'BA',
                 semana: calcularSemanaImportacao(strInicio),
-                filial_id: window.currentUser ? window.currentUser.filial_id : null // <--- MULTI-TENANCY AQUI
+                filial_id: window.currentUser ? window.currentUser.filial_id : null
             };
         }).filter(item => {
             if (item === null || item.motorista === '' || item.total_trabalho_horas < 8) return false;
@@ -84,7 +83,7 @@ async function processAndSaveJornadasFile(file) {
         let startJor = 0; const stepJor = 1000;
         while (true) {
             let queryJor = supabaseClient.from('historico_jornadas').select('motorista, inicio, fim').range(startJor, startJor + stepJor - 1);
-            if (typeof window.aplicarFiltroFilial === 'function') queryJor = window.aplicarFiltroFilial(queryJor); // <--- MULTI-TENANCY BUSCA
+            if (typeof window.aplicarFiltroFilial === 'function') queryJor = window.aplicarFiltroFilial(queryJor); 
             
             const { data, error: selErr } = await queryJor;
             if (selErr) throw selErr;
@@ -111,7 +110,7 @@ async function processAndSaveJornadasFile(file) {
             "dataBase": `Jornadas Ponto`,
             "qtdViagens": jornadasNovas.length,
             "dataLancamento": new Date().toLocaleString('pt-PT'),
-            "filial_id": window.currentUser ? window.currentUser.filial_id : null // <--- MULTI-TENANCY AQUI
+            "filial_id": window.currentUser ? window.currentUser.filial_id : null
         }]);
         
         alert(`Sucesso! Salvas ${jornadasNovas.length} NOVAS jornadas.`);
@@ -217,14 +216,12 @@ function parseSheetToData(sheet) {
             distanciaAsfalto: parsePtBrNumber(getValue(findKey(['distancia por asfalto', 'distância por asfalto', 'distancia asfalto']))),
             distanciaTerra: parsePtBrNumber(getValue(findKey(['distancia por terra', 'distância por terra', 'distancia terra']))),
             
-            // CÁLCULOS MATEMÁTICOS COM BARREIRA DE ERROS
             cicloHoras: calcHoursDiff(getSafeDate(dtSaidaFabKey), getValue(hrSaidaFabKey), getSafeDate(dtFimDescarFabKey), getValue(hrFimDescarFabKey)),
             tempoCarregamentoHoras: calcHoursDiff(getSafeDate(dtInicioCarregCpoKey), getValue(hrInicioCarregCpoKey), getSafeDate(dtFimCarregCpoKey), getValue(hrFimCarregCpoKey)),
             filaCampoHoras: calcHoursDiff(getSafeDate(dtChegadaCampoKey), getValue(hrChegadaCampoKey), getSafeDate(dtInicioCarregCpoKey), getValue(hrInicioCarregCpoKey)),
             filaFabricaHoras: calcHoursDiff(getSafeDate(dtEntradaFabKey), getValue(hrEntradaFabKey), getSafeDate(dtInicioDescarFabKey), getValue(hrInicioDescarFabKey)),
             cicloCampoHoras: calcHoursDiff(getSafeDate(dtChegadaCampoKey), getValue(hrChegadaCampoKey), getSafeDate(dtSaidaCampoKey), getValue(hrSaidaCampoKey)),
 
-            // DATAS FORMATADAS PRO BANCO
             dtSaidaFabrica: formatDbDate(getValue(dtSaidaFabKey)),
             hrSaidaFabrica: formatDbTime(getValue(hrSaidaFabKey)),
             dtFimDescarFabrica: formatDbDate(getValue(dtFimDescarFabKey)),
@@ -242,7 +239,6 @@ function parseSheetToData(sheet) {
             dtInicioDescarFabrica: formatDbDate(getValue(dtInicioDescarFabKey)),
             hrInicioDescarFabrica: formatDbTime(getValue(hrInicioDescarFabKey)),
             
-            // <--- MULTI-TENANCY AQUI
             filial_id: window.currentUser ? window.currentUser.filial_id : null 
         };
     });
@@ -262,13 +258,21 @@ async function processAndSaveFile(file) {
         const newRows = parseSheetToData(workbook.Sheets[workbook.SheetNames[0]]);
         if (!newRows || newRows.length === 0) throw new Error("Planilha vazia ou sem dados válidos.");
 
-        // ---- MODIFICAÇÃO: MULTI-TENANCY GRUAS ----
+        // BUSCAR NOME DA TRANSPORTADORA NAS METAS
+        let transpPropriaConfig = 'SERRANALOG';
+        try {
+            const { data: metasData } = await supabaseClient.from('metas_globais').select('transp_propria').eq('id', 1).single();
+            if (metasData && metasData.transp_propria) {
+                transpPropriaConfig = metasData.transp_propria.trim().toUpperCase();
+            }
+        } catch(e) { console.warn("Erro ao puxar transp_propria, usando padrão:", e); }
+
+        // BUSCAR GRUAS NO BANCO
         let queryGruas = supabaseClient.from('config_gruas').select('*');
         if (typeof window.aplicarFiltroFilial === 'function') {
             queryGruas = window.aplicarFiltroFilial(queryGruas);
         }
         const { data: gruasData } = await queryGruas;
-        // ------------------------------------------
         
         let allMappedLoaders = [];
         if (gruasData) {
@@ -280,25 +284,23 @@ async function processAndSaveFile(file) {
             });
         }
 
+        // APLICAÇÃO DA REGRA DE FILTRO
         const operacaoRows = newRows.filter(row => {
             const transp = String(row.transportadora || '').trim().toUpperCase();
             const grua = String(row.grua || '').trim().toUpperCase();
             
-            const isSerranaTransp = transp.includes('SERRANALOG') || 
-                                    transp.includes('SERRANA LOG') || 
-                                    transp.includes('SERRANA TRANSP') || 
-                                    transp === 'SERRANA';
+            const isTransportadoraPropria = transp.includes(transpPropriaConfig) || transp === transpPropriaConfig;
+            const isGruaDaOperacao = allMappedLoaders.includes(grua) || grua.startsWith('GSR');
 
-            const prefixosSerrana = ['GSR'];
-            const isGruaDaSerrana = prefixosSerrana.some(prefixo => grua.startsWith(prefixo));
-
-            if (isSerranaTransp) return true;
-            else if (!isSerranaTransp && isGruaDaSerrana) return true;
-            else return false;
+            // Regra mestre: Se for nosso transporte OU tiver nossa grua -> Importa
+            if (isTransportadoraPropria || isGruaDaOperacao) {
+                return true;
+            }
+            return false;
         });
 
         if (operacaoRows.length === 0) {
-            throw new Error("A planilha não contém nenhuma viagem da nossa operação baseada nas regras definidas.");
+            throw new Error("A planilha não contém nenhuma viagem da nossa operação baseada nas regras definidas (Grua Própria ou Transporte Próprio).");
         }
 
         let linhasDescartadas = newRows.length - operacaoRows.length;
@@ -306,13 +308,11 @@ async function processAndSaveFile(file) {
         let existingIds = [];
         let startVia = 0; const stepVia = 1000;
         while (true) {
-            // ---- MODIFICAÇÃO: MULTI-TENANCY AO BUSCAR DUPLICADAS ----
             let queryVia = supabaseClient.from('historico_viagens').select('movimento').range(startVia, startVia + stepVia - 1);
             if (typeof window.aplicarFiltroFilial === 'function') {
                 queryVia = window.aplicarFiltroFilial(queryVia);
             }
             const { data: dbData, error: selErr } = await queryVia;
-            // ---------------------------------------------------------
             
             if (selErr) throw selErr;
             if (!dbData || dbData.length === 0) break;
@@ -331,7 +331,7 @@ async function processAndSaveFile(file) {
 
         if (viagensNovasArray.length === 0) {
             let msg = `Todas as viagens já existem. (${duplicadasIgnoradas} duplicadas ignoradas).`;
-            if (linhasDescartadas > 0) msg += ` E ${linhasDescartadas} viagens de outras operações foram bloqueadas com sucesso.`;
+            if (linhasDescartadas > 0) msg += ` E ${linhasDescartadas} viagens de outras operações foram bloqueadas.`;
             throw new Error(msg);
         }
 
@@ -364,13 +364,13 @@ async function processAndSaveFile(file) {
             "dataBase": `Viagens: ${strHistoricoDatas}`, 
             "qtdViagens": viagensNovasArray.length, 
             "dataLancamento": new Date().toLocaleString('pt-PT'),
-            "filial_id": window.currentUser ? window.currentUser.filial_id : null // <--- MULTI-TENANCY AQUI
+            "filial_id": window.currentUser ? window.currentUser.filial_id : null 
         }]);
         
         let msgSucesso = `Sucesso! Salvas ${viagensNovasArray.length} NOVAS viagens.\nDatas: ${strHistoricoDatas}`;
         
         if (linhasDescartadas > 0) {
-            msgSucesso += `\n\n🛡️ BLOQUEIO ATIVO: ${linhasDescartadas} viagens de outras operações foram descartadas.`;
+            msgSucesso += `\n\n🛡️ BLOQUEIO ATIVO: ${linhasDescartadas} viagens de outras operações foram descartadas (Sem nosso transporte ou grua).`;
         }
 
         if (gruasDesconhecidas.size > 0) {
@@ -387,7 +387,6 @@ async function processAndSaveFile(file) {
     }
 }
 
-// Inicializa a funcionalidade de arrastar e soltar (Drag and Drop)
 function initImportacao() {
     const dropZone = document.getElementById('dropZone');
     if(dropZone){
@@ -416,5 +415,4 @@ function initImportacao() {
     }
 }
 
-// Garante que o arrastar e soltar seja ativado 
 document.addEventListener('DOMContentLoaded', initImportacao);

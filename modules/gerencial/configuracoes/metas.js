@@ -1,94 +1,73 @@
 // ==========================================
-// js/configuracoes/metas.js
+// js/configuracoes/metas.js - CONFIGURAÇÕES GLOBAIS
 // ==========================================
 
-// Função auxiliar: Converte decimal do banco (ex: 10.5) para o input HTML (ex: "10:30")
-function decimalParaHoraStr(decimal) {
-    if (decimal === null || decimal === undefined || isNaN(decimal)) return "";
-    const h = Math.floor(decimal);
-    const m = Math.round((decimal - h) * 60);
-    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-}
-
-// Função auxiliar: Converte o input HTML (ex: "10:30") para decimal do banco (ex: 10.5)
-function horaStrParaDecimal(horaStr) {
-    if (!horaStr || typeof horaStr !== 'string') return 0;
-    const partes = horaStr.split(':');
-    if (partes.length !== 2) return 0;
-    return parseInt(partes[0], 10) + (parseInt(partes[1], 10) / 60);
-}
-
-async function carregarMetasGlobais() {
+window.carregarMetasGlobais = async function() {
     try {
-        const { data, error } = await supabaseClient.from('metas_globais').select('*').eq('id', 1).single();
-        if (data) {
-            const elFrota = document.getElementById('cfg_tamanho_frota');
-            if(elFrota) elFrota.value = data.tamanho_frota || '';
-            
-            const elVProg = document.getElementById('cfg_v_prog');
-            if(elVProg) elVProg.value = data.v_prog || '';
-            
-            const elVolProg = document.getElementById('cfg_vol_prog');
-            if(elVolProg) elVolProg.value = data.vol_prog || '';
-            
-            const elCxProg = document.getElementById('cfg_cx_prog');
-            if(elCxProg) elCxProg.value = data.cx_prog || '';
-            
-            const elPbtc = document.getElementById('cfg_pbtc');
-            if(elPbtc) elPbtc.value = data.pbtc_prog || '';
-            
-            if(data.meta_ciclo !== undefined && document.getElementById('cfg_meta_ciclo')) 
-                document.getElementById('cfg_meta_ciclo').value = decimalParaHoraStr(data.meta_ciclo);
-            if(data.meta_fila_campo !== undefined && document.getElementById('cfg_meta_fila_campo')) 
-                document.getElementById('cfg_meta_fila_campo').value = decimalParaHoraStr(data.meta_fila_campo);
-            if(data.meta_carga !== undefined && document.getElementById('cfg_meta_carga')) 
-                document.getElementById('cfg_meta_carga').value = decimalParaHoraStr(data.meta_carga);
-            if(data.meta_fila_fabrica !== undefined && document.getElementById('cfg_meta_fila_fabrica')) 
-                document.getElementById('cfg_meta_fila_fabrica').value = decimalParaHoraStr(data.meta_fila_fabrica);
-            
-            localStorage.setItem('cfg_metas', JSON.stringify(data));
-        }
-    } catch(e) { 
-        console.log("Lendo metas locais ou erro de conexão...", e); 
-    }
-}
-
-const btnSalvarMetas = document.getElementById('btnSalvarMetasGlobais');
-if (btnSalvarMetas) {
-    btnSalvarMetas.addEventListener('click', async () => {
-        const btn = document.getElementById('btnSalvarMetasGlobais');
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
-
-        const payload = {
-            id: 1,
-            tamanho_frota: parseInt(document.getElementById('cfg_tamanho_frota')?.value) || 0,
-            v_prog: parseFloat(document.getElementById('cfg_v_prog')?.value) || 0,
-            vol_prog: parseFloat(document.getElementById('cfg_vol_prog')?.value) || 0,
-            cx_prog: parseFloat(document.getElementById('cfg_cx_prog')?.value) || 0,
-            pbtc_prog: parseFloat(document.getElementById('cfg_pbtc')?.value) || 0,
-            
-            meta_ciclo: horaStrParaDecimal(document.getElementById('cfg_meta_ciclo')?.value),
-            meta_fila_campo: horaStrParaDecimal(document.getElementById('cfg_meta_fila_campo')?.value),
-            meta_carga: horaStrParaDecimal(document.getElementById('cfg_meta_carga')?.value),
-            meta_fila_fabrica: horaStrParaDecimal(document.getElementById('cfg_meta_fila_fabrica')?.value)
-        };
-
-        try {
-            const { error } = await supabaseClient.from('metas_globais').upsert(payload);
-            if (error) throw error;
-
-            localStorage.setItem('cfg_metas', JSON.stringify(payload));
-            btn.innerHTML = '<i class="fas fa-check"></i> Salvo!';
-        } catch(e) {
-            console.error("Erro ao salvar metas:", e);
-            btn.innerHTML = 'Erro!';
-            alert("Ocorreu um erro ao salvar as metas no banco de dados.");
-        }
+        let query = window.supabaseClient.from('metas_globais').select('*').eq('id', 1).single();
+        const { data, error } = await query;
+        if (error && error.code !== 'PGRST116') throw error; // Ignora erro se não existir ainda
         
-        setTimeout(() => btn.innerHTML = '<i class="fas fa-save"></i> Salvar Metas Base', 2000);
-    });
-}
+        if (data) {
+            if(document.getElementById('cfg_tamanho_frota')) document.getElementById('cfg_tamanho_frota').value = data.tamanho_frota || '';
+            if(document.getElementById('cfg_v_prog')) document.getElementById('cfg_v_prog').value = data.v_prog || '';
+            if(document.getElementById('cfg_vol_prog')) document.getElementById('cfg_vol_prog').value = data.vol_prog || '';
+            if(document.getElementById('cfg_cx_prog')) document.getElementById('cfg_cx_prog').value = data.cx_prog || '';
+            if(document.getElementById('cfg_pbtc')) document.getElementById('cfg_pbtc').value = data.pbtc || '';
+            if(document.getElementById('cfg_meta_ciclo')) document.getElementById('cfg_meta_ciclo').value = decimalParaTempo(data.meta_ciclo);
+            if(document.getElementById('cfg_meta_fila_campo')) document.getElementById('cfg_meta_fila_campo').value = decimalParaTempo(data.meta_fila_campo);
+            if(document.getElementById('cfg_meta_carga')) document.getElementById('cfg_meta_carga').value = decimalParaTempo(data.meta_carga);
+            if(document.getElementById('cfg_meta_fila_fabrica')) document.getElementById('cfg_meta_fila_fabrica').value = decimalParaTempo(data.meta_fila_fabrica);
+            if(document.getElementById('cfg_transp_propria')) document.getElementById('cfg_transp_propria').value = data.transp_propria || 'SERRANALOG';
+        }
+    } catch(e) {
+        console.error("Erro ao carregar metas globais:", e);
+    }
+};
 
 window.initMetas = function() {
-    carregarMetasGlobais();
+    const btnSalvar = document.getElementById('btnSalvarMetasGlobais');
+    if (btnSalvar) {
+        btnSalvar.addEventListener('click', async () => {
+            const textOriginal = btnSalvar.innerHTML;
+            try {
+                btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+                
+                const payload = {
+                    tamanho_frota: document.getElementById('cfg_tamanho_frota').value || null,
+                    v_prog: document.getElementById('cfg_v_prog').value || null,
+                    vol_prog: document.getElementById('cfg_vol_prog').value || null,
+                    cx_prog: document.getElementById('cfg_cx_prog').value || null,
+                    pbtc: document.getElementById('cfg_pbtc').value || null,
+                    meta_ciclo: tempoParaDecimal(document.getElementById('cfg_meta_ciclo').value),
+                    meta_fila_campo: tempoParaDecimal(document.getElementById('cfg_meta_fila_campo').value),
+                    meta_carga: tempoParaDecimal(document.getElementById('cfg_meta_carga').value),
+                    meta_fila_fabrica: tempoParaDecimal(document.getElementById('cfg_meta_fila_fabrica').value),
+                    transp_propria: document.getElementById('cfg_transp_propria') ? document.getElementById('cfg_transp_propria').value.toUpperCase() : 'SERRANALOG'
+                };
+
+                const { error } = await window.supabaseClient.from('metas_globais').upsert({ id: 1, ...payload });
+                if (error) throw error;
+                alert('Configurações Globais salvas com sucesso!');
+            } catch(e) {
+                alert('Erro ao salvar as configurações: ' + e.message);
+            } finally {
+                btnSalvar.innerHTML = textOriginal;
+            }
+        });
+    }
 };
+
+function tempoParaDecimal(tempo) {
+    if (!tempo) return 0;
+    const partes = tempo.split(':');
+    if (partes.length !== 2) return 0;
+    return parseInt(partes[0]) + (parseInt(partes[1]) / 60);
+}
+
+function decimalParaTempo(decimal) {
+    if (!decimal) return '';
+    const horas = Math.floor(decimal);
+    const minutos = Math.round((decimal - horas) * 60);
+    return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
+}
