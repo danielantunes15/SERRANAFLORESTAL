@@ -3,7 +3,6 @@
 // ==========================================
 
 (function() {
-    // Função auxiliar para aplicar o filtro de filial nativo da sessão
     function aplicarFiltroLocal(query) {
         if (!window.currentUser) return query; 
         if (window.currentUser.filial_id === null && (window.currentUser.role === 'SuperAdmin' || window.currentUser.role === 'Admin')) {
@@ -15,10 +14,9 @@
         return query.eq('filial_id', window.currentUser.filial_id);
     }
 
-    // CARREGAR FRENTES E EXIBIR NA TELA
     window.carregarGruas = async function() {
         const container = document.getElementById('container_frentes_dinamico');
-        if (!container) return; // Se a tela não carregou, aguarda o MutationObserver
+        if (!container) return; 
 
         container.innerHTML = '<div class="col-span-full text-center py-8"><div class="w-8 h-8 border-4 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div><span class="text-xs text-slate-500">Buscando frentes configuradas...</span></div>';
 
@@ -29,7 +27,6 @@
             const { data, error } = await query;
             if (error) throw error;
 
-            // Busca de novo caso a tela tenha atualizado durante o await
             const containerFreshen = document.getElementById('container_frentes_dinamico');
             if (!containerFreshen) return;
 
@@ -40,6 +37,7 @@
                     const id = item.id;
                     const nomeFrente = String(item.frente || '').toUpperCase();
                     const tipoFrente = item.tipo_frente || 'Outros'; 
+                    const ordemFrente = item.ordem ? item.ordem.toUpperCase() : '';
                     const codigosArr = (item.codigos || '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
 
                     const isPropria = tipoFrente === 'Propria';
@@ -48,6 +46,8 @@
                     const icon = isPropria ? 'fa-star' : 'fa-leaf';
                     const badgeColor = isPropria ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
                     const btnColor = isPropria ? 'bg-emerald-600 hover:bg-emerald-500 focus:border-emerald-500' : 'bg-indigo-600 hover:bg-indigo-500 focus:border-indigo-500';
+
+                    const ordemBadge = ordemFrente ? `<span class="absolute top-3 left-3 bg-slate-900 ${headerText} font-bold px-2 py-0.5 rounded text-[10px] border ${cardBorder} shadow-lg">${ordemFrente}</span>` : '';
 
                     let chipsHtml = codigosArr.map(c => `
                         <div class="${badgeColor} px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5 mt-1 mb-1">
@@ -63,12 +63,13 @@
                     }
 
                     const cardHtml = `
-                        <div class="bg-slate-800/60 border ${cardBorder} rounded-xl p-5 flex flex-col h-full shadow-inner relative group animate-fade-in">
+                        <div class="bg-slate-800/60 border ${cardBorder} rounded-xl p-5 flex flex-col h-full shadow-inner relative group animate-fade-in pt-8">
+                            ${ordemBadge}
                             <button onclick="window.deletarFrente('${id}', '${nomeFrente}')" class="absolute top-3 right-3 text-slate-500 hover:text-rose-400 transition-colors text-xs" title="Excluir Frente Inteira">
                                 <i class="fas fa-trash"></i>
                             </button>
                             
-                            <h4 class="${headerText} font-extrabold uppercase text-xs mb-1 text-center tracking-widest">
+                            <h4 class="${headerText} font-extrabold uppercase text-xs mb-1 text-center tracking-widest mt-1">
                                 <i class="fas ${icon} mr-1"></i> ${nomeFrente}
                             </h4>
                             <div class="text-[9px] text-slate-400 text-center border-b border-slate-700/50 pb-3 mb-4 uppercase tracking-widest">${tipoFrente}</div>
@@ -95,12 +96,13 @@
         }
     };
 
-    // CRIAR UMA NOVA FRENTE DO ZERO
     window.criarFrente = async function() {
+        const inputOrdem = document.getElementById('nova_frente_ordem');
         const inputNome = document.getElementById('nova_frente_nome');
         const selectTipo = document.getElementById('nova_frente_tipo');
         if (!inputNome || !selectTipo) return;
 
+        const ordem = inputOrdem ? inputOrdem.value.trim().toUpperCase() : '';
         const nome = inputNome.value.trim().toUpperCase();
         const tipo = selectTipo.value;
 
@@ -110,7 +112,6 @@
         }
 
         try {
-            // Verifica se a frente já existe
             let query = window.supabaseClient.from('config_gruas').select('*').eq('frente', nome);
             query = aplicarFiltroLocal(query);
             const { data, error: errBusca } = await query;
@@ -124,6 +125,7 @@
             const payload = {
                 frente: nome,
                 tipo_frente: tipo,
+                ordem: ordem,
                 codigos: '',
                 filial_id: window.currentUser ? window.currentUser.filial_id : null
             };
@@ -131,6 +133,7 @@
             const { error: insErr } = await window.supabaseClient.from('config_gruas').insert([payload]);
             if (insErr) throw insErr;
 
+            if (inputOrdem) inputOrdem.value = '';
             inputNome.value = '';
             window.carregarGruas();
 
@@ -140,7 +143,6 @@
         }
     };
 
-    // DELETAR FRENTE INTEIRA
     window.deletarFrente = async function(idRow, nomeFrente) {
         if (!confirm(`CUIDADO!\nDeseja realmente excluir a frente inteira "${nomeFrente}" e todas as suas gruas?`)) return;
 
@@ -154,7 +156,6 @@
         }
     };
 
-    // ADICIONAR UMA GRUA DENTRO DE UMA FRENTE ESPECÍFICA
     window.adicionarGruaNaFrente = async function(idRow, inputId) {
         const input = document.getElementById(inputId);
         if (!input) return;
@@ -195,7 +196,6 @@
         }
     };
 
-    // REMOVER UMA GRUA DE UMA FRENTE ESPECÍFICA
     window.removerGruaDaFrente = async function(idRow, codigo, nomeFrente) {
         if (!confirm(`Deseja remover a grua ${codigo} da frente ${nomeFrente}?`)) return;
 
@@ -221,10 +221,6 @@
         }
     };
 
-    // =========================================
-    // SPA FRIENDLY: MUTATION OBSERVER 
-    // Garante que os elementos carreguem mesmo se a página demorar
-    // =========================================
     const observer = new MutationObserver(() => {
         const target = document.getElementById('container_frentes_dinamico');
         if (target && !window.frentesRenderizadasNestaSessao) {
@@ -237,7 +233,6 @@
 
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Roda direto se a página já carregou instantaneamente
     if (document.getElementById('container_frentes_dinamico')) {
         window.frentesRenderizadasNestaSessao = true;
         window.carregarGruas();

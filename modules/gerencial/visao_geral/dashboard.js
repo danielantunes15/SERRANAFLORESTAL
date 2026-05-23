@@ -18,11 +18,9 @@ let osParaMeta = [];
 let frotasParaMeta = [];
 const supabaseClientMan = window.supabase.createClient('https://ihgiyxzxdldqmrkziijl.supabase.co', 'sb_publishable_JpMZhW5ZrFKBr7m9KXBkoQ_cpxy1k3x');
 
-// Variáveis de escopo global para não perder a referência
 let filterTransportadora, filterData, filterMes, filterDataInicio, filterDataFim, btnQFs;
 
 window.carregarDadosDashboardAnalitico = async function() {
-    // 1. Vincula elementos no DOM SOMENTE depois que a página HTML foi carregada pelo menu.js
     filterTransportadora = document.getElementById('filterTransportadora');
     filterData = document.getElementById('filterData');
     filterMes = document.getElementById('filterMes');
@@ -30,11 +28,9 @@ window.carregarDadosDashboardAnalitico = async function() {
     filterDataFim = document.getElementById('filterDataFim');
     btnQFs = document.querySelectorAll('.btn-qf');
 
-    // 2. Aciona configurações
     setupDashboardFilters();
     await loadDashboardDataInit();
 
-    // 3. Botão Exportar Gráfico
     const btnExportarComparativo = document.getElementById('btnExportarComparativo');
     if(btnExportarComparativo) {
         btnExportarComparativo.addEventListener('click', () => {
@@ -284,7 +280,7 @@ async function loadDashboardDataInit() {
     }
 
     try {
-        let queryGruas = window.supabaseClient.from('config_gruas').select('*').order('frente', { ascending: true });
+        let queryGruas = window.supabaseClient.from('config_gruas').select('*');
         if (typeof window.aplicarFiltroFilial === 'function') {
             queryGruas = window.aplicarFiltroFilial(queryGruas);
         }
@@ -335,6 +331,10 @@ async function loadDashboardDataInit() {
 }
 
 function calcStats(dataArr) {
+    if(!dataArr || dataArr.length === 0) {
+        return { volTotal: 0, medVol: 0, medCiclo: 0, prod: 0, medFilaCpo: 0, medCarreg: 0, medFilaFab: 0, medAsfalto: 0, medTerra: 0 };
+    }
+
     const viagens = dataArr.length;
     const vol = dataArr.reduce((s,d) => s + (parseFloat(String(d.volumeReal).replace(',','.'))||0), 0);
     const medVol = viagens > 0 ? vol / viagens : 0;
@@ -360,16 +360,187 @@ function calcStats(dataArr) {
     return { volTotal: vol, medVol, medCiclo, prod, medFilaCpo, medCarreg, medFilaFab, medAsfalto, medTerra };
 }
 
+// -------------------------------------------------------------
+// FUNÇÕES AUXILIARES GLOBAIS PARA O COMPARATIVO
+// -------------------------------------------------------------
+function checkLoaderDynamic(d, loaderArray) {
+    if (!loaderArray || loaderArray.length === 0) return false;
+    let colunasPrioritarias = [];
+    let outrasColunas = [];
+
+    for (let key in d) {
+        let keyUpper = key.toUpperCase();
+        let val = d[key];
+        if (val && typeof val === 'string') {
+            let vClean = val.trim().toUpperCase().replace(/\s+/g, '');
+            if (!vClean || vClean === '-' || vClean === 'N/A' || vClean === '0') continue;
+
+            if (keyUpper.includes('GRUA') || keyUpper.includes('CARREG') || keyUpper.includes('EQUIP') || keyUpper.includes('FRENTE')) {
+                colunasPrioritarias.push(vClean);
+            } else {
+                outrasColunas.push(vClean);
+            }
+        }
+    }
+
+    let valoresParaChecar = colunasPrioritarias.length > 0 ? colunasPrioritarias : outrasColunas;
+
+    for (let v of valoresParaChecar) {
+        for (let code of loaderArray) {
+            if (v === code || v.includes(code)) return true;
+        }
+    }
+    return false;
+}
+
+// NOVO: Função isolada para desenhar o Comparativo com Ordem e Coluna Fixa ASN
+function renderizarTabelaComparativo(dadosFiltrados) {
+    const theadComp = document.getElementById('comparativoHead');
+    const tbodyComp = document.getElementById('comparativoBody');
+    
+    if (!theadComp || !tbodyComp) return;
+
+    let cenarios = [];
+    const colorVariants = [
+        { text: 'text-indigo-400', bg: 'bg-indigo-900/10' },
+        { text: 'text-amber-400', bg: 'bg-amber-900/10' },
+        { text: 'text-rose-400', bg: 'bg-rose-900/10' },
+        { text: 'text-cyan-400', bg: 'bg-cyan-900/10' },
+        { text: 'text-purple-400', bg: 'bg-purple-900/10' }
+    ];
+
+    // ========================================================
+    // 1. COLUNA FIXA: ASN (Sempre a primeira)
+    // ========================================================
+    let codesPropria = [];
+    if (configGruasObj && configGruasObj.length > 0) {
+        configGruasObj.forEach(item => {
+            if(item.tipo_frente === 'Propria' || item.tipo_frente === 'Própria') {
+                const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
+                codesPropria.push(...codes);
+            }
+        });
+    }
+
+    function isASN(d) {
+        if (codesPropria.length > 0 && checkLoaderDynamic(d, codesPropria)) return true;
+        let grua = String(d.grua || '').trim().toUpperCase();
+        if (grua.startsWith('GSR')) return true; 
+        return false;
+    }
+
+    let dadosASN = dadosFiltrados.filter(isASN);
+
+    cenarios.push({
+        nome: 'GR. PRÓPRIAS',
+        tipo: 'Propria',
+        style: { text: 'text-emerald-400', bg: 'bg-emerald-900/10' }, 
+        icon: 'fa-star',
+        dados: dadosASN,
+        stats: calcStats(dadosASN),
+        ordemLabel: 'ASN'
+    });
+
+    // ========================================================
+    // 2. FRENTES DINÂMICAS CADASTRADAS PELO USUÁRIO (Ordenadas)
+    // ========================================================
+    if (configGruasObj && configGruasObj.length > 0) {
+        
+        const gruasSorted = [...configGruasObj].sort((a, b) => {
+            const oa = a.ordem || 'ZZZ';
+            const ob = b.ordem || 'ZZZ';
+            return oa.localeCompare(ob);
+        });
+
+        gruasSorted.forEach((item, index) => {
+            const nome = (item.frente || `Frente ${index+1}`).toUpperCase();
+            const tipo = item.tipo_frente || 'Outros';
+            const ordemDefinida = item.ordem ? item.ordem.toUpperCase() : `C${index+1}`;
+            const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
+            
+            const style = colorVariants[index % colorVariants.length];
+            const icon = tipo === 'Propria' ? 'fa-star' : 'fa-leaf';
+
+            let dadosCenario = dadosFiltrados.filter(d => checkLoaderDynamic(d, codes));
+            
+            cenarios.push({
+                nome: nome,
+                tipo: tipo,
+                style: style,
+                icon: icon,
+                dados: dadosCenario,
+                stats: calcStats(dadosCenario),
+                ordemLabel: ordemDefinida
+            });
+        });
+    }
+
+    const stGlobal = calcStats(dadosFiltrados);
+
+    // ========================================================
+    // DESENHANDO A TABELA HTML
+    // ========================================================
+    let thHtml = `<tr><th class="px-6 py-4 text-slate-300">Indicador de Performance</th>`;
+    
+    cenarios.forEach((c) => {
+        thHtml += `<th class="px-6 py-4 text-white ${c.style.bg} text-right whitespace-nowrap"><i class="fas ${c.icon} mr-1 ${c.style.text}"></i> ${c.ordemLabel}: ${c.nome}</th>`;
+    });
+    thHtml += `<th class="px-6 py-4 text-white bg-sky-900/10 text-right"><i class="fas fa-globe mr-1 text-sky-400"></i> Total (Geral)</th></tr>`;
+    theadComp.innerHTML = thHtml;
+
+    let trViagens = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-route text-slate-400 w-5"></i> Viagens Realizadas</td>`;
+    cenarios.forEach(c => { trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right ${c.style.text}">${c.dados.length}</td>`; });
+    trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${dadosFiltrados.length}</td></tr>`;
+
+    let trCaixa = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-box-open text-indigo-400 w-5"></i> Caixa de Carga Média</td>`;
+    cenarios.forEach(c => { trCaixa += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${c.stats.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>`; });
+    trCaixa += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stGlobal.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td></tr>`;
+
+    let trVol = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-cubes text-cyan-400 w-5"></i> Volume Total</td>`;
+    cenarios.forEach(c => { trVol += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${c.stats.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>`; });
+    trVol += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stGlobal.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td></tr>`;
+
+    let trCiclo = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-stopwatch text-blue-400 w-5"></i> Ciclo Médio Total</td>`;
+    cenarios.forEach(c => { trCiclo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medCiclo)}</td>`; });
+    trCiclo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medCiclo)}</td></tr>`;
+
+    let trFilaCpo = `<tr class="hover:bg-slate-800/30 transition-colors border-t border-slate-700/50"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-hourglass-half text-amber-500 w-5"></i> Espera Média no Campo</td>`;
+    cenarios.forEach(c => { trFilaCpo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medFilaCpo)}</td>`; });
+    trFilaCpo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medFilaCpo)}</td></tr>`;
+
+    let trCarreg = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-truck-loading text-emerald-500 w-5"></i> Tempo Médio Carregamento</td>`;
+    cenarios.forEach(c => { trCarreg += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medCarreg)}</td>`; });
+    trCarreg += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medCarreg)}</td></tr>`;
+
+    let trFilaFab = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-industry text-rose-500 w-5"></i> Espera Média na Fábrica</td>`;
+    cenarios.forEach(c => { trFilaFab += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medFilaFab)}</td>`; });
+    trFilaFab += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medFilaFab)}</td></tr>`;
+
+    let trDist = `<tr class="hover:bg-slate-800/30 transition-colors border-t border-slate-700"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-road text-slate-400 w-5"></i> Dist. Média (Asfalto / Terra)</td>`;
+    cenarios.forEach(c => {
+        trDist += `<td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
+            <span class="text-sky-300" title="Asfalto">Asf: ${c.stats.medAsfalto.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
+            <span class="text-amber-400" title="Terra">Ter: ${c.stats.medTerra.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+        </td>`;
+    });
+    trDist += `<td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
+            <span class="text-sky-300" title="Asfalto">Asf: ${stGlobal.medAsfalto.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
+            <span class="text-amber-400" title="Terra">Ter: ${stGlobal.medTerra.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+        </td></tr>`;
+
+    tbodyComp.innerHTML = trViagens + trCaixa + trVol + trCiclo + trFilaCpo + trCarreg + trFilaFab + trDist;
+}
+// -------------------------------------------------------------
+
 function loadDashboardData() {
     const storedData = fullHistoricoData;
+
     if(!storedData.length) {
         if(document.getElementById('dbStatusLabel')) document.getElementById('dbStatusLabel').innerText = "Sem dados no banco";
-        const tbodyComp = document.getElementById('comparativoBody');
-        if (tbodyComp) tbodyComp.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500">Nenhum dado encontrado</td></tr>';
+        renderizarTabelaComparativo([]); 
         return;
     }
 
-    // Popula Transportadoras
     const allTransps = [...new Set(storedData.map(d => d.transportadora))].filter(Boolean).sort();
     const currT = filterTransportadora ? filterTransportadora.value : 'ALL';
     if (filterTransportadora) {
@@ -377,7 +548,6 @@ function loadDashboardData() {
         allTransps.forEach(t => filterTransportadora.insertAdjacentHTML('beforeend', `<option value="${t}" ${t===currT?'selected':''}>${t}</option>`));
     }
 
-    // Popula Dias
     const allDates = [...new Set(storedData.map(d => d.dataDaBaseExcel))].filter(d => d && d !== 'Desconhecida').sort((a,b)=>{const pA=a.split('/');const pB=b.split('/');return new Date(pA[2],pA[1]-1,pA[0])-new Date(pB[2],pB[1]-1,pB[0]);});
     const currD = filterData ? filterData.value : 'ALL';
     if (filterData) {
@@ -432,7 +602,6 @@ function loadDashboardData() {
     const activeInicio = filterDataInicio ? filterDataInicio.value : '';
     const activeFim = filterDataFim ? filterDataFim.value : '';
     
-    // Filtros Globais
     const filteredData = storedData.filter(d => {
         const mTransp = activeT === 'ALL' || d.transportadora === activeT;
         let mData = true;
@@ -495,45 +664,11 @@ function loadDashboardData() {
         if(document.getElementById('bestPlacaName')) document.getElementById('bestPlacaName').innerText = 'Nenhum cavalo encontrado';
         if(document.getElementById('tempoCarregamento')) document.getElementById('tempoCarregamento').innerText = '0 h';
         
+        renderizarTabelaComparativo([]); 
+        
         if(chartCiclo) chartCiclo.destroy();
         if(chartTransp) chartTransp.destroy();
-
-        const theadComp = document.getElementById('comparativoHead');
-        const tbodyComp = document.getElementById('comparativoBody');
-        if (theadComp) theadComp.innerHTML = `<tr><th class="px-6 py-4 text-slate-300">Indicador de Performance</th></tr>`;
-        if (tbodyComp) tbodyComp.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500">Sem dados para comparar neste período</td></tr>';
-
         return;
-    }
-
-    function checkLoaderDynamic(d, loaderArray) {
-        if (!loaderArray || loaderArray.length === 0) return false;
-        let colunasPrioritarias = [];
-        let outrasColunas = [];
-
-        for (let key in d) {
-            let keyUpper = key.toUpperCase();
-            let val = d[key];
-            if (val && typeof val === 'string') {
-                let vClean = val.trim().toUpperCase().replace(/\s+/g, '');
-                if (!vClean || vClean === '-' || vClean === 'N/A' || vClean === '0') continue;
-
-                if (keyUpper.includes('GRUA') || keyUpper.includes('CARREG') || keyUpper.includes('EQUIP') || keyUpper.includes('FRENTE')) {
-                    colunasPrioritarias.push(vClean);
-                } else {
-                    outrasColunas.push(vClean);
-                }
-            }
-        }
-
-        let valoresParaChecar = colunasPrioritarias.length > 0 ? colunasPrioritarias : outrasColunas;
-
-        for (let v of valoresParaChecar) {
-            for (let code of loaderArray) {
-                if (v === code || v.includes(code)) return true;
-            }
-        }
-        return false;
     }
 
     let codesPropria = [];
@@ -547,7 +682,7 @@ function loadDashboardData() {
     }
 
     function isViagemPropria(d) {
-        if (codesPropria.length === 0) return true; // Mostra tudo se nenhuma frente Própria estiver configurada
+        if (codesPropria.length === 0) return true; 
         return checkLoaderDynamic(d, codesPropria);
     }
 
@@ -576,7 +711,6 @@ function loadDashboardData() {
             const st = String(f.status || '').trim().toUpperCase();
             return st === 'ATIVO' || st === 'ATIVA';
         });
-        let totalFrota = frotasAtivas.length;
 
         let dataInicioCalc = new Date(); dataInicioCalc.setHours(0,0,0,0);
         let dataFimCalc = new Date(); dataFimCalc.setHours(23,59,59,999);
@@ -730,10 +864,8 @@ function loadDashboardData() {
     }
 
     if(document.getElementById('totalPesoLiq')) document.getElementById('totalPesoLiq').innerHTML = `<span class="${pbtcCor}">${mediaPBTC.toLocaleString('pt-PT', {maximumFractionDigits: 1})} t</span>${pbtcIcone}`;
-    
     if(document.getElementById('mediaVolumeViagem')) document.getElementById('mediaVolumeViagem').innerText = mediaVolume.toLocaleString('pt-PT', {maximumFractionDigits: 1}) + " m³";
     if(document.getElementById('totalVolumeReal')) document.getElementById('totalVolumeReal').innerText = totalVolumeReal.toLocaleString('pt-PT', {maximumFractionDigits: 1}) + " m³";
-    
     if(document.getElementById('mediaDistancia')) document.getElementById('mediaDistancia').innerText = mediaDistTotal.toLocaleString('pt-PT', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " km";
     if(document.getElementById('mediaAsfalto')) document.getElementById('mediaAsfalto').innerText = mediaAsfalto.toLocaleString('pt-PT', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     if(document.getElementById('mediaTerra')) document.getElementById('mediaTerra').innerText = mediaTerra.toLocaleString('pt-PT', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -772,98 +904,8 @@ function loadDashboardData() {
     if(document.getElementById('bestPlacaValue')) document.getElementById('bestPlacaValue').innerText = melhorPlacaProdutividade > 0 ? melhorPlacaProdutividade.toLocaleString('pt-PT', {maximumFractionDigits: 1}) : "0.0";
     if(document.getElementById('bestPlacaName')) document.getElementById('bestPlacaName').innerText = `Placa: ${melhorPlacaNome}`;
 
-    const theadComp = document.getElementById('comparativoHead');
-    const tbodyComp = document.getElementById('comparativoBody');
-
-    if (theadComp && tbodyComp) {
-        
-        let cenarios = [];
-        
-        const colorVariants = [
-            { text: 'text-emerald-400', bg: 'bg-emerald-900/10' },
-            { text: 'text-indigo-400', bg: 'bg-indigo-900/10' },
-            { text: 'text-amber-400', bg: 'bg-amber-900/10' },
-            { text: 'text-rose-400', bg: 'bg-rose-900/10' },
-            { text: 'text-cyan-400', bg: 'bg-cyan-900/10' }
-        ];
-
-        if (configGruasObj && configGruasObj.length > 0) {
-            configGruasObj.forEach((item, index) => {
-                const nome = (item.frente || `Frente ${index+1}`).toUpperCase();
-                const tipo = item.tipo_frente || 'Outros';
-                const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
-                
-                const style = colorVariants[index % colorVariants.length];
-                const icon = tipo === 'Propria' ? 'fa-star' : 'fa-leaf';
-
-                let dadosCenario = filteredData.filter(d => checkLoaderDynamic(d, codes));
-                
-                cenarios.push({
-                    nome: nome,
-                    tipo: tipo,
-                    style: style,
-                    icon: icon,
-                    dados: dadosCenario,
-                    stats: calcStats(dadosCenario)
-                });
-            });
-        }
-
-        const stGlobal = calcStats(filteredData);
-
-        let thHtml = `<tr><th class="px-6 py-4 text-slate-300">Indicador de Performance</th>`;
-        cenarios.forEach((c, idx) => {
-            thHtml += `<th class="px-6 py-4 text-white ${c.style.bg} text-right"><i class="fas ${c.icon} mr-1 ${c.style.text}"></i> C${idx+1}: ${c.nome}</th>`;
-        });
-        thHtml += `<th class="px-6 py-4 text-white bg-sky-900/10 text-right"><i class="fas fa-globe mr-1 text-sky-400"></i> Total (Geral)</th></tr>`;
-        theadComp.innerHTML = thHtml;
-
-        if (cenarios.length === 0) {
-            tbodyComp.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-slate-500 italic">Nenhuma Frente de Carregamento cadastrada no Módulo de Configurações.</td></tr>';
-        } else {
-            let trViagens = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-route text-slate-400 w-5"></i> Viagens Realizadas</td>`;
-            cenarios.forEach(c => { trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right ${c.style.text}">${c.dados.length}</td>`; });
-            trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${filteredData.length}</td></tr>`;
-
-            let trCaixa = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-box-open text-indigo-400 w-5"></i> Caixa de Carga Média</td>`;
-            cenarios.forEach(c => { trCaixa += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${c.stats.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>`; });
-            trCaixa += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stGlobal.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td></tr>`;
-
-            let trVol = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-cubes text-cyan-400 w-5"></i> Volume Total</td>`;
-            cenarios.forEach(c => { trVol += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${c.stats.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>`; });
-            trVol += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${stGlobal.volTotal.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td></tr>`;
-
-            let trCiclo = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-stopwatch text-blue-400 w-5"></i> Ciclo Médio Total</td>`;
-            cenarios.forEach(c => { trCiclo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medCiclo)}</td>`; });
-            trCiclo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medCiclo)}</td></tr>`;
-
-            let trFilaCpo = `<tr class="hover:bg-slate-800/30 transition-colors border-t border-slate-700/50"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-hourglass-half text-amber-500 w-5"></i> Espera Média no Campo</td>`;
-            cenarios.forEach(c => { trFilaCpo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medFilaCpo)}</td>`; });
-            trFilaCpo += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medFilaCpo)}</td></tr>`;
-
-            let trCarreg = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-truck-loading text-emerald-500 w-5"></i> Tempo Médio Carregamento</td>`;
-            cenarios.forEach(c => { trCarreg += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medCarreg)}</td>`; });
-            trCarreg += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medCarreg)}</td></tr>`;
-
-            let trFilaFab = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-industry text-rose-500 w-5"></i> Espera Média na Fábrica</td>`;
-            cenarios.forEach(c => { trFilaFab += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(c.stats.medFilaFab)}</td>`; });
-            trFilaFab += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${formatarHorasMinutos(stGlobal.medFilaFab)}</td></tr>`;
-
-            let trDist = `<tr class="hover:bg-slate-800/30 transition-colors border-t border-slate-700"><td class="px-6 py-4 font-bold text-slate-300 text-xs uppercase tracking-wider"><i class="fas fa-road text-slate-400 w-5"></i> Dist. Média (Asfalto / Terra)</td>`;
-            cenarios.forEach(c => {
-                trDist += `<td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
-                    <span class="text-sky-300" title="Asfalto">Asf: ${c.stats.medAsfalto.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
-                    <span class="text-amber-400" title="Terra">Ter: ${c.stats.medTerra.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
-                </td>`;
-            });
-            trDist += `<td class="px-6 py-4 font-mono text-white text-[13px] font-bold text-right">
-                    <span class="text-sky-300" title="Asfalto">Asf: ${stGlobal.medAsfalto.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
-                    <span class="text-amber-400" title="Terra">Ter: ${stGlobal.medTerra.toLocaleString('pt-PT',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>
-                </td></tr>`;
-
-            tbodyComp.innerHTML = trViagens + trCaixa + trVol + trCiclo + trFilaCpo + trCarreg + trFilaFab + trDist;
-        }
-    }
+    // EXIBE AS FRENTES COM A ORDEM (C1, C2) E O ASN FIXO
+    renderizarTabelaComparativo(filteredData);
 
     const transpCount = new Map();
     const transpCicloSum = new Map();
