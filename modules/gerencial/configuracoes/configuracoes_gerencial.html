@@ -33,42 +33,24 @@
         </div>
 
         <div class="glass-card rounded-2xl border border-sky-700/50 shadow-xl overflow-hidden mt-6 mb-6">
-            <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+            <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
                 <h3 class="font-bold text-white tracking-wide text-[13px] uppercase">
-                    <i class="fas fa-tractor text-sky-400 mr-2"></i> Mapeamento Dinâmico de Gruas
+                    <i class="fas fa-tractor text-sky-400 mr-2"></i> Mapeamento Dinâmico de Frentes e Gruas
                 </h3>
+                <div class="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                    <input type="text" id="nova_frente_nome" placeholder="Nome da Frente (Ex: JSL)" class="w-full md:w-48 bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white text-xs outline-none focus:border-sky-500 uppercase font-mono">
+                    <select id="nova_frente_tipo" class="bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white text-xs outline-none focus:border-sky-500">
+                        <option value="Propria">Própria</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                    <button onclick="window.criarFrente()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-1.5 px-4 rounded shadow transition-colors text-xs whitespace-nowrap">
+                        <i class="fas fa-plus mr-1"></i> Nova Frente
+                    </button>
+                </div>
             </div>
             <div class="p-6 bg-slate-900/50">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    
-                    <div class="bg-slate-800/60 border border-emerald-700/50 rounded-xl p-5 flex flex-col h-full shadow-inner">
-                        <h4 class="text-emerald-400 font-extrabold uppercase text-xs mb-4 text-center border-b border-emerald-700/50 pb-3 tracking-widest"><i class="fas fa-star mr-1"></i> FRENTE SERRANA</h4>
-                        <div id="lista_serrana" class="flex flex-wrap gap-2 mb-6 flex-1 content-start">
-                        </div>
-                        <div class="flex mt-auto shadow-lg rounded-lg">
-                            <input type="text" id="input_serrana" placeholder="Ex: GSR0009" class="w-full bg-slate-950 border border-slate-600 rounded-l-lg px-4 py-2.5 text-white outline-none focus:border-emerald-500 text-xs font-mono uppercase" onkeypress="if(event.key==='Enter') adicionarGrua('SERRANA', 'input_serrana')">
-                            <button onclick="adicionarGrua('SERRANA', 'input_serrana')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-r-lg font-bold transition-colors"><i class="fas fa-plus"></i></button>
-                        </div>
+                <div id="container_frentes_dinamico" class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     </div>
-                    
-                    <div class="bg-slate-800/60 border border-amber-700/50 rounded-xl p-5 flex flex-col h-full shadow-inner">
-                        <h4 class="text-amber-400 font-extrabold uppercase text-xs mb-4 text-center border-b border-amber-700/50 pb-3 tracking-widest"><i class="fas fa-tree mr-1"></i> FRENTE REFLORESTAR</h4>
-                        <div id="lista_reflorestar" class="flex flex-wrap gap-2 mb-6 flex-1 content-start"></div>
-                        <div class="flex mt-auto shadow-lg rounded-lg">
-                            <input type="text" id="input_reflorestar" placeholder="Ex: GRB0030" class="w-full bg-slate-950 border border-slate-600 rounded-l-lg px-4 py-2.5 text-white outline-none focus:border-amber-500 text-xs font-mono uppercase" onkeypress="if(event.key==='Enter') adicionarGrua('REFLORESTAR', 'input_reflorestar')">
-                            <button onclick="adicionarGrua('REFLORESTAR', 'input_reflorestar')" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2.5 rounded-r-lg font-bold transition-colors"><i class="fas fa-plus"></i></button>
-                        </div>
-                    </div>
-
-                    <div class="bg-slate-800/60 border border-indigo-700/50 rounded-xl p-5 flex flex-col h-full shadow-inner">
-                        <h4 class="text-indigo-400 font-extrabold uppercase text-xs mb-4 text-center border-b border-indigo-700/50 pb-3 tracking-widest"><i class="fas fa-leaf mr-1"></i> FRENTE JSL</h4>
-                        <div id="lista_jsl" class="flex flex-wrap gap-2 mb-6 flex-1 content-start"></div>
-                        <div class="flex mt-auto shadow-lg rounded-lg">
-                            <input type="text" id="input_jsl" placeholder="Ex: GSL0018" class="w-full bg-slate-950 border border-slate-600 rounded-l-lg px-4 py-2.5 text-white outline-none focus:border-indigo-500 text-xs font-mono uppercase" onkeypress="if(event.key==='Enter') adicionarGrua('JSL', 'input_jsl')">
-                            <button onclick="adicionarGrua('JSL', 'input_jsl')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-r-lg font-bold transition-colors"><i class="fas fa-plus"></i></button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
