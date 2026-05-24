@@ -29,29 +29,46 @@ window.MOTORISTAS_EXCLUIDOS = window.MOTORISTAS_EXCLUIDOS || [
     "WALAS RAMOS DA CRUZ"
 ];
 
-document.addEventListener('DOMContentLoaded', () => {
+// =========================================================
+// INICIALIZAÇÃO INSTANTÂNEA SPA
+// =========================================================
+window.initHistoricoJornadas = function() {
+    console.log("[Histórico Jornadas] Módulo iniciado instantaneamente via SPA.");
+    
+    // Reseta as variáveis caso a pessoa entre e saia do menu repetidas vezes
+    paginaAtualJor = 0;
+    fullHistoricoJornadas = [];
+    termoBuscaJor = '';
+    motoristaFiltroJor = 'ALL';
+    fimDosDadosJor = false;
+    carregandoJor = false;
+
     carregarDropdownMotoristas();
     loadHistoricoJornadasCompleto(true);
     
     const searchInput = document.getElementById('searchHistoricoJornadas');
     if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
+        searchInput.removeEventListener('input', window._onSearchInputJor);
+        window._onSearchInputJor = (e) => {
             clearTimeout(debounceTimerJor);
             debounceTimerJor = setTimeout(() => {
                 termoBuscaJor = e.target.value.trim().toLowerCase();
                 loadHistoricoJornadasCompleto(true);
             }, 500);
-        });
+        };
+        searchInput.addEventListener('input', window._onSearchInputJor);
     }
 
     const dropdown = document.getElementById('filterMotoristaDropdown');
     if (dropdown) {
-        dropdown.addEventListener('change', (e) => {
+        dropdown.removeEventListener('change', window._onChangeDropdownJor);
+        window._onChangeDropdownJor = (e) => {
             motoristaFiltroJor = e.target.value;
             loadHistoricoJornadasCompleto(true);
-        });
+        };
+        dropdown.addEventListener('change', window._onChangeDropdownJor);
     }
-});
+};
 
 async function carregarDropdownMotoristas() {
     try {
