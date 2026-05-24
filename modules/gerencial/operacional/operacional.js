@@ -205,13 +205,21 @@ async function loadOperacionalData() {
 
     try {
         try {
-            let queryMetas = client.from('metas_globais').select('*').eq('id', 1).single();
-            const { data: metas, error: errMetas } = await queryMetas;
+            const filialId = window.currentUser?.filial_id;
             
-            if (errMetas) {
-                metasGlobais = {};
+            if (filialId !== null && filialId !== undefined) {
+                // Busca as metas específicas da filial
+                let queryMetas = client.from('metas_globais').select('*').eq('id', filialId).single();
+                const { data: metas, error: errMetas } = await queryMetas;
+                
+                if (errMetas) {
+                    metasGlobais = {};
+                } else {
+                    metasGlobais = metas || {};
+                }
             } else {
-                metasGlobais = metas || {};
+                // Visão Central (SuperAdmin) ou utilizador sem filial
+                metasGlobais = {}; 
             }
         } catch(errMetaEx) {
             metasGlobais = {};
