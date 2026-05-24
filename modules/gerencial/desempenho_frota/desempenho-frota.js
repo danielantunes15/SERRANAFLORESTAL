@@ -28,46 +28,13 @@
     }
 
     // =========================================================
-    // INICIALIZAÇÃO BLINDADA (Espera o HTML carregar na tela)
+    // INICIALIZAÇÃO INSTANTÂNEA SPA
     // =========================================================
-    function iniciarModuloDesempenho() {
-        if (window.desempenhoIntervaloAtivo) return;
-        window.desempenhoIntervaloAtivo = true;
-
-        // Fica checando a cada 200ms se a página HTML já foi renderizada na tela
-        const checkHTML = setInterval(() => {
-            const elementoReferencia = document.getElementById('metaViagens'); // Input de referência na tela
-            
-            if (elementoReferencia) {
-                clearInterval(checkHTML);
-                window.desempenhoIntervaloAtivo = false;
-                
-                // Garante que não vai atrelar os eventos 2 vezes
-                if (!elementoReferencia.dataset.iniciado) {
-                    elementoReferencia.dataset.iniciado = "true";
-                    console.log("[DESEMPENHO] HTML 100% carregado. Iniciando módulo...");
-                    setupFilters();
-                    buscarDadosSupabase(); 
-                }
-            }
-        }, 200);
-
-        // Timeout de segurança de 10 segundos
-        setTimeout(() => {
-            clearInterval(checkHTML);
-            window.desempenhoIntervaloAtivo = false;
-        }, 10000);
-    }
-
-    // Aciona a inicialização
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', iniciarModuloDesempenho);
-    } else {
-        iniciarModuloDesempenho();
-    }
-
-    // Expõe a função globalmente para o roteador do menu lateral
-    window.carregarPainelDesempenho = iniciarModuloDesempenho;
+    window.initDesempenhoFrota = function() {
+        console.log("[DESEMPENHO] Módulo iniciado instantaneamente via SPA.");
+        setupFilters();
+        buscarDadosSupabase(); 
+    };
 
     function formatarHorasDecimais(hDec) {
         if (!hDec || isNaN(hDec)) return '00h00m';

@@ -56,7 +56,6 @@ window.renderizarPainelJornadas = function() {
         const filterEl = document.getElementById('filterDataSelect');
         let dataEspec = 'ALL';
         
-        // CORREÇÃO: Em vez de travar, avisa e continua com a tela usando filtro padrão
         if (!filterEl) {
             console.warn("[Jornadas] Aviso: Elemento 'filterDataSelect' não encontrado. Exibindo todos.");
         } else {
@@ -454,7 +453,12 @@ window.filtrarMotoristaAnalitico = function(nome) {
     }
 };
 
-window.iniciarDashboardJornadas = function() {
+// =========================================================================
+// CORREÇÃO PARA SISTEMAS SPA: O Menu.js vai chamar essa função diretamente
+// =========================================================================
+window.initJornadas = function() {
+    console.log("[Jornadas] Módulo iniciado instantaneamente via SPA.");
+    
     if(typeof criarModaisAuditoria === 'function') criarModaisAuditoria(); 
     window.configurarFiltros();
     if(typeof window.carregarPainelJornadas === 'function') window.carregarPainelJornadas();
@@ -497,24 +501,3 @@ window.iniciarDashboardJornadas = function() {
         btnRelAuditoria.addEventListener('click', window._onAbrirRelatorio);
     }
 };
-
-// =========================================================================
-// CORREÇÃO PARA SISTEMAS SPA: Aguarda a tela "existir" para disparar a busca
-// =========================================================================
-let tentativasJornadas = 0;
-function aguardarTelaEIniciar() {
-    // Verifica se os cards ou o filtro já nasceram na tela
-    if (document.getElementById('jornadasFilters') || document.getElementById('jorTotalMotoristas')) {
-        console.log("[Jornadas] Tela detectada fisicamente. Inicializando scripts...");
-        window.iniciarDashboardJornadas();
-    } else {
-        tentativasJornadas++;
-        if (tentativasJornadas < 50) { // Tenta por 10 segundos
-            setTimeout(aguardarTelaEIniciar, 200);
-        } else {
-            console.warn("[Jornadas] Desistindo da inicialização. O HTML demorou mais de 10s para carregar.");
-        }
-    }
-}
-// Começa a verificação
-aguardarTelaEIniciar();
