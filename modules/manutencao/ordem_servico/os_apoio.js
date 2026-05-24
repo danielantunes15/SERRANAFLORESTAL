@@ -7,17 +7,15 @@ let osApoioSelecionadaParaFim = null;
 
 async function carregarDadosOSApoio() {
     try {
-        const { data: osData, error: osError } = await supabaseClient
-            .from('ordens_servico_pequena')
-            .select('*')
-            .order('created_at', { ascending: false });
+        let queryOS = supabaseClient.from('ordens_servico_pequena').select('*').order('created_at', { ascending: false });
+        if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
+        const { data: osData, error: osError } = await queryOS;
         
         if (!osError && osData) ordensServicoApoio = osData;
 
-        const { data: frotaData, error: frotaError } = await supabaseClient
-            .from('frotas_pequenas')
-            .select('*')
-            .order('placa', { ascending: true });
+        let queryFrota = supabaseClient.from('frotas_pequenas').select('*').order('placa', { ascending: true });
+        if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
+        const { data: frotaData, error: frotaError } = await queryFrota;
             
         if (!frotaError && frotaData) frotasApoio = frotaData;
     } catch (error) {
@@ -143,7 +141,7 @@ async function salvarNovaOSApoio() {
         return;
     }
 
-    const novaOS = {
+    let novaOS = {
         placa, motorista, data_abertura,
         hodometro: hodometro ? parseInt(hodometro) : null,
         prioridade, tipo_servico,
@@ -151,6 +149,10 @@ async function salvarNovaOSApoio() {
         observacoes: obs,
         status: 'Aberta'
     };
+
+    if (typeof window.injetarFilial === 'function') {
+        novaOS = window.injetarFilial(novaOS);
+    }
 
     const { error } = await supabaseClient.from('ordens_servico_pequena').insert([novaOS]);
     
@@ -173,12 +175,13 @@ async function salvarFrotaApoio() {
         return;
     }
 
-    const frota = { placa, marca_modelo, cor };
+    let frota = { placa, marca_modelo, cor };
 
     if (id) {
         const { error } = await supabaseClient.from('frotas_pequenas').update(frota).eq('id', id);
         if(error) alert("Erro: " + error.message); else alert("Veículo atualizado!");
     } else {
+        if (typeof window.injetarFilial === 'function') frota = window.injetarFilial(frota);
         const { error } = await supabaseClient.from('frotas_pequenas').insert([frota]);
         if(error) alert("Erro: " + error.message); else alert("Veículo cadastrado!");
     }
@@ -297,9 +300,6 @@ function formatarDataApoio(dataString) {
     return partes[1] ? `${data} ${partes[1].substring(0, 5)}` : data;
 }
 
-// =========================================================================
-// IMPRESSÃO DE O.S. (FROTA APOIO)
-// =========================================================================
 function imprimirOSApoio(osId) {
     const os = ordensServicoApoio.find(o => o.id === osId);
     if (!os) return;
@@ -326,25 +326,12 @@ function imprimirOSApoio(osId) {
     
     let linhasServicos = '';
     for(let i=0; i<5; i++) {
-        linhasServicos += `
-        <tr style="height: 25px;">
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-        </tr>`;
+        linhasServicos += `<tr style="height: 25px;"><td></td><td></td><td></td><td></td></tr>`;
     }
 
     let linhasPecas = '';
     for(let i=0; i<5; i++) {
-        linhasPecas += `
-        <tr style="height: 25px;">
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-        </tr>`;
+        linhasPecas += `<tr style="height: 25px;"><td></td><td></td><td></td><td></td><td></td></tr>`;
     }
 
     const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
@@ -357,16 +344,7 @@ function imprimirOSApoio(osId) {
             <title>OS ${os.placa} - #${numeroOSFormatado} (Frota Apoio)</title>
             <style>
                 @page { size: landscape; margin: 10mm; }
-                body { 
-                    font-family: Arial, sans-serif; 
-                    font-size: 11px; 
-                    color: #000; 
-                    margin: 0; 
-                    padding: 0; 
-                    -webkit-print-color-adjust: exact; 
-                    print-color-adjust: exact; 
-                }
-                
+                body { font-family: Arial, sans-serif; font-size: 11px; color: #000; margin: 0; padding: 0; }
                 .header-container { display: flex; border: 2px solid #000; margin-bottom: 5px; }
                 .header-left { padding: 10px; border-right: 2px solid #000; display: flex; align-items: center; justify-content: center; width: 140px; }
                 .header-left img { max-height: 45px; max-width: 100%; object-fit: contain; }
@@ -375,16 +353,12 @@ function imprimirOSApoio(osId) {
                 .header-center h2 { margin: 2px 0 0 0; font-size: 12px; font-weight: normal; }
                 .header-right { padding: 10px; border-left: 2px solid #000; text-align: center; display: flex; flex-direction: column; justify-content: center; background: #f0f0f0; }
                 .header-right strong { font-size: 18px; color: red; }
-
                 table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
                 th, td { border: 1px solid #000; padding: 3px 5px; font-size: 11px; text-align: left; }
                 th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
-                
                 .info-table td { width: 25%; }
-                
                 .section-title { font-weight: bold; background-color: #f0f0f0; border: 1px solid #000; border-bottom: none; padding: 4px; font-size: 11px; text-align: center; text-transform: uppercase; margin-bottom: 0; }
                 .box-content { border: 1px solid #000; padding: 5px; font-size: 11px; min-height: 35px; margin-bottom: 5px; }
-                
                 .assinaturas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; margin-top: 20px; padding: 0 20px; text-align: center; }
                 .linha-ass { border-top: 1px solid #000; padding-top: 4px; font-weight: bold; font-size: 11px; }
             </style>
@@ -477,9 +451,7 @@ function imprimirOSApoio(osId) {
                 <div class="linha-ass">CCOL / Gestor</div>
             </div>
             
-            <script>
-                window.onload = function() { setTimeout(() => { window.print(); }, 250); }
-            </script>
+            <script>window.onload = function() { setTimeout(() => { window.print(); }, 250); }</script>
         </body>
         </html>
     `);

@@ -20,15 +20,15 @@ async function carregarDadosAlmoxarifado() {
         
         if (window.supabaseClient) {
             // Pneus
-            const { data: pneus } = await window.supabaseClient.from('almoxarifado_pneus').select('*').order('created_at', { ascending: false });
+            let queryPneus = window.supabaseClient.from('almoxarifado_pneus').select('*').order('created_at', { ascending: false });
+            if (typeof window.aplicarFiltroFilial === 'function') queryPneus = window.aplicarFiltroFilial(queryPneus);
+            const { data: pneus } = await queryPneus;
             pneusEstoque = pneus || [];
             
             // Requisições
-            const { data: reqs } = await window.supabaseClient
-                .from('os_pecas_utilizadas')
-                .select('*, almoxarifado_pecas(nome, codigo), ordens_servico(placa, mecanico_responsavel)')
-                .order('id', { ascending: false })
-                .limit(100);
+            let queryReqs = window.supabaseClient.from('os_pecas_utilizadas').select('*, almoxarifado_pecas(nome, codigo), ordens_servico(placa, mecanico_responsavel)').order('id', { ascending: false }).limit(100);
+            if (typeof window.aplicarFiltroFilial === 'function') queryReqs = window.aplicarFiltroFilial(queryReqs);
+            const { data: reqs } = await queryReqs;
             requisicoesEstoque = reqs || [];
         }
 
@@ -121,14 +121,13 @@ function atualizarTabelaRequisicoes(listaReqs) {
         const frota = req.ordens_servico?.placa || 'Desconhecida';
         const mecanico = req.ordens_servico?.mecanico_responsavel || 'Mecânico';
         const nomePeca = req.almoxarifado_pecas?.nome || 'Peça Excluída';
-        const stat = req.status || 'Pendente'; // Default é pendente se não existir na base
+        const stat = req.status || 'Pendente'; 
         
         let statusBadge = '';
         let btnAcao = '';
 
         if (stat === 'Pendente') {
             statusBadge = '<span class="badge" style="background:#f59e0b; color:#fff;"><i class="fas fa-clock"></i> Aguardando Separação</span>';
-            // Botões de aprovar e recusar
             btnAcao = `
                 <button class="btn-action-sm btn-success" title="Aprovar e Baixar Estoque" onclick="aprovarRequisicao(${req.id}, ${req.peca_id}, ${req.quantidade}, '${req.os_id}', '${frota}', ${req.valor_unitario})"><i class="fas fa-check"></i></button>
                 <button class="btn-action-sm btn-delete" title="Recusar" onclick="recusarRequisicao(${req.id})"><i class="fas fa-times"></i></button>
@@ -232,7 +231,6 @@ function atualizarKPIsAlmoxarifado() {
     let itensBaixos = 0;
     let abcData = {A: {qtd:0, val:0}, B: {qtd:0, val:0}, C: {qtd:0, val:0}};
 
-    // Soma o valor total das peças
     pecasEstoque.forEach(p => {
         valorTotal += p.valor_total;
         if (p.quantidade <= p.estoque_minimo) itensBaixos++;
@@ -242,7 +240,6 @@ function atualizarKPIsAlmoxarifado() {
         }
     });
 
-    // Soma o valor total dos pneus cadastrados
     pneusEstoque.forEach(pneu => {
         valorTotal += parseFloat(pneu.custo_atual || 0);
     });
@@ -255,7 +252,6 @@ function atualizarKPIsAlmoxarifado() {
     let pneusGuardados = pneusEstoque.filter(p => p.status === 'Estoque').length;
     document.getElementById('kpiPneusResumo').innerText = `${pneusRodando} / ${pneusGuardados}`;
 
-    // Contador de requisições pendentes na aba
     const pendentes = requisicoesEstoque.filter(r => r.status === 'Pendente' || !r.status).length;
     const badgeReq = document.getElementById('badgeReqPendente');
     if(badgeReq) {
@@ -364,7 +360,6 @@ window.mudarAbaAlmoxarifado = function(abaId, btn) {
     filtrarAlmoxarifado();
 }
 
-// ================= APROVAR OU RECUSAR REQUISIÇÕES (NOVO) =================
 window.aprovarRequisicao = async function(reqId, pecaId, qtd, osId, cavalo, valorUnitario) {
     const peca = pecasEstoque.find(p => p.id == pecaId);
     if (!peca || peca.quantidade < qtd) {
@@ -375,10 +370,7 @@ window.aprovarRequisicao = async function(reqId, pecaId, qtd, osId, cavalo, valo
     if(!confirm(`Confirma a liberação de ${qtd} unidades de "${peca.nome}" para a OS #${osId}? \nIsso descontará o estoque automaticamente.`)) return;
 
     try {
-        // 1. Atualiza status da requisição
         await window.supabaseClient.from('os_pecas_utilizadas').update({ status: 'Aprovado' }).eq('id', reqId);
-
-        // 2. Registra Saída (Isso diminui o estoque automaticamente via database.js)
         const movimentacao = {
             peca_id: pecaId,
             tipo: 'saida',
@@ -390,7 +382,6 @@ window.aprovarRequisicao = async function(reqId, pecaId, qtd, osId, cavalo, valo
             data_movimentacao: new Date().toISOString()
         };
         await db.addMovimentacao(movimentacao);
-
         alert("Requisição Aprovada e peça baixada do estoque!");
         await carregarDadosAlmoxarifado();
     } catch (e) {
@@ -410,7 +401,6 @@ window.recusarRequisicao = async function(reqId) {
 }
 
 
-// ================= LÓGICA DE PDF E XML (CAÇADOR DE PRODUTOS) =================
 window.processarArquivoNF = async function(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -581,7 +571,6 @@ window.removerLinhaLoteNF = function(index) {
     renderizarItensLoteNF();
 }
 
-// ================= CRUD DE PEÇAS =================
 window.abrirModalPeca = function() {
     document.getElementById('formPeca').reset();
     document.getElementById('pecaId').value = '';
@@ -633,7 +622,6 @@ window.deletarPeca = async function(id) {
     }
 }
 
-// ================= PREPARAÇÃO E SALVAMENTO DE MOVIMENTAÇÕES =================
 window.prepararModalMovimentacao = function(tipo) {
     document.getElementById('formMovimentacao').reset();
     document.getElementById('movTipo').value = tipo;
@@ -815,7 +803,6 @@ window.salvarMovimentacao = async function(e) {
                 return;
             }
 
-            // Grava histórico de Ajuste
             await db.addMovimentacao({
                 peca_id: peca_id,
                 tipo: 'ajuste',
@@ -826,7 +813,6 @@ window.salvarMovimentacao = async function(e) {
                 data_movimentacao: new Date().toISOString()
             });
 
-            // Força a atualização do saldo da peça no banco
             peca.quantidade = qtdReal; 
             await db.upsertPeca(peca);
             
@@ -848,7 +834,6 @@ window.salvarMovimentacao = async function(e) {
     }
 }
 
-// ================= GESTÃO DE PNEUS =================
 window.abrirModalPneu = function() {
     document.getElementById('formPneu').reset();
     document.getElementById('pneuId').value = '';
@@ -870,7 +855,7 @@ window.editarPneu = function(pneu) {
 
 window.salvarPneu = async function(e) {
     e.preventDefault();
-    const pneu = {
+    let pneu = {
         num_fogo: document.getElementById('pnFogo').value.trim(),
         marca: document.getElementById('pnMarca').value.trim(),
         medida: document.getElementById('pnMedida').value.trim(),
@@ -881,6 +866,11 @@ window.salvarPneu = async function(e) {
     
     const id = document.getElementById('pneuId').value;
     if(id) pneu.id = id;
+
+    // BLINDAGEM DA FILIAL:
+    if (typeof window.injetarFilial === 'function') {
+        pneu = window.injetarFilial(pneu);
+    }
 
     try {
         if(!window.supabaseClient) throw new Error("Supabase não inicializado");
@@ -949,6 +939,11 @@ window.executarAcaoPneu = async function(e) {
         updPneu = { status: 'Sucata', cavalo_atual: null, eixo: null, posicao: null };
     }
 
+    // BLINDAGEM DA FILIAL:
+    if (typeof window.injetarFilial === 'function') {
+        hist = window.injetarFilial(hist);
+    }
+
     try {
         await window.supabaseClient.from('almoxarifado_pneus').update(updPneu).eq('id', pneuId);
         await window.supabaseClient.from('almoxarifado_pneus_mov').insert(hist);
@@ -961,7 +956,6 @@ window.executarAcaoPneu = async function(e) {
     }
 }
 
-// ================= UTILITÁRIOS GERAIS =================
 window.fecharModalAlmox = function(id) {
     document.getElementById(id).style.display = 'none';
 }
@@ -976,7 +970,6 @@ window.onclick = function(event) {
     });
 }
 
-// ================= GERADOR DE ETIQUETA QR CODE =================
 window.imprimirQRCode = function(peca) {
     if (!peca.codigo) {
         alert("⚠️ Atenção: Esta peça não possui um 'Código / SKU' cadastrado. Edite a peça, insira um código e tente novamente.");
@@ -991,44 +984,12 @@ window.imprimirQRCode = function(peca) {
             <head>
                 <title>Etiqueta QR Code - ${peca.codigo}</title>
                 <style>
-                    body { 
-                        font-family: 'Arial', sans-serif; 
-                        text-align: center; 
-                        margin: 0; 
-                        padding: 20px; 
-                        background: #f8fafc;
-                    }
-                    .etiqueta { 
-                        border: 2px dashed #000; 
-                        padding: 20px; 
-                        display: inline-block; 
-                        width: 250px; 
-                        background: #fff;
-                        border-radius: 8px;
-                    }
-                    .titulo { 
-                        font-size: 16px; 
-                        font-weight: bold; 
-                        margin-bottom: 15px;
-                        text-transform: uppercase;
-                    }
-                    .codigo { 
-                        font-size: 22px; 
-                        margin: 10px 0; 
-                        font-family: monospace; 
-                        font-weight: bold; 
-                        letter-spacing: 1px;
-                    }
-                    .local { 
-                        font-size: 14px; 
-                        color: #333; 
-                        margin-top: 10px;
-                        font-weight: bold;
-                    }
-                    @media print {
-                        body { padding: 0; background: #fff; }
-                        .etiqueta { border: none; width: 100%; border-radius: 0; }
-                    }
+                    body { font-family: 'Arial', sans-serif; text-align: center; margin: 0; padding: 20px; background: #f8fafc; }
+                    .etiqueta { border: 2px dashed #000; padding: 20px; display: inline-block; width: 250px; background: #fff; border-radius: 8px; }
+                    .titulo { font-size: 16px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; }
+                    .codigo { font-size: 22px; margin: 10px 0; font-family: monospace; font-weight: bold; letter-spacing: 1px; }
+                    .local { font-size: 14px; color: #333; margin-top: 10px; font-weight: bold; }
+                    @media print { body { padding: 0; background: #fff; } .etiqueta { border: none; width: 100%; border-radius: 0; } }
                 </style>
             </head>
             <body>
@@ -1038,12 +999,7 @@ window.imprimirQRCode = function(peca) {
                     <div class="codigo">${peca.codigo}</div>
                     <div class="local">📍 Local: ${peca.localizacao || 'Sem prateleira definida'}</div>
                 </div>
-                <script>
-                    setTimeout(() => {
-                        window.print();
-                        window.close();
-                    }, 500);
-                </script>
+                <script>setTimeout(() => { window.print(); window.close(); }, 500);</script>
             </body>
         </html>
     `);

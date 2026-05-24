@@ -8,11 +8,10 @@ let mOS_AbaAtiva = 'aceite';
 
 window.renderizarTelaServicos = async function() {
     try {
-        const { data: osData, error: osError } = await window.supabaseClient
-            .from('ordens_servico')
-            .select('*')
-            .in('status', ['Aguardando Oficina', 'Em Manutenção'])
-            .order('data_abertura', { ascending: false });
+        let queryOS = window.supabaseClient.from('ordens_servico').select('*').in('status', ['Aguardando Oficina', 'Em Manutenção']).order('data_abertura', { ascending: false });
+        if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
+        
+        const { data: osData, error: osError } = await queryOS;
             
         if (osError) throw osError;
         mOS_ListaGeral = osData || [];
@@ -21,11 +20,9 @@ window.renderizarTelaServicos = async function() {
         const osDesteMecanico = mOS_ListaGeral.filter(os => os.mecanico_responsavel === usuarioLogado).map(os => os.id);
         
         if (osDesteMecanico.length > 0) {
-            const { data: reqData } = await window.supabaseClient
-                .from('os_pecas_utilizadas')
-                .select(`*, almoxarifado_pecas(nome)`)
-                .in('os_id', osDesteMecanico)
-                .order('id', { ascending: false });
+            let queryReq = window.supabaseClient.from('os_pecas_utilizadas').select(`*, almoxarifado_pecas(nome)`).in('os_id', osDesteMecanico).order('id', { ascending: false });
+            if (typeof window.aplicarFiltroFilial === 'function') queryReq = window.aplicarFiltroFilial(queryReq);
+            const { data: reqData } = await queryReq;
             mOS_Requisicoes = reqData || [];
         } else {
             mOS_Requisicoes = [];
@@ -142,7 +139,6 @@ function mecanicoRenderizarTabelas() {
     }
 }
 
-// ================= FINALIZAÇÃO DE O.S. (NOVA FUNÇÃO) =================
 window.abrirModalFinalizarOS = function(id, placa) {
     document.getElementById('finOsId').value = id;
     document.getElementById('finOsPlaca').innerText = placa;
@@ -185,7 +181,7 @@ window.mecanicoConfirmarFinalizacao = async function(e) {
 
         alert('O.S. Finalizada com sucesso! Bom trabalho.');
         fecharModalFinalizarOS();
-        await renderizarTelaServicos(); // Atualiza a tela, fazendo a OS sumir
+        await renderizarTelaServicos(); 
         
     } catch(err) {
         console.error(err);
@@ -245,7 +241,9 @@ async function mecanicoMontarPlacasTritrem(placaPrincipal) {
     divChecks.innerHTML = '<span style="color:#94a3b8;">Buscando frota...</span>';
     selP.innerHTML = `<option value="FROTA - ${placaPrincipal}">Buscando Frota...</option>`;
     
-    const { data } = await window.supabaseClient.from('frotas_manutencao').select('*').or(`cavalo.eq.${placaPrincipal},go.eq.${placaPrincipal}`).maybeSingle();
+    let query = window.supabaseClient.from('frotas_manutencao').select('*').or(`cavalo.eq.${placaPrincipal},go.eq.${placaPrincipal}`);
+    if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+    const { data } = await query.maybeSingle();
     
     let htmlChecks = `<label style="display:flex; align-items:center; gap:8px; color:#fff; font-size:0.95rem; cursor:pointer; background:rgba(255,255,255,0.05); padding:10px 15px; border-radius:6px; border:1px solid #475569; width: 100%;">
                         <input type="checkbox" class="chk-comp-servico" value="FROTA (${placaPrincipal})" checked style="transform: scale(1.3);"> 🚚 FROTA (${placaPrincipal})
@@ -300,11 +298,10 @@ window.mecanicoAddServico = async function() {
 
     const descricaoFinal = `[${compartimentosSelecionados}] ${desc}`;
     
-    const { error } = await window.supabaseClient.from('os_servicos_executados').insert([{
-        os_id: mOS_Atual,
-        descricao: descricaoFinal,
-        tempo_gasto: 'Ver Previsão Global'
-    }]);
+    let insertData = { os_id: mOS_Atual, descricao: descricaoFinal, tempo_gasto: 'Ver Previsão Global' };
+    if (typeof window.injetarFilial === 'function') insertData = window.injetarFilial(insertData);
+    
+    const { error } = await window.supabaseClient.from('os_servicos_executados').insert([insertData]);
 
     if(error) {
         console.error(error);
@@ -324,14 +321,10 @@ window.mecanicoAddPeca = async function() {
     
     const pecaDb = mOS_PecasCache.find(p => p.id == pecaId);
 
-    const { error } = await window.supabaseClient.from('os_pecas_utilizadas').insert([{
-        os_id: mOS_Atual, 
-        peca_id: pecaId, 
-        quantidade: qtd, 
-        valor_unitario: pecaDb.preco_medio, 
-        compartimento: comp,
-        status: 'Pendente'
-    }]);
+    let insertPeca = { os_id: mOS_Atual, peca_id: pecaId, quantidade: qtd, valor_unitario: pecaDb.preco_medio, compartimento: comp, status: 'Pendente' };
+    if (typeof window.injetarFilial === 'function') insertPeca = window.injetarFilial(insertPeca);
+
+    const { error } = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
     
     if(error) return alert("Erro ao requisitar peça.");
 
@@ -377,7 +370,9 @@ async function mecanicoAtualizarTabelasModal() {
 }
 
 async function mecanicoCarregarPecas() {
-    const { data } = await window.supabaseClient.from('almoxarifado_pecas').select('*').order('nome');
+    let query = window.supabaseClient.from('almoxarifado_pecas').select('*').order('nome');
+    if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+    const { data } = await query;
     mOS_PecasCache = data || [];
     document.getElementById('pesquisaPeca').value = ''; 
     mecanicoFiltrarPecas(); 

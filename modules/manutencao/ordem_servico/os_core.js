@@ -13,22 +13,22 @@ var pecasAlmoxarifadoCache = [];
 
 async function carregarDadosOS() {
     try {
-        const { data: osData, error: osError } = await supabaseClient
-            .from('ordens_servico')
-            .select('*')
-            .order('created_at', { ascending: false });
+        let queryOS = supabaseClient.from('ordens_servico').select('*').order('created_at', { ascending: false });
+        if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
+        const { data: osData, error: osError } = await queryOS;
         
         if (!osError && osData) ordensServico = osData;
 
-        const { data: frotaData, error: frotaError } = await supabaseClient
-            .from('frotas_manutencao')
-            .select('*')
-            .order('cavalo', { ascending: true });
+        let queryFrota = supabaseClient.from('frotas_manutencao').select('*').order('cavalo', { ascending: true });
+        if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
+        const { data: frotaData, error: frotaError } = await queryFrota;
             
         if (!frotaError && frotaData) frotasManutencao = frotaData;
 
         // Pré-carrega peças para facilitar vínculo na O.S.
-        const { data: pecasData } = await supabaseClient.from('almoxarifado_pecas').select('*');
+        let queryPecas = supabaseClient.from('almoxarifado_pecas').select('*');
+        if (typeof window.aplicarFiltroFilial === 'function') queryPecas = window.aplicarFiltroFilial(queryPecas);
+        const { data: pecasData } = await queryPecas;
         if (pecasData) pecasAlmoxarifadoCache = pecasData;
 
     } catch (error) {

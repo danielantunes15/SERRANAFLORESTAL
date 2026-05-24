@@ -33,10 +33,9 @@ window.carregarMotoristasSelectOS = async function() {
     const select = document.getElementById('osMotorista');
     if (!select) return;
     try {
-        const { data, error } = await supabaseClient
-            .from('motoristas')
-            .select('nome')
-            .order('nome', { ascending: true });
+        let query = supabaseClient.from('motoristas').select('nome').order('nome', { ascending: true });
+        if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+        const { data, error } = await query;
             
         if (error) throw error;
 
@@ -211,6 +210,11 @@ window.salvarNovaOS = async function() {
 
     if (problemaFinal) pacoteDadosOS.problema = problemaFinal;
 
+    // BLINDAGEM DA FILIAL:
+    if (typeof window.injetarFilial === 'function') {
+        pacoteDadosOS = window.injetarFilial(pacoteDadosOS);
+    }
+
     try {
         const { error } = await supabaseClient.from('ordens_servico').insert([pacoteDadosOS]);
         if (error) {
@@ -237,7 +241,6 @@ window.excluirOS = async function(id) {
     }
 };
 
-// NOVA FUNÇÃO PARA ASSUMIR / ACEITAR A O.S. PELA OFICINA
 window.aceitarOS = async function(id) {
     let nomeMecanico = 'Mecânico Não Identificado';
     try {
