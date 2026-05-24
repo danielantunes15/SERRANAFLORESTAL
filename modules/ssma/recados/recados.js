@@ -42,17 +42,23 @@ async function salvarRecado() {
     const data_agendamento = document.getElementById('data-recado').value;
 
     try {
+        // 1. Prepara o objeto do recado
+        let novoRecado = { 
+            titulo: titulo, 
+            descricao: descricao, 
+            prioridade: prioridade,
+            data_agendamento: data_agendamento,
+            status: 'pendente' 
+        };
+
+        // 2. BLINDAGEM: Injeta a filial correta antes de salvar
+        if (typeof window.injetarFilial === 'function') {
+            novoRecado = window.injetarFilial(novoRecado);
+        }
+
         const { error } = await supabaseClient
             .from('recados_anotacoes')
-            .insert([
-                { 
-                    titulo: titulo, 
-                    descricao: descricao, 
-                    prioridade: prioridade,
-                    data_agendamento: data_agendamento,
-                    status: 'pendente' 
-                }
-            ]);
+            .insert([novoRecado]);
 
         if (error) throw error;
         
@@ -78,11 +84,19 @@ async function atualizarListaRecados() {
     });
 
     try {
-        const { data: recados, error } = await supabaseClient
+        // 1. Prepara a query
+        let query = supabaseClient
             .from('recados_anotacoes')
             .select('*')
             .eq('status', 'pendente')
             .order('data_agendamento', { ascending: true });
+
+        // 2. BLINDAGEM: Aplica o filtro de filial para ver apenas os recados da própria filial
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        }
+
+        const { data: recados, error } = await query;
 
         if (error) throw error;
 
@@ -144,10 +158,17 @@ window.soltarRecado = async function(event, novaPrioridade) {
     if (!idRecado) return;
 
     try {
-        const { error } = await supabaseClient
+        let query = supabaseClient
             .from('recados_anotacoes')
             .update({ prioridade: novaPrioridade })
             .eq('id', idRecado);
+
+        // Segurança Extra: Garante que só altera se for da própria filial
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        }
+
+        const { error } = await query;
 
         if (error) throw error;
         
@@ -161,10 +182,17 @@ window.soltarRecado = async function(event, novaPrioridade) {
 
 window.concluirRecado = async function(id) {
     try {
-        const { error } = await supabaseClient
+        let query = supabaseClient
             .from('recados_anotacoes')
             .update({ status: 'concluido' })
             .eq('id', id);
+
+        // Segurança Extra: Garante que só altera se for da própria filial
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        }
+
+        const { error } = await query;
 
         if (error) throw error;
         atualizarListaRecados();
@@ -180,11 +208,18 @@ window.carregarHistoricoRecados = async function() {
     container.innerHTML = '<p style="color: #94a3b8; grid-column: 1 / -1;">Buscando histórico...</p>';
 
     try {
-        const { data: historico, error } = await supabaseClient
+        let query = supabaseClient
             .from('recados_anotacoes')
             .select('*')
             .eq('status', 'concluido')
             .order('data_agendamento', { ascending: true });
+
+        // BLINDAGEM: Apenas histórico da própria filial
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        }
+
+        const { data: historico, error } = await query;
 
         if (error) throw error;
 
@@ -223,10 +258,17 @@ window.carregarHistoricoRecados = async function() {
 window.limparHistoricoRecados = async function() {
     if(confirm('Tem certeza que deseja DELETAR todo o histórico de tarefas concluídas?')) {
         try {
-            const { error } = await supabaseClient
+            let query = supabaseClient
                 .from('recados_anotacoes')
                 .delete()
                 .eq('status', 'concluido');
+
+            // BLINDAGEM CRÍTICA: Sem isso, um usuário poderia apagar o histórico de todas as filiais!
+            if (typeof window.aplicarFiltroFilial === 'function') {
+                query = window.aplicarFiltroFilial(query);
+            }
+
+            const { error } = await query;
 
             if (error) throw error;
             carregarHistoricoRecados();

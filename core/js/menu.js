@@ -85,6 +85,7 @@ window.renderizarMenu = async function() {
         }
     });
 
+    // Botão de Configurações do Sistema para Admins DENTRO de uma filial
     if (isAdmin && !isSessaoCentral) {
         navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-cog"></i> Configurações do Sistema</button>`;
     }
@@ -263,6 +264,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
 
         if (pagina === 'config') {
+            // Estes gatilhos agora acionam as funções que movemos para o gestao_usuarios.js
             if (typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
             if (typeof window.renderizarLogs === 'function') window.renderizarLogs();
             window.carregarCheckboxesPermissoes(); 
