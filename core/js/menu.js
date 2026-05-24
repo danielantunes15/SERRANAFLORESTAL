@@ -17,7 +17,7 @@ const MAPA_MENUS = [
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
-    { id: 'indicadores', label: 'Indicadores Suzano', setor: 'Indicadores', icon: 'fas fa-chart-area' },
+    { id: 'indicadores', label: 'Indicadores - Cliente', setor: 'Indicadores', icon: 'fas fa-chart-area' },
     { id: 'indicadores_serrana', label: 'Indicadores Serrana', setor: 'Indicadores', icon: 'fas fa-chart-bar' },
 
     // ================= NOVO MÓDULO GERENCIAL =================
@@ -87,7 +87,7 @@ window.renderizarMenu = async function() {
 
     // Botão de Configurações do Sistema para Admins DENTRO de uma filial
     if (isAdmin && !isSessaoCentral) {
-        navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-cog"></i> Configurações do Sistema</button>`;
+        navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-cog"></i> Configurações</button>`;
     }
 
     navHtml += '</nav>';
