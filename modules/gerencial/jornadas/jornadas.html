@@ -42,46 +42,46 @@
 
     <section class="space-y-6">
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
-            <div class="glass-card rounded-2xl p-5 glow-border-blue flex flex-col justify-between relative overflow-hidden group">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-blue-500/30 flex flex-col justify-between relative overflow-hidden group">
                 <div class="absolute -right-4 -top-4 text-blue-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-users"></i></div>
                 <div><p class="text-slate-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Motoristas Monitorados</p><p id="jorTotalMotoristas" class="text-4xl font-black text-white mt-1 relative z-10">0</p></div>
             </div>
             
-            <div class="glass-card rounded-2xl p-5 glow-border-emerald flex flex-col justify-between relative overflow-hidden group">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-emerald-500/30 flex flex-col justify-between relative overflow-hidden group">
                 <div class="absolute -right-4 -top-4 text-emerald-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-steering-wheel"></i></div>
                 <div><p class="text-slate-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Média de Direção</p><p id="jorMediaDirecao" class="text-4xl font-black text-white mt-1 relative z-10">0h 00m</p></div>
             </div>
 
-            <div class="glass-card rounded-2xl p-5 border-l-4 border-l-rose-500 flex flex-col justify-between relative overflow-hidden group">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 border-l-4 border-l-rose-500 flex flex-col justify-between relative overflow-hidden group">
                 <div class="absolute -right-4 -top-4 text-rose-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-siren-on"></i></div>
                 <div><p class="text-rose-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Infrações (>12h)</p><p id="jorQtdEstouros" class="text-4xl font-black text-rose-400 mt-1 relative z-10">0</p></div>
             </div>
             
-            <div class="glass-card rounded-2xl p-5 border-l-4 border-l-sky-500 flex flex-col justify-between relative overflow-hidden group">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 border-l-4 border-l-sky-500 flex flex-col justify-between relative overflow-hidden group">
                 <div class="absolute -right-4 -top-4 text-sky-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-eraser"></i></div>
                 <div><p class="text-sky-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Expurgadas</p><p id="jorQtdExpurgadas" class="text-4xl font-black text-sky-400 mt-1 relative z-10">0</p></div>
             </div>
             
-            <div class="glass-card rounded-2xl p-5 border-l-4 border-l-emerald-500 flex flex-col justify-between relative overflow-hidden group">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 border-l-4 border-l-emerald-500 flex flex-col justify-between relative overflow-hidden group">
                 <div class="absolute -right-4 -top-4 text-emerald-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-check-double"></i></div>
                 <div><p class="text-emerald-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Auditadas</p><p id="jorQtdAuditados" class="text-4xl font-black text-emerald-400 mt-1 relative z-10">0</p></div>
             </div>
             
-            <div class="glass-card rounded-2xl p-5 border-l-4 border-l-amber-500 flex flex-col justify-between relative overflow-hidden group">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 border-l-4 border-l-amber-500 flex flex-col justify-between relative overflow-hidden group">
                 <div class="absolute -right-4 -top-4 text-amber-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-exclamation-triangle"></i></div>
                 <div><p class="text-amber-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Pendentes</p><p id="jorQtdPendentes" class="text-4xl font-black text-amber-500 mt-1 relative z-10 animate-pulse">0</p></div>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="glass-card rounded-xl p-5 border border-slate-700/50 col-span-1 flex flex-col items-center justify-center">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl p-5 border border-slate-700/50 col-span-1 flex flex-col items-center justify-center">
                 <h3 class="font-bold text-slate-200 border-b border-slate-700 w-full pb-3 mb-4 text-sm uppercase text-left"><i class="fas fa-chart-pie text-cyan-500 mr-2"></i> Status da Frota</h3>
                 <div class="w-full relative flex justify-center items-center h-[280px]">
                     <canvas id="statusFrotaChart"></canvas>
                 </div>
             </div>
             
-            <div class="glass-card rounded-xl p-5 border border-slate-700/50 col-span-2">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl p-5 border border-slate-700/50 col-span-2">
                 <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-3 mb-4 text-sm uppercase"><i class="fas fa-chart-bar text-emerald-500 mr-2"></i> Distribuição de Jornadas (Carga Horária)</h3>
                 <div class="w-full h-[280px]">
                     <canvas id="faixaHorasChart"></canvas>
@@ -90,7 +90,7 @@
         </div>
 
         <div class="grid grid-cols-1 gap-6 mt-6">
-            <div class="glass-card rounded-xl p-5 border border-slate-700/50 flex flex-col w-full">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl p-5 border border-slate-700/50 flex flex-col w-full">
                 <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
                     <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
                         <i class="fas fa-chart-line text-rose-500 mr-2 text-lg"></i> Evolução Diária de Ocorrências (Infrações > 12h Não Expurgadas)
@@ -103,7 +103,7 @@
         </div>
 
         <div class="grid grid-cols-1 gap-6 mt-6">
-            <div class="glass-card rounded-xl shadow-2xl overflow-hidden border border-rose-500/50 flex flex-col w-full">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-rose-500/50 flex flex-col w-full">
                 <div class="bg-rose-900/40 px-6 py-4 border-b border-rose-800 flex justify-between items-center">
                     <h3 class="font-bold text-rose-400 tracking-wide text-[13px] uppercase">
                         <i class="fas fa-exclamation-triangle text-rose-500 mr-2"></i> Infratores Recorrentes (>12h)
@@ -125,21 +125,21 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-            <div class="glass-card rounded-xl shadow-2xl overflow-hidden border border-rose-500/50 flex flex-col h-full">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-rose-500/50 flex flex-col h-full">
                 <div class="bg-rose-900/40 px-4 py-3 border-b border-rose-800 flex justify-between items-center"><h3 class="font-bold text-rose-400 text-[12px] uppercase"><i class="fas fa-siren-on mr-2"></i> Maiores Infrações</h3></div>
                 <div class="overflow-x-auto overflow-y-auto p-2 flex-1"><table class="min-w-full text-xs text-left"><tbody id="jorTopEstourosBody" class="divide-y divide-slate-800 text-slate-300"></tbody></table></div>
             </div>
-            <div class="glass-card rounded-xl shadow-2xl overflow-hidden border border-indigo-500/50 flex flex-col h-full">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-indigo-500/50 flex flex-col h-full">
                 <div class="bg-indigo-900/40 px-4 py-3 border-b border-indigo-800 flex justify-between items-center"><h3 class="font-bold text-indigo-400 text-[12px] uppercase"><i class="fas fa-moon mr-2"></i> Mais Horas Noturnas</h3></div>
                 <div class="overflow-x-auto overflow-y-auto p-2 flex-1"><table class="min-w-full text-xs text-left"><tbody id="jorTopNoturnasBody" class="divide-y divide-slate-800 text-slate-300"></tbody></table></div>
             </div>
-            <div class="glass-card rounded-xl shadow-2xl overflow-hidden border border-amber-500/50 flex flex-col h-full">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-amber-500/50 flex flex-col h-full">
                 <div class="bg-amber-900/40 px-4 py-3 border-b border-amber-800 flex justify-between items-center"><h3 class="font-bold text-amber-400 text-[12px] uppercase"><i class="fas fa-stopwatch mr-2"></i> Mais Horas Extras</h3></div>
                 <div class="overflow-x-auto overflow-y-auto p-2 flex-1"><table class="min-w-full text-xs text-left"><tbody id="jorTopExtrasBody" class="divide-y divide-slate-800 text-slate-300"></tbody></table></div>
             </div>
         </div>
 
-        <div class="glass-card rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col w-full mt-6">
+        <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col w-full mt-6">
             <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center flex-wrap gap-4">
                 <h3 class="font-bold text-white tracking-wide text-[13px] uppercase"><i class="fas fa-list text-sky-400 mr-2"></i> Relatório Analítico de Jornada</h3>
                 
