@@ -22,6 +22,11 @@ function aplicarFiltroFilial(query) {
 
 function injetarFilial(obj) {
     if (!window.currentUser) return obj; 
+    
+    // CORREÇÃO CRÍTICA PARA GESTÃO DE USUÁRIOS: 
+    // Se o objeto já traz uma filial definida (ex: Admin criando user para outra filial), respeite!
+    if (obj.filial_id !== undefined) return obj; 
+    
     if (window.currentUser.filial_id === null) return obj; 
     return { ...obj, filial_id: window.currentUser.filial_id };
 }
@@ -73,7 +78,7 @@ const db = {
             
             if (window.currentUser && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
                 if (filialId && filialId !== 'TODAS') {
-                    if (filialId === null || filialId === 'NULL') query = query.is('filial_id', null);
+                    if (filialId === null || filialId === 'NULL' || filialId === 'CENTRAL') query = query.is('filial_id', null);
                     else query = query.eq('filial_id', filialId);
                 }
             } else {
