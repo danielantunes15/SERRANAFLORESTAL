@@ -29,6 +29,22 @@ window.MOTORISTAS_EXCLUIDOS = window.MOTORISTAS_EXCLUIDOS || [
     "WALAS RAMOS DA CRUZ"
 ];
 
+// ================= LÓGICA SAAS (MULTI-FILIAL) =================
+function aplicarFiltroLocal(query) {
+    if (typeof window.aplicarFiltroFilial === 'function') {
+        return window.aplicarFiltroFilial(query);
+    }
+    if (!window.currentUser) return query; 
+    if (window.currentUser.filial_id === null && (window.currentUser.role === 'SuperAdmin' || window.currentUser.role === 'Admin')) {
+        return query; 
+    }
+    if (window.currentUser.filial_id === undefined || window.currentUser.filial_id === null) {
+        return query.is('filial_id', null); 
+    }
+    return query.eq('filial_id', window.currentUser.filial_id);
+}
+// ===============================================================
+
 // =========================================================
 // INICIALIZAÇÃO INSTANTÂNEA SPA
 // =========================================================
@@ -72,10 +88,15 @@ window.initHistoricoJornadas = function() {
 
 async function carregarDropdownMotoristas() {
     try {
-        const { data } = await supabaseClient
+        let query = supabaseClient
             .from('historico_jornadas')
             .select('motorista')
             .limit(5000); 
+            
+        // Aplica restrição de filial
+        query = aplicarFiltroLocal(query);
+
+        const { data } = await query;
             
         if (data) {
             const select = document.getElementById('filterMotoristaDropdown');
@@ -116,6 +137,9 @@ async function loadHistoricoJornadasCompleto(reset = false) {
             .from('historico_jornadas')
             .select('*')
             .range(de, ate);
+
+        // Aplica restrição de filial
+        query = aplicarFiltroLocal(query);
 
         if (motoristaFiltroJor !== 'ALL') {
             query = query.eq('motorista', motoristaFiltroJor);
@@ -219,4 +243,14 @@ function renderHistoricoJornadasTable() {
             </tr>
         `);
     }
+}
+
+function formatarHorasMinutos(horasDecimais) {
+    if (horasDecimais === null || horasDecimais === undefined || isNaN(horasDecimais) || horasDecimais <= 0) return '-';
+    const horas = Math.floor(horasDecimais);
+    const minutos = Math.round((horasDecimais - horas) * 60);
+    if (horas === 0 && minutos === 0) return '0m';
+    if (horas === 0) return `${minutos}m`;
+    if (minutos === 0) return `${horas}h`;
+    return `${horas}h ${minutos.toString().padStart(2, '0')}m`;
 }
