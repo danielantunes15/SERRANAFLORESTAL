@@ -39,7 +39,10 @@ window.renderizarTelaDocumentosFrota = async function() {
     if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Carregando frota da base de dados...</td></tr>';
     
     try {
-        const { data, error } = await supabaseClient.from('frotas_manutencao').select('*').order('cavalo');
+        let query = supabaseClient.from('frotas_manutencao').select('*').order('cavalo');
+        query = window.aplicarFiltroFilial(query); // APLICAÇÃO DO FILTRO DE FILIAL
+
+        const { data, error } = await query;
         if (error) throw error;
         
         listaDeFrotasIndependente = data || [];

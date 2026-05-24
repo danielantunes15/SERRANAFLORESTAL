@@ -76,7 +76,9 @@ window.salvarFrotaManutencao = async function() {
     }
 
     try {
-        const { error } = await supabaseClient.from('frotas_manutencao').insert([{ cavalo, status, data_inicial, cor, go, carreta1, carreta2, carreta3 }]);
+        // INJEÇÃO DO FILTRO DE FILIAL NA CRIAÇÃO DA FROTA
+        const payload = window.injetarFilial({ cavalo, status, data_inicial, cor, go, carreta1, carreta2, carreta3 });
+        const { error } = await supabaseClient.from('frotas_manutencao').insert([payload]);
         if (error) throw error;
 
         alert("Conjunto cadastrado com sucesso!");

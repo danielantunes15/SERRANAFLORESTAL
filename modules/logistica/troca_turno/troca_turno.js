@@ -87,7 +87,6 @@ window.alternarAbaTroca = function(aba) {
         window.popularFiltrosHistoricoTroca();
         window.carregarHistoricoTrocas();
     } else if (aba === 'indicadores') {
-        // ALTERAÇÃO AQUI: Garante que toda vez que a aba for aberta, ele reseta para o "Hoje"
         document.getElementById('filtroTempoIndicadores').value = 'hoje';
         setTimeout(() => {
             window.iniciarMapaIndicadores();
@@ -99,12 +98,15 @@ window.alternarAbaTroca = function(aba) {
 
 window.carregarLocaisTroca = async function() {
     try {
-        const { data, error } = await window.supabaseClient.from('locais_troca').select('*').order('nome');
+        let query = window.supabaseClient.from('locais_troca').select('*').order('nome');
+        query = window.aplicarFiltroFilial(query); // APLICAÇÃO DO FILTRO DE FILIAL
+
+        const { data, error } = await query;
         if (!error && data) {
             window.locaisTrocaCache = data;
             const tbody = document.getElementById('tbodyLocaisTroca');
             if (tbody) {
-                const isAdmin = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'Admin');
+                const isAdmin = (typeof currentUser !== 'undefined' && currentUser && (currentUser.role === 'Admin' || currentUser.role === 'SuperAdmin'));
                 tbody.innerHTML = data.map(l => {
                     const btnExcluir = isAdmin 
                         ? `<button class="btn-danger" onclick="excluirLocalTroca('${l.id}')"><i class="fas fa-trash"></i></button>`
@@ -133,14 +135,17 @@ window.salvarNovoLocalTroca = async function() {
     const lng = document.getElementById('lngLocal').value;
     if (!nome || !lat) return alert("Dê um nome e marque no mapa antes de salvar!");
     try {
-        await window.supabaseClient.from('locais_troca').insert([{ nome, latitude: parseFloat(lat), longitude: parseFloat(lng) }]);
+        // INJEÇÃO DA FILIAL AO CRIAR O LOCAL
+        const payload = window.injetarFilial({ nome, latitude: parseFloat(lat), longitude: parseFloat(lng) });
+        await window.supabaseClient.from('locais_troca').insert([payload]);
+        
         document.getElementById('novoLocalTroca').value = '';
         await window.carregarLocaisTroca();
     } catch (e) { alert("Erro ao salvar local."); }
 }
 
 window.excluirLocalTroca = async function(id) {
-    if (typeof currentUser !== 'undefined' && currentUser && currentUser.role !== 'Admin') {
+    if (typeof currentUser !== 'undefined' && currentUser && (currentUser.role !== 'Admin' && currentUser.role !== 'SuperAdmin')) {
         alert('Acesso Negado: Apenas Administradores podem excluir locais de troca.');
         return;
     }
@@ -220,7 +225,10 @@ window.carregarTrocasDoDia = async function() {
     try {
         let registros = [];
         try {
-            const res = await window.supabaseClient.from('registro_troca_turno').select('*').eq('data_referencia', dataRef);
+            let query = window.supabaseClient.from('registro_troca_turno').select('*').eq('data_referencia', dataRef);
+            query = window.aplicarFiltroFilial(query); // APLICAÇÃO DO FILTRO DE FILIAL
+            
+            const res = await query;
             if (res.data) registros = res.data;
         } catch(e) { console.warn("Supabase indisponível para busca", e); }
         
@@ -377,10 +385,14 @@ window.salvarTroca = async function(domId, placa, turnoPrevisto) {
     if (!localId || !hora) return alert("Preencha o Local e Horário Real antes de salvar.");
     
     try {
-        const { data: exist } = await window.supabaseClient.from('registro_troca_turno').select('id')
-            .eq('data_referencia', dataRef).eq('placa_cavalo', placa).eq('turno_previsto', turnoPrevisto).single();
+        let queryValida = window.supabaseClient.from('registro_troca_turno').select('id')
+            .eq('data_referencia', dataRef).eq('placa_cavalo', placa).eq('turno_previsto', turnoPrevisto);
             
-        const p = { 
+        queryValida = window.aplicarFiltroFilial(queryValida); // Aplica filial para não buscar/subscrever dado de outra filial
+        const { data: exist } = await queryValida.single();
+            
+        // INJEÇÃO DA FILIAL AO CRIAR REGISTRO DE TROCA
+        const p = window.injetarFilial({ 
             data_referencia: dataRef, 
             placa_cavalo: placa, 
             turno_previsto: turnoPrevisto, 
@@ -388,7 +400,7 @@ window.salvarTroca = async function(domId, placa, turnoPrevisto) {
             local_troca_id: localId, 
             horario_real: hora,
             observacao: obs 
-        };
+        });
         
         if (exist) await window.supabaseClient.from('registro_troca_turno').update(p).eq('id', exist.id);
         else await window.supabaseClient.from('registro_troca_turno').insert([p]);
@@ -451,6 +463,8 @@ window.carregarHistoricoTrocas = async function() {
 
     try {
         let query = window.supabaseClient.from('registro_troca_turno').select('*').order('data_referencia', { ascending: false }).limit(200);
+        query = window.aplicarFiltroFilial(query); // APLICAÇÃO DO FILTRO DE FILIAL
+
         if (dataFiltro) query = query.eq('data_referencia', dataFiltro);
         if (placaFiltro) query = query.eq('placa_cavalo', placaFiltro);
         if (motoristaFiltro) query = query.eq('motorista_programado', motoristaFiltro);
@@ -467,7 +481,9 @@ window.carregarHistoricoTrocas = async function() {
         window.dadosHistoricoTrocasAtual = data;
 
         if (window.locaisTrocaCache.length === 0) {
-            const resLocais = await window.supabaseClient.from('locais_troca').select('*');
+            let resLocaisQuery = window.supabaseClient.from('locais_troca').select('*');
+            resLocaisQuery = window.aplicarFiltroFilial(resLocaisQuery);
+            const resLocais = await resLocaisQuery;
             if (resLocais.data) window.locaisTrocaCache = resLocais.data;
         }
 
@@ -544,12 +560,15 @@ window.carregarIndicadoresTroca = async function() {
     document.getElementById('containerDetalhesMotoristas').style.display = 'none';
 
     if (window.locaisTrocaCache.length === 0) {
-        const resLocais = await window.supabaseClient.from('locais_troca').select('*');
+        let resLocaisQuery = window.supabaseClient.from('locais_troca').select('*');
+        resLocaisQuery = window.aplicarFiltroFilial(resLocaisQuery); // FILTRO DE FILIAL
+        const resLocais = await resLocaisQuery;
         if (resLocais.data) window.locaisTrocaCache = resLocais.data;
     }
 
     try {
         let query = window.supabaseClient.from('registro_troca_turno').select('local_troca_id, data_referencia, motorista_programado');
+        query = window.aplicarFiltroFilial(query); // APLICAÇÃO DO FILTRO DE FILIAL
 
         if (tempoFiltro !== 'all') {
             const dataHoje = new Date();
