@@ -26,49 +26,14 @@ function getSupabaseClient() {
     return null;
 }
 
-// =========================================================
-// INICIALIZAÇÃO BLINDADA (Espera o HTML carregar na tela)
-// =========================================================
-function iniciarModuloProducao() {
-    if (window.producaoIntervaloAtivo) return;
-    window.producaoIntervaloAtivo = true;
-
-    // Fica checando a cada 200ms se a página HTML já foi renderizada na tela
-    const checkHTML = setInterval(() => {
-        const elementoReferencia = document.getElementById('dataInicio'); // Input de data inicial
-        
-        if (elementoReferencia) {
-            clearInterval(checkHTML);
-            window.producaoIntervaloAtivo = false;
-            
-            // Garante que não vai atrelar os eventos 2 vezes
-            if (!elementoReferencia.dataset.iniciado) {
-                elementoReferencia.dataset.iniciado = "true";
-                console.log("[PRODUCAO] HTML 100% carregado. Iniciando módulo...");
-                configurarEventos();
-                definirDatasPadrao();
-                verificarAberturaModal();
-                buscarTodosDadosSupabase();
-            }
-        }
-    }, 200);
-
-    // Timeout de segurança de 10 segundos
-    setTimeout(() => {
-        clearInterval(checkHTML);
-        window.producaoIntervaloAtivo = false;
-    }, 10000);
-}
-
-// Aciona a inicialização
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', iniciarModuloProducao);
-} else {
-    iniciarModuloProducao();
-}
-
-// Expõe a função globalmente para o roteador do menu lateral
-window.carregarPainelProducao = iniciarModuloProducao;
+// INICIALIZAÇÃO INSTANTÂNEA SPA
+window.initProducaoFrota = function() {
+    console.log("[PRODUCAO] Módulo iniciado instantaneamente via SPA.");
+    configurarEventos();
+    definirDatasPadrao();
+    verificarAberturaModal();
+    buscarTodosDadosSupabase();
+};
 
 function configurarEventos() {
     const btnFiltros = document.getElementById('btnAplicarFiltros');

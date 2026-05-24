@@ -46,46 +46,12 @@ function aplicarFiltroLocal(query) {
 }
 // ===============================================================
 
-// INICIALIZAÇÃO BLINDADA (Espera o HTML carregar na tela)
-function iniciarModuloOperacional() {
-    if (window.operacionalIntervaloAtivo) return;
-    window.operacionalIntervaloAtivo = true;
-
-    // Fica checando a cada 200ms se a página HTML já foi renderizada na tela
-    const checkHTML = setInterval(() => {
-        const elementoReferencia = document.getElementById('disp_v_real');
-        
-        if (elementoReferencia) {
-            clearInterval(checkHTML);
-            window.operacionalIntervaloAtivo = false;
-            
-            // Garante que não vai atrelar os eventos de clique 2 vezes
-            if (!elementoReferencia.dataset.iniciado) {
-                elementoReferencia.dataset.iniciado = "true";
-                console.log("[OPERACIONAL] HTML 100% carregado na tela. Buscando dados do painel...");
-                setupOperacionalFilters();
-                loadOperacionalData();
-            }
-        }
-    }, 200);
-
-    // Timeout de segurança de 10 segundos
-    setTimeout(() => {
-        clearInterval(checkHTML);
-        window.operacionalIntervaloAtivo = false;
-    }, 10000);
-}
-
-// Aciona a inicialização dependendo de como o sistema carrega o módulo
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', iniciarModuloOperacional);
-} else {
-    iniciarModuloOperacional();
-}
-
-// Expõe a função globalmente caso o roteador do menu lateral precise chamar manualmente
-window.carregarPainelOperacional = iniciarModuloOperacional;
-window.carregarDadosOperacionais = iniciarModuloOperacional;
+// INICIALIZAÇÃO INSTANTÂNEA SPA
+window.initOperacional = function() {
+    console.log("[OPERACIONAL] Módulo iniciado instantaneamente via SPA.");
+    setupOperacionalFilters();
+    loadOperacionalData();
+};
 
 function normalizarCiclos(dataArr) {
     try {
