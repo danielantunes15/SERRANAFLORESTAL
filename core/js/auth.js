@@ -76,10 +76,36 @@ async function iniciarSistemaAutorizado() {
     if (typeof window.iniciarSistema === 'function') { window.iniciarSistema(); }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const sessaoSalva = localStorage.getItem('ccol_user_session');
+    
     if (sessaoSalva) {
         window.currentUser = JSON.parse(sessaoSalva);
+        
+        // =========================================================================
+        // VALIDAÇÃO DE SEGURANÇA CONTRA USUÁRIOS EXCLUÍDOS
+        // Verifica se o usuário logado na sessão ainda existe no banco de dados.
+        // =========================================================================
+        try {
+            const dbUser = await db.getUsuarioByUsername(window.currentUser.username);
+            
+            // Se dbUser for nulo, significa que a conta foi apagada do banco.
+            if (!dbUser) {
+                alert("🔒 Acesso revogado: Sua conta foi excluída ou desativada pelo administrador.");
+                localStorage.removeItem('ccol_user_session');
+                window.location.href = 'login.html';
+                return; // Bloqueia a execução do resto do código
+            }
+
+            // Opcional: Atualiza o cargo da pessoa caso o admin tenha mudado e ela recarregue a página
+            window.currentUser.role = dbUser.role;
+            localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
+
+        } catch (error) {
+            console.error("Erro ao validar credenciais no banco de dados:", error);
+        }
+        // =========================================================================
+
         iniciarSistemaAutorizado(); 
     } else {
         window.location.href = 'login.html';
