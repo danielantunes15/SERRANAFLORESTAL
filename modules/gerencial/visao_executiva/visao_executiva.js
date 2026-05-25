@@ -19,11 +19,11 @@ window.atualizarDadosExecutivos = async function() {
 
     const containerCards = document.getElementById('containerCardsFiliais');
     if (containerCards) {
-        containerCards.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10"><i class="fas fa-spinner fa-spin fa-2x mb-3"></i><p>Processando faturamento e produção de cada filial...</p></div>';
+        containerCards.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10"><i class="fas fa-spinner fa-spin fa-2x mb-3"></i><p>Extraindo e calculando o volume de todas as filiais...</p></div>';
     }
 
     try {
-        // 1. BUSCAR AS FILIAIS CADASTRADAS (trazendo 'id', 'nome', 'cidade', etc)
+        // 1. BUSCAR AS FILIAIS CADASTRADAS
         const { data: filiaisDB, error: errFiliais } = await window.supabaseClient
             .from('filiais')
             .select('*')
@@ -32,14 +32,36 @@ window.atualizarDadosExecutivos = async function() {
         if (errFiliais) throw errFiliais;
 
         if (!filiaisDB || filiaisDB.length === 0) {
-            if (containerCards) containerCards.innerHTML = '<div class="col-span-full text-center text-yellow-400 py-10"><i class="fas fa-exclamation-triangle fa-2x mb-3"></i><p>Nenhuma filial encontrada. Cadastre uma filial no banco de dados para visualizar os indicadores.</p></div>';
+            if (containerCards) containerCards.innerHTML = '<div class="col-span-full text-center text-yellow-400 py-10"><i class="fas fa-exclamation-triangle fa-2x mb-3"></i><p>Nenhuma filial encontrada.</p></div>';
             
             document.getElementById('kpiFatGlobal').innerText = 'R$ 0,00';
-            document.getElementById('kpiProdGlobal').innerText = '0 Tons';
+            document.getElementById('kpiProdGlobal').innerText = '0 m³';
             document.getElementById('kpiDmGlobal').innerText = '0%';
             document.getElementById('kpiFiliaisAtivas').innerText = '0';
             renderizarGraficoComparativo([]);
             return;
+        }
+
+        // =========================================================
+        // 2. BUSCAR TODO O HISTÓRICO DE VIAGENS (Contornando o limite de 1000 do Supabase)
+        // =========================================================
+        let todasViagens = [];
+        let fromViagens = 0;
+        let fetchViagens = true;
+        
+        while (fetchViagens) {
+            const { data: vData, error: vErr } = await window.supabaseClient
+                .from('historico_viagens')
+                .select('filial_id, volumeReal, dataDaBaseExcel, created_at')
+                .range(fromViagens, fromViagens + 999);
+            
+            if (vErr || !vData || vData.length === 0) {
+                fetchViagens = false;
+            } else {
+                todasViagens = todasViagens.concat(vData);
+                fromViagens += 1000;
+                if (vData.length < 1000) fetchViagens = false;
+            }
         }
 
         let filiaisData = [];
@@ -48,33 +70,26 @@ window.atualizarDadosExecutivos = async function() {
         let totalDmGlobal = 0;
         let filiaisValidasParaDM = 0;
 
-        // 2. BUSCAR DADOS REAIS RESTRINGINDO ESTRITAMENTE POR FILIAL
+        // 3. PROCESSAR OS DADOS DE CADA FILIAL ISOLADAMENTE
         for (let filial of filiaisDB) {
             
             let faturamentoReal = 0;
             let producaoReal = 0;
             let dmReal = 0;
 
-            // =========================================================
-            // A. PRODUÇÃO (Tabela 'historico_viagens' -> volumeReal)
-            // =========================================================
-            const { data: viagensDB } = await window.supabaseClient
-                .from('historico_viagens')
-                .select('*')
-                .eq('filial_id', filial.id); // Barreira da filial
+            // A. PRODUÇÃO (Filtra da lista gigante apenas as da filial atual)
+            const viagensDB = todasViagens.filter(v => String(v.filial_id) === String(filial.id));
 
-            if (viagensDB && viagensDB.length > 0) {
+            if (viagensDB.length > 0) {
                 const viagensFiltradas = viagensDB.filter(v => {
-                    if (!mesFiltro) return true; // Se não tem filtro, soma tudo
+                    if (!mesFiltro) return true; // Mostra tudo se não tiver mês filtrado
                     
-                    // Tenta usar dataDaBaseExcel, se não tiver, usa a data de criação (created_at)
                     let dataOriginal = v.dataDaBaseExcel;
                     if (!dataOriginal || dataOriginal === 'Desconhecida') {
                         dataOriginal = v.created_at;
                     }
                     if (!dataOriginal) return false;
                     
-                    // Limpa a data removendo horas ("T" ou espaços)
                     let dataLimpa = String(dataOriginal).trim().split('T')[0].split(' ')[0]; 
                     
                     if (dataLimpa.includes('/')) {
@@ -89,14 +104,12 @@ window.atualizarDadosExecutivos = async function() {
                         if (partesData.length >= 3) {
                             let ano = partesData[0];
                             let mes = partesData[1].padStart(2, '0');
-                            let mesAnoViagem = `${ano}-${mes}`;
-                            return mesAnoViagem === mesFiltro;
+                            return `${ano}-${mes}` === mesFiltro;
                         }
                     }
                     return false;
                 });
                 
-                // Soma a coluna volumeReal garantindo que casas decimais com vírgula ou nulos não quebrem o cálculo
                 producaoReal = viagensFiltradas.reduce((acc, curr) => {
                     let vol = curr.volumeReal;
                     if (vol === undefined || vol === null) return acc;
@@ -104,9 +117,7 @@ window.atualizarDadosExecutivos = async function() {
                 }, 0);
             }
 
-            // =========================================================
-            // B. FATURAMENTO (Tabela 'faturamento_diario')
-            // =========================================================
+            // B. FATURAMENTO
             if (mesFiltro) {
                 const anoMes = mesFiltro.split('-'); 
                 const ultimoDia = new Date(anoMes[0], anoMes[1], 0).getDate(); 
@@ -114,21 +125,19 @@ window.atualizarDadosExecutivos = async function() {
                 const dataInicio = `${mesFiltro}-01`;
                 const dataFim = `${mesFiltro}-${ultimoDia}`;
 
-                const { data: fatDB, error: errFat } = await window.supabaseClient
+                const { data: fatDB } = await window.supabaseClient
                     .from('faturamento_diario')
                     .select('valor')
                     .eq('filial_id', filial.id) 
                     .gte('data_faturamento', dataInicio) 
                     .lte('data_faturamento', dataFim);   
 
-                if (!errFat && fatDB && fatDB.length > 0) {
+                if (fatDB && fatDB.length > 0) {
                     faturamentoReal = fatDB.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
                 }
             }
 
-            // =========================================================
-            // C. DISPONIBILIDADE MECÂNICA (Frotas e O.S.)
-            // =========================================================
+            // C. DISPONIBILIDADE MECÂNICA
             const { data: frotaDB } = await window.supabaseClient
                 .from('frotas_manutencao')
                 .select('cavalo')
@@ -161,7 +170,6 @@ window.atualizarDadosExecutivos = async function() {
                 dmReal = Number(((frotaDisponivel / totalFrota) * 100).toFixed(1));
             }
 
-            // Acumular totais para as caixas globais no topo do dashboard
             totalFatGlobal += faturamentoReal;
             totalProdGlobal += producaoReal;
             if (frotaDB && frotaDB.length > 0) {
@@ -169,11 +177,10 @@ window.atualizarDadosExecutivos = async function() {
                 filiaisValidasParaDM++;
             }
 
-            // Adiciona filial pronta na lista do Dashboard
             filiaisData.push({
                 id: filial.id,
                 nome: filial.nome || `Filial ${filial.id}`,
-                cidade: filial.cidade || filial.nome || 'Não Informada', // Guarda a cidade para o gráfico
+                cidade: filial.cidade || filial.nome || 'Não Informada', 
                 faturamento: faturamentoReal,
                 producao: producaoReal,
                 dm: dmReal,
@@ -181,15 +188,16 @@ window.atualizarDadosExecutivos = async function() {
             });
         }
 
-        // 3. ATUALIZAR KPIs GLOBAIS
+        // 4. ATUALIZAR KPIs GLOBAIS NO TOPO
         const mediaDmGlobal = filiaisValidasParaDM > 0 ? (totalDmGlobal / filiaisValidasParaDM).toFixed(1) : 0;
 
         document.getElementById('kpiFatGlobal').innerText = totalFatGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('kpiProdGlobal').innerText = totalProdGlobal.toLocaleString('pt-BR') + ' Tons';
+        // Alterado para Metros Cúbicos
+        document.getElementById('kpiProdGlobal').innerText = totalProdGlobal.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' m³';
         document.getElementById('kpiDmGlobal').innerText = mediaDmGlobal + '%';
         document.getElementById('kpiFiliaisAtivas').innerText = filiaisData.length.toString();
 
-        // 4. RENDERIZAR OS CARDS DINAMICAMENTE
+        // 5. RENDERIZAR OS CARDS (Com m³)
         let cardsHtml = '';
         filiaisData.forEach(filial => {
             let statusBadge = filial.status === 'Operacional' 
@@ -209,7 +217,7 @@ window.atualizarDadosExecutivos = async function() {
                         </div>
                         <div class="flex justify-between items-center border-b border-gray-700 pb-2">
                             <span class="text-gray-400 text-sm"><i class="fas fa-cubes w-5 text-blue-400"></i> Produção</span>
-                            <span class="font-semibold text-white">${filial.producao.toLocaleString('pt-BR')} T</span>
+                            <span class="font-semibold text-white">${filial.producao.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} m³</span>
                         </div>
                         <div class="flex justify-between items-center pb-1">
                             <span class="text-gray-400 text-sm"><i class="fas fa-tools w-5 text-orange-400"></i> Disponib. Mecânica</span>
@@ -221,7 +229,7 @@ window.atualizarDadosExecutivos = async function() {
         });
         if (containerCards) containerCards.innerHTML = cardsHtml;
 
-        // 5. ATUALIZAR GRÁFICOS DO ECHARTS
+        // 6. ATUALIZAR GRÁFICOS DO ECHARTS
         renderizarGraficoComparativo(filiaisData);
         
         const historicoGlobalMeses = ['Nov', 'Dez', 'Jan', 'Fev', 'Mar', 'Abr', mesFiltro.split('-')[1] || 'Atual'];
@@ -254,7 +262,6 @@ function renderizarGraficoComparativo(dados) {
         return;
     }
 
-    // Agora usa a CIDADE no eixo X (Se cidade for nula, usa o nome normal)
     const nomesEixoX = dados.map(d => d.cidade);
     
     const faturamentos = dados.map(d => d.faturamento);
@@ -267,7 +274,7 @@ function renderizarGraficoComparativo(dados) {
             axisPointer: { type: 'shadow' }
         },
         legend: {
-            data: ['Faturamento (R$)', 'Produção (Tons)'],
+            data: ['Faturamento (R$)', 'Produção (m³)'],
             textStyle: { color: '#cbd5e1' },
             top: 0
         },
@@ -275,7 +282,7 @@ function renderizarGraficoComparativo(dados) {
         xAxis: [
             {
                 type: 'category',
-                data: nomesEixoX, // Eixo X usando a Cidade
+                data: nomesEixoX, 
                 axisLabel: { color: '#94a3b8' }
             }
         ],
@@ -291,7 +298,7 @@ function renderizarGraficoComparativo(dados) {
                 type: 'value',
                 name: 'Produção',
                 nameTextStyle: { color: '#94a3b8' },
-                axisLabel: { color: '#94a3b8', formatter: '{value} T' },
+                axisLabel: { color: '#94a3b8', formatter: '{value} m³' },
                 splitLine: { show: false }
             }
         ],
@@ -309,7 +316,7 @@ function renderizarGraficoComparativo(dados) {
                 }
             },
             {
-                name: 'Produção (Tons)',
+                name: 'Produção (m³)',
                 type: 'line',
                 yAxisIndex: 1,
                 data: producoes,
