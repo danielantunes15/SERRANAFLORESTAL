@@ -317,8 +317,23 @@ const db = {
         await supabaseClient.storage.from('documentos_frota').remove([path]);
         const queryDel = supabaseClient.from('documentos_frota').delete().eq('identificador', identificador).eq('tipo_documento', tipo_documento);
         await aplicarFiltroFilial(queryDel);
+    },
+
+    // --- CONTROLADORES DE TRÁFEGO ---
+    async getControladoresTrafego() {
+        try {
+            const query = supabaseClient.from('controladores_trafego').select('*').eq('status', 'Ativo').order('nome', { ascending: true });
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getControladoresTrafego:", e); return []; }
+    },
+    async addControladorTrafego(controlador) {
+        await supabaseClient.from('controladores_trafego').insert([injetarFilial(controlador)]);
+    },
+    async deleteControladorTrafego(id) {
+        await supabaseClient.from('controladores_trafego').update({ status: 'Inativo' }).eq('id', id);
     }
 };
 
-// EXPORTAÇÃO GLOBAL CRÍTICA PARA QUE O RESTO DO SISTEMA ENCONTRE AS FUNÇÕES
 window.db = db;

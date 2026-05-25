@@ -1,21 +1,17 @@
 // ==================== js/indicadores.js ====================
 
 window.carregarDadosDashboard = async function() {
-    // ----------------------------------------------------
-    // CORREÇÃO: INICIAR RELÓGIO E TEMPORIZADOR
     atualizarRelogio();
     setInterval(atualizarRelogio, 1000);
-    // ----------------------------------------------------
 
     await atualizarPonteiros();
     carregarControladorAtual();
     carregarFrentesTv();
-    carregarOcorrenciasTv();
     carregarFrotasParadas();
     
     setInterval(() => {
-        carregarOcorrenciasTv();
         carregarFrotasParadas();
+        atualizarPonteiros();
     }, 10000);
 
     if(typeof atualizarFrentesDeTrabalho === 'function') {
@@ -79,7 +75,6 @@ async function atualizarPonteiros() {
     let totalCavalos = 0;
     let listaDeCavalos = [];
     
-    // Busca todos os Cavalos válidos e ATIVOS
     try {
         let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo');
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
@@ -95,7 +90,6 @@ async function atualizarPonteiros() {
     let cavalosEmManutencao = 0; 
     let cavalosSinistrados = 0; 
 
-    // Verifica as Ordens de Serviço
     try {
         let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo');
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
@@ -109,7 +103,6 @@ async function atualizarPonteiros() {
             osData.forEach(os => {
                 const placaLimpa = os.placa.trim().toUpperCase();
                 
-                // IGNORA COMPLETAMENTE SE FOR FROTA OU SE FOR TIPO "Cavalo Disponível S/ Carreta" E SOMENTE ATIVOS
                 if (listaDeCavalos.includes(placaLimpa) && os.tipo !== 'Cavalo Disponível S/ Carreta') {
                     if (os.status === 'Sinistrado') {
                         placasUnicasGeral.add(placaLimpa);
@@ -165,26 +158,6 @@ async function carregarControladorAtual() {
     
     const nome = (data && data.length > 0 && data[0].controlador) ? data[0].controlador : 'NÃO DEFINIDO';
     document.getElementById('dash-controlador-nome').textContent = nome;
-    document.getElementById('configControlador').value = nome === 'NÃO DEFINIDO' ? '' : nome;
-}
-
-window.salvarControladorDash = async function() {
-    const nome = document.getElementById('configControlador').value;
-    
-    let queryCtrl = supabaseClient.from('dashboard_status').select('id').limit(1);
-    if (typeof window.aplicarFiltroFilial === 'function') queryCtrl = window.aplicarFiltroFilial(queryCtrl);
-    const { data } = await queryCtrl;
-    
-    if(data && data.length > 0) {
-        await supabaseClient.from('dashboard_status').update({ controlador: nome }).eq('id', data[0].id);
-        carregarControladorAtual();
-    } else {
-        // Se a filial ainda não tem um registro de status do dashboard, ele cria
-        let novoStatus = { controlador: nome };
-        if (typeof window.injetarFilial === 'function') novoStatus = window.injetarFilial(novoStatus);
-        await supabaseClient.from('dashboard_status').insert([novoStatus]);
-        carregarControladorAtual();
-    }
 }
 
 async function carregarFrentesTv() {
@@ -193,13 +166,11 @@ async function carregarFrentesTv() {
     const { data } = await queryFrentes;
     
     const container = document.getElementById('lista-frentes-tv');
-    const containerConfig = document.getElementById('config-lista-frentes');
     const elKpiFrentes = document.getElementById('kpi-frentes');
     
     if (data && data.length > 0) {
         if(elKpiFrentes) elKpiFrentes.textContent = data.length;
         if(container) container.innerHTML = ''; 
-        if(containerConfig) containerConfig.innerHTML = '';
         data.forEach(f => {
             if(container) {
                 container.innerHTML += `
@@ -213,7 +184,6 @@ async function carregarFrentesTv() {
                     </div>
                 </div>`;
             }
-            if(containerConfig) containerConfig.innerHTML += `<div class="mini-item"><span>${f.nome}</span> <button class="btn-remover-mini" onclick="removerFrenteDash('${f.id}')"><i class="fas fa-trash"></i></button></div>`;
         });
         atualizarFrentesDeTrabalho();
     } else {
@@ -239,7 +209,6 @@ async function carregarFrotasParadas() {
         if(!container) return;
         container.innerHTML = ''; 
         
-        // Filtra para exibir APENAS cavalos ativos e ignora Cavalo Disponível S/ Carreta
         const osFiltradas = data ? data.filter(os => listaCavalos.includes(os.placa.trim().toUpperCase()) && os.tipo !== 'Cavalo Disponível S/ Carreta') : [];
 
         if (!osFiltradas || osFiltradas.length === 0) {
@@ -288,68 +257,11 @@ async function carregarFrotasParadas() {
     }
 }
 
-async function carregarOcorrenciasTv() {
-    let queryOc = supabaseClient.from('dashboard_ocorrencias').select('*').eq('status', 'Pendente');
-    if (typeof window.aplicarFiltroFilial === 'function') queryOc = window.aplicarFiltroFilial(queryOc);
-    const { data } = await queryOc;
-    
-    const containerConfig = document.getElementById('config-lista-ocorrencias');
-    if (data && data.length > 0) {
-        containerConfig.innerHTML = '';
-        data.forEach(o => {
-            containerConfig.innerHTML += `<div class="mini-item"><span><strong>${o.tipo}:</strong> ${o.descricao}</span> <button class="btn-remover-mini text-green" onclick="removerOcorrenciaDash('${o.id}')"><i class="fas fa-check"></i></button></div>`;
-        });
-    } else {
-        if(containerConfig) containerConfig.innerHTML = '';
-    }
-    atualizarPonteiros();
-}
-
-window.abrirConfigDash = () => document.getElementById('modalConfigDash').style.display = 'flex';
-window.fecharConfigDash = () => document.getElementById('modalConfigDash').style.display = 'none';
-
-window.addFrenteDash = async function() {
-    const nome = document.getElementById('novaFrenteInput').value;
-    if(!nome) return;
-    
-    let novaFrente = { nome: nome };
-    if (typeof window.injetarFilial === 'function') novaFrente = window.injetarFilial(novaFrente);
-    
-    await supabaseClient.from('frentes_trabalho').insert([novaFrente]);
-    document.getElementById('novaFrenteInput').value = '';
-    carregarFrentesTv();
-}
-
-window.removerFrenteDash = async function(id) {
-    await supabaseClient.from('frentes_trabalho').update({ status: 'Inativa' }).eq('id', id);
-    carregarFrentesTv();
-}
-
-window.addOcorrenciaDash = async function() {
-    const tipo = document.getElementById('novaOcorrenciaTipo').value;
-    const desc = document.getElementById('novaOcorrenciaDesc').value;
-    if(!desc) return;
-    
-    let novaOcorrencia = { tipo: tipo, descricao: desc };
-    if (typeof window.injetarFilial === 'function') novaOcorrencia = window.injetarFilial(novaOcorrencia);
-    
-    await supabaseClient.from('dashboard_ocorrencias').insert([novaOcorrencia]);
-    document.getElementById('novaOcorrenciaDesc').value = '';
-    carregarOcorrenciasTv();
-}
-
-window.removerOcorrenciaDash = async function(id) {
-    await supabaseClient.from('dashboard_ocorrencias').update({ status: 'Resolvido' }).eq('id', id);
-    carregarOcorrenciasTv();
-}
-
 window.exportarDashboardPNG = function() {
     const elemento = document.getElementById('area-print-dash');
     const botaoPrint = document.getElementById('btn-gerar-print');
-    const botaoFlutuante = document.getElementById('btn-floating-config');
     
     botaoPrint.style.display = 'none';
-    if(botaoFlutuante) botaoFlutuante.style.display = 'none';
     
     html2canvas(elemento, { 
         backgroundColor: '#070b14', 
@@ -363,6 +275,5 @@ window.exportarDashboardPNG = function() {
         link.click();
         
         botaoPrint.style.display = 'flex';
-        if(botaoFlutuante) botaoFlutuante.style.display = 'block';
     });
 }

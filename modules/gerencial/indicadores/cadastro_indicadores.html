@@ -1,0 +1,107 @@
+<style>
+    .dash-pro-wrapper {
+        background-color: #070b14;
+        padding: 22px 30px; 
+        border-radius: 16px;
+        font-family: var(--font-family);
+        color: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        gap: 22px; 
+        min-height: calc(100vh - 80px);
+    }
+    .glass-panel {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    .dark-input, .dark-select {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #fff;
+        padding: 10px 15px;
+        border-radius: 6px;
+        font-family: inherit;
+        outline: none;
+        width: 100%;
+    }
+    .dark-input:focus, .dark-select:focus {
+        border-color: #38bdf8;
+        box-shadow: 0 0 5px rgba(56, 189, 248, 0.5);
+    }
+    .dark-select option { background: #0f172a; color: #fff; }
+    .btn-primary-green {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white; border: none; padding: 10px 20px; border-radius: 6px;
+        font-weight: bold; cursor: pointer; transition: 0.3s;
+    }
+    .btn-primary-green:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4); }
+    .btn-danger-block {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white; border: none; padding: 10px 20px; border-radius: 6px;
+        font-weight: bold; cursor: pointer; transition: 0.3s;
+    }
+    .btn-danger-block:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4); }
+    .lista-scroll::-webkit-scrollbar { width: 6px; }
+    .lista-scroll::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 4px; }
+</style>
+
+<div class="dash-pro-wrapper fade-in" style="padding: 20px;">
+    <h2 style="color: #fff; margin-bottom: 20px; font-weight: 900; font-size: 1.8rem;"><i class="fas fa-list-alt text-blue"></i> Configurações do Painel de Indicadores</h2>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        
+        <div class="glass-panel" style="padding: 25px; display: flex; flex-direction: column;">
+            <h3 style="color: #fff; margin-top: 0; margin-bottom: 20px; font-size: 1.3rem;"><i class="fas fa-user-shield text-blue"></i> Controladores de Tráfego</h3>
+            
+            <div style="margin-bottom: 25px; background: rgba(56, 189, 248, 0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.2);">
+                <label style="color:#38bdf8; font-weight: bold; display:block; margin-bottom:10px;"><i class="fas fa-desktop"></i> Controlador Atual no Painel (TV):</label>
+                <div style="display: flex; gap: 10px;">
+                    <select id="cadControladorAtual" class="dark-select">
+                        <option value="">Carregando...</option>
+                    </select>
+                    <button class="btn-primary-green" onclick="salvarControladorDashAtual()" style="background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);">Aplicar</button>
+                </div>
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 0 0 20px 0;">
+            
+            <label style="color:#fff; font-weight: bold; display:block; margin-bottom:10px;">Cadastrar Novo Controlador:</label>
+            <div style="display:flex; gap:10px; margin-bottom: 20px;">
+                <input type="text" id="novoControladorNome" class="dark-input" placeholder="Nome do Controlador..." style="flex:1;">
+                <button class="btn-primary-green" onclick="addControladorDB()"><i class="fas fa-plus"></i></button>
+            </div>
+            
+            <div id="lista-controladores-db" class="lista-scroll" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: 250px;"></div>
+        </div>
+
+        <div class="glass-panel" style="padding: 25px; display: flex; flex-direction: column;">
+            <h3 style="color: #fff; margin-top: 0; margin-bottom: 20px; font-size: 1.3rem;"><i class="fas fa-route text-green"></i> Frentes de Trabalho no Painel</h3>
+            
+            <label style="color:#fff; font-weight: bold; display:block; margin-bottom:10px;">Adicionar Frente de Trabalho:</label>
+            <div style="display:flex; gap:10px; margin-bottom: 20px;">
+                <input type="text" id="cadNovaFrente" class="dark-input" placeholder="Ex: Fazenda Boa Esperança" style="flex:1;">
+                <button class="btn-primary-green" onclick="cadAddFrente()"><i class="fas fa-plus"></i></button>
+            </div>
+            
+            <div id="cad-lista-frentes" class="lista-scroll" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: 380px;"></div>
+        </div>
+
+        <div class="glass-panel" style="padding: 25px; grid-column: span 2;">
+            <h3 style="color: #fff; margin-top: 0; margin-bottom: 20px; font-size: 1.3rem;"><i class="fas fa-exclamation-triangle text-red"></i> Ocorrências no Painel</h3>
+            
+            <div style="display:flex; gap:10px; margin-bottom: 20px;">
+                <select id="cadNovaOcTipo" class="dark-select" style="width: 250px;">
+                    <option value="Atraso">Atraso</option>
+                    <option value="Mecânica">Mecânica</option>
+                </select>
+                <input type="text" id="cadNovaOcDesc" class="dark-input" placeholder="Descrição da ocorrência..." style="flex:1;">
+                <button class="btn-danger-block" onclick="cadAddOcorrencia()" style="width:auto; padding: 0 30px;"><i class="fas fa-bullhorn"></i> Registrar Ocorrência</button>
+            </div>
+            
+            <div id="cad-lista-ocorrencias" class="lista-scroll" style="max-height: 200px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap:10px;"></div>
+        </div>
+
+    </div>
+</div>

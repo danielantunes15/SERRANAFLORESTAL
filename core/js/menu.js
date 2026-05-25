@@ -19,6 +19,7 @@ const MAPA_MENUS = [
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
     { id: 'indicadores', label: 'Indicadores - Cliente', setor: 'Indicadores', icon: 'fas fa-chart-area' },
     { id: 'indicadores_serrana', label: 'Indicadores Serrana', setor: 'Indicadores', icon: 'fas fa-chart-bar' },
+    { id: 'cadastro_indicadores', label: 'Cadastro Indicadores', setor: 'Indicadores', icon: 'fas fa-list-alt' },
 
     // ================= NOVO MÓDULO GERENCIAL =================
     { id: 'visao_geral', label: 'Visão Geral (Analítico)', setor: 'Gerencial', icon: 'fas fa-chart-pie' },
@@ -203,6 +204,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         'relatorio_gerencial': 'modules/gerencial/painel/relatorio_gerencial.html',
         'indicadores': 'modules/gerencial/indicadores/indicadores.html',
         'indicadores_serrana': 'modules/gerencial/indicadores/indicadores_serrana.html',
+        'cadastro_indicadores': 'modules/gerencial/indicadores/cadastro_indicadores.html',
         'config': 'modules/gerencial/config/config.html',
         'central': 'modules/gerencial/central/central.html',
         'logs_globais': 'modules/gerencial/central/logs_globais.html',
@@ -249,6 +251,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
         if (pagina === 'indicadores_serrana' && typeof window.carregarDadosDashboardSerrana === 'function') window.carregarDadosDashboardSerrana();
+        if (pagina === 'cadastro_indicadores' && typeof window.initCadastroIndicadores === 'function') window.initCadastroIndicadores();
         if (pagina === 'servicos' && typeof window.renderizarTelaServicos === 'function') window.renderizarTelaServicos();
         if (pagina === 'cadastro_frota' && typeof window.renderizarTelaCadastroFrota === 'function') window.renderizarTelaCadastroFrota();
         if (pagina === 'documentos_frota' && typeof window.renderizarTelaDocumentosFrota === 'function') window.renderizarTelaDocumentosFrota();
@@ -264,7 +267,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
 
         if (pagina === 'config') {
-            // Estes gatilhos agora acionam as funções que movemos para o gestao_usuarios.js
             if (typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
             if (typeof window.renderizarLogs === 'function') window.renderizarLogs();
             window.carregarCheckboxesPermissoes(); 

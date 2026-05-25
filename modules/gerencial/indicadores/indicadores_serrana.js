@@ -1,16 +1,12 @@
 // ==================== js/indicadores_serrana.js ====================
 
 window.carregarDadosDashboardSerrana = async function() {
-    // ----------------------------------------------------
-    // CORREÇÃO: INICIAR RELÓGIO E TEMPORIZADOR SERRANA
     atualizarRelogioSerrana();
     setInterval(atualizarRelogioSerrana, 1000);
-    // ----------------------------------------------------
 
     await atualizarPonteirosSerrana();
     carregarControladorAtualSerrana();
     carregarFrentesTvSerrana();
-    carregarOcorrenciasTvSerrana();
     carregarFrotasParadasSerrana();
       
     setTimeout(() => {
@@ -18,8 +14,8 @@ window.carregarDadosDashboardSerrana = async function() {
     }, 300);
     
     setInterval(() => {
-        carregarOcorrenciasTvSerrana();
         carregarFrotasParadasSerrana();
+        atualizarPonteirosSerrana();
         renderizarGraficoEvolucaoDmSerrana();
     }, 60000); 
 }
@@ -71,7 +67,6 @@ async function atualizarPonteirosSerrana() {
             osData.forEach(os => {
                 const placaLimpa = os.placa.trim().toUpperCase();
                 
-                // SÓ PROCESSA SE FOR UM CAVALO VÁLIDO E ATIVO (Ignora O.S de Frota)
                 if (listaDeCavalos.includes(placaLimpa)) {
                     if (os.status === 'Sinistrado') {
                         placasUnicasGeral.add(placaLimpa);
@@ -136,7 +131,6 @@ async function carregarFrotasParadasSerrana() {
         let html = '';
         const agora = new Date();
         
-        // Filtra as OS para exibir APENAS cavalos ATIVOS
         const osFiltradas = osData ? osData.filter(os => listaCavalos.includes(os.placa.trim().toUpperCase())) : [];
         
         if (osFiltradas && osFiltradas.length > 0) {
@@ -234,25 +228,6 @@ async function carregarControladorAtualSerrana() {
     
     const nome = (data && data.length > 0 && data[0].controlador) ? data[0].controlador : 'NÃO DEFINIDO';
     document.getElementById('dash-controlador-nome').textContent = nome;
-    document.getElementById('configControlador').value = nome === 'NÃO DEFINIDO' ? '' : nome;
-}
-
-window.salvarControladorDashSerrana = async function() {
-    const nome = document.getElementById('configControlador').value;
-    
-    let queryCtrl = supabaseClient.from('dashboard_status').select('id').limit(1);
-    if (typeof window.aplicarFiltroFilial === 'function') queryCtrl = window.aplicarFiltroFilial(queryCtrl);
-    const { data } = await queryCtrl;
-    
-    if(data && data.length > 0) {
-        await supabaseClient.from('dashboard_status').update({ controlador: nome }).eq('id', data[0].id);
-        carregarControladorAtualSerrana();
-    } else {
-        let novoStatus = { controlador: nome };
-        if (typeof window.injetarFilial === 'function') novoStatus = window.injetarFilial(novoStatus);
-        await supabaseClient.from('dashboard_status').insert([novoStatus]);
-        carregarControladorAtualSerrana();
-    }
 }
 
 async function carregarFrentesTvSerrana() {
@@ -262,14 +237,12 @@ async function carregarFrentesTvSerrana() {
         const { data } = await queryFrentes;
         
         const containerNovo = document.getElementById('kpi-lista-frentes-nomes');
-        const containerConfig = document.getElementById('config-lista-frentes');
         const elKpiFrentes = document.getElementById('kpi-frentes');
         
         if (data && data.length > 0) {
             if(elKpiFrentes) elKpiFrentes.textContent = data.length;
             
             let htmlCaixinhas = '';
-            let htmlConfig = '';
             
             data.forEach(f => {
                 htmlCaixinhas += `
@@ -277,18 +250,14 @@ async function carregarFrentesTvSerrana() {
                     <i class="fas fa-truck-loading" style="font-size: 1.1rem;"></i> 
                     <span style="flex-grow: 1;">${f.nome}</span>
                 </div>`;
-                
-                htmlConfig += `<div class="mini-item"><span>${f.nome}</span> <button class="btn-remover-mini" onclick="removerFrenteDashSerrana('${f.id}')"><i class="fas fa-trash"></i></button></div>`;
             });
             
             if(containerNovo) containerNovo.innerHTML = htmlCaixinhas;
-            if(containerConfig) containerConfig.innerHTML = htmlConfig;
             
         } else {
             if(elKpiFrentes) elKpiFrentes.textContent = '0';
             const msgVazia = '<div class="empty-state" style="font-size: 0.85rem; color: #94a3b8; font-weight: bold;">Nenhuma frente ativa.</div>';
             if(containerNovo) containerNovo.innerHTML = msgVazia;
-            if(containerConfig) containerConfig.innerHTML = '';
         }
     } catch(e) { console.error("Erro Frentes:", e); }
 }
@@ -321,7 +290,6 @@ async function renderizarGraficoEvolucaoDmSerrana() {
         const limpaPlaca = p => String(p || 'DESCONHECIDO').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         const frotasCavalosArray = frotas.map(c => limpaPlaca(c));
         
-        // Remove OS de Frota e frotas Inativas para não afetar o gráfico
         let ordensServico = (osData || []).filter(os => frotasCavalosArray.includes(limpaPlaca(os.placa)));
 
         let totalFrotasValidas = totalFrotas;
@@ -461,69 +429,11 @@ async function renderizarGraficoEvolucaoDmSerrana() {
     }
 }
 
-async function carregarOcorrenciasTvSerrana() {
-    let queryOc = supabaseClient.from('dashboard_ocorrencias').select('*').eq('status', 'Pendente');
-    if (typeof window.aplicarFiltroFilial === 'function') queryOc = window.aplicarFiltroFilial(queryOc);
-    const { data } = await queryOc;
-    
-    const containerConfig = document.getElementById('config-lista-ocorrencias');
-    if (data && data.length > 0) {
-        let htmlOcorrencias = '';
-        data.forEach(o => {
-            htmlOcorrencias += `<div class="mini-item"><span><strong>${o.tipo}:</strong> ${o.descricao}</span> <button class="btn-remover-mini text-green" onclick="removerOcorrenciaDashSerrana('${o.id}')"><i class="fas fa-check"></i></button></div>`;
-        });
-        containerConfig.innerHTML = htmlOcorrencias;
-    } else {
-        if(containerConfig) containerConfig.innerHTML = '';
-    }
-    atualizarPonteirosSerrana();
-}
-
-window.abrirConfigDashSerrana = () => document.getElementById('modalConfigDash').style.display = 'flex';
-window.fecharConfigDashSerrana = () => document.getElementById('modalConfigDash').style.display = 'none';
-
-window.addFrenteDashSerrana = async function() {
-    const nome = document.getElementById('novaFrenteInput').value;
-    if(!nome) return;
-    
-    let novaFrente = { nome: nome };
-    if (typeof window.injetarFilial === 'function') novaFrente = window.injetarFilial(novaFrente);
-    
-    await supabaseClient.from('frentes_trabalho').insert([novaFrente]);
-    document.getElementById('novaFrenteInput').value = '';
-    carregarFrentesTvSerrana();
-}
-
-window.removerFrenteDashSerrana = async function(id) {
-    await supabaseClient.from('frentes_trabalho').update({ status: 'Inativa' }).eq('id', id);
-    carregarFrentesTvSerrana();
-}
-
-window.addOcorrenciaDashSerrana = async function() {
-    const tipo = document.getElementById('novaOcorrenciaTipo').value;
-    const desc = document.getElementById('novaOcorrenciaDesc').value;
-    if(!desc) return;
-    
-    let novaOcorrencia = { tipo: tipo, descricao: desc };
-    if (typeof window.injetarFilial === 'function') novaOcorrencia = window.injetarFilial(novaOcorrencia);
-    
-    await supabaseClient.from('dashboard_ocorrencias').insert([novaOcorrencia]);
-    document.getElementById('novaOcorrenciaDesc').value = '';
-    carregarOcorrenciasTvSerrana();
-}
-
-window.removerOcorrenciaDashSerrana = async function(id) {
-    await supabaseClient.from('dashboard_ocorrencias').update({ status: 'Resolvido' }).eq('id', id);
-    carregarOcorrenciasTvSerrana();
-}
-
 window.exportarDashboardPNGSerrana = function() {
     const elemento = document.getElementById('area-print-dash');
     const botaoPrint = document.getElementById('btn-gerar-print');
-    const botaoFlutuante = document.getElementById('btn-floating-config');
     
     botaoPrint.style.display = 'none';
-    if(botaoFlutuante) botaoFlutuante.style.display = 'none';
     
     html2canvas(elemento, { 
         backgroundColor: '#070b14', 
@@ -537,6 +447,5 @@ window.exportarDashboardPNGSerrana = function() {
         link.click();
         
         botaoPrint.style.display = 'flex';
-        if(botaoFlutuante) botaoFlutuante.style.display = 'block';
     });
 }

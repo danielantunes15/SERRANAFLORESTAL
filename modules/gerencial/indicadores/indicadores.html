@@ -2,13 +2,13 @@
     /* Estilos do Layout Base */
     .dash-pro-wrapper {
         background-color: #070b14;
-        padding: 22px 30px; /* Aumentado padding geral */
+        padding: 22px 30px; 
         border-radius: 16px;
         font-family: var(--font-family);
         color: #f8fafc;
         display: flex;
         flex-direction: column;
-        gap: 22px; /* Aumentado gap geral */
+        gap: 22px; 
         min-height: calc(100vh - 80px);
     }
 
@@ -18,16 +18,16 @@
         grid-template-columns: 1fr auto 1fr; 
         align-items: center;
         border-bottom: 2px solid rgba(255,255,255,0.05);
-        padding-bottom: 18px; /* Aumentado */
+        padding-bottom: 18px; 
     }
 
     .header-left { display: flex; justify-content: flex-start; }
     .header-center { text-align: center; }
     .header-right { display: flex; justify-content: flex-end; }
 
-    .pro-title-box h2 { margin: 0; font-size: 2rem; font-weight: 900; letter-spacing: 1px; color: #fff; } /* Aumentado fonte */
+    .pro-title-box h2 { margin: 0; font-size: 2rem; font-weight: 900; letter-spacing: 1px; color: #fff; } 
     .pro-title-box p { margin: 4px 0 0 0; font-size: 1.05rem; color: #94a3b8; font-weight: 600; letter-spacing: 2px; }
-    .pro-logo { height: 68px; object-fit: contain; } /* Logo maior */
+    .pro-logo { height: 68px; object-fit: contain; } 
 
     /* TOPO: 3 KPIs */
     .dash-pro-kpis {
@@ -37,18 +37,18 @@
     }
 
     .pro-kpi-card {
-        padding: 18px 12px; /* Aumentado */
+        padding: 18px 12px; 
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
-        min-height: 230px; /* Aumentado */
+        min-height: 230px; 
         text-align: center;
     }
 
     .kpi-title {
         margin: 0 0 10px 0; 
-        font-size: 1.1rem; /* Aumentado */
+        font-size: 1.1rem; 
         text-transform: uppercase; 
         font-weight: 800;
         height: 32px; 
@@ -60,23 +60,23 @@
     }
 
     .kpi-content-wrapper {
-        position: relative; flex-grow: 1; width: 100%; min-height: 150px; /* Aumentado */
+        position: relative; flex-grow: 1; width: 100%; min-height: 150px; 
         display: flex; justify-content: center; align-items: center;
     }
 
     /* AJUSTE DE PROPORÇÃO GAUGE MAIOR */
     .gauge-simple-container {
-        position: absolute; width: 220px; height: 110px; overflow: hidden; top: 0; /* Aumentado */
+        position: absolute; width: 220px; height: 110px; overflow: hidden; top: 0; 
     }
 
     .gauge-simple-arc {
-        position: absolute; width: 220px; height: 220px; border: 12px solid #1e293b; /* Aumentado */
+        position: absolute; width: 220px; height: 220px; border: 12px solid #1e293b; 
         border-radius: 50%; box-sizing: border-box; border-bottom-color: transparent;
         border-left-color: transparent; transform: rotate(-45deg);
     }
 
     .gauge-simple-fill {
-        position: absolute; width: 220px; height: 220px; border: 12px solid #38bdf8; /* Aumentado */
+        position: absolute; width: 220px; height: 220px; border: 12px solid #38bdf8; 
         border-radius: 50%; box-sizing: border-box; border-bottom-color: transparent;
         border-left-color: transparent; 
         transform: rotate(-225deg);
@@ -85,26 +85,26 @@
 
     /* Estilos do Ponteiro */
     .gauge-ponteiro {
-        position: absolute; bottom: 0; left: 50%; width: 4px; height: 90px;  /* Aumentado */
+        position: absolute; bottom: 0; left: 50%; width: 4px; height: 90px;  
         background: linear-gradient(to top, #ffffff, #94a3b8); transform-origin: bottom center;
         transform: translateX(-50%) rotate(-90deg); transition: transform 1s ease-out;
         z-index: 3; border-radius: 4px 4px 0 0; box-shadow: 2px 0 5px rgba(0,0,0,0.3);
     }
 
     .gauge-centro {
-        position: absolute; bottom: -8px; left: 50%; width: 18px; height: 18px; /* Aumentado */
+        position: absolute; bottom: -8px; left: 50%; width: 18px; height: 18px; 
         background-color: #38bdf8; border: 2px solid #1e293b; border-radius: 50%;
         transform: translateX(-50%); z-index: 4;
     }
 
-    .icon-bg { font-size: 7rem; opacity: 0.1; position: absolute; z-index: 1; } /* Aumentado */
+    .icon-bg { font-size: 7rem; opacity: 0.1; position: absolute; z-index: 1; } 
 
     .kpi-data-front {
         position: relative; z-index: 5; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; margin-top: 30px; /* Aumentado */
+        align-items: center; justify-content: center; margin-top: 30px; 
     }
 
-    .kpi-number { font-size: 3rem; font-weight: 900; line-height: 1; color: #ffffff !important; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } /* Aumentado */
+    .kpi-number { font-size: 3rem; font-weight: 900; line-height: 1; color: #ffffff !important; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } 
     .kpi-subtitle { font-size: 0.85rem; color: #ffffff !important; margin-top: 5px; font-weight: bold; text-transform: uppercase; }
 
     .text-blue { color: #38bdf8 !important; }
@@ -135,17 +135,17 @@
     /* CAIXA DE HORA DA FRENTE */
     .frente-time-box {
         display: flex; flex-direction: column; justify-content: center; align-items: center;
-        padding: 12px; border-right: 1px dashed rgba(255,255,255,0.1); min-width: 150px; background: rgba(0,0,0,0.3); /* Aumentado padding e min-width */
+        padding: 12px; border-right: 1px dashed rgba(255,255,255,0.1); min-width: 150px; background: rgba(0,0,0,0.3); 
     }
 
-    .frente-data { font-size: 1.05rem; font-weight: 800; color: #94a3b8; } /* Aumentado */
-    .frente-turno { padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; text-transform: uppercase; margin-top: 5px; } /* Aumentado */
+    .frente-data { font-size: 1.05rem; font-weight: 800; color: #94a3b8; } 
+    .frente-turno { padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; text-transform: uppercase; margin-top: 5px; } 
 
     .turno-dia-style { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #f59e0b; }
     .turno-noite-style { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid #38bdf8; }
 
-    .frente-content-box { padding: 15px; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; } /* Aumentado */
-    .frente-nome-titulo { font-size: 1.15rem; color: #fff; margin: 0; text-transform: uppercase; display: flex; align-items: center; gap: 8px; } /* Aumentado */
+    .frente-content-box { padding: 15px; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; } 
+    .frente-nome-titulo { font-size: 1.15rem; color: #fff; margin: 0; text-transform: uppercase; display: flex; align-items: center; gap: 8px; } 
 
     .dash-right-info { display: flex; flex-direction: column; height: 100%; }
     .info-bars-container { display: flex; flex-direction: column; gap: 18px; height: 100%; flex-grow: 1; }
@@ -161,12 +161,12 @@
     .bar-controlador { border-left-color: #38bdf8; }
 
     /* TITULOS DO PAINEL INFERIOR AGORA BRANCOS */
-    .info-bar-label { font-size: 1.1rem; color: #ffffff !important; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; gap: 10px; } /* Aumentado */
-    .info-bar-value { font-size: 1.5rem; color: #ffffff !important; font-weight: 900; text-transform: uppercase; } /* Aumentado */
+    .info-bar-label { font-size: 1.1rem; color: #ffffff !important; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; gap: 10px; } 
+    .info-bar-value { font-size: 1.5rem; color: #ffffff !important; font-weight: 900; text-transform: uppercase; } 
 
     /* FORÇANDO DATA E HORA A TEREM A MESMA FONTE, COR E TAMANHO */
     #dash-data, #dash-hora {
-        font-size: 1.5rem !important; /* Aumentado */
+        font-size: 1.5rem !important; 
         font-family: inherit !important;
         color: #ffffff !important;
         font-weight: 900 !important;
@@ -193,26 +193,26 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 12px 16px; /* Aumentado */
+        padding: 12px 16px; 
         border-radius: 8px;
         background: rgba(255,255,255,0.02);
         border: 1px solid rgba(255,255,255,0.05);
         border-left: 4px solid #ccc;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         width: 100%;
-        margin-bottom: 12px; /* Aumentado */
+        margin-bottom: 12px; 
     }
     .item-frota-parada.preventiva { border-left-color: #f59e0b; }
     .item-frota-parada.corretiva { border-left-color: #ef4444; }
     .item-frota-parada.borracharia { border-left-color: #38bdf8; }
 
-    .cavalo-info { display: flex; align-items: center; gap: 12px; } /* Aumentado */
-    .identificacao-cavalo { font-weight: 800; font-size: 1.15rem; color: #fff; letter-spacing: 1px;} /* Aumentado */
+    .cavalo-info { display: flex; align-items: center; gap: 12px; } 
+    .identificacao-cavalo { font-weight: 800; font-size: 1.15rem; color: #fff; letter-spacing: 1px;} 
 
     .badge-tipo {
-        font-size: 0.85rem; /* Aumentado */
+        font-size: 0.85rem; 
         font-weight: 800;
-        padding: 5px 12px; /* Aumentado */
+        padding: 5px 12px; 
         border-radius: 20px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -317,60 +317,6 @@
                     <span class="info-bar-value" id="dash-controlador-nome">AGUARDANDO...</span>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
-
-<div class="dash-floating-actions" id="btn-floating-config">
-    <button class="btn-float btn-config" onclick="abrirConfigDash()">
-        <i class="fas fa-sliders-h"></i> Preencher Painel
-    </button>
-</div>
-
-<div id="modalConfigDash" class="modal-overlay" style="display: none;">
-    <div class="custom-modal modal-largo">
-        <div class="modal-header">
-            <h3>⚙️ Preencher Dados do Painel</h3>
-            <button class="close-modal" onclick="fecharConfigDash()">&times;</button>
-        </div>
-        <div class="modal-body dash-config-body" style="max-height: 70vh; overflow-y: auto;">
-            <div class="config-section">
-                <label style="color:#fff; font-weight:bold; display:block;">1. Controlador do Turno</label>
-                <select id="configControlador" class="dark-select" onchange="salvarControladorDash()">
-                    <option value="" disabled selected>Selecione...</option>
-                    <option value="ANDERSON LEMOS">ANDERSON LEMOS</option>
-                    <option value="CLAUDIO BRITO">CLAUDIO BRITO</option>
-                    <option value="FILIPE CARDOSO">FILIPE CARDOSO</option>
-                    <option value="OSVALDO NETO">OSVALDO NETO</option>
-                    <option value="OSVALDO / ANDERSON">OSVALDO / ANDERSON</option>
-                    <option value="FILIPE / CLAUDIO">FILIPE / CLAUDIO</option>
-                </select>
-            </div>
-            <hr class="dash-divisor">
-            <div class="config-section">
-                <label style="color:#fff; font-weight:bold; display:block;">2. Adicionar Frente de Trabalho</label>
-                <div class="input-group-inline">
-                    <input type="text" id="novaFrenteInput" class="dark-input" placeholder="Ex: Fazenda Boa Esperança...">
-                    <button class="btn-primary-green" onclick="addFrenteDash()">Add</button>
-                </div>
-                <div class="mini-lista" id="config-lista-frentes"></div>
-            </div>
-            <hr class="dash-divisor">
-            <div class="config-section">
-                <label style="color:#fff; font-weight:bold; display:block;">3. Registrar Ocorrência</label>
-                <div class="input-group-inline">
-                    <select id="novaOcorrenciaTipo" class="dark-select" style="width: 30%;">
-                        <option value="Atraso">Atraso</option>
-                        <option value="Mecânica">Mecânica</option>
-                    </select>
-                    <input type="text" id="novaOcorrenciaDesc" class="dark-input" placeholder="Descrição..." style="width: 70%;">
-                    <button class="btn-danger-block" onclick="addOcorrenciaDash()">Add</button>
-                </div>
-                <div class="mini-lista" id="config-lista-ocorrencias"></div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn-primary-blue" style="width: 100%;" onclick="fecharConfigDash()">Salvar e Atualizar</button>
         </div>
     </div>
 </div>
