@@ -1,14 +1,12 @@
 // ==================== modules/manutencao/ordem_servico/painel_tv.js ====================
 // Gerenciador exclusivo do Modo TV (Imersivo), Relógio e Cards
 
-// --- 1. CONTROLE DE INTERFACE (MODO IMERSIVO) ---
 window.entrarModoTV = function() {
     const mainHeader = document.querySelector('.main-header');
     const menuContainer = document.getElementById('menu-container');
     const mainFooter = document.querySelector('.main-footer');
     const mainContent = document.getElementById('conteudo-principal');
 
-    // Esconde tudo para dar 100% de tela
     if (mainHeader) mainHeader.style.display = 'none';
     if (menuContainer) menuContainer.style.display = 'none';
     if (mainFooter) mainFooter.style.display = 'none';
@@ -19,7 +17,6 @@ window.entrarModoTV = function() {
         mainContent.style.maxWidth = '100%';
     }
 
-    // Cria o botão de voltar
     let btnSair = document.getElementById('btnSairTV');
     if (!btnSair) {
         btnSair = document.createElement('button');
@@ -39,11 +36,9 @@ window.entrarModoTV = function() {
 };
 
 window.sairModoTV = function() {
-    // Limpa os cronômetros para não gastar memória do PC
     if (window.tvInterval) { clearInterval(window.tvInterval); window.tvInterval = null; }
     if (window.tvClockInterval) { clearInterval(window.tvClockInterval); window.tvClockInterval = null; }
     
-    // Devolve o layout original
     const mainHeader = document.querySelector('.main-header');
     const menuContainer = document.getElementById('menu-container');
     const mainFooter = document.querySelector('.main-footer');
@@ -63,7 +58,6 @@ window.sairModoTV = function() {
     if (btnSair) btnSair.style.display = 'none';
 };
 
-// --- 2. LÓGICA DE DADOS E RELÓGIO ---
 window.iniciarRelogioTV = function() {
     atualizarRelogioTV();
     if (!window.tvClockInterval) {
@@ -136,9 +130,22 @@ window.renderizarCardsTV = function() {
     
     let tempoTotalDispMs = (typeof frotasManutencao !== 'undefined' ? frotasManutencao.length : 0) * 24 * 60 * 60 * 1000;
     let tempoManutencaoMs = 0;
+    
+    // --- CÁLCULO DE VEÍCULOS DISPONÍVEIS E EM MANUTENÇÃO (TEMPO REAL) ---
+    let veiculosManutencao = 0;
+    let veiculosDisponiveis = 0;
 
-    if (typeof frotasManutencao !== 'undefined') {
+    if (typeof frotasManutencao !== 'undefined' && Array.isArray(frotasManutencao)) {
         frotasManutencao.forEach(frota => {
+            // Conta disponibilidade real do momento
+            const osAberta = ordensServico.find(o => o.placa === frota.cavalo && o.status !== 'Concluída' && o.status !== 'Agendada');
+            if (osAberta) {
+                veiculosManutencao++;
+            } else {
+                veiculosDisponiveis++;
+            }
+
+            // Calcula tempo histórico do dia para a Taxa DM
             const osCavalo = ordensServico.filter(o => o.placa === frota.cavalo && o.tipo !== 'Sinistro');
             osCavalo.forEach(os => {
                 let osIni = os.data_abertura ? new Date(String(os.data_abertura).replace('Z', '').replace('+00:00', '')) : null;
@@ -158,11 +165,15 @@ window.renderizarCardsTV = function() {
     if(tempoManutencaoMs > tempoTotalDispMs) tempoManutencaoMs = tempoTotalDispMs;
     const dmDia = tempoTotalDispMs > 0 ? (((tempoTotalDispMs - tempoManutencaoMs) / tempoTotalDispMs) * 100).toFixed(1) : 100;
 
+    // --- ATUALIZA TODOS OS KPIS DO TOPO ---
     if(document.getElementById('tvKpiTotal')) document.getElementById('tvKpiTotal').innerText = totalOsHoje;
     if(document.getElementById('tvKpiAbertas')) document.getElementById('tvKpiAbertas').innerText = abertasHoje;
     if(document.getElementById('tvKpiFechadas')) document.getElementById('tvKpiFechadas').innerText = fechadasHoje;
     if(document.getElementById('tvKpiDM')) document.getElementById('tvKpiDM').innerText = dmDia + '%';
+    if(document.getElementById('tvKpiDisponiveis')) document.getElementById('tvKpiDisponiveis').innerText = veiculosDisponiveis;
+    if(document.getElementById('tvKpiEmManutencao')) document.getElementById('tvKpiEmManutencao').innerText = veiculosManutencao;
     
+    // --- RENDERIZAÇÃO DOS CARDS ---
     const osAtivas = ordensServico.filter(o => 
         (o.status === 'Aguardando Oficina' || o.status === 'Em Manutenção') && 
         o.tipo !== 'Sinistro'
