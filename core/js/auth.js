@@ -116,7 +116,7 @@ const permissoesPadrao = {
         "relatorio_gerencial", "indicadores", "indicadores_serrana", "cadastro_indicadores",
         "visao_geral", "operacional", "desempenho_frota", "jornadas", "historico_producao", "historico_jornadas", "configuracoes_gerencial"
     ],
-    "Controlador de Trefego": ["escala", "alocacao", "troca", "jornada"],
+    "Controlador de Tráfego": ["escala", "alocacao", "troca", "jornada"],
     "SSMA": ["motoristas", "treinamento", "jornada"],
     "Controle de Manutencao": ["caminhoes", "os", "cadastro_frota", "almoxarifado"],
     "Almoxarifado": ["os", "almoxarifado"],
