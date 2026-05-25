@@ -32,6 +32,7 @@ const MAPA_MENUS = [
     { id: 'configuracoes_gerencial', label: 'Configurações de Metas', setor: 'Monitoramento', icon: 'fas fa-cogs' },
 
     { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Gerencial', icon: 'fas fa-money-bill-wave' },
+    { id: 'visao_executiva', label: 'Visão Executiva (Global)', setor: 'Gerencial', icon: 'fas fa-globe-americas' },
     
     { id: 'central', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
     { id: 'logs_globais', label: 'Auditoria de Logs', setor: 'Global', icon: 'fas fa-shield-alt' } 
@@ -277,6 +278,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         'operacional': 'modules/monitoramento/operacional/operacional.html',
         'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
         'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', 
+        'visao_executiva': 'modules/gerencial/visao_executiva/visao_executiva.html', 
         'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
         'historico_producao': 'modules/monitoramento/historico/historico.html',
         'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
@@ -347,6 +349,10 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
         if (pagina === 'desempenho_frota' && typeof window.initDesempenhoFrota === 'function') window.initDesempenhoFrota();
         if (pagina === 'producao_frota' && typeof window.initProducaoFrota === 'function') window.initProducaoFrota();
+        
+        // --- INICIALIZAÇÃO DA NOVA TELA ---
+        if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
+        
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();
         if (pagina === 'historico_producao' && typeof window.initHistoricoProducao === 'function') window.initHistoricoProducao();
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();
