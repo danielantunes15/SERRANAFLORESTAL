@@ -60,22 +60,39 @@ window.atualizarDadosExecutivos = async function() {
             // =========================================================
             const { data: viagensDB } = await window.supabaseClient
                 .from('historico_viagens')
-                .select('volumeReal, dataDaBaseExcel')
+                .select('*') // Usando select(*) para evitar conflito com case-sensitive do Postgres
                 .eq('filial_id', filial.id); // Barreira da filial
 
             if (viagensDB && viagensDB.length > 0) {
                 const viagensFiltradas = viagensDB.filter(v => {
-                    if (!v.dataDaBaseExcel || v.dataDaBaseExcel === 'Desconhecida') return false;
-                    const partesData = v.dataDaBaseExcel.split('/');
-                    if (partesData.length >= 3) {
-                        let ano = partesData[2].length === 2 ? "20" + partesData[2] : partesData[2];
-                        let mesAnoViagem = `${ano}-${partesData[1].padStart(2, '0')}`;
-                        return mesAnoViagem === mesFiltro;
+                    const dataOriginal = v.dataDaBaseExcel || v['"dataDaBaseExcel"'];
+                    if (!dataOriginal || dataOriginal === 'Desconhecida') return false;
+                    
+                    // Pega apenas a data, separando no primeiro espaço (ignora horas)
+                    let dataLimpa = String(dataOriginal).trim().split(' ')[0]; 
+                    
+                    if (dataLimpa.includes('/')) {
+                        let partesData = dataLimpa.split('/');
+                        if (partesData.length >= 3) {
+                            let ano = partesData[2].length === 2 ? "20" + partesData[2] : partesData[2];
+                            let mesAnoViagem = `${ano}-${partesData[1].padStart(2, '0')}`;
+                            return mesAnoViagem === mesFiltro;
+                        }
+                    } else if (dataLimpa.includes('-')) {
+                        let partesData = dataLimpa.split('-');
+                        if (partesData.length >= 3) {
+                            let mesAnoViagem = `${partesData[0]}-${partesData[1].padStart(2, '0')}`;
+                            return mesAnoViagem === mesFiltro;
+                        }
                     }
                     return false;
                 });
                 
-                producaoReal = viagensFiltradas.reduce((acc, curr) => acc + (parseFloat(String(curr.volumeReal).replace(',', '.')) || 0), 0);
+                producaoReal = viagensFiltradas.reduce((acc, curr) => {
+                    let vol = curr.volumeReal !== undefined ? curr.volumeReal : curr['"volumeReal"'];
+                    if (!vol) return acc;
+                    return acc + (parseFloat(String(vol).replace(',', '.')) || 0);
+                }, 0);
             }
 
             // =========================================================
