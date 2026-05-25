@@ -21,15 +21,15 @@ const MAPA_MENUS = [
     { id: 'indicadores_serrana', label: 'Indicadores Serrana', setor: 'Indicadores', icon: 'fas fa-chart-bar' },
     { id: 'cadastro_indicadores', label: 'Cadastro Indicadores', setor: 'Indicadores', icon: 'fas fa-list-alt' },
 
-    // ================= NOVO MÓDULO GERENCIAL =================
-    { id: 'visao_geral', label: 'Visão Geral (Analítico)', setor: 'Gerencial', icon: 'fas fa-chart-pie' },
-    { id: 'operacional', label: 'Metas Operacionais', setor: 'Gerencial', icon: 'fas fa-chart-line' },
-    { id: 'desempenho_frota', label: 'Desempenho da Frota', setor: 'Gerencial', icon: 'fas fa-truck-fast' },
-    { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Gerencial', icon: 'fas fa-money-bill-wave' },
-    { id: 'jornadas', label: 'Monitoramento de Jornadas', setor: 'Gerencial', icon: 'fas fa-user-clock' },
-    { id: 'historico_producao', label: 'Histórico de Produção', setor: 'Gerencial', icon: 'fas fa-database' },
-    { id: 'historico_jornadas', label: 'Histórico de Jornadas', setor: 'Gerencial', icon: 'fas fa-history' },
-    { id: 'configuracoes_gerencial', label: 'Configurações de Metas', setor: 'Gerencial', icon: 'fas fa-cogs' },
+    // ================= NOVO MÓDULO MONITORAMENTO =================
+    { id: 'visao_geral', label: 'Visão Geral (Analítico)', setor: 'Monitoramento', icon: 'fas fa-chart-pie' },
+    { id: 'operacional', label: 'Metas Operacionais', setor: 'Monitoramento', icon: 'fas fa-chart-line' },
+    { id: 'desempenho_frota', label: 'Desempenho da Frota', setor: 'Monitoramento', icon: 'fas fa-truck-fast' },
+    { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Monitoramento', icon: 'fas fa-money-bill-wave' },
+    { id: 'jornadas', label: 'Monitoramento de Jornadas', setor: 'Monitoramento', icon: 'fas fa-user-clock' },
+    { id: 'historico_producao', label: 'Histórico de Produção', setor: 'Monitoramento', icon: 'fas fa-database' },
+    { id: 'historico_jornadas', label: 'Histórico de Jornadas', setor: 'Monitoramento', icon: 'fas fa-history' },
+    { id: 'configuracoes_gerencial', label: 'Configurações de Metas', setor: 'Monitoramento', icon: 'fas fa-cogs' },
     
     // ================= GESTÃO GLOBAL =================
     { id: 'central', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
@@ -106,7 +106,7 @@ function getIconSetor(setor) {
         'Manutenção': 'fas fa-tools',
         'SSMA': 'fas fa-hard-hat',
         'Indicadores': 'fas fa-chart-line',
-        'Gerencial': 'fas fa-briefcase',
+        'Monitoramento': 'fas fa-desktop', // Ícone alterado para combinar com o novo nome
         'Global': 'fas fa-globe'
     };
     return icones[setor] || 'fas fa-folder';
@@ -209,7 +209,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         'central': 'modules/gerencial/central/central.html',
         'logs_globais': 'modules/gerencial/central/logs_globais.html',
         
-        // ROTAS DO NOVO MÓDULO GERENCIAL COMPLETO
+        // ROTAS DO NOVO MÓDULO (Mantendo os caminhos de arquivo intactos)
         'visao_geral': 'modules/gerencial/visao_geral/visao_geral.html',
         'operacional': 'modules/gerencial/operacional/operacional.html',
         'desempenho_frota': 'modules/gerencial/desempenho_frota/desempenho_frota.html',
@@ -273,7 +273,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
 
         // ====================================================================
-        // GATILHOS DE INICIALIZAÇÃO SPA PARA O NOVO MÓDULO GERENCIAL
+        // GATILHOS DE INICIALIZAÇÃO SPA PARA O NOVO MÓDULO (MONITORAMENTO)
         // ====================================================================
         if (pagina === 'visao_geral' && typeof window.carregarDadosDashboardAnalitico === 'function') window.carregarDadosDashboardAnalitico();
         if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
