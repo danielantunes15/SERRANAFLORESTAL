@@ -1,0 +1,37 @@
+<div style="padding: 20px; background: #0f172a; min-height: calc(100vh - 60px);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #1e293b; padding-bottom: 15px; flex-wrap: wrap; gap: 20px;">
+        
+        <div style="flex: 1; min-width: 300px;">
+            <h1 style="color: #ffffff; font-size: 2.2rem; margin: 0; text-shadow: 0 0 10px rgba(255,255,255,0.5);">PÁTIO DE MANUTENÇÃO</h1>
+            <button onclick="toggleFullScreenTV()" style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #60a5fa; border-radius: 4px; padding: 6px 12px; margin-top: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: all 0.2s;">
+                <i class="fas fa-expand"></i> Exibir em Tela Cheia
+            </button>
+        </div>
+        
+        <div id="tvKpis" style="display: flex; gap: 15px; align-items: center; justify-content: center; flex: 2; min-width: 400px;">
+            <div style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
+                <div style="color: #cbd5e1; font-size: 0.85rem; font-weight: bold;">O.S. (HOJE)</div>
+                <div id="tvKpiTotal" style="color: #fff; font-size: 1.8rem; font-weight: 900;">0</div>
+            </div>
+            <div style="background: rgba(245, 158, 11, 0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(245, 158, 11, 0.3);">
+                <div style="color: #fcd34d; font-size: 0.85rem; font-weight: bold;">ABERTAS (HOJE)</div>
+                <div id="tvKpiAbertas" style="color: #f59e0b; font-size: 1.8rem; font-weight: 900;">0</div>
+            </div>
+            <div style="background: rgba(16, 185, 129, 0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(16, 185, 129, 0.3);">
+                <div style="color: #6ee7b7; font-size: 0.85rem; font-weight: bold;">FECHADAS (HOJE)</div>
+                <div id="tvKpiFechadas" style="color: #10b981; font-size: 1.8rem; font-weight: 900;">0</div>
+            </div>
+            <div style="background: rgba(59, 130, 246, 0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(59, 130, 246, 0.3);">
+                <div style="color: #93c5fd; font-size: 0.85rem; font-weight: bold;">TAXA DM (DIA)</div>
+                <div id="tvKpiDM" style="color: #3b82f6; font-size: 1.8rem; font-weight: 900;">0%</div>
+            </div>
+        </div>
+
+        <div style="flex: 1; text-align: right; min-width: 200px;">
+            <h2 id="tvRelogio" style="color: var(--ccol-green-bright); font-size: 2.5rem; margin: 0; font-family: monospace; text-shadow: 0 0 10px rgba(61, 220, 132, 0.3);">00:00:00</h2>
+            <span style="color: #ffffff; font-size: 1.2rem; font-weight: bold; text-shadow: 0 0 5px rgba(255,255,255,0.3);" id="tvData"></span>
+        </div>
+    </div>
+    
+    <div id="tvCardsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); gap: 25px;"></div>
+</div>

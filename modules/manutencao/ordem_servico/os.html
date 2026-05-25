@@ -4,7 +4,6 @@
         <button class="btn-primary-blue" onclick="alternarTelaOS('lista')">  Acompanhamento (Abertas)</button>
         <button class="btn-danger-outline" onclick="alternarTelaOS('sinistro')" style="border-color: #ef4444; color: #ef4444;">  Acompanhamento (Sinistros)</button>
         <button class="btn-secondary-dark" onclick="alternarTelaOS('historico'); carregarFiltrosSelectHistoricoOS();">  Histórico (Todas)</button>
-        <button class="btn-primary-blue" onclick="alternarTelaOS('painel_tv')" style="background-color: #8b5cf6; border-color: #8b5cf6;">  Modo TV (Tempo Real)</button>
         <button class="btn-primary-green" onclick="alternarTelaOS('nova'); carregarSelectCavalosOS(); carregarMotoristasSelectOS();">  Abrir Nova O.S.</button>
         <button class="btn-secondary-dark" onclick="alternarTelaOS('disponibilidade')" style="background-color: #047857; border-color: #047857; color: white;">  Disponibilidade (Geral)</button>
     </div>
@@ -274,20 +273,6 @@
             <tbody id="tabelaDisponibilidade"></tbody>
         </table>
     </div>
-</div>
-
-<div id="telaPainelTV" style="display: none; padding: 20px; background: #0f172a; min-height: 100vh;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #1e293b; padding-bottom: 15px;">
-        <h1 style="color: #fff; font-size: 2.5rem; margin: 0;">PÁTIO DE MANUTENÇÃO (TEMPO REAL)</h1>
-        <div style="display: flex; gap: 20px;">
-            <div style="text-align: right;">
-                <h2 id="tvRelogio" style="color: var(--ccol-green-bright); font-size: 2.5rem; margin: 0; font-family: monospace;">00:00:00</h2>
-                <span style="color: var(--text-secondary); font-size: 1.2rem;" id="tvData"></span>
-            </div>
-            <button onclick="sairModoTV()" class="btn-danger-outline" style="align-self: center; padding: 10px 20px; font-size: 1.2rem; cursor: pointer;">Sair (X)</button>
-        </div>
-    </div>
-    <div id="tvCardsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); gap: 25px;"></div>
 </div>
 
 <div id="modalConclusaoOS" class="modal-overlay">

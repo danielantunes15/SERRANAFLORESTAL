@@ -9,6 +9,7 @@ const MAPA_MENUS = [
     { id: 'documentos_frota', label: 'Documentos da Frota', setor: 'Logística', icon: 'fas fa-file-pdf' },
     
     { id: 'os', label: 'Gestão de O.S.', setor: 'Manutenção', icon: 'fas fa-clipboard-list' },
+    { id: 'painel_tv', label: 'Painel TV (Tempo Real)', setor: 'Manutenção', icon: 'fas fa-tv' },
     { id: 'servicos', label: 'Serviços (Mecânicos)', setor: 'Manutenção', icon: 'fas fa-toolbox' },
     { id: 'cadastro_frota', label: 'Cadastro Frota (O.S.)', setor: 'Manutenção', icon: 'fas fa-truck-moving' },
     { id: 'os_apoio', label: 'O.S. Apoio', setor: 'Manutenção', icon: 'fas fa-truck-pickup' },
@@ -54,7 +55,6 @@ window.renderizarMenu = async function() {
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
     const userKey = currentUser ? 'user_' + currentUser.id : '';
 
-    // Verifica se há permissão específica (exceção) para este usuário logado
     let meusMenus = permissoesAtuais[userRole] || [];
     if (userKey && permissoesAtuais[userKey] && !permissoesAtuais[userKey].includes('__RESET__')) {
         meusMenus = permissoesAtuais[userKey];
@@ -62,7 +62,6 @@ window.renderizarMenu = async function() {
     
     const isAdmin = userRole === 'Admin' || userRole === 'SuperAdmin';
     const isGerente = userRole === 'Gerente';
-    
     const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
 
     let navHtml = '<nav class="main-nav">';
@@ -96,7 +95,6 @@ window.renderizarMenu = async function() {
         }
     });
 
-    // Botão de Configurações do Sistema para Admins e Gerentes DENTRO de uma filial
     if ((isAdmin || isGerente) && !isSessaoCentral) {
         navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-cog"></i> Configurações</button>`;
     }
@@ -127,7 +125,6 @@ window.carregarCheckboxesPermissoes = async function() {
     const container = document.getElementById('container-permissoes-menus');
     if (!container) return;
 
-    // INJEÇÃO DE CSS PARA OS CARDS PREMIUM
     if (!document.getElementById('css-permissoes-cards')) {
         const style = document.createElement('style');
         style.id = 'css-permissoes-cards';
@@ -151,7 +148,7 @@ window.carregarCheckboxesPermissoes = async function() {
         alvo = document.getElementById('selectPerfilPermissao')?.value || 'Controlador de Tráfego';
     } else {
         alvo = document.getElementById('selectUsuarioPermissao')?.value;
-        if(!alvo) return; // Se a lista de usuários ainda não carregou, ignora
+        if(!alvo) return;
     }
 
     let permissoesAtuais = {};
@@ -164,12 +161,10 @@ window.carregarCheckboxesPermissoes = async function() {
     let meusAcessos = permissoesAtuais[alvo] || [];
     const isSuperAdmin = (currentUser && currentUser.role === 'SuperAdmin');
 
-    // Mágica para facilitar a vida do Admin: 
-    // Se o usuário selecionado ainda não tiver uma exceção salva (ou foi resetado), exibe visualmente as permissões base do cargo dele pra facilitar a edição.
     if (tipo === 'usuario' && (!permissoesAtuais[alvo] || meusAcessos.includes('__RESET__'))) {
         const selectUser = document.getElementById('selectUsuarioPermissao');
         const textoOpcao = selectUser.options[selectUser.selectedIndex].text;
-        const matchRole = textoOpcao.match(/\((.*?)\)/); // Captura a Role que está dentro de parênteses no select
+        const matchRole = textoOpcao.match(/\((.*?)\)/);
         const roleDesteUser = matchRole ? matchRole[1] : null;
         
         if (roleDesteUser && permissoesAtuais[roleDesteUser]) {
@@ -185,7 +180,6 @@ window.carregarCheckboxesPermissoes = async function() {
     setores.forEach(setor => {
         if (setor === 'Global') return; 
 
-        // CRIA O CARD PARA CADA SETOR
         html += `
         <div class="permissao-card">
             <div class="permissao-header">
@@ -196,8 +190,6 @@ window.carregarCheckboxesPermissoes = async function() {
         
         MAPA_MENUS.filter(m => m.setor === setor).forEach(menu => {
             const checked = meusAcessos.includes(menu.id) ? 'checked' : '';
-            
-            // TRAVA VISUAL: Bloqueia checkboxes do setor Gerencial se não for SuperAdmin
             const disabled = (menu.setor === 'Gerencial' && !isSuperAdmin) ? 'disabled' : '';
             const disabledClass = disabled ? 'disabled-item' : '';
             const extraInfo = disabled ? ' title="Apenas SuperAdmin pode alterar este acesso"' : '';
@@ -248,7 +240,61 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
     }
 
+    // --- INÍCIO DA LÓGICA DO MODO TV IMERSIVO ---
+    const mainHeader = document.querySelector('.main-header');
+    const menuContainer = document.getElementById('menu-container');
+    const mainFooter = document.querySelector('.main-footer');
     const mainContent = document.getElementById('conteudo-principal');
+
+    if (pagina !== 'painel_tv') {
+        // Limpa cronômetros e recarrega a UI normal
+        if (window.tvInterval) { clearInterval(window.tvInterval); window.tvInterval = null; }
+        if (window.tvClockInterval) { clearInterval(window.tvClockInterval); window.tvClockInterval = null; }
+        
+        if (mainHeader) mainHeader.style.display = '';
+        if (menuContainer) menuContainer.style.display = '';
+        if (mainFooter) mainFooter.style.display = '';
+        if (mainContent) {
+            mainContent.style.padding = '';
+            mainContent.style.margin = '';
+            mainContent.style.width = '';
+            mainContent.style.maxWidth = '';
+        }
+        
+        const btnSair = document.getElementById('btnSairTV');
+        if (btnSair) btnSair.style.display = 'none';
+
+    } else {
+        // Oculta o layout para deixar o Dashboard no modo TV limpo
+        if (mainHeader) mainHeader.style.display = 'none';
+        if (menuContainer) menuContainer.style.display = 'none';
+        if (mainFooter) mainFooter.style.display = 'none';
+        if (mainContent) {
+            mainContent.style.padding = '0';
+            mainContent.style.margin = '0';
+            mainContent.style.width = '100vw';
+            mainContent.style.maxWidth = '100%';
+        }
+
+        // Adiciona um botão flutuante para poder fechar o modo TV
+        let btnSair = document.getElementById('btnSairTV');
+        if (!btnSair) {
+            btnSair = document.createElement('button');
+            btnSair.id = 'btnSairTV';
+            btnSair.innerHTML = '<i class="fas fa-arrow-left"></i> Voltar ao Sistema';
+            btnSair.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: background 0.2s;';
+            btnSair.onmouseover = () => btnSair.style.background = '#dc2626';
+            btnSair.onmouseout = () => btnSair.style.background = '#ef4444';
+            btnSair.onclick = function() {
+                if (document.fullscreenElement) document.exitFullscreen();
+                window.navegarPara('os'); 
+            };
+            document.body.appendChild(btnSair);
+        } else {
+            btnSair.style.display = 'block';
+        }
+    }
+    // --- FIM DA LÓGICA DO MODO TV IMERSIVO ---
 
     const ROTAS = {
         'escala': 'modules/logistica/escala/escala.html',
@@ -258,12 +304,16 @@ window.navegarPara = async function(pagina, elementoClicado) {
         'caminhoes': 'modules/manutencao/caminhoes/caminhoes.html',
         'cadastro_frota': 'modules/logistica/frota_conjuntos/cadastro_frota.html',
         'documentos_frota': 'modules/logistica/documentos_frota/documentos_frota.html',
+        
         'os': 'modules/manutencao/ordem_servico/os.html',
+        'painel_tv': 'modules/manutencao/ordem_servico/painel_tv.html',
         'os_apoio': 'modules/manutencao/ordem_servico/os_apoio.html',
         'almoxarifado': 'modules/manutencao/almoxarifado/almoxarifado.html',
         'servicos': 'modules/manutencao/servicos/servicos.html',
+        
         'treinamento': 'modules/ssma/treinamento/treinamento.html',
         'recados': 'modules/ssma/recados/recados.html',
+        
         'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
         'indicadores': 'modules/monitoramento/indicadores/indicadores.html',
         'indicadores_serrana': 'modules/monitoramento/indicadores/indicadores_serrana.html',
@@ -296,7 +346,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         mainContent.innerHTML = pageCache[pagina];
 
-        // GATILHOS DE INICIALIZAÇÃO DE PÁGINAS DO SISTEMA ANTIGO
+        // GATILHOS DE INICIALIZAÇÃO
         if (pagina === 'central' && typeof window.renderizarCentral === 'function') window.renderizarCentral();
         if (pagina === 'logs_globais' && typeof window.renderizarLogsGlobais === 'function') window.renderizarLogsGlobais(); 
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
@@ -305,7 +355,17 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'motoristas' && typeof window.renderizarMotoristas === 'function') window.renderizarMotoristas();
         if (pagina === 'caminhoes' && typeof window.renderizarConjuntos === 'function') window.renderizarConjuntos();
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
+        
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
+        
+        if (pagina === 'painel_tv') {
+            try { 
+                if (typeof carregarDadosOS === 'function') await carregarDadosOS(); 
+                if (typeof window.iniciarRelogioTV === 'function') window.iniciarRelogioTV();
+                if (typeof window.renderizarCardsTV === 'function') window.renderizarCardsTV();
+            } catch(e) { console.error("Erro no Painel TV:", e); }
+        }
+
         if (pagina === 'os_apoio' && typeof window.alternarTelaOSApoio === 'function') window.alternarTelaOSApoio('lista');
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
@@ -332,7 +392,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
             window.carregarCheckboxesPermissoes(); 
         }
 
-        // GATILHOS DE INICIALIZAÇÃO SPA PARA O MÓDULO MONITORAMENTO/GERENCIAL
         if (pagina === 'visao_geral' && typeof window.carregarDadosDashboardAnalitico === 'function') window.carregarDadosDashboardAnalitico();
         if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
         if (pagina === 'desempenho_frota' && typeof window.initDesempenhoFrota === 'function') window.initDesempenhoFrota();
