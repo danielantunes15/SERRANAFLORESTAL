@@ -56,7 +56,8 @@ async function atualizarPonteirosSerrana() {
     let cavalosSinistrados = 0;
 
     try {
-        let queryOS = supabaseClient.from('ordens_servico').select('placa, status');
+        // Selecionando a coluna 'tipo' para aplicar a regra de exclusão
+        let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo');
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData, error: osError } = await queryOS;
             
@@ -66,6 +67,9 @@ async function atualizarPonteirosSerrana() {
             const setCavalosSinistro = new Set();
 
             osData.forEach(os => {
+                // Ignora imediatamente os ativos deste tipo para não entrarem na contagem primária
+                if (os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA') return;
+
                 const placaLimpa = os.placa.trim().toUpperCase();
                 
                 if (listaDeCavalos.includes(placaLimpa)) {
@@ -132,7 +136,11 @@ async function carregarFrotasParadasSerrana() {
         let html = '';
         const agora = new Date();
         
-        const osFiltradas = osData ? osData.filter(os => listaCavalos.includes(os.placa.trim().toUpperCase())) : [];
+        // Regra de exclusão também aplicada na renderização das caixinhas da lista de frota parada
+        const osFiltradas = osData ? osData.filter(os => 
+            listaCavalos.includes(os.placa.trim().toUpperCase()) && 
+            !(os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA')
+        ) : [];
         
         if (osFiltradas && osFiltradas.length > 0) {
             let frotasProcessadas = osFiltradas.map(os => {
@@ -330,14 +338,19 @@ async function renderizarGraficoEvolucaoDmSerrana() {
             return;
         }
 
-        let queryOS = supabaseClient.from('ordens_servico').select('placa, data_abertura, data_conclusao, status').neq('status', 'Agendada');
+        // Selecionando também a coluna 'tipo' para garantir a integridade do gráfico
+        let queryOS = supabaseClient.from('ordens_servico').select('placa, data_abertura, data_conclusao, status, tipo').neq('status', 'Agendada');
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData } = await queryOS;
         
         const limpaPlaca = p => String(p || 'DESCONHECIDO').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         const frotasCavalosArray = frotas.map(c => limpaPlaca(c));
         
-        let ordensServico = (osData || []).filter(os => frotasCavalosArray.includes(limpaPlaca(os.placa)));
+        // Excluindo os cavalos disponíveis s/ carreta para não afetar o cálculo da Disponibilidade Mecânica
+        let ordensServico = (osData || []).filter(os => 
+            frotasCavalosArray.includes(limpaPlaca(os.placa)) && 
+            !(os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA')
+        );
 
         let totalFrotasValidas = totalFrotas;
         if(totalFrotasValidas < 0) totalFrotasValidas = 0;
