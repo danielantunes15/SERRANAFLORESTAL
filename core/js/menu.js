@@ -267,9 +267,9 @@ window.navegarPara = async function(pagina, elementoClicado) {
         'recados': 'modules/ssma/recados/recados.html',
         
         'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
-        'indicadores': 'modules/monitoramento/indicadores/indicadores.html',
-        'indicadores_serrana': 'modules/monitoramento/indicadores/indicadores_serrana.html',
-        'cadastro_indicadores': 'modules/monitoramento/indicadores/cadastro_indicadores.html',
+        'indicadores': 'modules/indicadores/indicadores.html',
+        'indicadores_serrana': 'modules/indicadores/indicadores_serrana.html',
+        'cadastro_indicadores': 'modules/indicadores/cadastro_indicadores.html',
         'config': 'modules/monitoramento/config/config.html',
         'central': 'modules/monitoramento/central/central.html',
         'logs_globais': 'modules/monitoramento/central/logs_globais.html',
