@@ -19,11 +19,11 @@ window.atualizarDadosExecutivos = async function() {
 
     const containerCards = document.getElementById('containerCardsFiliais');
     if (containerCards) {
-        containerCards.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10"><i class="fas fa-spinner fa-spin fa-2x mb-3"></i><p>Consultando dados dos módulos de Monitoramento, Manutenção e Indicadores...</p></div>';
+        containerCards.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10"><i class="fas fa-spinner fa-spin fa-2x mb-3"></i><p>Processando faturamento e produção de cada filial...</p></div>';
     }
 
     try {
-        // 1. BUSCAR AS FILIAIS CADASTRADAS (Usando window.supabaseClient definido no database.js)
+        // 1. BUSCAR AS FILIAIS CADASTRADAS
         const { data: filiaisDB, error: errFiliais } = await window.supabaseClient
             .from('filiais')
             .select('*')
@@ -43,74 +43,110 @@ window.atualizarDadosExecutivos = async function() {
         }
 
         let filiaisData = [];
-        
         let totalFatGlobal = 0;
         let totalProdGlobal = 0;
         let totalDmGlobal = 0;
-        let filiaisValidas = 0;
+        let filiaisValidasParaDM = 0;
 
-        // 2. BUSCAR DADOS DOS MÓDULOS PARA CADA FILIAL
+        // 2. BUSCAR DADOS REAIS RESTRINGINDO ESTRITAMENTE POR FILIAL
         for (let filial of filiaisDB) {
             
             let faturamentoReal = 0;
             let producaoReal = 0;
             let dmReal = 0;
 
-            // ==========================================================================================
-            // INTEGRAÇÃO COM OS MÓDULOS (MONITORAMENTO, MANUTENÇÃO, INDICADORES)
-            // Descomente e ajuste o nome das tabelas para as reais usadas pelo seu banco.
-            // ==========================================================================================
+            // =========================================================
+            // A. PRODUÇÃO (Tabela 'historico_viagens')
+            // =========================================================
+            const { data: viagensDB } = await window.supabaseClient
+                .from('historico_viagens')
+                .select('volumeReal, dataDaBaseExcel')
+                .eq('filial_id', filial.id); // Barreira da filial
 
-            /*
-            // --- A. Dados do Módulo Indicadores (Faturamento) ---
-            const { data: fatDB } = await window.supabaseClient
-                .from('tabela_faturamento') // <- Substitua pela tabela que o módulo Indicadores usa
-                .select('valor')
-                .eq('filial_id', filial.id)
-                .like('data', `${mesFiltro}%`); 
-            
-            if (fatDB) faturamentoReal = fatDB.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
-
-            // --- B. Dados do Módulo Monitoramento (Produção) ---
-            const { data: prodDB } = await window.supabaseClient
-                .from('historico_producao') // <- Substitua pela tabela que o módulo Monitoramento usa
-                .select('peso_toneladas')
-                .eq('filial_id', filial.id)
-                .like('data', `${mesFiltro}%`);
-            
-            if (prodDB) producaoReal = prodDB.reduce((acc, curr) => acc + (Number(curr.peso_toneladas) || 0), 0);
-
-            // --- C. Dados do Módulo Manutenção (DM) ---
-            const { data: dmDB } = await window.supabaseClient
-                .from('indicadores_manutencao') // <- Substitua pela tabela que o módulo Manutenção usa para o DM
-                .select('dm_percentual')
-                .eq('filial_id', filial.id)
-                .like('data', `${mesFiltro}%`)
-                .limit(1);
-            
-            if (dmDB && dmDB.length > 0) dmReal = Number(dmDB[0].dm_percentual);
-            */
-
-            // ==========================================================================================
-            // FALLBACK VISUAL: Enquanto as tabelas reais acima não estiverem com os nomes mapeados,
-            // usaremos valores gerados para manter a interface funcionando.
-            // (Apague estas 3 linhas após configurar as tabelas reais)
-            // ==========================================================================================
-            faturamentoReal = faturamentoReal || (Math.floor(Math.random() * 1000000) + 200000); 
-            producaoReal = producaoReal || (Math.floor(Math.random() * 40000) + 10000);
-            dmReal = dmReal || Number((Math.random() * (98 - 75) + 75).toFixed(1));
-
-            // Acumular para os KPIs Globais
-            totalFatGlobal += faturamentoReal;
-            totalProdGlobal += producaoReal;
-            if (dmReal > 0) {
-                totalDmGlobal += dmReal;
-                filiaisValidas++;
+            if (viagensDB && viagensDB.length > 0) {
+                const viagensFiltradas = viagensDB.filter(v => {
+                    if (!v.dataDaBaseExcel || v.dataDaBaseExcel === 'Desconhecida') return false;
+                    const partesData = v.dataDaBaseExcel.split('/');
+                    if (partesData.length >= 3) {
+                        let ano = partesData[2].length === 2 ? "20" + partesData[2] : partesData[2];
+                        let mesAnoViagem = `${ano}-${partesData[1].padStart(2, '0')}`;
+                        return mesAnoViagem === mesFiltro;
+                    }
+                    return false;
+                });
+                
+                producaoReal = viagensFiltradas.reduce((acc, curr) => acc + (parseFloat(String(curr.volumeReal).replace(',', '.')) || 0), 0);
             }
 
+            // =========================================================
+            // B. FATURAMENTO (Tabela 'faturamento_diario')
+            // =========================================================
+            if (mesFiltro) {
+                const anoMes = mesFiltro.split('-'); // Pega "2026" e "05"
+                const ultimoDia = new Date(anoMes[0], anoMes[1], 0).getDate(); // Descobre o último dia do mês
+                
+                const dataInicio = `${mesFiltro}-01`;
+                const dataFim = `${mesFiltro}-${ultimoDia}`;
+
+                const { data: fatDB, error: errFat } = await window.supabaseClient
+                    .from('faturamento_diario')
+                    .select('valor')
+                    .eq('filial_id', filial.id) // Barreira da filial
+                    .gte('data_faturamento', dataInicio) // Maior ou igual ao primeiro dia
+                    .lte('data_faturamento', dataFim);   // Menor ou igual ao último dia
+
+                if (!errFat && fatDB && fatDB.length > 0) {
+                    faturamentoReal = fatDB.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
+                }
+            }
+
+            // =========================================================
+            // C. DISPONIBILIDADE MECÂNICA (Frotas e O.S.)
+            // =========================================================
+            const { data: frotaDB } = await window.supabaseClient
+                .from('frotas_manutencao')
+                .select('cavalo')
+                .eq('filial_id', filial.id)
+                .eq('status', 'Ativo');
+
+            const { data: osDB } = await window.supabaseClient
+                .from('ordens_servico')
+                .select('placa, status, tipo')
+                .eq('filial_id', filial.id)
+                .in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']);
+
+            if (frotaDB && frotaDB.length > 0) {
+                const listaCavalos = frotaDB.map(f => f.cavalo.trim().toUpperCase());
+                const totalFrota = listaCavalos.length;
+                let cavalosParados = 0;
+
+                if (osDB && osDB.length > 0) {
+                    const placasParadas = new Set();
+                    osDB.forEach(os => {
+                        const placaOS = os.placa ? os.placa.trim().toUpperCase() : '';
+                        if (listaCavalos.includes(placaOS) && os.tipo !== 'Cavalo Disponível S/ Carreta') {
+                            placasParadas.add(placaOS);
+                        }
+                    });
+                    cavalosParados = placasParadas.size;
+                }
+
+                const frotaDisponivel = totalFrota - cavalosParados;
+                dmReal = Number(((frotaDisponivel / totalFrota) * 100).toFixed(1));
+            }
+
+            // Acumular totais para as caixas globais no topo do dashboard
+            totalFatGlobal += faturamentoReal;
+            totalProdGlobal += producaoReal;
+            if (frotaDB && frotaDB.length > 0) {
+                totalDmGlobal += dmReal;
+                filiaisValidasParaDM++;
+            }
+
+            // Adiciona filial pronta na lista do Dashboard
             filiaisData.push({
                 id: filial.id,
-                nome: filial.nome || `Filial ID ${filial.id}`,
+                nome: filial.nome || `Filial ${filial.id}`,
                 faturamento: faturamentoReal,
                 producao: producaoReal,
                 dm: dmReal,
@@ -118,8 +154,8 @@ window.atualizarDadosExecutivos = async function() {
             });
         }
 
-        // 3. ATUALIZAR KPIs GLOBAIS NO TOPO DA TELA
-        const mediaDmGlobal = filiaisValidas > 0 ? (totalDmGlobal / filiaisValidas).toFixed(1) : 0;
+        // 3. ATUALIZAR KPIs GLOBAIS
+        const mediaDmGlobal = filiaisValidasParaDM > 0 ? (totalDmGlobal / filiaisValidasParaDM).toFixed(1) : 0;
 
         document.getElementById('kpiFatGlobal').innerText = totalFatGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         document.getElementById('kpiProdGlobal').innerText = totalProdGlobal.toLocaleString('pt-BR') + ' Tons';
@@ -150,11 +186,8 @@ window.atualizarDadosExecutivos = async function() {
                         </div>
                         <div class="flex justify-between items-center pb-1">
                             <span class="text-gray-400 text-sm"><i class="fas fa-tools w-5 text-orange-400"></i> Disponib. Mecânica</span>
-                            <span class="font-semibold ${filial.dm < 88 ? 'text-yellow-400' : 'text-green-400'}">${filial.dm}%</span>
+                            <span class="font-semibold ${filial.dm < 85 ? 'text-yellow-400' : 'text-green-400'}">${filial.dm}%</span>
                         </div>
-                    </div>
-                    <div class="mt-4 pt-3 border-t border-gray-700 text-center">
-                        <button onclick="console.log('Navegar para relatórios da filial:', '${filial.id}')" class="text-blue-400 text-sm hover:text-blue-300 font-medium transition-colors">Acessar Painel da Filial <i class="fas fa-arrow-right ml-1"></i></button>
                     </div>
                 </div>
             `;
