@@ -106,7 +106,7 @@ function getIconSetor(setor) {
         'Manutenção': 'fas fa-tools',
         'SSMA': 'fas fa-hard-hat',
         'Indicadores': 'fas fa-chart-line',
-        'Monitoramento': 'fas fa-desktop', // Ícone alterado para combinar com o novo nome
+        'Monitoramento': 'fas fa-desktop',
         'Global': 'fas fa-globe'
     };
     return icones[setor] || 'fas fa-folder';
@@ -201,23 +201,23 @@ window.navegarPara = async function(pagina, elementoClicado) {
         'servicos': 'modules/manutencao/servicos/servicos.html',
         'treinamento': 'modules/ssma/treinamento/treinamento.html',
         'recados': 'modules/ssma/recados/recados.html',
-        'relatorio_gerencial': 'modules/gerencial/painel/relatorio_gerencial.html',
-        'indicadores': 'modules/gerencial/indicadores/indicadores.html',
-        'indicadores_serrana': 'modules/gerencial/indicadores/indicadores_serrana.html',
-        'cadastro_indicadores': 'modules/gerencial/indicadores/cadastro_indicadores.html',
-        'config': 'modules/gerencial/config/config.html',
-        'central': 'modules/gerencial/central/central.html',
-        'logs_globais': 'modules/gerencial/central/logs_globais.html',
+        'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
+        'indicadores': 'modules/monitoramento/indicadores/indicadores.html',
+        'indicadores_serrana': 'modules/monitoramento/indicadores/indicadores_serrana.html',
+        'cadastro_indicadores': 'modules/monitoramento/indicadores/cadastro_indicadores.html',
+        'config': 'modules/monitoramento/config/config.html',
+        'central': 'modules/monitoramento/central/central.html',
+        'logs_globais': 'modules/monitoramento/central/logs_globais.html',
         
-        // ROTAS DO NOVO MÓDULO (Mantendo os caminhos de arquivo intactos)
-        'visao_geral': 'modules/gerencial/visao_geral/visao_geral.html',
-        'operacional': 'modules/gerencial/operacional/operacional.html',
-        'desempenho_frota': 'modules/gerencial/desempenho_frota/desempenho_frota.html',
-        'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html',
-        'jornadas': 'modules/gerencial/jornadas/jornadas.html',
-        'historico_producao': 'modules/gerencial/historico/historico.html',
-        'historico_jornadas': 'modules/gerencial/historico_jornadas/historico_jornadas.html',
-        'configuracoes_gerencial': 'modules/gerencial/configuracoes/configuracoes_gerencial.html'
+        // ROTAS DO MÓDULO ATUALIZADO (Apontando para a nova pasta monitoramento)
+        'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
+        'operacional': 'modules/monitoramento/operacional/operacional.html',
+        'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
+        'producao_frota': 'modules/monitoramento/producao_frota/producao_frota.html',
+        'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
+        'historico_producao': 'modules/monitoramento/historico/historico.html',
+        'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
+        'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html'
     };
 
     try {
@@ -273,7 +273,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
 
         // ====================================================================
-        // GATILHOS DE INICIALIZAÇÃO SPA PARA O NOVO MÓDULO (MONITORAMENTO)
+        // GATILHOS DE INICIALIZAÇÃO SPA PARA O MÓDULO MONITORAMENTO
         // ====================================================================
         if (pagina === 'visao_geral' && typeof window.carregarDadosDashboardAnalitico === 'function') window.carregarDadosDashboardAnalitico();
         if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
