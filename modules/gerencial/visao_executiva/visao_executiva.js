@@ -23,7 +23,7 @@ window.atualizarDadosExecutivos = async function() {
     }
 
     try {
-        // 1. BUSCAR AS FILIAIS CADASTRADAS
+        // 1. BUSCAR AS FILIAIS CADASTRADAS (trazendo 'id', 'nome', 'cidade', etc)
         const { data: filiaisDB, error: errFiliais } = await window.supabaseClient
             .from('filiais')
             .select('*')
@@ -56,20 +56,26 @@ window.atualizarDadosExecutivos = async function() {
             let dmReal = 0;
 
             // =========================================================
-            // A. PRODUÇÃO (Tabela 'historico_viagens')
+            // A. PRODUÇÃO (Tabela 'historico_viagens' -> volumeReal)
             // =========================================================
             const { data: viagensDB } = await window.supabaseClient
                 .from('historico_viagens')
-                .select('*') // Usando select(*) para evitar conflito com case-sensitive do Postgres
+                .select('*')
                 .eq('filial_id', filial.id); // Barreira da filial
 
             if (viagensDB && viagensDB.length > 0) {
                 const viagensFiltradas = viagensDB.filter(v => {
-                    const dataOriginal = v.dataDaBaseExcel || v['"dataDaBaseExcel"'];
-                    if (!dataOriginal || dataOriginal === 'Desconhecida') return false;
+                    if (!mesFiltro) return true; // Se não tem filtro, soma tudo
                     
-                    // Pega apenas a data, separando no primeiro espaço (ignora horas)
-                    let dataLimpa = String(dataOriginal).trim().split(' ')[0]; 
+                    // Tenta usar dataDaBaseExcel, se não tiver, usa a data de criação (created_at)
+                    let dataOriginal = v.dataDaBaseExcel;
+                    if (!dataOriginal || dataOriginal === 'Desconhecida') {
+                        dataOriginal = v.created_at;
+                    }
+                    if (!dataOriginal) return false;
+                    
+                    // Limpa a data removendo horas ("T" ou espaços)
+                    let dataLimpa = String(dataOriginal).trim().split('T')[0].split(' ')[0]; 
                     
                     if (dataLimpa.includes('/')) {
                         let partesData = dataLimpa.split('/');
@@ -81,16 +87,19 @@ window.atualizarDadosExecutivos = async function() {
                     } else if (dataLimpa.includes('-')) {
                         let partesData = dataLimpa.split('-');
                         if (partesData.length >= 3) {
-                            let mesAnoViagem = `${partesData[0]}-${partesData[1].padStart(2, '0')}`;
+                            let ano = partesData[0];
+                            let mes = partesData[1].padStart(2, '0');
+                            let mesAnoViagem = `${ano}-${mes}`;
                             return mesAnoViagem === mesFiltro;
                         }
                     }
                     return false;
                 });
                 
+                // Soma a coluna volumeReal garantindo que casas decimais com vírgula ou nulos não quebrem o cálculo
                 producaoReal = viagensFiltradas.reduce((acc, curr) => {
-                    let vol = curr.volumeReal !== undefined ? curr.volumeReal : curr['"volumeReal"'];
-                    if (!vol) return acc;
+                    let vol = curr.volumeReal;
+                    if (vol === undefined || vol === null) return acc;
                     return acc + (parseFloat(String(vol).replace(',', '.')) || 0);
                 }, 0);
             }
@@ -99,8 +108,8 @@ window.atualizarDadosExecutivos = async function() {
             // B. FATURAMENTO (Tabela 'faturamento_diario')
             // =========================================================
             if (mesFiltro) {
-                const anoMes = mesFiltro.split('-'); // Pega "2026" e "05"
-                const ultimoDia = new Date(anoMes[0], anoMes[1], 0).getDate(); // Descobre o último dia do mês
+                const anoMes = mesFiltro.split('-'); 
+                const ultimoDia = new Date(anoMes[0], anoMes[1], 0).getDate(); 
                 
                 const dataInicio = `${mesFiltro}-01`;
                 const dataFim = `${mesFiltro}-${ultimoDia}`;
@@ -108,9 +117,9 @@ window.atualizarDadosExecutivos = async function() {
                 const { data: fatDB, error: errFat } = await window.supabaseClient
                     .from('faturamento_diario')
                     .select('valor')
-                    .eq('filial_id', filial.id) // Barreira da filial
-                    .gte('data_faturamento', dataInicio) // Maior ou igual ao primeiro dia
-                    .lte('data_faturamento', dataFim);   // Menor ou igual ao último dia
+                    .eq('filial_id', filial.id) 
+                    .gte('data_faturamento', dataInicio) 
+                    .lte('data_faturamento', dataFim);   
 
                 if (!errFat && fatDB && fatDB.length > 0) {
                     faturamentoReal = fatDB.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
@@ -164,6 +173,7 @@ window.atualizarDadosExecutivos = async function() {
             filiaisData.push({
                 id: filial.id,
                 nome: filial.nome || `Filial ${filial.id}`,
+                cidade: filial.cidade || filial.nome || 'Não Informada', // Guarda a cidade para o gráfico
                 faturamento: faturamentoReal,
                 producao: producaoReal,
                 dm: dmReal,
@@ -244,10 +254,9 @@ function renderizarGraficoComparativo(dados) {
         return;
     }
 
-    const nomes = dados.map(d => {
-        const partes = d.nome.split('-');
-        return partes.length > 1 ? partes[1].trim() : d.nome;
-    });
+    // Agora usa a CIDADE no eixo X (Se cidade for nula, usa o nome normal)
+    const nomesEixoX = dados.map(d => d.cidade);
+    
     const faturamentos = dados.map(d => d.faturamento);
     const producoes = dados.map(d => d.producao);
 
@@ -266,7 +275,7 @@ function renderizarGraficoComparativo(dados) {
         xAxis: [
             {
                 type: 'category',
-                data: nomes,
+                data: nomesEixoX, // Eixo X usando a Cidade
                 axisLabel: { color: '#94a3b8' }
             }
         ],
