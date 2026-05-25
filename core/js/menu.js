@@ -1,3 +1,4 @@
+// ==================== core/js/menu.js ====================
 // ==================== DEFINIÇÃO CENTRAL DE MENUS ====================
 const MAPA_MENUS = [
     { id: 'escala', label: 'Escala Semanal', setor: 'Logística', icon: 'fas fa-calendar-alt' },
@@ -22,7 +23,6 @@ const MAPA_MENUS = [
     { id: 'indicadores_serrana', label: 'Indicadores Serrana', setor: 'Indicadores', icon: 'fas fa-chart-bar' },
     { id: 'cadastro_indicadores', label: 'Cadastro Indicadores', setor: 'Indicadores', icon: 'fas fa-list-alt' },
 
-    // ================= MÓDULO MONITORAMENTO =================
     { id: 'visao_geral', label: 'Visão Geral (Analítico)', setor: 'Monitoramento', icon: 'fas fa-chart-pie' },
     { id: 'operacional', label: 'Metas Operacionais', setor: 'Monitoramento', icon: 'fas fa-chart-line' },
     { id: 'desempenho_frota', label: 'Desempenho da Frota', setor: 'Monitoramento', icon: 'fas fa-truck-fast' },
@@ -31,10 +31,8 @@ const MAPA_MENUS = [
     { id: 'historico_jornadas', label: 'Histórico de Jornadas', setor: 'Monitoramento', icon: 'fas fa-history' },
     { id: 'configuracoes_gerencial', label: 'Configurações de Metas', setor: 'Monitoramento', icon: 'fas fa-cogs' },
 
-    // ================= NOVO MÓDULO GERENCIAL =================
     { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Gerencial', icon: 'fas fa-money-bill-wave' },
     
-    // ================= GESTÃO GLOBAL =================
     { id: 'central', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
     { id: 'logs_globais', label: 'Auditoria de Logs', setor: 'Global', icon: 'fas fa-shield-alt' } 
 ];
@@ -240,61 +238,14 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
     }
 
-    // --- INÍCIO DA LÓGICA DO MODO TV IMERSIVO ---
-    const mainHeader = document.querySelector('.main-header');
-    const menuContainer = document.getElementById('menu-container');
-    const mainFooter = document.querySelector('.main-footer');
-    const mainContent = document.getElementById('conteudo-principal');
-
-    if (pagina !== 'painel_tv') {
-        // Limpa cronômetros e recarrega a UI normal
-        if (window.tvInterval) { clearInterval(window.tvInterval); window.tvInterval = null; }
-        if (window.tvClockInterval) { clearInterval(window.tvClockInterval); window.tvClockInterval = null; }
-        
-        if (mainHeader) mainHeader.style.display = '';
-        if (menuContainer) menuContainer.style.display = '';
-        if (mainFooter) mainFooter.style.display = '';
-        if (mainContent) {
-            mainContent.style.padding = '';
-            mainContent.style.margin = '';
-            mainContent.style.width = '';
-            mainContent.style.maxWidth = '';
-        }
-        
-        const btnSair = document.getElementById('btnSairTV');
-        if (btnSair) btnSair.style.display = 'none';
-
+    // --- LÓGICA DO MODO TV IMERSIVO ---
+    if (pagina === 'painel_tv') {
+        if (typeof window.entrarModoTV === 'function') window.entrarModoTV();
     } else {
-        // Oculta o layout para deixar o Dashboard no modo TV limpo
-        if (mainHeader) mainHeader.style.display = 'none';
-        if (menuContainer) menuContainer.style.display = 'none';
-        if (mainFooter) mainFooter.style.display = 'none';
-        if (mainContent) {
-            mainContent.style.padding = '0';
-            mainContent.style.margin = '0';
-            mainContent.style.width = '100vw';
-            mainContent.style.maxWidth = '100%';
-        }
-
-        // Adiciona um botão flutuante para poder fechar o modo TV
-        let btnSair = document.getElementById('btnSairTV');
-        if (!btnSair) {
-            btnSair = document.createElement('button');
-            btnSair.id = 'btnSairTV';
-            btnSair.innerHTML = '<i class="fas fa-arrow-left"></i> Voltar ao Sistema';
-            btnSair.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: background 0.2s;';
-            btnSair.onmouseover = () => btnSair.style.background = '#dc2626';
-            btnSair.onmouseout = () => btnSair.style.background = '#ef4444';
-            btnSair.onclick = function() {
-                if (document.fullscreenElement) document.exitFullscreen();
-                window.navegarPara('os'); 
-            };
-            document.body.appendChild(btnSair);
-        } else {
-            btnSair.style.display = 'block';
-        }
+        if (typeof window.sairModoTV === 'function') window.sairModoTV();
     }
-    // --- FIM DA LÓGICA DO MODO TV IMERSIVO ---
+
+    const mainContent = document.getElementById('conteudo-principal');
 
     const ROTAS = {
         'escala': 'modules/logistica/escala/escala.html',
