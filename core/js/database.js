@@ -22,11 +22,7 @@ function aplicarFiltroFilial(query) {
 
 function injetarFilial(obj) {
     if (!window.currentUser) return obj; 
-    
-    // CORREÇÃO CRÍTICA PARA GESTÃO DE USUÁRIOS: 
-    // Se o objeto já traz uma filial definida (ex: Admin criando user para outra filial), respeite!
     if (obj.filial_id !== undefined) return obj; 
-    
     if (window.currentUser.filial_id === null) return obj; 
     return { ...obj, filial_id: window.currentUser.filial_id };
 }
@@ -75,7 +71,6 @@ const db = {
     async getUsuarios(filialId = 'TODAS') {
         try {
             let query = supabaseClient.from('usuarios').select('*, filiais(nome)').order('id', { ascending: true });
-            
             if (window.currentUser && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
                 if (filialId && filialId !== 'TODAS') {
                     if (filialId === null || filialId === 'NULL' || filialId === 'CENTRAL') query = query.is('filial_id', null);
@@ -84,7 +79,6 @@ const db = {
             } else {
                 query = aplicarFiltroFilial(query);
             }
-            
             const { data, error } = await query;
             if (error) throw error;
             return data || [];
@@ -113,12 +107,7 @@ const db = {
         try {
             const start = (page - 1) * limit;
             const end = start + limit - 1;
-            
-            let query = supabaseClient
-                .from('logs_exclusao')
-                .select('*, filiais(nome)', { count: 'exact' })
-                .order('data_hora', { ascending: false })
-                .range(start, end);
+            let query = supabaseClient.from('logs_exclusao').select('*, filiais(nome)', { count: 'exact' }).order('data_hora', { ascending: false }).range(start, end);
             
             const filialId = filtros.filialId || 'TODAS';
             if (window.currentUser && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
@@ -333,6 +322,22 @@ const db = {
     },
     async deleteControladorTrafego(id) {
         await supabaseClient.from('controladores_trafego').update({ status: 'Inativo' }).eq('id', id);
+    },
+
+    // --- TURNOS OPERACIONAIS ---
+    async getTurnosOperacionais() {
+        try {
+            const query = supabaseClient.from('turnos_operacionais').select('*').eq('status', 'Ativo').order('nome', { ascending: true });
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getTurnosOperacionais:", e); return []; }
+    },
+    async addTurnoOperacional(turno) {
+        await supabaseClient.from('turnos_operacionais').insert([injetarFilial(turno)]);
+    },
+    async deleteTurnoOperacional(id) {
+        await supabaseClient.from('turnos_operacionais').update({ status: 'Inativo' }).eq('id', id);
     }
 };
 

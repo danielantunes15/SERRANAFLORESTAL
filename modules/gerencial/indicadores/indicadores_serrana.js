@@ -5,7 +5,7 @@ window.carregarDadosDashboardSerrana = async function() {
     setInterval(atualizarRelogioSerrana, 1000);
 
     await atualizarPonteirosSerrana();
-    carregarControladorAtualSerrana();
+    carregarStatusDashSerrana();
     carregarFrentesTvSerrana();
     carregarFrotasParadasSerrana();
       
@@ -16,6 +16,7 @@ window.carregarDadosDashboardSerrana = async function() {
     setInterval(() => {
         carregarFrotasParadasSerrana();
         atualizarPonteirosSerrana();
+        carregarStatusDashSerrana();
         renderizarGraficoEvolucaoDmSerrana();
     }, 60000); 
 }
@@ -221,13 +222,59 @@ async function carregarFrotasParadasSerrana() {
     }
 }
 
-async function carregarControladorAtualSerrana() {
+// === CÁLCULO DE TURNO AUTOMÁTICO (SERRANA) ===
+async function carregarStatusDashSerrana() {
     let queryCtrl = supabaseClient.from('dashboard_status').select('id, controlador').limit(1);
     if (typeof window.aplicarFiltroFilial === 'function') queryCtrl = window.aplicarFiltroFilial(queryCtrl);
-    const { data } = await queryCtrl;
+    const { data: statusData } = await queryCtrl;
     
-    const nome = (data && data.length > 0 && data[0].controlador) ? data[0].controlador : 'NÃO DEFINIDO';
-    document.getElementById('dash-controlador-nome').textContent = nome;
+    const nomeCtrl = (statusData && statusData.length > 0 && statusData[0].controlador) ? statusData[0].controlador : 'NÃO DEFINIDO';
+    document.getElementById('dash-controlador-nome').textContent = nomeCtrl;
+
+    const turnos = await db.getTurnosOperacionais();
+    let turnoTexto = "06:00 às 18:00";
+    let turnoTipo = "DIA";
+    
+    if (turnos && turnos.length > 0) {
+        const agora = new Date();
+        const tempoAtualMinutos = agora.getHours() * 60 + agora.getMinutes();
+        
+        let turnoAtivo = turnos[0]; 
+        
+        for (let t of turnos) {
+            if(!t.hora_inicio || !t.hora_fim) continue;
+            
+            const [hIni, mIni] = t.hora_inicio.split(':').map(Number);
+            const [hFim, mFim] = t.hora_fim.split(':').map(Number);
+            
+            const iniMin = hIni * 60 + mIni;
+            const fimMin = hFim * 60 + mFim;
+            
+            if (iniMin < fimMin) {
+                if (tempoAtualMinutos >= iniMin && tempoAtualMinutos < fimMin) { turnoAtivo = t; break; }
+            } else {
+                if (tempoAtualMinutos >= iniMin || tempoAtualMinutos < fimMin) { turnoAtivo = t; break; }
+            }
+        }
+        
+        const formataHora = (h) => h ? h.substring(0, 5) : '--:--';
+        turnoTexto = `${formataHora(turnoAtivo.hora_inicio)} às ${formataHora(turnoAtivo.hora_fim)}`;
+        turnoTipo = turnoAtivo.tipo || 'DIA';
+    }
+
+    const elTurnoNome = document.getElementById('dash-turno-nome');
+    const elTurnoIcon = document.getElementById('dash-turno-icon');
+
+    if(elTurnoNome) elTurnoNome.textContent = turnoTexto;
+    if(elTurnoIcon) {
+        if(turnoTipo === 'DIA') {
+            elTurnoIcon.className = "fas fa-sun";
+            elTurnoIcon.style.color = "#f59e0b";
+        } else {
+            elTurnoIcon.className = "fas fa-moon";
+            elTurnoIcon.style.color = "#38bdf8";
+        }
+    }
 }
 
 async function carregarFrentesTvSerrana() {

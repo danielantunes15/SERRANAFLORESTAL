@@ -5,19 +5,15 @@ window.carregarDadosDashboard = async function() {
     setInterval(atualizarRelogio, 1000);
 
     await atualizarPonteiros();
-    carregarControladorAtual();
+    carregarStatusDash();
     carregarFrentesTv();
     carregarFrotasParadas();
     
     setInterval(() => {
         carregarFrotasParadas();
         atualizarPonteiros();
+        carregarStatusDash();
     }, 10000);
-
-    if(typeof atualizarFrentesDeTrabalho === 'function') {
-        atualizarFrentesDeTrabalho();
-        setInterval(atualizarFrentesDeTrabalho, 60000);
-    }
 }
 
 window.atualizarRelogio = function() {
@@ -33,42 +29,6 @@ window.atualizarRelogio = function() {
     const elData = document.getElementById('dash-data');
     if(elHora) elHora.textContent = `${horas}:${minutos}:${segundos}`;
     if(elData) elData.textContent = `${dia}/${mes}/${ano}`;
-}
-
-window.atualizarFrentesDeTrabalho = function() {
-    const agora = new Date();
-    const dia = String(agora.getDate()).padStart(2, '0');
-    const mes = String(agora.getMonth() + 1).padStart(2, '0'); 
-    const ano = agora.getFullYear();
-    const dataFormatada = `${dia}/${mes}/${ano}`;
-
-    const hora = agora.getHours();
-    let textoTurnoFrente = "";
-    let classeTurnoFrente = "";
-    
-    const elTurnoBarText = document.getElementById('dash-turno');
-    const elTurnoBarIcon = document.getElementById('dash-turno-icon');
-    const elTurnoBarContainer = document.getElementById('container-barra-turno');
-
-    if (hora >= 6 && hora < 18) {
-        textoTurnoFrente = "  06:00 às 18:00";
-        classeTurnoFrente = "turno-dia-style";
-        if(elTurnoBarText) { elTurnoBarText.textContent = "TURNO: 06:00 às 18:00"; elTurnoBarText.style.color = "#ffffff"; }
-        if(elTurnoBarIcon) elTurnoBarIcon.className = "fas fa-sun";
-        if(elTurnoBarContainer) elTurnoBarContainer.style.borderLeftColor = "#f59e0b";
-    } else {
-        textoTurnoFrente = "  18:00 às 06:00";
-        classeTurnoFrente = "turno-noite-style";
-        if(elTurnoBarText) { elTurnoBarText.textContent = "TURNO: 18:00 às 06:00"; elTurnoBarText.style.color = "#ffffff"; }
-        if(elTurnoBarIcon) elTurnoBarIcon.className = "fas fa-moon";
-        if(elTurnoBarContainer) elTurnoBarContainer.style.borderLeftColor = "#38bdf8";
-    }
-
-    document.querySelectorAll('.dash-data-frente').forEach(el => el.textContent = dataFormatada);
-    document.querySelectorAll('.dash-turno-frente').forEach(el => {
-        el.textContent = textoTurnoFrente;
-        el.className = `frente-turno dash-turno-frente ${classeTurnoFrente}`;
-    });
 }
 
 async function atualizarPonteiros() {
@@ -151,13 +111,88 @@ async function atualizarPonteiros() {
     if(elManut) elManut.textContent = contadorEmManutencaoGlobal;
 }
 
-async function carregarControladorAtual() {
+// === CÁLCULO DE TURNO AUTOMÁTICO ===
+async function carregarStatusDash() {
+    // 1. Busca Controlador Atual
     let queryCtrl = supabaseClient.from('dashboard_status').select('id, controlador').limit(1);
     if (typeof window.aplicarFiltroFilial === 'function') queryCtrl = window.aplicarFiltroFilial(queryCtrl);
-    const { data } = await queryCtrl;
+    const { data: statusData } = await queryCtrl;
     
-    const nome = (data && data.length > 0 && data[0].controlador) ? data[0].controlador : 'NÃO DEFINIDO';
-    document.getElementById('dash-controlador-nome').textContent = nome;
+    const nomeCtrl = (statusData && statusData.length > 0 && statusData[0].controlador) ? statusData[0].controlador : 'NÃO DEFINIDO';
+    document.getElementById('dash-controlador-nome').textContent = nomeCtrl;
+    
+    // 2. Busca os Turnos da Filial e calcula de forma automática
+    const turnos = await db.getTurnosOperacionais();
+    let turnoTexto = "06:00 às 18:00"; // Padrão
+    let turnoTipo = "DIA"; // Padrão
+    
+    if (turnos && turnos.length > 0) {
+        const agora = new Date();
+        const tempoAtualMinutos = agora.getHours() * 60 + agora.getMinutes();
+        
+        let turnoAtivo = turnos[0]; 
+        
+        for (let t of turnos) {
+            if(!t.hora_inicio || !t.hora_fim) continue;
+            
+            const [hIni, mIni] = t.hora_inicio.split(':').map(Number);
+            const [hFim, mFim] = t.hora_fim.split(':').map(Number);
+            
+            const iniMin = hIni * 60 + mIni;
+            const fimMin = hFim * 60 + mFim;
+            
+            if (iniMin < fimMin) {
+                // Exemplo: 06:00 às 14:00 (Mesmo dia)
+                if (tempoAtualMinutos >= iniMin && tempoAtualMinutos < fimMin) { 
+                    turnoAtivo = t; 
+                    break; 
+                }
+            } else {
+                // Exemplo: 18:00 às 06:00 (Cruza a meia noite)
+                if (tempoAtualMinutos >= iniMin || tempoAtualMinutos < fimMin) { 
+                    turnoAtivo = t; 
+                    break; 
+                }
+            }
+        }
+        
+        const formataHora = (h) => h ? h.substring(0, 5) : '--:--';
+        turnoTexto = `${formataHora(turnoAtivo.hora_inicio)} às ${formataHora(turnoAtivo.hora_fim)}`;
+        turnoTipo = turnoAtivo.tipo || 'DIA';
+    }
+    
+    // 3. Atualiza Layout da TV
+    const elTurnoBarText = document.getElementById('dash-turno');
+    const elTurnoBarIcon = document.getElementById('dash-turno-icon');
+    const elTurnoBarContainer = document.getElementById('container-barra-turno');
+    
+    if(elTurnoBarText) elTurnoBarText.textContent = `TURNO: ${turnoTexto}`;
+
+    if (turnoTipo === 'DIA') {
+        if(elTurnoBarIcon) elTurnoBarIcon.className = "fas fa-sun";
+        if(elTurnoBarContainer) elTurnoBarContainer.style.borderLeftColor = "#f59e0b";
+    } else {
+        if(elTurnoBarIcon) elTurnoBarIcon.className = "fas fa-moon";
+        if(elTurnoBarContainer) elTurnoBarContainer.style.borderLeftColor = "#38bdf8";
+    }
+
+    aplicarLayoutFrentes(turnoTexto, turnoTipo);
+}
+
+function aplicarLayoutFrentes(turnoTexto, turnoTipo) {
+    const agora = new Date();
+    const dia = String(agora.getDate()).padStart(2, '0');
+    const mes = String(agora.getMonth() + 1).padStart(2, '0'); 
+    const ano = agora.getFullYear();
+    const dataFormatada = `${dia}/${mes}/${ano}`;
+
+    let classeTurnoFrente = turnoTipo === 'DIA' ? "turno-dia-style" : "turno-noite-style";
+    
+    document.querySelectorAll('.dash-data-frente').forEach(el => el.textContent = dataFormatada);
+    document.querySelectorAll('.dash-turno-frente').forEach(el => {
+        el.textContent = `  ${turnoTexto}`;
+        el.className = `frente-turno dash-turno-frente ${classeTurnoFrente}`;
+    });
 }
 
 async function carregarFrentesTv() {
@@ -185,7 +220,7 @@ async function carregarFrentesTv() {
                 </div>`;
             }
         });
-        atualizarFrentesDeTrabalho();
+        carregarStatusDash();
     } else {
         if(elKpiFrentes) elKpiFrentes.textContent = '0';
         if(container) container.innerHTML = '<div class="empty-state">Nenhuma frente ativa.</div>';

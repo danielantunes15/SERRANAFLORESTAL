@@ -37,12 +37,6 @@
         font-weight: bold; cursor: pointer; transition: 0.3s;
     }
     .btn-primary-green:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(16, 185, 129, 0.4); }
-    .btn-danger-block {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        color: white; border: none; padding: 10px 20px; border-radius: 6px;
-        font-weight: bold; cursor: pointer; transition: 0.3s;
-    }
-    .btn-danger-block:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4); }
     .lista-scroll::-webkit-scrollbar { width: 6px; }
     .lista-scroll::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 4px; }
 </style>
@@ -89,18 +83,33 @@
         </div>
 
         <div class="glass-panel" style="padding: 25px; grid-column: span 2;">
-            <h3 style="color: #fff; margin-top: 0; margin-bottom: 20px; font-size: 1.3rem;"><i class="fas fa-exclamation-triangle text-red"></i> Ocorrências no Painel</h3>
+            <h3 style="color: #fff; margin-top: 0; margin-bottom: 10px; font-size: 1.3rem;"><i class="fas fa-clock text-orange"></i> Turnos Operacionais (Troca Automática)</h3>
+            <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px;">Cadastre os turnos da sua filial. O painel identificará sozinho qual o turno atual com base no relógio.</p>
             
-            <div style="display:flex; gap:10px; margin-bottom: 20px;">
-                <select id="cadNovaOcTipo" class="dark-select" style="width: 250px;">
-                    <option value="Atraso">Atraso</option>
-                    <option value="Mecânica">Mecânica</option>
-                </select>
-                <input type="text" id="cadNovaOcDesc" class="dark-input" placeholder="Descrição da ocorrência..." style="flex:1;">
-                <button class="btn-danger-block" onclick="cadAddOcorrencia()" style="width:auto; padding: 0 30px;"><i class="fas fa-bullhorn"></i> Registrar Ocorrência</button>
+            <div style="display:flex; gap:10px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 2; min-width: 200px;">
+                    <label style="color:#fff; font-weight: bold; font-size: 0.85rem; margin-bottom: 5px; display: block;">Nome do Turno:</label>
+                    <input type="text" id="novoTurnoNome" class="dark-input" placeholder="Ex: Turno A">
+                </div>
+                <div style="flex: 1; min-width: 100px;">
+                    <label style="color:#fff; font-weight: bold; font-size: 0.85rem; margin-bottom: 5px; display: block;">Início:</label>
+                    <input type="time" id="novoTurnoInicio" class="dark-input">
+                </div>
+                <div style="flex: 1; min-width: 100px;">
+                    <label style="color:#fff; font-weight: bold; font-size: 0.85rem; margin-bottom: 5px; display: block;">Fim:</label>
+                    <input type="time" id="novoTurnoFim" class="dark-input">
+                </div>
+                <div style="flex: 1; min-width: 120px;">
+                    <label style="color:#fff; font-weight: bold; font-size: 0.85rem; margin-bottom: 5px; display: block;">Tema Visual:</label>
+                    <select id="novoTurnoTipo" class="dark-select">
+                        <option value="DIA">🌞 Dia</option>
+                        <option value="NOITE">🌚 Noite</option>
+                    </select>
+                </div>
+                <button class="btn-primary-green" style="height: 44px; padding: 0 25px;" onclick="addTurnoDB()"><i class="fas fa-plus"></i> Salvar</button>
             </div>
             
-            <div id="cad-lista-ocorrencias" class="lista-scroll" style="max-height: 200px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap:10px;"></div>
+            <div id="lista-turnos-db" class="lista-scroll" style="max-height: 200px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap:10px;"></div>
         </div>
 
     </div>

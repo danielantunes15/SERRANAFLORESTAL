@@ -1,5 +1,4 @@
 <style>
-    /* Estilos do Layout Base */
     .dash-pro-wrapper {
         background-color: #070b14;
         padding: 22px 30px; 
@@ -11,8 +10,6 @@
         gap: 22px; 
         min-height: calc(100vh - 80px);
     }
-
-    /* CABEÇALHO CENTRALIZADO */
     .dash-pro-header {
         display: grid;
         grid-template-columns: 1fr auto 1fr; 
@@ -20,7 +17,6 @@
         border-bottom: 2px solid rgba(255,255,255,0.05);
         padding-bottom: 18px; 
     }
-
     .header-left { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; justify-content: center; }
     .header-center { text-align: center; }
     .header-right { display: flex; justify-content: flex-end; align-items: center; }
@@ -29,7 +25,6 @@
     .pro-title-box p { margin: 4px 0 0 0; font-size: 1.05rem; color: #94a3b8; font-weight: 600; letter-spacing: 2px; }
     .pro-logo { height: 68px; object-fit: contain; } 
 
-    /* CAIXINHAS PEQUENAS LADO ESQUERDO */
     .header-badge-small {
         background: rgba(15, 23, 42, 0.6);
         border: 1px solid rgba(255,255,255,0.08);
@@ -46,81 +41,27 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
-    /* TOPO: 3 KPIs */
-    .dash-pro-kpis {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 22px;
-    }
+    .dash-pro-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
 
     .pro-kpi-card {
         padding: 18px 12px; 
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        min-height: 230px; 
-        text-align: center;
+        display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+        min-height: 230px; text-align: center;
     }
 
-    .kpi-title {
-        margin: 0 0 10px 0; 
-        font-size: 1.1rem; 
-        text-transform: uppercase; 
-        font-weight: 800;
-        height: 32px; 
-        display: flex; 
-        justify-content: center; 
-        align-items: center; 
-        z-index: 2;
-        color: #ffffff !important; 
-    }
+    .kpi-title { margin: 0 0 10px 0; font-size: 1.1rem; text-transform: uppercase; font-weight: 800; height: 32px; display: flex; justify-content: center; align-items: center; z-index: 2; color: #ffffff !important; }
 
-    .kpi-content-wrapper {
-        position: relative; flex-grow: 1; width: 100%; min-height: 150px; 
-        display: flex; justify-content: center; align-items: center;
-    }
+    .kpi-content-wrapper { position: relative; flex-grow: 1; width: 100%; min-height: 150px; display: flex; justify-content: center; align-items: center; }
 
-    /* AJUSTE DE PROPORÇÃO GAUGE MAIOR */
-    .gauge-simple-container {
-        position: absolute; width: 220px; height: 110px; overflow: hidden; top: 0; 
-    }
-
-    .gauge-simple-arc {
-        position: absolute; width: 220px; height: 220px; border: 12px solid #1e293b; 
-        border-radius: 50%; box-sizing: border-box; border-bottom-color: transparent;
-        border-left-color: transparent; transform: rotate(-45deg);
-    }
-
-    .gauge-simple-fill {
-        position: absolute; width: 220px; height: 220px; border: 12px solid #38bdf8; 
-        border-radius: 50%; box-sizing: border-box; border-bottom-color: transparent;
-        border-left-color: transparent; 
-        transform: rotate(-225deg);
-        transition: transform 1s ease-out;
-    }
-
-    /* Estilos do Ponteiro */
-    .gauge-ponteiro {
-        position: absolute; bottom: 0; left: 50%; width: 4px; height: 90px;  
-        background: linear-gradient(to top, #ffffff, #94a3b8); transform-origin: bottom center;
-        transform: translateX(-50%) rotate(-90deg); transition: transform 1s ease-out;
-        z-index: 3; border-radius: 4px 4px 0 0; box-shadow: 2px 0 5px rgba(0,0,0,0.3);
-    }
-
-    .gauge-centro {
-        position: absolute; bottom: -8px; left: 50%; width: 18px; height: 18px; 
-        background-color: #38bdf8; border: 2px solid #1e293b; border-radius: 50%;
-        transform: translateX(-50%); z-index: 4;
-    }
+    .gauge-simple-container { position: absolute; width: 220px; height: 110px; overflow: hidden; top: 0; }
+    .gauge-simple-arc { position: absolute; width: 220px; height: 220px; border: 12px solid #1e293b; border-radius: 50%; box-sizing: border-box; border-bottom-color: transparent; border-left-color: transparent; transform: rotate(-45deg); }
+    .gauge-simple-fill { position: absolute; width: 220px; height: 220px; border: 12px solid #38bdf8; border-radius: 50%; box-sizing: border-box; border-bottom-color: transparent; border-left-color: transparent; transform: rotate(-225deg); transition: transform 1s ease-out; }
+    .gauge-ponteiro { position: absolute; bottom: 0; left: 50%; width: 4px; height: 90px; background: linear-gradient(to top, #ffffff, #94a3b8); transform-origin: bottom center; transform: translateX(-50%) rotate(-90deg); transition: transform 1s ease-out; z-index: 3; border-radius: 4px 4px 0 0; box-shadow: 2px 0 5px rgba(0,0,0,0.3); }
+    .gauge-centro { position: absolute; bottom: -8px; left: 50%; width: 18px; height: 18px; background-color: #38bdf8; border: 2px solid #1e293b; border-radius: 50%; transform: translateX(-50%); z-index: 4; }
 
     .icon-bg { font-size: 7rem; opacity: 0.1; position: absolute; z-index: 1; } 
 
-    .kpi-data-front {
-        position: relative; z-index: 5; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; margin-top: 30px; 
-    }
-
+    .kpi-data-front { position: relative; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 30px; }
     .kpi-number { font-size: 3rem; font-weight: 900; line-height: 1; color: #ffffff !important; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } 
     .kpi-subtitle { font-size: 0.85rem; color: #ffffff !important; margin-top: 5px; font-weight: bold; text-transform: uppercase; }
 
@@ -129,22 +70,14 @@
     .text-green { color: #22c55e !important; }
     .text-orange { color: #f59e0b !important; }
 
-    /* PARTE DE BAIXO DIVIDIDA (GRÁFICO vs FROTAS PARADAS) */
-    .dash-bottom-split {
-        display: grid; grid-template-columns: 1.3fr 1.1fr; gap: 22px; align-items: stretch; flex-grow: 1; 
-    }
-
+    .dash-bottom-split { display: grid; grid-template-columns: 1.3fr 1.1fr; gap: 22px; align-items: stretch; flex-grow: 1; }
     .dash-left-frentes, .dash-right-info { display: flex; flex-direction: column; height: 100%; width: 100%; }
     .pro-list-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100%; }
 
-    /* Customização da barra de rolagem */
     .lista-scroll::-webkit-scrollbar { width: 6px; }
     .lista-scroll::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 4px; }
 
-    @media (max-width: 1200px) {
-        .dash-bottom-split { grid-template-columns: 1fr; }
-        .dash-pro-kpis { grid-template-columns: 1fr 1fr; }
-    }
+    @media (max-width: 1200px) { .dash-bottom-split { grid-template-columns: 1fr; } .dash-pro-kpis { grid-template-columns: 1fr 1fr; } }
 </style>
 
 <div id="area-print-dash" class="dash-pro-wrapper fade-in">
@@ -158,6 +91,10 @@
             <div class="header-badge-small">
                 <i class="fas fa-user-shield" style="color: #a855f7; font-size: 0.9rem;"></i> 
                 CTRL: <span id="dash-controlador-nome" style="font-weight: 900; color: #fff;">AGUARDANDO...</span>
+            </div>
+            <div class="header-badge-small" id="badge-turno-serrana">
+                <i class="fas fa-sun" id="dash-turno-icon" style="color: #f59e0b; font-size: 0.9rem;"></i> 
+                TURNO: <span id="dash-turno-nome" style="font-weight: 900; color: #fff;">AGUARDANDO...</span>
             </div>
         </div>
 
