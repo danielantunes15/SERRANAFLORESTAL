@@ -52,7 +52,13 @@ window.renderizarMenu = async function() {
     }
 
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
+    const userKey = currentUser ? 'user_' + currentUser.id : '';
+
+    // Verifica se há permissão específica (exceção) para este usuário logado
     let meusMenus = permissoesAtuais[userRole] || [];
+    if (userKey && permissoesAtuais[userKey] && !permissoesAtuais[userKey].includes('__RESET__')) {
+        meusMenus = permissoesAtuais[userKey];
+    }
     
     const isAdmin = userRole === 'Admin' || userRole === 'SuperAdmin';
     const isGerente = userRole === 'Gerente';
@@ -121,7 +127,7 @@ window.carregarCheckboxesPermissoes = async function() {
     const container = document.getElementById('container-permissoes-menus');
     if (!container) return;
 
-    // INJEÇÃO DE CSS PARA OS CARDS (Deixa tudo organizado e bonito)
+    // INJEÇÃO DE CSS PARA OS CARDS PREMIUM
     if (!document.getElementById('css-permissoes-cards')) {
         const style = document.createElement('style');
         style.id = 'css-permissoes-cards';
@@ -138,18 +144,40 @@ window.carregarCheckboxesPermissoes = async function() {
         document.head.appendChild(style);
     }
 
-    const perfilSelect = document.getElementById('selectPerfilPermissao');
-    const perfil = perfilSelect ? perfilSelect.value : 'Controlador de Trefego';
+    const tipo = document.querySelector('input[name="tipoPermissao"]:checked')?.value || 'perfil';
+    let alvo = 'Controlador de Trefego';
     
+    if (tipo === 'perfil') {
+        alvo = document.getElementById('selectPerfilPermissao')?.value || 'Controlador de Trefego';
+    } else {
+        alvo = document.getElementById('selectUsuarioPermissao')?.value;
+        if(!alvo) return; // Se a lista de usuários ainda não carregou, ignora
+    }
+
     let permissoesAtuais = {};
     if (typeof db !== 'undefined' && typeof db.getPermissoesDB === 'function') {
         permissoesAtuais = await db.getPermissoesDB();
     } else if (typeof window.getPermissoes === 'function') {
         permissoesAtuais = window.getPermissoes();
     }
-    const meusAcessos = permissoesAtuais[perfil] || [];
     
+    let meusAcessos = permissoesAtuais[alvo] || [];
     const isSuperAdmin = (currentUser && currentUser.role === 'SuperAdmin');
+
+    // Mágica para facilitar a vida do Admin: 
+    // Se o usuário selecionado ainda não tiver uma exceção salva (ou foi resetado), exibe visualmente as permissões base do cargo dele pra facilitar a edição.
+    if (tipo === 'usuario' && (!permissoesAtuais[alvo] || meusAcessos.includes('__RESET__'))) {
+        const selectUser = document.getElementById('selectUsuarioPermissao');
+        const textoOpcao = selectUser.options[selectUser.selectedIndex].text;
+        const matchRole = textoOpcao.match(/\((.*?)\)/); // Captura a Role que está dentro de parênteses no select
+        const roleDesteUser = matchRole ? matchRole[1] : null;
+        
+        if (roleDesteUser && permissoesAtuais[roleDesteUser]) {
+            meusAcessos = permissoesAtuais[roleDesteUser];
+        } else {
+            meusAcessos = [];
+        }
+    }
 
     let html = '';
     const setores = [...new Set(MAPA_MENUS.map(m => m.setor))];
@@ -174,7 +202,6 @@ window.carregarCheckboxesPermissoes = async function() {
             const disabledClass = disabled ? 'disabled-item' : '';
             const extraInfo = disabled ? ' title="Apenas SuperAdmin pode alterar este acesso"' : '';
 
-            // LINHA DA PERMISSÃO
             html += `
                 <label class="permissao-item ${disabledClass}" ${extraInfo}>
                     <input type="checkbox" class="chk-permissao" value="${menu.id}" ${checked} ${disabled}>

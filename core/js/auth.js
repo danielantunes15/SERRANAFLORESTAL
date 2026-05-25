@@ -84,27 +84,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // =========================================================================
         // VALIDAÇÃO DE SEGURANÇA CONTRA USUÁRIOS EXCLUÍDOS
-        // Verifica se o usuário logado na sessão ainda existe no banco de dados.
         // =========================================================================
         try {
             const dbUser = await db.getUsuarioByUsername(window.currentUser.username);
             
-            // Se dbUser for nulo, significa que a conta foi apagada do banco.
             if (!dbUser) {
                 alert("🔒 Acesso revogado: Sua conta foi excluída ou desativada pelo administrador.");
                 localStorage.removeItem('ccol_user_session');
                 window.location.href = 'login.html';
-                return; // Bloqueia a execução do resto do código
+                return; 
             }
 
-            // Opcional: Atualiza o cargo da pessoa caso o admin tenha mudado e ela recarregue a página
             window.currentUser.role = dbUser.role;
             localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
 
         } catch (error) {
             console.error("Erro ao validar credenciais no banco de dados:", error);
         }
-        // =========================================================================
 
         iniciarSistemaAutorizado(); 
     } else {
@@ -119,7 +115,6 @@ const permissoesPadrao = {
         "os", "servicos", "cadastro_frota", "os_apoio", "almoxarifado", "treinamento",
         "relatorio_gerencial", "indicadores", "indicadores_serrana", "cadastro_indicadores",
         "visao_geral", "operacional", "desempenho_frota", "jornadas", "historico_producao", "historico_jornadas", "configuracoes_gerencial"
-        // NOTA: "producao_frota" removido do padrão para que obrigue o SuperAdmin a liberar manualmente
     ],
     "Controlador de Trefego": ["escala", "alocacao", "troca", "jornada"],
     "SSMA": ["motoristas", "treinamento", "jornada"],
@@ -130,41 +125,61 @@ const permissoesPadrao = {
 
 window.getPermissoes = function() { return window.permissoesGlobais || permissoesPadrao; };
 
-window.carregarCheckboxesPermissoes = function() {
-    const perfil = document.getElementById('selectPerfilPermissao')?.value;
-    if(!perfil) return;
-    const permitidos = (window.getPermissoes())[perfil] || [];
-    document.querySelectorAll('.chk-permissao').forEach(chk => { chk.checked = permitidos.includes(chk.value); });
-};
-
+// SALVAMENTO DE PERMISSÕES MISTAS (PERFIL OU USUÁRIO ESPECÍFICO)
 window.salvarPermissoesPerfil = async function() {
-    const perfil = document.getElementById('selectPerfilPermissao').value;
+    const tipo = document.querySelector('input[name="tipoPermissao"]:checked')?.value || 'perfil';
+    let alvo = '';
+    let nomeAlerta = '';
+
+    if (tipo === 'perfil') {
+        alvo = document.getElementById('selectPerfilPermissao').value;
+        nomeAlerta = `o perfil "${alvo}"`;
+    } else {
+        const selUser = document.getElementById('selectUsuarioPermissao');
+        alvo = selUser.value;
+        nomeAlerta = `a Exceção do usuário ${selUser.options[selUser.selectedIndex].text}`;
+    }
+
     const checkboxesMarcados = document.querySelectorAll('.chk-permissao:checked');
     let novasPermissoes = Array.from(checkboxesMarcados).map(chk => chk.value);
     
     const isSuperAdmin = (window.currentUser && window.currentUser.role === 'SuperAdmin');
 
-    // TRAVA DE SEGURANÇA: Se não for SuperAdmin, impede a gravação forçada dos módulos do setor Gerencial
+    // TRAVA DE SEGURANÇA CONTRA FORÇAMENTO VIA CONSOLE
     if (!isSuperAdmin) {
-        const menusRestritos = ['producao_frota']; // Adicione outras rotas gerenciais aqui se criar no futuro
+        const menusRestritos = ['producao_frota']; 
         
-        // Remove da tentativa de salvar qualquer menu que seja restrito
         novasPermissoes = novasPermissoes.filter(p => !menusRestritos.includes(p));
-        
-        // Mantém intocadas as permissões restritas que o perfil já tinha (caso o SuperAdmin já tivesse liberado antes)
-        const permissoesAtuais = (window.permissoesGlobais && window.permissoesGlobais[perfil]) ? window.permissoesGlobais[perfil] : ((window.getPermissoes())[perfil] || []);
+        const permissoesAtuais = (window.permissoesGlobais && window.permissoesGlobais[alvo]) ? window.permissoesGlobais[alvo] : ((window.getPermissoes())[alvo] || []);
         const restritasExistentes = permissoesAtuais.filter(p => menusRestritos.includes(p));
         
         novasPermissoes = novasPermissoes.concat(restritasExistentes);
     }
     
-    await db.updatePermissoesDB(perfil, novasPermissoes);
+    await db.updatePermissoesDB(alvo, novasPermissoes);
     
     if(!window.permissoesGlobais) window.permissoesGlobais = { ...permissoesPadrao };
-    window.permissoesGlobais[perfil] = novasPermissoes;
+    window.permissoesGlobais[alvo] = novasPermissoes;
     
-    alert(`✅ Permissões para o perfil "${perfil}" salvas com sucesso!`);
+    alert(`✅ Permissões para ${nomeAlerta} salvas com sucesso!`);
     if (typeof window.renderizarMenu === 'function') window.renderizarMenu();
+};
+
+window.removerPermissaoEspecifica = async function() {
+    const selUser = document.getElementById('selectUsuarioPermissao');
+    const alvo = selUser.value;
+    const nome = selUser.options[selUser.selectedIndex].text;
+
+    if(confirm(`Tem certeza que deseja remover a exceção de ${nome}?\nEle voltará a ter apenas os acessos padrão do seu Perfil.`)) {
+        await db.updatePermissoesDB(alvo, ["__RESET__"]);
+        
+        if(!window.permissoesGlobais) window.permissoesGlobais = { ...permissoesPadrao };
+        window.permissoesGlobais[alvo] = ["__RESET__"];
+        
+        alert('Exceção removida com sucesso!');
+        if (typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
+        if (typeof window.renderizarMenu === 'function') window.renderizarMenu();
+    }
 };
 
 window.alternarAbaConfig = function(aba) {

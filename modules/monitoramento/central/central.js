@@ -14,6 +14,7 @@ async function carregarDadosCentrais() {
         atualizarKpisCentrais();
         renderizarTabelaFiliaisAdmin();
         preencherSelectsFiliais();
+        preencherSelectUsuariosPermissoes(); // Injeta os usuários no dropdown de acesso
         renderizarTabelaUsuariosGlobais();
         
     } catch(e) {
@@ -62,6 +63,35 @@ window.alternarAbaCentral = function(aba) {
             window.carregarCheckboxesPermissoes();
         }
     }
+}
+
+window.alternarTipoPermissao = function() {
+    const tipo = document.querySelector('input[name="tipoPermissao"]:checked').value;
+    const selPerfil = document.getElementById('selectPerfilPermissao');
+    const selUser = document.getElementById('selectUsuarioPermissao');
+    const btnRemover = document.getElementById('btnRemoverPermissaoUser');
+    const aviso = document.getElementById('avisoPermissaoUsuario');
+
+    if (tipo === 'perfil') {
+        selPerfil.style.display = 'block';
+        selUser.style.display = 'none';
+        btnRemover.style.display = 'none';
+        aviso.style.display = 'none';
+    } else {
+        selPerfil.style.display = 'none';
+        selUser.style.display = 'block';
+        btnRemover.style.display = 'inline-block';
+        aviso.style.display = 'block';
+    }
+    if (typeof window.carregarCheckboxesPermissoes === 'function') {
+        window.carregarCheckboxesPermissoes();
+    }
+}
+
+function preencherSelectUsuariosPermissoes() {
+    const selUser = document.getElementById('selectUsuarioPermissao');
+    if(!selUser) return;
+    selUser.innerHTML = cacheUsuariosGlobais.map(u => `<option value="user_${u.id}">${u.username} (${u.role})</option>`).join('');
 }
 
 // ==================== MÓDULO FILIAIS ====================
