@@ -5,7 +5,7 @@ let listaFiliaisAtivas = [];
 
 // Função auxiliar para injetar dinamicamente um seletor de filiais para o Admin na hora de criar usuário
 async function injetarSelectFilialSeAdmin() {
-    if (!window.currentUser || (window.currentUser.role !== 'SuperAdmin' && window.currentUser.role !== 'Admin')) return;
+    if (!window.currentUser || (window.currentUser.role !== 'SuperAdmin' && window.currentUser.role !== 'Admin' && window.currentUser.role !== 'Gerente')) return;
     
     const inputRole = document.getElementById('novoUserRole');
     if (inputRole && inputRole.parentNode && !document.getElementById('novoUserFilial')) {
@@ -71,6 +71,12 @@ window.adicionarUsuario = async function() {
     const nome = document.getElementById('novoUsername').value.trim().toUpperCase();
     const role = document.getElementById('novoUserRole').value;
     if (!nome) return;
+
+    // TRAVA DE SEGURANÇA: Somente SuperAdmin pode criar cargo Gerente
+    if (role === 'Gerente' && (!window.currentUser || window.currentUser.role !== 'SuperAdmin')) {
+        alert('⚠️ Acesso Negado: Somente o SuperAdmin pode criar usuários com o nível de "Gerente".');
+        return;
+    }
 
     let filialSelecionada = undefined;
     const selectFilial = document.getElementById('novoUserFilial');

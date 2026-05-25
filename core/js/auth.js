@@ -114,6 +114,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 const permissoesPadrao = {
     "Admin": ["escala", "alocacao", "motoristas", "caminhoes", "os", "troca", "jornada", "treinamento", "indicadores", "indicadores_serrana", "servicos", "cadastro_frota", "almoxarifado"],
+    "Gerente": [
+        "escala", "troca_turno", "alocacao", "recados", "motoristas", "caminhoes", "documentos_frota",
+        "os", "servicos", "cadastro_frota", "os_apoio", "almoxarifado", "treinamento",
+        "relatorio_gerencial", "indicadores", "indicadores_serrana", "cadastro_indicadores",
+        "visao_geral", "operacional", "desempenho_frota", "jornadas", "historico_producao", "historico_jornadas", "configuracoes_gerencial"
+        // NOTA: "producao_frota" removido do padrão para que obrigue o SuperAdmin a liberar manualmente
+    ],
     "Controlador de Trefego": ["escala", "alocacao", "troca", "jornada"],
     "SSMA": ["motoristas", "treinamento", "jornada"],
     "Controle de Manutencao": ["caminhoes", "os", "cadastro_frota", "almoxarifado"],
@@ -133,7 +140,23 @@ window.carregarCheckboxesPermissoes = function() {
 window.salvarPermissoesPerfil = async function() {
     const perfil = document.getElementById('selectPerfilPermissao').value;
     const checkboxesMarcados = document.querySelectorAll('.chk-permissao:checked');
-    const novasPermissoes = Array.from(checkboxesMarcados).map(chk => chk.value);
+    let novasPermissoes = Array.from(checkboxesMarcados).map(chk => chk.value);
+    
+    const isSuperAdmin = (window.currentUser && window.currentUser.role === 'SuperAdmin');
+
+    // TRAVA DE SEGURANÇA: Se não for SuperAdmin, impede a gravação forçada dos módulos do setor Gerencial
+    if (!isSuperAdmin) {
+        const menusRestritos = ['producao_frota']; // Adicione outras rotas gerenciais aqui se criar no futuro
+        
+        // Remove da tentativa de salvar qualquer menu que seja restrito
+        novasPermissoes = novasPermissoes.filter(p => !menusRestritos.includes(p));
+        
+        // Mantém intocadas as permissões restritas que o perfil já tinha (caso o SuperAdmin já tivesse liberado antes)
+        const permissoesAtuais = (window.permissoesGlobais && window.permissoesGlobais[perfil]) ? window.permissoesGlobais[perfil] : ((window.getPermissoes())[perfil] || []);
+        const restritasExistentes = permissoesAtuais.filter(p => menusRestritos.includes(p));
+        
+        novasPermissoes = novasPermissoes.concat(restritasExistentes);
+    }
     
     await db.updatePermissoesDB(perfil, novasPermissoes);
     

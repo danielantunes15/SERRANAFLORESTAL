@@ -53,7 +53,9 @@ window.renderizarMenu = async function() {
 
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
     let meusMenus = permissoesAtuais[userRole] || [];
+    
     const isAdmin = userRole === 'Admin' || userRole === 'SuperAdmin';
+    const isGerente = userRole === 'Gerente';
     
     const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
 
@@ -88,8 +90,8 @@ window.renderizarMenu = async function() {
         }
     });
 
-    // Botão de Configurações do Sistema para Admins DENTRO de uma filial
-    if (isAdmin && !isSessaoCentral) {
+    // Botão de Configurações do Sistema para Admins e Gerentes DENTRO de uma filial
+    if ((isAdmin || isGerente) && !isSessaoCentral) {
         navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-cog"></i> Configurações</button>`;
     }
 
@@ -129,6 +131,8 @@ window.carregarCheckboxesPermissoes = async function() {
         permissoesAtuais = window.getPermissoes();
     }
     const meusAcessos = permissoesAtuais[perfil] || [];
+    
+    const isSuperAdmin = (currentUser && currentUser.role === 'SuperAdmin');
 
     let html = '';
     const setores = [...new Set(MAPA_MENUS.map(m => m.setor))];
@@ -145,9 +149,15 @@ window.carregarCheckboxesPermissoes = async function() {
         
         MAPA_MENUS.filter(m => m.setor === setor).forEach(menu => {
             const checked = meusAcessos.includes(menu.id) ? 'checked' : '';
+            
+            // TRAVA VISUAL: Bloqueia checkboxes do setor Gerencial se não for SuperAdmin
+            const disabled = (menu.setor === 'Gerencial' && !isSuperAdmin) ? 'disabled' : '';
+            const opacity = disabled ? 'opacity: 0.4; cursor: not-allowed;' : 'cursor: pointer;';
+            const extraInfo = disabled ? ' title="Apenas SuperAdmin pode alterar este acesso"' : '';
+
             html += `
-                <label style="color: #fff; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                    <input type="checkbox" class="chk-permissao" value="${menu.id}" ${checked}>
+                <label style="color: #fff; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; ${opacity}"${extraInfo}>
+                    <input type="checkbox" class="chk-permissao" value="${menu.id}" ${checked} ${disabled}>
                     <i class="${menu.icon}" style="width: 16px; text-align: center; color: var(--text-secondary);"></i> ${menu.label}
                 </label>`;
         });
@@ -172,7 +182,7 @@ window.fecharDropdown = function(dropdownElement) {
 window.navegarPara = async function(pagina, elementoClicado) {
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
 
-    if (pagina === 'config' && userRole !== 'Admin' && userRole !== 'SuperAdmin') {
+    if (pagina === 'config' && userRole !== 'Admin' && userRole !== 'SuperAdmin' && userRole !== 'Gerente') {
         alert('Acesso Negado.'); return; 
     }
 
@@ -215,7 +225,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
         'operacional': 'modules/monitoramento/operacional/operacional.html',
         'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
-        'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', // Alterado para a nova pasta gerencial
+        'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', 
         'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
         'historico_producao': 'modules/monitoramento/historico/historico.html',
         'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
