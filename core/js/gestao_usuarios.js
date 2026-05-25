@@ -3,9 +3,10 @@
 let listaUsuarios = [];
 let listaFiliaisAtivas = [];
 
-// Função auxiliar para injetar dinamicamente um seletor de filiais para o Admin na hora de criar usuário
+// Função auxiliar para injetar dinamicamente um seletor de filiais na hora de criar usuário
 async function injetarSelectFilialSeAdmin() {
-    if (!window.currentUser || (window.currentUser.role !== 'SuperAdmin' && window.currentUser.role !== 'Admin' && window.currentUser.role !== 'Gerente')) return;
+    // Apenas SuperAdmin tem a liberdade de escolher em qual filial o usuário vai nascer
+    if (!window.currentUser || window.currentUser.role !== 'SuperAdmin') return;
     
     const inputRole = document.getElementById('novoUserRole');
     if (inputRole && inputRole.parentNode && !document.getElementById('novoUserFilial')) {
@@ -35,10 +36,28 @@ window.renderizarUsuarios = async function() {
     await injetarSelectFilialSeAdmin();
 
     try {
-        listaUsuarios = await db.getUsuarios('TODAS'); // Banco já filtra automaticamente se for usuário comum
+        const todosUsuarios = await db.getUsuarios('TODAS'); // Puxa todos do banco
         
+        // =========================================================
+        // FILTRO DE SEGURANÇA: Exibir apenas os usuários da filial logada
+        // =========================================================
+        if (window.currentUser) {
+            const filialAtiva = window.currentUser.filial_id;
+            
+            // Se a filial logada não for CENTRAL (null), filtra a lista para mostrar apenas da sua filial
+            if (filialAtiva !== null && filialAtiva !== 'CENTRAL') {
+                listaUsuarios = todosUsuarios.filter(u => u.filial_id == filialAtiva);
+            } else {
+                // Se estiver na Visão Central (SuperAdmin Global), vê todos os usuários de todas as filiais
+                listaUsuarios = todosUsuarios;
+            }
+        } else {
+            listaUsuarios = todosUsuarios;
+        }
+        // =========================================================
+
         if (listaUsuarios.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Nenhum usuário encontrado.</td></tr>'; return;
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Nenhum usuário encontrado para esta filial.</td></tr>'; return;
         }
 
         tbody.innerHTML = listaUsuarios.map(u => {
@@ -47,7 +66,7 @@ window.renderizarUsuarios = async function() {
                 ? `<span style="background: rgba(251, 146, 60, 0.1); color: var(--ccol-rust-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-rust-bright);">Pendente</span>`
                 : `<span style="background: rgba(61, 220, 132, 0.1); color: var(--ccol-green-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-green-bright);">Ativo</span>`;
             
-            // Exibe a qual filial o usuário pertence (importante para o Admin)
+            // Exibe a qual filial o usuário pertence (mostra na tabela confirmando a segurança)
             const filialNome = u.filial_id === null ? '<span style="color:#fde047; font-weight:bold;">Admin. Central</span>' : (u.filiais ? u.filiais.nome : 'Sem Filial');
                 
             return `
@@ -81,7 +100,7 @@ window.adicionarUsuario = async function() {
     let filialSelecionada = undefined;
     const selectFilial = document.getElementById('novoUserFilial');
     
-    // Se o select de filial existir (ou seja, quem está criando é Admin/SuperAdmin)
+    // Se o select de filial existir (ou seja, quem está criando é SuperAdmin Global)
     if (selectFilial) {
         if (selectFilial.value === '') {
             alert('⚠️ Por favor, selecione a qual filial este usuário pertencerá.');
@@ -100,9 +119,12 @@ window.adicionarUsuario = async function() {
             primeiro_acesso: true 
         };
 
-        // Força a filial correta se foi selecionada pelo Admin, senão o DB injeta a do usuário logado
+        // TRAVA DE FILIAL NA CRIAÇÃO:
+        // Se foi selecionada pelo SuperAdmin, usa ela. Senão (caso do Admin da Filial), amarra obrigatoriamente na filial de quem está criando!
         if (filialSelecionada !== undefined) {
             novoUsuarioObj.filial_id = filialSelecionada;
+        } else {
+            novoUsuarioObj.filial_id = window.currentUser.filial_id === 'CENTRAL' ? null : window.currentUser.filial_id;
         }
 
         await db.addUsuario(novoUsuarioObj);
