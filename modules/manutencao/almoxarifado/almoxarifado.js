@@ -25,8 +25,8 @@ async function carregarDadosAlmoxarifado() {
             const { data: pneus } = await queryPneus;
             pneusEstoque = pneus || [];
             
-            // Requisições
-            let queryReqs = window.supabaseClient.from('os_pecas_utilizadas').select('*, almoxarifado_pecas(nome, codigo), ordens_servico(placa, mecanico_responsavel)').order('id', { ascending: false }).limit(100);
+            // Requisições (Removido o JOIN para evitar Erro 400 caso o banco não tenha as relações explícitas)
+            let queryReqs = window.supabaseClient.from('os_pecas_utilizadas').select('*').order('id', { ascending: false }).limit(100);
             if (typeof window.aplicarFiltroFilial === 'function') queryReqs = window.aplicarFiltroFilial(queryReqs);
             const { data: reqs } = await queryReqs;
             requisicoesEstoque = reqs || [];
@@ -118,9 +118,13 @@ function atualizarTabelaRequisicoes(listaReqs) {
 
     listaReqs.forEach(req => {
         const dataFormatada = req.created_at ? new Date(req.created_at).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
-        const frota = req.ordens_servico?.placa || 'Desconhecida';
-        const mecanico = req.ordens_servico?.mecanico_responsavel || 'Mecânico';
-        const nomePeca = req.almoxarifado_pecas?.nome || 'Peça Excluída';
+        
+        // Relacionamento feito na memória do navegador para evitar o Erro 400 do Banco
+        const pecaRef = pecasEstoque.find(p => String(p.id) === String(req.peca_id));
+        const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
+        
+        const frota = req.placa || (req.os_id ? `OS #${req.os_id}` : 'Desconhecida');
+        const mecanico = req.mecanico || req.mecanico_responsavel || 'Mecânico';
         const stat = req.status || 'Pendente'; 
         
         let statusBadge = '';
@@ -171,7 +175,10 @@ function atualizarTabelaMovimentacoes(listaMovimentacoes) {
         else tipoHtml = `<span class="badge" style="background: rgba(100,116,139,0.5); color:#cbd5e1;"><i class="fas fa-balance-scale"></i> Ajuste</span>`;
         
         const dataFormatada = new Date(mov.data_movimentacao).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        const nomePeca = mov.almoxarifado_pecas ? mov.almoxarifado_pecas.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
+        
+        // Relacionamento feito na memória do navegador para evitar o Erro 400 do Banco
+        const pecaRef = pecasEstoque.find(p => String(p.id) === String(mov.peca_id));
+        const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
         
         let destinoTxt = '-';
         if (mov.tipo === 'ajuste') destinoTxt = `<span style="color:#cbd5e1;">Motivo: ${mov.observacao}</span>`;
@@ -321,7 +328,8 @@ window.filtrarAlmoxarifado = function() {
         atualizarTabelaPecas(filtradas);
     } else if (abaAtualAlmox === 'movimentacoes') {
         const filtradas = movimentacoesEstoque.filter(m => {
-            const nomePeca = m.almoxarifado_pecas ? m.almoxarifado_pecas.nome.toLowerCase() : '';
+            const pecaRef = pecasEstoque.find(p => String(p.id) === String(m.peca_id));
+            const nomePeca = pecaRef ? pecaRef.nome.toLowerCase() : '';
             return nomePeca.includes(termo) || 
                    (m.nota_fiscal && m.nota_fiscal.toLowerCase().includes(termo)) || 
                    (m.cavalo && m.cavalo.toLowerCase().includes(termo)) ||
@@ -337,9 +345,12 @@ window.filtrarAlmoxarifado = function() {
         atualizarTabelaPneus(filtradas);
     } else if (abaAtualAlmox === 'requisicoes') {
         const filtradas = requisicoesEstoque.filter(r => {
-            const frota = r.ordens_servico?.placa ? r.ordens_servico.placa.toLowerCase() : '';
-            const mec = r.ordens_servico?.mecanico_responsavel ? r.ordens_servico.mecanico_responsavel.toLowerCase() : '';
-            const peca = r.almoxarifado_pecas?.nome ? r.almoxarifado_pecas.nome.toLowerCase() : '';
+            const frota = r.placa ? r.placa.toLowerCase() : '';
+            const mec = r.mecanico_responsavel ? r.mecanico_responsavel.toLowerCase() : '';
+            
+            const pecaRef = pecasEstoque.find(p => String(p.id) === String(r.peca_id));
+            const peca = pecaRef ? pecaRef.nome.toLowerCase() : '';
+            
             return frota.includes(termo) || mec.includes(termo) || peca.includes(termo) || (r.status && r.status.toLowerCase().includes(termo));
         });
         atualizarTabelaRequisicoes(filtradas);

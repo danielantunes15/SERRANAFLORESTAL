@@ -270,7 +270,8 @@ const db = {
     },
     async getMovimentacoesEstoque() {
         try {
-            const query = supabaseClient.from('almoxarifado_movimentacoes').select('*, almoxarifado_pecas(nome)').order('data_movimentacao', { ascending: false });
+            // Removido o JOIN para evitar o erro 400. O cruzamento dos nomes será feito na memória no JS.
+            const query = supabaseClient.from('almoxarifado_movimentacoes').select('*').order('data_movimentacao', { ascending: false });
             const { data, error } = await aplicarFiltroFilial(query);
             if(error) throw error;
             return data || [];
@@ -284,6 +285,72 @@ const db = {
             await supabaseClient.from('almoxarifado_pecas').update({ quantidade: novaQtd }).eq('id', movimentacao.peca_id);
         }
     },
+    
+    // NOVA FUNÇÃO: Processar Lote de Entrada (XML/PDF)
+    async processarEntradaLote(itens, nf, fornecedor) {
+        for (let item of itens) {
+            let query = supabaseClient.from('almoxarifado_pecas').select('*');
+            query = aplicarFiltroFilial(query);
+            
+            let { data: pecasBusca } = await query;
+            let pecaDB = null;
+            
+            if (pecasBusca && pecasBusca.length > 0) {
+                pecaDB = pecasBusca.find(p => p.codigo === item.codigo || p.nome.toUpperCase() === item.nome.toUpperCase());
+            }
+
+            let pecaId;
+            let valorUnitarioItem = parseFloat(item.valor_unitario) || 0;
+            let qtdItem = parseFloat(item.quantidade) || 0;
+
+            if (pecaDB) {
+                pecaId = pecaDB.id;
+                const novaQtd = parseFloat(pecaDB.quantidade || 0) + qtdItem;
+                
+                // Atualiza a peça existente
+                await supabaseClient.from('almoxarifado_pecas').update({
+                    quantidade: novaQtd,
+                    preco_medio: valorUnitarioItem > 0 ? valorUnitarioItem : pecaDB.preco_medio 
+                }).eq('id', pecaId);
+            } else {
+                // Cria a nova peça
+                const novaPeca = injetarFilial({
+                    codigo: item.codigo || '',
+                    nome: item.nome || 'Produto Desconhecido',
+                    unidade: item.unidade || 'UN',
+                    quantidade: qtdItem,
+                    preco_medio: valorUnitarioItem,
+                    estoque_minimo: item.estoque_minimo || 2,
+                    localizacao: 'Entrada NF'
+                });
+                
+                const { data: insertData, error } = await supabaseClient
+                    .from('almoxarifado_pecas')
+                    .insert([novaPeca])
+                    .select();
+                    
+                if (error) throw error;
+                if (insertData && insertData.length > 0) {
+                    pecaId = insertData[0].id;
+                }
+            }
+
+            // Registra a movimentação no histórico
+            if (pecaId) {
+                const mov = injetarFilial({
+                    peca_id: pecaId,
+                    tipo: 'entrada',
+                    quantidade: qtdItem,
+                    valor_unitario: valorUnitarioItem,
+                    nota_fiscal: nf,
+                    fornecedor: fornecedor,
+                    data_movimentacao: new Date().toISOString()
+                });
+                await supabaseClient.from('almoxarifado_movimentacoes').insert([mov]);
+            }
+        }
+    },
+
     async getDocumentosFrota(identificadores) {
         try {
             const query = supabaseClient.from('documentos_frota').select('*').in('identificador', identificadores);
