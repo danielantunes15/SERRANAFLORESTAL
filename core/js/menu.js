@@ -21,15 +21,17 @@ const MAPA_MENUS = [
     { id: 'indicadores_serrana', label: 'Indicadores Serrana', setor: 'Indicadores', icon: 'fas fa-chart-bar' },
     { id: 'cadastro_indicadores', label: 'Cadastro Indicadores', setor: 'Indicadores', icon: 'fas fa-list-alt' },
 
-    // ================= NOVO MÓDULO MONITORAMENTO =================
+    // ================= MÓDULO MONITORAMENTO =================
     { id: 'visao_geral', label: 'Visão Geral (Analítico)', setor: 'Monitoramento', icon: 'fas fa-chart-pie' },
     { id: 'operacional', label: 'Metas Operacionais', setor: 'Monitoramento', icon: 'fas fa-chart-line' },
     { id: 'desempenho_frota', label: 'Desempenho da Frota', setor: 'Monitoramento', icon: 'fas fa-truck-fast' },
-    { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Monitoramento', icon: 'fas fa-money-bill-wave' },
     { id: 'jornadas', label: 'Monitoramento de Jornadas', setor: 'Monitoramento', icon: 'fas fa-user-clock' },
     { id: 'historico_producao', label: 'Histórico de Produção', setor: 'Monitoramento', icon: 'fas fa-database' },
     { id: 'historico_jornadas', label: 'Histórico de Jornadas', setor: 'Monitoramento', icon: 'fas fa-history' },
     { id: 'configuracoes_gerencial', label: 'Configurações de Metas', setor: 'Monitoramento', icon: 'fas fa-cogs' },
+
+    // ================= NOVO MÓDULO GERENCIAL =================
+    { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Gerencial', icon: 'fas fa-money-bill-wave' },
     
     // ================= GESTÃO GLOBAL =================
     { id: 'central', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
@@ -107,6 +109,7 @@ function getIconSetor(setor) {
         'SSMA': 'fas fa-hard-hat',
         'Indicadores': 'fas fa-chart-line',
         'Monitoramento': 'fas fa-desktop',
+        'Gerencial': 'fas fa-briefcase',
         'Global': 'fas fa-globe'
     };
     return icones[setor] || 'fas fa-folder';
@@ -209,11 +212,10 @@ window.navegarPara = async function(pagina, elementoClicado) {
         'central': 'modules/monitoramento/central/central.html',
         'logs_globais': 'modules/monitoramento/central/logs_globais.html',
         
-        // ROTAS DO MÓDULO ATUALIZADO (Apontando para a nova pasta monitoramento)
         'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
         'operacional': 'modules/monitoramento/operacional/operacional.html',
         'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
-        'producao_frota': 'modules/monitoramento/producao_frota/producao_frota.html',
+        'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', // Alterado para a nova pasta gerencial
         'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
         'historico_producao': 'modules/monitoramento/historico/historico.html',
         'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
@@ -234,9 +236,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         mainContent.innerHTML = pageCache[pagina];
 
-        // ====================================================================
         // GATILHOS DE INICIALIZAÇÃO DE PÁGINAS DO SISTEMA ANTIGO
-        // ====================================================================
         if (pagina === 'central' && typeof window.renderizarCentral === 'function') window.renderizarCentral();
         if (pagina === 'logs_globais' && typeof window.renderizarLogsGlobais === 'function') window.renderizarLogsGlobais(); 
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
@@ -272,9 +272,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
             window.carregarCheckboxesPermissoes(); 
         }
 
-        // ====================================================================
-        // GATILHOS DE INICIALIZAÇÃO SPA PARA O MÓDULO MONITORAMENTO
-        // ====================================================================
+        // GATILHOS DE INICIALIZAÇÃO SPA PARA O MÓDULO MONITORAMENTO/GERENCIAL
         if (pagina === 'visao_geral' && typeof window.carregarDadosDashboardAnalitico === 'function') window.carregarDadosDashboardAnalitico();
         if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
         if (pagina === 'desempenho_frota' && typeof window.initDesempenhoFrota === 'function') window.initDesempenhoFrota();
