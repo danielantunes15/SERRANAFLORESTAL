@@ -32,19 +32,35 @@ function atualizarKpisCentrais() {
 window.alternarAbaCentral = function(aba) {
     const abaFiliais = document.getElementById('aba-filiais');
     const abaUsuarios = document.getElementById('aba-usuarios');
+    const abaAcessos = document.getElementById('aba-acessos');
+    
     const btnFiliais = document.getElementById('btnAbaFiliais');
     const btnUsuarios = document.getElementById('btnAbaUsuarios');
+    const btnAcessos = document.getElementById('btnAbaAcessos');
+
+    // Resetar visibilidade e classes
+    abaFiliais.style.display = 'none';
+    abaUsuarios.style.display = 'none';
+    abaAcessos.style.display = 'none';
+    
+    btnFiliais.className = 'saas-tab-btn saas-tab-inactive';
+    btnUsuarios.className = 'saas-tab-btn saas-tab-inactive';
+    btnAcessos.className = 'saas-tab-btn saas-tab-inactive';
 
     if (aba === 'filiais') {
         abaFiliais.style.display = 'block';
-        abaUsuarios.style.display = 'none';
         btnFiliais.className = 'saas-tab-btn saas-tab-active';
-        btnUsuarios.className = 'saas-tab-btn saas-tab-inactive';
-    } else {
-        abaFiliais.style.display = 'none';
+    } else if (aba === 'usuarios') {
         abaUsuarios.style.display = 'block';
-        btnFiliais.className = 'saas-tab-btn saas-tab-inactive';
         btnUsuarios.className = 'saas-tab-btn saas-tab-active';
+    } else if (aba === 'acessos') {
+        abaAcessos.style.display = 'block';
+        btnAcessos.className = 'saas-tab-btn saas-tab-active';
+        
+        // Gatilho para carregar os checkboxes reaproveitando a função do menu.js
+        if (typeof window.carregarCheckboxesPermissoes === 'function') {
+            window.carregarCheckboxesPermissoes();
+        }
     }
 }
 
