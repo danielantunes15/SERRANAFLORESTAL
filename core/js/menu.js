@@ -121,6 +121,23 @@ window.carregarCheckboxesPermissoes = async function() {
     const container = document.getElementById('container-permissoes-menus');
     if (!container) return;
 
+    // INJEÇÃO DE CSS PARA OS CARDS (Deixa tudo organizado e bonito)
+    if (!document.getElementById('css-permissoes-cards')) {
+        const style = document.createElement('style');
+        style.id = 'css-permissoes-cards';
+        style.innerHTML = `
+            .permissao-card { background: #1e293b; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+            .permissao-header { display:flex; align-items: center; gap: 10px; margin-bottom: 15px; color: #f8fafc; font-size: 1rem; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; }
+            .permissao-icon-box { width: 32px; height: 32px; border-radius: 8px; background: rgba(59, 130, 246, 0.1); display: flex; align-items: center; justify-content: center; color: #3b82f6; }
+            .permissao-item { color: #cbd5e1; font-size: 0.85rem; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03); transition: all 0.2s; cursor: pointer; }
+            .permissao-item:hover:not(.disabled-item) { background: rgba(255,255,255,0.06); border-color: rgba(59, 130, 246, 0.3); }
+            .permissao-item.disabled-item { opacity: 0.4; cursor: not-allowed; }
+            .permissao-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #3b82f6; cursor: inherit; }
+            .permissao-item-icon { background: rgba(15, 23, 42, 0.5); width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 0.8rem; }
+        `;
+        document.head.appendChild(style);
+    }
+
     const perfilSelect = document.getElementById('selectPerfilPermissao');
     const perfil = perfilSelect ? perfilSelect.value : 'Controlador de Trefego';
     
@@ -140,25 +157,31 @@ window.carregarCheckboxesPermissoes = async function() {
     setores.forEach(setor => {
         if (setor === 'Global') return; 
 
+        // CRIA O CARD PARA CADA SETOR
         html += `
-        <div>
-            <strong style="display:block; margin-bottom: 8px; color: var(--ccol-blue-bright); font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
-                <i class="${getIconSetor(setor)}"></i> ${setor}
-            </strong>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">`;
+        <div class="permissao-card">
+            <div class="permissao-header">
+                <div class="permissao-icon-box"><i class="${getIconSetor(setor)}"></i></div>
+                ${setor}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">`;
         
         MAPA_MENUS.filter(m => m.setor === setor).forEach(menu => {
             const checked = meusAcessos.includes(menu.id) ? 'checked' : '';
             
             // TRAVA VISUAL: Bloqueia checkboxes do setor Gerencial se não for SuperAdmin
             const disabled = (menu.setor === 'Gerencial' && !isSuperAdmin) ? 'disabled' : '';
-            const opacity = disabled ? 'opacity: 0.4; cursor: not-allowed;' : 'cursor: pointer;';
+            const disabledClass = disabled ? 'disabled-item' : '';
             const extraInfo = disabled ? ' title="Apenas SuperAdmin pode alterar este acesso"' : '';
 
+            // LINHA DA PERMISSÃO
             html += `
-                <label style="color: #fff; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; ${opacity}"${extraInfo}>
+                <label class="permissao-item ${disabledClass}" ${extraInfo}>
                     <input type="checkbox" class="chk-permissao" value="${menu.id}" ${checked} ${disabled}>
-                    <i class="${menu.icon}" style="width: 16px; text-align: center; color: var(--text-secondary);"></i> ${menu.label}
+                    <div class="permissao-item-icon">
+                        <i class="${menu.icon}"></i>
+                    </div>
+                    <span style="flex: 1; font-weight: 500;">${menu.label}</span>
                 </label>`;
         });
 
