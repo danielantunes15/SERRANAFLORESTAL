@@ -145,10 +145,10 @@ window.carregarCheckboxesPermissoes = async function() {
     }
 
     const tipo = document.querySelector('input[name="tipoPermissao"]:checked')?.value || 'perfil';
-    let alvo = 'Controlador de Trefego';
+    let alvo = 'Controlador de Tráfego';
     
     if (tipo === 'perfil') {
-        alvo = document.getElementById('selectPerfilPermissao')?.value || 'Controlador de Trefego';
+        alvo = document.getElementById('selectPerfilPermissao')?.value || 'Controlador de Tráfego';
     } else {
         alvo = document.getElementById('selectUsuarioPermissao')?.value;
         if(!alvo) return; // Se a lista de usuários ainda não carregou, ignora
