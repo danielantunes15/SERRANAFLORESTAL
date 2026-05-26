@@ -1,8 +1,61 @@
 // ==================== js/os_formularios.js ====================
 
-window.togglePneuFields = function() {
+// Variáveis globais para o mapa S.O.S
+let mapaSOSInstance = null;
+let marcadorSOS = null;
+
+window.inicializarMapaSOS = function() {
+    // Se o mapa já existe, apenas corrige o tamanho
+    if (mapaSOSInstance !== null) {
+        mapaSOSInstance.invalidateSize();
+        return;
+    }
+
+    // Inicializa o mapa focado de forma geral na Bahia
+    mapaSOSInstance = L.map('mapaSOS').setView([-17.9754, -39.7336], 7);
+
+    // MUDANÇA: Usando Google Maps Híbrido (Satélite + Nomes de ruas/rodovias)
+    L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        attribution: '© Google Maps',
+        maxZoom: 20
+    }).addTo(mapaSOSInstance);
+
+    // Tenta pegar a localização do operador via GPS para focar o mapa mais perto
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            mapaSOSInstance.setView([lat, lng], 13);
+        }, function(error) {
+            console.log("Geolocalização não permitida ou indisponível.");
+        });
+    }
+
+    // Evento de clique no mapa para definir a posição do caminhão
+    mapaSOSInstance.on('click', function(e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+
+        // Remove o marcador anterior, se existir
+        if (marcadorSOS) {
+            mapaSOSInstance.removeLayer(marcadorSOS);
+        }
+
+        // Adiciona um novo marcador no local clicado
+        marcadorSOS = L.marker([lat, lng]).addTo(mapaSOSInstance);
+        
+        // MUDANÇA: Gera um link universal que força abrir direto no app do Google Maps
+        const linkMaps = `https://www.google.com/maps?q=${lat},${lng}`;
+        document.getElementById('osLocalizacaoSOS').value = linkMaps;
+    });
+};
+
+window.tratarCamposDinamicos = function() {
     const tipo = document.getElementById('osTipo').value;
     const camposPneu = document.getElementById('camposPneu');
+    const camposSOS = document.getElementById('camposSOS');
+
+    // Lógica Pneus
     if (tipo === 'Borracharia (PNEU)') {
         camposPneu.style.display = 'block';
     } else {
@@ -10,6 +63,22 @@ window.togglePneuFields = function() {
         document.getElementById('osPneuPosicao').value = '';
         document.getElementById('osPneuServico').value = '';
         document.getElementById('osPneuMotivo').value = '';
+    }
+
+    // Lógica S.O.S (Abre o mapa)
+    if (tipo.startsWith('S.O.S')) {
+        camposSOS.style.display = 'block';
+        setTimeout(() => {
+            inicializarMapaSOS();
+        }, 300);
+    } else {
+        camposSOS.style.display = 'none';
+        document.getElementById('osLocalizacaoSOS').value = '';
+        document.getElementById('osReferenciaSOS').value = '';
+        if (marcadorSOS && mapaSOSInstance) {
+            mapaSOSInstance.removeLayer(marcadorSOS);
+            marcadorSOS = null;
+        }
     }
 };
 
@@ -147,6 +216,23 @@ window.salvarNovaOS = async function() {
     if (tipoRef === 'go' && !motorista) {
         motorista = 'N/A (APENAS GO)'; 
     }
+    
+    // Tratativa S.O.S via Mapa
+    let localizacao_sos = '';
+    if (tipo.startsWith('S.O.S')) {
+        const coordsLink = document.getElementById('osLocalizacaoSOS').value.trim();
+        const referencia = document.getElementById('osReferenciaSOS').value.trim();
+        
+        if (!coordsLink) {
+            alert("Para chamados de S.O.S, é obrigatório clicar no mapa para marcar a localização do veículo.");
+            return;
+        }
+        
+        localizacao_sos = coordsLink;
+        if (referencia) {
+            localizacao_sos += ` | Ref: ${referencia}`;
+        }
+    }
 
     let pacoteDadosOS = {
         placa: placa,
@@ -174,6 +260,8 @@ window.salvarNovaOS = async function() {
 
     if (motorista) pacoteDadosOS.motorista = motorista;
     if (observacoes) pacoteDadosOS.observacoes = observacoes;
+    if (localizacao_sos) pacoteDadosOS.localizacao_sos = localizacao_sos;
+
     if (hodometro) {
         let apenasNumeros = hodometro.replace(/[^0-9]/g, '');
         if (apenasNumeros !== '') {
@@ -208,9 +296,12 @@ window.salvarNovaOS = async function() {
         problemaFinal = problemaFinal ? textoPneu + "\n" + problemaFinal : textoPneu;
     }
 
+    if (localizacao_sos) {
+        problemaFinal = `[LINK S.O.S MAPS: ${localizacao_sos}]\n` + problemaFinal;
+    }
+
     if (problemaFinal) pacoteDadosOS.problema = problemaFinal;
 
-    // BLINDAGEM DA FILIAL:
     if (typeof window.injetarFilial === 'function') {
         pacoteDadosOS = window.injetarFilial(pacoteDadosOS);
     }

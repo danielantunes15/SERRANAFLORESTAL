@@ -39,6 +39,7 @@ async function carregarDadosOS() {
 async function alternarTelaOS(tela) {
     const telaLista = document.getElementById('telaListaOS');
     const telaListaSinistro = document.getElementById('telaListaSinistro');
+    const telaListaSOS = document.getElementById('telaListaSOS'); // Nova Tela S.O.S
     const telaHistorico = document.getElementById('telaHistoricoOS');
     const telaNova = document.getElementById('telaNovaOS');
     const telaFrota = document.getElementById('telaFrotaOS');
@@ -46,6 +47,7 @@ async function alternarTelaOS(tela) {
     
     if(telaLista) telaLista.style.display = 'none';
     if(telaListaSinistro) telaListaSinistro.style.display = 'none';
+    if(telaListaSOS) telaListaSOS.style.display = 'none';
     if(telaHistorico) telaHistorico.style.display = 'none';
     if(telaNova) telaNova.style.display = 'none';
     if(telaFrota) telaFrota.style.display = 'none';
@@ -61,6 +63,9 @@ async function alternarTelaOS(tela) {
     } else if (tela === 'sinistro') {
         if(telaListaSinistro) telaListaSinistro.style.display = 'block';
         if (typeof renderizarTabelaSinistro === 'function') renderizarTabelaSinistro();
+    } else if (tela === 'sos') { // NOVO CONDICIONAL S.O.S
+        if(telaListaSOS) telaListaSOS.style.display = 'block';
+        if (typeof renderizarTabelaSOS === 'function') renderizarTabelaSOS();
     } else if (tela === 'historico') {
         telaHistorico.style.display = 'block';
         if (typeof carregarFiltrosSelectHistoricoOS === 'function') carregarFiltrosSelectHistoricoOS();
@@ -72,7 +77,10 @@ async function alternarTelaOS(tela) {
         
         document.getElementById('osModoEntrada').value = 'imediata';
         if (typeof mudarModoEntrada === 'function') mudarModoEntrada();
-        if (typeof togglePneuFields === 'function') togglePneuFields(); 
+        
+        // AQUI ESTAVA O SEGUNDO ERRO! CORRIGIDO PARA tratarCamposDinamicos()
+        if (typeof tratarCamposDinamicos === 'function') tratarCamposDinamicos(); 
+        
     } else if (tela === 'frota') {
         telaFrota.style.display = 'block';
         if (typeof renderizarTabelaFrotaManutencao === 'function') renderizarTabelaFrotaManutencao();

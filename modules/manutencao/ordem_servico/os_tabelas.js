@@ -6,6 +6,9 @@ function renderizarTabelaOS() {
     if (!tbody) return;
 
     const termo = (document.getElementById('searchOS')?.value || '').toLowerCase();
+    
+    // CORREÇÃO: Agora filtra apenas o que está concluído ou é sinistro. 
+    // Os S.O.S voltarão a aparecer aqui na tela principal de abertas!
     let filtradas = ordensServico.filter(o => o.status !== 'Concluída' && o.tipo !== 'Sinistro');
 
     if (termo) {
@@ -20,7 +23,7 @@ function renderizarTabelaOS() {
         if (os.status === 'Em Manutenção') corStatus = '#3b82f6';
         if (os.status === 'Agendada') corStatus = '#8b5cf6';
         
-        const modoIcon = os.status === 'Agendada' ? '📅' : '🚨';
+        const modoIcon = os.status === 'Agendada' ? '📅' : '🔧';
         
         const inicioStr = formatarDataHoraBrasil(os.data_abertura);
         const previsaoStr = os.previsao_entrega ? formatarDataHoraBrasil(os.previsao_entrega) : 'Não definida';
@@ -53,6 +56,72 @@ function renderizarTabelaOS() {
         `;
     }).join('');
 }
+
+// ======================= TABELA DE S.O.S (PAINEL EXCLUSIVO) =======================
+window.renderizarTabelaSOS = function() {
+    const tbody = document.getElementById('tabelaAcompanhamentoSOS');
+    if (!tbody) return;
+
+    const termo = (document.getElementById('searchSOS')?.value || '').toLowerCase();
+    
+    // Filtra apenas OS que não estão concluídas e que o tipo começa com "S.O.S"
+    let filtradas = ordensServico.filter(o => o.status !== 'Concluída' && o.tipo && o.tipo.startsWith('S.O.S'));
+
+    if (termo) {
+        filtradas = filtradas.filter(o => 
+            (o.placa && o.placa.toLowerCase().includes(termo)) ||
+            (o.motorista && o.motorista.toLowerCase().includes(termo))
+        );
+    }
+
+    tbody.innerHTML = filtradas.map(os => {
+        let corStatus = '#f97316'; 
+        if (os.status === 'Em Manutenção') corStatus = '#3b82f6';
+        
+        const inicioStr = formatarDataHoraBrasil(os.data_abertura);
+        
+        let local = os.localizacao_sos || '';
+        let linkMapa = '';
+        let ref = '';
+
+        // Tratamento da String gerada no campo do Mapa (Extrai Link e Referência)
+        if (local.includes('http')) {
+            let partes = local.split(' | Ref: ');
+            linkMapa = partes[0].trim();
+            ref = partes.length > 1 ? partes[1].trim() : '';
+        }
+
+        // Montagem do texto para o WhatsApp
+        let textoZap = `🚨 *CHAMADO DE S.O.S NA ESTRADA* 🚨%0A%0A*O.S:* #${os.id}%0A*Placa:* ${os.placa || '-'}%0A*Motorista:* ${os.motorista || '-'}%0A*Problema Relatado:* ${os.problema || 'Não detalhado'}%0A%0A*📍 Abrir Localização no Mapa:* ${linkMapa || 'Sem link cadastrado'}`;
+        if (ref) textoZap += `%0A*Ponto de Referência:* ${ref}`;
+        
+        const urlZap = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoZap)}`;
+
+        // Botão do Mapa
+        let btnMapa = linkMapa ? `<a href="${linkMapa}" target="_blank" class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;"><i class="fas fa-map-marked-alt"></i> Ver Mapa</a>` : `<span style="font-size: 0.8rem; color: #9ca3af;"><br>📍 Sem Mapa</span>`;
+
+        return `
+            <tr style="background: rgba(249, 115, 22, 0.05); border-left: 4px solid #f97316;">
+                <td><strong>#${os.id}</strong></td>
+                <td>🚨 ${inicioStr}</td>
+                <td style="color: #f97316; font-weight: bold; font-size: 1.1rem;">${os.placa || '-'}</td>
+                <td>${os.motorista || '-'}</td>
+                <td style="font-weight: bold;">${os.tipo}</td>
+                <td style="font-size: 0.85rem;">
+                    <div style="margin-bottom: 5px; color: #d1d5db;">${ref ? '<strong>Ref:</strong> ' + ref : (linkMapa ? 'Localização informada' : 'Sem local')}</div>
+                    ${btnMapa}
+                </td>
+                <td><span style="color: ${corStatus}; font-weight: bold;">${os.status}</span></td>
+                <td>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; align-items: center;">
+                        <a href="${urlZap}" target="_blank" class="btn-primary-green" style="padding: 6px 12px; font-size: 0.8rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; background-color: #22c55e;"><i class="fab fa-whatsapp"></i> Enviar a Mecânicos</a>
+                        <button class="btn-primary-blue" onclick="abrirModalConclusaoOS(${os.id})" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 4px;">✅ Finalizar S.O.S</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+};
 
 function renderizarTabelaSinistro() {
     const tbody = document.getElementById('tabelaAcompanhamentoSinistro');
@@ -104,7 +173,7 @@ function renderizarTabelaHistoricoOS() {
     const dataFim = document.getElementById('filtroHistDataFim')?.value;
     const tipo = document.getElementById('filtroHistTipo')?.value;
     
-    // Filtro Mês/Ano (Novo)
+    // Filtro Mês/Ano
     const mesAno = document.getElementById('filtroHistMesAno')?.value;
 
     let filtradas = ordensServico;
@@ -113,7 +182,6 @@ function renderizarTabelaHistoricoOS() {
     if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
     if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
     
-    // Lógica do Filtro Mês/Ano Ex: '2026-04'
     if (mesAno) {
         filtradas = filtradas.filter(o => {
             if (!o.data_abertura) return false;
@@ -133,10 +201,8 @@ function renderizarTabelaHistoricoOS() {
     
     if (tipo) {
         if (tipo === '_SUZANO_') {
-            // Se for "Todos da Suzano", busca qualquer tipo que tenha "SUZANO" no nome
             filtradas = filtradas.filter(o => o.tipo && o.tipo.toUpperCase().includes('SUZANO'));
         } else {
-            // Comportamento normal
             filtradas = filtradas.filter(o => o.tipo && o.tipo === tipo);
         }
     }

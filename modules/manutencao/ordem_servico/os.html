@@ -2,6 +2,7 @@
     <h3 style="color: var(--text-primary); margin: 0; align-self: center;">  Gestão de Manutenção (O.S.)</h3>
     <div class="button-group" style="margin-left: auto;">
         <button class="btn-primary-blue" onclick="alternarTelaOS('lista')">  Acompanhamento (Abertas)</button>
+        <button class="btn-danger-outline" onclick="alternarTelaOS('sos')" style="border-color: #f97316; color: #f97316; font-weight: bold;">🚨 Painel S.O.S</button>
         <button class="btn-danger-outline" onclick="alternarTelaOS('sinistro')" style="border-color: #ef4444; color: #ef4444;">  Acompanhamento (Sinistros)</button>
         <button class="btn-secondary-dark" onclick="alternarTelaOS('historico'); carregarFiltrosSelectHistoricoOS();">  Histórico (Todas)</button>
         <button class="btn-primary-green" onclick="alternarTelaOS('nova'); carregarSelectCavalosOS(); carregarMotoristasSelectOS();">  Abrir Nova O.S.</button>
@@ -31,6 +32,32 @@
                 </tr>
             </thead>
             <tbody id="tabelaAcompanhamentoOS"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="telaListaSOS" class="content-panel" style="display: none; border: 1px solid #f97316;">
+    <div class="panel-header" style="background: rgba(249, 115, 22, 0.1);">
+        <h3 style="color: #f97316;">🚨 Acompanhamento de S.O.S (Socorro na Estrada)</h3>
+        <div class="panel-controls">
+            <input type="text" id="searchSOS" placeholder="Buscar placa ou motorista..." class="search-input-dark" onkeyup="renderizarTabelaSOS()">
+        </div>
+    </div>
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Nº O.S.</th>
+                    <th>Abertura</th>
+                    <th>Placa (Cavalo)</th>
+                    <th>Motorista</th>
+                    <th>Tipo de S.O.S</th>
+                    <th>Localização / Mapa</th>
+                    <th>Status</th>
+                    <th>Ações Rápidas</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaAcompanhamentoSOS"></tbody>
         </table>
     </div>
 </div>
@@ -185,7 +212,7 @@
         </div>
         <div class="form-group-dark">
             <label>Classificação do Serviço</label>
-            <select id="osTipo" class="dark-select" onchange="togglePneuFields()">
+            <select id="osTipo" class="dark-select" onchange="tratarCamposDinamicos()">
                 <option value="Manutenção Corretiva - P.A Serrana">  Manutenção Corretiva - P.A Serrana</option>
                 <option value="Manutenção Corretiva - C.M.C Suzano">  Manutenção Corretiva - C.M.C Suzano</option>
                 <option value="Manutenção Preventiva - P.A Serrana">  Manutenção Preventiva - P.A Serrana</option>
@@ -231,6 +258,24 @@
             <label>Observações Adicionais / Peças Específicas Requisitadas</label>
             <input type="text" id="osObservacoes" placeholder="Ex: Lâmpada de freio queimada, rolamento roncando...">
         </div>
+        <div id="camposSOS" style="display: none; grid-column: 1 / -1; background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 8px; border: 1px dashed #ef4444; margin-top: 5px;">
+            <h4 style="color: #ef4444; margin-bottom: 10px; font-size: 0.9rem;"><i class="fas fa-map-marker-alt"></i> Localização do S.O.S via Satélite (Obrigatório)</h4>
+            <p style="color: #fca5a5; font-size: 0.8rem; margin-bottom: 10px;">Navegue pelo mapa e <strong>clique no local exato</strong> onde o veículo se encontra para gerar as coordenadas de socorro.</p>
+            
+            <div id="mapaSOS" style="height: 350px; width: 100%; border-radius: 8px; border: 2px solid #ef4444; margin-bottom: 15px; z-index: 1;"></div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                <div class="form-group-dark">
+                    <label style="color: #ef4444;">Coordenadas / Link (Gerado ao clicar no mapa)</label>
+                    <input type="text" id="osLocalizacaoSOS" placeholder="Clique no mapa acima..." readonly style="background: rgba(0,0,0,0.3); cursor: not-allowed;">
+                </div>
+                <div class="form-group-dark">
+                    <label>Pontos de Referência (Opcional)</label>
+                    <input type="text" id="osReferenciaSOS" placeholder="Ex: Km 45, próximo a balança, após a ponte...">
+                </div>
+            </div>
+        </div>
+
         <div class="form-actions" style="grid-column: 1 / -1; margin-top: 15px;">
             <button class="btn-primary-green btn-full" onclick="salvarNovaOS()">  Salvar e Enviar Ordem de Serviço</button>
         </div>
