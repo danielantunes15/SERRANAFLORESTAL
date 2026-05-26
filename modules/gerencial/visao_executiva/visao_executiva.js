@@ -1,5 +1,8 @@
 // ==================== modules/gerencial/visao_executiva/visao_executiva.js ====================
 
+// Cache do cliente Supabase exclusivo para evitar instâncias duplicadas (resolve o aviso no console)
+let clientDMCache = null;
+
 window.initVisaoExecutiva = function() {
     // Definir o mês atual como padrão no input
     const inputMes = document.getElementById('execFiltroMes');
@@ -13,6 +16,90 @@ window.initVisaoExecutiva = function() {
     window.atualizarDadosExecutivos();
 };
 
+// ====================================================================================
+// FUNÇÃO EXCLUSIVA DE CÁLCULO DE DM IGUAL AO PAINEL RELATÓRIO GERENCIAL
+// Faz o cálculo da média dia a dia (limitando a max 24h de manutenção/dia por caminhão)
+// ====================================================================================
+function calcularDMMediaDiaria(frotas, ordens, ano, mes) {
+    if (!frotas || frotas.length === 0) return 100.0;
+    
+    const agora = new Date();
+    let diasARenderizar = 0;
+    let diasPassados = 0;
+    
+    // Se for o mês atual, renderiza do dia 1 até hoje
+    if (ano === agora.getFullYear() && mes === agora.getMonth() + 1) {
+        diasARenderizar = agora.getDate(); 
+        diasPassados = diasARenderizar - 1; 
+    } else {
+        // Se for mês fechado, renderiza todos os dias do mês
+        const ultimoDia = new Date(ano, mes, 0).getDate();
+        diasARenderizar = ultimoDia;
+        diasPassados = ultimoDia - 1;
+    }
+
+    let somaDM = 0;
+    const msPorDia = 24 * 60 * 60 * 1000;
+
+    for (let i = diasPassados; i >= 0; i--) {
+        let dataDia;
+        if (ano === agora.getFullYear() && mes === agora.getMonth() + 1) {
+            dataDia = new Date(agora);
+            dataDia.setDate(agora.getDate() - i);
+        } else {
+            dataDia = new Date(ano, mes - 1, diasARenderizar - i); 
+        }
+
+        const inicioDia = new Date(dataDia.getFullYear(), dataDia.getMonth(), dataDia.getDate(), 0, 0, 0);
+        const fimDia = new Date(dataDia.getFullYear(), dataDia.getMonth(), dataDia.getDate(), 23, 59, 59, 999);
+        
+        let msManutencaoNesteDia = 0;
+
+        frotas.forEach(frota => {
+            let manutencaoCavalo = 0;
+            const cavaloPlaca = (frota.cavalo || '').trim().toUpperCase();
+            const osDoCavalo = ordens.filter(o => (o.placa || '').trim().toUpperCase() === cavaloPlaca);
+            
+            osDoCavalo.forEach(os => {
+                if (os.status === 'Agendada') return;
+
+                let osInicioStr = os.data_abertura;
+                if (!osInicioStr) return;
+                if (!osInicioStr.includes('T')) osInicioStr += 'T00:00:00';
+                const osInicio = new Date(osInicioStr.replace('Z', '').replace('+00:00', ''));
+                
+                let osFim = agora;
+                if (os.data_conclusao) {
+                    let osFimStr = os.data_conclusao;
+                    if (!osFimStr.includes('T')) osFimStr += 'T00:00:00';
+                    osFim = new Date(osFimStr.replace('Z', '').replace('+00:00', ''));
+                }
+
+                const overlapInicio = osInicio > inicioDia ? osInicio : inicioDia;
+                const overlapFim = osFim < fimDia ? osFim : fimDia;
+
+                if (overlapInicio < overlapFim) {
+                    manutencaoCavalo += (overlapFim.getTime() - overlapInicio.getTime());
+                }
+            });
+            
+            // Limitador idêntico ao dm_operacional.js: Não pode ter mais que 24h de oficina num dia por caminhão
+            if (manutencaoCavalo > msPorDia) manutencaoCavalo = msPorDia;
+            msManutencaoNesteDia += manutencaoCavalo;
+        });
+
+        const totalMsDisponivelPorDia = frotas.length * msPorDia;
+        let dispNesteDia = totalMsDisponivelPorDia - msManutencaoNesteDia;
+        if (dispNesteDia < 0) dispNesteDia = 0;
+        
+        let percentDM = totalMsDisponivelPorDia > 0 ? (dispNesteDia / totalMsDisponivelPorDia) * 100 : 100;
+        somaDM += percentDM;
+    }
+
+    return diasARenderizar > 0 ? Number((somaDM / diasARenderizar).toFixed(1)) : 100.0;
+}
+// ====================================================================================
+
 window.atualizarDadosExecutivos = async function() {
     const inputMes = document.getElementById('execFiltroMes');
     const mesFiltro = inputMes ? inputMes.value : ''; // Formato esperado: "YYYY-MM"
@@ -23,6 +110,14 @@ window.atualizarDadosExecutivos = async function() {
     }
 
     try {
+        // Inicializar o cliente de banco de dados da manutenção (DM) APENAS UMA VEZ
+        if (!clientDMCache) {
+            const supabaseUrlDM = 'https://ihgiyxzxdldqmrkziijl.supabase.co';
+            const supabaseKeyDM = 'sb_publishable_JpMZhW5ZrFKBr7m9KXBkoQ_cpxy1k3x';
+            clientDMCache = window.supabase ? window.supabase.createClient(supabaseUrlDM, supabaseKeyDM) : window.supabaseClient;
+        }
+        const clientDM = clientDMCache;
+
         // 1. BUSCAR AS FILIAIS CADASTRADAS
         const { data: filiaisDB, error: errFiliais } = await window.supabaseClient
             .from('filiais')
@@ -42,8 +137,17 @@ window.atualizarDadosExecutivos = async function() {
             return;
         }
 
+        const hoje = new Date();
+        let anoFiltro = hoje.getFullYear();
+        let mesFiltroInt = hoje.getMonth() + 1;
+        if (mesFiltro) {
+            const p = mesFiltro.split('-');
+            anoFiltro = parseInt(p[0]);
+            mesFiltroInt = parseInt(p[1]);
+        }
+
         // =========================================================
-        // 2. BUSCAR TODO O HISTÓRICO DE VIAGENS (Contornando o limite de 1000 do Supabase)
+        // 2. BUSCAR TODO O HISTÓRICO DE PRODUÇÃO, FROTAS E O.S. GLOBAL
         // =========================================================
         let todasViagens = [];
         let fromViagens = 0;
@@ -64,25 +168,36 @@ window.atualizarDadosExecutivos = async function() {
             }
         }
 
+        // Buscar todas frotas e O.S para DM Real Unificada
+        const { data: todasFrotasDM } = await clientDM
+            .from('frotas_manutencao')
+            .select('cavalo, filial_id')
+            .eq('status', 'Ativo');
+
+        const { data: todasOrdensDM } = await clientDM
+            .from('ordens_servico')
+            .select('placa, status, tipo, data_abertura, data_conclusao, filial_id')
+            .neq('status', 'Agendada');
+
+        // Calcula a DM GLOBAL real exata do sistema inteiro (igual ao Relatório Gerencial)
+        const dmMediaGlobalCalculada = calcularDMMediaDiaria(todasFrotasDM || [], todasOrdensDM || [], anoFiltro, mesFiltroInt);
+
         let filiaisData = [];
         let totalFatGlobal = 0;
         let totalProdGlobal = 0;
-        let totalDmGlobal = 0;
-        let filiaisValidasParaDM = 0;
 
         // 3. PROCESSAR OS DADOS DE CADA FILIAL ISOLADAMENTE
         for (let filial of filiaisDB) {
             
             let faturamentoReal = 0;
             let producaoReal = 0;
-            let dmReal = 0;
 
-            // A. PRODUÇÃO (Filtra da lista gigante apenas as da filial atual)
+            // A. PRODUÇÃO
             const viagensDB = todasViagens.filter(v => String(v.filial_id) === String(filial.id));
 
             if (viagensDB.length > 0) {
                 const viagensFiltradas = viagensDB.filter(v => {
-                    if (!mesFiltro) return true; // Mostra tudo se não tiver mês filtrado
+                    if (!mesFiltro) return true;
                     
                     let dataOriginal = v.dataDaBaseExcel;
                     if (!dataOriginal || dataOriginal === 'Desconhecida') {
@@ -137,45 +252,14 @@ window.atualizarDadosExecutivos = async function() {
                 }
             }
 
-            // C. DISPONIBILIDADE MECÂNICA
-            const { data: frotaDB } = await window.supabaseClient
-                .from('frotas_manutencao')
-                .select('cavalo')
-                .eq('filial_id', filial.id)
-                .eq('status', 'Ativo');
-
-            const { data: osDB } = await window.supabaseClient
-                .from('ordens_servico')
-                .select('placa, status, tipo')
-                .eq('filial_id', filial.id)
-                .in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']);
-
-            if (frotaDB && frotaDB.length > 0) {
-                const listaCavalos = frotaDB.map(f => f.cavalo.trim().toUpperCase());
-                const totalFrota = listaCavalos.length;
-                let cavalosParados = 0;
-
-                if (osDB && osDB.length > 0) {
-                    const placasParadas = new Set();
-                    osDB.forEach(os => {
-                        const placaOS = os.placa ? os.placa.trim().toUpperCase() : '';
-                        if (listaCavalos.includes(placaOS) && os.tipo !== 'Cavalo Disponível S/ Carreta') {
-                            placasParadas.add(placaOS);
-                        }
-                    });
-                    cavalosParados = placasParadas.size;
-                }
-
-                const frotaDisponivel = totalFrota - cavalosParados;
-                dmReal = Number(((frotaDisponivel / totalFrota) * 100).toFixed(1));
-            }
+            // C. DM ESPECÍFICA DA FILIAL
+            const frotasFilial = (todasFrotasDM || []).filter(f => String(f.filial_id) === String(filial.id));
+            const ordensFilial = (todasOrdensDM || []).filter(o => String(o.filial_id) === String(filial.id));
+            
+            const dmRealFilial = calcularDMMediaDiaria(frotasFilial, ordensFilial, anoFiltro, mesFiltroInt);
 
             totalFatGlobal += faturamentoReal;
             totalProdGlobal += producaoReal;
-            if (frotaDB && frotaDB.length > 0) {
-                totalDmGlobal += dmReal;
-                filiaisValidasParaDM++;
-            }
 
             filiaisData.push({
                 id: filial.id,
@@ -183,21 +267,18 @@ window.atualizarDadosExecutivos = async function() {
                 cidade: filial.cidade || filial.nome || 'Não Informada', 
                 faturamento: faturamentoReal,
                 producao: producaoReal,
-                dm: dmReal,
-                status: dmReal >= 85 ? 'Operacional' : 'Atenção'
+                dm: dmRealFilial,
+                status: dmRealFilial >= 85 ? 'Operacional' : 'Atenção'
             });
         }
 
         // 4. ATUALIZAR KPIs GLOBAIS NO TOPO
-        const mediaDmGlobal = filiaisValidasParaDM > 0 ? (totalDmGlobal / filiaisValidasParaDM).toFixed(1) : 0;
-
         document.getElementById('kpiFatGlobal').innerText = totalFatGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        // Alterado para Metros Cúbicos
         document.getElementById('kpiProdGlobal').innerText = totalProdGlobal.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' m³';
-        document.getElementById('kpiDmGlobal').innerText = mediaDmGlobal + '%';
+        document.getElementById('kpiDmGlobal').innerText = dmMediaGlobalCalculada + '%';
         document.getElementById('kpiFiliaisAtivas').innerText = filiaisData.length.toString();
 
-        // 5. RENDERIZAR OS CARDS (Com m³)
+        // 5. RENDERIZAR OS CARDS
         let cardsHtml = '';
         filiaisData.forEach(filial => {
             let statusBadge = filial.status === 'Operacional' 
@@ -232,8 +313,64 @@ window.atualizarDadosExecutivos = async function() {
         // 6. ATUALIZAR GRÁFICOS DO ECHARTS
         renderizarGraficoComparativo(filiaisData);
         
-        const historicoGlobalMeses = ['Nov', 'Dez', 'Jan', 'Fev', 'Mar', 'Abr', mesFiltro.split('-')[1] || 'Atual'];
-        const historicoGlobalValores = [2800000, 3100000, 2900000, 3400000, 3500000, 3621100, totalFatGlobal];
+        // =========================================================
+        // EXTRAÇÃO REAL DOS ÚLTIMOS 6 MESES DE FATURAMENTO GLOBAL
+        // =========================================================
+        let mesesArray = [];
+        const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        
+        let anoReferencia = hoje.getFullYear();
+        let mesReferencia = hoje.getMonth() + 1;
+        
+        if (mesFiltro) {
+            const partes = mesFiltro.split('-');
+            anoReferencia = parseInt(partes[0]);
+            mesReferencia = parseInt(partes[1]);
+        }
+        
+        // Gerar os limites de data retroativos para os 6 meses
+        for (let i = 5; i >= 0; i--) {
+            let d = new Date(anoReferencia, mesReferencia - 1 - i, 1);
+            let ano = d.getFullYear();
+            let mes = d.getMonth();
+            let ultimoDia = new Date(ano, mes + 1, 0).getDate();
+            
+            let mesString = String(mes + 1).padStart(2, '0');
+            mesesArray.push({
+                label: nomesMeses[mes],
+                anoMes: `${ano}-${mesString}`,
+                start: `${ano}-${mesString}-01`,
+                end: `${ano}-${mesString}-${ultimoDia}`,
+                total: 0
+            });
+        }
+        
+        const dataInicio6Meses = mesesArray[0].start;
+        const dataFim6Meses = mesesArray[5].end;
+        
+        // Consultar todo o período histórico de 6 meses
+        const { data: fat6MesesDB } = await window.supabaseClient
+            .from('faturamento_diario')
+            .select('valor, data_faturamento')
+            .gte('data_faturamento', dataInicio6Meses)
+            .lte('data_faturamento', dataFim6Meses);
+            
+        if (fat6MesesDB && fat6MesesDB.length > 0) {
+            fat6MesesDB.forEach(item => {
+                const dataFat = item.data_faturamento;
+                if (dataFat) {
+                    const anoMesItem = dataFat.substring(0, 7);
+                    const mesObj = mesesArray.find(m => m.anoMes === anoMesItem);
+                    if (mesObj) {
+                        mesObj.total += (Number(item.valor) || 0);
+                    }
+                }
+            });
+        }
+        
+        const historicoGlobalMeses = mesesArray.map(m => m.label);
+        const historicoGlobalValores = mesesArray.map(m => m.total);
+        
         renderizarGraficoEvolucao(historicoGlobalMeses, historicoGlobalValores);
 
     } catch (error) {
