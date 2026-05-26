@@ -5,6 +5,7 @@ let mOS_PecasCache = [];
 let mOS_ListaGeral = [];
 let mOS_Requisicoes = []; 
 let mOS_AbaAtiva = 'aceite';
+let mapaSOSMecanicoInstance = null; // Instância global do mapa do mecânico
 
 window.renderizarTelaServicos = async function() {
     try {
@@ -38,25 +39,110 @@ window.renderizarTelaServicos = async function() {
 
 window.mecanicoMudarAba = function(aba) {
     mOS_AbaAtiva = aba;
+    
+    // Troca de cor das Abas
     document.getElementById('btnAbaAceite').classList.toggle('active', aba === 'aceite');
     document.getElementById('btnAbaAbertas').classList.toggle('active', aba === 'abertas');
     document.getElementById('btnAbaRequisicoes').classList.toggle('active', aba === 'requisicoes');
     
+    // Tratativa especial para cor da aba S.O.S
+    document.getElementById('btnAbaSOS').classList.remove('active', 'active-sos');
+    if (aba === 'sos') {
+        document.getElementById('btnAbaSOS').classList.add('active-sos');
+    }
+    
+    // Oculta/Exibe Divs
     document.getElementById('divServAceite').style.display = aba === 'aceite' ? 'block' : 'none';
     document.getElementById('divServAbertas').style.display = aba === 'abertas' ? 'block' : 'none';
     document.getElementById('divServRequisicoes').style.display = aba === 'requisicoes' ? 'block' : 'none';
+    document.getElementById('divServSOS').style.display = aba === 'sos' ? 'block' : 'none';
+    
+    // Inicializar mapa S.O.S após 300ms se a aba for ela (para dar tempo do HTML renderizar o tamanho)
+    if (aba === 'sos') {
+        setTimeout(() => {
+            mecanicoInicializarMapaSOS();
+        }, 300);
+    }
+    
     mecanicoRenderizarTabelas();
+};
+
+window.mecanicoInicializarMapaSOS = function() {
+    // Se o mapa já existir, remove ele da memória para forçar uma recarga nova dos pontos
+    if (mapaSOSMecanicoInstance !== null) {
+        mapaSOSMecanicoInstance.remove();
+        mapaSOSMecanicoInstance = null;
+    }
+
+    mapaSOSMecanicoInstance = L.map('mapaSOSMecanico').setView([-17.9754, -39.7336], 7);
+
+    // Satélites Híbridos do Google (Com estradas)
+    L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        attribution: '© Google Maps',
+        maxZoom: 20
+    }).addTo(mapaSOSMecanicoInstance);
+
+    const sosAbertas = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S'));
+    const bounds = [];
+
+    // Percorre cada SOS e adiciona marcador no Mapa
+    sosAbertas.forEach(os => {
+        let local = os.localizacao_sos || '';
+        if (local.includes('http')) {
+            let parts = local.split(' | Ref: ');
+            let link = parts[0].trim();
+            
+            // Regex para extrair latitude e longitude do link gerado no sistema
+            let match = link.match(/(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (match) {
+                let lat = parseFloat(match[1]);
+                let lng = parseFloat(match[2]);
+                
+                // Cria a mensagem que vai abrir ao clicar no pino
+                let popupMsg = `<div style="text-align: center; line-height: 1.4;">
+                                    <b style="color: #ef4444; font-size: 1.1rem;">🚨 S.O.S O.S #${os.id}</b><br>
+                                    <b>Placa:</b> ${os.placa || '-'}<br>
+                                    <b>Motorista:</b> ${os.motorista || '-'}<br>
+                                    <b>Problema:</b> ${os.problema || 'Não informado'}<br><br>
+                                    <a href="${link}" target="_blank" style="background: #3b82f6; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; display: inline-block;">Abrir GPS no Celular</a>
+                                </div>`;
+                
+                // Adiciona o pino no mapa
+                L.marker([lat, lng]).addTo(mapaSOSMecanicoInstance).bindPopup(popupMsg);
+                bounds.push([lat, lng]); // Salva os limites para auto-foco
+            }
+        }
+    });
+
+    // Foca o mapa de forma que todas as SOS apareçam na tela
+    if (bounds.length > 0) {
+        mapaSOSMecanicoInstance.fitBounds(bounds, { padding: [30, 30] });
+    } else {
+        // Se não houver SOS no mapa, tenta pegar a geolocalização do mecânico
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                mapaSOSMecanicoInstance.setView([position.coords.latitude, position.coords.longitude], 12);
+            });
+        }
+    }
 };
 
 function mecanicoAtualizarContadores() {
     const usuario = mecanicoPegarUsuario();
-    const countAceite = mOS_ListaGeral.filter(os => os.status === 'Aguardando Oficina').length;
+    // Corrigido para não mostrar SOS na lista genérica
+    const osDisponiveisNormais = mOS_ListaGeral.filter(os => os.status === 'Aguardando Oficina' && !(os.tipo && os.tipo.startsWith('S.O.S')));
+    const countAceite = osDisponiveisNormais.length;
+    
     const countAbertas = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção' && os.mecanico_responsavel === usuario).length;
     const countReq = mOS_Requisicoes.filter(r => r.status === 'Pendente').length;
+    
+    // Novo Contador Exclusivo para S.O.S
+    const countSOS = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S')).length;
     
     document.getElementById('countAceite').innerText = countAceite;
     document.getElementById('countAbertas').innerText = countAbertas;
     document.getElementById('countRequisicoes').innerText = countReq;
+    document.getElementById('countSOS').innerText = countSOS;
 }
 
 function mecanicoRenderizarTabelas() {
@@ -64,10 +150,11 @@ function mecanicoRenderizarTabelas() {
     
     if (mOS_AbaAtiva === 'aceite') {
         const tbody = document.getElementById('tabelaServicosDisponiveis');
-        const osDisponiveis = mOS_ListaGeral.filter(os => os.status === 'Aguardando Oficina');
+        // Excluindo SOS da tela de disponíveis normais
+        const osDisponiveis = mOS_ListaGeral.filter(os => os.status === 'Aguardando Oficina' && !(os.tipo && os.tipo.startsWith('S.O.S')));
         
         if (osDisponiveis.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#94a3b8;">Nenhuma O.S. aguardando aceite.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#94a3b8;">Nenhuma O.S. normal aguardando aceite.</td></tr>';
             return;
         }
 
@@ -92,11 +179,16 @@ function mecanicoRenderizarTabelas() {
             return;
         }
 
-        container.innerHTML = minhasOs.map(os => `
-            <div class="card-os-aberta">
+        container.innerHTML = minhasOs.map(os => {
+            const isSOS = os.tipo && os.tipo.startsWith('S.O.S');
+            const colorTag = isSOS ? '#f97316' : '#10b981';
+            const tagNome = isSOS ? 'EMERGÊNCIA (S.O.S) EM EXECUÇÃO' : 'O.S. EM EXECUÇÃO';
+
+            return `
+            <div class="card-os-aberta" style="${isSOS ? 'border-left: 5px solid #f97316;' : ''}">
                 <div class="os-header-flex">
                     <div style="flex: 1;">
-                        <span style="background:#10b981; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.75rem; font-weight:bold;">O.S. #${os.id} EM EXECUÇÃO</span>
+                        <span style="background:${colorTag}; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.75rem; font-weight:bold;">#${os.id} ${tagNome}</span>
                         <h3 style="margin:8px 0; color:#fff; font-size: 1.3rem;">FROTA / CONJUNTO: ${os.placa}</h3>
                         <p style="color:#94a3b8; font-size:0.95rem; margin:0; line-height: 1.4;"><strong>Problema:</strong> ${os.problema}</p>
                     </div>
@@ -112,8 +204,9 @@ function mecanicoRenderizarTabelas() {
                         </button>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
+
     } else if (mOS_AbaAtiva === 'requisicoes') {
         const tbody = document.getElementById('tabelaMinhasRequisicoes');
         if (mOS_Requisicoes.length === 0) {
@@ -134,6 +227,54 @@ function mecanicoRenderizarTabelas() {
                 <td>${r.quantidade}</td>
                 <td style="color:#94a3b8;">${r.compartimento || 'GERAL'}</td>
                 <td style="text-align:right;">${statusBadge}</td>
+            </tr>`;
+        }).join('');
+        
+    } else if (mOS_AbaAtiva === 'sos') {
+        const tbody = document.getElementById('tabelaServicosSOS');
+        const sosAbertas = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S'));
+        
+        if (sosAbertas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#94a3b8;">Nenhum chamado S.O.S em aberto no momento.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = sosAbertas.map(os => {
+            let local = os.localizacao_sos || '';
+            let linkMapa = '';
+            let ref = '';
+
+            if (local.includes('http')) {
+                let partes = local.split(' | Ref: ');
+                linkMapa = partes[0].trim();
+                ref = partes.length > 1 ? partes[1].trim() : '';
+            }
+
+            let btnMapa = linkMapa ? `<a href="${linkMapa}" target="_blank" style="color: #3b82f6; text-decoration: underline;"><i class="fas fa-location-arrow"></i> Ver GPS Celular</a>` : `<span style="color: #9ca3af;">Sem GPS</span>`;
+            
+            // Botões de Ação para o Mecânico (Dinâmico conforme quem assumiu)
+            let acaoHTML = '';
+            if (os.status === 'Aguardando Oficina') {
+                acaoHTML = `<button style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; white-space: nowrap;" onclick="mecanicoAceitarOS(${os.id}, '${os.placa}')">🚗 ASSUMIR SOCORRO</button>`;
+            } else if (os.status === 'Em Manutenção' && os.mecanico_responsavel === usuarioLogado) {
+                acaoHTML = `<button style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; white-space: nowrap;" onclick="mecanicoMudarAba('abertas')">📝 JÁ ASSUMIDO (IR P/ O.S)</button>`;
+            } else {
+                acaoHTML = `<div style="color: #f59e0b; font-weight: bold; font-size: 0.85rem; background: rgba(245,158,11,0.1); padding: 8px; border-radius: 6px;">Em Atendimento (${os.mecanico_responsavel || 'Outro'})</div>`;
+            }
+
+            return `
+            <tr style="background: rgba(249, 115, 22, 0.05); border-left: 3px solid #f97316;">
+                <td style="font-weight:bold; color:#fff;">#${os.id}</td>
+                <td style="color:#94a3b8; font-size: 0.85rem;">${new Date(os.data_abertura).toLocaleString('pt-BR')}</td>
+                <td><strong style="color:#f97316; font-size:1.1rem;">${os.placa}</strong><br><span style="font-size: 0.8rem; color: #cbd5e1;">Mot: ${os.motorista || '-'}</span></td>
+                <td style="font-size:0.85rem;">${os.problema || 'Sem descrição'}</td>
+                <td style="font-size:0.85rem;">
+                    ${btnMapa}
+                    ${ref ? '<br><span style="color:#94a3b8; font-size: 0.8rem;">Ref: ' + ref + '</span>' : ''}
+                </td>
+                <td style="text-align:right; vertical-align: middle;">
+                    ${acaoHTML}
+                </td>
             </tr>`;
         }).join('');
     }
@@ -198,7 +339,7 @@ window.mecanicoAceitarOS = async function(id, placa) {
             data_inicio_manutencao: new Date().toISOString()
         }).eq('id', id);
         await renderizarTelaServicos();
-        mecanicoMudarAba('abertas');
+        mecanicoMudarAba('abertas'); // Joga ele direto pra tela da O.S.
     } catch (e) { alert("Erro ao aceitar OS."); }
 };
 

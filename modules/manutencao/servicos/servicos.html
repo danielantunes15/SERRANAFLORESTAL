@@ -4,6 +4,10 @@
     @media(min-width: 768px) { .serv-tab-btn { flex: none; justify-content: flex-start; } }
     .serv-tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); border-radius: 6px 6px 0 0; }
     .serv-tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
+    
+    /* Cor especial para aba ativa de SOS */
+    .serv-tab-btn.active-sos { color: #f97316; border-bottom-color: #f97316; }
+
     .serv-tab-btn .badge-count { background: #334155; color: #fff; font-size: 0.75rem; padding: 3px 8px; border-radius: 12px; }
     
     .card-os-aberta { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; margin-bottom: 15px; border-left: 5px solid #10b981; }
@@ -85,6 +89,10 @@
             <i class="fas fa-clipboard-list"></i> Status Requisições
             <span class="badge-count" id="countRequisicoes">0</span>
         </button>
+        <button id="btnAbaSOS" class="serv-tab-btn" onclick="mecanicoMudarAba('sos')" style="color: #fca5a5;">
+            <i class="fas fa-map-marked-alt"></i> Mapa S.O.S
+            <span class="badge-count" id="countSOS" style="background: #ea580c; color: white;">0</span>
+        </button>
     </div>
 
     <div id="divServAceite">
@@ -124,6 +132,30 @@
                 </thead>
                 <tbody id="tabelaMinhasRequisicoes">
                     <tr><td colspan="5" style="text-align: center; padding: 20px; color:#94a3b8;">Buscando requisições...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="divServSOS" style="display: none; border: 1px solid #f97316; border-radius: 8px; padding: 15px; background: rgba(0,0,0,0.2);">
+        <h4 style="color: #f97316; margin-top: 0; margin-bottom: 15px;"><i class="fas fa-satellite"></i> Radares de S.O.S (Ocorrências na Estrada)</h4>
+        
+        <div id="mapaSOSMecanico" style="height: 400px; width: 100%; border-radius: 8px; border: 2px solid #f97316; margin-bottom: 20px; z-index: 1;"></div>
+        
+        <div class="table-modern-wrapper" style="overflow-x: auto;">
+            <table class="data-table-modern" style="min-width: 600px;">
+                <thead>
+                    <tr>
+                        <th>Nº O.S.</th>
+                        <th>Abertura</th>
+                        <th>Placa / Motorista</th>
+                        <th>Problema Relatado</th>
+                        <th>Localização</th>
+                        <th style="text-align: right;">Status / Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaServicosSOS">
+                    <tr><td colspan="6" style="text-align: center; padding: 20px; color:#94a3b8;">Buscando emergências...</td></tr>
                 </tbody>
             </table>
         </div>
