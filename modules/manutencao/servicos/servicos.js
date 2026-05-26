@@ -161,7 +161,7 @@ function mecanicoRenderizarTabelas() {
         tbody.innerHTML = osDisponiveis.map(os => `
             <tr>
                 <td style="font-weight:bold; color:#fff;">#${os.id}</td>
-                <td style="color:#94a3b8;">${new Date(os.data_abertura).toLocaleString('pt-BR')}</td>
+                <td style="color:#94a3b8;">${formatarDataHoraBrasil(os.data_abertura)}</td>
                 <td><strong style="color:var(--ccol-blue-bright); font-size:1.1rem;">${os.placa}</strong></td>
                 <td style="font-size:0.85rem;">${os.problema || 'Sem descrição'}</td>
                 <td style="text-align:right;">
@@ -265,7 +265,7 @@ function mecanicoRenderizarTabelas() {
             return `
             <tr style="background: rgba(249, 115, 22, 0.05); border-left: 3px solid #f97316;">
                 <td style="font-weight:bold; color:#fff;">#${os.id}</td>
-                <td style="color:#94a3b8; font-size: 0.85rem;">${new Date(os.data_abertura).toLocaleString('pt-BR')}</td>
+                <td style="color:#94a3b8; font-size: 0.85rem;">${formatarDataHoraBrasil(os.data_abertura)}</td>
                 <td><strong style="color:#f97316; font-size:1.1rem;">${os.placa}</strong><br><span style="font-size: 0.8rem; color: #cbd5e1;">Mot: ${os.motorista || '-'}</span></td>
                 <td style="font-size:0.85rem;">${os.problema || 'Sem descrição'}</td>
                 <td style="font-size:0.85rem;">
