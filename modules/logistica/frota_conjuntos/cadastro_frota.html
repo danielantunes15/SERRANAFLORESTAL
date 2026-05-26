@@ -1,14 +1,48 @@
-<div class="content-panel form-panel-dark" style="animation: fadeIn 0.4s ease-in-out;">
-    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-        <h3 style="margin: 0;"><i class="fas fa-truck-moving"></i> Cadastro de Conjuntos (Frota Manutenção)</h3>
-        <button class="btn-primary-green" onclick="exportarFrotaManutencaoExcel()" style="padding: 8px 15px;">  Exportar Frotas (Excel)</button>
+<style>
+    .tab-header { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+    .tab-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-size: 1rem; cursor: pointer; padding: 10px 20px; border-radius: 8px; font-weight: 600; transition: all 0.3s ease; }
+    .tab-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .tab-btn.active { background: #1e293b; color: var(--ccol-blue-bright); border-color: var(--ccol-blue-bright); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    
+    .cat-section { margin-bottom: 30px; background: rgba(255,255,255,0.02); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.05); }
+    .cat-title { color: #f8fafc; font-size: 1.3rem; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+    
+    .hidden-field { display: none !important; }
+</style>
+
+<div class="tab-header">
+    <button class="tab-btn active" id="btnAbaLista" onclick="window.alternarAbaFrota('lista')"><i class="fas fa-layer-group"></i> Visão por Categorias</button>
+    <button class="tab-btn" id="btnAbaCadastro" onclick="window.alternarAbaFrota('cadastro')"><i class="fas fa-plus-circle"></i> Novo Cadastro</button>
+    <button class="btn-primary-green" onclick="exportarFrotaManutencaoExcel()" style="margin-left: auto; padding: 8px 15px;"><i class="fas fa-file-excel"></i> Exportar Frotas</button>
+</div>
+
+<div id="abaListaFrotas" style="animation: fadeIn 0.4s ease-in-out;">
+    <div id="containerCategorias">
+        <p style="text-align: center; color: #94a3b8; padding: 20px;">Carregando painel de frotas...</p>
+    </div>
+</div>
+
+<div id="abaCadastroFrota" class="content-panel form-panel-dark hidden-field" style="animation: fadeIn 0.4s ease-in-out;">
+    <div class="panel-header">
+        <h3><i class="fas fa-truck-moving"></i> Preencher Novo Conjunto</h3>
     </div>
     <div style="padding: 15px 20px; font-size: 0.85rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border-bottom: 1px solid var(--border-dim); margin-bottom: 15px;">
-        Vincule os cavalos, Frota e carretas. Defina o Status como "Inativo" se a frota estiver chegando. Informe a <b>Data Inicial</b> para garantir que a DM (Disponibilidade Mecânica) só contabilize este veículo a partir do dia em que ele realmente entrou na operação.
+        Vincule os dados do cavalo. A exibição de <b>Número de Frota</b>, <b>Meta de Viagens</b> e <b>Carretas</b> dependerá da Categoria selecionada.
     </div>
     
     <div class="form-grid">
         <div class="form-group-dark"><label>Placa do Cavalo</label><input type="text" id="osFrotaCavalo" placeholder="Ex: ABC-1234" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark">
+            <label>Categoria</label>
+            <select id="osFrotaCategoria" class="dark-select" onchange="window.mudouCategoria(this.value, 'osFrota')">
+                <option value="">Selecione a Categoria...</option>
+                <option value="TRITREM">TRITREM</option>
+                <option value="PRANCHA">PRANCHA</option>
+                <option value="COMBOIO">COMBOIO</option>
+                <option value="GRUA">GRUA</option>
+                <option value="Frota Leve">Frota Leve</option>
+            </select>
+        </div>
         <div class="form-group-dark">
             <label>Status</label>
             <select id="osFrotaStatus" class="dark-select">
@@ -26,34 +60,16 @@
                 <option>Amarelo</option><option>Marrom</option>
             </select>
         </div>
-        <div class="form-group-dark"><label>Nº Frota</label><input type="text" id="osFrotaGo" placeholder="Ex: FROTA-01" style="text-transform: uppercase;"></div>
-        <div class="form-group-dark"><label>Carreta 1 (1º Comp.)</label><input type="text" id="osFrotaCarreta1" placeholder="Placa Carreta 1" style="text-transform: uppercase;"></div>
-        <div class="form-group-dark"><label>Carreta 2 (2º Comp.)</label><input type="text" id="osFrotaCarreta2" placeholder="Placa Carreta 2" style="text-transform: uppercase;"></div>
-        <div class="form-group-dark"><label>Carreta 3 (3º Comp.)</label><input type="text" id="osFrotaCarreta3" placeholder="Placa Carreta 3" style="text-transform: uppercase;"></div>
+
+        <div class="form-group-dark hidden-field" id="osFrotaDivGo"><label>Nº Frota</label><input type="text" id="osFrotaGo" placeholder="Ex: FROTA-01" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark hidden-field" id="osFrotaDivMeta"><label>Meta de Viagens</label><input type="number" id="osFrotaMeta" placeholder="Ex: 10"></div>
+        <div class="form-group-dark hidden-field" id="osFrotaDivC1"><label>Carreta 1 (1º Comp.)</label><input type="text" id="osFrotaCarreta1" placeholder="Placa" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark hidden-field" id="osFrotaDivC2"><label>Carreta 2 (2º Comp.)</label><input type="text" id="osFrotaCarreta2" placeholder="Placa" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark hidden-field" id="osFrotaDivC3"><label>Carreta 3 (3º Comp.)</label><input type="text" id="osFrotaCarreta3" placeholder="Placa" style="text-transform: uppercase;"></div>
+
         <div class="form-actions" style="grid-column: 1 / -1; margin-top: 10px;">
-            <button class="btn-primary-blue btn-full" onclick="salvarFrotaManutencao()"><i class="fas fa-plus"></i> Criar Novo Conjunto de Frota</button>
+            <button class="btn-primary-blue btn-full" onclick="salvarFrotaManutencao()"><i class="fas fa-save"></i> Gravar Conjunto de Frota</button>
         </div>
-    </div>
-    
-    <div class="table-modern-wrapper" style="margin-top: 30px;">
-        <table class="data-table-modern">
-            <thead>
-                <tr>
-                    <th>Status</th>
-                    <th>Data Entrada</th>
-                    <th>Placa (Cavalo)</th>
-                    <th>Cor</th>
-                    <th>Frota</th>
-                    <th>Carreta 1</th>
-                    <th>Carreta 2</th>
-                    <th>Carreta 3</th>
-                    <th style="text-align: right;">Ações</th>
-                </tr>
-            </thead>
-            <tbody id="tabelaFrotaManutencaoCad">
-                <tr><td colspan="9" style="text-align: center;">Carregando frota...</td></tr>
-            </tbody>
-        </table>
     </div>
 </div>
 
@@ -88,6 +104,18 @@
         <div class="modal-body form-grid">
             <input type="hidden" id="editFrotaId">
             <div class="form-group-dark" style="grid-column: 1 / -1;"><label>Placa Cavalo</label><input type="text" id="editFrotaCavalo" style="text-transform:uppercase;"></div>
+            
+            <div class="form-group-dark">
+                <label>Categoria</label>
+                <select id="editFrotaCategoria" class="dark-select" onchange="window.mudouCategoria(this.value, 'editFrota')">
+                    <option value="">Selecione...</option>
+                    <option value="TRITREM">TRITREM</option>
+                    <option value="PRANCHA">PRANCHA</option>
+                    <option value="COMBOIO">COMBOIO</option>
+                    <option value="GRUA">GRUA</option>
+                    <option value="Frota Leve">Frota Leve</option>
+                </select>
+            </div>
             <div class="form-group-dark">
                 <label>Status</label>
                 <select id="editFrotaStatus" class="dark-select">
@@ -95,15 +123,18 @@
                     <option value="Inativo">Inativo</option>
                 </select>
             </div>
+            
             <div class="form-group-dark"><label>Data Inicial</label><input type="date" id="editFrotaDataInicial" class="dark-select"></div>
             <div class="form-group-dark">
                 <label>Cor</label>
                 <select id="editFrotaCor" class="dark-select"><option value="Branco">Branco</option><option value="Preto">Preto</option><option value="Cinza">Cinza</option><option value="Azul">Azul</option><option value="Verde">Verde</option><option value="Vermelho">Vermelho</option></select>
             </div>
-            <div class="form-group-dark"><label>Nº Frota</label><input type="text" id="editFrotaGo" style="text-transform:uppercase;"></div>
-            <div class="form-group-dark"><label>Carreta 1</label><input type="text" id="editFrotaCarreta1" style="text-transform:uppercase;"></div>
-            <div class="form-group-dark"><label>Carreta 2</label><input type="text" id="editFrotaCarreta2" style="text-transform:uppercase;"></div>
-            <div class="form-group-dark"><label>Carreta 3</label><input type="text" id="editFrotaCarreta3" style="text-transform:uppercase;"></div>
+            
+            <div class="form-group-dark hidden-field" id="editFrotaDivGo"><label>Nº Frota</label><input type="text" id="editFrotaGo" style="text-transform:uppercase;"></div>
+            <div class="form-group-dark hidden-field" id="editFrotaDivMeta"><label>Meta de Viagens</label><input type="number" id="editFrotaMeta"></div>
+            <div class="form-group-dark hidden-field" id="editFrotaDivC1"><label>Carreta 1 (1º Comp.)</label><input type="text" id="editFrotaCarreta1" style="text-transform:uppercase;"></div>
+            <div class="form-group-dark hidden-field" id="editFrotaDivC2"><label>Carreta 2 (2º Comp.)</label><input type="text" id="editFrotaCarreta2" style="text-transform:uppercase;"></div>
+            <div class="form-group-dark hidden-field" id="editFrotaDivC3"><label>Carreta 3 (3º Comp.)</label><input type="text" id="editFrotaCarreta3" style="text-transform:uppercase;"></div>
         </div>
         <div class="modal-footer" style="grid-column: 1 / -1; margin-top: 20px;">
             <button class="btn-secondary-dark" onclick="fecharModalEditarFrota()">Cancelar</button>
