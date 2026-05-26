@@ -84,23 +84,47 @@ window.renderizarTabelaSOS = function() {
             let partes = local.split(' | Ref: ');
             linkMapa = partes[0].trim();
             ref = partes.length > 1 ? partes[1].trim() : '';
+        } else {
+            ref = local; // Caso não tenha link, considera tudo como referência
         }
 
-        // TEXTO ESTRUTURADO PARA WHATSAPP
-        let textoZap = `🚨 *NOVO CHAMADO DE S.O.S* 🚨%0A`;
-        textoZap += `━━━━━━━━━━━━━━━━━━━━━━━%0A`;
-        textoZap += `📄 *O.S. Número:* #${os.id}%0A`;
-        textoZap += `🚚 *Placa (Conjunto):* ${os.placa || '-'}%0A`;
-        textoZap += `👤 *Motorista:* ${os.motorista || '-'}%0A`;
-        textoZap += `⏱️ *Horário Abertura:* ${inicioStr}%0A`;
-        textoZap += `⚠️ *Tipo:* ${os.tipo || '-'}%0A`;
-        textoZap += `━━━━━━━━━━━━━━━━━━━━━━━%0A`;
-        textoZap += `🔧 *Problema Relatado:*%0A${os.problema || 'Não detalhado'}%0A`;
-        textoZap += `━━━━━━━━━━━━━━━━━━━━━━━%0A`;
-        if (ref) textoZap += `📌 *Ponto de Referência:*%0A${ref}%0A%0A`;
-        textoZap += `📍 *Abrir Rota no GPS:*%0A${linkMapa || 'Sem link cadastrado'}`;
+        // TEXTO ESTRUTURADO PARA WHATSAPP (MELHORADO E COMPLETO)
+        let mensagemZap = `🚨 *NOVO CHAMADO DE S.O.S* 🚨\n`;
+        mensagemZap += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        mensagemZap += `📄 *O.S. Número:* #${os.id}\n`;
+        mensagemZap += `🚚 *Placa (Conjunto):* ${os.placa || 'Não informada'}\n`;
+        mensagemZap += `👤 *Motorista:* ${os.motorista || 'Não informado'}\n`;
+        mensagemZap += `⏱️ *Horário Abertura:* ${inicioStr}\n`;
+        mensagemZap += `⚠️ *Tipo:* ${os.tipo || 'S.O.S'}\n`;
+        mensagemZap += `🚥 *Status Inicial:* ${os.status || 'Aberto'}\n`;
         
-        const urlZap = `https://api.whatsapp.com/send?text=${textoZap}`;
+        // Adiciona informações extras se existirem
+        if (os.prioridade) mensagemZap += `🔥 *Prioridade:* ${os.prioridade}\n`;
+        if (os.hodometro) mensagemZap += `🛣️ *Hodômetro/Horímetro:* ${os.hodometro}\n`;
+        
+        mensagemZap += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        mensagemZap += `🔧 *Problema Relatado:*\n${os.problema || 'Não detalhado'}\n`;
+        
+        if (os.observacoes && os.observacoes.trim() !== '') {
+            mensagemZap += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
+            mensagemZap += `📝 *Observações da O.S:*\n${os.observacoes}\n`;
+        }
+
+        mensagemZap += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        if (ref) {
+            mensagemZap += `📌 *Ponto de Referência / Local:*\n${ref}\n\n`;
+        } else {
+            mensagemZap += `📌 *Ponto de Referência:*\nNão informado\n\n`;
+        }
+        
+        if (linkMapa) {
+            mensagemZap += `📍 *Abrir Rota no GPS (Maps):*\n${linkMapa}`;
+        } else {
+            mensagemZap += `📍 *Localização GPS:*\nSem link cadastrado`;
+        }
+
+        // Usa encodeURIComponent para garantir que espaços, acentos e quebras de linha funcionem perfeitamente no link
+        const urlZap = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensagemZap)}`;
 
         let btnMapa = linkMapa ? `<a href="${linkMapa}" target="_blank" class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;"><i class="fas fa-map-marked-alt"></i> Ver Mapa</a>` : `<span style="font-size: 0.8rem; color: #9ca3af;"><br>📍 Sem Mapa</span>`;
 
