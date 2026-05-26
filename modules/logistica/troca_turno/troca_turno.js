@@ -84,6 +84,15 @@ window.alternarAbaTroca = function(aba) {
             if (window.mapaTroca) window.mapaTroca.invalidateSize();
         }, 250);
     } else if (aba === 'historico') {
+        // CORREÇÃO: Define automaticamente a data de hoje no filtro ao clicar na aba
+        const agora = new Date();
+        const ano = agora.getFullYear();
+        const mes = String(agora.getMonth() + 1).padStart(2, '0');
+        const dia = String(agora.getDate()).padStart(2, '0');
+        const inputDataHist = document.getElementById('filtroDataHistoricoTroca');
+        if (inputDataHist) {
+            inputDataHist.value = `${ano}-${mes}-${dia}`;
+        }
         window.popularFiltrosHistoricoTroca();
         window.carregarHistoricoTrocas();
     } else if (aba === 'indicadores') {
@@ -230,7 +239,7 @@ window.carregarTrocasDoDia = async function() {
             
             const res = await query;
             if (res.data) registros = res.data;
-        } catch(e) { console.warn("Supabase indisponível para busca", e); }
+        } catch(e) { console.warn("Supabase unavailable for fetch", e); }
         
         const mLista = (typeof motoristas !== 'undefined') ? motoristas : (window.motoristas || []);
         const cLista = (typeof conjuntos !== 'undefined') ? conjuntos : (window.conjuntos || []);
@@ -316,7 +325,6 @@ window.carregarTrocasDoDia = async function() {
             const { conjId, go, placaNorm, esc, idxTurno } = linha;
             const domId = `${placaNorm.replace(/[^A-Z0-9]/g, '')}_${idxTurno}_${indiceGlobal}`; 
             
-            // Garantir que a leitura compare tanto com a versão traduzida quanto a original do DB
             const reg = registros.find(r => r.placa_cavalo.toUpperCase() === placaNorm && (r.turno_previsto === esc.turno || r.turno_previsto === esc.originalTurno)) || {};
             const motoristaAtual = reg.motorista_programado || esc.nome || '';
             const horarioReal = reg.horario_real || '';
@@ -709,7 +717,7 @@ window.carregarIndicadoresTroca = async function() {
         }
 
     } catch(e) {
-        console.error("Erro nos Indicadores:", e);
+        console.error("Error in Indicators:", e);
     }
 }
 
