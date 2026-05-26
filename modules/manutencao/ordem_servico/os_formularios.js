@@ -1,27 +1,44 @@
 // ==================== js/os_formularios.js ====================
 
-// Variáveis globais para o mapa S.O.S
 let mapaSOSInstance = null;
 let marcadorSOS = null;
 
 window.inicializarMapaSOS = function() {
-    // Se o mapa já existe, apenas corrige o tamanho
     if (mapaSOSInstance !== null) {
         mapaSOSInstance.invalidateSize();
         return;
     }
 
-    // Inicializa o mapa focado de forma geral na Bahia
-    mapaSOSInstance = L.map('mapaSOS').setView([-17.9754, -39.7336], 7);
+    let latInicial = -17.9754;
+    let lngInicial = -39.7336;
+    let zoomInicial = 7;
+    let usouUltimoLocal = false;
 
-    // MUDANÇA: Usando Google Maps Híbrido (Satélite + Nomes de ruas/rodovias)
+    // TENTA ENCONTRAR O ÚLTIMO S.O.S LANÇADO PARA FOCAR A TELA LÁ
+    if (ordensServico && ordensServico.length > 0) {
+        const ultimasSOS = ordensServico.filter(o => o.tipo && o.tipo.startsWith('S.O.S') && o.localizacao_sos && o.localizacao_sos.includes('http'));
+        
+        if (ultimasSOS.length > 0) {
+            const ultima = ultimasSOS[0];
+            let match = ultima.localizacao_sos.match(/(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (match) {
+                latInicial = parseFloat(match[1]);
+                lngInicial = parseFloat(match[2]);
+                zoomInicial = 12; // Dá um zoom focado na região
+                usouUltimoLocal = true;
+            }
+        }
+    }
+
+    mapaSOSInstance = L.map('mapaSOS').setView([latInicial, lngInicial], zoomInicial);
+
     L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
         attribution: '© Google Maps',
         maxZoom: 20
     }).addTo(mapaSOSInstance);
 
-    // Tenta pegar a localização do operador via GPS para focar o mapa mais perto
-    if ("geolocation" in navigator) {
+    // Se não tinha S.O.S anterior, tenta usar o GPS do navegador
+    if (!usouUltimoLocal && "geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(function(position) {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
@@ -31,20 +48,16 @@ window.inicializarMapaSOS = function() {
         });
     }
 
-    // Evento de clique no mapa para definir a posição do caminhão
     mapaSOSInstance.on('click', function(e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
 
-        // Remove o marcador anterior, se existir
         if (marcadorSOS) {
             mapaSOSInstance.removeLayer(marcadorSOS);
         }
 
-        // Adiciona um novo marcador no local clicado
         marcadorSOS = L.marker([lat, lng]).addTo(mapaSOSInstance);
         
-        // MUDANÇA: Gera um link universal que força abrir direto no app do Google Maps
         const linkMaps = `https://www.google.com/maps?q=${lat},${lng}`;
         document.getElementById('osLocalizacaoSOS').value = linkMaps;
     });
@@ -55,7 +68,6 @@ window.tratarCamposDinamicos = function() {
     const camposPneu = document.getElementById('camposPneu');
     const camposSOS = document.getElementById('camposSOS');
 
-    // Lógica Pneus
     if (tipo === 'Borracharia (PNEU)') {
         camposPneu.style.display = 'block';
     } else {
@@ -65,7 +77,6 @@ window.tratarCamposDinamicos = function() {
         document.getElementById('osPneuMotivo').value = '';
     }
 
-    // Lógica S.O.S (Abre o mapa)
     if (tipo.startsWith('S.O.S')) {
         camposSOS.style.display = 'block';
         setTimeout(() => {
@@ -217,7 +228,6 @@ window.salvarNovaOS = async function() {
         motorista = 'N/A (APENAS GO)'; 
     }
     
-    // Tratativa S.O.S via Mapa
     let localizacao_sos = '';
     if (tipo.startsWith('S.O.S')) {
         const coordsLink = document.getElementById('osLocalizacaoSOS').value.trim();

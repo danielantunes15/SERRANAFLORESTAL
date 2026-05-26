@@ -7,8 +7,6 @@ function renderizarTabelaOS() {
 
     const termo = (document.getElementById('searchOS')?.value || '').toLowerCase();
     
-    // CORREÇÃO: Agora filtra apenas o que está concluído ou é sinistro. 
-    // Os S.O.S voltarão a aparecer aqui na tela principal de abertas!
     let filtradas = ordensServico.filter(o => o.status !== 'Concluída' && o.tipo !== 'Sinistro');
 
     if (termo) {
@@ -57,14 +55,12 @@ function renderizarTabelaOS() {
     }).join('');
 }
 
-// ======================= TABELA DE S.O.S (PAINEL EXCLUSIVO) =======================
 window.renderizarTabelaSOS = function() {
     const tbody = document.getElementById('tabelaAcompanhamentoSOS');
     if (!tbody) return;
 
     const termo = (document.getElementById('searchSOS')?.value || '').toLowerCase();
     
-    // Filtra apenas OS que não estão concluídas e que o tipo começa com "S.O.S"
     let filtradas = ordensServico.filter(o => o.status !== 'Concluída' && o.tipo && o.tipo.startsWith('S.O.S'));
 
     if (termo) {
@@ -84,20 +80,28 @@ window.renderizarTabelaSOS = function() {
         let linkMapa = '';
         let ref = '';
 
-        // Tratamento da String gerada no campo do Mapa (Extrai Link e Referência)
         if (local.includes('http')) {
             let partes = local.split(' | Ref: ');
             linkMapa = partes[0].trim();
             ref = partes.length > 1 ? partes[1].trim() : '';
         }
 
-        // Montagem do texto para o WhatsApp
-        let textoZap = `🚨 *CHAMADO DE S.O.S NA ESTRADA* 🚨%0A%0A*O.S:* #${os.id}%0A*Placa:* ${os.placa || '-'}%0A*Motorista:* ${os.motorista || '-'}%0A*Problema Relatado:* ${os.problema || 'Não detalhado'}%0A%0A*📍 Abrir Localização no Mapa:* ${linkMapa || 'Sem link cadastrado'}`;
-        if (ref) textoZap += `%0A*Ponto de Referência:* ${ref}`;
+        // TEXTO ESTRUTURADO PARA WHATSAPP
+        let textoZap = `🚨 *NOVO CHAMADO DE S.O.S* 🚨%0A`;
+        textoZap += `━━━━━━━━━━━━━━━━━━━━━━━%0A`;
+        textoZap += `📄 *O.S. Número:* #${os.id}%0A`;
+        textoZap += `🚚 *Placa (Conjunto):* ${os.placa || '-'}%0A`;
+        textoZap += `👤 *Motorista:* ${os.motorista || '-'}%0A`;
+        textoZap += `⏱️ *Horário Abertura:* ${inicioStr}%0A`;
+        textoZap += `⚠️ *Tipo:* ${os.tipo || '-'}%0A`;
+        textoZap += `━━━━━━━━━━━━━━━━━━━━━━━%0A`;
+        textoZap += `🔧 *Problema Relatado:*%0A${os.problema || 'Não detalhado'}%0A`;
+        textoZap += `━━━━━━━━━━━━━━━━━━━━━━━%0A`;
+        if (ref) textoZap += `📌 *Ponto de Referência:*%0A${ref}%0A%0A`;
+        textoZap += `📍 *Abrir Rota no GPS:*%0A${linkMapa || 'Sem link cadastrado'}`;
         
-        const urlZap = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoZap)}`;
+        const urlZap = `https://api.whatsapp.com/send?text=${textoZap}`;
 
-        // Botão do Mapa
         let btnMapa = linkMapa ? `<a href="${linkMapa}" target="_blank" class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;"><i class="fas fa-map-marked-alt"></i> Ver Mapa</a>` : `<span style="font-size: 0.8rem; color: #9ca3af;"><br>📍 Sem Mapa</span>`;
 
         return `
@@ -173,7 +177,6 @@ function renderizarTabelaHistoricoOS() {
     const dataFim = document.getElementById('filtroHistDataFim')?.value;
     const tipo = document.getElementById('filtroHistTipo')?.value;
     
-    // Filtro Mês/Ano
     const mesAno = document.getElementById('filtroHistMesAno')?.value;
 
     let filtradas = ordensServico;
