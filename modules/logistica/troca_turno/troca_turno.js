@@ -255,13 +255,26 @@ window.carregarTrocasDoDia = async function() {
                     if (typeof window.getEscalaDiaComputada === 'function') {
                         const esc = window.getEscalaDiaComputada(m, dataRef);
                         if (String(esc.caminhao).trim().toUpperCase() === placaNorm && esc.caminhao !== 'F') {
-                            motoristasHoje.push({ nome: m.nome, turno: esc.turno || m.turno || 'Indefinido' });
+                            
+                            // TRADUÇÃO DE HORÁRIOS DIA E NOITE PARA EXIBIÇÃO NO PREVISTO
+                            let turnoFormatado = esc.turno || m.turno || 'Indefinido';
+                            if (turnoFormatado !== 'Indefinido' && turnoFormatado !== 'Sem Escala' && turnoFormatado !== '-') {
+                                let isNoite = ['D', 'E', 'F'].includes(m.equipe);
+                                if (turnoFormatado.includes('-')) {
+                                    let partes = turnoFormatado.split('-');
+                                    if (partes.length === 2) {
+                                        turnoFormatado = isNoite ? `${partes[1].trim()} às ${partes[0].trim()}` : `${partes[0].trim()} às ${partes[1].trim()}`;
+                                    }
+                                }
+                            }
+
+                            motoristasHoje.push({ nome: m.nome, turno: turnoFormatado, originalTurno: esc.turno || m.turno });
                         }
                     }
                 });
                 
                 if (motoristasHoje.length === 0) {
-                    motoristasHoje.push({ nome: null, turno: 'Sem Escala' });
+                    motoristasHoje.push({ nome: null, turno: 'Sem Escala', originalTurno: 'Sem Escala' });
                 }
 
                 motoristasHoje.forEach((esc, idxTurno) => {
@@ -303,7 +316,8 @@ window.carregarTrocasDoDia = async function() {
             const { conjId, go, placaNorm, esc, idxTurno } = linha;
             const domId = `${placaNorm.replace(/[^A-Z0-9]/g, '')}_${idxTurno}_${indiceGlobal}`; 
             
-            const reg = registros.find(r => r.placa_cavalo.toUpperCase() === placaNorm && r.turno_previsto === esc.turno) || {};
+            // Garantir que a leitura compare tanto com a versão traduzida quanto a original do DB
+            const reg = registros.find(r => r.placa_cavalo.toUpperCase() === placaNorm && (r.turno_previsto === esc.turno || r.turno_previsto === esc.originalTurno)) || {};
             const motoristaAtual = reg.motorista_programado || esc.nome || '';
             const horarioReal = reg.horario_real || '';
             const obsReal = reg.observacao || '';
