@@ -104,15 +104,25 @@ window.renderizarCardsTV = function() {
     if (!container) return;
     if (typeof ordensServico === 'undefined' || !ordensServico) return;
 
+    // --- FILTRO EXCLUSIVO PARA TRITREM E ATIVO ---
+    let frotasValidas = [];
+    if (typeof frotasManutencao !== 'undefined' && Array.isArray(frotasManutencao)) {
+        frotasValidas = frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM');
+    }
+    const cavalosValidos = frotasValidas.map(f => f.cavalo);
+
     const agora = new Date();
     const hojeInicio = new Date(agora); hojeInicio.setHours(0,0,0,0);
     const hojeFim = new Date(agora); hojeFim.setHours(23,59,59,999);
     
     const osHoje = ordensServico.filter(o => {
+        if (!o.placa || !cavalosValidos.includes(o.placa)) return false; // Filtra TRITREM
         if(o.tipo === 'Sinistro') return false;
+        
         let dIni = o.data_abertura ? new Date(String(o.data_abertura).replace('Z', '').replace('+00:00', '')) : null;
         let dFim = o.data_conclusao ? new Date(String(o.data_conclusao).replace('Z', '').replace('+00:00', '')) : null;
         if(!dIni) return false;
+        
         if(dIni >= hojeInicio && dIni <= hojeFim) return true;
         if(dFim && dFim >= hojeInicio && dFim <= hojeFim) return true;
         if(!dFim && dIni < hojeInicio) return true;
@@ -123,44 +133,44 @@ window.renderizarCardsTV = function() {
     const fechadasHoje = osHoje.filter(o => o.status === 'Concluída' && o.data_conclusao && new Date(String(o.data_conclusao).replace('Z', '').replace('+00:00', '')) >= hojeInicio).length;
     
     const totalOsHoje = ordensServico.filter(o => {
+        if (!o.placa || !cavalosValidos.includes(o.placa)) return false; // Filtra TRITREM
         if(!o.data_abertura || o.tipo === 'Sinistro') return false;
+        
         let dIni = new Date(String(o.data_abertura).replace('Z', '').replace('+00:00', ''));
         return dIni >= hojeInicio && dIni <= hojeFim;
     }).length; 
     
-    let tempoTotalDispMs = (typeof frotasManutencao !== 'undefined' ? frotasManutencao.length : 0) * 24 * 60 * 60 * 1000;
+    let tempoTotalDispMs = frotasValidas.length * 24 * 60 * 60 * 1000;
     let tempoManutencaoMs = 0;
     
     // --- CÁLCULO DE VEÍCULOS DISPONÍVEIS E EM MANUTENÇÃO (TEMPO REAL) ---
     let veiculosManutencao = 0;
     let veiculosDisponiveis = 0;
 
-    if (typeof frotasManutencao !== 'undefined' && Array.isArray(frotasManutencao)) {
-        frotasManutencao.forEach(frota => {
-            // Conta disponibilidade real do momento
-            const osAberta = ordensServico.find(o => o.placa === frota.cavalo && o.status !== 'Concluída' && o.status !== 'Agendada');
-            if (osAberta) {
-                veiculosManutencao++;
-            } else {
-                veiculosDisponiveis++;
+    frotasValidas.forEach(frota => {
+        // Conta disponibilidade real do momento
+        const osAberta = ordensServico.find(o => o.placa === frota.cavalo && o.status !== 'Concluída' && o.status !== 'Agendada');
+        if (osAberta) {
+            veiculosManutencao++;
+        } else {
+            veiculosDisponiveis++;
+        }
+
+        // Calcula tempo histórico do dia para a Taxa DM
+        const osCavalo = ordensServico.filter(o => o.placa === frota.cavalo && o.tipo !== 'Sinistro');
+        osCavalo.forEach(os => {
+            let osIni = os.data_abertura ? new Date(String(os.data_abertura).replace('Z', '').replace('+00:00', '')) : null;
+            let osFim = os.data_conclusao ? new Date(String(os.data_conclusao).replace('Z', '').replace('+00:00', '')) : hojeFim;
+            if(!osIni) return;
+
+            let overlapInicio = osIni > hojeInicio ? osIni : hojeInicio;
+            let overlapFim = osFim < hojeFim ? osFim : hojeFim;
+
+            if(overlapInicio < overlapFim && os.status !== 'Agendada') {
+                tempoManutencaoMs += (overlapFim - overlapInicio);
             }
-
-            // Calcula tempo histórico do dia para a Taxa DM
-            const osCavalo = ordensServico.filter(o => o.placa === frota.cavalo && o.tipo !== 'Sinistro');
-            osCavalo.forEach(os => {
-                let osIni = os.data_abertura ? new Date(String(os.data_abertura).replace('Z', '').replace('+00:00', '')) : null;
-                let osFim = os.data_conclusao ? new Date(String(os.data_conclusao).replace('Z', '').replace('+00:00', '')) : hojeFim;
-                if(!osIni) return;
-
-                let overlapInicio = osIni > hojeInicio ? osIni : hojeInicio;
-                let overlapFim = osFim < hojeFim ? osFim : hojeFim;
-
-                if(overlapInicio < overlapFim && os.status !== 'Agendada') {
-                    tempoManutencaoMs += (overlapFim - overlapInicio);
-                }
-            });
         });
-    }
+    });
 
     if(tempoManutencaoMs > tempoTotalDispMs) tempoManutencaoMs = tempoTotalDispMs;
     const dmDia = tempoTotalDispMs > 0 ? (((tempoTotalDispMs - tempoManutencaoMs) / tempoTotalDispMs) * 100).toFixed(1) : 100;
@@ -176,7 +186,8 @@ window.renderizarCardsTV = function() {
     // --- RENDERIZAÇÃO DOS CARDS ---
     const osAtivas = ordensServico.filter(o => 
         (o.status === 'Aguardando Oficina' || o.status === 'Em Manutenção') && 
-        o.tipo !== 'Sinistro'
+        o.tipo !== 'Sinistro' &&
+        o.placa && cavalosValidos.includes(o.placa) // Exibe APENAS cards de TRITREM Ativos
     );
     
     if (osAtivas.length === 0) {
@@ -218,7 +229,7 @@ window.renderizarCardsTV = function() {
         if (diffHrs >= 24) { colorCronometro = '#ef4444'; alertaClass = 'piscar-alerta'; } 
         else if (diffHrs >= 12) { colorCronometro = '#f59e0b'; }
         
-        const frotaVinculada = (typeof frotasManutencao !== 'undefined' && Array.isArray(frotasManutencao)) ? (frotasManutencao.find(f => f.cavalo === os.placa) || {}) : {};
+        const frotaVinculada = frotasValidas.find(f => f.cavalo === os.placa) || {};
         const conjuntosBadge = [frotaVinculada.carreta1, frotaVinculada.carreta2, frotaVinculada.carreta3]
             .filter(Boolean)
             .map(c => `<span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.2); margin-right: 5px;">${c}</span>`).join('');
