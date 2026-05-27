@@ -8,6 +8,14 @@
     .cat-title { color: #f8fafc; font-size: 1.3rem; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; display: flex; align-items: center; gap: 10px; }
     
     .hidden-field { display: none !important; }
+
+    /* Estilos do Painel de Resumo */
+    .resumo-frotas-container { display: flex; gap: 15px; margin-bottom: 25px; overflow-x: auto; padding-bottom: 5px; }
+    .card-resumo { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 15px; border-radius: 10px; flex: 1; min-width: 130px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+    .card-resumo .label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+    .card-resumo .valor { font-size: 1.8rem; font-weight: bold; color: #22c55e; }
+    .card-resumo.destaque { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); }
+    .card-resumo.destaque .valor { color: var(--ccol-blue-bright); }
 </style>
 
 <div class="tab-header">
@@ -17,6 +25,34 @@
 </div>
 
 <div id="abaListaFrotas" style="animation: fadeIn 0.4s ease-in-out;">
+    
+    <div class="resumo-frotas-container" id="painelResumoFrotas">
+        <div class="card-resumo">
+            <div class="label">Tritrem <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
+            <div class="valor" id="resumoTritrem">0</div>
+        </div>
+        <div class="card-resumo">
+            <div class="label">Prancha <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
+            <div class="valor" id="resumoPrancha">0</div>
+        </div>
+        <div class="card-resumo">
+            <div class="label">Comboio <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
+            <div class="valor" id="resumoComboio">0</div>
+        </div>
+        <div class="card-resumo">
+            <div class="label">Grua <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
+            <div class="valor" id="resumoGrua">0</div>
+        </div>
+        <div class="card-resumo">
+            <div class="label">Frota Leve <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
+            <div class="valor" id="resumoLeve">0</div>
+        </div>
+        <div class="card-resumo destaque">
+            <div class="label">Total Geral <span style="font-size: 0.7rem; color: rgba(59, 130, 246, 0.7);">(Ativos)</span></div>
+            <div class="valor" id="resumoTotal">0</div>
+        </div>
+    </div>
+
     <div id="containerCategorias">
         <p style="text-align: center; color: #94a3b8; padding: 20px;">Carregando painel de frotas...</p>
     </div>

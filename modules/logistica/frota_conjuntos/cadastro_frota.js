@@ -81,6 +81,9 @@ function renderizarTabelaCadastroFrota() {
         return;
     }
 
+    // Variáveis para os contadores do Dashboard
+    let countTritrem = 0, countPrancha = 0, countComboio = 0, countGrua = 0, countLeve = 0, countTotal = 0;
+
     // Organizando as frotas em grupos (Sessões)
     const categoriasAgrupadas = {
         'TRITREM': [],
@@ -93,12 +96,33 @@ function renderizarTabelaCadastroFrota() {
 
     frotasManutencao.forEach(f => {
         const cat = f.categoria || 'Sem Categoria';
+        
         if (categoriasAgrupadas[cat]) {
             categoriasAgrupadas[cat].push(f);
         } else {
             categoriasAgrupadas['Sem Categoria'].push(f);
         }
+
+        // Lógica de Contagem de Frota ATIVA para o Resumo Superior
+        if (f.status === 'Ativo') {
+            countTotal++;
+            if (cat === 'TRITREM') countTritrem++;
+            else if (cat === 'PRANCHA') countPrancha++;
+            else if (cat === 'COMBOIO') countComboio++;
+            else if (cat === 'GRUA') countGrua++;
+            else if (cat === 'Frota Leve') countLeve++;
+        }
     });
+
+    // Atualiza os painéis (Cards) de resumo
+    if (document.getElementById('resumoTritrem')) {
+        document.getElementById('resumoTritrem').innerText = countTritrem;
+        document.getElementById('resumoPrancha').innerText = countPrancha;
+        document.getElementById('resumoComboio').innerText = countComboio;
+        document.getElementById('resumoGrua').innerText = countGrua;
+        document.getElementById('resumoLeve').innerText = countLeve;
+        document.getElementById('resumoTotal').innerText = countTotal;
+    }
 
     const ordemExibicao = ['TRITREM', 'PRANCHA', 'COMBOIO', 'GRUA', 'Frota Leve', 'Sem Categoria'];
 
