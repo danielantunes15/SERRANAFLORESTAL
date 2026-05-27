@@ -417,11 +417,12 @@ window.confirmarTransferenciaFrota = async function() {
             return alert("Este cavalo já não possui carretas para desengatar.");
         }
 
-        const numAvulsa = (frotaOrigem.go ? frotaOrigem.go : frotaOrigem.cavalo) + '-AVULSA';
+        const numFrotaOriginal = frotaOrigem.go ? frotaOrigem.go : frotaOrigem.cavalo;
+        
         let payloadCarreta = {
             categoria: 'CARRETA',
-            cavalo: numAvulsa,
-            go: frotaOrigem.go || numAvulsa, // Leva o Nº Frota original junto
+            cavalo: numFrotaOriginal,
+            go: numFrotaOriginal, 
             status: 'Ativo',
             carreta1: frotaOrigem.carreta1,
             carreta2: frotaOrigem.carreta2,
