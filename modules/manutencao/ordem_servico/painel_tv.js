@@ -104,19 +104,36 @@ window.renderizarCardsTV = function() {
     if (!container) return;
     if (typeof ordensServico === 'undefined' || !ordensServico) return;
 
-    // --- FILTRO EXCLUSIVO PARA TRITREM E ATIVO ---
+    // --- 1. Frotas para o KPI (Mantém apenas TRITREM Ativos para Taxa DM) ---
     let frotasValidas = [];
     if (typeof frotasManutencao !== 'undefined' && Array.isArray(frotasManutencao)) {
         frotasValidas = frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM');
     }
-    const cavalosValidos = frotasValidas.map(f => f.cavalo);
+
+    // --- 2. Placas permitidas para os Cards (Cavalos TRITREM Ativos + TODOS os GOs) ---
+    const placasExibicao = [];
+    if (typeof frotasManutencao !== 'undefined' && Array.isArray(frotasManutencao)) {
+        frotasManutencao.forEach(f => {
+            if (f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM') {
+                if (f.cavalo) placasExibicao.push(String(f.cavalo).trim().toUpperCase());
+            }
+            // Inclui todas as identificações de GOs disponíveis
+            if (f.go && String(f.go).trim() !== '') {
+                placasExibicao.push(String(f.go).trim().toUpperCase());
+            }
+        });
+    }
 
     const agora = new Date();
     const hojeInicio = new Date(agora); hojeInicio.setHours(0,0,0,0);
     const hojeFim = new Date(agora); hojeFim.setHours(23,59,59,999);
     
     const osHoje = ordensServico.filter(o => {
-        if (!o.placa || !cavalosValidos.includes(o.placa)) return false; // Filtra TRITREM
+        const placaOS = o.placa ? String(o.placa).trim().toUpperCase() : '';
+        const ehApenasGO = (o.motorista && String(o.motorista).trim().toUpperCase() === 'N/A (APENAS GO)');
+
+        // O filtro agora aceita se estiver nas frotas ou se tiver a assinatura do GO
+        if (!placaOS || (!placasExibicao.includes(placaOS) && !ehApenasGO)) return false;
         if(o.tipo === 'Sinistro') return false;
         
         let dIni = o.data_abertura ? new Date(String(o.data_abertura).replace('Z', '').replace('+00:00', '')) : null;
@@ -133,7 +150,10 @@ window.renderizarCardsTV = function() {
     const fechadasHoje = osHoje.filter(o => o.status === 'Concluída' && o.data_conclusao && new Date(String(o.data_conclusao).replace('Z', '').replace('+00:00', '')) >= hojeInicio).length;
     
     const totalOsHoje = ordensServico.filter(o => {
-        if (!o.placa || !cavalosValidos.includes(o.placa)) return false; // Filtra TRITREM
+        const placaOS = o.placa ? String(o.placa).trim().toUpperCase() : '';
+        const ehApenasGO = (o.motorista && String(o.motorista).trim().toUpperCase() === 'N/A (APENAS GO)');
+
+        if (!placaOS || (!placasExibicao.includes(placaOS) && !ehApenasGO)) return false;
         if(!o.data_abertura || o.tipo === 'Sinistro') return false;
         
         let dIni = new Date(String(o.data_abertura).replace('Z', '').replace('+00:00', ''));
@@ -143,12 +163,11 @@ window.renderizarCardsTV = function() {
     let tempoTotalDispMs = frotasValidas.length * 24 * 60 * 60 * 1000;
     let tempoManutencaoMs = 0;
     
-    // --- CÁLCULO DE VEÍCULOS DISPONÍVEIS E EM MANUTENÇÃO (TEMPO REAL) ---
+    // --- CÁLCULO DE VEÍCULOS DISPONÍVEIS E EM MANUTENÇÃO (APENAS CAVALOS) ---
     let veiculosManutencao = 0;
     let veiculosDisponiveis = 0;
 
     frotasValidas.forEach(frota => {
-        // Conta disponibilidade real do momento
         const osAberta = ordensServico.find(o => o.placa === frota.cavalo && o.status !== 'Concluída' && o.status !== 'Agendada');
         if (osAberta) {
             veiculosManutencao++;
@@ -156,7 +175,6 @@ window.renderizarCardsTV = function() {
             veiculosDisponiveis++;
         }
 
-        // Calcula tempo histórico do dia para a Taxa DM
         const osCavalo = ordensServico.filter(o => o.placa === frota.cavalo && o.tipo !== 'Sinistro');
         osCavalo.forEach(os => {
             let osIni = os.data_abertura ? new Date(String(os.data_abertura).replace('Z', '').replace('+00:00', '')) : null;
@@ -175,7 +193,6 @@ window.renderizarCardsTV = function() {
     if(tempoManutencaoMs > tempoTotalDispMs) tempoManutencaoMs = tempoTotalDispMs;
     const dmDia = tempoTotalDispMs > 0 ? (((tempoTotalDispMs - tempoManutencaoMs) / tempoTotalDispMs) * 100).toFixed(1) : 100;
 
-    // --- ATUALIZA TODOS OS KPIS DO TOPO ---
     if(document.getElementById('tvKpiTotal')) document.getElementById('tvKpiTotal').innerText = totalOsHoje;
     if(document.getElementById('tvKpiAbertas')) document.getElementById('tvKpiAbertas').innerText = abertasHoje;
     if(document.getElementById('tvKpiFechadas')) document.getElementById('tvKpiFechadas').innerText = fechadasHoje;
@@ -183,12 +200,17 @@ window.renderizarCardsTV = function() {
     if(document.getElementById('tvKpiDisponiveis')) document.getElementById('tvKpiDisponiveis').innerText = veiculosDisponiveis;
     if(document.getElementById('tvKpiEmManutencao')) document.getElementById('tvKpiEmManutencao').innerText = veiculosManutencao;
     
-    // --- RENDERIZAÇÃO DOS CARDS ---
-    const osAtivas = ordensServico.filter(o => 
-        (o.status === 'Aguardando Oficina' || o.status === 'Em Manutenção') && 
-        o.tipo !== 'Sinistro' &&
-        o.placa && cavalosValidos.includes(o.placa) // Exibe APENAS cards de TRITREM Ativos
-    );
+    // --- RENDERIZAÇÃO DOS CARDS (O.S. ABERTAS) ---
+    const osAtivas = ordensServico.filter(o => {
+        if (o.status !== 'Aguardando Oficina' && o.status !== 'Em Manutenção') return false;
+        if (o.tipo === 'Sinistro') return false;
+
+        const placaOS = o.placa ? String(o.placa).trim().toUpperCase() : '';
+        const ehApenasGO = (o.motorista && String(o.motorista).trim().toUpperCase() === 'N/A (APENAS GO)');
+
+        // EXIBE SE A PLACA FOR UM CAVALO, UM GO, OU SE FOR UMA O.S MARCADA COMO APENAS GO
+        return (placasExibicao.includes(placaOS) || ehApenasGO);
+    });
     
     if (osAtivas.length === 0) {
         container.innerHTML = `
@@ -229,7 +251,15 @@ window.renderizarCardsTV = function() {
         if (diffHrs >= 24) { colorCronometro = '#ef4444'; alertaClass = 'piscar-alerta'; } 
         else if (diffHrs >= 12) { colorCronometro = '#f59e0b'; }
         
-        const frotaVinculada = frotasValidas.find(f => f.cavalo === os.placa) || {};
+        // Pega a frota usando TODA a base de frota para encontrar as placas das carretas do GO
+        let frotaVinculada = {};
+        if (typeof frotasManutencao !== 'undefined' && Array.isArray(frotasManutencao)) {
+            frotaVinculada = frotasManutencao.find(f => 
+                (f.cavalo && String(f.cavalo).trim().toUpperCase() === String(os.placa).trim().toUpperCase()) || 
+                (f.go && String(f.go).trim().toUpperCase() === String(os.placa).trim().toUpperCase())
+            ) || {};
+        }
+
         const conjuntosBadge = [frotaVinculada.carreta1, frotaVinculada.carreta2, frotaVinculada.carreta3]
             .filter(Boolean)
             .map(c => `<span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.2); margin-right: 5px;">${c}</span>`).join('');
