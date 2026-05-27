@@ -421,7 +421,7 @@ window.confirmarTransferenciaFrota = async function() {
         let payloadCarreta = {
             categoria: 'CARRETA',
             cavalo: numAvulsa,
-            go: numAvulsa,
+            go: frotaOrigem.go || numAvulsa, // Leva o Nº Frota original junto
             status: 'Ativo',
             carreta1: frotaOrigem.carreta1,
             carreta2: frotaOrigem.carreta2,
@@ -433,8 +433,10 @@ window.confirmarTransferenciaFrota = async function() {
 
         try {
             await supabaseClient.from('frotas_manutencao').insert([payloadCarreta]);
+            
+            // O cavalo original perde as carretas e o Nº Frota, já que o conjunto foi desengatado
             await supabaseClient.from('frotas_manutencao').update({
-                carreta1: null, carreta2: null, carreta3: null
+                go: null, carreta1: null, carreta2: null, carreta3: null
             }).eq('id', frotaOrigem.id);
 
             alert("Carretas desengatadas e enviadas para a aba CARRETAS!");
@@ -450,22 +452,24 @@ window.confirmarTransferenciaFrota = async function() {
     if (!frotaDestino) return;
 
     try {
+        const origGo = frotaOrigem.go;
         const origC1 = frotaOrigem.carreta1;
         const origC2 = frotaOrigem.carreta2;
         const origC3 = frotaOrigem.carreta3;
 
+        const destGo = frotaDestino.go;
         const destC1 = frotaDestino.carreta1;
         const destC2 = frotaDestino.carreta2;
         const destC3 = frotaDestino.carreta3;
 
-        // O Cavalo origem recebe as carretas do destino
+        // O Cavalo origem recebe as carretas E o Nº Frota do destino
         await supabaseClient.from('frotas_manutencao').update({
-            carreta1: destC1, carreta2: destC2, carreta3: destC3
+            go: destGo, carreta1: destC1, carreta2: destC2, carreta3: destC3
         }).eq('id', frotaOrigem.id);
 
-        // O destino recebe as carretas da origem
+        // O destino recebe as carretas E o Nº Frota da origem
         await supabaseClient.from('frotas_manutencao').update({
-            carreta1: origC1, carreta2: origC2, carreta3: origC3
+            go: origGo, carreta1: origC1, carreta2: origC2, carreta3: origC3
         }).eq('id', frotaDestino.id);
 
         // Limpeza automática se uma CARRETA avulsa ficou totalmente vazia após a troca
