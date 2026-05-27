@@ -477,7 +477,8 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         return false;
     }
 
-    let dadosASN = dadosFiltrados.filter(d => !isTransportadoraPropria(d));
+    // CORREÇÃO APLICADA AQUI: Adicionado a verificação && isASN(d)
+    let dadosASN = dadosFiltrados.filter(d => !isTransportadoraPropria(d) && isASN(d));
 
     let cenarioASN = {
         nome: 'TRANSP. ASN',
