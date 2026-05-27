@@ -251,7 +251,7 @@ window.renderizarCardsTV = function() {
         if (diffHrs >= 24) { colorCronometro = '#ef4444'; alertaClass = 'piscar-alerta'; } 
         else if (diffHrs >= 12) { colorCronometro = '#f59e0b'; }
         
-        // Pega a frota usando TODA a base de frota para encontrar as placas das carretas do GO
+        // Pega a frota usando TODA a base de frota para encontrar as placas das carretas do GO e do Cavalo
         let frotaVinculada = {};
         if (typeof frotasManutencao !== 'undefined' && Array.isArray(frotasManutencao)) {
             frotaVinculada = frotasManutencao.find(f => 
@@ -260,7 +260,16 @@ window.renderizarCardsTV = function() {
             ) || {};
         }
 
-        const conjuntosBadge = [frotaVinculada.carreta1, frotaVinculada.carreta2, frotaVinculada.carreta3]
+        // MONTAGEM DAS TAGS COM O NÚMERO DO GO ANTES DAS CARRETAS
+        let conjuntosBadge = '';
+        
+        // Se a frota tem um GO associado, cria o distintivo do GO
+        if (frotaVinculada.go && String(frotaVinculada.go).trim() !== '') {
+            conjuntosBadge += `<span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(59, 130, 246, 0.5); margin-right: 5px; font-weight: bold;">GO: ${String(frotaVinculada.go).toUpperCase()}</span>`;
+        }
+        
+        // Em seguida, adiciona as placas das carretas
+        conjuntosBadge += [frotaVinculada.carreta1, frotaVinculada.carreta2, frotaVinculada.carreta3]
             .filter(Boolean)
             .map(c => `<span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.2); margin-right: 5px;">${c}</span>`).join('');
             
