@@ -153,7 +153,8 @@ window.mudarTipoReferenciaOS = function() {
         if(wrapperHodometro) wrapperHodometro.style.display = 'block';
         
         frotasManutencao.forEach(f => {
-            if (f.cavalo) {
+            // Filtro adicionado: Apenas veículos que possuam cavalo e sejam da categoria TRITREM
+            if (f.cavalo && f.categoria === 'TRITREM') {
                 const texto = `${f.cavalo.trim().toUpperCase()} ${f.go ? ' - ' + f.go : ''}`;
                 selectPlaca.innerHTML += `<option value="${f.cavalo.trim().toUpperCase()}">${texto}</option>`;
             }
