@@ -201,9 +201,6 @@ function formatarHorasMinutos(horasDecimais) {
     return `${horas}h ${minutos.toString().padStart(2, '0')}m`;
 }
 
-// ===============================================
-// CORREÇÃO: Lógica estruturada para <div>
-// ===============================================
 function atualizarElementoTempo(idElemento, mediaReal, metaData) {
     const el = document.getElementById(idElemento);
     if (!el) return;
@@ -477,7 +474,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         return false;
     }
 
-    // CORREÇÃO APLICADA AQUI: Adicionado a verificação && isASN(d)
     let dadosASN = dadosFiltrados.filter(d => !isTransportadoraPropria(d) && isASN(d));
 
     let cenarioASN = {
@@ -492,7 +488,17 @@ function renderizarTabelaComparativo(dadosFiltrados) {
 
     let cenarios = [...cenariosPropria, cenarioASN, ...cenariosOutros];
 
-    const stGlobal = calcStats(dadosFiltrados);
+    // ==========================================
+    // CORREÇÃO: Calcular Total Global usando APENAS as viagens que caíram em algum cenário (ignorando o lixo fora da operação)
+    // ==========================================
+    let todasViagensValidas = [];
+    cenarios.forEach(c => {
+        todasViagensValidas = todasViagensValidas.concat(c.dados);
+    });
+    // Remove possíveis duplicações caso alguma viagem atenda a mais de uma condição acidentalmente
+    todasViagensValidas = [...new Set(todasViagensValidas)];
+
+    const stGlobal = calcStats(todasViagensValidas);
 
     let thHtml = `<tr><th class="px-6 py-4 text-slate-300">Indicador de Performance</th>`;
     
@@ -504,7 +510,7 @@ function renderizarTabelaComparativo(dadosFiltrados) {
 
     let trViagens = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-route text-slate-400 w-5"></i> Viagens Realizadas</td>`;
     cenarios.forEach(c => { trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right ${c.style.text}">${c.dados.length}</td>`; });
-    trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${dadosFiltrados.length}</td></tr>`;
+    trViagens += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${todasViagensValidas.length}</td></tr>`;
 
     let trCaixa = `<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-6 py-4 font-bold text-white text-sm"><i class="fas fa-box-open text-indigo-400 w-5"></i> Caixa de Carga Média</td>`;
     cenarios.forEach(c => { trCaixa += `<td class="px-6 py-4 font-mono text-white text-[15px] font-bold text-right">${c.stats.medVol.toLocaleString('pt-PT',{maximumFractionDigits:1})} m³</td>`; });
