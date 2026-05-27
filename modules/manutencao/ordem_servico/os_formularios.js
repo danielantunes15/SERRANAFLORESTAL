@@ -58,9 +58,45 @@ window.inicializarMapaSOS = function() {
 
         marcadorSOS = L.marker([lat, lng]).addTo(mapaSOSInstance);
         
-        const linkMaps = `https://www.google.com/maps?q=${lat},${lng}`;
+        const linkMaps = `https://www.google.com/maps?q=$${lat},${lng}`;
         document.getElementById('osLocalizacaoSOS').value = linkMaps;
     });
+};
+
+// NOVA FUNÇÃO: Buscar localização ao colar a coordenada do rastreador
+window.buscarCoordenadaNoMapaSOS = function() {
+    const inputCoordenadas = document.getElementById('inputCoordenadasBuscaSOS').value.trim();
+    
+    if (!inputCoordenadas) {
+        alert("Por favor, cole as coordenadas geradas pelo rastreador no campo.");
+        return;
+    }
+
+    // Expressão regular para encontrar as latitudes e longitudes (Ex: -17.7804821, -39.6039536)
+    const regex = /(-?\d+\.\d+)(?:,|\s)+(-?\d+\.\d+)/;
+    const match = inputCoordenadas.match(regex);
+
+    if (match) {
+        const lat = parseFloat(match[1]);
+        const lng = parseFloat(match[2]);
+
+        if (mapaSOSInstance) {
+            // Foca o mapa na nova coordenada
+            mapaSOSInstance.setView([lat, lng], 15);
+
+            // Remove o marcador antigo se houver, e adiciona o novo
+            if (marcadorSOS) {
+                mapaSOSInstance.removeLayer(marcadorSOS);
+            }
+            marcadorSOS = L.marker([lat, lng]).addTo(mapaSOSInstance);
+            
+            // Atualiza o input de link do mapa para salvar no banco
+            const linkMaps = `https://www.google.com/maps?q=$${lat},${lng}`;
+            document.getElementById('osLocalizacaoSOS').value = linkMaps;
+        }
+    } else {
+        alert("Formato de coordenada inválido. Certifique-se de usar o formato correto. (Ex: -17.7804821, -39.6039536)");
+    }
 };
 
 window.tratarCamposDinamicos = function() {
@@ -86,6 +122,9 @@ window.tratarCamposDinamicos = function() {
         camposSOS.style.display = 'none';
         document.getElementById('osLocalizacaoSOS').value = '';
         document.getElementById('osReferenciaSOS').value = '';
+        if (document.getElementById('inputCoordenadasBuscaSOS')) {
+            document.getElementById('inputCoordenadasBuscaSOS').value = '';
+        }
         if (marcadorSOS && mapaSOSInstance) {
             mapaSOSInstance.removeLayer(marcadorSOS);
             marcadorSOS = null;
@@ -235,7 +274,7 @@ window.salvarNovaOS = async function() {
         const referencia = document.getElementById('osReferenciaSOS').value.trim();
         
         if (!coordsLink) {
-            alert("Para chamados de S.O.S, é obrigatório clicar no mapa para marcar a localização do veículo.");
+            alert("Para chamados de S.O.S, é obrigatório clicar no mapa ou inserir a coordenada do veículo.");
             return;
         }
         

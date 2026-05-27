@@ -264,14 +264,22 @@
         
         <div id="camposSOS" style="display: none; grid-column: 1 / -1; background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 8px; border: 1px dashed #ef4444; margin-top: 5px;">
             <h4 style="color: #ef4444; margin-bottom: 10px; font-size: 0.9rem;"><i class="fas fa-map-marker-alt"></i> Localização do S.O.S via Satélite (Obrigatório)</h4>
-            <p style="color: #fca5a5; font-size: 0.8rem; margin-bottom: 10px;">Navegue pelo mapa e <strong>clique no local exato</strong> onde o veículo se encontra para gerar as coordenadas de socorro.</p>
+            <p style="color: #fca5a5; font-size: 0.8rem; margin-bottom: 10px;">Navegue pelo mapa e <strong>clique no local exato</strong> onde o veículo se encontra para gerar as coordenadas de socorro, ou cole as coordenadas geradas pelo rastreador no campo abaixo.</p>
             
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label style="color: #fca5a5;">Colar Coordenadas do Rastreador (Opcional)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="inputCoordenadasBuscaSOS" placeholder="Ex: -17.7804821, -39.6039536" class="search-input-dark" style="flex: 1; padding-left: 10px;">
+                    <button type="button" class="btn-primary-blue" onclick="buscarCoordenadaNoMapaSOS()" style="padding: 10px 20px; border-radius: 6px; white-space: nowrap;">📍 Buscar Local</button>
+                </div>
+            </div>
+
             <div id="mapaSOS" style="height: 550px; width: 100%; border-radius: 8px; border: 2px solid #ef4444; margin-bottom: 15px; z-index: 1;"></div>
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
-                    <label style="color: #ef4444;">Coordenadas / Link (Gerado ao clicar no mapa)</label>
-                    <input type="text" id="osLocalizacaoSOS" placeholder="Clique no mapa acima..." readonly style="background: rgba(0,0,0,0.3); cursor: not-allowed;">
+                    <label style="color: #ef4444;">Coordenadas / Link (Gerado ao clicar no mapa ou buscar)</label>
+                    <input type="text" id="osLocalizacaoSOS" placeholder="Clique no mapa acima ou busque..." readonly style="background: rgba(0,0,0,0.3); cursor: not-allowed;">
                 </div>
                 <div class="form-group-dark">
                     <label>Pontos de Referência (Opcional)</label>
