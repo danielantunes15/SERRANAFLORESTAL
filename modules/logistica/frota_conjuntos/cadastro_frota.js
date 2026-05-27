@@ -124,29 +124,46 @@ function renderizarTabelaCadastroFrota() {
         const lista = categoriasAgrupadas[cat];
         if (lista.length === 0) return;
 
-        let cabecalhoDinamico = '';
-        if (cat === 'TRITREM') cabecalhoDinamico = '<th>Nº Frota</th><th>Meta</th><th>Carreta 1</th><th>Carreta 2</th><th>Carreta 3</th>';
-        else if (cat === 'PRANCHA') cabecalhoDinamico = '<th>Nº Frota</th><th>Carreta 1</th>'; 
-        else if (cat === 'GRUA') cabecalhoDinamico = '<th>Nº Frota</th>'; 
-        else if (cat === 'CARRETA') cabecalhoDinamico = '<th>Nº Frota</th><th>Carreta 1</th><th>Carreta 2</th><th>Carreta 3</th>';
+        let theadHTML = '';
+        if (cat === 'CARRETA') {
+            theadHTML = `
+                <tr>
+                    <th>Status</th>
+                    <th>Nº Frota (ID)</th>
+                    <th>Carreta 1</th>
+                    <th>Carreta 2</th>
+                    <th>Carreta 3</th>
+                    <th style="text-align: right;">Ações</th>
+                </tr>
+            `;
+        } else {
+            let cabecalhoDinamico = '';
+            if (cat === 'TRITREM') cabecalhoDinamico = '<th>Nº Frota</th><th>Meta</th><th>Carreta 1</th><th>Carreta 2</th><th>Carreta 3</th>';
+            else if (cat === 'PRANCHA') cabecalhoDinamico = '<th>Nº Frota</th><th>Carreta 1</th>'; 
+            else if (cat === 'GRUA') cabecalhoDinamico = '<th>Nº Frota</th>'; 
 
-        let cabecalhoPlacaCavalo = (cat === 'GRUA' || cat === 'CARRETA') ? '<th>Veículo / ID</th>' : '<th>Placa (Cavalo)</th>';
+            let cabecalhoPlacaCavalo = (cat === 'GRUA') ? '<th>Veículo / ID</th>' : '<th>Placa (Cavalo)</th>';
+
+            theadHTML = `
+                <tr>
+                    <th>Status</th>
+                    <th>Data Entrada</th>
+                    ${cabecalhoPlacaCavalo}
+                    <th>Descrição</th>
+                    <th>Cor</th>
+                    ${cabecalhoDinamico}
+                    <th style="text-align: right;">Ações</th>
+                </tr>
+            `;
+        }
 
         let htmlSecao = `
         <div class="cat-section">
-            <h3 class="cat-title"><i class="fas fa-list-ul"></i> Categoria: ${cat} <span style="font-size: 0.9rem; margin-left: 10px; color: var(--text-secondary);">(${lista.length} veículos/conjuntos)</span></h3>
+            <h3 class="cat-title"><i class="fas fa-list-ul"></i> Categoria: ${cat} <span style="font-size: 0.9rem; margin-left: 10px; color: var(--text-secondary);">(${lista.length} registros)</span></h3>
             <div class="table-modern-wrapper">
                 <table class="data-table-modern">
                     <thead>
-                        <tr>
-                            <th>Status</th>
-                            <th>Data Entrada</th>
-                            ${cabecalhoPlacaCavalo}
-                            <th>Descrição</th>
-                            <th>Cor</th>
-                            ${cabecalhoDinamico}
-                            <th style="text-align: right;">Ações</th>
-                        </tr>
+                        ${theadHTML}
                     </thead>
                     <tbody>
         `;
@@ -162,49 +179,59 @@ function renderizarTabelaCadastroFrota() {
                 if (partes.length === 3) dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
             }
 
-            let colunasDinamicas = '';
-            if (cat === 'TRITREM') {
-                colunasDinamicas = `
-                    <td style="font-weight: bold;">${frota.go || '-'}</td>
-                    <td style="font-weight: bold; color: #fbbf24;">${frota.meta || '-'}</td>
-                    <td>${frota.carreta1 || '-'}</td>
-                    <td>${frota.carreta2 || '-'}</td>
-                    <td>${frota.carreta3 || '-'}</td>
+            if (cat === 'CARRETA') {
+                htmlSecao += `
+                    <tr>
+                        <td>${badgeStatus}</td>
+                        <td style="font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">${frota.go || '-'}</td>
+                        <td>${frota.carreta1 || '-'}</td>
+                        <td>${frota.carreta2 || '-'}</td>
+                        <td>${frota.carreta3 || '-'}</td>
+                        <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
+                            <button title="Engatar em Cavalo" class="btn-action-sm" style="background-color: #8b5cf6;" onclick="abrirModalTransferenciaFrota(${frota.id})"><i class="fas fa-link"></i></button>
+                            <button title="Editar" class="btn-action-sm btn-edit" onclick="editarFrotaManutencao(${frota.id})"><i class="fas fa-pen"></i></button>
+                            <button title="Excluir" class="btn-action-sm btn-delete" onclick="excluirFrotaManutencao(${frota.id})"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
                 `;
-            } else if (cat === 'PRANCHA') {
-                colunasDinamicas = `
-                    <td style="font-weight: bold;">${frota.go || '-'}</td>
-                    <td>${frota.carreta1 || '-'}</td>
-                `;
-            } else if (cat === 'GRUA') {
-                colunasDinamicas = `<td style="font-weight: bold;">${frota.go || '-'}</td>`;
-            } else if (cat === 'CARRETA') {
-                colunasDinamicas = `
-                    <td style="font-weight: bold;">${frota.go || '-'}</td>
-                    <td>${frota.carreta1 || '-'}</td>
-                    <td>${frota.carreta2 || '-'}</td>
-                    <td>${frota.carreta3 || '-'}</td>
+            } else {
+                let colunasDinamicas = '';
+                if (cat === 'TRITREM') {
+                    colunasDinamicas = `
+                        <td style="font-weight: bold;">${frota.go || '-'}</td>
+                        <td style="font-weight: bold; color: #fbbf24;">${frota.meta || '-'}</td>
+                        <td>${frota.carreta1 || '-'}</td>
+                        <td>${frota.carreta2 || '-'}</td>
+                        <td>${frota.carreta3 || '-'}</td>
+                    `;
+                } else if (cat === 'PRANCHA') {
+                    colunasDinamicas = `
+                        <td style="font-weight: bold;">${frota.go || '-'}</td>
+                        <td>${frota.carreta1 || '-'}</td>
+                    `;
+                } else if (cat === 'GRUA') {
+                    colunasDinamicas = `<td style="font-weight: bold;">${frota.go || '-'}</td>`;
+                }
+
+                let exibirCavalo = frota.cavalo ? frota.cavalo : '<span style="color: #64748b; font-size: 0.8rem;">(Sem Placa)</span>';
+                let descricaoStr = frota.descricao ? frota.descricao : '-';
+
+                htmlSecao += `
+                    <tr>
+                        <td>${badgeStatus}</td>
+                        <td style="color: #94a3b8; font-size: 0.9rem;">${dataFormatada}</td>
+                        <td style="color: var(--ccol-blue-bright); font-weight: bold; font-size: 1.1rem;">${exibirCavalo}</td>
+                        <td style="font-weight: 500; color: #e2e8f0;">${descricaoStr}</td>
+                        <td>${frota.cor || '-'}</td>
+                        ${colunasDinamicas}
+                        <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
+                            ${(cat === 'TRITREM' || cat === 'PRANCHA') ? `<button title="Gerenciar Composição (Trocar/Desengatar)" class="btn-action-sm" style="background-color: #8b5cf6;" onclick="abrirModalTransferenciaFrota(${frota.id})"><i class="fas fa-exchange-alt"></i></button>` : ''}
+                            <button title="Editar" class="btn-action-sm btn-edit" onclick="editarFrotaManutencao(${frota.id})"><i class="fas fa-pen"></i></button>
+                            <button title="Excluir" class="btn-action-sm btn-delete" onclick="excluirFrotaManutencao(${frota.id})"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
                 `;
             }
-
-            let exibirCavalo = frota.cavalo ? frota.cavalo : '<span style="color: #64748b; font-size: 0.8rem;">(Sem Placa)</span>';
-            let descricaoStr = frota.descricao ? frota.descricao : '-';
-
-            htmlSecao += `
-                <tr>
-                    <td>${badgeStatus}</td>
-                    <td style="color: #94a3b8; font-size: 0.9rem;">${dataFormatada}</td>
-                    <td style="color: var(--ccol-blue-bright); font-weight: bold; font-size: 1.1rem;">${exibirCavalo}</td>
-                    <td style="font-weight: 500; color: #e2e8f0;">${descricaoStr}</td>
-                    <td>${frota.cor || '-'}</td>
-                    ${colunasDinamicas}
-                    <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
-                        ${(cat === 'TRITREM' || cat === 'PRANCHA' || cat === 'CARRETA') ? `<button title="Trocar Composição" class="btn-action-sm" style="background-color: #8b5cf6;" onclick="abrirModalTransferenciaFrota(${frota.id})"><i class="fas fa-exchange-alt"></i></button>` : ''}
-                        <button title="Editar" class="btn-action-sm btn-edit" onclick="editarFrotaManutencao(${frota.id})"><i class="fas fa-pen"></i></button>
-                        <button title="Excluir" class="btn-action-sm btn-delete" onclick="excluirFrotaManutencao(${frota.id})"><i class="fas fa-trash"></i></button>
-                    </td>
-                </tr>
-            `;
         });
 
         htmlSecao += `</tbody></table></div></div>`;
@@ -228,7 +255,6 @@ window.salvarFrotaManutencao = async function() {
         cavalo = document.getElementById('osFrotaCavalo').value.trim().toUpperCase();
         if (!cavalo) return alert("A placa do cavalo/veículo é obrigatória.");
     } else {
-        // Se for GRUA ou CARRETA, o campo "Cavalo" assume o valor do N da Frota para evitar erro de NOT NULL no banco.
         cavalo = go;
         if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório para cadastrar uma Grua ou Carreta (avulsa).");
     }
@@ -244,18 +270,19 @@ window.salvarFrotaManutencao = async function() {
     const carreta3 = (categoria === 'TRITREM' || categoria === 'CARRETA') ? document.getElementById('osFrotaCarreta3').value.trim().toUpperCase() : null;
 
     try {
-        const payload = window.injetarFilial({ 
+        let payload = { 
             cavalo: cavalo,
             descricao,
             status, data_inicial, cor, categoria, 
             go, carreta1, carreta2, carreta3,
             meta: metaStr ? parseInt(metaStr) : null 
-        });
+        };
+        if (typeof window.injetarFilial === 'function') payload = window.injetarFilial(payload);
         
         const { error } = await supabaseClient.from('frotas_manutencao').insert([payload]);
         if (error) throw error;
 
-        alert("Veículo/Conjunto cadastrado com sucesso!");
+        alert("Registro cadastrado com sucesso!");
         
         document.querySelectorAll('#abaCadastroFrota input').forEach(inp => inp.value = '');
         document.getElementById('osFrotaStatus').value = 'Ativo';
@@ -314,7 +341,7 @@ window.salvarEdicaoFrota = async function() {
         if (!cavalo) return alert("A placa do cavalo/veículo é obrigatória.");
     } else {
         cavalo = go;
-        if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório para cadastrar uma Grua ou Carreta (avulsa).");
+        if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório.");
     }
 
     const metaStr = (categoria === 'TRITREM') ? document.getElementById('editFrotaMeta').value.trim() : null;
@@ -342,7 +369,7 @@ window.salvarEdicaoFrota = async function() {
 };
 
 window.excluirFrotaManutencao = async function(id) {
-    if (confirm("Excluir definitivamente este conjunto da frota?")) {
+    if (confirm("Excluir definitivamente este registro da frota?")) {
         await supabaseClient.from('frotas_manutencao').delete().eq('id', id);
         await carregarDadosOS();
         renderizarTabelaCadastroFrota();
@@ -358,6 +385,11 @@ window.abrirModalTransferenciaFrota = function(idOriginal) {
     const selectDestino = document.getElementById('selectFrotaDestino');
     selectDestino.innerHTML = '<option value="">Selecione o Destino...</option>';
     
+    // Opção de Desengatar apenas se tiver cavalo (Tritrem ou Prancha)
+    if (frotaOrigem.categoria === 'TRITREM' || frotaOrigem.categoria === 'PRANCHA') {
+        selectDestino.innerHTML += `<option value="DESENGATAR" style="color: #ef4444; font-weight: bold;">-- DESENGATAR (Mover p/ Categoria Carreta Avulsa) --</option>`;
+    }
+
     frotasManutencao.forEach(f => {
         if (f.id !== frotaOrigem.id && (f.categoria === 'TRITREM' || f.categoria === 'PRANCHA' || f.categoria === 'CARRETA')) {
             selectDestino.innerHTML += `<option value="${f.id}">${f.cavalo} (${f.categoria})</option>`;
@@ -374,33 +406,76 @@ window.confirmarTransferenciaFrota = async function() {
     const idOrigem = document.getElementById('transfFrotaOrigemId').value;
     const idDestino = document.getElementById('selectFrotaDestino').value;
 
-    if (!idDestino) return alert("Selecione um destino.");
+    if (!idDestino) return alert("Selecione um destino ou ação.");
 
     const frotaOrigem = frotasManutencao.find(f => String(f.id) === String(idOrigem));
-    const frotaDestino = frotasManutencao.find(f => String(f.id) === String(idDestino));
+    if (!frotaOrigem) return;
 
-    if (!frotaOrigem || !frotaDestino) return;
+    // Ação: Desengatar e mandar para a Categoria CARRETA (Avulsa)
+    if (idDestino === 'DESENGATAR') {
+        if (!frotaOrigem.carreta1 && !frotaOrigem.carreta2 && !frotaOrigem.carreta3) {
+            return alert("Este cavalo já não possui carretas para desengatar.");
+        }
+
+        const numAvulsa = (frotaOrigem.go ? frotaOrigem.go : frotaOrigem.cavalo) + '-AVULSA';
+        let payloadCarreta = {
+            categoria: 'CARRETA',
+            cavalo: numAvulsa,
+            go: numAvulsa,
+            status: 'Ativo',
+            carreta1: frotaOrigem.carreta1,
+            carreta2: frotaOrigem.carreta2,
+            carreta3: frotaOrigem.carreta3,
+            data_inicial: new Date().toISOString().split('T')[0]
+        };
+        
+        if (typeof window.injetarFilial === 'function') payloadCarreta = window.injetarFilial(payloadCarreta);
+
+        try {
+            await supabaseClient.from('frotas_manutencao').insert([payloadCarreta]);
+            await supabaseClient.from('frotas_manutencao').update({
+                carreta1: null, carreta2: null, carreta3: null
+            }).eq('id', frotaOrigem.id);
+
+            alert("Carretas desengatadas e enviadas para a aba CARRETAS!");
+            fecharModalTransferenciaFrota();
+            await carregarDadosOS();
+            renderizarTabelaCadastroFrota();
+        } catch (e) { alert("Erro ao desengatar frota."); }
+        return;
+    }
+
+    // Ação: Trocar com outro conjunto/cavalo
+    const frotaDestino = frotasManutencao.find(f => String(f.id) === String(idDestino));
+    if (!frotaDestino) return;
 
     try {
-        const origGo = frotaOrigem.go;
         const origC1 = frotaOrigem.carreta1;
         const origC2 = frotaOrigem.carreta2;
         const origC3 = frotaOrigem.carreta3;
 
-        const destGo = frotaDestino.go;
         const destC1 = frotaDestino.carreta1;
         const destC2 = frotaDestino.carreta2;
         const destC3 = frotaDestino.carreta3;
 
+        // O Cavalo origem recebe as carretas do destino
         await supabaseClient.from('frotas_manutencao').update({
-            go: destGo, carreta1: destC1, carreta2: destC2, carreta3: destC3
+            carreta1: destC1, carreta2: destC2, carreta3: destC3
         }).eq('id', frotaOrigem.id);
 
+        // O destino recebe as carretas da origem
         await supabaseClient.from('frotas_manutencao').update({
-            go: origGo, carreta1: origC1, carreta2: origC2, carreta3: origC3
+            carreta1: origC1, carreta2: origC2, carreta3: origC3
         }).eq('id', frotaDestino.id);
 
-        alert("Transferência de composição realizada com sucesso!");
+        // Limpeza automática se uma CARRETA avulsa ficou totalmente vazia após a troca
+        if (frotaOrigem.categoria === 'CARRETA' && !destC1 && !destC2 && !destC3) {
+            await supabaseClient.from('frotas_manutencao').delete().eq('id', frotaOrigem.id);
+        } else if (frotaDestino.categoria === 'CARRETA' && !origC1 && !origC2 && !origC3) {
+            await supabaseClient.from('frotas_manutencao').delete().eq('id', frotaDestino.id);
+        }
+
+        alert("Gerenciamento de composição realizado com sucesso!");
         fecharModalTransferenciaFrota();
         await carregarDadosOS();
         renderizarTabelaCadastroFrota();
@@ -408,7 +483,7 @@ window.confirmarTransferenciaFrota = async function() {
 };
 
 window.exportarFrotaManutencaoExcel = function() {
-    if (frotasManutencao.length === 0) return alert("Não há dados de frota para exportar.");
+    if (frotasManutencao.length === 0) return alert("Não há dados para exportar.");
     
     let csvContent = "\uFEFF"; 
     csvContent += "Status;Data Inicial;Categoria;Cavalo;Descrição;Cor;Meta;Frota;Carreta 1;Carreta 2;Carreta 3\n";
