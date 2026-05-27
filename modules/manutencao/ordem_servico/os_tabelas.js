@@ -1,6 +1,10 @@
 // ==================== js/os_tabelas.js ====================
 // Módulo responsável pela renderização das tabelas e listas da OS
 
+// Variáveis de Paginação do Histórico
+let currentPageHistoricoOS = 1;
+const itemsPerPageHistoricoOS = 20;
+
 function renderizarTabelaOS() {
     const tbody = document.getElementById('tabelaAcompanhamentoOS');
     if (!tbody) return;
@@ -85,10 +89,9 @@ window.renderizarTabelaSOS = function() {
             linkMapa = partes[0].trim();
             ref = partes.length > 1 ? partes[1].trim() : '';
         } else {
-            ref = local; // Caso não tenha link, considera tudo como referência
+            ref = local; 
         }
 
-        // TEXTO ESTRUTURADO PARA WHATSAPP (MELHORADO E COMPLETO)
         let mensagemZap = `🚨 *NOVO CHAMADO DE S.O.S* 🚨\n`;
         mensagemZap += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
         mensagemZap += `📄 *O.S. Número:* #${os.id}\n`;
@@ -98,7 +101,6 @@ window.renderizarTabelaSOS = function() {
         mensagemZap += `⚠️ *Tipo:* ${os.tipo || 'S.O.S'}\n`;
         mensagemZap += `🚥 *Status Inicial:* ${os.status || 'Aberto'}\n`;
         
-        // Adiciona informações extras se existirem
         if (os.prioridade) mensagemZap += `🔥 *Prioridade:* ${os.prioridade}\n`;
         if (os.hodometro) mensagemZap += `🛣️ *Hodômetro/Horímetro:* ${os.hodometro}\n`;
         
@@ -123,7 +125,6 @@ window.renderizarTabelaSOS = function() {
             mensagemZap += `📍 *Localização GPS:*\nSem link cadastrado`;
         }
 
-        // Usa encodeURIComponent para garantir que espaços, acentos e quebras de linha funcionem perfeitamente no link
         const urlZap = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensagemZap)}`;
 
         let btnMapa = linkMapa ? `<a href="${linkMapa}" target="_blank" class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;"><i class="fas fa-map-marked-alt"></i> Ver Mapa</a>` : `<span style="font-size: 0.8rem; color: #9ca3af;"><br>📍 Sem Mapa</span>`;
@@ -190,7 +191,12 @@ function renderizarTabelaSinistro() {
     }).join('');
 }
 
-function renderizarTabelaHistoricoOS() {
+// Transformada para suportar a lógica de reset de página (quando usuário muda os filtros)
+window.renderizarTabelaHistoricoOS = function(resetPage = true) {
+    if (resetPage === true) {
+        currentPageHistoricoOS = 1;
+    }
+
     const tbody = document.getElementById('tabelaHistoricoOS');
     if (!tbody) return;
 
@@ -200,7 +206,6 @@ function renderizarTabelaHistoricoOS() {
     const dataInicio = document.getElementById('filtroHistDataInicio')?.value;
     const dataFim = document.getElementById('filtroHistDataFim')?.value;
     const tipo = document.getElementById('filtroHistTipo')?.value;
-    
     const mesAno = document.getElementById('filtroHistMesAno')?.value;
 
     let filtradas = ordensServico;
@@ -234,7 +239,17 @@ function renderizarTabelaHistoricoOS() {
         }
     }
 
-    tbody.innerHTML = filtradas.map(os => {
+    // ========== LÓGICA DE PAGINAÇÃO ==========
+    const totalItems = filtradas.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPageHistoricoOS) || 1;
+    
+    if (currentPageHistoricoOS > totalPages) currentPageHistoricoOS = totalPages;
+    if (currentPageHistoricoOS < 1) currentPageHistoricoOS = 1;
+
+    const startIndex = (currentPageHistoricoOS - 1) * itemsPerPageHistoricoOS;
+    const paginatedItems = filtradas.slice(startIndex, startIndex + itemsPerPageHistoricoOS);
+
+    tbody.innerHTML = paginatedItems.map(os => {
         let corStatus = '#f59e0b';
         if (os.status === 'Concluída') corStatus = 'var(--ccol-green-bright)';
         if (os.status === 'Em Manutenção') corStatus = '#3b82f6';
@@ -261,6 +276,39 @@ function renderizarTabelaHistoricoOS() {
             </tr>
         `;
     }).join('');
+
+    renderizarControlesPaginacaoOS(totalPages);
+};
+
+window.mudarPaginaHistoricoOS = function(novaPagina) {
+    currentPageHistoricoOS = novaPagina;
+    window.renderizarTabelaHistoricoOS(false); // Passa false para não resetar para a pág. 1
+};
+
+function renderizarControlesPaginacaoOS(totalPages) {
+    const container = document.getElementById('paginacaoHistoricoOS');
+    if (!container) return;
+    
+    let html = '';
+    
+    // Botão Anterior
+    html += `<button class="btn-secondary-dark" onclick="mudarPaginaHistoricoOS(${currentPageHistoricoOS - 1})" 
+            ${currentPageHistoricoOS === 1 ? 'disabled style="opacity: 0.5; cursor: not-allowed; padding: 6px 15px;"' : 'style="padding: 6px 15px;"'}>
+            Anterior
+            </button>`;
+    
+    // Informação da Página
+    html += `<span style="color: #94a3b8; font-size: 0.95rem; font-weight: bold; background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 6px;">
+             Página ${currentPageHistoricoOS} de ${totalPages}
+             </span>`;
+    
+    // Botão Próxima
+    html += `<button class="btn-secondary-dark" onclick="mudarPaginaHistoricoOS(${currentPageHistoricoOS + 1})" 
+            ${currentPageHistoricoOS === totalPages ? 'disabled style="opacity: 0.5; cursor: not-allowed; padding: 6px 15px;"' : 'style="padding: 6px 15px;"'}>
+            Próxima
+            </button>`;
+    
+    container.innerHTML = html;
 }
 
 function renderizarTabelaFrotaManutencao() {
