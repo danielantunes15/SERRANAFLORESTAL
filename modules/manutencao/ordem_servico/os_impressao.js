@@ -33,6 +33,17 @@ window.imprimirOS = async function(osId) {
         `;
     }
 
+    // Limpeza do texto do problema para a impressão
+    let problemaLimpo = os.problema || '';
+    if (problemaLimpo) {
+        problemaLimpo = problemaLimpo.replace(/https?:\/\/[^\s]+/g, '');
+        problemaLimpo = problemaLimpo.replace(/📍\s*Localização GPS:?/gi, '');
+        problemaLimpo = problemaLimpo.replace(/📍\s*Abrir Rota no GPS \(Maps\):?/gi, '');
+        problemaLimpo = problemaLimpo.replace(/Localização:/gi, '');
+        problemaLimpo = problemaLimpo.replace(/\[?LINK S\.O\.S MAPS:?\]?/gi, ''); // Remove a tag do SOS Maps
+        problemaLimpo = problemaLimpo.trim();
+    }
+
     // ==========================================
     // BUSCA DE DADOS NO SUPABASE
     // ==========================================
@@ -214,7 +225,7 @@ window.imprimirOS = async function(osId) {
             
             <div class="section-title">Diagnóstico Inicial do Condutor / Problema</div>
             <div class="box-content">
-                ${os.problema ? os.problema.replace(/\n/g, '<br>') : ''}
+                ${problemaLimpo ? problemaLimpo.replace(/\n/g, '<br>') : ''}
             </div>
             
             <div class="section-title">Serviços Executados (Preenchimento da Oficina)</div>
@@ -341,6 +352,17 @@ window.imprimirTodasOSFiltradas = async function() {
                     Posição: <b>${os.pneu_posicao || '-'}</b> &nbsp;|&nbsp; Serviço: <b>${os.pneu_servico || '-'}</b> &nbsp;|&nbsp; Motivo: <b>${os.pneu_motivo || '-'}</b>
                 </div>
             `;
+        }
+
+        // Limpeza do texto do problema para a impressão em lote
+        let problemaLimpo = os.problema || '';
+        if (problemaLimpo) {
+            problemaLimpo = problemaLimpo.replace(/https?:\/\/[^\s]+/g, '');
+            problemaLimpo = problemaLimpo.replace(/📍\s*Localização GPS:?/gi, '');
+            problemaLimpo = problemaLimpo.replace(/📍\s*Abrir Rota no GPS \(Maps\):?/gi, '');
+            problemaLimpo = problemaLimpo.replace(/Localização:/gi, '');
+            problemaLimpo = problemaLimpo.replace(/\[?LINK S\.O\.S MAPS:?\]?/gi, ''); // Remove a tag do SOS Maps
+            problemaLimpo = problemaLimpo.trim();
         }
 
         // Busca dados no Supabase para preencher o lote
@@ -477,7 +499,7 @@ window.imprimirTodasOSFiltradas = async function() {
                 
                 <div class="section-title">Diagnóstico Inicial do Condutor / Problema</div>
                 <div class="box-content">
-                    ${os.problema ? os.problema.replace(/\n/g, '<br>') : ''}
+                    ${problemaLimpo ? problemaLimpo.replace(/\n/g, '<br>') : ''}
                 </div>
                 <div class="section-title">Serviços Executados (Preenchimento da Oficina)</div>
                 <table>

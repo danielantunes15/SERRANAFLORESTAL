@@ -92,6 +92,17 @@ window.renderizarTabelaSOS = function() {
             ref = local; 
         }
 
+        // Limpeza do texto do problema para não repetir links e marcações no WhatsApp
+        let problemaLimpo = os.problema || 'Não detalhado';
+        if (problemaLimpo !== 'Não detalhado') {
+            problemaLimpo = problemaLimpo.replace(/https?:\/\/[^\s]+/g, ''); // Remove links
+            problemaLimpo = problemaLimpo.replace(/📍\s*Localização GPS:?/gi, '');
+            problemaLimpo = problemaLimpo.replace(/📍\s*Abrir Rota no GPS \(Maps\):?/gi, '');
+            problemaLimpo = problemaLimpo.replace(/Localização:/gi, '');
+            problemaLimpo = problemaLimpo.replace(/\[?LINK S\.O\.S MAPS:?\]?/gi, ''); // Remove a tag do SOS Maps
+            problemaLimpo = problemaLimpo.trim();
+        }
+
         let mensagemZap = `🚨 *NOVO CHAMADO DE S.O.S* 🚨\n`;
         mensagemZap += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
         mensagemZap += `📄 *O.S. Número:* #${os.id}\n`;
@@ -105,7 +116,7 @@ window.renderizarTabelaSOS = function() {
         if (os.hodometro) mensagemZap += `🛣️ *Hodômetro/Horímetro:* ${os.hodometro}\n`;
         
         mensagemZap += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        mensagemZap += `🔧 *Problema Relatado:*\n${os.problema || 'Não detalhado'}\n`;
+        mensagemZap += `🔧 *Problema Relatado / Descrição do Sinistro:*\n${problemaLimpo || 'Não detalhado'}\n`;
         
         if (os.observacoes && os.observacoes.trim() !== '') {
             mensagemZap += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
