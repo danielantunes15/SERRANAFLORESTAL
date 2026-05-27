@@ -36,7 +36,8 @@ async function atualizarPonteiros() {
     let listaDeCavalos = [];
     
     try {
-        let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo');
+        // FILTRO ADICIONADO: Pega apenas status Ativo E categoria TRITREM
+        let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo').eq('categoria', 'TRITREM');
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
         const { data: frotaData, error } = await queryFrota;
         
@@ -113,7 +114,6 @@ async function atualizarPonteiros() {
 
 // === CÁLCULO DE TURNO AUTOMÁTICO ===
 async function carregarStatusDash() {
-    // 1. Busca Controlador Atual
     let queryCtrl = supabaseClient.from('dashboard_status').select('id, controlador').limit(1);
     if (typeof window.aplicarFiltroFilial === 'function') queryCtrl = window.aplicarFiltroFilial(queryCtrl);
     const { data: statusData } = await queryCtrl;
@@ -121,7 +121,6 @@ async function carregarStatusDash() {
     const nomeCtrl = (statusData && statusData.length > 0 && statusData[0].controlador) ? statusData[0].controlador : 'NÃO DEFINIDO';
     document.getElementById('dash-controlador-nome').textContent = nomeCtrl;
     
-    // 2. Busca os Turnos da Filial e calcula de forma automática
     const turnos = await db.getTurnosOperacionais();
     let turnoTexto = "06:00 às 18:00"; // Padrão
     let turnoTipo = "DIA"; // Padrão
@@ -142,13 +141,11 @@ async function carregarStatusDash() {
             const fimMin = hFim * 60 + mFim;
             
             if (iniMin < fimMin) {
-                // Exemplo: 06:00 às 14:00 (Mesmo dia)
                 if (tempoAtualMinutos >= iniMin && tempoAtualMinutos < fimMin) { 
                     turnoAtivo = t; 
                     break; 
                 }
             } else {
-                // Exemplo: 18:00 às 06:00 (Cruza a meia noite)
                 if (tempoAtualMinutos >= iniMin || tempoAtualMinutos < fimMin) { 
                     turnoAtivo = t; 
                     break; 
@@ -161,7 +158,6 @@ async function carregarStatusDash() {
         turnoTipo = turnoAtivo.tipo || 'DIA';
     }
     
-    // 3. Atualiza Layout da TV
     const elTurnoBarText = document.getElementById('dash-turno');
     const elTurnoBarIcon = document.getElementById('dash-turno-icon');
     const elTurnoBarContainer = document.getElementById('container-barra-turno');
@@ -229,7 +225,8 @@ async function carregarFrentesTv() {
 
 async function carregarFrotasParadas() {
     try {
-        let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo');
+        // FILTRO ADICIONADO: Pega apenas status Ativo E categoria TRITREM
+        let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo').eq('categoria', 'TRITREM');
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
         const { data: frotaData } = await queryFrota;
         

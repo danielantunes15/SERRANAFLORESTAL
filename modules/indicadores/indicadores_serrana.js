@@ -41,7 +41,8 @@ async function atualizarPonteirosSerrana() {
     let listaDeCavalos = [];
     
     try {
-        let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo');
+        // FILTRO ADICIONADO: Pega apenas status Ativo E categoria TRITREM
+        let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo').eq('categoria', 'TRITREM');
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
         const { data: frotaData, error } = await queryFrota;
         
@@ -56,7 +57,6 @@ async function atualizarPonteirosSerrana() {
     let cavalosSinistrados = 0;
 
     try {
-        // Selecionando a coluna 'tipo' para aplicar a regra de exclusão
         let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo');
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData, error: osError } = await queryOS;
@@ -67,7 +67,6 @@ async function atualizarPonteirosSerrana() {
             const setCavalosSinistro = new Set();
 
             osData.forEach(os => {
-                // Ignora imediatamente os ativos deste tipo para não entrarem na contagem primária
                 if (os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA') return;
 
                 const placaLimpa = os.placa.trim().toUpperCase();
@@ -123,7 +122,8 @@ async function carregarFrotasParadasSerrana() {
     const container = document.getElementById('lista-frotas-paradas');
     if(!container) return;
     try {
-        let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo');
+        // FILTRO ADICIONADO: Pega apenas status Ativo E categoria TRITREM
+        let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo').eq('categoria', 'TRITREM');
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
         const { data: frotaData } = await queryFrota;
         
@@ -136,7 +136,6 @@ async function carregarFrotasParadasSerrana() {
         let html = '';
         const agora = new Date();
         
-        // Regra de exclusão também aplicada na renderização das caixinhas da lista de frota parada
         const osFiltradas = osData ? osData.filter(os => 
             listaCavalos.includes(os.placa.trim().toUpperCase()) && 
             !(os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA')
@@ -230,7 +229,6 @@ async function carregarFrotasParadasSerrana() {
     }
 }
 
-// === CÁLCULO DE TURNO AUTOMÁTICO (SERRANA) ===
 async function carregarStatusDashSerrana() {
     let queryCtrl = supabaseClient.from('dashboard_status').select('id, controlador').limit(1);
     if (typeof window.aplicarFiltroFilial === 'function') queryCtrl = window.aplicarFiltroFilial(queryCtrl);
@@ -322,7 +320,8 @@ async function renderizarGraficoEvolucaoDmSerrana() {
     if (!chartDom) return;
 
     try {
-        let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo');
+        // FILTRO ADICIONADO: Pega apenas status Ativo E categoria TRITREM
+        let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo').eq('categoria', 'TRITREM');
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
         const { data: frotaData } = await queryFrota;
         
@@ -334,11 +333,10 @@ async function renderizarGraficoEvolucaoDmSerrana() {
         const totalFrotas = [...new Set(frotas)].length; 
 
         if(totalFrotas === 0) {
-            chartDom.innerHTML = '<div class="empty-state">Sem dados de frota ativa para calcular DM.</div>';
+            chartDom.innerHTML = '<div class="empty-state">Sem dados de frota Tritrem ativa para calcular DM.</div>';
             return;
         }
 
-        // Selecionando também a coluna 'tipo' para garantir a integridade do gráfico
         let queryOS = supabaseClient.from('ordens_servico').select('placa, data_abertura, data_conclusao, status, tipo').neq('status', 'Agendada');
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData } = await queryOS;
@@ -346,7 +344,6 @@ async function renderizarGraficoEvolucaoDmSerrana() {
         const limpaPlaca = p => String(p || 'DESCONHECIDO').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         const frotasCavalosArray = frotas.map(c => limpaPlaca(c));
         
-        // Excluindo os cavalos disponíveis s/ carreta para não afetar o cálculo da Disponibilidade Mecânica
         let ordensServico = (osData || []).filter(os => 
             frotasCavalosArray.includes(limpaPlaca(os.placa)) && 
             !(os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA')
