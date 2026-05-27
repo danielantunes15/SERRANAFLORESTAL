@@ -45,7 +45,12 @@ window.renderizarTelaDocumentosFrota = async function() {
         const { data, error } = await query;
         if (error) throw error;
         
-        listaDeFrotasIndependente = data || [];
+        // FILTRO: Puxar apenas frotas da categoria TRITREM
+        listaDeFrotasIndependente = (data || []).filter(frota => {
+            const categoria = String(frota.categoria || frota.tipo || '').toUpperCase();
+            return categoria.includes('TRITREM');
+        });
+
         renderizarTabelaFrotasDocs();
     } catch (e) {
         console.error("Erro ao buscar frotas:", e);
