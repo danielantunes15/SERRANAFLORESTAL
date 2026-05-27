@@ -11,6 +11,7 @@
     }
 
     var dadosHistoricoCompletos = []; 
+    var frotasTritremAtivas = []; // Nova variável para armazenar os cavalos ativos
     var listaQuadroGeralAtual = []; 
     var chartEvolucaoObj = null;
     var chartPlacasObj = null;
@@ -32,6 +33,13 @@
     // =========================================================
     window.initDesempenhoFrota = function() {
         console.log("[DESEMPENHO] Módulo iniciado instantaneamente via SPA.");
+        
+        // Esconde o campo de meta global da tela, pois usaremos a meta de cada cavalo
+        const metaInput = document.getElementById('metaViagens');
+        if (metaInput && metaInput.parentElement) {
+            metaInput.parentElement.style.display = 'none';
+        }
+
         setupFilters();
         buscarDadosSupabase(); 
     };
@@ -43,11 +51,14 @@
         return `${String(horas).padStart(2,'0')}h${String(minutos).padStart(2,'0')}m`;
     }
 
+    function normalizarPlaca(placa) {
+        return placa ? placa.replace(/[^A-Z0-9]/ig, '').toUpperCase() : '';
+    }
+
     function setupFilters() {
         const btnQFs = document.querySelectorAll('.btn-qf');
         const filterData = document.getElementById('filterDataFrota');
         const filterMes = document.getElementById('filterMesFrota');
-        const metaViagens = document.getElementById('metaViagens');
         const btnExportar = document.getElementById('btnExportarExcel');
 
         btnQFs.forEach(btn => {
@@ -89,10 +100,6 @@
                     processarEExibirDados();
                 }
             });
-        }
-
-        if(metaViagens) {
-            metaViagens.addEventListener('input', processarEExibirDados);
         }
 
         if(btnExportar) {
@@ -187,9 +194,21 @@
         if (tbody1) tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
         if (tbody2) tbody2.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
         
-        console.log("[DESEMPENHO] Buscando viagens da SERRANALOG...");
+        console.log("[DESEMPENHO] Buscando viagens da SERRANALOG e Cadastro de Frota...");
 
         try {
+            // 1. Buscar a frota TRITREM ativa primeiro
+            const { data: frotasData, error: frotasError } = await client
+                .from('frotas_manutencao')
+                .select('*')
+                .eq('categoria', 'TRITREM')
+                .eq('status', 'Ativo');
+                
+            if (!frotasError && frotasData) {
+                frotasTritremAtivas = frotasData;
+            }
+
+            // 2. Buscar o histórico de viagens
             dadosHistoricoCompletos = [];
             let from = 0;
             const step = 1000;
@@ -221,7 +240,7 @@
                 }
             }
 
-            console.log(`[DESEMPENHO] Concluído! Total de viagens encontradas: ${dadosHistoricoCompletos.length}`);
+            console.log(`[DESEMPENHO] Concluído! Viagens: ${dadosHistoricoCompletos.length} | Tritrems Ativos: ${frotasTritremAtivas.length}`);
             popularDropdownMeses(dadosHistoricoCompletos);
             processarEExibirDados();
             
@@ -234,9 +253,19 @@
     function processarEExibirDados() {
         try {
             console.log("[DESEMPENHO] Processando dados para a tela...");
-            const metaInput = document.getElementById('metaViagens');
-            const metaEstipulada = metaInput ? (parseInt(metaInput.value) || 2) : 2;
             
+            // Cria um dicionário com os Tritrems ativos e suas respectivas metas
+            const dictTritrem = {};
+            let metaDiariaGlobal = 0;
+            frotasTritremAtivas.forEach(f => {
+                if(f.cavalo) {
+                    const placaNorm = normalizarPlaca(f.cavalo);
+                    const meta = parseInt(f.meta) || 0;
+                    dictTritrem[placaNorm] = { meta: meta, info: f };
+                    metaDiariaGlobal += meta;
+                }
+            });
+
             let dadosFiltrados = [];
             let diasParaGrafico = new Set(); 
 
@@ -273,17 +302,25 @@
                 });
             }
 
+            // Filtra os dados históricos mantendo apenas os Tritrems Ativos cadastrados
+            dadosFiltrados = dadosFiltrados.filter(x => {
+                const placaNorm = normalizarPlaca(x.placa);
+                return dictTritrem.hasOwnProperty(placaNorm);
+            });
+
             const datasValidas = Array.from(diasParaGrafico).sort((a, b) => {
                 const pA = a.split('/'); const pB = b.split('/');
                 return new Date(pA[2], pA[1]-1, pA[0]) - new Date(pB[2], pB[1]-1, pB[0]);
             });
 
+            const numDiasAnalisados = datasValidas.length > 0 ? datasValidas.length : 1;
             const agrupamentoDiario = {};
             const statsPorPlaca = {};
 
             dadosFiltrados.forEach(registro => {
                 const dataStr = registro.dataDaBaseExcel;
-                const placa = registro.placa;
+                const placa = normalizarPlaca(registro.placa);
+                
                 if(!dataStr || !placa) return;
 
                 if(!agrupamentoDiario[dataStr]) agrupamentoDiario[dataStr] = {};
@@ -312,36 +349,39 @@
             let qtdAcimaOuNaMeta = 0;
             let qtdAbaixoMetaGeral = 0;
             let somaViagensGeral = 0;
-            let somaDiasGeral = 0;
 
-            for (const placa in statsPorPlaca) {
-                const stats = statsPorPlaca[placa];
-                const numDias = stats.diasTrabalhados.size;
-                const media = stats.viagensTotais / numDias;
+            // Avaliando todos os Tritrems ATIVOS (mesmo os que não rodaram)
+            for (const placaNorm in dictTritrem) {
+                const configCavalo = dictTritrem[placaNorm];
+                const metaDoCavalo = configCavalo.meta;
+                const placaOriginal = configCavalo.info.cavalo;
+
+                const stats = statsPorPlaca[placaNorm] || { viagensTotais: 0, volumeTotal: 0, cicloTotal: 0, diasTrabalhados: new Set() };
+                
+                const media = stats.viagensTotais / numDiasAnalisados;
                 const cicloMedio = stats.viagensTotais > 0 ? (stats.cicloTotal / stats.viagensTotais) : 0;
 
                 listaQuadroGeralAtual.push({
-                    placa: placa,
-                    dias: numDias,
+                    placa: placaOriginal,
+                    diasAnalisados: numDiasAnalisados,
                     viagensTotais: stats.viagensTotais,
                     mediaDiaria: media,
+                    meta: metaDoCavalo,
                     cicloMedio: cicloMedio,
                     volumeTotal: stats.volumeTotal
                 });
 
-                if (media >= metaEstipulada) {
+                if (media >= metaDoCavalo) {
                     qtdAcimaOuNaMeta++;
                 } else {
                     qtdAbaixoMetaGeral++;
                 }
 
                 somaViagensGeral += stats.viagensTotais;
-                somaDiasGeral += numDias;
             }
 
-            const totalCaminhoesUnicos = Object.keys(statsPorPlaca).length;
-            const mediaGlobal = somaDiasGeral > 0 ? (somaViagensGeral / somaDiasGeral).toFixed(2) : 0;
-
+            const totalCaminhoesUnicos = Object.keys(dictTritrem).length; // TRITREMs ativos
+            
             const cardTotalCaminhoes = document.getElementById('cardTotalCaminhoes');
             if (cardTotalCaminhoes) cardTotalCaminhoes.innerText = totalCaminhoesUnicos;
             
@@ -352,7 +392,13 @@
             if (cardAbaixoMeta) cardAbaixoMeta.innerText = qtdAbaixoMetaGeral;
             
             const cardMediaViagens = document.getElementById('cardMediaViagens');
-            if (cardMediaViagens) cardMediaViagens.innerText = mediaGlobal;
+            if (cardMediaViagens) {
+                const metaTotalPeriodo = metaDiariaGlobal * numDiasAnalisados;
+                cardMediaViagens.innerHTML = `<span class="text-3xl">${somaViagensGeral}</span> <span class="text-sm text-slate-400 font-normal">/ ${metaTotalPeriodo}</span>`;
+                
+                const subtituloMedia = cardMediaViagens.nextElementSibling;
+                if(subtituloMedia) subtituloMedia.innerText = "Viagens Feitas / Meta Total no período";
+            }
 
             const registrosAbaixoMeta = [];
             const evolucaoDiariaAbaixoMeta = {}; 
@@ -360,29 +406,42 @@
 
             datasValidas.forEach(dia => evolucaoDiariaAbaixoMeta[dia] = 0);
 
-            for (const dia in agrupamentoDiario) {
-                if(evolucaoDiariaAbaixoMeta[dia] === undefined) evolucaoDiariaAbaixoMeta[dia] = 0;
-                
-                for (const placa in agrupamentoDiario[dia]) {
-                    const stats = agrupamentoDiario[dia][placa];
+            for (const dia of datasValidas) {
+                // Média global do dia para usar caso um cavalo tenha feito 0 viagens e não tenha caixa média real
+                let volGlobalDia = 0; let viagGlobalDia = 0;
+                if (agrupamentoDiario[dia]) {
+                    for (const p in agrupamentoDiario[dia]) {
+                        volGlobalDia += agrupamentoDiario[dia][p].volumeTotal;
+                        viagGlobalDia += agrupamentoDiario[dia][p].viagens;
+                    }
+                }
+                const mediaGlobalCaixaDia = viagGlobalDia > 0 ? (volGlobalDia / viagGlobalDia) : 115; // 115m³ é fallback de segurança para tritrem
 
-                    if(stats.viagens < metaEstipulada) {
+                for (const placaNorm in dictTritrem) {
+                    const configCavalo = dictTritrem[placaNorm];
+                    const metaDoCavalo = configCavalo.meta;
+                    const placaOriginal = configCavalo.info.cavalo;
+
+                    const statsDia = (agrupamentoDiario[dia] && agrupamentoDiario[dia][placaNorm]) ? agrupamentoDiario[dia][placaNorm] : {viagens: 0, volumeTotal: 0, tempoFilaTotal: 0};
+
+                    if(statsDia.viagens < metaDoCavalo) {
                         evolucaoDiariaAbaixoMeta[dia]++;
                         
-                        const mediaDaCaixaNoDia = stats.viagens > 0 ? (stats.volumeTotal / stats.viagens) : 0;
-                        const viagensFaltantes = metaEstipulada - stats.viagens;
+                        const mediaDaCaixaNoDia = statsDia.viagens > 0 ? (statsDia.volumeTotal / statsDia.viagens) : mediaGlobalCaixaDia;
+                        const viagensFaltantes = metaDoCavalo - statsDia.viagens;
                         const m3DeixouDeGanhar = viagensFaltantes * mediaDaCaixaNoDia;
 
                         volumeTotalPerdido += m3DeixouDeGanhar;
 
                         registrosAbaixoMeta.push({
                             data: dia,
-                            placa: placa,
-                            viagens: stats.viagens,
+                            placa: placaOriginal,
+                            viagens: statsDia.viagens,
+                            meta: metaDoCavalo,
                             viagensFaltantes: viagensFaltantes,
                             caixaMedia: mediaDaCaixaNoDia,
                             volumeDeixouDeGanhar: m3DeixouDeGanhar,
-                            fila: stats.tempoFilaTotal
+                            fila: statsDia.tempoFilaTotal
                         });
                     }
                 }
@@ -396,7 +455,7 @@
             desenharGraficoMenoresCiclos(listaQuadroGeralAtual);
 
             listaQuadroGeralAtual.sort((a, b) => b.mediaDiaria - a.mediaDiaria);
-            preencherQuadroGeral(listaQuadroGeralAtual, metaEstipulada);
+            preencherQuadroGeral(listaQuadroGeralAtual);
 
             registrosAbaixoMeta.sort((a, b) => {
                 const pA = a.data.split('/'); const pB = b.data.split('/');
@@ -546,7 +605,7 @@
         } catch(e) { console.error("[DESEMPENHO] Erro grafico Melhores Placas:", e); }
     }
 
-    function preencherQuadroGeral(lista, meta) {
+    function preencherQuadroGeral(lista) {
         try {
             const tbody = document.getElementById('tbodyQuadroGeral');
             if (!tbody) return; 
@@ -558,7 +617,7 @@
             }
 
             lista.forEach(r => {
-                const bateuMeta = r.mediaDiaria >= meta;
+                const bateuMeta = r.mediaDiaria >= r.meta;
                 const statusIcon = bateuMeta ? '<i class="fas fa-check-circle text-emerald-400"></i>' : '<i class="fas fa-exclamation-circle text-rose-400"></i>';
                 const statusText = bateuMeta ? '<span class="text-emerald-400 font-bold">Na Meta</span>' : '<span class="text-rose-400 font-bold">Abaixo</span>';
                 const mediaColor = bateuMeta ? 'text-emerald-400' : 'text-rose-400';
@@ -569,9 +628,9 @@
                 tr.className = "hover:bg-slate-700/30 transition-colors group";
                 tr.innerHTML = `
                     <td class="px-6 py-3 text-sm font-bold text-white"><span class="bg-slate-900 px-2 py-1 rounded border border-slate-700 font-mono tracking-widest">${r.placa}</span></td>
-                    <td class="px-6 py-3 text-center text-sm text-slate-300 font-mono">${r.dias}</td>
+                    <td class="px-6 py-3 text-center text-sm text-slate-300 font-mono">${r.diasAnalisados}</td>
                     <td class="px-6 py-3 text-center text-sm font-black text-sky-400">${r.viagensTotais}</td>
-                    <td class="px-6 py-3 text-center text-lg font-black ${mediaColor}">${r.mediaDiaria.toFixed(1)}</td>
+                    <td class="px-6 py-3 text-center text-lg font-black ${mediaColor}">${r.mediaDiaria.toFixed(1)} <span class="text-xs text-slate-500 font-normal">/ ${r.meta}</span></td>
                     <td class="px-6 py-3 text-center text-sm font-mono text-amber-400">${cicloFormat}</td>
                     <td class="px-6 py-3 text-right text-sm font-mono text-slate-400">${volFormat}</td>
                     <td class="px-6 py-3 text-center text-sm bg-slate-900/30">${statusIcon} ${statusText}</td>
@@ -588,7 +647,7 @@
             tbody.innerHTML = '';
 
             if(registros.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-emerald-400"><i class="fas fa-check-circle text-xl mb-2 block"></i>Todos os conjuntos bateram a meta diária nas datas selecionadas!</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-emerald-400"><i class="fas fa-check-circle text-xl mb-2 block"></i>Todos os conjuntos TRITREM bateram a meta diária nas datas selecionadas!</td></tr>`;
                 return;
             }
 
@@ -601,7 +660,7 @@
                 tr.innerHTML = `
                     <td class="px-6 py-3 text-sm font-semibold text-slate-300 whitespace-nowrap group-hover:text-white">${r.data}</td>
                     <td class="px-6 py-3 text-sm font-bold text-white"><span class="bg-slate-900 px-2 py-1 rounded border border-slate-700 font-mono tracking-widest">${r.placa}</span></td>
-                    <td class="px-6 py-3 text-center text-sm font-black text-rose-400">${r.viagens}</td>
+                    <td class="px-6 py-3 text-center text-sm font-black text-rose-400">${r.viagens} <span class="text-xs text-slate-500 font-normal">/ ${r.meta}</span></td>
                     <td class="px-6 py-3 text-center text-sm font-black text-amber-400">${r.viagensFaltantes}</td>
                     <td class="px-6 py-3 text-right text-sm font-mono text-emerald-400">${perdeuM3}</td>
                     <td class="px-6 py-3 text-right text-sm font-mono text-slate-400">${tempoFilaStr}</td>
@@ -617,21 +676,19 @@
             return;
         }
 
-        const metaInput = document.getElementById('metaViagens');
-        const metaEstipulada = metaInput ? (parseInt(metaInput.value) || 2) : 2;
-        
         const filterMes = document.getElementById('filterMesFrota');
         const nomeMes = filterMes && filterMes.options[filterMes.selectedIndex] ? filterMes.options[filterMes.selectedIndex].text : 'Periodo';
 
         const dadosExcel = listaQuadroGeralAtual.map(r => ({
             "Placa (Conjunto)": r.placa,
-            "Dias Trabalhados": r.dias,
+            "Dias Analisados": r.diasAnalisados,
             "Total de Viagens": r.viagensTotais,
             "Média (Viagens/Dia)": parseFloat(r.mediaDiaria.toFixed(2)),
+            "Meta Cadastrada (Diária)": r.meta,
             "Ciclo Médio (Horas Formato)": formatarHorasDecimais(r.cicloMedio),
             "Ciclo Médio (Decimal)": parseFloat(r.cicloMedio.toFixed(2)),
             "Volume Total Produzido (m³)": parseFloat(r.volumeTotal.toFixed(2)),
-            "Status da Meta": r.mediaDiaria >= metaEstipulada ? "Na Meta" : "Abaixo da Meta"
+            "Status da Meta": r.mediaDiaria >= r.meta ? "Na Meta" : "Abaixo da Meta"
         }));
 
         if(typeof XLSX !== 'undefined') {
@@ -640,7 +697,7 @@
 
             XLSX.utils.book_append_sheet(wb, ws, "Quadro Geral de Desempenho");
 
-            const fileName = `Desempenho_Frota_SerranaLog_${nomeMes.replace('/', '_')}.xlsx`;
+            const fileName = `Desempenho_TRITREM_SerranaLog_${nomeMes.replace('/', '_')}.xlsx`;
             XLSX.writeFile(wb, fileName);
         } else {
             alert("A biblioteca Excel não carregou. Tente novamente em instantes.");
