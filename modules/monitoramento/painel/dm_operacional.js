@@ -263,11 +263,19 @@ window.renderizarGraficoEvolucaoDM = async function(filtroValue = '30') {
             return;
         }
 
-        const frotasManutencao = frotasData || [];
+        // =====================================================================
+        // CORREÇÃO: FILTRAR APENAS VEÍCULOS "ATIVOS" DA CATEGORIA "TRITREM"
+        // =====================================================================
+        const frotasManutencao = (frotasData || []).filter(f => 
+            f.status === 'Ativo' && 
+            f.categoria && 
+            f.categoria.toUpperCase() === 'TRITREM'
+        );
+
         const ordensServico = osData || [];
 
         if (frotasManutencao.length === 0) {
-            chartDom.innerHTML = `<div style="color:#94a3b8; display:flex; justify-content:center; align-items:center; height:100%; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px;">📂 Nenhuma frota cadastrada na base da Oficina.</div>`;
+            chartDom.innerHTML = `<div style="color:#94a3b8; display:flex; justify-content:center; align-items:center; height:100%; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px;">📂 Nenhuma frota TRITREM ativa encontrada na base.</div>`;
             return;
         }
 

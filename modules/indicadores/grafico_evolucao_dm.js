@@ -25,7 +25,13 @@ window.getDatasFiltroGlobal = function() {
 
 window.atualizarKPIsGlobais = function() {
     try {
-        if (!ordensServico) return;
+        if (!ordensServico || !frotasManutencao) return;
+
+        // Cria array apenas com cavalos TRITREM Ativos
+        const cavalosValidos = frotasManutencao
+            .filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM')
+            .map(f => f.cavalo);
+
         const datas = window.getDatasFiltroGlobal();
         const inicio = datas.inicio;
         const fim = datas.fim;
@@ -37,7 +43,9 @@ window.atualizarKPIsGlobais = function() {
         let osComTempo = 0;
         
         ordensServico.forEach(os => {
+            if (!os.placa || !cavalosValidos.includes(os.placa)) return; // FILTRO TRITREM ATIVO
             if (os.status === 'Agendada') return;
+
             let osInicioStr = os.data_abertura;
             if (!osInicioStr) return;
             if (!osInicioStr.includes('T')) osInicioStr += 'T00:00:00';
@@ -94,8 +102,8 @@ window.atualizarKPIsGlobais = function() {
         let totalMsDisponivelPeriodo = 0;
         
         frotasManutencao.forEach(frota => {
-            // Ignora se estiver Inativo
-            if(frota.status === 'Inativo') return;
+            // FILTRO TRITREM E ATIVO
+            if(frota.status !== 'Ativo' || !frota.categoria || frota.categoria.toUpperCase() !== 'TRITREM') return;
             
             // Lógica da DATA INICIAL do veículo
             let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
@@ -187,13 +195,20 @@ window.dispararFiltrosGlobais = function() {
 
 window.preencherMesesDMDiaria = function() {
     const select = document.getElementById('filtroMesEvolucaoDMDiaria');
-    if (!select || !ordensServico) return;
+    if (!select || !ordensServico || !frotasManutencao) return;
+
+    // Apenas O.S. dos veículos TRITREM Ativos para montar os meses disponíveis
+    const cavalosValidos = frotasManutencao
+        .filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM')
+        .map(f => f.cavalo);
 
     const mesesDisponiveis = new Set();
     const hoje = new Date();
     const mesAtualKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
 
     ordensServico.forEach(os => {
+        if (!os.placa || !cavalosValidos.includes(os.placa)) return; // FILTRO TRITREM
+
         if (os.data_abertura && os.status !== 'Agendada') {
             let dataStr = os.data_abertura;
             if (!dataStr.includes('T')) dataStr += 'T00:00:00';
@@ -254,7 +269,8 @@ window.renderizarGraficoEvolucaoDM = function() {
             let msManutencaoNestaHora = 0;
             
             frotasManutencao.forEach(frota => {
-                if(frota.status === 'Inativo') return;
+                // FILTRO TRITREM E ATIVO
+                if(frota.status !== 'Ativo' || !frota.categoria || frota.categoria.toUpperCase() !== 'TRITREM') return;
                 
                 let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
                 let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
@@ -385,7 +401,8 @@ window.renderizarGraficoStatusFrotaHorario = function() {
             let qtdEmSOS = 0;
             
             frotasManutencao.forEach(frota => {
-                if(frota.status === 'Inativo') return;
+                // FILTRO TRITREM E ATIVO
+                if(frota.status !== 'Ativo' || !frota.categoria || frota.categoria.toUpperCase() !== 'TRITREM') return;
                 
                 let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
                 let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
@@ -454,7 +471,8 @@ window.renderizarGraficoStatusFrotaHorario = function() {
             let msSOSDia = 0;
             
             frotasManutencao.forEach(frota => {
-                if(frota.status === 'Inativo') return;
+                // FILTRO TRITREM E ATIVO
+                if(frota.status !== 'Ativo' || !frota.categoria || frota.categoria.toUpperCase() !== 'TRITREM') return;
                 
                 let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
                 let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
@@ -592,6 +610,11 @@ window.renderizarGraficoEvolucaoDMDiaria = function() {
             window.preencherMesesDMDiaria();
         }
 
+        // Arrays auxiliares para o filtro TRITREM
+        const cavalosValidos = frotasManutencao
+            .filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM')
+            .map(f => f.cavalo);
+
         const selectMes = document.getElementById('filtroMesEvolucaoDMDiaria');
         let dataInicio, hoje;
 
@@ -648,7 +671,8 @@ window.renderizarGraficoEvolucaoDMDiaria = function() {
                 let msManutencaoDia = 0;
                 
                 frotasManutencao.forEach(frota => {
-                    if(frota.status === 'Inativo') return;
+                    // FILTRO TRITREM E ATIVO
+                    if(frota.status !== 'Ativo' || !frota.categoria || frota.categoria.toUpperCase() !== 'TRITREM') return;
                     
                     let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
                     let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
@@ -712,6 +736,7 @@ window.renderizarGraficoEvolucaoDMDiaria = function() {
         let osComTempo = 0;
 
         ordensServico.forEach(os => {
+            if (!os.placa || !cavalosValidos.includes(os.placa)) return; // FILTRO TRITREM
             if (os.status === 'Agendada') return;
             let osInicioStr = os.data_abertura;
             if (!osInicioStr) return;
@@ -830,7 +855,8 @@ window.preencherSelectPlacasDM = function() {
     if (!select || !frotasManutencao || frotasManutencao.length === 0) return;
     
     if (select.options.length > 1) return;
-    const placas = [...new Set(frotasManutencao.filter(f => f.status !== 'Inativo').map(f => f.cavalo))].sort();
+    // FILTRO TRITREM E ATIVO APLICADO AO COMBOBOX
+    const placas = [...new Set(frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM').map(f => f.cavalo))].sort();
     
     placas.forEach(placa => {
         const opt = document.createElement('option');

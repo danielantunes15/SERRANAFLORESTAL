@@ -7,8 +7,18 @@ function renderizarRelatorioGerencialOS() {
         filtroData = window.getDatasFiltroGlobal();
     }
 
+    // Filtro para considerar apenas Frotas TRITREM Ativas
+    let frotasTritremAtivas = [];
+    if (typeof frotasManutencao !== 'undefined') {
+        frotasTritremAtivas = frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria === 'TRITREM').map(f => f.cavalo ? f.cavalo.trim().toUpperCase() : '');
+    }
+
     const osNoPeriodo = ordensServico.filter(o => {
         if (!o.data_abertura) return false;
+        
+        // Apenas OS de cavalos TRITREM Ativos
+        if (!o.placa || !frotasTritremAtivas.includes(o.placa.trim().toUpperCase())) return false;
+
         let osInicioStr = String(o.data_abertura);
         if (!osInicioStr.includes('T')) osInicioStr += 'T00:00:00';
         const d = new Date(osInicioStr.replace('Z', '').replace('+00:00', ''));
@@ -152,8 +162,18 @@ window.renderizarGraficoOcorrenciasPorTipo = function() {
         filtroData = window.getDatasFiltroGlobal();
     }
 
+    // Filtro para considerar apenas Frotas TRITREM Ativas
+    let frotasTritremAtivas = [];
+    if (typeof frotasManutencao !== 'undefined') {
+        frotasTritremAtivas = frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria === 'TRITREM').map(f => f.cavalo ? f.cavalo.trim().toUpperCase() : '');
+    }
+
     const filtradas = osList.filter(o => {
         if (o.tipo === 'Sinistro') return false; 
+        
+        // Apenas OS de cavalos TRITREM Ativos
+        if (!o.placa || !frotasTritremAtivas.includes(o.placa.trim().toUpperCase())) return false;
+
         if (!o.data_abertura) return false;
         let osInicioStr = String(o.data_abertura);
         if (!osInicioStr.includes('T')) osInicioStr += 'T00:00:00';
@@ -225,7 +245,13 @@ function renderizarDisponibilidadeMecanica() {
     const tbody = document.getElementById('tabelaDisponibilidade');
     if (!tbody) return;
     
-    let totalCavalos = (typeof frotasManutencao !== 'undefined') ? frotasManutencao.length : 0;
+    // Filtro para considerar apenas Frotas TRITREM Ativas
+    let frotasFiltradas = [];
+    if (typeof frotasManutencao !== 'undefined') {
+        frotasFiltradas = frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria === 'TRITREM');
+    }
+    
+    let totalCavalos = frotasFiltradas.length;
     let manutencao = 0;
     let sinistrados = 0;
     let disponiveis = 0;
@@ -245,8 +271,8 @@ function renderizarDisponibilidadeMecanica() {
     
     let linhasHtml = [];
     
-    if (typeof frotasManutencao !== 'undefined') {
-        frotasManutencao.forEach(frota => {
+    if (frotasFiltradas.length > 0) {
+        frotasFiltradas.forEach(frota => {
             let status = 'Disponível';
             let osVinculada = null;
             let dataInicioParadaStr = '-';
@@ -384,7 +410,10 @@ function renderizarRelatorioDM() {
     const totalHorasPeriodo = (totalMsPeriodo / (1000 * 60 * 60)).toFixed(1);
     let dmData = [];
     
-    frotasManutencao.forEach(frota => {
+    // Filtro para considerar apenas Frotas TRITREM Ativas
+    let frotasFiltradas = frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria === 'TRITREM');
+    
+    frotasFiltradas.forEach(frota => {
         let manutencaoMs = 0;
         let statusAtual = `<span style="color: var(--ccol-green-bright); font-weight: bold;">  Disponível</span>`;
         
