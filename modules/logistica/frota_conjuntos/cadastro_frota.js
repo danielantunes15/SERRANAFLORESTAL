@@ -60,6 +60,12 @@ window.mudouCategoria = function(categoria, prefix) {
     } else if (categoria === 'GRUA') {
         if (divCavalo) divCavalo.classList.add('hidden-field');
         divGo.classList.remove('hidden-field');
+    } else if (categoria === 'CARRETA') {
+        if (divCavalo) divCavalo.classList.add('hidden-field');
+        divGo.classList.remove('hidden-field');
+        divC1.classList.remove('hidden-field');
+        divC2.classList.remove('hidden-field');
+        divC3.classList.remove('hidden-field');
     }
 };
 
@@ -74,13 +80,14 @@ function renderizarTabelaCadastroFrota() {
         return;
     }
 
-    let countTritrem = 0, countPrancha = 0, countComboio = 0, countGrua = 0, countLeve = 0, countTotal = 0;
+    let countTritrem = 0, countPrancha = 0, countComboio = 0, countGrua = 0, countCarreta = 0, countLeve = 0, countTotal = 0;
 
     const categoriasAgrupadas = {
         'TRITREM': [],
         'PRANCHA': [],
         'COMBOIO': [],
         'GRUA': [],
+        'CARRETA': [],
         'Frota Leve': [],
         'Sem Categoria': []
     };
@@ -96,6 +103,7 @@ function renderizarTabelaCadastroFrota() {
             else if (cat === 'PRANCHA') countPrancha++;
             else if (cat === 'COMBOIO') countComboio++;
             else if (cat === 'GRUA') countGrua++;
+            else if (cat === 'CARRETA') countCarreta++;
             else if (cat === 'Frota Leve') countLeve++;
         }
     });
@@ -105,11 +113,12 @@ function renderizarTabelaCadastroFrota() {
         document.getElementById('resumoPrancha').innerText = countPrancha;
         document.getElementById('resumoComboio').innerText = countComboio;
         document.getElementById('resumoGrua').innerText = countGrua;
+        document.getElementById('resumoCarreta').innerText = countCarreta;
         document.getElementById('resumoLeve').innerText = countLeve;
         document.getElementById('resumoTotal').innerText = countTotal;
     }
 
-    const ordemExibicao = ['TRITREM', 'PRANCHA', 'COMBOIO', 'GRUA', 'Frota Leve', 'Sem Categoria'];
+    const ordemExibicao = ['TRITREM', 'PRANCHA', 'COMBOIO', 'GRUA', 'CARRETA', 'Frota Leve', 'Sem Categoria'];
 
     ordemExibicao.forEach(cat => {
         const lista = categoriasAgrupadas[cat];
@@ -119,12 +128,13 @@ function renderizarTabelaCadastroFrota() {
         if (cat === 'TRITREM') cabecalhoDinamico = '<th>Nº Frota</th><th>Meta</th><th>Carreta 1</th><th>Carreta 2</th><th>Carreta 3</th>';
         else if (cat === 'PRANCHA') cabecalhoDinamico = '<th>Nº Frota</th><th>Carreta 1</th>'; 
         else if (cat === 'GRUA') cabecalhoDinamico = '<th>Nº Frota</th>'; 
+        else if (cat === 'CARRETA') cabecalhoDinamico = '<th>Nº Frota</th><th>Carreta 1</th><th>Carreta 2</th><th>Carreta 3</th>';
 
-        let cabecalhoPlacaCavalo = (cat === 'GRUA') ? '<th>Veículo</th>' : '<th>Placa (Cavalo)</th>';
+        let cabecalhoPlacaCavalo = (cat === 'GRUA' || cat === 'CARRETA') ? '<th>Veículo / ID</th>' : '<th>Placa (Cavalo)</th>';
 
         let htmlSecao = `
         <div class="cat-section">
-            <h3 class="cat-title"><i class="fas fa-list-ul"></i> Categoria: ${cat} <span style="font-size: 0.9rem; margin-left: 10px; color: var(--text-secondary);">(${lista.length} veículos)</span></h3>
+            <h3 class="cat-title"><i class="fas fa-list-ul"></i> Categoria: ${cat} <span style="font-size: 0.9rem; margin-left: 10px; color: var(--text-secondary);">(${lista.length} veículos/conjuntos)</span></h3>
             <div class="table-modern-wrapper">
                 <table class="data-table-modern">
                     <thead>
@@ -168,6 +178,13 @@ function renderizarTabelaCadastroFrota() {
                 `;
             } else if (cat === 'GRUA') {
                 colunasDinamicas = `<td style="font-weight: bold;">${frota.go || '-'}</td>`;
+            } else if (cat === 'CARRETA') {
+                colunasDinamicas = `
+                    <td style="font-weight: bold;">${frota.go || '-'}</td>
+                    <td>${frota.carreta1 || '-'}</td>
+                    <td>${frota.carreta2 || '-'}</td>
+                    <td>${frota.carreta3 || '-'}</td>
+                `;
             }
 
             let exibirCavalo = frota.cavalo ? frota.cavalo : '<span style="color: #64748b; font-size: 0.8rem;">(Sem Placa)</span>';
@@ -182,7 +199,7 @@ function renderizarTabelaCadastroFrota() {
                     <td>${frota.cor || '-'}</td>
                     ${colunasDinamicas}
                     <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
-                        ${(cat === 'TRITREM' || cat === 'PRANCHA') ? `<button title="Trocar Composição" class="btn-action-sm" style="background-color: #8b5cf6;" onclick="abrirModalTransferenciaFrota(${frota.id})"><i class="fas fa-exchange-alt"></i></button>` : ''}
+                        ${(cat === 'TRITREM' || cat === 'PRANCHA' || cat === 'CARRETA') ? `<button title="Trocar Composição" class="btn-action-sm" style="background-color: #8b5cf6;" onclick="abrirModalTransferenciaFrota(${frota.id})"><i class="fas fa-exchange-alt"></i></button>` : ''}
                         <button title="Editar" class="btn-action-sm btn-edit" onclick="editarFrotaManutencao(${frota.id})"><i class="fas fa-pen"></i></button>
                         <button title="Excluir" class="btn-action-sm btn-delete" onclick="excluirFrotaManutencao(${frota.id})"><i class="fas fa-trash"></i></button>
                     </td>
@@ -204,17 +221,16 @@ window.salvarFrotaManutencao = async function() {
     
     if (!categoria) return alert("Por favor, selecione uma Categoria.");
 
-    // Coleta do N da Frota
-    const go = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'GRUA') ? document.getElementById('osFrotaGo').value.trim().toUpperCase() : null;
+    const go = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'GRUA' || categoria === 'CARRETA') ? document.getElementById('osFrotaGo').value.trim().toUpperCase() : null;
 
     let cavalo = '';
-    if (categoria !== 'GRUA') {
+    if (categoria !== 'GRUA' && categoria !== 'CARRETA') {
         cavalo = document.getElementById('osFrotaCavalo').value.trim().toUpperCase();
         if (!cavalo) return alert("A placa do cavalo/veículo é obrigatória.");
     } else {
-        // SOLUÇÃO: Se for GRUA, o campo "Cavalo" assume o valor do N da Frota para evitar erro de NOT NULL no banco.
+        // Se for GRUA ou CARRETA, o campo "Cavalo" assume o valor do N da Frota para evitar erro de NOT NULL no banco.
         cavalo = go;
-        if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório para cadastrar uma Grua.");
+        if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório para cadastrar uma Grua ou Carreta (avulsa).");
     }
     
     if (cavalo) {
@@ -223,13 +239,13 @@ window.salvarFrotaManutencao = async function() {
     }
 
     const metaStr = (categoria === 'TRITREM') ? document.getElementById('osFrotaMeta').value.trim() : null;
-    const carreta1 = (categoria === 'TRITREM' || categoria === 'PRANCHA') ? document.getElementById('osFrotaCarreta1').value.trim().toUpperCase() : null;
-    const carreta2 = (categoria === 'TRITREM') ? document.getElementById('osFrotaCarreta2').value.trim().toUpperCase() : null;
-    const carreta3 = (categoria === 'TRITREM') ? document.getElementById('osFrotaCarreta3').value.trim().toUpperCase() : null;
+    const carreta1 = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'CARRETA') ? document.getElementById('osFrotaCarreta1').value.trim().toUpperCase() : null;
+    const carreta2 = (categoria === 'TRITREM' || categoria === 'CARRETA') ? document.getElementById('osFrotaCarreta2').value.trim().toUpperCase() : null;
+    const carreta3 = (categoria === 'TRITREM' || categoria === 'CARRETA') ? document.getElementById('osFrotaCarreta3').value.trim().toUpperCase() : null;
 
     try {
         const payload = window.injetarFilial({ 
-            cavalo: cavalo, // Envia o valor (Placa ou Número da Frota)
+            cavalo: cavalo,
             descricao,
             status, data_inicial, cor, categoria, 
             go, carreta1, carreta2, carreta3,
@@ -266,7 +282,7 @@ window.editarFrotaManutencao = function(id) {
     
     window.mudouCategoria(frota.categoria || '', 'editFrota');
 
-    if (frota.categoria !== 'GRUA') document.getElementById('editFrotaCavalo').value = frota.cavalo || '';
+    if (frota.categoria !== 'GRUA' && frota.categoria !== 'CARRETA') document.getElementById('editFrotaCavalo').value = frota.cavalo || '';
     else document.getElementById('editFrotaCavalo').value = '';
 
     document.getElementById('editFrotaGo').value = frota.go || '';
@@ -290,21 +306,21 @@ window.salvarEdicaoFrota = async function() {
     const cor = document.getElementById('editFrotaCor').value.trim();
     const descricao = document.getElementById('editFrotaDescricao').value.trim().toUpperCase(); 
 
-    const go = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'GRUA') ? document.getElementById('editFrotaGo').value.trim().toUpperCase() : null;
+    const go = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'GRUA' || categoria === 'CARRETA') ? document.getElementById('editFrotaGo').value.trim().toUpperCase() : null;
 
     let cavalo = '';
-    if (categoria !== 'GRUA') {
+    if (categoria !== 'GRUA' && categoria !== 'CARRETA') {
         cavalo = document.getElementById('editFrotaCavalo').value.trim().toUpperCase();
         if (!cavalo) return alert("A placa do cavalo/veículo é obrigatória.");
     } else {
         cavalo = go;
-        if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório para cadastrar uma Grua.");
+        if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório para cadastrar uma Grua ou Carreta (avulsa).");
     }
 
     const metaStr = (categoria === 'TRITREM') ? document.getElementById('editFrotaMeta').value.trim() : null;
-    const carreta1 = (categoria === 'TRITREM' || categoria === 'PRANCHA') ? document.getElementById('editFrotaCarreta1').value.trim().toUpperCase() : null;
-    const carreta2 = (categoria === 'TRITREM') ? document.getElementById('editFrotaCarreta2').value.trim().toUpperCase() : null;
-    const carreta3 = (categoria === 'TRITREM') ? document.getElementById('editFrotaCarreta3').value.trim().toUpperCase() : null;
+    const carreta1 = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'CARRETA') ? document.getElementById('editFrotaCarreta1').value.trim().toUpperCase() : null;
+    const carreta2 = (categoria === 'TRITREM' || categoria === 'CARRETA') ? document.getElementById('editFrotaCarreta2').value.trim().toUpperCase() : null;
+    const carreta3 = (categoria === 'TRITREM' || categoria === 'CARRETA') ? document.getElementById('editFrotaCarreta3').value.trim().toUpperCase() : null;
 
     try {
         const payload = { 
@@ -337,13 +353,13 @@ window.abrirModalTransferenciaFrota = function(idOriginal) {
     const frotaOrigem = frotasManutencao.find(f => f.id === idOriginal);
     if (!frotaOrigem) return;
     document.getElementById('transfFrotaOrigemId').value = frotaOrigem.id;
-    document.getElementById('transfFrotaOrigemText').innerText = frotaOrigem.cavalo;
+    document.getElementById('transfFrotaOrigemText').innerText = frotaOrigem.cavalo + (frotaOrigem.categoria === 'CARRETA' ? ' (CARRETA AVULSA)' : '');
 
     const selectDestino = document.getElementById('selectFrotaDestino');
-    selectDestino.innerHTML = '<option value="">Selecione o Cavalo de Destino...</option>';
+    selectDestino.innerHTML = '<option value="">Selecione o Destino...</option>';
     
     frotasManutencao.forEach(f => {
-        if (f.id !== frotaOrigem.id && (f.categoria === 'TRITREM' || f.categoria === 'PRANCHA')) {
+        if (f.id !== frotaOrigem.id && (f.categoria === 'TRITREM' || f.categoria === 'PRANCHA' || f.categoria === 'CARRETA')) {
             selectDestino.innerHTML += `<option value="${f.id}">${f.cavalo} (${f.categoria})</option>`;
         }
     });
@@ -358,7 +374,7 @@ window.confirmarTransferenciaFrota = async function() {
     const idOrigem = document.getElementById('transfFrotaOrigemId').value;
     const idDestino = document.getElementById('selectFrotaDestino').value;
 
-    if (!idDestino) return alert("Selecione um Cavalo de destino.");
+    if (!idDestino) return alert("Selecione um destino.");
 
     const frotaOrigem = frotasManutencao.find(f => String(f.id) === String(idOrigem));
     const frotaDestino = frotasManutencao.find(f => String(f.id) === String(idDestino));

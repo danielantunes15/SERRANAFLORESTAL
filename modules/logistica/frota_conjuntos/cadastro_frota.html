@@ -44,6 +44,10 @@
             <div class="valor" id="resumoGrua">0</div>
         </div>
         <div class="card-resumo">
+            <div class="label">Carreta <span style="font-size: 0.7rem; color: #64748b;">(Sem Cavalo)</span></div>
+            <div class="valor" id="resumoCarreta">0</div>
+        </div>
+        <div class="card-resumo">
             <div class="label">Frota Leve <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
             <div class="valor" id="resumoLeve">0</div>
         </div>
@@ -63,7 +67,7 @@
         <h3><i class="fas fa-truck-moving"></i> Preencher Novo Conjunto</h3>
     </div>
     <div style="padding: 15px 20px; font-size: 0.85rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border-bottom: 1px solid var(--border-dim); margin-bottom: 15px;">
-        Selecione a <b>Categoria</b> primeiro para que o formulário exiba os campos corretos (Ex: Gruas não possuem Placa de Cavalo).
+        Selecione a <b>Categoria</b> primeiro para que o formulário exiba os campos corretos (Ex: Gruas e Carretas avulsas não possuem Placa de Cavalo).
     </div>
     
     <div class="form-grid">
@@ -75,6 +79,7 @@
                 <option value="PRANCHA">PRANCHA</option>
                 <option value="COMBOIO">COMBOIO</option>
                 <option value="GRUA">GRUA</option>
+                <option value="CARRETA">CARRETA (Sem Cavalo)</option>
                 <option value="Frota Leve">Frota Leve</option>
             </select>
         </div>
@@ -130,9 +135,9 @@
         <div class="modal-body">
             <input type="hidden" id="transfFrotaOrigemId">
             <p style="margin-bottom: 10px;">Origem: <strong id="transfFrotaOrigemText" style="color: var(--ccol-blue-bright); font-size: 1.2rem;"></strong></p>
-            <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px;">A composição (Frota e Carretas) deste Cavalo será movida para o Cavalo de destino selecionado abaixo. Se o destino já possuir carretas engatadas, elas serão transferidas de volta para este (Troca Dupla).</p>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px;">A composição (Frota e Carretas) será movida para o Cavalo/Conjunto de destino selecionado abaixo. Se o destino já possuir carretas engatadas, elas serão transferidas de volta para a origem (Troca Dupla).</p>
             <div class="form-group-dark">
-                <label>Selecione o Cavalo de Destino:</label>
+                <label>Selecione o Destino:</label>
                 <select id="selectFrotaDestino" class="dark-select"></select>
             </div>
         </div>
@@ -160,6 +165,7 @@
                     <option value="PRANCHA">PRANCHA</option>
                     <option value="COMBOIO">COMBOIO</option>
                     <option value="GRUA">GRUA</option>
+                    <option value="CARRETA">CARRETA (Sem Cavalo)</option>
                     <option value="Frota Leve">Frota Leve</option>
                 </select>
             </div>
