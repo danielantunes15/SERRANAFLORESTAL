@@ -132,7 +132,8 @@ function renderizarTabelaCadastroFrota() {
                             <th>Status</th>
                             <th>Data Entrada</th>
                             ${cabecalhoPlacaCavalo}
-                            <th>Descrição</th> <th>Cor</th>
+                            <th>Descrição</th>
+                            <th>Cor</th>
                             ${cabecalhoDinamico}
                             <th style="text-align: right;">Ações</th>
                         </tr>
@@ -177,7 +178,8 @@ function renderizarTabelaCadastroFrota() {
                     <td>${badgeStatus}</td>
                     <td style="color: #94a3b8; font-size: 0.9rem;">${dataFormatada}</td>
                     <td style="color: var(--ccol-blue-bright); font-weight: bold; font-size: 1.1rem;">${exibirCavalo}</td>
-                    <td style="font-weight: 500; color: #e2e8f0;">${descricaoStr}</td> <td>${frota.cor || '-'}</td>
+                    <td style="font-weight: 500; color: #e2e8f0;">${descricaoStr}</td>
+                    <td>${frota.cor || '-'}</td>
                     ${colunasDinamicas}
                     <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
                         ${(cat === 'TRITREM' || cat === 'PRANCHA') ? `<button title="Trocar Composição" class="btn-action-sm" style="background-color: #8b5cf6;" onclick="abrirModalTransferenciaFrota(${frota.id})"><i class="fas fa-exchange-alt"></i></button>` : ''}
@@ -198,31 +200,37 @@ window.salvarFrotaManutencao = async function() {
     const status = document.getElementById('osFrotaStatus').value;
     const data_inicial = document.getElementById('osFrotaDataInicial').value || '2026-04-01';
     const cor = document.getElementById('osFrotaCor').value.trim();
-    const descricao = document.getElementById('osFrotaDescricao').value.trim().toUpperCase(); // PEGA DESCRIÇÃO
+    const descricao = document.getElementById('osFrotaDescricao').value.trim().toUpperCase();
     
+    if (!categoria) return alert("Por favor, selecione uma Categoria.");
+
+    // Coleta do N da Frota
+    const go = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'GRUA') ? document.getElementById('osFrotaGo').value.trim().toUpperCase() : null;
+
     let cavalo = '';
     if (categoria !== 'GRUA') {
         cavalo = document.getElementById('osFrotaCavalo').value.trim().toUpperCase();
+        if (!cavalo) return alert("A placa do cavalo/veículo é obrigatória.");
+    } else {
+        // SOLUÇÃO: Se for GRUA, o campo "Cavalo" assume o valor do N da Frota para evitar erro de NOT NULL no banco.
+        cavalo = go;
+        if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório para cadastrar uma Grua.");
     }
     
-    if (!categoria) return alert("Por favor, selecione uma Categoria.");
-    if (categoria !== 'GRUA' && !cavalo) return alert("A placa do cavalo/veículo é obrigatória.");
-
     if (cavalo) {
         const existente = frotasManutencao.find(f => f.cavalo === cavalo);
-        if (existente) return alert("Já existe um cadastro para esta placa. Use a opção de editar.");
+        if (existente) return alert("Já existe um cadastro para esta placa/frota. Use a opção de editar.");
     }
 
     const metaStr = (categoria === 'TRITREM') ? document.getElementById('osFrotaMeta').value.trim() : null;
-    const go = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'GRUA') ? document.getElementById('osFrotaGo').value.trim().toUpperCase() : null;
     const carreta1 = (categoria === 'TRITREM' || categoria === 'PRANCHA') ? document.getElementById('osFrotaCarreta1').value.trim().toUpperCase() : null;
     const carreta2 = (categoria === 'TRITREM') ? document.getElementById('osFrotaCarreta2').value.trim().toUpperCase() : null;
     const carreta3 = (categoria === 'TRITREM') ? document.getElementById('osFrotaCarreta3').value.trim().toUpperCase() : null;
 
     try {
         const payload = window.injetarFilial({ 
-            cavalo: cavalo || null, 
-            descricao, // ADICIONADO AO BANCO
+            cavalo: cavalo, // Envia o valor (Placa ou Número da Frota)
+            descricao,
             status, data_inicial, cor, categoria, 
             go, carreta1, carreta2, carreta3,
             meta: metaStr ? parseInt(metaStr) : null 
@@ -254,7 +262,7 @@ window.editarFrotaManutencao = function(id) {
     document.getElementById('editFrotaDataInicial').value = frota.data_inicial || '2026-04-01';
     document.getElementById('editFrotaCor').value = frota.cor || '';
     document.getElementById('editFrotaCategoria').value = frota.categoria || '';
-    document.getElementById('editFrotaDescricao').value = frota.descricao || ''; // PREECHE DESCRIÇÃO
+    document.getElementById('editFrotaDescricao').value = frota.descricao || ''; 
     
     window.mudouCategoria(frota.categoria || '', 'editFrota');
 
@@ -280,24 +288,28 @@ window.salvarEdicaoFrota = async function() {
     const status = document.getElementById('editFrotaStatus').value;
     const data_inicial = document.getElementById('editFrotaDataInicial').value || '2026-04-01';
     const cor = document.getElementById('editFrotaCor').value.trim();
-    const descricao = document.getElementById('editFrotaDescricao').value.trim().toUpperCase(); // PEGA DESCRIÇÃO DA EDIÇÃO
+    const descricao = document.getElementById('editFrotaDescricao').value.trim().toUpperCase(); 
+
+    const go = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'GRUA') ? document.getElementById('editFrotaGo').value.trim().toUpperCase() : null;
 
     let cavalo = '';
     if (categoria !== 'GRUA') {
         cavalo = document.getElementById('editFrotaCavalo').value.trim().toUpperCase();
         if (!cavalo) return alert("A placa do cavalo/veículo é obrigatória.");
+    } else {
+        cavalo = go;
+        if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório para cadastrar uma Grua.");
     }
 
     const metaStr = (categoria === 'TRITREM') ? document.getElementById('editFrotaMeta').value.trim() : null;
-    const go = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'GRUA') ? document.getElementById('editFrotaGo').value.trim().toUpperCase() : null;
     const carreta1 = (categoria === 'TRITREM' || categoria === 'PRANCHA') ? document.getElementById('editFrotaCarreta1').value.trim().toUpperCase() : null;
     const carreta2 = (categoria === 'TRITREM') ? document.getElementById('editFrotaCarreta2').value.trim().toUpperCase() : null;
     const carreta3 = (categoria === 'TRITREM') ? document.getElementById('editFrotaCarreta3').value.trim().toUpperCase() : null;
 
     try {
         const payload = { 
-            cavalo: cavalo || null, 
-            descricao, // SALVA DESCRIÇÃO NO BANCO
+            cavalo: cavalo, 
+            descricao, 
             status, data_inicial, cor, categoria, 
             go, carreta1, carreta2, carreta3,
             meta: metaStr ? parseInt(metaStr) : null 
@@ -383,11 +395,9 @@ window.exportarFrotaManutencaoExcel = function() {
     if (frotasManutencao.length === 0) return alert("Não há dados de frota para exportar.");
     
     let csvContent = "\uFEFF"; 
-    // CABEÇALHO ATUALIZADO NO CSV
     csvContent += "Status;Data Inicial;Categoria;Cavalo;Descrição;Cor;Meta;Frota;Carreta 1;Carreta 2;Carreta 3\n";
     frotasManutencao.forEach(f => {
         let d = f.data_inicial || '2026-04-01';
-        // VALOR DA DESCRIÇÃO INCLUÍDO NA LINHA EXPORTADA
         let linha = [f.status||'Ativo', d, f.categoria||'', f.cavalo||'', f.descricao||'', f.cor||'', f.meta||'', f.go||'', f.carreta1||'', f.carreta2||'', f.carreta3||''].join(";");
         csvContent += linha + "\n";
     });
