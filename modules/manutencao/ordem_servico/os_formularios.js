@@ -58,7 +58,8 @@ window.inicializarMapaSOS = function() {
 
         marcadorSOS = L.marker([lat, lng]).addTo(mapaSOSInstance);
         
-        const linkMaps = `https://www.google.com/maps?q=$${lat},${lng}`;
+        // CONCATENAÇÃO TRADICIONAL PARA EVITAR O BUG DO '$'
+        const linkMaps = 'https://www.google.com/maps?q=' + lat + ',' + lng;
         document.getElementById('osLocalizacaoSOS').value = linkMaps;
     });
 };
@@ -90,8 +91,8 @@ window.buscarCoordenadaNoMapaSOS = function() {
             }
             marcadorSOS = L.marker([lat, lng]).addTo(mapaSOSInstance);
             
-            // Atualiza o input de link do mapa para salvar no banco
-            const linkMaps = `https://www.google.com/maps?q=$${lat},${lng}`;
+            // CONCATENAÇÃO TRADICIONAL PARA EVITAR O BUG DO '$'
+            const linkMaps = 'https://www.google.com/maps?q=' + lat + ',' + lng;
             document.getElementById('osLocalizacaoSOS').value = linkMaps;
         }
     } else {
@@ -192,7 +193,6 @@ window.mudarTipoReferenciaOS = function() {
         if(wrapperHodometro) wrapperHodometro.style.display = 'block';
         
         frotasManutencao.forEach(f => {
-            // Filtro adicionado: Apenas veículos que possuam cavalo e sejam da categoria TRITREM
             if (f.cavalo && f.categoria === 'TRITREM') {
                 const texto = `${f.cavalo.trim().toUpperCase()} ${f.go ? ' - ' + f.go : ''}`;
                 selectPlaca.innerHTML += `<option value="${f.cavalo.trim().toUpperCase()}">${texto}</option>`;
@@ -280,7 +280,7 @@ window.salvarNovaOS = async function() {
         
         localizacao_sos = coordsLink;
         if (referencia) {
-            localizacao_sos += ` | Ref: ${referencia}`;
+            localizacao_sos += ' | Ref: ' + referencia;
         }
     }
 
@@ -347,7 +347,7 @@ window.salvarNovaOS = async function() {
     }
 
     if (localizacao_sos) {
-        problemaFinal = `[LINK S.O.S MAPS: ${localizacao_sos}]\n` + problemaFinal;
+        problemaFinal = '[LINK S.O.S MAPS: ' + localizacao_sos + ']\n' + problemaFinal;
     }
 
     if (problemaFinal) pacoteDadosOS.problema = problemaFinal;
@@ -359,7 +359,7 @@ window.salvarNovaOS = async function() {
     try {
         const { error } = await supabaseClient.from('ordens_servico').insert([pacoteDadosOS]);
         if (error) {
-            alert(`Erro na gravação (400).\nDetalhes: ${error.message}`);
+            alert('Erro na gravação (400).\nDetalhes: ' + error.message);
             return;
         }
         
@@ -400,7 +400,7 @@ window.aceitarOS = async function(id) {
         console.warn("Não foi possível capturar o usuário logado.", e);
     }
 
-    if(confirm(`Deseja iniciar o serviço e assumir esta O.S como: ${nomeMecanico}?`)) {
+    if(confirm('Deseja iniciar o serviço e assumir esta O.S como: ' + nomeMecanico + '?')) {
         try {
             const { error } = await supabaseClient
                 .from('ordens_servico')
@@ -416,7 +416,7 @@ window.aceitarOS = async function(id) {
             if(typeof renderizarTabelaOS === 'function') renderizarTabelaOS();
             alert("O.S. aceita com sucesso! A TV será atualizada no próximo ciclo (15s).");
         } catch (error) {
-            alert(`Erro ao aceitar a O.S: ${error.message}`);
+            alert('Erro ao aceitar a O.S: ' + error.message);
         }
     }
 };
@@ -503,7 +503,7 @@ window.salvarServicoExtra = async function() {
         let novoProblema = osAtual.problema || '';
         
         if (descricao) {
-            novoProblema += `\n[SERVIÇO EXTRA]: ${descricao}`;
+            novoProblema += '\n[SERVIÇO EXTRA]: ' + descricao;
         }
 
         const updateData = { problema: novoProblema };
@@ -556,7 +556,7 @@ window.carregarFiltrosSelectHistoricoOS = function() {
             if (os.data_abertura) {
                 const d = new Date(os.data_abertura);
                 if(!isNaN(d)) {
-                    const mesAno = `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                    const mesAno = String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
                     mesesUnicos.add(mesAno);
                 }
             }

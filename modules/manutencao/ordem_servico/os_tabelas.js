@@ -92,14 +92,14 @@ window.renderizarTabelaSOS = function() {
             ref = local; 
         }
 
-        // Limpeza do texto do problema para não repetir links e marcações no WhatsApp
+        // Limpeza aprimorada do problema
         let problemaLimpo = os.problema || 'Não detalhado';
         if (problemaLimpo !== 'Não detalhado') {
-            problemaLimpo = problemaLimpo.replace(/https?:\/\/[^\s]+/g, ''); // Remove links
+            problemaLimpo = problemaLimpo.replace(/\[?LINK S\.O\.S MAPS:.*?\]?\n?/gi, '');
+            problemaLimpo = problemaLimpo.replace(/https?:\/\/[^\s]+/g, ''); // Remove links web
             problemaLimpo = problemaLimpo.replace(/📍\s*Localização GPS:?/gi, '');
             problemaLimpo = problemaLimpo.replace(/📍\s*Abrir Rota no GPS \(Maps\):?/gi, '');
             problemaLimpo = problemaLimpo.replace(/Localização:/gi, '');
-            problemaLimpo = problemaLimpo.replace(/\[?LINK S\.O\.S MAPS:?\]?/gi, ''); // Remove a tag do SOS Maps
             problemaLimpo = problemaLimpo.trim();
         }
 
@@ -136,7 +136,8 @@ window.renderizarTabelaSOS = function() {
             mensagemZap += `📍 *Localização GPS:*\nSem link cadastrado`;
         }
 
-        const urlZap = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensagemZap)}`;
+        // CONCATENAÇÃO TRADICIONAL PARA EVITAR PROBLEMAS DE INTERPRETAÇÃO NO WHATSAPP
+        const urlZap = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(mensagemZap);
 
         let btnMapa = linkMapa ? `<a href="${linkMapa}" target="_blank" class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;"><i class="fas fa-map-marked-alt"></i> Ver Mapa</a>` : `<span style="font-size: 0.8rem; color: #9ca3af;"><br>📍 Sem Mapa</span>`;
 
@@ -202,7 +203,6 @@ function renderizarTabelaSinistro() {
     }).join('');
 }
 
-// Transformada para suportar a lógica de reset de página (quando usuário muda os filtros)
 window.renderizarTabelaHistoricoOS = function(resetPage = true) {
     if (resetPage === true) {
         currentPageHistoricoOS = 1;
@@ -293,7 +293,7 @@ window.renderizarTabelaHistoricoOS = function(resetPage = true) {
 
 window.mudarPaginaHistoricoOS = function(novaPagina) {
     currentPageHistoricoOS = novaPagina;
-    window.renderizarTabelaHistoricoOS(false); // Passa false para não resetar para a pág. 1
+    window.renderizarTabelaHistoricoOS(false);
 };
 
 function renderizarControlesPaginacaoOS(totalPages) {
@@ -302,18 +302,15 @@ function renderizarControlesPaginacaoOS(totalPages) {
     
     let html = '';
     
-    // Botão Anterior
     html += `<button class="btn-secondary-dark" onclick="mudarPaginaHistoricoOS(${currentPageHistoricoOS - 1})" 
             ${currentPageHistoricoOS === 1 ? 'disabled style="opacity: 0.5; cursor: not-allowed; padding: 6px 15px;"' : 'style="padding: 6px 15px;"'}>
             Anterior
             </button>`;
     
-    // Informação da Página
     html += `<span style="color: #94a3b8; font-size: 0.95rem; font-weight: bold; background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 6px;">
              Página ${currentPageHistoricoOS} de ${totalPages}
              </span>`;
     
-    // Botão Próxima
     html += `<button class="btn-secondary-dark" onclick="mudarPaginaHistoricoOS(${currentPageHistoricoOS + 1})" 
             ${currentPageHistoricoOS === totalPages ? 'disabled style="opacity: 0.5; cursor: not-allowed; padding: 6px 15px;"' : 'style="padding: 6px 15px;"'}>
             Próxima
