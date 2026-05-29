@@ -129,7 +129,7 @@ function renderizarTabelaCadastroFrota() {
             theadHTML = `
                 <tr>
                     <th>Status</th>
-                    <th>Nº Frota (ID)</th>
+                    <th>Nº GO (ID)</th>
                     <th>Carreta 1</th>
                     <th>Carreta 2</th>
                     <th>Carreta 3</th>
@@ -138,9 +138,9 @@ function renderizarTabelaCadastroFrota() {
             `;
         } else {
             let cabecalhoDinamico = '';
-            if (cat === 'TRITREM') cabecalhoDinamico = '<th>Nº Frota</th><th>Meta</th><th>Carreta 1</th><th>Carreta 2</th><th>Carreta 3</th>';
-            else if (cat === 'PRANCHA') cabecalhoDinamico = '<th>Nº Frota</th><th>Carreta 1</th>'; 
-            else if (cat === 'GRUA') cabecalhoDinamico = '<th>Nº Frota</th>'; 
+            if (cat === 'TRITREM') cabecalhoDinamico = '<th>Nº GO</th><th>Meta</th><th>Carreta 1</th><th>Carreta 2</th><th>Carreta 3</th>';
+            else if (cat === 'PRANCHA') cabecalhoDinamico = '<th>Nº GO</th><th>Carreta 1</th>'; 
+            else if (cat === 'GRUA') cabecalhoDinamico = '<th>Nº GO</th>'; 
 
             let cabecalhoPlacaCavalo = (cat === 'GRUA') ? '<th>Veículo / ID</th>' : '<th>Placa (Cavalo)</th>';
 
@@ -256,7 +256,7 @@ window.salvarFrotaManutencao = async function() {
         if (!cavalo) return alert("A placa do cavalo/veículo é obrigatória.");
     } else {
         cavalo = go;
-        if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório para cadastrar uma Grua ou Carreta (avulsa).");
+        if (!cavalo) return alert("O Número GO (Nº GO) é obrigatório para cadastrar uma Grua ou Carreta (avulsa).");
     }
     
     if (cavalo) {
@@ -341,7 +341,7 @@ window.salvarEdicaoFrota = async function() {
         if (!cavalo) return alert("A placa do cavalo/veículo é obrigatória.");
     } else {
         cavalo = go;
-        if (!cavalo) return alert("O Número da Frota (Nº Frota) é obrigatório.");
+        if (!cavalo) return alert("O Número GO (Nº GO) é obrigatório.");
     }
 
     const metaStr = (categoria === 'TRITREM') ? document.getElementById('editFrotaMeta').value.trim() : null;
@@ -435,7 +435,7 @@ window.confirmarTransferenciaFrota = async function() {
         try {
             await supabaseClient.from('frotas_manutencao').insert([payloadCarreta]);
             
-            // O cavalo original perde as carretas e o Nº Frota, já que o conjunto foi desengatado
+            // O cavalo original perde as carretas e o Nº GO, já que o conjunto foi desengatado
             await supabaseClient.from('frotas_manutencao').update({
                 go: null, carreta1: null, carreta2: null, carreta3: null
             }).eq('id', frotaOrigem.id);
@@ -463,12 +463,12 @@ window.confirmarTransferenciaFrota = async function() {
         const destC2 = frotaDestino.carreta2;
         const destC3 = frotaDestino.carreta3;
 
-        // O Cavalo origem recebe as carretas E o Nº Frota do destino
+        // O Cavalo origem recebe as carretas E o Nº GO do destino
         await supabaseClient.from('frotas_manutencao').update({
             go: destGo, carreta1: destC1, carreta2: destC2, carreta3: destC3
         }).eq('id', frotaOrigem.id);
 
-        // O destino recebe as carretas E o Nº Frota da origem
+        // O destino recebe as carretas E o Nº GO da origem
         await supabaseClient.from('frotas_manutencao').update({
             go: origGo, carreta1: origC1, carreta2: origC2, carreta3: origC3
         }).eq('id', frotaDestino.id);
@@ -491,7 +491,7 @@ window.exportarFrotaManutencaoExcel = function() {
     if (frotasManutencao.length === 0) return alert("Não há dados para exportar.");
     
     let csvContent = "\uFEFF"; 
-    csvContent += "Status;Data Inicial;Categoria;Cavalo;Descrição;Cor;Meta;Frota;Carreta 1;Carreta 2;Carreta 3\n";
+    csvContent += "Status;Data Inicial;Categoria;Cavalo;Descrição;Cor;Meta;Nº GO;Carreta 1;Carreta 2;Carreta 3\n";
     frotasManutencao.forEach(f => {
         let d = f.data_inicial || '2026-04-01';
         let linha = [f.status||'Ativo', d, f.categoria||'', f.cavalo||'', f.descricao||'', f.cor||'', f.meta||'', f.go||'', f.carreta1||'', f.carreta2||'', f.carreta3||''].join(";");
