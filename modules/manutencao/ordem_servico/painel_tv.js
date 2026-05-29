@@ -260,18 +260,23 @@ window.renderizarCardsTV = function() {
             ) || {};
         }
 
-        // MONTAGEM DAS TAGS COM O NÚMERO DO GO ANTES DAS CARRETAS
+        // MONTAGEM DAS TAGS COM O NÚMERO DA FROTA, GO E CARRETAS
         let conjuntosBadge = '';
+
+        // Se a frota tem um número de frota associado, exibe a tag primeiro (abreviado e forçando mesma linha)
+        if (frotaVinculada.numero_frota && String(frotaVinculada.numero_frota).trim() !== '') {
+            conjuntosBadge += `<span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(245, 158, 11, 0.5); font-weight: bold; white-space: nowrap;">FR: ${String(frotaVinculada.numero_frota).toUpperCase()}</span>`;
+        }
         
         // Se a frota tem um GO associado, cria o distintivo do GO
         if (frotaVinculada.go && String(frotaVinculada.go).trim() !== '') {
-            conjuntosBadge += `<span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(59, 130, 246, 0.5); margin-right: 5px; font-weight: bold;">GO: ${String(frotaVinculada.go).toUpperCase()}</span>`;
+            conjuntosBadge += `<span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(59, 130, 246, 0.5); font-weight: bold; white-space: nowrap;">GO: ${String(frotaVinculada.go).toUpperCase()}</span>`;
         }
         
         // Em seguida, adiciona as placas das carretas
         conjuntosBadge += [frotaVinculada.carreta1, frotaVinculada.carreta2, frotaVinculada.carreta3]
             .filter(Boolean)
-            .map(c => `<span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.2); margin-right: 5px;">${c}</span>`).join('');
+            .map(c => `<span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;">${c}</span>`).join('');
             
         let avisoPrevisao = ''; let campoPrevisao = os.previsao_entrega || os.previsao;
         if (campoPrevisao) {
@@ -302,7 +307,7 @@ window.renderizarCardsTV = function() {
                         <div style="background: ${corPrioridade}; color: #fff; font-weight: bold; padding: 5px 15px; border-radius: 20px; font-size: 1.1rem; text-transform: uppercase;">${os.prioridade}</div>
                     </div>
                 </div>
-                <div style="margin-bottom: 15px;">${conjuntosBadge}</div>
+                <div style="margin-bottom: 15px; display: flex; gap: 6px; flex-wrap: nowrap; overflow: hidden; align-items: center; width: 100%;">${conjuntosBadge}</div>
                 <div style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: 15px; margin-bottom: 15px; flex: 1;">
                     <div style="color: #60a5fa; font-weight: bold; font-size: 1.2rem; margin-bottom: 5px;">${os.tipo}</div>
                     <div style="color: #cbd5e1; font-size: 1.1rem;">Motorista: <strong style="color: #fff;">${os.motorista}</strong></div>
