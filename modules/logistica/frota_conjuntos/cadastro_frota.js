@@ -128,6 +128,15 @@ function renderizarTabelaCadastroFrota() {
         const lista = categoriasAgrupadas[cat];
         if (lista.length === 0) return;
 
+        // NOVA LÓGICA DE ORDENAÇÃO POR Nº FROTA
+        lista.sort((a, b) => {
+            // Em caso de gruas ou carretas sem Nº Frota usamos o GO ou Cavalo como fallback
+            const numA = (a.numero_frota || a.go || a.cavalo || '').toString();
+            const numB = (b.numero_frota || b.go || b.cavalo || '').toString();
+            return numA.localeCompare(numB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        // FIM DA NOVA LÓGICA DE ORDENAÇÃO
+
         let theadHTML = '';
         if (cat === 'CARRETA') {
             theadHTML = `
