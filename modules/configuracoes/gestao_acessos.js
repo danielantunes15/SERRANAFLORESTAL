@@ -10,6 +10,7 @@ window.carregarPerfisPermissao = async function() {
             .eq('status', 'Ativo')
             .order('nome');
 
+        // Aplica os filtros hierárquicos por filial
         if (window.currentUser && window.currentUser.role !== 'SuperAdmin') {
             const filialId = window.currentUser.filial_id;
             if (filialId !== null && filialId !== 'CENTRAL') {
@@ -33,7 +34,7 @@ window.carregarPerfisPermissao = async function() {
         selectPerfil.innerHTML = options;
         
     } catch (error) {
-        console.error("Erro ao puxar cargos da Controladoria:", error);
+        console.error("Erro ao puxar cargos da matriz:", error);
         selectPerfil.innerHTML = '<option value="" disabled selected>Erro ao carregar Organograma</option>';
     }
 };
@@ -81,6 +82,12 @@ window.carregarSelectUsuariosPermissoes = async function() {
 };
 
 window.carregarCheckboxesPermissoes = async function() {
+    // CORREÇÃO 1: Se a lista de cargos ainda estiver vazia quando a tela abrir, força o carregamento
+    const selectPerfil = document.getElementById('selectPerfilPermissao');
+    if (selectPerfil && selectPerfil.options.length <= 1) {
+        await window.carregarPerfisPermissao();
+    }
+
     const container = document.getElementById('container-permissoes-menus');
     if (!container || !window.MAPA_MENUS) return;
 
@@ -104,12 +111,10 @@ window.carregarCheckboxesPermissoes = async function() {
     let alvo = '';
     
     if (tipo === 'perfil') {
-        alvo = document.getElementById('selectPerfilPermissao')?.value;
+        alvo = selectPerfil?.value;
     } else {
         alvo = document.getElementById('selectUsuarioPermissao')?.value;
     }
-
-    if (!alvo) return; 
 
     let permissoesAtuais = {};
     if (typeof db !== 'undefined' && typeof db.getPermissoesDB === 'function') {
@@ -118,10 +123,10 @@ window.carregarCheckboxesPermissoes = async function() {
         permissoesAtuais = window.getPermissoes();
     }
     
-    let meusAcessos = permissoesAtuais[alvo] || [];
+    let meusAcessos = alvo ? (permissoesAtuais[alvo] || []) : [];
     const isSuperAdmin = (currentUser && currentUser.role === 'SuperAdmin');
 
-    if (tipo === 'usuario' && (!permissoesAtuais[alvo] || meusAcessos.includes('__RESET__'))) {
+    if (alvo && tipo === 'usuario' && (!permissoesAtuais[alvo] || meusAcessos.includes('__RESET__'))) {
         const selectUser = document.getElementById('selectUsuarioPermissao');
         const textoOpcao = selectUser.options[selectUser.selectedIndex].text;
         const matchRole = textoOpcao.match(/\((.*?)\)/);
@@ -135,9 +140,23 @@ window.carregarCheckboxesPermissoes = async function() {
     }
 
     let html = '';
+
+    // Aviso quando nada foi selecionado
+    if (!alvo) {
+        html += `
+        <div style="grid-column: 1 / -1; background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); padding: 15px 20px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3); margin-bottom: 10px; display: flex; align-items: center; gap: 15px;">
+            <i class="fas fa-info-circle" style="font-size: 1.5rem;"></i>
+            <div>
+                <strong style="display: block; font-size: 1.05rem; margin-bottom: 3px;">Selecione um Cargo ou Usuário Acima</strong>
+                <span style="font-size: 0.9rem; color: #cbd5e1;">Abaixo estão todos os módulos disponíveis no sistema. Para liberar ou bloquear acessos, você precisa primeiro selecionar quem receberá as permissões.</span>
+            </div>
+        </div>`;
+    }
+
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
+        // CORREÇÃO 2: Removida a trava "|| setor === 'Configurações'". Agora ele renderiza os módulos de configuração também.
         if (setor === 'Global') return; 
 
         html += `
@@ -150,9 +169,18 @@ window.carregarCheckboxesPermissoes = async function() {
         
         window.MAPA_MENUS.filter(m => m.setor === setor).forEach(menu => {
             const checked = meusAcessos.includes(menu.id) ? 'checked' : '';
-            const disabled = (menu.setor === 'Gerencial' && !isSuperAdmin) ? 'disabled' : '';
+            
+            // Regras de Bloqueio (Desabilita a caixinha)
+            const disabledLogic = (!alvo || (menu.setor === 'Gerencial' && !isSuperAdmin));
+            const disabled = disabledLogic ? 'disabled' : '';
             const disabledClass = disabled ? 'disabled-item' : '';
-            const extraInfo = disabled ? ' title="Apenas SuperAdmin pode alterar este acesso"' : '';
+            
+            let extraInfo = '';
+            if (!alvo) {
+                extraInfo = ' title="Selecione um Cargo/Usuário primeiro para editar os acessos"';
+            } else if (menu.setor === 'Gerencial' && !isSuperAdmin) {
+                extraInfo = ' title="Apenas o Administrador Global pode alterar este acesso"';
+            }
 
             html += `
                 <label class="permissao-item ${disabledClass}" ${extraInfo}>
@@ -177,10 +205,10 @@ window.salvarPermissoes = async function() {
         
         if (tipo === 'perfil') {
             alvo = document.getElementById('selectPerfilPermissao')?.value;
-            if (!alvo) { alert('Selecione um cargo na lista primeiro.'); return; }
+            if (!alvo) { alert('⚠️ Selecione um cargo na lista primeiro.'); return; }
         } else {
             alvo = document.getElementById('selectUsuarioPermissao')?.value;
-            if (!alvo) { alert('Selecione um usuário na lista primeiro.'); return; }
+            if (!alvo) { alert('⚠️ Selecione um usuário na lista primeiro.'); return; }
         }
 
         const checkboxes = document.querySelectorAll('.chk-permissao');
