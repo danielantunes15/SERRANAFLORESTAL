@@ -10,7 +10,7 @@ window.carregarPerfisPermissao = async function() {
             .eq('status', 'Ativo')
             .order('nome');
 
-        // Aplica os filtros hierárquicos por filial
+        // Aplica os filtros hierárquicos por filial para os CARGOS
         if (window.currentUser && window.currentUser.role !== 'SuperAdmin') {
             const filialId = window.currentUser.filial_id;
             if (filialId !== null && filialId !== 'CENTRAL') {
@@ -63,16 +63,39 @@ window.carregarSelectUsuariosPermissoes = async function() {
     
     try {
         const todosUsuarios = await db.getUsuarios('TODAS');
+        let usuariosFiltrados = [];
+        
+        // APLICA AS MESMAS TRAVAS DE SEGURANÇA DA TELA DE USUÁRIOS AQUI NO SELECT
+        if (window.currentUser && window.currentUser.role !== 'SuperAdmin') {
+            const filialAtiva = window.currentUser.filial_id;
+            
+            // 1. Filtra apenas usuários da mesma filial
+            if (filialAtiva !== null && filialAtiva !== 'CENTRAL') {
+                usuariosFiltrados = todosUsuarios.filter(u => u.filial_id == filialAtiva);
+            } else {
+                usuariosFiltrados = todosUsuarios.filter(u => u.filial_id === null);
+            }
+
+            // 2. Remove da lista qualquer usuário que tenha nível SuperAdmin
+            usuariosFiltrados = usuariosFiltrados.filter(u => {
+                const isTargetSuperAdmin = (u.role === 'SuperAdmin' || (u.cargos && u.cargos.nivel_acesso === 'SuperAdmin'));
+                return !isTargetSuperAdmin;
+            });
+        } else {
+            // Se for SuperAdmin, ele pode ver e editar todos
+            usuariosFiltrados = todosUsuarios;
+        }
+
         let options = '<option value="" disabled selected>-- Selecione o Usuário --</option>';
         
-        if (todosUsuarios && todosUsuarios.length > 0) {
-            todosUsuarios.forEach(u => {
+        if (usuariosFiltrados && usuariosFiltrados.length > 0) {
+            usuariosFiltrados.forEach(u => {
                 const userName = u.username || 'Desconhecido';
                 const role = u.cargos ? u.cargos.nome : (u.role || 'Usuario');
                 options += `<option value="user_${u.id}">${userName} (${role})</option>`;
             });
         } else {
-            options = '<option value="" disabled selected>Nenhum usuário encontrado</option>';
+            options = '<option value="" disabled selected>Nenhum usuário disponível</option>';
         }
         selectUser.innerHTML = options;
     } catch (e) {
@@ -82,7 +105,6 @@ window.carregarSelectUsuariosPermissoes = async function() {
 };
 
 window.carregarCheckboxesPermissoes = async function() {
-    // CORREÇÃO 1: Se a lista de cargos ainda estiver vazia quando a tela abrir, força o carregamento
     const selectPerfil = document.getElementById('selectPerfilPermissao');
     if (selectPerfil && selectPerfil.options.length <= 1) {
         await window.carregarPerfisPermissao();
@@ -141,7 +163,6 @@ window.carregarCheckboxesPermissoes = async function() {
 
     let html = '';
 
-    // Aviso quando nada foi selecionado
     if (!alvo) {
         html += `
         <div style="grid-column: 1 / -1; background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); padding: 15px 20px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3); margin-bottom: 10px; display: flex; align-items: center; gap: 15px;">
@@ -156,7 +177,6 @@ window.carregarCheckboxesPermissoes = async function() {
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
-        // CORREÇÃO 2: Removida a trava "|| setor === 'Configurações'". Agora ele renderiza os módulos de configuração também.
         if (setor === 'Global') return; 
 
         html += `
@@ -170,7 +190,6 @@ window.carregarCheckboxesPermissoes = async function() {
         window.MAPA_MENUS.filter(m => m.setor === setor).forEach(menu => {
             const checked = meusAcessos.includes(menu.id) ? 'checked' : '';
             
-            // Regras de Bloqueio (Desabilita a caixinha)
             const disabledLogic = (!alvo || (menu.setor === 'Gerencial' && !isSuperAdmin));
             const disabled = disabledLogic ? 'disabled' : '';
             const disabledClass = disabled ? 'disabled-item' : '';
