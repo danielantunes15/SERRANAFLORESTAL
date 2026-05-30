@@ -14,7 +14,9 @@ window.MAPA_MENUS = [
     { id: 'servicos', label: 'Serviços (Mecânicos)', setor: 'Manutenção', icon: 'fas fa-toolbox' },
     { id: 'cadastro_frota', label: 'Cadastro Frota (O.S.)', setor: 'Manutenção', icon: 'fas fa-truck-moving' },
     { id: 'os_apoio', label: 'O.S. Apoio', setor: 'Manutenção', icon: 'fas fa-truck-pickup' },
-    { id: 'almoxarifado', label: 'Almoxarifado', setor: 'Manutenção', icon: 'fas fa-boxes' },
+    
+    // --- NOVO MÓDULO INDEPENDENTE ---
+    { id: 'almoxarifado', label: 'Gestão de Estoque', setor: 'Almoxarifado', icon: 'fas fa-boxes' },
     
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
 
@@ -59,7 +61,6 @@ const ROTAS = {
     'os': 'modules/manutencao/ordem_servico/os.html',
     'painel_tv': 'modules/manutencao/ordem_servico/painel_tv.html',
     'os_apoio': 'modules/manutencao/ordem_servico/os_apoio.html',
-    'almoxarifado': 'modules/manutencao/almoxarifado/almoxarifado.html',
     'servicos': 'modules/manutencao/servicos/servicos.html',
     'treinamento': 'modules/ssma/treinamento/treinamento.html',
     'rh_painel': 'modules/rh/painel/rh_painel.html',
@@ -82,10 +83,13 @@ const ROTAS = {
     'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html',
     'gestao_usuarios': 'modules/configuracoes/gestao_usuarios.html',
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
-    'auditoria_logs': 'modules/configuracoes/auditoria_logs.html'
+    'auditoria_logs': 'modules/configuracoes/auditoria_logs.html',
+    
+    // --- ROTA ATUALIZADA DO ALMOXARIFADO ---
+    'almoxarifado': 'modules/almoxarifado/almoxarifado.html'
 };
 
-const VERSAO_SISTEMA = "1.0.8";
+const VERSAO_SISTEMA = "1.0.9";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -134,8 +138,6 @@ window.renderizarMenu = async function() {
 
         // --- VERIFICAÇÃO DINÂMICA DE PERMISSÃO POR SETOR ---
         const menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
-        
-        // CORREÇÃO: O usuário verá o setor se for Admin corporativo OU se possuir qualquer menu desse setor na matriz dele
         const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
 
         if (temAcessoAoSetor) {
@@ -182,6 +184,7 @@ window.getIconSetor = function(setor) {
     const icones = {
         'Logística': 'fas fa-truck',
         'Manutenção': 'fas fa-tools',
+        'Almoxarifado': 'fas fa-boxes', 
         'SSMA': 'fas fa-hard-hat',
         'RH': 'fas fa-users', 
         'Controladoria': 'fas fa-sitemap',
@@ -300,7 +303,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();
         if (pagina === 'configuracoes_gerencial' && typeof window.inicializarConfiguracoesGerencial === 'function') window.inicializarConfiguracoesGerencial();
 
-        // Inicializadores dinâmicos dos submenus de configuração independentes
         if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
         if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
         if (pagina === 'auditoria_logs' && typeof window.renderizarLogs === 'function') window.renderizarLogs();
