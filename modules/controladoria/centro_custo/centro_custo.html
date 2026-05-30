@@ -1,22 +1,28 @@
 <style>
-    .ctrl-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; overflow-x: auto; }
+    .ctrl-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; overflow-x: auto; align-items: center; }
     .ctrl-tab-btn { background: transparent; border: none; color: #94a3b8; font-weight: 600; padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; white-space: nowrap; }
     .ctrl-tab-btn:hover { background: rgba(255,255,255,0.05); color: #f8fafc; }
     .ctrl-tab-btn.active { background: #3b82f6; color: #fff; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4); }
     .ctrl-tab-content { display: none; }
     .ctrl-tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+    .divider-vertical { width: 2px; height: 30px; background: rgba(255,255,255,0.1); border-radius: 2px; margin: 0 5px; }
 </style>
 
 <div class="content-panel" style="padding: 20px; background: var(--bg-panel); border-radius: 8px; border: 1px solid var(--border-dim);">
     
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="color: #f8fafc; margin: 0;"><i class="fas fa-sitemap" style="color: #3b82f6; margin-right: 10px;"></i>Gestão de Custos (Hierarquia)</h2>
+        <h2 style="color: #f8fafc; margin: 0;"><i class="fas fa-sitemap" style="color: #3b82f6; margin-right: 10px;"></i>Gestão Corporativa e Custos</h2>
     </div>
 
     <div class="ctrl-tabs">
-        <button class="ctrl-tab-btn active" onclick="switchTabControladoria('tab-cc', this)"><i class="fas fa-building" style="margin-right: 5px;"></i> Nível 1: Centros de Custo</button>
-        <button class="ctrl-tab-btn" onclick="switchTabControladoria('tab-obj', this)"><i class="fas fa-tags" style="margin-right: 5px;"></i> Nível 2: Objetos de Custo</button>
-        <button class="ctrl-tab-btn" onclick="switchTabControladoria('tab-ativ', this)"><i class="fas fa-project-diagram" style="margin-right: 5px;"></i> Nível 3: Atividades / Processos</button>
+        <button class="ctrl-tab-btn active" onclick="switchTabControladoria('tab-cc', this)"><i class="fas fa-building" style="margin-right: 5px;"></i> Centros de Custo</button>
+        <button class="ctrl-tab-btn" onclick="switchTabControladoria('tab-obj', this)"><i class="fas fa-tags" style="margin-right: 5px;"></i> Objetos de Custo</button>
+        <button class="ctrl-tab-btn" onclick="switchTabControladoria('tab-ativ', this)"><i class="fas fa-project-diagram" style="margin-right: 5px;"></i> Atividades / Processos</button>
+        
+        <div class="divider-vertical"></div>
+        
+        <button class="ctrl-tab-btn" onclick="switchTabControladoria('tab-setores', this)"><i class="fas fa-network-wired" style="margin-right: 5px;"></i> Setores Corporativos</button>
+        <button class="ctrl-tab-btn" onclick="switchTabControladoria('tab-cargos', this)"><i class="fas fa-user-tie" style="margin-right: 5px;"></i> Cargos & Organograma</button>
     </div>
 
     <div id="tab-cc" class="ctrl-tab-content active">
@@ -28,6 +34,7 @@
                 <thead>
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);">
                         <th style="padding: 12px; font-weight: 600;">Código</th>
+                        <th style="padding: 12px; font-weight: 600;">Filial Vinculada</th>
                         <th style="padding: 12px; font-weight: 600;">Nome do Centro de Custo</th>
                         <th style="padding: 12px; font-weight: 600;">Descrição</th>
                         <th style="padding: 12px; font-weight: 600;">Status</th>
@@ -35,7 +42,7 @@
                     </tr>
                 </thead>
                 <tbody id="tbodyCentrosCusto">
-                    <tr><td colspan="5" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>
+                    <tr><td colspan="6" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -50,6 +57,7 @@
                 <thead>
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);">
                         <th style="padding: 12px; font-weight: 600;">Código/Placa</th>
+                        <th style="padding: 12px; font-weight: 600;">Filial Vinculada</th>
                         <th style="padding: 12px; font-weight: 600;">Nome do Objeto</th>
                         <th style="padding: 12px; font-weight: 600;">Tipo</th>
                         <th style="padding: 12px; font-weight: 600;">Centro de Custo (Pai)</th>
@@ -58,7 +66,7 @@
                     </tr>
                 </thead>
                 <tbody id="tbodyObjetosCusto">
-                    <tr><td colspan="6" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>
+                    <tr><td colspan="7" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -73,6 +81,7 @@
                 <thead>
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);">
                         <th style="padding: 12px; font-weight: 600;">Código</th>
+                        <th style="padding: 12px; font-weight: 600;">Filial Vinculada</th>
                         <th style="padding: 12px; font-weight: 600;">Atividade / Processo</th>
                         <th style="padding: 12px; font-weight: 600;">Objeto de Custo (Pai)</th>
                         <th style="padding: 12px; font-weight: 600;">Centro de Custo (Avô)</th>
@@ -81,7 +90,53 @@
                     </tr>
                 </thead>
                 <tbody id="tbodyAtividades">
-                    <tr><td colspan="6" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>
+                    <tr><td colspan="7" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-setores" class="ctrl-tab-content">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+            <button class="btn-primary-blue" style="background: #10b981;" onclick="abrirModalSetor()">➕ Novo Setor</button>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; color: #cbd5e1;">
+                <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);">
+                        <th style="padding: 12px; font-weight: 600;">Nome do Setor</th>
+                        <th style="padding: 12px; font-weight: 600;">Filial Vinculada</th>
+                        <th style="padding: 12px; font-weight: 600;">Descrição</th>
+                        <th style="padding: 12px; font-weight: 600;">Status</th>
+                        <th style="padding: 12px; font-weight: 600; text-align: center;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodySetores">
+                    <tr><td colspan="5" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-cargos" class="ctrl-tab-content">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+            <button class="btn-primary-blue" style="background: #f59e0b;" onclick="abrirModalCargo()">➕ Novo Cargo</button>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; color: #cbd5e1;">
+                <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);">
+                        <th style="padding: 12px; font-weight: 600;">Cargo</th>
+                        <th style="padding: 12px; font-weight: 600;">Filial</th>
+                        <th style="padding: 12px; font-weight: 600;">Nível / Organograma</th>
+                        <th style="padding: 12px; font-weight: 600;">Setor Vinculado</th>
+                        <th style="padding: 12px; font-weight: 600;">Centro de Custo (Acesso)</th>
+                        <th style="padding: 12px; font-weight: 600;">Status</th>
+                        <th style="padding: 12px; font-weight: 600; text-align: center;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyCargos">
+                    <tr><td colspan="7" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -97,6 +152,10 @@
         </div>
         <div class="modal-body">
             <input type="hidden" id="ccId">
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label>Filial Vinculada</label>
+                <select id="ccFilialId" class="dark-select" required></select>
+            </div>
             <div class="form-group-dark" style="margin-bottom: 15px;">
                 <label>Código do Centro de Custo (Ex: CC-001)</label>
                 <input type="text" id="ccCodigo" class="dark-select" placeholder="Código Único" required>
@@ -129,6 +188,10 @@
         </div>
         <div class="modal-body">
             <input type="hidden" id="objId">
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label>Filial Vinculada</label>
+                <select id="objFilialId" class="dark-select" onchange="carregarOpcoesCentroCusto()" required></select>
+            </div>
             <div class="form-group-dark" style="margin-bottom: 15px;">
                 <label>Vincular ao Centro de Custo (Nível 1)</label>
                 <select id="objCentroCustoId" class="dark-select" required></select>
@@ -179,6 +242,10 @@
         <div class="modal-body">
             <input type="hidden" id="ativId">
             <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label>Filial Vinculada</label>
+                <select id="ativFilialId" class="dark-select" onchange="carregarOpcoesObjetoCustoAtiv()" required></select>
+            </div>
+            <div class="form-group-dark" style="margin-bottom: 15px;">
                 <label>Vincular ao Objeto de Custo (Nível 2)</label>
                 <select id="ativObjetoCustoId" class="dark-select" required></select>
             </div>
@@ -202,6 +269,98 @@
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="fecharModalAtividade()">Cancelar</button>
             <button class="btn-primary-green" onclick="salvarAtividade()">💾 Salvar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalSetor" class="modal-overlay" style="display: none;">
+    <div class="custom-modal" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="modalSetorTitle">🏢 Novo Setor Corporativo</h3>
+            <button class="close-modal" onclick="fecharModalSetor()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="setorId">
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label>Nome do Setor</label>
+                <input type="text" id="setorNome" class="dark-select" placeholder="Ex: Recursos Humanos, Operações..." required>
+            </div>
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label>Filial Vinculada</label>
+                <select id="setorFilialId" class="dark-select" required></select>
+            </div>
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label>Descrição e Escopo</label>
+                <textarea id="setorDescricao" class="dark-select" rows="3"></textarea>
+            </div>
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label>Status</label>
+                <select id="setorStatus" class="dark-select"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalSetor()">Cancelar</button>
+            <button class="btn-primary-green" onclick="salvarSetor()">💾 Salvar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalCargo" class="modal-overlay" style="display: none;">
+    <div class="custom-modal" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 id="modalCargoTitle">👔 Novo Cargo / Posição</h3>
+            <button class="close-modal" onclick="fecharModalCargo()">&times;</button>
+        </div>
+        <div class="modal-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <input type="hidden" id="cargoId">
+            
+            <div class="form-group-dark" style="grid-column: span 2;">
+                <label>Nome do Cargo</label>
+                <input type="text" id="cargoNome" class="dark-select" placeholder="Ex: Gerente de Manutenção" required>
+            </div>
+
+            <div class="form-group-dark" style="grid-column: span 1;">
+                <label>Filial do Cargo</label>
+                <select id="cargoFilialId" class="dark-select" onchange="atualizarFiltrosCargo()" required></select>
+            </div>
+
+            <div class="form-group-dark" style="grid-column: span 1;">
+                <label style="color: #60a5fa;">Reporta a (Cargo Superior)</label>
+                <select id="cargoSuperiorId" class="dark-select" style="border-color: rgba(59,130,246,0.3);"></select>
+            </div>
+
+            <div class="form-group-dark" style="grid-column: span 2;">
+                <label>Nível no Organograma</label>
+                <select id="cargoHierarquia" class="dark-select">
+                    <option value="Sócio Proprietário">Sócio Proprietário</option>
+                    <option value="Gerência Executiva">Gerência Executiva</option>
+                    <option value="Gerência Comercial">Gerência Comercial</option>
+                    <option value="Gerência de Setor">Gerência de Setor</option>
+                    <option value="Supervisor">Supervisor</option>
+                    <option value="Coordenador">Coordenador</option>
+                    <option value="Operacional">Operacional / Base</option>
+                    <option value="Administrativo">Apoio / Administrativo</option>
+                </select>
+            </div>
+
+            <div class="form-group-dark" style="grid-column: span 2;">
+                <label>Vincular ao Setor / Departamento</label>
+                <select id="cargoSetorId" class="dark-select" required></select>
+            </div>
+
+            <div class="form-group-dark" style="grid-column: span 2;">
+                <label>Vincular Centro de Custo (Para apropriação de despesas)</label>
+                <select id="cargoCentroCustoId" class="dark-select" required></select>
+            </div>
+
+            <div class="form-group-dark" style="grid-column: span 2;">
+                <label>Status</label>
+                <select id="cargoStatus" class="dark-select"><option value="Ativo">Ativo</option><option value="Inativo">Inativo</option></select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalCargo()">Cancelar</button>
+            <button class="btn-primary-green" onclick="salvarCargo()">💾 Salvar</button>
         </div>
     </div>
 </div>

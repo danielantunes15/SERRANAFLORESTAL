@@ -20,7 +20,7 @@ const MAPA_MENUS = [
 
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
     
-    // --- SETOR: CONTROLADORIA (TELA ÚNICA COM ABAS) ---
+    // --- SETOR: CONTROLADORIA ---
     { id: 'centro_custo', label: 'Gestão de Custos', setor: 'Controladoria', icon: 'fas fa-sitemap' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
@@ -59,13 +59,13 @@ const ROTAS = {
     'servicos': 'modules/manutencao/servicos/servicos.html',
     'treinamento': 'modules/ssma/treinamento/treinamento.html',
     'rh_painel': 'modules/rh/painel/rh_painel.html',
-    'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', // Única Rota de Controladoria
+    'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', 
     'recados': 'modules/ssma/recados/recados.html',
     'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/indicadores.html',
     'indicadores_serrana': 'modules/indicadores/indicadores_serrana.html',
     'cadastro_indicadores': 'modules/indicadores/cadastro_indicadores.html',
-    'config': 'modules/monitoramento/config/config.html',
+    'config': 'modules/configuracoes/configuracoes.html',
     'central': 'modules/monitoramento/central/central.html',
     'logs_globais': 'modules/monitoramento/central/logs_globais.html',
     'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
@@ -79,7 +79,7 @@ const ROTAS = {
     'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html'
 };
 
-const VERSAO_SISTEMA = "1.0.2"; 
+const VERSAO_SISTEMA = "1.0.6";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -94,8 +94,20 @@ window.renderizarMenu = async function() {
 
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
     const userKey = currentUser ? 'user_' + currentUser.id : '';
+    const cargoKey = (currentUser && currentUser.cargo_id) ? currentUser.cargo_id.toString() : null;
 
-    let meusMenus = permissoesAtuais[userRole] || [];
+    let meusMenus = [];
+
+    // CORREÇÃO: 1. Procura primeiro as permissões associadas ao Cargo Específico no Organograma
+    if (cargoKey && permissoesAtuais[cargoKey]) {
+        meusMenus = permissoesAtuais[cargoKey];
+    } 
+    // 2. Se não tiver configuração específica no cargo, herda do nível de acesso (SuperAdmin, Gerente, Usuario)
+    else if (permissoesAtuais[userRole]) {
+        meusMenus = permissoesAtuais[userRole];
+    }
+
+    // 3. Exceção do próprio usuário se sobrepõe a tudo
     if (userKey && permissoesAtuais[userKey] && !permissoesAtuais[userKey].includes('__RESET__')) {
         meusMenus = permissoesAtuais[userKey];
     }
@@ -109,9 +121,13 @@ window.renderizarMenu = async function() {
 
     setores.forEach(setor => {
         if (isSessaoCentral) {
-            if (setor !== 'Global') return; 
+            if (userRole === 'SuperAdmin') {
+                if (setor !== 'Controladoria' && setor !== 'Global') return;
+            } else {
+                if (setor !== 'Global') return;
+            }
         } else {
-            if (setor === 'Global') return;
+            if (setor === 'Global' || setor === 'Controladoria') return;
         }
 
         const menusDoSetor = MAPA_MENUS.filter(m => m.setor === setor);
@@ -135,7 +151,7 @@ window.renderizarMenu = async function() {
         }
     });
 
-    if ((isAdmin || isGerente) && !isSessaoCentral) {
+    if (userRole === 'SuperAdmin' || ((isAdmin || isGerente) && !isSessaoCentral)) {
         navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-cog"></i> Configurações</button>`;
     }
 
@@ -159,7 +175,7 @@ window.renderizarMenu = async function() {
             }
         });
         if ((isAdmin || isGerente) && !pageCache['config']) {
-            fetch(`modules/monitoramento/config/config.html?v=${VERSAO_SISTEMA}`).then(r => r.text()).then(t => pageCache['config'] = t).catch(e=>{});
+            fetch(`modules/configuracoes/configuracoes.html?v=${VERSAO_SISTEMA}`).then(r => r.text()).then(t => pageCache['config'] = t).catch(e=>{});
         }
     }, 2000); 
 }
@@ -200,14 +216,15 @@ window.carregarCheckboxesPermissoes = async function() {
     }
 
     const tipo = document.querySelector('input[name="tipoPermissao"]:checked')?.value || 'perfil';
-    let alvo = 'Controlador de Tráfego';
+    let alvo = '';
     
     if (tipo === 'perfil') {
-        alvo = document.getElementById('selectPerfilPermissao')?.value || 'Controlador de Tráfego';
+        alvo = document.getElementById('selectPerfilPermissao')?.value;
     } else {
         alvo = document.getElementById('selectUsuarioPermissao')?.value;
-        if(!alvo) return;
     }
+
+    if (!alvo) return; // Se ainda não carregou as opções, não renderiza as caixinhas
 
     let permissoesAtuais = {};
     if (typeof db !== 'undefined' && typeof db.getPermissoesDB === 'function') {
@@ -286,6 +303,13 @@ window.navegarPara = async function(pagina, elementoClicado) {
         alert('Acesso Negado.'); return; 
     }
 
+    if (pagina === 'centro_custo') {
+        const isCentral = (currentUser && (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL'));
+        if (!isCentral && userRole !== 'SuperAdmin') {
+            alert('Acesso restrito à Matriz e Gestão Corporativa.'); return;
+        }
+    }
+
     if (elementoClicado) {
         document.querySelectorAll('.nav-item, .dropdown-item').forEach(el => el.classList.remove('active'));
         elementoClicado.classList.add('active');
@@ -320,7 +344,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         mainContent.innerHTML = pageCache[pagina];
 
-        // GATILHOS DE INICIALIZAÇÃO
         if (pagina === 'central' && typeof window.renderizarCentral === 'function') window.renderizarCentral();
         if (pagina === 'logs_globais' && typeof window.renderizarLogsGlobais === 'function') window.renderizarLogsGlobais(); 
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
@@ -344,7 +367,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         if (pagina === 'rh_painel' && typeof window.initRHPainel === 'function') window.initRHPainel(); 
         
-        // --- GATILHO DA NOVA TELA UNIFICADA DE CONTROLADORIA ---
         if (pagina === 'centro_custo' && typeof window.initControladoria === 'function') window.initControladoria();
 
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();

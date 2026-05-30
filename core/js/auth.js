@@ -11,7 +11,6 @@ window.fazerLogout = function() {
     }
 }
 
-// Função para o SuperAdmin navegar entre filiais em tempo real
 window.trocarFilialSuperAdmin = async function(novoFilialIdRaw) {
     const filial_id = novoFilialIdRaw === 'CENTRAL' ? null : parseInt(novoFilialIdRaw);
     let nomeFilial = "ADMINISTRADOR";
@@ -22,12 +21,9 @@ window.trocarFilialSuperAdmin = async function(novoFilialIdRaw) {
         if (f) nomeFilial = f.nome;
     }
 
-    // Atualiza a sessão silenciosamente
     window.currentUser.filial_id = filial_id;
     window.currentUser.filiais = { nome: nomeFilial };
     localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
-
-    // Recarrega a página para puxar dados EXCLUSIVOS da filial selecionada
     window.location.reload();
 }
 
@@ -40,7 +36,6 @@ async function iniciarSistemaAutorizado() {
     
     const roleSpan = document.getElementById('loggedUserRole');
 
-    // ============= MAGIA DO SUPER ADMIN (CONTEXT SWITCHER) =============
     if (window.currentUser.role === 'SuperAdmin') {
         db.getFiliais().then(filiais => {
             let options = `<option value="CENTRAL" ${window.currentUser.filial_id === null ? 'selected' : ''}>ADMINISTRADOR</option>`;
@@ -55,10 +50,8 @@ async function iniciarSistemaAutorizado() {
             `;
         });
     } else {
-        // Usuário normal vê apenas seu vínculo fixo
         roleSpan.innerHTML = `<i class="fas fa-building"></i> ${filialNome}`;
     }
-    // ================================================================
 
     const statsHeader = document.querySelector('.quick-stats-header');
     if (statsHeader) {
@@ -82,9 +75,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (sessaoSalva) {
         window.currentUser = JSON.parse(sessaoSalva);
         
-        // =========================================================================
-        // VALIDAÇÃO DE SEGURANÇA CONTRA USUÁRIOS EXCLUÍDOS
-        // =========================================================================
         try {
             const dbUser = await db.getUsuarioByUsername(window.currentUser.username);
             
@@ -96,6 +86,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             window.currentUser.role = dbUser.role;
+            // CORREÇÃO: Recuperar o ID do Cargo no banco para alinhar as permissões
+            if (dbUser.cargo_id) window.currentUser.cargo_id = dbUser.cargo_id;
+            
             localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
 
         } catch (error) {
@@ -125,18 +118,21 @@ const permissoesPadrao = {
 
 window.getPermissoes = function() { return window.permissoesGlobais || permissoesPadrao; };
 
-// SALVAMENTO DE PERMISSÕES MISTAS (PERFIL OU USUÁRIO ESPECÍFICO)
 window.salvarPermissoesPerfil = async function() {
     const tipo = document.querySelector('input[name="tipoPermissao"]:checked')?.value || 'perfil';
     let alvo = '';
     let nomeAlerta = '';
 
     if (tipo === 'perfil') {
-        alvo = document.getElementById('selectPerfilPermissao').value;
-        nomeAlerta = `o perfil "${alvo}"`;
+        const selectEl = document.getElementById('selectPerfilPermissao');
+        alvo = selectEl.value; // Recebe o ID do cargo
+        
+        if (!alvo) { alert("⚠️ Selecione um cargo primeiro."); return; }
+        nomeAlerta = `o perfil "${selectEl.options[selectEl.selectedIndex].text}"`;
     } else {
         const selUser = document.getElementById('selectUsuarioPermissao');
         alvo = selUser.value;
+        if (!alvo) { alert("⚠️ Selecione um usuário primeiro."); return; }
         nomeAlerta = `a Exceção do usuário ${selUser.options[selUser.selectedIndex].text}`;
     }
 
@@ -145,7 +141,6 @@ window.salvarPermissoesPerfil = async function() {
     
     const isSuperAdmin = (window.currentUser && window.currentUser.role === 'SuperAdmin');
 
-    // TRAVA DE SEGURANÇA CONTRA FORÇAMENTO VIA CONSOLE
     if (!isSuperAdmin) {
         const menusRestritos = ['producao_frota']; 
         

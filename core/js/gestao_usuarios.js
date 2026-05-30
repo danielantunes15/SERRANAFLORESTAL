@@ -3,29 +3,87 @@
 let listaUsuarios = [];
 let listaFiliaisAtivas = [];
 
-// Função auxiliar para injetar dinamicamente um seletor de filiais na hora de criar usuário
-async function injetarSelectFilialSeAdmin() {
-    // Apenas SuperAdmin tem a liberdade de escolher em qual filial o usuário vai nascer
-    if (!window.currentUser || window.currentUser.role !== 'SuperAdmin') return;
-    
+// Função auxiliar que injeta as amarrações do Organograma Corporativo
+async function injetarSelectsOrganizacionais() {
     const inputRole = document.getElementById('novoUserRole');
-    if (inputRole && inputRole.parentNode && !document.getElementById('novoUserFilial')) {
-        const select = document.createElement('select');
-        select.id = 'novoUserFilial';
-        select.className = 'dark-select';
-        select.style.marginLeft = '10px';
-        select.style.padding = '8px';
-        select.style.borderRadius = '4px';
+    if (!inputRole || !inputRole.parentNode) return;
+    
+    inputRole.style.display = 'none';
+
+    if (!document.getElementById('novoUserFilial')) {
+        const selectFilial = document.createElement('select');
+        selectFilial.id = 'novoUserFilial';
+        selectFilial.className = 'dark-select';
+        selectFilial.style.marginLeft = '10px';
+        selectFilial.style.padding = '8px';
+        selectFilial.style.borderRadius = '4px';
         
-        const filiais = await db.getTodasFiliaisAdmin();
-        let options = '<option value="" disabled selected>-- Selecione a Filial do Usuário --</option>';
-        options += '<option value="CENTRAL">ADMINISTRAÇÃO (Acesso Global)</option>';
-        filiais.forEach(f => {
-            options += `<option value="${f.id}">${f.nome}</option>`;
-        });
-        
-        select.innerHTML = options;
-        inputRole.parentNode.insertBefore(select, inputRole.nextSibling);
+        const selectCargo = document.createElement('select');
+        selectCargo.id = 'novoUserCargo';
+        selectCargo.className = 'dark-select';
+        selectCargo.style.marginLeft = '10px';
+        selectCargo.style.padding = '8px';
+        selectCargo.style.borderRadius = '4px';
+        selectCargo.innerHTML = '<option value="" disabled selected>-- Selecione a Filial Primeiro --</option>';
+
+        inputRole.parentNode.insertBefore(selectFilial, inputRole.nextSibling);
+        inputRole.parentNode.insertBefore(selectCargo, selectFilial.nextSibling);
+
+        const carregarCargosParaFilial = async (filialId) => {
+            if (!filialId) return;
+            selectCargo.innerHTML = '<option value="">Carregando Cargos Corporativos...</option>';
+            
+            try {
+                let query = supabaseClient.from('cargos')
+                    .select('id, nome, nivel_hierarquico, nivel_acesso, centro_custo_id')
+                    .eq('status', 'Ativo');
+                
+                if (filialId === 'CENTRAL') {
+                    query = query.is('filial_id', null);
+                } else {
+                    query = query.eq('filial_id', parseInt(filialId));
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+                
+                let options = '<option value="" disabled selected>-- Selecione o Cargo no Organograma --</option>';
+                if (data && data.length > 0) {
+                    data.forEach(c => {
+                        const ccAttr = c.centro_custo_id ? c.centro_custo_id : '';
+                        options += `<option value="${c.id}" data-role="${c.nivel_acesso}" data-cc="${ccAttr}">${c.nome} (${c.nivel_hierarquico})</option>`;
+                    });
+                } else {
+                    options = '<option value="" disabled selected>Nenhum Cargo Configurado Nesta Filial</option>';
+                }
+                selectCargo.innerHTML = options;
+            } catch(e) {
+                console.error("Erro ao puxar cargos da filial:", e);
+                selectCargo.innerHTML = '<option value="" disabled selected>Erro ao carregar Organograma</option>';
+            }
+        };
+
+        selectFilial.addEventListener('change', (e) => carregarCargosParaFilial(e.target.value));
+
+        if (window.currentUser && window.currentUser.role === 'SuperAdmin') {
+            try {
+                const filiais = await db.getTodasFiliaisAdmin();
+                let options = '<option value="" disabled selected>-- Selecione a Filial de Atuação --</option>';
+                options += '<option value="CENTRAL">ADMINISTRAÇÃO (Corporativo / Global)</option>';
+                if (filiais && filiais.length > 0) {
+                    filiais.forEach(f => { options += `<option value="${f.id}">${f.nome}</option>`; });
+                }
+                selectFilial.innerHTML = options;
+                selectFilial.disabled = false;
+            } catch (e) {
+                console.error("Erro ao listar filiais:", e);
+            }
+        } else if (window.currentUser) {
+            const fValue = window.currentUser.filial_id === null ? 'CENTRAL' : window.currentUser.filial_id;
+            selectFilial.innerHTML = `<option value="${fValue}" selected>Minha Filial Base</option>`;
+            selectFilial.disabled = true;
+            carregarCargosParaFilial(fValue);
+        }
     }
 }
 
@@ -33,28 +91,32 @@ window.renderizarUsuarios = async function() {
     const tbody = document.getElementById('tabelaUsuarios');
     if (!tbody) return;
 
-    await injetarSelectFilialSeAdmin();
+    await injetarSelectsOrganizacionais();
+    await window.carregarPerfisPermissao();
 
     try {
-        const todosUsuarios = await db.getUsuarios('TODAS'); // Puxa todos do banco
+        let mapaCargos = {};
+        try {
+            const { data: cargosData, error: errCargos } = await supabaseClient.from('cargos').select('id, nome');
+            if (!errCargos && cargosData) {
+                cargosData.forEach(c => mapaCargos[c.id] = c.nome);
+            }
+        } catch (e) {
+            console.error("Erro ao buscar cargos para o mapeamento:", e);
+        }
+
+        const todosUsuarios = await db.getUsuarios('TODAS'); 
         
-        // =========================================================
-        // FILTRO DE SEGURANÇA: Exibir apenas os usuários da filial logada
-        // =========================================================
-        if (window.currentUser) {
+        if (window.currentUser && window.currentUser.role !== 'SuperAdmin') {
             const filialAtiva = window.currentUser.filial_id;
-            
-            // Se a filial logada não for CENTRAL (null), filtra a lista para mostrar apenas da sua filial
             if (filialAtiva !== null && filialAtiva !== 'CENTRAL') {
                 listaUsuarios = todosUsuarios.filter(u => u.filial_id == filialAtiva);
             } else {
-                // Se estiver na Visão Central (SuperAdmin Global), vê todos os usuários de todas as filiais
-                listaUsuarios = todosUsuarios;
+                listaUsuarios = todosUsuarios.filter(u => u.filial_id === null);
             }
         } else {
-            listaUsuarios = todosUsuarios;
+            listaUsuarios = todosUsuarios; 
         }
-        // =========================================================
 
         if (listaUsuarios.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Nenhum usuário encontrado para esta filial.</td></tr>'; return;
@@ -66,13 +128,16 @@ window.renderizarUsuarios = async function() {
                 ? `<span style="background: rgba(251, 146, 60, 0.1); color: var(--ccol-rust-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-rust-bright);">Pendente</span>`
                 : `<span style="background: rgba(61, 220, 132, 0.1); color: var(--ccol-green-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-green-bright);">Ativo</span>`;
             
-            // Exibe a qual filial o usuário pertence (mostra na tabela confirmando a segurança)
-            const filialNome = u.filial_id === null ? '<span style="color:#fde047; font-weight:bold;">Admin. Central</span>' : (u.filiais ? u.filiais.nome : 'Sem Filial');
+            const filialNome = u.filial_id === null ? '<span style="color:#fde047; font-weight:bold;">Corporativo Global</span>' : (u.filiais ? u.filiais.nome : `Filial ID: ${u.filial_id}`);
+            
+            const nomeDoCargo = (u.cargo_id && mapaCargos[u.cargo_id]) 
+                ? mapaCargos[u.cargo_id] 
+                : (u.cargos ? u.cargos.nome : (u.role || 'Sem Cargo Definido'));
                 
             return `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                 <td style="font-weight: bold; color: var(--ccol-blue-bright); padding: 12px;">${u.username} ${isCurrent ? '(Você)' : ''}</td>
-                <td><span class="badge-role" style="font-size: 0.75rem;">${u.role}</span></td>
+                <td><span class="badge-role" style="font-size: 0.75rem; background: #3b82f6;">${nomeDoCargo}</span></td>
                 <td style="font-size: 0.8rem; color: #cbd5e1;">${filialNome}</td>
                 <td>${statusBadge}</td>
                 <td>
@@ -82,31 +147,36 @@ window.renderizarUsuarios = async function() {
             </tr>
         `}).join('');
     } catch (e) {
+        console.error(e);
         tbody.innerHTML = '<tr><td colspan="5" style="color: #ef4444;">Erro ao carregar dados dos usuários.</td></tr>';
     }
 }
 
 window.adicionarUsuario = async function() {
     const nome = document.getElementById('novoUsername').value.trim().toUpperCase();
-    const role = document.getElementById('novoUserRole').value;
     if (!nome) return;
 
-    // TRAVA DE SEGURANÇA: Somente SuperAdmin pode criar cargo Gerente
-    if (role === 'Gerente' && (!window.currentUser || window.currentUser.role !== 'SuperAdmin')) {
-        alert('⚠️ Acesso Negado: Somente o SuperAdmin pode criar usuários com o nível de "Gerente".');
-        return;
+    const selectFilial = document.getElementById('novoUserFilial');
+    const selectCargo = document.getElementById('novoUserCargo');
+
+    if (!selectFilial || selectFilial.value === '') {
+        alert('⚠️ Por favor, selecione a Filial a qual o usuário pertence.'); return;
+    }
+    
+    if (!selectCargo || selectCargo.value === '') {
+        alert('⚠️ Selecione a posição do usuário no Organograma (Cargo).'); return;
     }
 
-    let filialSelecionada = undefined;
-    const selectFilial = document.getElementById('novoUserFilial');
+    const filialSelecionada = selectFilial.value === 'CENTRAL' ? null : parseInt(selectFilial.value);
     
-    // Se o select de filial existir (ou seja, quem está criando é SuperAdmin Global)
-    if (selectFilial) {
-        if (selectFilial.value === '') {
-            alert('⚠️ Por favor, selecione a qual filial este usuário pertencerá.');
-            return;
-        }
-        filialSelecionada = selectFilial.value === 'CENTRAL' ? null : parseInt(selectFilial.value);
+    const cargoOption = selectCargo.options[selectCargo.selectedIndex];
+    const systemRole = cargoOption.getAttribute('data-role'); 
+    const centroCustoId = cargoOption.getAttribute('data-cc');
+    const cargoId = parseInt(selectCargo.value);
+
+    if ((systemRole === 'Gerente' || systemRole === 'SuperAdmin') && (!window.currentUser || window.currentUser.role !== 'SuperAdmin')) {
+        alert('⚠️ Acesso Negado: Somente o Administrador Global pode criar acessos neste nível hierárquico.');
+        return;
     }
 
     if (listaUsuarios.some(u => u.username === nome)) { alert('⚠️ Este usuário já existe!'); return; }
@@ -114,26 +184,24 @@ window.adicionarUsuario = async function() {
     try {
         const novoUsuarioObj = { 
             username: nome, 
-            senha_hash: "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5", // Hash padrão para 12345
-            role: role, 
-            primeiro_acesso: true 
+            senha_hash: "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5",
+            role: systemRole, 
+            primeiro_acesso: true,
+            filial_id: filialSelecionada,
+            cargo_id: cargoId,          
+            centro_custo_id: centroCustoId ? parseInt(centroCustoId) : null 
         };
-
-        // TRAVA DE FILIAL NA CRIAÇÃO:
-        // Se foi selecionada pelo SuperAdmin, usa ela. Senão (caso do Admin da Filial), amarra obrigatoriamente na filial de quem está criando!
-        if (filialSelecionada !== undefined) {
-            novoUsuarioObj.filial_id = filialSelecionada;
-        } else {
-            novoUsuarioObj.filial_id = window.currentUser.filial_id === 'CENTRAL' ? null : window.currentUser.filial_id;
-        }
 
         await db.addUsuario(novoUsuarioObj);
         document.getElementById('novoUsername').value = '';
-        if(selectFilial) selectFilial.value = '';
+        selectCargo.value = '';
         
-        alert(`✅ Usuário ${nome} criado com sucesso!\nSenha provisória: 12345`);
+        alert(`✅ Usuário ${nome} criado e integrado ao Organograma com sucesso!\nSenha provisória: 12345`);
         window.renderizarUsuarios();
-    } catch(e) { alert('Erro ao criar usuário.'); }
+    } catch(e) { 
+        console.error(e);
+        alert('❌ Erro ao registrar o usuário na estrutura corporativa. Verifique o console.'); 
+    }
 }
 
 window.resetarSenhaUsuario = async function(id) {
@@ -145,9 +213,9 @@ window.resetarSenhaUsuario = async function(id) {
 }
 
 window.excluirUsuario = async function(id) {
-    if(confirm(`🚨 ATENÇÃO: Deseja EXCLUIR permanentemente o acesso deste usuário?`)) {
+    if(confirm(`🚨 ATENÇÃO: Deseja EXCLUIR permanentemente o acesso deste usuário e o desvincular do organograma?`)) {
         await db.deleteUsuario(id);
-        alert('Usuário excluído.'); 
+        alert('Usuário desvinculado e excluído.'); 
         window.renderizarUsuarios();
     }
 }
@@ -168,3 +236,147 @@ window.renderizarLogs = async function() {
         `).join('');
     } catch(e) { tbody.innerHTML = '<tr><td colspan="4" style="color: #ef4444;">Erro ao carregar logs.</td></tr>'; }
 }
+
+window.carregarPerfisPermissao = async function() {
+    const selectPerfil = document.getElementById('selectPerfilPermissao');
+    if (!selectPerfil) return; 
+
+    try {
+        let query = supabaseClient.from('cargos')
+            .select('id, nome, filial_id, nivel_acesso')
+            .eq('status', 'Ativo')
+            .order('nome');
+
+        if (window.currentUser && window.currentUser.role !== 'SuperAdmin') {
+            const filialId = window.currentUser.filial_id;
+            if (filialId !== null && filialId !== 'CENTRAL') {
+                query = query.eq('filial_id', parseInt(filialId));
+            } else {
+                query = query.is('filial_id', null);
+            }
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        let options = '<option value="" disabled selected>-- Selecione o Cargo --</option>';
+        if (data && data.length > 0) {
+            data.forEach(cargo => {
+                options += `<option value="${cargo.id}" data-id="${cargo.id}" data-role="${cargo.nivel_acesso}">${cargo.nome}</option>`;
+            });
+        } else {
+            options = '<option value="" disabled selected>Nenhum Cargo Cadastrado na sua Filial</option>';
+        }
+        selectPerfil.innerHTML = options;
+        
+    } catch (error) {
+        console.error("Erro ao puxar cargos da Controladoria:", error);
+        selectPerfil.innerHTML = '<option value="" disabled selected>Erro ao carregar Organograma</option>';
+    }
+};
+
+document.addEventListener('DOMContentLoaded', async () => {
+    if (document.getElementById('selectPerfilPermissao')) {
+        await window.carregarPerfisPermissao();
+    }
+});
+
+// ==================== NOVAS FUNÇÕES: CONTROLE VISUAL E DE ACESSOS ====================
+
+window.alternarAbaConfig = function(abaId, elementoClicado) {
+    document.querySelectorAll('.config-menu-item').forEach(el => el.classList.remove('active'));
+    if (elementoClicado) elementoClicado.classList.add('active');
+
+    document.querySelectorAll('.config-tab-content').forEach(el => el.style.display = 'none');
+    const tab = document.getElementById(abaId);
+    if (tab) tab.style.display = 'block';
+};
+
+window.mudarTipoPermissao = function(tipo) {
+    const selectCargo = document.getElementById('selectPerfilPermissao');
+    const selectUser = document.getElementById('selectUsuarioPermissao');
+    
+    if (tipo === 'perfil') {
+        if(selectCargo) selectCargo.style.display = 'block';
+        if(selectUser) selectUser.style.display = 'none';
+    } else {
+        if(selectCargo) selectCargo.style.display = 'none';
+        if(selectUser) selectUser.style.display = 'block';
+        if(typeof window.carregarSelectUsuariosPermissoes === 'function') window.carregarSelectUsuariosPermissoes();
+    }
+    
+    if(typeof window.carregarCheckboxesPermissoes === 'function') {
+        window.carregarCheckboxesPermissoes();
+    }
+};
+
+window.carregarSelectUsuariosPermissoes = async function() {
+    const selectUser = document.getElementById('selectUsuarioPermissao');
+    if (!selectUser) return;
+    
+    try {
+        const todosUsuarios = await db.getUsuarios('TODAS');
+        let options = '<option value="" disabled selected>-- Selecione o Usuário --</option>';
+        
+        if (todosUsuarios && todosUsuarios.length > 0) {
+            todosUsuarios.forEach(u => {
+                const userName = u.username || 'Desconhecido';
+                const role = u.cargos ? u.cargos.nome : (u.role || 'Usuario');
+                options += `<option value="user_${u.id}">${userName} (${role})</option>`;
+            });
+        } else {
+            options = '<option value="" disabled selected>Nenhum usuário encontrado</option>';
+        }
+        selectUser.innerHTML = options;
+    } catch (e) {
+        console.error("Erro ao carregar usuários para permissões:", e);
+        selectUser.innerHTML = '<option value="" disabled selected>Erro ao carregar</option>';
+    }
+};
+
+window.salvarPermissoes = async function() {
+    try {
+        const tipo = document.querySelector('input[name="tipoPermissao"]:checked')?.value || 'perfil';
+        let alvo = '';
+        
+        if (tipo === 'perfil') {
+            alvo = document.getElementById('selectPerfilPermissao')?.value;
+            if (!alvo) { alert('Selecione um cargo na lista primeiro.'); return; }
+        } else {
+            alvo = document.getElementById('selectUsuarioPermissao')?.value;
+            if (!alvo) { alert('Selecione um usuário na lista primeiro.'); return; }
+        }
+
+        const checkboxes = document.querySelectorAll('.chk-permissao');
+        const novasPermissoes = [];
+        
+        checkboxes.forEach(chk => {
+            if (chk.checked) novasPermissoes.push(chk.value);
+        });
+
+        if (tipo === 'usuario' && novasPermissoes.length === 0) {
+            if(confirm("Você deixou todas as caixas vazias.\nDeseja remover as regras específicas deste usuário para que ele volte a seguir o padrão do Cargo dele?")) {
+                novasPermissoes.push('__RESET__');
+            } else {
+                return;
+            }
+        }
+
+        if (typeof db.salvarPermissoesDB === 'function') {
+            await db.salvarPermissoesDB(alvo, novasPermissoes);
+        } else {
+            alert("A função db.salvarPermissoesDB não foi encontrada no database.js.");
+            return;
+        }
+
+        alert('✅ Permissões de menus salvas com sucesso!');
+        
+        if (typeof window.renderizarMenu === 'function') {
+            window.renderizarMenu();
+        }
+
+    } catch (error) {
+        console.error("Erro ao salvar permissões:", error);
+        alert("❌ Ocorreu um erro ao tentar salvar as permissões.");
+    }
+};

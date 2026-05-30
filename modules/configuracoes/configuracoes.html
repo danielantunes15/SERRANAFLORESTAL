@@ -1,0 +1,108 @@
+<link rel="stylesheet" href="modules/configuracoes/configuracoes.css">
+
+<div class="config-module-container">
+    <aside class="config-sidebar">
+        <h3 style="padding: 15px; margin: 0; color: var(--ccol-blue-bright); border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; font-weight: 700;">
+            <i class="fas fa-sliders-h"></i> PAINEL DE CONTROLE
+        </h3>
+        <ul class="config-menu-list">
+            <li class="config-menu-item active" onclick="window.alternarAbaConfig('aba-usuarios', this)">
+                <i class="fas fa-users"></i> Gestão de Usuários
+            </li>
+            <li class="config-menu-item" onclick="window.alternarAbaConfig('aba-acessos', this)">
+                <i class="fas fa-user-shield"></i> Menus e Acessos
+            </li>
+            <li class="config-menu-item" onclick="window.alternarAbaConfig('aba-logs', this)">
+                <i class="fas fa-history"></i> Auditoria de Logs
+            </li>
+        </ul>
+    </aside>
+
+    <div class="config-content-area">
+        
+        <div id="aba-usuarios" class="config-tab-content active">
+            <h2 class="config-tab-title">Gestão de Usuários</h2>
+            
+            <div class="form-group-dark" style="margin-bottom: 25px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                <div>
+                    <label>Nome do Usuário (Username)</label>
+                    <input type="text" id="novoUsername" class="dark-select" placeholder="EX: JOAO.SILVA" style="width: 200px;">
+                </div>
+                <div style="display: none;">
+                    <select id="novoUserRole"><option value="Usuario">Usuario</option></select>
+                </div>
+                <button class="btn-primary-green" onclick="adicionarUsuario()" style="height: 38px;">
+                    <i class="fas fa-plus"></i> Adicionar ao Organograma
+                </button>
+            </div>
+
+            <table class="dark-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="text-align: left; background: rgba(255,255,255,0.02);">
+                        <th style="padding: 12px;">Usuário</th>
+                        <th>Cargo / Função</th>
+                        <th>Filial Base</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaUsuarios">
+                    </tbody>
+            </table>
+        </div>
+
+        <div id="aba-acessos" class="config-tab-content" style="display: none;">
+            <h2 class="config-tab-title">Controle de Menus e Acessos</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.85rem;">
+                Configure as permissões de visibilidade dos módulos do sistema baseando-se no Cargo ou aplicando exceções por Usuário.
+            </p>
+            
+            <div style="display: flex; gap: 24px; margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 12px 20px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); width: max-content;">
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="tipoPermissao" value="perfil" checked onchange="window.mudarTipoPermissao('perfil')"> 
+                    Por Cargo Organizacional
+                </label>
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="tipoPermissao" value="usuario" onchange="window.mudarTipoPermissao('usuario')"> 
+                    Por Usuário Específico
+                </label>
+            </div>
+
+            <div class="form-group-dark" style="margin-bottom: 25px;">
+                <select id="selectPerfilPermissao" class="dark-select" onchange="window.carregarCheckboxesPermissoes()" style="max-width: 400px;">
+                    <option value="" disabled selected>-- Selecione o Cargo para Configurar --</option>
+                </select>
+                
+                <select id="selectUsuarioPermissao" class="dark-select" style="display: none; max-width: 400px;" onchange="window.carregarCheckboxesPermissoes()">
+                    <option value="" disabled selected>-- Selecione o Usuário para Configurar --</option>
+                </select>
+            </div>
+
+            <div id="container-permissoes-menus" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+                </div>
+            
+            <div style="margin-top: 25px; text-align: right; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
+                <button class="btn-primary-blue" onclick="window.salvarPermissoes()">
+                    <i class="fas fa-save"></i> Salvar Matriz de Permissões
+                </button>
+            </div>
+        </div>
+
+        <div id="aba-logs" class="config-tab-content" style="display: none;">
+            <h2 class="config-tab-title">Auditoria de Logs Globais</h2>
+            <table class="dark-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="text-align: left; background: rgba(255,255,255,0.02);">
+                        <th style="padding: 12px; width: 180px;">Data/Hora</th>
+                        <th style="width: 150px;">Usuário</th>
+                        <th style="width: 120px;">Ação</th>
+                        <th>Detalhes da Operação</th>
+                    </tr>
+                </thead>
+                <tbody id="listaLogs">
+                    </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
