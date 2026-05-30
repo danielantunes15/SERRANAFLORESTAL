@@ -189,12 +189,17 @@ button[class^="btn-"]:active { transform: translateY(1px); }
 .cam-pair { display: flex; gap: 5px; }
 
 .form-group-dark label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
-.form-group-dark input, .search-input-dark, .cam-pair input, .filter-group select {
+
+/* INCLUSÃO DO TEXTAREA NESTA REGRA PARA APLICAR O FUNDO ESCURO */
+.form-group-dark input, .form-group-dark textarea, .search-input-dark, .cam-pair input, .filter-group select {
     width: 100%; padding: 10px 12px; background-color: rgba(0,0,0,0.2);
     border: 1px solid var(--border-dim); border-radius: 8px; color: var(--text-primary);
     font-family: var(--font-family); font-size: 0.9rem; transition: border-color 0.2s;
+    resize: vertical; /* Permite redimensionar apenas na vertical */
 }
-.form-group-dark input:focus, .form-group-dark select:focus { border-color: var(--ccol-green-bright); outline: none; }
+.form-group-dark input:focus, .form-group-dark select:focus, .form-group-dark textarea:focus { 
+    border-color: var(--ccol-green-bright); outline: none; 
+}
 .search-input-dark { width: 250px; background-color: #111827; }
 
 select.dark-select, .form-group-dark select, .select-turno {

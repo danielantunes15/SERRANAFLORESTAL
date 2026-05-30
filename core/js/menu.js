@@ -20,9 +20,8 @@ const MAPA_MENUS = [
 
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
     
-    // --- NOVO SETOR: CONTROLADORIA ---
-    { id: 'centro_custo', label: 'Centro de Custo', setor: 'Controladoria', icon: 'fas fa-building' },
-    { id: 'objetos_custo', label: 'Objetos de Custo', setor: 'Controladoria', icon: 'fas fa-tags' },
+    // --- SETOR: CONTROLADORIA (TELA ÚNICA COM ABAS) ---
+    { id: 'centro_custo', label: 'Gestão de Custos', setor: 'Controladoria', icon: 'fas fa-sitemap' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
     { id: 'indicadores', label: 'Indicadores - Cliente', setor: 'Indicadores', icon: 'fas fa-chart-area' },
@@ -60,8 +59,7 @@ const ROTAS = {
     'servicos': 'modules/manutencao/servicos/servicos.html',
     'treinamento': 'modules/ssma/treinamento/treinamento.html',
     'rh_painel': 'modules/rh/painel/rh_painel.html',
-    'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', // Rota adicionada
-    'objetos_custo': 'modules/controladoria/objetos_custo/objetos_custo.html', // Rota adicionada
+    'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', // Única Rota de Controladoria
     'recados': 'modules/ssma/recados/recados.html',
     'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/indicadores.html',
@@ -81,7 +79,7 @@ const ROTAS = {
     'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html'
 };
 
-const VERSAO_SISTEMA = "1.0.0"; 
+const VERSAO_SISTEMA = "1.0.2"; 
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -172,7 +170,7 @@ function getIconSetor(setor) {
         'Manutenção': 'fas fa-tools',
         'SSMA': 'fas fa-hard-hat',
         'RH': 'fas fa-users', 
-        'Controladoria': 'fas fa-calculator', // Ícone da Controladoria
+        'Controladoria': 'fas fa-sitemap',
         'Indicadores': 'fas fa-chart-line',
         'Monitoramento': 'fas fa-desktop',
         'Gerencial': 'fas fa-briefcase',
@@ -346,9 +344,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         if (pagina === 'rh_painel' && typeof window.initRHPainel === 'function') window.initRHPainel(); 
         
-        // --- GATILHOS DA CONTROLADORIA ---
-        if (pagina === 'centro_custo' && typeof window.initCentroCusto === 'function') window.initCentroCusto();
-        if (pagina === 'objetos_custo' && typeof window.initObjetosCusto === 'function') window.initObjetosCusto();
+        // --- GATILHO DA NOVA TELA UNIFICADA DE CONTROLADORIA ---
+        if (pagina === 'centro_custo' && typeof window.initControladoria === 'function') window.initControladoria();
 
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
