@@ -304,8 +304,10 @@ window.salvarFrotaManutencao = async function() {
         const { error } = await supabaseClient.from('frotas_manutencao').insert([payload]);
         if (error) throw error;
 
-        alert("Registro cadastrado com sucesso!");
+        // Mensagem de sucesso atualizada para orientar o usuário
+        alert("Registro cadastrado com sucesso! A tela continuará limpa para o próximo cadastro.");
         
+        // Limpa o formulário mantendo-o na mesma aba
         document.querySelectorAll('#abaCadastroFrota input').forEach(inp => inp.value = '');
         document.getElementById('osFrotaStatus').value = 'Ativo';
         document.getElementById('osFrotaCategoria').value = '';
@@ -313,8 +315,9 @@ window.salvarFrotaManutencao = async function() {
         document.getElementById('osFrotaCor').value = '';
         window.mudouCategoria('', 'osFrota');
 
+        // Atualiza a tabela silenciosamente para caso ele troque de aba depois
         await carregarDadosOS();
-        window.alternarAbaFrota('lista');
+        
     } catch(err) { alert("Erro ao inserir o novo conjunto."); console.error(err); }
 };
 
