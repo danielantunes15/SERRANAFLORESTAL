@@ -39,6 +39,40 @@ const MAPA_MENUS = [
 ];
 
 const pageCache = {};
+const ROTAS = {
+    'escala': 'modules/logistica/escala/escala.html',
+    'troca_turno': 'modules/logistica/troca_turno/troca_turno.html',
+    'alocacao': 'modules/logistica/alocacao/alocacao.html',
+    'motoristas': 'modules/logistica/motoristas/motoristas.html',
+    'caminhoes': 'modules/manutencao/caminhoes/caminhoes.html',
+    'cadastro_frota': 'modules/logistica/frota_conjuntos/cadastro_frota.html',
+    'documentos_frota': 'modules/logistica/documentos_frota/documentos_frota.html',
+    'os': 'modules/manutencao/ordem_servico/os.html',
+    'painel_tv': 'modules/manutencao/ordem_servico/painel_tv.html',
+    'os_apoio': 'modules/manutencao/ordem_servico/os_apoio.html',
+    'almoxarifado': 'modules/manutencao/almoxarifado/almoxarifado.html',
+    'servicos': 'modules/manutencao/servicos/servicos.html',
+    'treinamento': 'modules/ssma/treinamento/treinamento.html',
+    'recados': 'modules/ssma/recados/recados.html',
+    'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
+    'indicadores': 'modules/indicadores/indicadores.html',
+    'indicadores_serrana': 'modules/indicadores/indicadores_serrana.html',
+    'cadastro_indicadores': 'modules/indicadores/cadastro_indicadores.html',
+    'config': 'modules/monitoramento/config/config.html',
+    'central': 'modules/monitoramento/central/central.html',
+    'logs_globais': 'modules/monitoramento/central/logs_globais.html',
+    'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
+    'operacional': 'modules/monitoramento/operacional/operacional.html',
+    'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
+    'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', 
+    'visao_executiva': 'modules/gerencial/visao_executiva/visao_executiva.html', 
+    'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
+    'historico_producao': 'modules/monitoramento/historico/historico.html',
+    'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
+    'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html'
+};
+
+const VERSAO_SISTEMA = "1.0.0"; // Utilize o cache. Só altere isso quando atualizar páginas HTML
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -105,6 +139,23 @@ window.renderizarMenu = async function() {
         const firstBtn = container.querySelector('.dropdown-item') || container.querySelector('.nav-item');
         if (firstBtn) firstBtn.click();
     }, 100);
+
+    // SISTEMA DE PRE-FETCHING: Baixa as páginas liberadas silenciosamente em segundo plano
+    setTimeout(() => {
+        const menusParaPreCarregar = isAdmin ? MAPA_MENUS.map(m => m.id) : meusMenus;
+        menusParaPreCarregar.forEach(async (menuId) => {
+            const caminhoArquivo = ROTAS[menuId];
+            if (caminhoArquivo && !pageCache[menuId]) {
+                try {
+                    const response = await fetch(`${caminhoArquivo}?v=${VERSAO_SISTEMA}`);
+                    if (response.ok) pageCache[menuId] = await response.text();
+                } catch (e) { /* ignora erros de pre-fetch */ }
+            }
+        });
+        if ((isAdmin || isGerente) && !pageCache['config']) {
+            fetch(`modules/monitoramento/config/config.html?v=${VERSAO_SISTEMA}`).then(r => r.text()).then(t => pageCache['config'] = t).catch(e=>{});
+        }
+    }, 2000); // Aguarda 2 segundos para o sistema respirar antes de baixar tudo
 }
 
 function getIconSetor(setor) {
@@ -248,43 +299,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
     const mainContent = document.getElementById('conteudo-principal');
 
-    const ROTAS = {
-        'escala': 'modules/logistica/escala/escala.html',
-        'troca_turno': 'modules/logistica/troca_turno/troca_turno.html',
-        'alocacao': 'modules/logistica/alocacao/alocacao.html',
-        'motoristas': 'modules/logistica/motoristas/motoristas.html',
-        'caminhoes': 'modules/manutencao/caminhoes/caminhoes.html',
-        'cadastro_frota': 'modules/logistica/frota_conjuntos/cadastro_frota.html',
-        'documentos_frota': 'modules/logistica/documentos_frota/documentos_frota.html',
-        
-        'os': 'modules/manutencao/ordem_servico/os.html',
-        'painel_tv': 'modules/manutencao/ordem_servico/painel_tv.html',
-        'os_apoio': 'modules/manutencao/ordem_servico/os_apoio.html',
-        'almoxarifado': 'modules/manutencao/almoxarifado/almoxarifado.html',
-        'servicos': 'modules/manutencao/servicos/servicos.html',
-        
-        'treinamento': 'modules/ssma/treinamento/treinamento.html',
-        'recados': 'modules/ssma/recados/recados.html',
-        
-        'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
-        'indicadores': 'modules/indicadores/indicadores.html',
-        'indicadores_serrana': 'modules/indicadores/indicadores_serrana.html',
-        'cadastro_indicadores': 'modules/indicadores/cadastro_indicadores.html',
-        'config': 'modules/monitoramento/config/config.html',
-        'central': 'modules/monitoramento/central/central.html',
-        'logs_globais': 'modules/monitoramento/central/logs_globais.html',
-        
-        'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
-        'operacional': 'modules/monitoramento/operacional/operacional.html',
-        'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
-        'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', 
-        'visao_executiva': 'modules/gerencial/visao_executiva/visao_executiva.html', 
-        'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
-        'historico_producao': 'modules/monitoramento/historico/historico.html',
-        'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
-        'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html'
-    };
-
     try {
         if (!pageCache[pagina]) {
             mainContent.innerHTML = '<div style="padding: 20px; text-align: center; color: #fff;"><i class="fas fa-spinner fa-spin"></i> Carregando módulo...</div>';
@@ -292,7 +306,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
             const caminhoArquivo = ROTAS[pagina];
             if (!caminhoArquivo) throw new Error('Rota não definida para o módulo: ' + pagina);
 
-            const response = await fetch(`${caminhoArquivo}?v=` + new Date().getTime());
+            // Uso do cache (remove o delay e o recarregamento na rede)
+            const response = await fetch(`${caminhoArquivo}?v=${VERSAO_SISTEMA}`);
             if (!response.ok) throw new Error('Página não encontrada');
             pageCache[pagina] = await response.text();
         }

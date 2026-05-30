@@ -268,15 +268,21 @@ const db = {
     async deletePeca(id) {
         await supabaseClient.from('almoxarifado_pecas').delete().eq('id', id);
     },
-    async getMovimentacoesEstoque() {
+    
+    // LIMITANDO A BUSCA DE HISTÓRICO PARA EVITAR TRAVAMENTOS (A MELHORIA)
+    async getMovimentacoesEstoque(limite = 150) {
         try {
-            // Removido o JOIN para evitar o erro 400. O cruzamento dos nomes será feito na memória no JS.
-            const query = supabaseClient.from('almoxarifado_movimentacoes').select('*').order('data_movimentacao', { ascending: false });
+            const query = supabaseClient.from('almoxarifado_movimentacoes')
+                .select('*')
+                .order('data_movimentacao', { ascending: false })
+                .limit(limite); // <- AQUI ESTÁ A PROTEÇÃO
+
             const { data, error } = await aplicarFiltroFilial(query);
             if(error) throw error;
             return data || [];
         } catch(e) { console.error("Erro getMovimentacoesEstoque:", e); return []; }
     },
+
     async addMovimentacao(movimentacao) {
         await supabaseClient.from('almoxarifado_movimentacoes').insert([injetarFilial(movimentacao)]);
         const { data: peca } = await supabaseClient.from('almoxarifado_pecas').select('quantidade').eq('id', movimentacao.peca_id).single();
@@ -286,7 +292,7 @@ const db = {
         }
     },
     
-    // NOVA FUNÇÃO: Processar Lote de Entrada (XML/PDF)
+    // Processar Lote de Entrada (XML/PDF)
     async processarEntradaLote(itens, nf, fornecedor) {
         for (let item of itens) {
             let query = supabaseClient.from('almoxarifado_pecas').select('*');
