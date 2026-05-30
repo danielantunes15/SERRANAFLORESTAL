@@ -2,6 +2,29 @@
 
 let listaUsuarios = [];
 
+// Função global de segurança para checar se a ação é permitida (caso tentem forçar via console)
+window.verificarPermissaoAcao = function(targetUser) {
+    if (!window.currentUser) return false;
+    // SuperAdmin pode tudo
+    if (window.currentUser.role === 'SuperAdmin') return true;
+    
+    // Trava 1: Ninguém mexe no SuperAdmin, exceto ele mesmo
+    const isTargetSuperAdmin = (targetUser.role === 'SuperAdmin' || (targetUser.cargos && targetUser.cargos.nivel_acesso === 'SuperAdmin'));
+    if (isTargetSuperAdmin) {
+        alert('⚠️ Acesso Negado: Apenas um Administrador Global (SuperAdmin) pode modificar outro SuperAdmin.');
+        return false;
+    }
+    
+    // Trava 2: Bloqueio de Filial e Matriz
+    // Se a filial_id do alvo for diferente da do usuário logado (incluindo null que é a Matriz)
+    if (targetUser.filial_id != window.currentUser.filial_id) {
+        alert('⚠️ Acesso Negado: Você não tem permissão para alterar usuários de outras filiais ou da Matriz Global.');
+        return false;
+    }
+    
+    return true;
+};
+
 window.carregarFiliaisFormulario = async function() {
     const selectFilial = document.getElementById('novoUserFilial');
     if (!selectFilial) return;
@@ -85,12 +108,22 @@ window.renderizarUsuarios = async function() {
         
         if (window.currentUser && window.currentUser.role !== 'SuperAdmin') {
             const filialAtiva = window.currentUser.filial_id;
+            
+            // 1. Isola apenas a filial de quem está acessando
             if (filialAtiva !== null && filialAtiva !== 'CENTRAL') {
                 listaUsuarios = todosUsuarios.filter(u => u.filial_id == filialAtiva);
             } else {
                 listaUsuarios = todosUsuarios.filter(u => u.filial_id === null);
             }
+
+            // 2. NOVA TRAVA: Esconde completamente qualquer usuário que seja SuperAdmin
+            listaUsuarios = listaUsuarios.filter(u => {
+                const isTargetSuperAdmin = (u.role === 'SuperAdmin' || (u.cargos && u.cargos.nivel_acesso === 'SuperAdmin'));
+                return !isTargetSuperAdmin;
+            });
+
         } else {
+            // Se for SuperAdmin logado, ele vê todo mundo
             listaUsuarios = todosUsuarios; 
         }
 
@@ -100,6 +133,12 @@ window.renderizarUsuarios = async function() {
 
         tbody.innerHTML = listaUsuarios.map(u => {
             const isCurrent = u.id === window.currentUser.id;
+            const amISuperAdmin = window.currentUser.role === 'SuperAdmin';
+            
+            // Verificação de bloqueio para exibição dos botões
+            const lockedByBranch = !amISuperAdmin && (u.filial_id != window.currentUser.filial_id);
+            const isLocked = isCurrent || lockedByBranch;
+
             const statusBadge = u.primeiro_acesso 
                 ? `<span style="background: rgba(251, 146, 60, 0.1); color: var(--ccol-rust-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-rust-bright);">Pendente (1º Acesso)</span>`
                 : `<span style="background: rgba(61, 220, 132, 0.1); color: var(--ccol-green-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-green-bright);">Ativo</span>`;
@@ -109,18 +148,28 @@ window.renderizarUsuarios = async function() {
             const nomeDoCargo = (u.cargo_id && mapaCargos[u.cargo_id]) 
                 ? mapaCargos[u.cargo_id] 
                 : (u.cargos ? u.cargos.nome : (u.role || 'Sem Cargo Definido'));
-                
+            
+            // Renderização condicional dos botões
+            let botoesAcao = '';
+            if (isLocked) {
+                botoesAcao = `
+                    <button disabled style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); padding: 5px 10px; border-radius: 4px; cursor: not-allowed; font-size: 0.75rem; margin-right: 5px;" title="Acesso bloqueado">🔒 Restrito</button>
+                `;
+            } else {
+                botoesAcao = `
+                    <button onclick="window.abrirModalEdicaoUsuario(${u.id})" style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; color: #3b82f6; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-right: 5px;" title="Editar informações ou aplicar promoção">✏️ Editar</button>
+                    <button onclick="window.resetarSenhaUsuario(${u.id})" style="background: rgba(255,255,255,0.05); border: 1px solid #fde047; color: #fde047; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;" title="Voltar a senha para 12345">🔄 Resetar</button>
+                    <button onclick="window.excluirUsuario(${u.id})" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Excluir Permanentemente">🗑️</button>
+                `;
+            }
+
             return `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                 <td style="font-weight: bold; color: var(--ccol-blue-bright); padding: 12px;">${u.username} ${isCurrent ? '(Você)' : ''}</td>
                 <td><span class="badge-role" style="font-size: 0.75rem; background: #3b82f6;">${nomeDoCargo}</span></td>
                 <td style="font-size: 0.8rem; color: #cbd5e1;">${filialNome}</td>
                 <td>${statusBadge}</td>
-                <td>
-                    <button onclick="window.abrirModalEdicaoUsuario(${u.id})" style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; color: #3b82f6; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-right: 5px;" title="Editar informações ou aplicar promoção">✏️ Editar</button>
-                    <button onclick="window.resetarSenhaUsuario(${u.id})" ${isCurrent ? 'disabled' : ''} style="background: rgba(255,255,255,0.05); border: 1px solid #fde047; color: #fde047; padding: 5px 10px; border-radius: 4px; cursor: ${isCurrent ? 'not-allowed' : 'pointer'}; font-size: 0.75rem;" title="Voltar a senha para 12345">🔄 Resetar</button>
-                    <button onclick="window.excluirUsuario(${u.id})" ${isCurrent ? 'disabled' : ''} style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: ${isCurrent ? 'not-allowed' : 'pointer'}; font-size: 0.75rem; margin-left: 5px;" title="Excluir Permanentemente">🗑️</button>
-                </td>
+                <td>${botoesAcao}</td>
             </tr>
         `}).join('');
     } catch (e) {
@@ -137,7 +186,7 @@ window.adicionarUsuario = async function() {
     const selectCargo = document.getElementById('novoUserCargo');
 
     if (!selectFilial || selectFilial.value === '') {
-        alert('⚠️ Por favor, selecione a Filial a qual o usuário belongs.'); return;
+        alert('⚠️ Por favor, selecione a Filial a qual o usuário pertence.'); return;
     }
     
     if (!selectCargo || selectCargo.value === '') {
@@ -182,6 +231,9 @@ window.adicionarUsuario = async function() {
 };
 
 window.resetarSenhaUsuario = async function(id) {
+    const u = listaUsuarios.find(user => user.id === id);
+    if (!u || !window.verificarPermissaoAcao(u)) return;
+
     if(confirm(`Deseja resetar a senha deste usuário para "12345"? Ele precisará criar uma nova senha ao logar.`)) {
         await db.updateUsuarioSenhaEReset(id, "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5");
         alert(`Senha resetada com sucesso.`); 
@@ -190,6 +242,9 @@ window.resetarSenhaUsuario = async function(id) {
 };
 
 window.excluirUsuario = async function(id) {
+    const u = listaUsuarios.find(user => user.id === id);
+    if (!u || !window.verificarPermissaoAcao(u)) return;
+
     if(confirm(`🚨 ATENÇÃO: Deseja EXCLUIR permanentemente o acesso deste usuário e o desvincular do organograma?`)) {
         await db.deleteUsuario(id);
         alert('Usuário desvinculado e excluído com sucesso.'); 
@@ -201,7 +256,7 @@ window.excluirUsuario = async function(id) {
 
 window.abrirModalEdicaoUsuario = async function(id) {
     const u = listaUsuarios.find(user => user.id === id);
-    if (!u) return;
+    if (!u || !window.verificarPermissaoAcao(u)) return;
 
     document.getElementById('editUserId').value = u.id;
     document.getElementById('editUsername').value = u.username;
@@ -209,7 +264,6 @@ window.abrirModalEdicaoUsuario = async function(id) {
     const selectFilial = document.getElementById('editUserFilial');
     if (!selectFilial) return;
 
-    // Popula as filiais permitidas no modal baseado em quem está editando
     if (window.currentUser && window.currentUser.role === 'SuperAdmin') {
         try {
             const filiais = await db.getTodasFiliaisAdmin();
@@ -232,7 +286,6 @@ window.abrirModalEdicaoUsuario = async function(id) {
     const userFilialValue = u.filial_id === null ? 'CENTRAL' : u.filial_id.toString();
     selectFilial.value = userFilialValue;
 
-    // Carrega os cargos e marca o cargo atual dele selecionado
     await window.carregarCargosParaFilialEdicao(userFilialValue, u.cargo_id);
 
     document.getElementById('modalEdicaoUsuario').style.display = 'flex';
@@ -297,7 +350,6 @@ window.salvarEdicaoUsuario = async function() {
     const centroCustoId = cargoOption.getAttribute('data-cc');
     const cargoId = parseInt(selectCargo.value);
 
-    // Validação de segurança de hierarquia
     if ((systemRole === 'Gerente' || systemRole === 'SuperAdmin') && (!window.currentUser || window.currentUser.role !== 'SuperAdmin')) {
         alert('⚠️ Acesso Negado: Apenas Administradores Globais podem promover ou conceder acessos para cargos deste nível.');
         return;
@@ -318,10 +370,6 @@ window.salvarEdicaoUsuario = async function() {
         window.fecharModalEdicaoUsuario();
         window.renderizarUsuarios();
         
-        // Alerta caso o usuário alterado seja ele mesmo
-        if (window.currentUser && window.currentUser.id === id) {
-            alert('ℹ️ Você editou seu próprio registro. Recomendamos fazer logout e login novamente para aplicar a nova árvore de permissões.');
-        }
     } catch (e) {
         console.error("Erro ao salvar edição do usuário no Supabase:", e);
         alert('❌ Ocorreu um erro ao tentar salvar as modificações no banco de dados.');

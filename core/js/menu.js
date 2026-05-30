@@ -41,7 +41,7 @@ window.MAPA_MENUS = [
     { id: 'central', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
     { id: 'logs_globais', label: 'Auditoria de Logs', setor: 'Global', icon: 'fas fa-shield-alt' },
 
-    // --- NOVOS MÓDULOS DE CONFIGURAÇÕES INDEPENDENTES ---
+    // --- MÓDULOS DE CONFIGURAÇÕES INDEPENDENTES ---
     { id: 'gestao_usuarios', label: 'Gestão de Usuários', setor: 'Configurações', icon: 'fas fa-users' },
     { id: 'gestao_acessos', label: 'Menus e Acessos', setor: 'Configurações', icon: 'fas fa-user-shield' },
     { id: 'auditoria_logs', label: 'Auditoria de Logs', setor: 'Configurações', icon: 'fas fa-history' }
@@ -80,13 +80,12 @@ const ROTAS = {
     'historico_producao': 'modules/monitoramento/historico/historico.html',
     'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
     'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html',
-    // Rotas das novas páginas de configuração:
     'gestao_usuarios': 'modules/configuracoes/gestao_usuarios.html',
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
     'auditoria_logs': 'modules/configuracoes/auditoria_logs.html'
 };
 
-const VERSAO_SISTEMA = "1.0.7";
+const VERSAO_SISTEMA = "1.0.8";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -116,29 +115,27 @@ window.renderizarMenu = async function() {
     }
     
     const isAdmin = userRole === 'Admin' || userRole === 'SuperAdmin';
-    const isGerente = userRole === 'Gerente';
     const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
 
     let navHtml = '<nav class="main-nav">';
-    // Puxa todos os setores dinamicamente
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
-        // Regras restritas para Central (Global e Controladoria e Configurações)
+        // --- FILTROS DE FRONTEIRA CORPORATIVA (MATRIZ VS FILIAL) ---
         if (isSessaoCentral) {
-            if (userRole === 'SuperAdmin') {
-                if (setor !== 'Controladoria' && setor !== 'Global' && setor !== 'Configurações') return;
-            } else {
-                if (setor !== 'Global') return;
-            }
+            // Na sessão central, aparecem apenas os menus corporativos e de Configuração
+            if (setor !== 'Global' && setor !== 'Controladoria' && setor !== 'Configurações') return;
+            // Bloqueio extra da Controladoria caso não seja SuperAdmin
+            if (setor === 'Controladoria' && userRole !== 'SuperAdmin') return;
         } else {
-            // Se for filial, esconde Global e Controladoria
+            // Nas filiais normais, esconde setores exclusivos de auditoria global da matriz
             if (setor === 'Global' || setor === 'Controladoria') return;
-            // Configurações só aparece para Gerente e Admin/SuperAdmin
-            if (setor === 'Configurações' && !isAdmin && !isGerente) return;
         }
 
+        // --- VERIFICAÇÃO DINÂMICA DE PERMISSÃO POR SETOR ---
         const menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
+        
+        // CORREÇÃO: O usuário verá o setor se for Admin corporativo OU se possuir qualquer menu desse setor na matriz dele
         const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
 
         if (temAcessoAoSetor) {
@@ -210,10 +207,6 @@ window.fecharDropdown = function(dropdownElement) {
 
 window.navegarPara = async function(pagina, elementoClicado) {
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
-
-    if (['gestao_usuarios', 'gestao_acessos', 'auditoria_logs'].includes(pagina) && userRole !== 'Admin' && userRole !== 'SuperAdmin' && userRole !== 'Gerente') {
-        alert('Acesso Negado.'); return; 
-    }
 
     if (pagina === 'centro_custo') {
         const isCentral = (currentUser && (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL'));
@@ -307,7 +300,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();
         if (pagina === 'configuracoes_gerencial' && typeof window.inicializarConfiguracoesGerencial === 'function') window.inicializarConfiguracoesGerencial();
 
-        // Inicializadores das novas rotas separadas de configuração
+        // Inicializadores dinâmicos dos submenus de configuração independentes
         if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
         if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
         if (pagina === 'auditoria_logs' && typeof window.renderizarLogs === 'function') window.renderizarLogs();
