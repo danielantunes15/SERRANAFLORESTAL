@@ -17,6 +17,9 @@ const MAPA_MENUS = [
     { id: 'almoxarifado', label: 'Almoxarifado', setor: 'Manutenção', icon: 'fas fa-boxes' },
     
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
+
+    // --- NOVO SETOR: RH ---
+    { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
     { id: 'indicadores', label: 'Indicadores - Cliente', setor: 'Indicadores', icon: 'fas fa-chart-area' },
@@ -53,6 +56,7 @@ const ROTAS = {
     'almoxarifado': 'modules/manutencao/almoxarifado/almoxarifado.html',
     'servicos': 'modules/manutencao/servicos/servicos.html',
     'treinamento': 'modules/ssma/treinamento/treinamento.html',
+    'rh_painel': 'modules/rh/painel/rh_painel.html', // Rota adicionada para o RH
     'recados': 'modules/ssma/recados/recados.html',
     'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/indicadores.html',
@@ -163,6 +167,7 @@ function getIconSetor(setor) {
         'Logística': 'fas fa-truck',
         'Manutenção': 'fas fa-tools',
         'SSMA': 'fas fa-hard-hat',
+        'RH': 'fas fa-users', // Ícone adicionado para o RH
         'Indicadores': 'fas fa-chart-line',
         'Monitoramento': 'fas fa-desktop',
         'Gerencial': 'fas fa-briefcase',
@@ -335,6 +340,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
 
         if (pagina === 'os_apoio' && typeof window.alternarTelaOSApoio === 'function') window.alternarTelaOSApoio('lista');
+        if (pagina === 'rh_painel' && typeof window.initRHPainel === 'function') window.initRHPainel(); // Gatilho do novo módulo RH
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
