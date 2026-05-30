@@ -18,8 +18,11 @@ const MAPA_MENUS = [
     
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
 
-    // --- NOVO SETOR: RH ---
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
+    
+    // --- NOVO SETOR: CONTROLADORIA ---
+    { id: 'centro_custo', label: 'Centro de Custo', setor: 'Controladoria', icon: 'fas fa-building' },
+    { id: 'objetos_custo', label: 'Objetos de Custo', setor: 'Controladoria', icon: 'fas fa-tags' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
     { id: 'indicadores', label: 'Indicadores - Cliente', setor: 'Indicadores', icon: 'fas fa-chart-area' },
@@ -56,7 +59,9 @@ const ROTAS = {
     'almoxarifado': 'modules/manutencao/almoxarifado/almoxarifado.html',
     'servicos': 'modules/manutencao/servicos/servicos.html',
     'treinamento': 'modules/ssma/treinamento/treinamento.html',
-    'rh_painel': 'modules/rh/painel/rh_painel.html', // Rota adicionada para o RH
+    'rh_painel': 'modules/rh/painel/rh_painel.html',
+    'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', // Rota adicionada
+    'objetos_custo': 'modules/controladoria/objetos_custo/objetos_custo.html', // Rota adicionada
     'recados': 'modules/ssma/recados/recados.html',
     'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/indicadores.html',
@@ -76,7 +81,7 @@ const ROTAS = {
     'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html'
 };
 
-const VERSAO_SISTEMA = "1.0.0"; // Utilize o cache. Só altere isso quando atualizar páginas HTML
+const VERSAO_SISTEMA = "1.0.0"; 
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -144,7 +149,6 @@ window.renderizarMenu = async function() {
         if (firstBtn) firstBtn.click();
     }, 100);
 
-    // SISTEMA DE PRE-FETCHING: Baixa as páginas liberadas silenciosamente em segundo plano
     setTimeout(() => {
         const menusParaPreCarregar = isAdmin ? MAPA_MENUS.map(m => m.id) : meusMenus;
         menusParaPreCarregar.forEach(async (menuId) => {
@@ -153,13 +157,13 @@ window.renderizarMenu = async function() {
                 try {
                     const response = await fetch(`${caminhoArquivo}?v=${VERSAO_SISTEMA}`);
                     if (response.ok) pageCache[menuId] = await response.text();
-                } catch (e) { /* ignora erros de pre-fetch */ }
+                } catch (e) { }
             }
         });
         if ((isAdmin || isGerente) && !pageCache['config']) {
             fetch(`modules/monitoramento/config/config.html?v=${VERSAO_SISTEMA}`).then(r => r.text()).then(t => pageCache['config'] = t).catch(e=>{});
         }
-    }, 2000); // Aguarda 2 segundos para o sistema respirar antes de baixar tudo
+    }, 2000); 
 }
 
 function getIconSetor(setor) {
@@ -167,7 +171,8 @@ function getIconSetor(setor) {
         'Logística': 'fas fa-truck',
         'Manutenção': 'fas fa-tools',
         'SSMA': 'fas fa-hard-hat',
-        'RH': 'fas fa-users', // Ícone adicionado para o RH
+        'RH': 'fas fa-users', 
+        'Controladoria': 'fas fa-calculator', // Ícone da Controladoria
         'Indicadores': 'fas fa-chart-line',
         'Monitoramento': 'fas fa-desktop',
         'Gerencial': 'fas fa-briefcase',
@@ -295,7 +300,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
     }
 
-    // --- LÓGICA DO MODO TV IMERSIVO ---
     if (pagina === 'painel_tv') {
         if (typeof window.entrarModoTV === 'function') window.entrarModoTV();
     } else {
@@ -311,7 +315,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
             const caminhoArquivo = ROTAS[pagina];
             if (!caminhoArquivo) throw new Error('Rota não definida para o módulo: ' + pagina);
 
-            // Uso do cache (remove o delay e o recarregamento na rede)
             const response = await fetch(`${caminhoArquivo}?v=${VERSAO_SISTEMA}`);
             if (!response.ok) throw new Error('Página não encontrada');
             pageCache[pagina] = await response.text();
@@ -340,7 +343,13 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
 
         if (pagina === 'os_apoio' && typeof window.alternarTelaOSApoio === 'function') window.alternarTelaOSApoio('lista');
-        if (pagina === 'rh_painel' && typeof window.initRHPainel === 'function') window.initRHPainel(); // Gatilho do novo módulo RH
+        
+        if (pagina === 'rh_painel' && typeof window.initRHPainel === 'function') window.initRHPainel(); 
+        
+        // --- GATILHOS DA CONTROLADORIA ---
+        if (pagina === 'centro_custo' && typeof window.initCentroCusto === 'function') window.initCentroCusto();
+        if (pagina === 'objetos_custo' && typeof window.initObjetosCusto === 'function') window.initObjetosCusto();
+
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
@@ -371,7 +380,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'desempenho_frota' && typeof window.initDesempenhoFrota === 'function') window.initDesempenhoFrota();
         if (pagina === 'producao_frota' && typeof window.initProducaoFrota === 'function') window.initProducaoFrota();
         
-        // --- INICIALIZAÇÃO DA NOVA TELA ---
         if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
         
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();
