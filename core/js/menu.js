@@ -15,8 +15,9 @@ window.MAPA_MENUS = [
     { id: 'cadastro_frota', label: 'Cadastro Frota (O.S.)', setor: 'Manutenção', icon: 'fas fa-truck-moving' },
     { id: 'os_apoio', label: 'O.S. Apoio', setor: 'Manutenção', icon: 'fas fa-truck-pickup' },
     
-    // --- NOVO MÓDULO INDEPENDENTE ---
+    // --- MÓDULO INDEPENDENTE: ALMOXARIFADO ---
     { id: 'almoxarifado', label: 'Gestão de Estoque', setor: 'Almoxarifado', icon: 'fas fa-boxes' },
+    { id: 'requisicao_materiais', label: 'Requisição de Materiais', setor: 'Almoxarifado', icon: 'fas fa-shopping-basket' },
     
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
 
@@ -85,11 +86,12 @@ const ROTAS = {
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
     'auditoria_logs': 'modules/configuracoes/auditoria_logs.html',
     
-    // --- ROTA ATUALIZADA DO ALMOXARIFADO ---
-    'almoxarifado': 'modules/almoxarifado/almoxarifado.html'
+    // --- ROTAS DO ALMOXARIFADO ---
+    'almoxarifado': 'modules/almoxarifado/almoxarifado.html',
+    'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html'
 };
 
-const VERSAO_SISTEMA = "1.0.9";
+const VERSAO_SISTEMA = "1.0.10";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -125,18 +127,13 @@ window.renderizarMenu = async function() {
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
-        // --- FILTROS DE FRONTEIRA CORPORATIVA (MATRIZ VS FILIAL) ---
         if (isSessaoCentral) {
-            // Na sessão central, aparecem apenas os menus corporativos e de Configuração
             if (setor !== 'Global' && setor !== 'Controladoria' && setor !== 'Configurações') return;
-            // Bloqueio extra da Controladoria caso não seja SuperAdmin
             if (setor === 'Controladoria' && userRole !== 'SuperAdmin') return;
         } else {
-            // Nas filiais normais, esconde setores exclusivos de auditoria global da matriz
             if (setor === 'Global' || setor === 'Controladoria') return;
         }
 
-        // --- VERIFICAÇÃO DINÂMICA DE PERMISSÃO POR SETOR ---
         const menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
         const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
 
@@ -260,6 +257,9 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'motoristas' && typeof window.renderizarMotoristas === 'function') window.renderizarMotoristas();
         if (pagina === 'caminhoes' && typeof window.renderizarConjuntos === 'function') window.renderizarConjuntos();
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
+        
+        // Inicializador do novo submenu
+        if (pagina === 'requisicao_materiais' && typeof window.renderizarRequisicoes === 'function') window.renderizarRequisicoes();
         
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
         
