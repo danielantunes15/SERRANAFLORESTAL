@@ -75,22 +75,51 @@ window.carregarCentrosCusto = async function() {
 
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8;">Nenhum Centro de Custo cadastrado.</td></tr>';
 
-        let html = '';
+        // AGRUPAMENTO POR FILIAL
+        const filiaisMap = new Map();
+        filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
+        
+        const filiaisIds = Object.keys(window.mapaFiliais || {}).map(Number).sort((a, b) => a - b);
+        filiaisIds.forEach(id => {
+            filiaisMap.set(id, { nome: window.mapaFiliais[id], items: [] });
+        });
+
         data.forEach(cc => {
-            const badgeClass = cc.status === 'Ativo' ? 'background: rgba(34,197,94,0.2); color: #4ade80;' : 'background: rgba(239,68,68,0.2); color: #f87171;';
-            const filialNome = cc.filial_id === null ? '<span style="color:#fde047">Matriz Corporativa</span>' : (window.mapaFiliais[cc.filial_id] || `Filial ID: ${cc.filial_id}`);
+            const fKey = cc.filial_id === null ? 'CENTRAL' : cc.filial_id;
+            if (!filiaisMap.has(fKey)) filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, items: [] });
+            filiaisMap.get(fKey).items.push(cc);
+        });
+
+        let html = '';
+        filiaisMap.forEach((group, fKey) => {
+            if (group.items.length === 0) return;
+
             html += `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 12px; font-weight: bold; color: #60a5fa;">${cc.codigo}</td>
-                    <td style="padding: 12px; color: #cbd5e1;">${filialNome}</td>
-                    <td style="padding: 12px; color: #f8fafc;">${cc.nome}</td>
-                    <td style="padding: 12px; color: #94a3b8; font-size: 0.85rem;">${cc.descricao || '-'}</td>
-                    <td style="padding: 12px;"><span style="padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; ${badgeClass}">${cc.status}</span></td>
-                    <td style="padding: 12px; text-align: center;">
-                        <button onclick='abrirModalCentroCusto(${JSON.stringify(cc)})' style="background: none; border: none; color: #fbbf24; cursor: pointer; margin-right: 10px;" title="Editar"><i class="fas fa-edit"></i></button>
-                        <button onclick="excluirCentroCusto(${cc.id})" style="background: none; border: none; color: #ef4444; cursor: pointer;" title="Excluir"><i class="fas fa-trash"></i></button>
+                <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
+                    <td colspan="6" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
+                        <i class="fas fa-building" style="margin-right: 8px;"></i> ${group.nome}
                     </td>
-                </tr>`;
+                </tr>
+            `;
+
+            group.items.forEach(cc => {
+                const badgeClass = cc.status === 'Ativo' ? 'background: rgba(34,197,94,0.2); color: #4ade80;' : 'background: rgba(239,68,68,0.2); color: #f87171;';
+                const filialNome = fKey === 'CENTRAL' ? '<span style="color:#fde047">Matriz Corporativa</span>' : group.nome;
+                const ccJsonSeguro = JSON.stringify(cc).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+                
+                html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: transparent;">
+                        <td style="padding: 12px; font-weight: bold; color: #60a5fa; padding-left: 25px;">${cc.codigo}</td>
+                        <td style="padding: 12px; color: #cbd5e1;">${filialNome}</td>
+                        <td style="padding: 12px; color: #f8fafc;">${cc.nome}</td>
+                        <td style="padding: 12px; color: #94a3b8; font-size: 0.85rem;">${cc.descricao || '-'}</td>
+                        <td style="padding: 12px;"><span style="padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; ${badgeClass}">${cc.status}</span></td>
+                        <td style="padding: 12px; text-align: center;">
+                            <button onclick="abrirModalCentroCusto(${ccJsonSeguro})" style="background: none; border: none; color: #fbbf24; cursor: pointer; margin-right: 10px;" title="Editar"><i class="fas fa-edit"></i></button>
+                            <button onclick="excluirCentroCusto(${cc.id})" style="background: none; border: none; color: #ef4444; cursor: pointer;" title="Excluir"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
         });
         tbody.innerHTML = html;
     } catch (e) { console.error(e); tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ef4444;">Erro ao carregar dados.</td></tr>'; }
@@ -173,29 +202,60 @@ window.carregarOpcoesCentroCusto = async function() {
 window.carregarObjetosCusto = async function() {
     const tbody = document.getElementById('tbodyObjetosCusto');
     if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>';
     
     try {
         let query = supabaseClient.from('objetos_custo').select('*, centro_custo(codigo, nome)').order('codigo');
         const { data } = await query;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8;">Nenhum Objeto de Custo.</td></tr>';
         
-        let html = '';
+        // AGRUPAMENTO POR FILIAL
+        const filiaisMap = new Map();
+        filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
+        
+        const filiaisIds = Object.keys(window.mapaFiliais || {}).map(Number).sort((a, b) => a - b);
+        filiaisIds.forEach(id => {
+            filiaisMap.set(id, { nome: window.mapaFiliais[id], items: [] });
+        });
+
         data.forEach(obj => {
-            let bClass = obj.status === 'Ativo' ? 'color: #4ade80;' : 'color: #fbbf24;';
-            const ccDisplay = obj.centro_custo ? `[${obj.centro_custo.codigo}] ${obj.centro_custo.nome}` : 'Desconhecido';
-            const filialNome = obj.filial_id === null ? '<span style="color:#fde047">Matriz Corporativa</span>' : (window.mapaFiliais[obj.filial_id] || `Filial ID: ${obj.filial_id}`);
-            
-            html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <td style="padding: 12px; font-weight: bold; color: #c084fc;">${obj.codigo}</td>
-                <td style="padding: 12px; color: #cbd5e1;">${filialNome}</td>
-                <td style="padding: 12px; color: #f8fafc;">${obj.nome}</td>
-                <td style="padding: 12px; color: #94a3b8;">${obj.tipo || '-'}</td>
-                <td style="padding: 12px; color: #cbd5e1;">${ccDisplay}</td>
-                <td style="padding: 12px;"><span style="${bClass}">${obj.status}</span></td>
-                <td style="padding: 12px; text-align: center;">
-                    <button onclick='abrirModalObjetoCusto(${JSON.stringify(obj)})' style="background: none; border: none; color: #fbbf24; cursor: pointer; margin-right: 10px;"><i class="fas fa-edit"></i></button>
-                    <button onclick="excluirObjetoCusto(${obj.id})" style="background: none; border: none; color: #ef4444; cursor: pointer;"><i class="fas fa-trash"></i></button>
-                </td></tr>`;
+            const fKey = obj.filial_id === null ? 'CENTRAL' : obj.filial_id;
+            if (!filiaisMap.has(fKey)) filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, items: [] });
+            filiaisMap.get(fKey).items.push(obj);
+        });
+
+        let html = '';
+        filiaisMap.forEach((group, fKey) => {
+            if (group.items.length === 0) return;
+
+            html += `
+                <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
+                    <td colspan="7" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
+                        <i class="fas fa-building" style="margin-right: 8px;"></i> ${group.nome}
+                    </td>
+                </tr>
+            `;
+
+            group.items.forEach(obj => {
+                let bClass = obj.status === 'Ativo' ? 'color: #4ade80;' : 'color: #fbbf24;';
+                const ccDisplay = obj.centro_custo ? `[${obj.centro_custo.codigo}] ${obj.centro_custo.nome}` : 'Desconhecido';
+                const filialNome = fKey === 'CENTRAL' ? '<span style="color:#fde047">Matriz Corporativa</span>' : group.nome;
+                const objJsonSeguro = JSON.stringify(obj).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+                
+                html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: transparent;">
+                        <td style="padding: 12px; font-weight: bold; color: #c084fc; padding-left: 25px;">${obj.codigo}</td>
+                        <td style="padding: 12px; color: #cbd5e1;">${filialNome}</td>
+                        <td style="padding: 12px; color: #f8fafc;">${obj.nome}</td>
+                        <td style="padding: 12px; color: #94a3b8;">${obj.tipo || '-'}</td>
+                        <td style="padding: 12px; color: #cbd5e1;">${ccDisplay}</td>
+                        <td style="padding: 12px;"><span style="${bClass}">${obj.status}</span></td>
+                        <td style="padding: 12px; text-align: center;">
+                            <button onclick="abrirModalObjetoCusto(${objJsonSeguro})" style="background: none; border: none; color: #fbbf24; cursor: pointer; margin-right: 10px;" title="Editar"><i class="fas fa-edit"></i></button>
+                            <button onclick="excluirObjetoCusto(${obj.id})" style="background: none; border: none; color: #ef4444; cursor: pointer;" title="Excluir"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
         });
         tbody.innerHTML = html;
     } catch (e) { console.error(e); }
@@ -283,30 +343,61 @@ window.carregarOpcoesObjetoCustoAtiv = async function() {
 window.carregarAtividades = async function() {
     const tbody = document.getElementById('tbodyAtividades');
     if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>';
     
     try {
         let query = supabaseClient.from('atividades_processos').select('*, objetos_custo(codigo, nome, centro_custo(nome))').order('codigo');
         const { data } = await query;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8;">Nenhuma Atividade.</td></tr>';
         
-        let html = '';
+        // AGRUPAMENTO POR FILIAL
+        const filiaisMap = new Map();
+        filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
+        
+        const filiaisIds = Object.keys(window.mapaFiliais || {}).map(Number).sort((a, b) => a - b);
+        filiaisIds.forEach(id => {
+            filiaisMap.set(id, { nome: window.mapaFiliais[id], items: [] });
+        });
+
         data.forEach(ativ => {
-            let bClass = ativ.status === 'Ativo' ? 'color: #4ade80;' : 'color: #f87171;';
-            const objDisplay = ativ.objetos_custo ? `[${ativ.objetos_custo.codigo}] ${ativ.objetos_custo.nome}` : 'Desconhecido';
-            const ccDisplay = (ativ.objetos_custo && ativ.objetos_custo.centro_custo) ? ativ.objetos_custo.centro_custo.nome : 'Desconhecido';
-            const filialNome = ativ.filial_id === null ? '<span style="color:#fde047">Matriz Corporativa</span>' : (window.mapaFiliais[ativ.filial_id] || `Filial ID: ${ativ.filial_id}`);
-            
-            html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <td style="padding: 12px; font-weight: bold; color: #34d399;">${ativ.codigo}</td>
-                <td style="padding: 12px; color: #cbd5e1;">${filialNome}</td>
-                <td style="padding: 12px; color: #f8fafc;">${ativ.nome}</td>
-                <td style="padding: 12px; color: #c084fc;">${objDisplay}</td>
-                <td style="padding: 12px; color: #60a5fa;">${ccDisplay}</td>
-                <td style="padding: 12px;"><span style="${bClass}">${ativ.status}</span></td>
-                <td style="padding: 12px; text-align: center;">
-                    <button onclick='abrirModalAtividade(${JSON.stringify(ativ)})' style="background: none; border: none; color: #fbbf24; cursor: pointer; margin-right: 10px;"><i class="fas fa-edit"></i></button>
-                    <button onclick="excluirAtividade(${ativ.id})" style="background: none; border: none; color: #ef4444; cursor: pointer;"><i class="fas fa-trash"></i></button>
-                </td></tr>`;
+            const fKey = ativ.filial_id === null ? 'CENTRAL' : ativ.filial_id;
+            if (!filiaisMap.has(fKey)) filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, items: [] });
+            filiaisMap.get(fKey).items.push(ativ);
+        });
+
+        let html = '';
+        filiaisMap.forEach((group, fKey) => {
+            if (group.items.length === 0) return;
+
+            html += `
+                <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
+                    <td colspan="7" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
+                        <i class="fas fa-building" style="margin-right: 8px;"></i> ${group.nome}
+                    </td>
+                </tr>
+            `;
+
+            group.items.forEach(ativ => {
+                let bClass = ativ.status === 'Ativo' ? 'color: #4ade80;' : 'color: #f87171;';
+                const objDisplay = ativ.objetos_custo ? `[${ativ.objetos_custo.codigo}] ${ativ.objetos_custo.nome}` : 'Desconhecido';
+                const ccDisplay = (ativ.objetos_custo && ativ.objetos_custo.centro_custo) ? ativ.objetos_custo.centro_custo.nome : 'Desconhecido';
+                const filialNome = fKey === 'CENTRAL' ? '<span style="color:#fde047">Matriz Corporativa</span>' : group.nome;
+                const ativJsonSeguro = JSON.stringify(ativ).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+                
+                html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: transparent;">
+                        <td style="padding: 12px; font-weight: bold; color: #34d399; padding-left: 25px;">${ativ.codigo}</td>
+                        <td style="padding: 12px; color: #cbd5e1;">${filialNome}</td>
+                        <td style="padding: 12px; color: #f8fafc;">${ativ.nome}</td>
+                        <td style="padding: 12px; color: #c084fc;">${objDisplay}</td>
+                        <td style="padding: 12px; color: #60a5fa;">${ccDisplay}</td>
+                        <td style="padding: 12px;"><span style="${bClass}">${ativ.status}</span></td>
+                        <td style="padding: 12px; text-align: center;">
+                            <button onclick="abrirModalAtividade(${ativJsonSeguro})" style="background: none; border: none; color: #fbbf24; cursor: pointer; margin-right: 10px;" title="Editar"><i class="fas fa-edit"></i></button>
+                            <button onclick="excluirAtividade(${ativ.id})" style="background: none; border: none; color: #ef4444; cursor: pointer;" title="Excluir"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
         });
         tbody.innerHTML = html;
     } catch (e) { console.error(e); }
@@ -379,21 +470,50 @@ window.carregarSetores = async function() {
         if (error) throw error;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8;">Nenhum Setor cadastrado.</td></tr>';
 
-        let html = '';
+        // AGRUPAMENTO POR FILIAL
+        const filiaisMap = new Map();
+        filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
+        
+        const filiaisIds = Object.keys(window.mapaFiliais || {}).map(Number).sort((a, b) => a - b);
+        filiaisIds.forEach(id => {
+            filiaisMap.set(id, { nome: window.mapaFiliais[id], items: [] });
+        });
+
         data.forEach(setor => {
-            const bClass = setor.status === 'Ativo' ? 'color: #4ade80;' : 'color: #f87171;';
-            const filialNome = setor.filial_id === null ? '<span style="color:#fde047">Matriz Corporativa</span>' : (window.mapaFiliais[setor.filial_id] || `Filial ID: ${setor.filial_id}`);
+            const fKey = setor.filial_id === null ? 'CENTRAL' : setor.filial_id;
+            if (!filiaisMap.has(fKey)) filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, items: [] });
+            filiaisMap.get(fKey).items.push(setor);
+        });
+
+        let html = '';
+        filiaisMap.forEach((group, fKey) => {
+            if (group.items.length === 0) return;
+
             html += `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 12px; font-weight: bold; color: #10b981;">${setor.nome}</td>
-                    <td style="padding: 12px; color: #f8fafc;">${filialNome}</td>
-                    <td style="padding: 12px; color: #94a3b8; font-size: 0.85rem;">${setor.descricao || '-'}</td>
-                    <td style="padding: 12px;"><span style="${bClass}">${setor.status}</span></td>
-                    <td style="padding: 12px; text-align: center;">
-                        <button onclick='abrirModalSetor(${JSON.stringify(setor)})' style="background: none; border: none; color: #fbbf24; cursor: pointer; margin-right: 10px;"><i class="fas fa-edit"></i></button>
-                        <button onclick="excluirSetor(${setor.id})" style="background: none; border: none; color: #ef4444; cursor: pointer;"><i class="fas fa-trash"></i></button>
+                <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
+                    <td colspan="5" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
+                        <i class="fas fa-building" style="margin-right: 8px;"></i> ${group.nome}
                     </td>
-                </tr>`;
+                </tr>
+            `;
+
+            group.items.forEach(setor => {
+                const bClass = setor.status === 'Ativo' ? 'color: #4ade80;' : 'color: #f87171;';
+                const filialNome = fKey === 'CENTRAL' ? '<span style="color:#fde047">Matriz Corporativa</span>' : group.nome;
+                const setorJsonSeguro = JSON.stringify(setor).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+                
+                html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: transparent;">
+                        <td style="padding: 12px; font-weight: bold; color: #10b981; padding-left: 25px;">${setor.nome}</td>
+                        <td style="padding: 12px; color: #f8fafc;">${filialNome}</td>
+                        <td style="padding: 12px; color: #94a3b8; font-size: 0.85rem;">${setor.descricao || '-'}</td>
+                        <td style="padding: 12px;"><span style="${bClass}">${setor.status}</span></td>
+                        <td style="padding: 12px; text-align: center;">
+                            <button onclick="abrirModalSetor(${setorJsonSeguro})" style="background: none; border: none; color: #fbbf24; cursor: pointer; margin-right: 10px;" title="Editar"><i class="fas fa-edit"></i></button>
+                            <button onclick="excluirSetor(${setor.id})" style="background: none; border: none; color: #ef4444; cursor: pointer;" title="Excluir"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
         });
         tbody.innerHTML = html;
     } catch (e) { console.error(e); tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ef4444;">Erro ao carregar setores.</td></tr>'; }
@@ -677,7 +797,7 @@ window.salvarCargo = async function() {
         filial_id: obterFilialDb('cargoFilialId'),
         nome: nomeCargo,
         nivel_hierarquico: document.getElementById('cargoHierarquia').value,
-        nivel_acesso: nomeCargo, // COPIA O NOME DO CARGO AUTOMATICAMENTE
+        nivel_acesso: nomeCargo,
         setor_id: parseInt(document.getElementById('cargoSetorId').value),
         centro_custo_id: parseInt(document.getElementById('cargoCentroCustoId').value),
         cargo_superior_id: superiorVal ? parseInt(superiorVal) : null,
