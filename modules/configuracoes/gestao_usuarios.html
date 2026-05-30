@@ -1,0 +1,32 @@
+<div class="content-panel" style="padding: 25px; background: #1e293b; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); min-height: 80vh;">
+    <h2 style="color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+        <i class="fas fa-users" style="color: var(--ccol-blue-bright);"></i> Gestão de Usuários
+    </h2>
+    
+    <div class="form-group-dark" style="margin-top: 20px; margin-bottom: 25px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+        <div>
+            <label>Nome do Usuário (Username)</label>
+            <input type="text" id="novoUsername" class="dark-select" placeholder="EX: JOAO.SILVA" style="width: 250px;">
+        </div>
+        <div style="display: none;">
+            <select id="novoUserRole"><option value="Usuario">Usuario</option></select>
+        </div>
+        <button class="btn-primary-green" onclick="window.adicionarUsuario()" style="height: 38px;">
+            <i class="fas fa-plus"></i> Adicionar ao Organograma
+        </button>
+    </div>
+
+    <table class="dark-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="text-align: left; background: rgba(255,255,255,0.02);">
+                <th style="padding: 12px;">Usuário</th>
+                <th>Cargo / Função</th>
+                <th>Filial Base</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="tabelaUsuarios">
+            </tbody>
+    </table>
+</div>

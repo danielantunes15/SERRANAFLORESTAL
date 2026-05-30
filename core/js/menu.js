@@ -1,6 +1,6 @@
 // ==================== core/js/menu.js ====================
 // ==================== DEFINIÇÃO CENTRAL DE MENUS ====================
-const MAPA_MENUS = [
+window.MAPA_MENUS = [
     { id: 'escala', label: 'Escala Semanal', setor: 'Logística', icon: 'fas fa-calendar-alt' },
     { id: 'troca_turno', label: 'Troca de Turno', setor: 'Logística', icon: 'fas fa-exchange-alt' },
     { id: 'alocacao', label: 'Alocação Geral', setor: 'Logística', icon: 'fas fa-users-cog' },
@@ -20,7 +20,6 @@ const MAPA_MENUS = [
 
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
     
-    // --- SETOR: CONTROLADORIA ---
     { id: 'centro_custo', label: 'Gestão de Custos', setor: 'Controladoria', icon: 'fas fa-sitemap' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
@@ -40,7 +39,12 @@ const MAPA_MENUS = [
     { id: 'visao_executiva', label: 'Visão Executiva (Global)', setor: 'Gerencial', icon: 'fas fa-globe-americas' },
     
     { id: 'central', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
-    { id: 'logs_globais', label: 'Auditoria de Logs', setor: 'Global', icon: 'fas fa-shield-alt' } 
+    { id: 'logs_globais', label: 'Auditoria de Logs', setor: 'Global', icon: 'fas fa-shield-alt' },
+
+    // --- NOVOS MÓDULOS DE CONFIGURAÇÕES INDEPENDENTES ---
+    { id: 'gestao_usuarios', label: 'Gestão de Usuários', setor: 'Configurações', icon: 'fas fa-users' },
+    { id: 'gestao_acessos', label: 'Menus e Acessos', setor: 'Configurações', icon: 'fas fa-user-shield' },
+    { id: 'auditoria_logs', label: 'Auditoria de Logs', setor: 'Configurações', icon: 'fas fa-history' }
 ];
 
 const pageCache = {};
@@ -65,7 +69,6 @@ const ROTAS = {
     'indicadores': 'modules/indicadores/indicadores.html',
     'indicadores_serrana': 'modules/indicadores/indicadores_serrana.html',
     'cadastro_indicadores': 'modules/indicadores/cadastro_indicadores.html',
-    'config': 'modules/configuracoes/configuracoes.html',
     'central': 'modules/monitoramento/central/central.html',
     'logs_globais': 'modules/monitoramento/central/logs_globais.html',
     'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
@@ -76,10 +79,14 @@ const ROTAS = {
     'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
     'historico_producao': 'modules/monitoramento/historico/historico.html',
     'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
-    'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html'
+    'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html',
+    // Rotas das novas páginas de configuração:
+    'gestao_usuarios': 'modules/configuracoes/gestao_usuarios.html',
+    'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
+    'auditoria_logs': 'modules/configuracoes/auditoria_logs.html'
 };
 
-const VERSAO_SISTEMA = "1.0.6";
+const VERSAO_SISTEMA = "1.0.7";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -98,16 +105,12 @@ window.renderizarMenu = async function() {
 
     let meusMenus = [];
 
-    // CORREÇÃO: 1. Procura primeiro as permissões associadas ao Cargo Específico no Organograma
     if (cargoKey && permissoesAtuais[cargoKey]) {
         meusMenus = permissoesAtuais[cargoKey];
-    } 
-    // 2. Se não tiver configuração específica no cargo, herda do nível de acesso (SuperAdmin, Gerente, Usuario)
-    else if (permissoesAtuais[userRole]) {
+    } else if (permissoesAtuais[userRole]) {
         meusMenus = permissoesAtuais[userRole];
     }
 
-    // 3. Exceção do próprio usuário se sobrepõe a tudo
     if (userKey && permissoesAtuais[userKey] && !permissoesAtuais[userKey].includes('__RESET__')) {
         meusMenus = permissoesAtuais[userKey];
     }
@@ -117,26 +120,31 @@ window.renderizarMenu = async function() {
     const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
 
     let navHtml = '<nav class="main-nav">';
-    const setores = [...new Set(MAPA_MENUS.map(m => m.setor))];
+    // Puxa todos os setores dinamicamente
+    const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
+        // Regras restritas para Central (Global e Controladoria e Configurações)
         if (isSessaoCentral) {
             if (userRole === 'SuperAdmin') {
-                if (setor !== 'Controladoria' && setor !== 'Global') return;
+                if (setor !== 'Controladoria' && setor !== 'Global' && setor !== 'Configurações') return;
             } else {
                 if (setor !== 'Global') return;
             }
         } else {
+            // Se for filial, esconde Global e Controladoria
             if (setor === 'Global' || setor === 'Controladoria') return;
+            // Configurações só aparece para Gerente e Admin/SuperAdmin
+            if (setor === 'Configurações' && !isAdmin && !isGerente) return;
         }
 
-        const menusDoSetor = MAPA_MENUS.filter(m => m.setor === setor);
+        const menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
         const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
 
         if (temAcessoAoSetor) {
             navHtml += `<div class="nav-dropdown" onmouseleave="fecharDropdown(this)">
                 <button class="nav-item dropdown-toggle" onclick="toggleDropdown(event)">
-                    <i class="${getIconSetor(setor)}"></i> ${setor} <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 5px;"></i>
+                    <i class="${window.getIconSetor(setor)}"></i> ${setor} <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 5px;"></i>
                 </button>
                 <div class="dropdown-menu">`;
             
@@ -151,10 +159,6 @@ window.renderizarMenu = async function() {
         }
     });
 
-    if (userRole === 'SuperAdmin' || ((isAdmin || isGerente) && !isSessaoCentral)) {
-        navHtml += `<button id="navConfigBtn" class="nav-item" onclick="navegarPara('config', this)"><i class="fas fa-cog"></i> Configurações</button>`;
-    }
-
     navHtml += '</nav>';
     container.innerHTML = navHtml;
 
@@ -164,7 +168,7 @@ window.renderizarMenu = async function() {
     }, 100);
 
     setTimeout(() => {
-        const menusParaPreCarregar = isAdmin ? MAPA_MENUS.map(m => m.id) : meusMenus;
+        const menusParaPreCarregar = isAdmin ? window.MAPA_MENUS.map(m => m.id) : meusMenus;
         menusParaPreCarregar.forEach(async (menuId) => {
             const caminhoArquivo = ROTAS[menuId];
             if (caminhoArquivo && !pageCache[menuId]) {
@@ -174,13 +178,10 @@ window.renderizarMenu = async function() {
                 } catch (e) { }
             }
         });
-        if ((isAdmin || isGerente) && !pageCache['config']) {
-            fetch(`modules/configuracoes/configuracoes.html?v=${VERSAO_SISTEMA}`).then(r => r.text()).then(t => pageCache['config'] = t).catch(e=>{});
-        }
     }, 2000); 
 }
 
-function getIconSetor(setor) {
+window.getIconSetor = function(setor) {
     const icones = {
         'Logística': 'fas fa-truck',
         'Manutenção': 'fas fa-tools',
@@ -190,99 +191,10 @@ function getIconSetor(setor) {
         'Indicadores': 'fas fa-chart-line',
         'Monitoramento': 'fas fa-desktop',
         'Gerencial': 'fas fa-briefcase',
-        'Global': 'fas fa-globe'
+        'Global': 'fas fa-globe',
+        'Configurações': 'fas fa-cog'
     };
     return icones[setor] || 'fas fa-folder';
-}
-
-window.carregarCheckboxesPermissoes = async function() {
-    const container = document.getElementById('container-permissoes-menus');
-    if (!container) return;
-
-    if (!document.getElementById('css-permissoes-cards')) {
-        const style = document.createElement('style');
-        style.id = 'css-permissoes-cards';
-        style.innerHTML = `
-            .permissao-card { background: #1e293b; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
-            .permissao-header { display:flex; align-items: center; gap: 10px; margin-bottom: 15px; color: #f8fafc; font-size: 1rem; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; }
-            .permissao-icon-box { width: 32px; height: 32px; border-radius: 8px; background: rgba(59, 130, 246, 0.1); display: flex; align-items: center; justify-content: center; color: #3b82f6; }
-            .permissao-item { color: #cbd5e1; font-size: 0.85rem; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03); transition: all 0.2s; cursor: pointer; }
-            .permissao-item:hover:not(.disabled-item) { background: rgba(255,255,255,0.06); border-color: rgba(59, 130, 246, 0.3); }
-            .permissao-item.disabled-item { opacity: 0.4; cursor: not-allowed; }
-            .permissao-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #3b82f6; cursor: inherit; }
-            .permissao-item-icon { background: rgba(15, 23, 42, 0.5); width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 0.8rem; }
-        `;
-        document.head.appendChild(style);
-    }
-
-    const tipo = document.querySelector('input[name="tipoPermissao"]:checked')?.value || 'perfil';
-    let alvo = '';
-    
-    if (tipo === 'perfil') {
-        alvo = document.getElementById('selectPerfilPermissao')?.value;
-    } else {
-        alvo = document.getElementById('selectUsuarioPermissao')?.value;
-    }
-
-    if (!alvo) return; // Se ainda não carregou as opções, não renderiza as caixinhas
-
-    let permissoesAtuais = {};
-    if (typeof db !== 'undefined' && typeof db.getPermissoesDB === 'function') {
-        permissoesAtuais = await db.getPermissoesDB();
-    } else if (typeof window.getPermissoes === 'function') {
-        permissoesAtuais = window.getPermissoes();
-    }
-    
-    let meusAcessos = permissoesAtuais[alvo] || [];
-    const isSuperAdmin = (currentUser && currentUser.role === 'SuperAdmin');
-
-    if (tipo === 'usuario' && (!permissoesAtuais[alvo] || meusAcessos.includes('__RESET__'))) {
-        const selectUser = document.getElementById('selectUsuarioPermissao');
-        const textoOpcao = selectUser.options[selectUser.selectedIndex].text;
-        const matchRole = textoOpcao.match(/\((.*?)\)/);
-        const roleDesteUser = matchRole ? matchRole[1] : null;
-        
-        if (roleDesteUser && permissoesAtuais[roleDesteUser]) {
-            meusAcessos = permissoesAtuais[roleDesteUser];
-        } else {
-            meusAcessos = [];
-        }
-    }
-
-    let html = '';
-    const setores = [...new Set(MAPA_MENUS.map(m => m.setor))];
-
-    setores.forEach(setor => {
-        if (setor === 'Global') return; 
-
-        html += `
-        <div class="permissao-card">
-            <div class="permissao-header">
-                <div class="permissao-icon-box"><i class="${getIconSetor(setor)}"></i></div>
-                ${setor}
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">`;
-        
-        MAPA_MENUS.filter(m => m.setor === setor).forEach(menu => {
-            const checked = meusAcessos.includes(menu.id) ? 'checked' : '';
-            const disabled = (menu.setor === 'Gerencial' && !isSuperAdmin) ? 'disabled' : '';
-            const disabledClass = disabled ? 'disabled-item' : '';
-            const extraInfo = disabled ? ' title="Apenas SuperAdmin pode alterar este acesso"' : '';
-
-            html += `
-                <label class="permissao-item ${disabledClass}" ${extraInfo}>
-                    <input type="checkbox" class="chk-permissao" value="${menu.id}" ${checked} ${disabled}>
-                    <div class="permissao-item-icon">
-                        <i class="${menu.icon}"></i>
-                    </div>
-                    <span style="flex: 1; font-weight: 500;">${menu.label}</span>
-                </label>`;
-        });
-
-        html += `</div></div>`;
-    });
-
-    container.innerHTML = html;
 }
 
 window.toggleDropdown = function(event) {
@@ -299,7 +211,7 @@ window.fecharDropdown = function(dropdownElement) {
 window.navegarPara = async function(pagina, elementoClicado) {
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
 
-    if (pagina === 'config' && userRole !== 'Admin' && userRole !== 'SuperAdmin' && userRole !== 'Gerente') {
+    if (['gestao_usuarios', 'gestao_acessos', 'auditoria_logs'].includes(pagina) && userRole !== 'Admin' && userRole !== 'SuperAdmin' && userRole !== 'Gerente') {
         alert('Acesso Negado.'); return; 
     }
 
@@ -364,11 +276,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
 
         if (pagina === 'os_apoio' && typeof window.alternarTelaOSApoio === 'function') window.alternarTelaOSApoio('lista');
-        
         if (pagina === 'rh_painel' && typeof window.initRHPainel === 'function') window.initRHPainel(); 
-        
         if (pagina === 'centro_custo' && typeof window.initControladoria === 'function') window.initControladoria();
-
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
@@ -388,23 +297,20 @@ window.navegarPara = async function(pagina, elementoClicado) {
             if (typeof window.renderizarDMIndividual === 'function') window.renderizarDMIndividual();
         }
 
-        if (pagina === 'config') {
-            if (typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
-            if (typeof window.renderizarLogs === 'function') window.renderizarLogs();
-            window.carregarCheckboxesPermissoes(); 
-        }
-
         if (pagina === 'visao_geral' && typeof window.carregarDadosDashboardAnalitico === 'function') window.carregarDadosDashboardAnalitico();
         if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
         if (pagina === 'desempenho_frota' && typeof window.initDesempenhoFrota === 'function') window.initDesempenhoFrota();
         if (pagina === 'producao_frota' && typeof window.initProducaoFrota === 'function') window.initProducaoFrota();
-        
         if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
-        
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();
         if (pagina === 'historico_producao' && typeof window.initHistoricoProducao === 'function') window.initHistoricoProducao();
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();
         if (pagina === 'configuracoes_gerencial' && typeof window.inicializarConfiguracoesGerencial === 'function') window.inicializarConfiguracoesGerencial();
+
+        // Inicializadores das novas rotas separadas de configuração
+        if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
+        if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
+        if (pagina === 'auditoria_logs' && typeof window.renderizarLogs === 'function') window.renderizarLogs();
 
     } catch (error) {
         console.error('Erro ao carregar página:', error);

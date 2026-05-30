@@ -1,10 +1,9 @@
-// ==================== MÓDULO: GESTÃO DE USUÁRIOS E FILIAIS ====================
+// ==================== MÓDULO: GESTÃO DE USUÁRIOS ====================
 
 let listaUsuarios = [];
 let listaFiliaisAtivas = [];
 
-// Função auxiliar que injeta as amarrações do Organograma Corporativo
-async function injetarSelectsOrganizacionais() {
+window.injetarSelectsOrganizacionais = async function() {
     const inputRole = document.getElementById('novoUserRole');
     if (!inputRole || !inputRole.parentNode) return;
     
@@ -85,14 +84,14 @@ async function injetarSelectsOrganizacionais() {
             carregarCargosParaFilial(fValue);
         }
     }
-}
+};
 
 window.renderizarUsuarios = async function() {
     const tbody = document.getElementById('tabelaUsuarios');
     if (!tbody) return;
 
-    await injetarSelectsOrganizacionais();
-    await window.carregarPerfisPermissao();
+    await window.injetarSelectsOrganizacionais();
+    if (typeof window.carregarPerfisPermissao === 'function') await window.carregarPerfisPermissao();
 
     try {
         let mapaCargos = {};
@@ -141,8 +140,8 @@ window.renderizarUsuarios = async function() {
                 <td style="font-size: 0.8rem; color: #cbd5e1;">${filialNome}</td>
                 <td>${statusBadge}</td>
                 <td>
-                    <button onclick="resetarSenhaUsuario(${u.id})" ${isCurrent ? 'disabled' : ''} style="background: rgba(255,255,255,0.05); border: 1px solid #fde047; color: #fde047; padding: 5px 10px; border-radius: 4px; cursor: ${isCurrent ? 'not-allowed' : 'pointer'}; font-size: 0.75rem;">🔄 Resetar</button>
-                    <button onclick="excluirUsuario(${u.id})" ${isCurrent ? 'disabled' : ''} style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: ${isCurrent ? 'not-allowed' : 'pointer'}; font-size: 0.75rem; margin-left: 5px;">🗑️</button>
+                    <button onclick="window.resetarSenhaUsuario(${u.id})" ${isCurrent ? 'disabled' : ''} style="background: rgba(255,255,255,0.05); border: 1px solid #fde047; color: #fde047; padding: 5px 10px; border-radius: 4px; cursor: ${isCurrent ? 'not-allowed' : 'pointer'}; font-size: 0.75rem;">🔄 Resetar</button>
+                    <button onclick="window.excluirUsuario(${u.id})" ${isCurrent ? 'disabled' : ''} style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: ${isCurrent ? 'not-allowed' : 'pointer'}; font-size: 0.75rem; margin-left: 5px;">🗑️</button>
                 </td>
             </tr>
         `}).join('');
@@ -150,7 +149,7 @@ window.renderizarUsuarios = async function() {
         console.error(e);
         tbody.innerHTML = '<tr><td colspan="5" style="color: #ef4444;">Erro ao carregar dados dos usuários.</td></tr>';
     }
-}
+};
 
 window.adicionarUsuario = async function() {
     const nome = document.getElementById('novoUsername').value.trim().toUpperCase();
@@ -202,7 +201,7 @@ window.adicionarUsuario = async function() {
         console.error(e);
         alert('❌ Erro ao registrar o usuário na estrutura corporativa. Verifique o console.'); 
     }
-}
+};
 
 window.resetarSenhaUsuario = async function(id) {
     if(confirm(`Deseja resetar a senha deste usuário para "12345"?`)) {
@@ -210,173 +209,12 @@ window.resetarSenhaUsuario = async function(id) {
         alert(`Senha resetada com sucesso.`); 
         window.renderizarUsuarios();
     }
-}
+};
 
 window.excluirUsuario = async function(id) {
     if(confirm(`🚨 ATENÇÃO: Deseja EXCLUIR permanentemente o acesso deste usuário e o desvincular do organograma?`)) {
         await db.deleteUsuario(id);
         alert('Usuário desvinculado e excluído.'); 
         window.renderizarUsuarios();
-    }
-}
-
-window.renderizarLogs = async function() {
-    const tbody = document.getElementById('listaLogs');
-    if (!tbody) return;
-    try {
-        const logs = await db.getLogs();
-        if (logs.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhum registro encontrado.</td></tr>'; return; }
-        tbody.innerHTML = logs.map(l => `
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <td style="color: var(--text-secondary); font-size: 0.8rem;">${new Date(l.data_hora).toLocaleString('pt-BR')}</td>
-                <td style="color: var(--ccol-blue-bright); font-weight: bold;">${l.usuario}</td>
-                <td><span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 3px 6px; border-radius: 4px; font-size: 0.75rem; border: 1px solid #ef4444;">${l.acao}</span></td>
-                <td style="text-align: left; font-size: 0.85rem;">${l.detalhes}</td>
-            </tr>
-        `).join('');
-    } catch(e) { tbody.innerHTML = '<tr><td colspan="4" style="color: #ef4444;">Erro ao carregar logs.</td></tr>'; }
-}
-
-window.carregarPerfisPermissao = async function() {
-    const selectPerfil = document.getElementById('selectPerfilPermissao');
-    if (!selectPerfil) return; 
-
-    try {
-        let query = supabaseClient.from('cargos')
-            .select('id, nome, filial_id, nivel_acesso')
-            .eq('status', 'Ativo')
-            .order('nome');
-
-        if (window.currentUser && window.currentUser.role !== 'SuperAdmin') {
-            const filialId = window.currentUser.filial_id;
-            if (filialId !== null && filialId !== 'CENTRAL') {
-                query = query.eq('filial_id', parseInt(filialId));
-            } else {
-                query = query.is('filial_id', null);
-            }
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-
-        let options = '<option value="" disabled selected>-- Selecione o Cargo --</option>';
-        if (data && data.length > 0) {
-            data.forEach(cargo => {
-                options += `<option value="${cargo.id}" data-id="${cargo.id}" data-role="${cargo.nivel_acesso}">${cargo.nome}</option>`;
-            });
-        } else {
-            options = '<option value="" disabled selected>Nenhum Cargo Cadastrado na sua Filial</option>';
-        }
-        selectPerfil.innerHTML = options;
-        
-    } catch (error) {
-        console.error("Erro ao puxar cargos da Controladoria:", error);
-        selectPerfil.innerHTML = '<option value="" disabled selected>Erro ao carregar Organograma</option>';
-    }
-};
-
-document.addEventListener('DOMContentLoaded', async () => {
-    if (document.getElementById('selectPerfilPermissao')) {
-        await window.carregarPerfisPermissao();
-    }
-});
-
-// ==================== NOVAS FUNÇÕES: CONTROLE VISUAL E DE ACESSOS ====================
-
-window.alternarAbaConfig = function(abaId, elementoClicado) {
-    document.querySelectorAll('.config-menu-item').forEach(el => el.classList.remove('active'));
-    if (elementoClicado) elementoClicado.classList.add('active');
-
-    document.querySelectorAll('.config-tab-content').forEach(el => el.style.display = 'none');
-    const tab = document.getElementById(abaId);
-    if (tab) tab.style.display = 'block';
-};
-
-window.mudarTipoPermissao = function(tipo) {
-    const selectCargo = document.getElementById('selectPerfilPermissao');
-    const selectUser = document.getElementById('selectUsuarioPermissao');
-    
-    if (tipo === 'perfil') {
-        if(selectCargo) selectCargo.style.display = 'block';
-        if(selectUser) selectUser.style.display = 'none';
-    } else {
-        if(selectCargo) selectCargo.style.display = 'none';
-        if(selectUser) selectUser.style.display = 'block';
-        if(typeof window.carregarSelectUsuariosPermissoes === 'function') window.carregarSelectUsuariosPermissoes();
-    }
-    
-    if(typeof window.carregarCheckboxesPermissoes === 'function') {
-        window.carregarCheckboxesPermissoes();
-    }
-};
-
-window.carregarSelectUsuariosPermissoes = async function() {
-    const selectUser = document.getElementById('selectUsuarioPermissao');
-    if (!selectUser) return;
-    
-    try {
-        const todosUsuarios = await db.getUsuarios('TODAS');
-        let options = '<option value="" disabled selected>-- Selecione o Usuário --</option>';
-        
-        if (todosUsuarios && todosUsuarios.length > 0) {
-            todosUsuarios.forEach(u => {
-                const userName = u.username || 'Desconhecido';
-                const role = u.cargos ? u.cargos.nome : (u.role || 'Usuario');
-                options += `<option value="user_${u.id}">${userName} (${role})</option>`;
-            });
-        } else {
-            options = '<option value="" disabled selected>Nenhum usuário encontrado</option>';
-        }
-        selectUser.innerHTML = options;
-    } catch (e) {
-        console.error("Erro ao carregar usuários para permissões:", e);
-        selectUser.innerHTML = '<option value="" disabled selected>Erro ao carregar</option>';
-    }
-};
-
-window.salvarPermissoes = async function() {
-    try {
-        const tipo = document.querySelector('input[name="tipoPermissao"]:checked')?.value || 'perfil';
-        let alvo = '';
-        
-        if (tipo === 'perfil') {
-            alvo = document.getElementById('selectPerfilPermissao')?.value;
-            if (!alvo) { alert('Selecione um cargo na lista primeiro.'); return; }
-        } else {
-            alvo = document.getElementById('selectUsuarioPermissao')?.value;
-            if (!alvo) { alert('Selecione um usuário na lista primeiro.'); return; }
-        }
-
-        const checkboxes = document.querySelectorAll('.chk-permissao');
-        const novasPermissoes = [];
-        
-        checkboxes.forEach(chk => {
-            if (chk.checked) novasPermissoes.push(chk.value);
-        });
-
-        if (tipo === 'usuario' && novasPermissoes.length === 0) {
-            if(confirm("Você deixou todas as caixas vazias.\nDeseja remover as regras específicas deste usuário para que ele volte a seguir o padrão do Cargo dele?")) {
-                novasPermissoes.push('__RESET__');
-            } else {
-                return;
-            }
-        }
-
-        if (typeof db.salvarPermissoesDB === 'function') {
-            await db.salvarPermissoesDB(alvo, novasPermissoes);
-        } else {
-            alert("A função db.salvarPermissoesDB não foi encontrada no database.js.");
-            return;
-        }
-
-        alert('✅ Permissões de menus salvas com sucesso!');
-        
-        if (typeof window.renderizarMenu === 'function') {
-            window.renderizarMenu();
-        }
-
-    } catch (error) {
-        console.error("Erro ao salvar permissões:", error);
-        alert("❌ Ocorreu um erro ao tentar salvar as permissões.");
     }
 };
