@@ -9,6 +9,14 @@ let mapaSOSMecanicoInstance = null;
 
 window.renderizarTelaServicos = async function() {
     try {
+        // 1. CARREGA O CACHE DE PEÇAS GLOBAIS PRIMEIRO (Evita o erro 400 dos JOINs)
+        if (mOS_PecasCache.length === 0) {
+            let qPecas = window.supabaseClient.from('almoxarifado_pecas').select('*');
+            if (typeof window.aplicarFiltroFilial === 'function') qPecas = window.aplicarFiltroFilial(qPecas);
+            const { data: cachePecas } = await qPecas;
+            mOS_PecasCache = cachePecas || [];
+        }
+
         let queryOS = window.supabaseClient.from('ordens_servico').select('*').in('status', ['Aguardando Oficina', 'Em Manutenção']).order('data_abertura', { ascending: false });
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         
@@ -21,7 +29,8 @@ window.renderizarTelaServicos = async function() {
         const osDesteMecanico = mOS_ListaGeral.filter(os => os.mecanico_responsavel === usuarioLogado).map(os => os.id);
         
         if (osDesteMecanico.length > 0) {
-            let queryReq = window.supabaseClient.from('os_pecas_utilizadas').select(`*, almoxarifado_pecas(nome)`).in('os_id', osDesteMecanico).order('id', { ascending: false });
+            // REMOVIDO O JOIN "almoxarifado_pecas(nome)" QUE CAUSAVA O ERRO 400 BAD REQUEST
+            let queryReq = window.supabaseClient.from('os_pecas_utilizadas').select(`*`).in('os_id', osDesteMecanico).order('id', { ascending: false });
             if (typeof window.aplicarFiltroFilial === 'function') queryReq = window.aplicarFiltroFilial(queryReq);
             const { data: reqData } = await queryReq;
             mOS_Requisicoes = reqData || [];
@@ -200,6 +209,10 @@ function mecanicoRenderizarTabelas() {
         }
 
         tbody.innerHTML = mOS_Requisicoes.map(r => {
+            // Busca o nome da peça no Cache local (Evitando o erro do JOIN do banco)
+            const pecaObj = mOS_PecasCache.find(p => p.id == r.peca_id);
+            const pecaNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
+
             let statusBadge = '';
             if (r.status === 'Pendente' || !r.status) statusBadge = '<span style="background:#f59e0b; color:#fff; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;"><i class="fas fa-clock"></i> Pendente</span>';
             else if (r.status === 'Aprovado') statusBadge = '<span style="background:#10b981; color:#fff; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;"><i class="fas fa-check"></i> Separado</span>';
@@ -208,7 +221,7 @@ function mecanicoRenderizarTabelas() {
             return `
             <tr>
                 <td style="font-weight:bold; color:#fff;">#${r.os_id}</td>
-                <td><strong style="color:var(--ccol-blue-bright);">${r.almoxarifado_pecas?.nome || 'Peça Indisponível'}</strong></td>
+                <td><strong style="color:var(--ccol-blue-bright);">${pecaNome}</strong></td>
                 <td>${r.quantidade}</td>
                 <td style="color:#94a3b8;">${r.compartimento || 'GERAL'}</td>
                 <td style="text-align:right;">${statusBadge}</td>
@@ -457,20 +470,38 @@ window.mecanicoAddServico = async function() {
 };
 
 window.mecanicoAddPeca = async function() {
-    const pecaId = document.getElementById('aponPeca').value;
+    const pecaIdVal = document.getElementById('aponPeca').value;
     const comp = document.getElementById('aponCompartimentoPeca').value;
     const qtd = parseFloat(document.getElementById('aponQtdPeca').value);
 
-    if (!pecaId || qtd <= 0) return alert("Selecione a peça e quantidade.");
+    if (!pecaIdVal || qtd <= 0) return alert("Selecione a peça e quantidade.");
     
+    // Converte para Number garantindo que o banco não lance o erro 400 por erro de tipagem String vs Integer
+    const pecaId = isNaN(pecaIdVal) ? pecaIdVal : Number(pecaIdVal);
     const pecaDb = mOS_PecasCache.find(p => p.id == pecaId);
 
-    let insertPeca = { os_id: mOS_Atual, peca_id: pecaId, quantidade: qtd, valor_unitario: pecaDb.preco_medio, compartimento: comp, status: 'Pendente' };
+    let insertPeca = { 
+        os_id: mOS_Atual, 
+        peca_id: pecaId, 
+        quantidade: qtd, 
+        valor_unitario: pecaDb ? (pecaDb.preco_medio || 0) : 0, 
+        compartimento: comp, 
+        status: 'Pendente' 
+    };
     if (typeof window.injetarFilial === 'function') insertPeca = window.injetarFilial(insertPeca);
 
-    const { error } = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
+    let res = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
     
-    if(error) return alert("Erro ao requisitar peça.");
+    // Fallback de Segurança: Se a coluna valor_unitario não existir no banco, ele retira e tenta novamente.
+    if(res.error && res.error.message && res.error.message.includes('column')) {
+        delete insertPeca.valor_unitario;
+        res = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
+    }
+
+    if(res.error) {
+        console.error("Erro Supabase:", res.error);
+        return alert("Erro ao requisitar peça. Verifique sua conexão: " + res.error.message);
+    }
 
     document.getElementById('aponQtdPeca').value = '1';
     
@@ -497,12 +528,20 @@ async function mecanicoAtualizarTabelasModal() {
         </div>
     `).join('') : '<p style="padding:15px; text-align:center; color: #94a3b8;">Nenhum serviço lançado ainda.</p>';
 
-    const { data: p } = await window.supabaseClient.from('os_pecas_utilizadas').select(`*, almoxarifado_pecas(nome, unidade)`).eq('os_id', mOS_Atual);
-    document.getElementById('tabelaPecasLancadas').innerHTML = (p && p.length > 0) ? p.map(item => `
+    // REMOVIDO O JOIN DO BANCO PARA EVITAR O 400
+    const { data: p } = await window.supabaseClient.from('os_pecas_utilizadas').select(`*`).eq('os_id', mOS_Atual);
+    
+    document.getElementById('tabelaPecasLancadas').innerHTML = (p && p.length > 0) ? p.map(item => {
+        // Busca os dados visuais no cache que já foi carregado
+        const pecaObj = mOS_PecasCache.find(x => x.id == item.peca_id);
+        const pUnidade = pecaObj ? (pecaObj.unidade || 'UN') : 'UN';
+        const pNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
+
+        return `
         <div style="padding:15px; border-bottom:1px solid #334155; font-size:0.9rem; display: flex; justify-content: space-between; align-items: center;">
             <div>
                 <span style="color:#10b981; font-weight:bold; display: block; margin-bottom: 5px;">[${item.compartimento || 'GERAL'}]</span> 
-                <strong style="font-size: 1rem; color: #fff;">${item.quantidade}${item.almoxarifado_pecas?.unidade || 'UN'} de ${item.almoxarifado_pecas?.nome || 'Peça'}</strong>
+                <strong style="font-size: 1rem; color: #fff;">${item.quantidade}${pUnidade} de ${pNome}</strong>
             </div>
             <div>
                 <span style="background:${(item.status === 'Pendente' || !item.status) ? '#f59e0b' : (item.status === 'Aprovado' ? '#10b981' : '#ef4444')}; color:#fff; padding:4px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">
@@ -510,7 +549,8 @@ async function mecanicoAtualizarTabelasModal() {
                 </span>
             </div>
         </div>
-    `).join('') : '<p style="padding:15px; text-align:center; color: #94a3b8;">Nenhuma peça requisitada ainda.</p>';
+        `;
+    }).join('') : '<p style="padding:15px; text-align:center; color: #94a3b8;">Nenhuma peça requisitada ainda.</p>';
 }
 
 async function mecanicoCarregarPecas() {
