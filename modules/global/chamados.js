@@ -4,7 +4,7 @@ let chamadoFiltroStatus = 'Todos';
 let chamadoFiltroModulo = 'Todos';
 let idChamadoEmEdicao = null;
 let mapaFiliaisCache = {};
-let chamadosDataCache = []; // Guarda os dados em memória para os gráficos
+let chamadosDataCache = []; 
 
 // Instâncias do ECharts
 let chartModulo = null;
@@ -13,7 +13,6 @@ let chartStatus = null;
 window.carregarTelaChamados = async function() {
     await window.TI_carregarCacheFiliais();
     
-    // Inicializa instâncias dos gráficos
     const domModulo = document.getElementById('chartChamadosModulo');
     const domStatus = document.getElementById('chartChamadosStatus');
     if (domModulo) chartModulo = echarts.init(domModulo);
@@ -50,16 +49,11 @@ window.TI_alterarFiltroModulo = function(val) {
     window.TI_aplicarFiltrosNaTela();
 };
 
-/**
- * Busca TODOS os chamados do banco para calcular o Dashboard Global, 
- * depois aplica os filtros visuais na tabela.
- */
 window.TI_atualizarTabelaChamados = async function() {
     const tbody = document.getElementById('corpoTabelaTIChamados');
     if (!tbody) return;
 
     try {
-        // Trazemos tudo (sem limite) para ter estatísticas corretas do mês
         const { data, error } = await supabaseClient
             .from('chamados_suporte')
             .select('*')
@@ -68,21 +62,15 @@ window.TI_atualizarTabelaChamados = async function() {
         if (error) throw error;
         chamadosDataCache = data || [];
         
-        // Atualiza os Gráficos e KPIs com a visão GLOBAL
         window.TI_atualizarDashboardDashboard(chamadosDataCache);
-        
-        // Renderiza a Tabela com os filtros selecionados
         window.TI_aplicarFiltrosNaTela();
 
     } catch (e) {
         console.error("Erro ao listar chamados:", e);
-        tbody.innerHTML = `<tr><td colspan="8" style="padding:30px; color:#ef4444;">Erro crítico ao carregar chamados de suporte.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="padding:30px; color:#ef4444; text-align:center;">Erro crítico ao carregar chamados de suporte.</td></tr>`;
     }
 };
 
-/**
- * Função utilitária para converter minutos em formato legível (Ex: 2h 30m)
- */
 function formatarMinutos(minutosTotais) {
     if (!minutosTotais || isNaN(minutosTotais)) return '0h 0m';
     const h = Math.floor(minutosTotais / 60);
@@ -91,9 +79,6 @@ function formatarMinutos(minutosTotais) {
     return `${m}m`;
 }
 
-/**
- * Calcula os indicadores de SLA e popula os cards e gráficos
- */
 window.TI_atualizarDashboardDashboard = function(data) {
     let abertos = 0;
     let totalResolvidos = 0;
@@ -106,15 +91,12 @@ window.TI_atualizarDashboardDashboard = function(data) {
     let dadosPorStatus = { 'Aberto': 0, 'Em Andamento': 0, 'Resolvido': 0, 'Cancelado': 0 };
 
     data.forEach(c => {
-        // Contagem Status
         if (dadosPorStatus[c.status] !== undefined) dadosPorStatus[c.status]++;
         if (c.status === 'Aberto') abertos++;
         if (c.status === 'Resolvido') totalResolvidos++;
 
-        // Contagem Módulos
         dadosPorModulo[c.modulo] = (dadosPorModulo[c.modulo] || 0) + 1;
 
-        // SLA Cálculos
         if (c.sla_resposta_minutos) {
             somaMinutosResposta += c.sla_resposta_minutos;
             countResposta++;
@@ -125,7 +107,6 @@ window.TI_atualizarDashboardDashboard = function(data) {
         }
     });
 
-    // Atualiza KPIs HTML
     const kpiAbertos = document.getElementById('kpiAbertos');
     if(kpiAbertos) kpiAbertos.innerText = abertos;
     
@@ -141,7 +122,6 @@ window.TI_atualizarDashboardDashboard = function(data) {
     const kpiTaxaResolucao = document.getElementById('kpiTaxaResolucao');
     if(kpiTaxaResolucao) kpiTaxaResolucao.innerText = `${taxa}%`;
 
-    // Atualiza Gráfico Módulos (Barras)
     if (chartModulo) {
         let sortedModulos = Object.entries(dadosPorModulo).sort((a,b) => b[1] - a[1]);
         chartModulo.setOption({
@@ -161,7 +141,6 @@ window.TI_atualizarDashboardDashboard = function(data) {
         });
     }
 
-    // Atualiza Gráfico Status (Donut)
     if (chartStatus) {
         chartStatus.setOption({
             tooltip: { trigger: 'item' },
@@ -191,12 +170,8 @@ window.TI_aplicarFiltrosNaTela = function() {
 
     let dadosFiltrados = chamadosDataCache;
 
-    if (chamadoFiltroStatus !== 'Todos') {
-        dadosFiltrados = dadosFiltrados.filter(c => c.status === chamadoFiltroStatus);
-    }
-    if (chamadoFiltroModulo !== 'Todos') {
-        dadosFiltrados = dadosFiltrados.filter(c => c.modulo === chamadoFiltroModulo);
-    }
+    if (chamadoFiltroStatus !== 'Todos') dadosFiltrados = dadosFiltrados.filter(c => c.status === chamadoFiltroStatus);
+    if (chamadoFiltroModulo !== 'Todos') dadosFiltrados = dadosFiltrados.filter(c => c.modulo === chamadoFiltroModulo);
 
     if (dadosFiltrados.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" style="padding: 30px; text-align: center; color: var(--text-secondary);">Nenhum chamado encontrado para os filtros selecionados.</td></tr>`;
@@ -209,13 +184,11 @@ window.TI_aplicarFiltrosNaTela = function() {
         const dataFormatada = dataCriacaoObj.toLocaleString('pt-BR').substring(0, 16); 
         const nomeFilial = mapaFiliaisCache[chamado.filial_id] || 'N/A';
 
-        // Badges Status
         let badgeStyle = 'background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2);';
         if (chamado.status === 'Em Andamento') badgeStyle = 'background: rgba(251,146,60,0.1); color: #fb923c; border: 1px solid rgba(251,146,60,0.2);';
         else if (chamado.status === 'Resolvido') badgeStyle = 'background: rgba(61,220,132,0.1); color: var(--ccol-green-bright); border: 1px solid rgba(61,220,132,0.2);';
         else if (chamado.status === 'Cancelado') badgeStyle = 'background: rgba(156,163,175,0.1); color: #9ca3af; border: 1px solid rgba(156,163,175,0.2);';
 
-        // Calculando tempo corrido se estiver aberto
         let infoSLA = '';
         if (chamado.status === 'Aberto') {
             const minAberto = Math.floor((new Date() - dataCriacaoObj) / 60000);
@@ -254,10 +227,47 @@ window.TI_aplicarFiltrosNaTela = function() {
 // ================= LÓGICA DO CHAT DA TI =================
 let objChamadoRawData = null;
 
+// NOVO: Função exclusiva para renderizar o Chat na visão do Técnico de TI
+window.renderizarMensagensChatTI = function(historico) {
+    const container = document.getElementById('chatMensagensContainerTI');
+    if (!container) return;
+    
+    container.innerHTML = '';
+
+    if (!historico || historico.length === 0) {
+        container.innerHTML = `<p style="color:#9ca3af; text-align:center; margin-top:20px;">Nenhuma interação registrada.</p>`;
+        return;
+    }
+
+    historico.forEach(msg => {
+        const dataFmt = new Date(msg.data).toLocaleString('pt-BR');
+        const isTI = msg.autor === 'TI';
+
+        // Para a TI: As mensagens dela ficam na direita (Azul), as do usuário na esquerda (Cinza)
+        const align = isTI ? 'align-self: flex-end;' : 'align-self: flex-start;';
+        const bgColor = isTI ? 'background: #2563eb;' : 'background: #374151;';
+        const borderRadius = isTI ? 'border-radius: 12px 12px 0 12px;' : 'border-radius: 12px 12px 12px 0;';
+        const iconUser = isTI ? '💻 TI' : '👤';
+
+        const div = document.createElement('div');
+        div.style.cssText = `max-width: 85%; padding: 12px 16px; color: #fff; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.1); ${align} ${bgColor} ${borderRadius}`;
+        
+        div.innerHTML = `
+            <div style="font-size: 0.75rem; color: #cbd5e1; margin-bottom: 8px; font-weight:bold; display: flex; justify-content: space-between; gap: 15px;">
+                <span>${iconUser} ${msg.nome}</span> 
+                <span style="font-weight:normal; opacity: 0.8;">${dataFmt}</span>
+            </div>
+            <div style="font-size: 0.95rem; line-height: 1.5; word-wrap: break-word; white-space: pre-wrap;">${msg.mensagem}</div>
+        `;
+        container.appendChild(div);
+    });
+
+    setTimeout(() => { container.scrollTop = container.scrollHeight; }, 100);
+};
+
 window.TI_abrirChat = function(id) {
     idChamadoEmEdicao = id;
     
-    // Guardamos a data original para calcular os SLAs na hora de salvar
     objChamadoRawData = chamadosDataCache.find(c => c.id === id);
     if (!objChamadoRawData) return;
 
@@ -270,10 +280,8 @@ window.TI_abrirChat = function(id) {
 
     document.getElementById('modalTIResponderChamado').classList.add('show');
     
-    // Aproveita a mesma função de renderização do app.js para desenhar os balões do chat
-    if (typeof window.renderizarMensagensChat === 'function') {
-        window.renderizarMensagensChat(objChamadoRawData.historico_conversa || []);
-    }
+    // Chama a função exclusiva da TI para desenhar os balões do chat
+    window.renderizarMensagensChatTI(objChamadoRawData.historico_conversa || []);
 };
 
 window.TI_fecharModalResponder = function() {
@@ -283,7 +291,6 @@ window.TI_fecharModalResponder = function() {
     document.getElementById('modalTIRespostaTexto').value = '';
 };
 
-// TI envia mensagem e altera status do chamado
 window.TI_salvarSolucaoChamado = async function() {
     if (!idChamadoEmEdicao || !objChamadoRawData) return;
 
@@ -292,23 +299,20 @@ window.TI_salvarSolucaoChamado = async function() {
 
     const btn = document.getElementById('btnTISalvarChamado');
     const txtOriginal = btn.innerHTML;
-    btn.innerHTML = '⏳ Calculando SLA e Salvando...'; 
+    btn.innerHTML = '⏳ Salvando...'; 
     btn.disabled = true;
 
     try {
-        // CORRIGIDO: Pega o ID de atendente diretamente da variável de sessão global
         let atendenteId = window.currentUser ? window.currentUser.id : null;
-
         const agora = new Date();
         const dataCriacaoObj = new Date(objChamadoRawData.data_criacao);
         
         let historico = objChamadoRawData.historico_conversa || [];
 
-        // Só adiciona no chat se a TI digitou alguma coisa
         if (textoMsg) {
             historico.push({
                 autor: 'TI',
-                nome: window.currentUser.username, // Nome do técnico que respondeu
+                nome: window.currentUser.username, 
                 data: agora.toISOString(),
                 mensagem: textoMsg
             });
@@ -321,14 +325,11 @@ window.TI_salvarSolucaoChamado = async function() {
             data_atualizacao: agora.toISOString()
         };
 
-        // Regras de cálculo de SLA baseadas na mudança de status
-        // 1. SLA de Primeira Resposta (Dispara na primeira vez que sai de Aberto)
         if (objChamadoRawData.status === 'Aberto' && (novoStatus === 'Em Andamento' || novoStatus === 'Resolvido')) {
             updatePayload.data_primeira_resposta = agora.toISOString();
             updatePayload.sla_resposta_minutos = Math.floor((agora - dataCriacaoObj) / 60000);
         }
 
-        // 2. SLA de Resolução (Dispara quando o status muda para Resolvido)
         if (objChamadoRawData.status !== 'Resolvido' && novoStatus === 'Resolvido') {
             updatePayload.data_resolucao = agora.toISOString();
             updatePayload.sla_resolucao_minutos = Math.floor((agora - dataCriacaoObj) / 60000);
@@ -341,21 +342,13 @@ window.TI_salvarSolucaoChamado = async function() {
 
         if (error) throw error;
 
-        // Atualiza as variáveis em memória para refletir imediatamente na tela
         objChamadoRawData.historico_conversa = historico;
         objChamadoRawData.status = novoStatus;
         
-        // Limpa campo e atualiza a caixinha do chat sem fechar o modal
         document.getElementById('modalTIRespostaTexto').value = '';
-        if (typeof window.renderizarMensagensChat === 'function') {
-            window.renderizarMensagensChat(historico);
-        }
+        window.renderizarMensagensChatTI(historico);
         
-        // Atualiza a tabela de fundo com os novos status
         window.TI_aplicarFiltrosNaTela();
-        
-        // Pequeno alerta de confirmação no console para não incomodar o técnico a cada mensagem enviada
-        console.log("Incidente atualizado e SLA registrado!");
 
     } catch (e) {
         console.error("Erro ao salvar atualização de chamado:", e);
