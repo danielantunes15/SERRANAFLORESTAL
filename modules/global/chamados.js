@@ -296,9 +296,8 @@ window.TI_salvarSolucaoChamado = async function() {
     btn.disabled = true;
 
     try {
-        let atendenteId = null;
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session && session.user) atendenteId = session.user.id;
+        // CORRIGIDO: Pega o ID de atendente diretamente da variável de sessão global
+        let atendenteId = window.currentUser ? window.currentUser.id : null;
 
         const agora = new Date();
         const dataCriacaoObj = new Date(objChamadoRawData.data_criacao);

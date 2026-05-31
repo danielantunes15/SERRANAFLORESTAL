@@ -165,7 +165,7 @@ window.salvarChamadoSuporte = async function() {
     try {
         const filialIdDoUsuario = window.currentUser.filial_id === 'CENTRAL' ? null : window.currentUser.filial_id;
 
-        // Anexamos a urgência diretamente na primeira mensagem do chat, assim não precisamos alterar o banco de dados
+        // Anexamos a urgência diretamente na primeira mensagem do chat
         const mensagemInicial = `[Urgência: ${urgencia}]\n\n${descricao}`;
 
         const historicoInicial = [{
@@ -176,13 +176,13 @@ window.salvarChamadoSuporte = async function() {
         }];
 
         const { error } = await supabaseClient.from('chamados_suporte').insert([{
-            usuario_id: window.currentUser.id || '00000000-0000-0000-0000-000000000000',
+            usuario_id: window.currentUser.id || 0, // CORRIGIDO PARA ZERO/INTEIRO
             nome_usuario: window.currentUser.username,
             filial_id: filialIdDoUsuario, 
             tipo: tipo,
             modulo: modulo,
             titulo: titulo,
-            descricao: descricao, // Descrição crua
+            descricao: descricao, 
             status: 'Aberto',
             historico_conversa: historicoInicial 
         }]);
