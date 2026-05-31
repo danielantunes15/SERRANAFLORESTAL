@@ -1,0 +1,135 @@
+<div class="tab-content active" id="tab-chamados">
+    <div class="panel-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-panel); padding: 15px 20px; border-radius: 10px; border: 1px solid var(--border-dim);">
+        <div>
+            <h2 style="font-size: 1.4rem; font-weight: 700; color: #fff;">🎧 Centro de Comando TI (ITSM)</h2>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">Gestão de SLA, volumetria e resolução de incidentes</p>
+        </div>
+        <button class="btn-primary-blue" onclick="window.TI_atualizarTabelaChamados()">
+            <i class="fas fa-sync-alt"></i> Atualizar Painel
+        </button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px;">
+        <div style="background: var(--bg-panel); padding: 20px; border-radius: 10px; border: 1px solid var(--border-dim); border-left: 4px solid #ef4444; box-shadow: var(--shadow-md);">
+            <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Aguardando Atendimento</div>
+            <div id="kpiAbertos" style="font-size: 2rem; font-weight: 800; color: #fff; margin-top: 5px;">0</div>
+            <div style="font-size: 0.75rem; color: #ef4444; margin-top: 5px;">Pendentes na fila</div>
+        </div>
+        <div style="background: var(--bg-panel); padding: 20px; border-radius: 10px; border: 1px solid var(--border-dim); border-left: 4px solid var(--ccol-blue-bright); box-shadow: var(--shadow-md);">
+            <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Tempo Médio 1ª Resposta</div>
+            <div id="kpiTMResposta" style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 5px;">0h 0m</div>
+            <div style="font-size: 0.75rem; color: var(--ccol-blue-bright); margin-top: 5px;">SLA Alvo: < 2h</div>
+        </div>
+        <div style="background: var(--bg-panel); padding: 20px; border-radius: 10px; border: 1px solid var(--border-dim); border-left: 4px solid var(--ccol-green-bright); box-shadow: var(--shadow-md);">
+            <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Tempo Médio Resolução</div>
+            <div id="kpiTMResolucao" style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 5px;">0h 0m</div>
+            <div style="font-size: 0.75rem; color: var(--ccol-green-bright); margin-top: 5px;">SLA Alvo: < 24h</div>
+        </div>
+        <div style="background: var(--bg-panel); padding: 20px; border-radius: 10px; border: 1px solid var(--border-dim); border-left: 4px solid #a855f7; box-shadow: var(--shadow-md);">
+            <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Taxa de Conclusão</div>
+            <div id="kpiTaxaResolucao" style="font-size: 2rem; font-weight: 800; color: #fff; margin-top: 5px;">0%</div>
+            <div style="font-size: 0.75rem; color: #a855f7; margin-top: 5px;">Chamados resolvidos x totais</div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 15px; margin-bottom: 20px;">
+        <div class="content-panel" style="margin-bottom: 0;">
+            <div class="panel-header"><h3>📊 Volume por Módulo</h3></div>
+            <div id="chartChamadosModulo" style="height: 250px; padding: 15px;"></div>
+        </div>
+        <div class="content-panel" style="margin-bottom: 0;">
+            <div class="panel-header"><h3>🎯 Distribuição de Status</h3></div>
+            <div id="chartChamadosStatus" style="height: 250px; padding: 15px;"></div>
+        </div>
+    </div>
+
+    <div class="content-panel">
+        <div class="action-bar" style="border-radius: 0; border-left: none; border-right: none; border-top: none; margin-bottom: 0;">
+            <div class="filter-group">
+                <label>Status:</label>
+                <select id="filtroTIStatus" class="dark-select" onchange="window.TI_alterarFiltroStatus(this.value)" style="width: 180px;">
+                    <option value="Todos">All / Todos</option>
+                    <option value="Aberto">🔴 Abertos</option>
+                    <option value="Em Andamento">🟡 Em Andamento</option>
+                    <option value="Resolvido">🟢 Resolvidos</option>
+                    <option value="Cancelado">⚫ Cancelados</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Módulo:</label>
+                <select id="filtroTIModulo" class="dark-select" onchange="window.TI_alterarFiltroModulo(this.value)" style="width: 200px;">
+                    <option value="Todos">Todos os Módulos</option>
+                    <option value="Geral/Não sei">Geral / Não sei informar</option>
+                    <option value="Logística">Logística</option>
+                    <option value="Manutenção">Manutenção</option>
+                    <option value="Monitoramento">Monitoramento</option>
+                    <option value="SSMA">SSMA</option>
+                    <option value="Almoxarifado">Almoxarifado</option>
+                    <option value="Controladoria">Controladoria</option>
+                    <option value="Indicadores">Indicadores/Dashboards</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-modern-wrapper">
+            <table class="data-table-modern" id="tabelaTIChamados">
+                <thead>
+                    <tr>
+                        <th>Data Abertura</th>
+                        <th>Filial</th>
+                        <th>Solicitante</th>
+                        <th>Módulo / Tipo</th>
+                        <th>Título do Incidente</th>
+                        <th>Status</th>
+                        <th>SLA / Tempos</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoTabelaTIChamados">
+                    <tr>
+                        <td colspan="8" style="padding: 30px; color: var(--text-secondary);">
+                            <i class="fas fa-circle-notch fa-spin"></i> Sincronizando painel ITSM...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="modalTIResponderChamado" class="modal-overlay" style="z-index: 1100;">
+    <div class="custom-modal" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>🛠️ Tratar Incidente</h3>
+            <button class="close-modal" onclick="window.TI_fecharModalResponder()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid var(--border-dim); font-size: 0.9rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span><strong style="color: var(--ccol-blue-bright);">Solicitante:</strong> <span id="modalTINomeUser">-</span></span>
+                    <span style="color: var(--text-secondary); font-size: 0.8rem;" id="modalTIDataAbertura">-</span>
+                </div>
+                <p style="margin-bottom: 8px; font-size: 1.05rem;"><strong style="color: #fff;" id="modalTITitulo">-</strong></p>
+                <p style="line-height: 1.5; background: #111827; padding: 10px; border-radius: 6px; color: #cbd5e1; border: 1px solid #334155; max-height: 150px; overflow-y: auto;" id="modalTIDescricao">-</p>
+            </div>
+
+            <div class="form-group-dark">
+                <label>Status do Atendimento</label>
+                <select id="modalTIStatusDefinir" class="dark-select">
+                    <option value="Em Andamento">🟡 Em Andamento (Inicia SLA de Resposta)</option>
+                    <option value="Resolvido">🟢 Resolvido (Congela SLA de Resolução)</option>
+                    <option value="Cancelado">⚫ Cancelado / Recusado</option>
+                </select>
+            </div>
+
+            <div class="form-group-dark">
+                <label>Nota Técnica / Orientação ao Usuário</label>
+                <textarea id="modalTIRespostaTexto" rows="5" placeholder="Descreva a solução aplicada, a causa raiz do bug, ou a instrução para o usuário..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.TI_fecharModalResponder()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="window.TI_salvarSolucaoChamado()" id="btnTISalvarChamado">💾 Gravar Atendimento</button>
+        </div>
+    </div>
+</div>

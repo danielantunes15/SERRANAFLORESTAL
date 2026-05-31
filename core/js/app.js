@@ -140,3 +140,90 @@ window.exportarGraficoPNG = async function(idElemento, nomeArquivo) {
         botoes.forEach(btn => btn.style.display = '');
     }
 };
+
+// ==================== MÓDULO: CHAMADOS DE SUPORTE (TI) ====================
+
+window.abrirModalChamado = function() {
+    document.getElementById('modalChamadoSuporte').classList.add('show');
+};
+
+window.fecharModalChamado = function() {
+    document.getElementById('modalChamadoSuporte').classList.remove('show');
+    // Limpa os campos após fechar
+    document.getElementById('chamadoTitulo').value = '';
+    document.getElementById('chamadoDescricao').value = '';
+    document.getElementById('chamadoTipo').value = 'Bug/Erro';
+    document.getElementById('chamadoModulo').value = 'Geral/Não sei';
+};
+
+window.salvarChamadoSuporte = async function() {
+    const tipo = document.getElementById('chamadoTipo').value;
+    const modulo = document.getElementById('chamadoModulo').value;
+    const titulo = document.getElementById('chamadoTitulo').value;
+    const descricao = document.getElementById('chamadoDescricao').value;
+
+    if (!titulo || !descricao) {
+        alert("Por favor, preencha o Título e a Descrição para que a TI possa entender o problema.");
+        return;
+    }
+
+    const btn = document.getElementById('btnSalvarChamado');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Enviando...';
+    btn.disabled = true;
+
+    try {
+        // Inicializa com defaults em caso de falha de leitura
+        let usuarioId = '00000000-0000-0000-0000-000000000000'; 
+        let nomeUsuario = document.getElementById('loggedUserName') ? document.getElementById('loggedUserName').innerText : 'Usuário Não Identificado';
+        let filialId = '00000000-0000-0000-0000-000000000000';
+
+        // Tenta buscar as informações diretamente da sessão ativa do Supabase
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        
+        if (session && session.user) {
+            usuarioId = session.user.id;
+            
+            // Prioriza o nome e a filial que estiverem no metadata da autenticação
+            if (session.user.user_metadata?.nome) {
+                nomeUsuario = session.user.user_metadata.nome;
+            }
+            if (session.user.user_metadata?.filial_id) {
+                filialId = session.user.user_metadata.filial_id;
+            } else if (localStorage.getItem('filial_id_atual')) {
+                filialId = localStorage.getItem('filial_id_atual');
+            }
+        } else {
+            // Fallback para buscar a filial pelo LocalStorage caso a sessão falhe
+            const storedFilial = localStorage.getItem('filial_id_atual');
+            if (storedFilial) filialId = storedFilial;
+        }
+
+        // Faz a inserção no banco de dados na tabela recém criada
+        const { error } = await supabaseClient.from('chamados_suporte').insert([{
+            usuario_id: usuarioId,
+            nome_usuario: nomeUsuario,
+            filial_id: filialId,
+            tipo: tipo,
+            modulo: modulo,
+            titulo: titulo,
+            descricao: descricao,
+            status: 'Aberto'
+        }]);
+
+        if (error) {
+            console.error("Erro banco:", error);
+            throw error;
+        }
+
+        alert("✅ Chamado registrado com sucesso! A equipe de TI foi notificada.");
+        window.fecharModalChamado();
+
+    } catch (e) {
+        console.error("Erro ao salvar chamado:", e);
+        alert("Erro ao enviar chamado. Por favor, verifique sua conexão ou tente novamente mais tarde.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+};
