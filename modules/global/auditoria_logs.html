@@ -4,11 +4,15 @@
     .log-header h2 { margin: 0; color: #fff; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; }
     .log-header h2 i { color: #a855f7; }
     
-    .filter-bar { display: flex; gap: 15px; background: #1e293b; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; flex-wrap: wrap; }
-    .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 200px; }
+    .filter-bar { display: flex; gap: 15px; background: #1e293b; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; flex-wrap: wrap; align-items: flex-end; }
+    .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 180px; }
     .filter-group label { font-size: 0.85rem; color: #cbd5e1; margin-bottom: 5px; font-weight: 600; }
-    .filter-group input { padding: 10px; border-radius: 6px; background: #0f172a; border: 1px solid #334155; color: #fff; outline: none; }
-    .filter-group input:focus { border-color: #a855f7; }
+    .filter-group input, .filter-group select { padding: 10px; border-radius: 6px; background: #0f172a; border: 1px solid #334155; color: #fff; outline: none; transition: 0.2s; font-family: inherit; }
+    .filter-group input:focus, .filter-group select:focus { border-color: #a855f7; box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2); }
+
+    .btn-search-logs { background: #a855f7; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; height: 40px; white-space: nowrap; }
+    .btn-search-logs:hover { background: #9333ea; }
+    .btn-search-logs:disabled { background: #475569; cursor: not-allowed; }
 
     .dark-table-container { background: #1e293b; border-radius: 12px; overflow-x: auto; border: 1px solid #334155; max-height: 60vh; }
     .dark-table { width: 100%; border-collapse: collapse; text-align: left; }
@@ -19,19 +23,36 @@
 
 <div class="log-container">
     <div class="log-header">
-        <h2><i class="fas fa-shield-alt"></i> Auditoria de Sistema (Logs)</h2>
-        <p style="color: #94a3b8; margin-top: 5px;">Acompanhe em tempo real as ações realizadas pelos usuários (Tabela: logs_exclusao).</p>
+        <h2><i class="fas fa-shield-alt"></i> Auditoria Avançada de Sistema (Logs)</h2>
+        <p style="color: #94a3b8; margin-top: 5px;">Rastreamento completo de alterações, exclusões e movimentações sensíveis em todas as filiais.</p>
     </div>
 
     <div class="filter-bar">
         <div class="filter-group">
-            <label>Filtrar por Usuário</label>
-            <input type="text" id="filtroLogUsuario" placeholder="Ex: admin" onkeyup="filtrarLogs()">
+            <label>Data Início</label>
+            <input type="date" id="filtroLogDataInicio">
         </div>
         <div class="filter-group">
-            <label>Buscar na Ação / Detalhes</label>
-            <input type="text" id="filtroLogDetalhe" placeholder="Pesquisar termo..." onkeyup="filtrarLogs()">
+            <label>Data Fim</label>
+            <input type="date" id="filtroLogDataFim">
         </div>
+        <div class="filter-group">
+            <label>Filial</label>
+            <select id="filtroLogFilial">
+                <option value="">Todas as Filiais</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Usuário Responsável</label>
+            <input type="text" id="filtroLogUsuario" placeholder="Ex: joao.silva" onkeydown="if(event.key==='Enter') buscarLogsAvancados()">
+        </div>
+        <div class="filter-group">
+            <label>Ação ou Detalhe Técnico</label>
+            <input type="text" id="filtroLogDetalhe" placeholder="Pesquisar termo..." onkeydown="if(event.key==='Enter') buscarLogsAvancados()">
+        </div>
+        <button class="btn-search-logs" id="btnBuscarLogs" onclick="buscarLogsAvancados()">
+            <i class="fas fa-search"></i> Buscar Registros
+        </button>
     </div>
 
     <div class="dark-table-container">
@@ -39,13 +60,14 @@
             <thead>
                 <tr>
                     <th style="width: 180px;">Data e Hora</th>
+                    <th style="width: 150px;">Unidade / Filial</th>
                     <th style="width: 180px;">Usuário Responsável</th>
                     <th style="width: 250px;">Ação / Módulo</th>
-                    <th>Detalhes Técnicos</th>
+                    <th>Detalhes Técnicos / Alterações</th>
                 </tr>
             </thead>
             <tbody id="tabelaLogsBody">
-                <tr><td colspan="4" style="text-align: center; padding: 20px;">Buscando logs...</td></tr>
+                <tr><td colspan="5" style="text-align: center; padding: 20px;">Clique em "Buscar Registros" para carregar os logs.</td></tr>
             </tbody>
         </table>
     </div>
