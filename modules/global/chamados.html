@@ -10,31 +10,26 @@
     </div>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
-        
         <div style="background: var(--bg-panel); padding: 15px; border-radius: 10px; border: 1px solid var(--border-dim); border-left: 4px solid #94a3b8; box-shadow: var(--shadow-md);">
             <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Total Chamados</div>
             <div id="kpiTotal" style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 5px;">0</div>
             <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 5px;">Registrados no Banco</div>
         </div>
-
         <div style="background: var(--bg-panel); padding: 15px; border-radius: 10px; border: 1px solid var(--border-dim); border-left: 4px solid #ef4444; box-shadow: var(--shadow-md);">
             <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Aguardando</div>
             <div id="kpiAbertos" style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 5px;">0</div>
             <div style="font-size: 0.7rem; color: #ef4444; margin-top: 5px;">Pendentes na fila</div>
         </div>
-
         <div style="background: var(--bg-panel); padding: 15px; border-radius: 10px; border: 1px solid var(--border-dim); border-left: 4px solid var(--ccol-green-bright); box-shadow: var(--shadow-md);">
             <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Concluídos</div>
             <div id="kpiResolvidos" style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 5px;">0</div>
             <div style="font-size: 0.7rem; color: var(--ccol-green-bright); margin-top: 5px;">Chamados Fechados</div>
         </div>
-
         <div style="background: var(--bg-panel); padding: 15px; border-radius: 10px; border: 1px solid var(--border-dim); border-left: 4px solid var(--ccol-blue-bright); box-shadow: var(--shadow-md);">
             <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">T.M. Resolução</div>
             <div id="kpiTMResolucao" style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 5px;">0h 0m</div>
             <div style="font-size: 0.7rem; color: var(--ccol-blue-bright); margin-top: 5px;">SLA Alvo: < 24h</div>
         </div>
-
         <div style="background: var(--bg-panel); padding: 15px; border-radius: 10px; border: 1px solid var(--border-dim); border-left: 4px solid #a855f7; box-shadow: var(--shadow-md);">
             <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">Tx. Conclusão</div>
             <div id="kpiTaxaResolucao" style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 5px;">0%</div>
@@ -131,7 +126,7 @@
             <div style="padding: 15px; background: var(--bg-panel); border-top: 1px solid var(--border-dim);">
                 <div style="display: flex; gap: 15px; margin-bottom: 10px; align-items: center;">
                     <label style="white-space: nowrap; font-size: 0.85rem; font-weight: bold; color: var(--text-secondary);">Alterar Status:</label>
-                    <select id="modalTIStatusDefinir" class="dark-select" style="max-width: 250px; font-size: 0.85rem; padding: 5px;">
+                    <select id="modalTIStatusDefinir" class="dark-select" style="max-width: 250px; font-size: 0.85rem; padding: 5px; background-color: #1e293b; color: #f8fafc; border: 1px solid #475569;">
                         <option value="Aberto">🔴 Aberto</option>
                         <option value="Em Andamento">🟡 Em Andamento (Análise)</option>
                         <option value="Resolvido">🟢 Resolvido (Fechado)</option>
@@ -139,7 +134,7 @@
                     </select>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <textarea id="modalTIRespostaTexto" rows="2" style="flex: 1; resize: none; border-radius: 8px;" class="dark-select" placeholder="Digite sua resposta técnica ou orientação para o usuário..."></textarea>
+                    <textarea id="modalTIRespostaTexto" rows="2" style="flex: 1; resize: none; border-radius: 8px; background-color: #1e293b; color: #f8fafc; border: 1px solid #475569; padding: 10px;" placeholder="Digite sua resposta técnica ou orientação para o usuário..."></textarea>
                     <button class="btn-primary-blue" onclick="window.TI_salvarSolucaoChamado()" id="btnTISalvarChamado" style="border-radius: 8px; padding: 0 20px;">
                         <i class="fas fa-paper-plane"></i> Enviar
                     </button>

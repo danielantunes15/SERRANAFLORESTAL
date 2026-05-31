@@ -41,7 +41,7 @@
             
             <div class="form-group-dark">
                 <label><i class="fas fa-tag"></i> Tipo de Solicitação</label>
-                <select id="chamadoTipo" class="dark-select">
+                <select id="chamadoTipo" class="dark-select" style="background-color: #1e293b; color: #f8fafc; border: 1px solid #475569;">
                     <option value="Bug/Erro">🐞 Bug/Erro no Sistema</option>
                     <option value="Dúvida">❓ Dúvida de Uso</option>
                     <option value="Melhoria">💡 Sugestão de Melhoria</option>
@@ -51,7 +51,7 @@
             
             <div class="form-group-dark">
                 <label><i class="fas fa-layer-group"></i> Módulo Relacionado</label>
-                <select id="chamadoModulo" class="dark-select">
+                <select id="chamadoModulo" class="dark-select" style="background-color: #1e293b; color: #f8fafc; border: 1px solid #475569;">
                     <option value="Geral/Não sei">Geral / Não sei informar</option>
                     <option value="Logística">Logística (Frota, Escala, etc)</option>
                     <option value="Manutenção">Manutenção (OS, Serviços)</option>
@@ -65,7 +65,7 @@
 
             <div class="form-group-dark" style="grid-column: span 2;">
                 <label><i class="fas fa-exclamation-triangle" style="color: #fb923c;"></i> Nível de Urgência (Impacto na operação)</label>
-                <select id="chamadoUrgencia" class="dark-select" style="border-left: 3px solid #fb923c;">
+                <select id="chamadoUrgencia" class="dark-select" style="background-color: #1e293b; color: #f8fafc; border: 1px solid #475569; border-left: 3px solid #fb923c;">
                     <option value="Baixa">🟢 Baixa (Dúvida ou Melhoria - Não trava o trabalho)</option>
                     <option value="Média" selected>🟡 Média (Erro pontual - Consigo contornar temporariamente)</option>
                     <option value="Alta">🔴 Alta (Sistema travado - Operação parada / Crítico)</option>
@@ -74,12 +74,12 @@
 
             <div class="form-group-dark" style="grid-column: span 2;">
                 <label><i class="fas fa-heading"></i> Título Resumido</label>
-                <input type="text" id="chamadoTitulo" placeholder="Ex: Erro tela branca ao tentar salvar a escala...">
+                <input type="text" id="chamadoTitulo" placeholder="Ex: Erro tela branca ao tentar salvar a escala..." style="background-color: #1e293b; color: #f8fafc; border: 1px solid #475569;">
             </div>
 
             <div class="form-group-dark" style="grid-column: span 2;">
                 <label><i class="fas fa-align-left"></i> Descrição Detalhada</label>
-                <textarea id="chamadoDescricao" rows="5" placeholder="Passo a passo do que você estava fazendo e qual o erro exato que apareceu na tela..."></textarea>
+                <textarea id="chamadoDescricao" rows="5" placeholder="Passo a passo do que você estava fazendo e qual o erro exato que apareceu na tela..." style="background-color: #1e293b; color: #f8fafc; border: 1px solid #475569;"></textarea>
             </div>
         </div>
         <div class="modal-footer" style="background: rgba(0,0,0,0.2); border-top: 1px solid var(--border-dim);">
@@ -100,7 +100,7 @@
                 </div>
             
             <div style="padding: 15px; background: var(--bg-panel); border-top: 1px solid var(--border-dim); display: flex; gap: 10px; align-items: center;">
-                <textarea id="chatNovaMensagem" rows="2" style="flex: 1; resize: none; border-radius: 8px;" class="dark-select" placeholder="Digite sua resposta ou complemento aqui..."></textarea>
+                <textarea id="chatNovaMensagem" rows="2" style="flex: 1; resize: none; border-radius: 8px; background-color: #1e293b; color: #f8fafc; border: 1px solid #475569; padding: 10px;" placeholder="Digite sua resposta ou complemento aqui..."></textarea>
                 <button class="btn-primary-green" onclick="window.enviarMensagemUsuario()" id="btnEnviarMensagemUsuario" style="height: 100%; min-height: 50px; padding: 0 20px; border-radius: 8px;">
                     <i class="fas fa-paper-plane"></i>
                 </button>

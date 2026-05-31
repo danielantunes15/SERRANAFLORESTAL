@@ -75,6 +75,7 @@ window.initDashboard = async function() {
 
 let meusChamadosCache = [];
 let idChamadoChatAtual = null;
+let chatIntervalUsuario = null; // Variável para controlar a atualização automática
 
 window.abrirPainelMeusChamados = async function() {
     const modal = document.getElementById('modalMeusChamados');
@@ -199,22 +200,47 @@ window.salvarChamadoSuporte = async function() {
 };
 
 window.abrirChatChamado = function(id) {
-    // Como o ID agora é Int, podemos convertê-lo ou usá-lo com parse para garantir a busca
     idChamadoChatAtual = parseInt(id);
     const chamado = meusChamadosCache.find(c => c.id === idChamadoChatAtual);
     if (!chamado) return;
 
-    // Atualiza o Título com o Número do Chamado
     document.getElementById('chatTituloHeader').innerHTML = `<i class="fas fa-comments"></i> Chamado #${chamado.id}: ${chamado.titulo}`;
     document.getElementById('modalChatChamado').classList.add('show');
     
     window.renderizarMensagensChat(chamado.historico_conversa || []);
+
+    // ===== SMART POLLING (Puxa mensagens novas a cada 4 seg sem travar o PC) =====
+    if (chatIntervalUsuario) clearInterval(chatIntervalUsuario);
+    chatIntervalUsuario = setInterval(async () => {
+        try {
+            const { data } = await supabaseClient
+                .from('chamados_suporte')
+                .select('historico_conversa')
+                .eq('id', idChamadoChatAtual)
+                .single();
+                
+            if (data && data.historico_conversa) {
+                const historicoLocal = chamado.historico_conversa || [];
+                // Só redesenha a tela SE o tamanho do chat mudar (chegou mensagem)
+                if (data.historico_conversa.length > historicoLocal.length) {
+                    chamado.historico_conversa = data.historico_conversa;
+                    window.renderizarMensagensChat(data.historico_conversa);
+                }
+            }
+        } catch(e) {}
+    }, 4000);
 };
 
 window.fecharChatChamado = function() {
     document.getElementById('modalChatChamado').classList.remove('show');
     idChamadoChatAtual = null;
     document.getElementById('chatNovaMensagem').value = '';
+    
+    // IMPORTANTE: Desliga a busca automática assim que fechar a tela!
+    if (chatIntervalUsuario) {
+        clearInterval(chatIntervalUsuario);
+        chatIntervalUsuario = null;
+    }
 };
 
 window.renderizarMensagensChat = function(historico) {
