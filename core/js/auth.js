@@ -3,8 +3,14 @@
 window.currentUser = null;
 window.permissoesGlobais = null; 
 
-window.fazerLogout = function() {
+window.fazerLogout = async function() {
     if(confirm('Deseja realmente sair do sistema?')) {
+        try {
+            if (typeof window.registrarLogAuditoria === 'function') {
+                await window.registrarLogAuditoria('Autenticação', 'Logout', 'O usuário encerrou a sessão no sistema manualmente.', 'Info');
+            }
+        } catch (e) { console.error(e); }
+        
         localStorage.removeItem('ccol_user_session');
         window.currentUser = null;
         window.location.href = 'login.html'; 
@@ -19,6 +25,10 @@ window.trocarFilialSuperAdmin = async function(novoFilialIdRaw) {
         const filiais = await db.getFiliais();
         const f = filiais.find(x => x.id == filial_id);
         if (f) nomeFilial = f.nome;
+    }
+
+    if (typeof window.registrarLogAuditoria === 'function') {
+        await window.registrarLogAuditoria('Sistema', 'Troca de Contexto', `O SuperAdmin trocou o acesso para a visualização da: ${nomeFilial}`, 'Alerta');
     }
 
     window.currentUser.filial_id = filial_id;
@@ -65,6 +75,20 @@ async function iniciarSistemaAutorizado() {
     const permissoesDoBanco = await db.getPermissoesDB();
     window.permissoesGlobais = { ...permissoesPadrao, ...permissoesDoBanco };
 
+    // --- REGISTRO DE LOGIN NA AUDITORIA (CAPTURA DE IP) ---
+    try {
+        const resp = await fetch('https://api.ipify.org?format=json');
+        const data = await resp.json();
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('Autenticação', 'Login de Acesso', 'Usuário iniciou uma nova sessão no sistema.', 'Info', null, null, null, null, data.ip);
+        }
+    } catch (e) {
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('Autenticação', 'Login de Acesso', 'Usuário iniciou uma nova sessão no sistema (IP bloqueado pelo firewall).', 'Info');
+        }
+    }
+    // -----------------------------------------------------
+
     if (typeof initDashboard === 'function') { await initDashboard(); }
     if (typeof window.iniciarSistema === 'function') { window.iniciarSistema(); }
 }
@@ -80,13 +104,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             if (!dbUser) {
                 alert("🔒 Acesso revogado: Sua conta foi excluída ou desativada pelo administrador.");
+                if (typeof window.registrarLogAuditoria === 'function') {
+                    await window.registrarLogAuditoria('Autenticação', 'Acesso Negado', `Tentativa de login reprovada (Conta Inativa): ${window.currentUser.username}`, 'Crítico');
+                }
                 localStorage.removeItem('ccol_user_session');
                 window.location.href = 'login.html';
                 return; 
             }
 
             window.currentUser.role = dbUser.role;
-            // CORREÇÃO: Recuperar o ID do Cargo no banco para alinhar as permissões
             if (dbUser.cargo_id) window.currentUser.cargo_id = dbUser.cargo_id;
             
             localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
@@ -125,7 +151,7 @@ window.salvarPermissoesPerfil = async function() {
 
     if (tipo === 'perfil') {
         const selectEl = document.getElementById('selectPerfilPermissao');
-        alvo = selectEl.value; // Recebe o ID do cargo
+        alvo = selectEl.value; 
         
         if (!alvo) { alert("⚠️ Selecione um cargo primeiro."); return; }
         nomeAlerta = `o perfil "${selectEl.options[selectEl.selectedIndex].text}"`;
@@ -153,6 +179,10 @@ window.salvarPermissoesPerfil = async function() {
     
     await db.updatePermissoesDB(alvo, novasPermissoes);
     
+    if (typeof window.registrarLogAuditoria === 'function') {
+        window.registrarLogAuditoria('Segurança', 'Edição de Acessos', `O administrador alterou a carga de permissões para ${nomeAlerta}.`, 'Alerta');
+    }
+
     if(!window.permissoesGlobais) window.permissoesGlobais = { ...permissoesPadrao };
     window.permissoesGlobais[alvo] = novasPermissoes;
     
@@ -168,6 +198,10 @@ window.removerPermissaoEspecifica = async function() {
     if(confirm(`Tem certeza que deseja remover a exceção de ${nome}?\nEle voltará a ter apenas os acessos padrão do seu Perfil.`)) {
         await db.updatePermissoesDB(alvo, ["__RESET__"]);
         
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('Segurança', 'Remoção de Acesso', `Exceção de permissões removida para o usuário: ${nome}.`, 'Alerta');
+        }
+
         if(!window.permissoesGlobais) window.permissoesGlobais = { ...permissoesPadrao };
         window.permissoesGlobais[alvo] = ["__RESET__"];
         
