@@ -41,13 +41,13 @@ window.MAPA_MENUS = [
     { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Gerencial', icon: 'fas fa-money-bill-wave' },
     { id: 'visao_executiva', label: 'Visão Executiva (Global)', setor: 'Gerencial', icon: 'fas fa-globe-americas' },
     
-    { id: 'central', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
-    { id: 'logs_globais', label: 'Auditoria de Logs', setor: 'Global', icon: 'fas fa-shield-alt' },
+    // --- MÓDULO GLOBAL ---
+    { id: 'gestao_filiais', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
+    { id: 'auditoria_logs', label: 'Auditoria de Sistema', setor: 'Global', icon: 'fas fa-shield-alt' },
 
     // --- MÓDULOS DE CONFIGURAÇÕES INDEPENDENTES ---
     { id: 'gestao_usuarios', label: 'Gestão de Usuários', setor: 'Configurações', icon: 'fas fa-users' },
-    { id: 'gestao_acessos', label: 'Menus e Acessos', setor: 'Configurações', icon: 'fas fa-user-shield' },
-    { id: 'auditoria_logs', label: 'Auditoria de Logs', setor: 'Configurações', icon: 'fas fa-history' }
+    { id: 'gestao_acessos', label: 'Menus e Acessos', setor: 'Configurações', icon: 'fas fa-user-shield' }
 ];
 
 const pageCache = {};
@@ -71,8 +71,11 @@ const ROTAS = {
     'indicadores': 'modules/indicadores/indicadores.html',
     'indicadores_serrana': 'modules/indicadores/indicadores_serrana.html',
     'cadastro_indicadores': 'modules/indicadores/cadastro_indicadores.html',
-    'central': 'modules/monitoramento/central/central.html',
-    'logs_globais': 'modules/monitoramento/central/logs_globais.html',
+    
+    // --- ROTAS MÓDULO GLOBAL ---
+    'gestao_filiais': 'modules/global/gestao_filiais.html',
+    'auditoria_logs': 'modules/global/auditoria_logs.html',
+    
     'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
     'operacional': 'modules/monitoramento/operacional/operacional.html',
     'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
@@ -82,9 +85,9 @@ const ROTAS = {
     'historico_producao': 'modules/monitoramento/historico/historico.html',
     'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
     'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html',
+    
     'gestao_usuarios': 'modules/configuracoes/gestao_usuarios.html',
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
-    'auditoria_logs': 'modules/configuracoes/auditoria_logs.html',
     
     // --- ROTAS DO ALMOXARIFADO ---
     'almoxarifado': 'modules/almoxarifado/almoxarifado.html',
@@ -249,16 +252,15 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         mainContent.innerHTML = pageCache[pagina];
 
-        if (pagina === 'central' && typeof window.renderizarCentral === 'function') window.renderizarCentral();
-        if (pagina === 'logs_globais' && typeof window.renderizarLogsGlobais === 'function') window.renderizarLogsGlobais(); 
+        if (pagina === 'gestao_filiais' && typeof window.renderizarGestaoFiliais === 'function') window.renderizarGestaoFiliais();
+        if (pagina === 'auditoria_logs' && typeof window.renderizarAuditoriaLogs === 'function') window.renderizarAuditoriaLogs(); 
+        
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
         if (pagina === 'troca_turno' && typeof window.renderizarTrocaTurno === 'function') window.renderizarTrocaTurno();
         if (pagina === 'alocacao' && typeof window.renderizarAlocacao === 'function') window.renderizarAlocacao();
         if (pagina === 'motoristas' && typeof window.renderizarMotoristas === 'function') window.renderizarMotoristas();
         if (pagina === 'caminhoes' && typeof window.renderizarConjuntos === 'function') window.renderizarConjuntos();
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
-        
-        // Inicializador do novo submenu
         if (pagina === 'requisicao_materiais' && typeof window.renderizarRequisicoes === 'function') window.renderizarRequisicoes();
         
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
@@ -305,7 +307,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
         if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
         if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
-        if (pagina === 'auditoria_logs' && typeof window.renderizarLogs === 'function') window.renderizarLogs();
 
     } catch (error) {
         console.error('Erro ao carregar página:', error);

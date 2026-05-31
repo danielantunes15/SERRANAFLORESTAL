@@ -1,0 +1,52 @@
+<style>
+    .log-container { padding: 20px; font-family: 'Segoe UI', system-ui, sans-serif; animation: fadeIn 0.4s ease-in-out; }
+    .log-header { margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px; }
+    .log-header h2 { margin: 0; color: #fff; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; }
+    .log-header h2 i { color: #a855f7; }
+    
+    .filter-bar { display: flex; gap: 15px; background: #1e293b; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; flex-wrap: wrap; }
+    .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 200px; }
+    .filter-group label { font-size: 0.85rem; color: #cbd5e1; margin-bottom: 5px; font-weight: 600; }
+    .filter-group input { padding: 10px; border-radius: 6px; background: #0f172a; border: 1px solid #334155; color: #fff; outline: none; }
+    .filter-group input:focus { border-color: #a855f7; }
+
+    .dark-table-container { background: #1e293b; border-radius: 12px; overflow-x: auto; border: 1px solid #334155; max-height: 60vh; }
+    .dark-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .dark-table th { background-color: #0f172a; padding: 14px 20px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 10; }
+    .dark-table td { padding: 12px 20px; border-bottom: 1px solid #334155; color: #e2e8f0; font-size: 0.9rem; }
+    .dark-table tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
+</style>
+
+<div class="log-container">
+    <div class="log-header">
+        <h2><i class="fas fa-shield-alt"></i> Auditoria de Sistema (Logs)</h2>
+        <p style="color: #94a3b8; margin-top: 5px;">Acompanhe em tempo real as ações realizadas pelos usuários (Tabela: logs_exclusao).</p>
+    </div>
+
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label>Filtrar por Usuário</label>
+            <input type="text" id="filtroLogUsuario" placeholder="Ex: admin" onkeyup="filtrarLogs()">
+        </div>
+        <div class="filter-group">
+            <label>Buscar na Ação / Detalhes</label>
+            <input type="text" id="filtroLogDetalhe" placeholder="Pesquisar termo..." onkeyup="filtrarLogs()">
+        </div>
+    </div>
+
+    <div class="dark-table-container">
+        <table class="dark-table">
+            <thead>
+                <tr>
+                    <th style="width: 180px;">Data e Hora</th>
+                    <th style="width: 180px;">Usuário Responsável</th>
+                    <th style="width: 250px;">Ação / Módulo</th>
+                    <th>Detalhes Técnicos</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaLogsBody">
+                <tr><td colspan="4" style="text-align: center; padding: 20px;">Buscando logs...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
