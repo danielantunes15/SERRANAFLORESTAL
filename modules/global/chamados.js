@@ -35,7 +35,9 @@ window.TI_carregarCacheFiliais = async function() {
                 mapaFiliaisCache[f.id] = f.nome;
             });
         }
-    } catch (e) { console.warn("Aviso: Falha cache filiais.", e); }
+    } catch (e) { 
+        console.warn("Aviso: Falha cache filiais.", e); 
+    }
 };
 
 window.TI_alterarFiltroStatus = function(val) {
@@ -124,16 +126,20 @@ window.TI_atualizarDashboardDashboard = function(data) {
     });
 
     // Atualiza KPIs HTML
-    document.getElementById('kpiAbertos').innerText = abertos;
+    const kpiAbertos = document.getElementById('kpiAbertos');
+    if(kpiAbertos) kpiAbertos.innerText = abertos;
     
     let tmResposta = countResposta > 0 ? (somaMinutosResposta / countResposta) : 0;
-    document.getElementById('kpiTMResposta').innerText = formatarMinutos(tmResposta);
+    const kpiTMResposta = document.getElementById('kpiTMResposta');
+    if(kpiTMResposta) kpiTMResposta.innerText = formatarMinutos(tmResposta);
     
     let tmResolucao = countResolucao > 0 ? (somaMinutosResolucao / countResolucao) : 0;
-    document.getElementById('kpiTMResolucao').innerText = formatarMinutos(tmResolucao);
+    const kpiTMResolucao = document.getElementById('kpiTMResolucao');
+    if(kpiTMResolucao) kpiTMResolucao.innerText = formatarMinutos(tmResolucao);
     
     let taxa = data.length > 0 ? ((totalResolvidos / data.length) * 100).toFixed(1) : 0;
-    document.getElementById('kpiTaxaResolucao').innerText = `${taxa}%`;
+    const kpiTaxaResolucao = document.getElementById('kpiTaxaResolucao');
+    if(kpiTaxaResolucao) kpiTaxaResolucao.innerText = `${taxa}%`;
 
     // Atualiza Gráfico Módulos (Barras)
     if (chartModulo) {
@@ -200,7 +206,7 @@ window.TI_aplicarFiltrosNaTela = function() {
     tbody.innerHTML = '';
     dadosFiltrados.forEach(chamado => {
         const dataCriacaoObj = new Date(chamado.data_criacao);
-        const dataFormatada = dataCriacaoObj.toLocaleString('pt-BR').substring(0, 16); // Tira os segundos
+        const dataFormatada = dataCriacaoObj.toLocaleString('pt-BR').substring(0, 16); 
         const nomeFilial = mapaFiliaisCache[chamado.filial_id] || 'N/A';
 
         // Badges Status
@@ -213,7 +219,7 @@ window.TI_aplicarFiltrosNaTela = function() {
         let infoSLA = '';
         if (chamado.status === 'Aberto') {
             const minAberto = Math.floor((new Date() - dataCriacaoObj) / 60000);
-            let corSLA = minAberto > 120 ? '#ef4444' : '#fb923c'; // Passou de 2h fica vermelho
+            let corSLA = minAberto > 120 ? '#ef4444' : '#fb923c'; 
             infoSLA = `<span style="color: ${corSLA}; font-size: 0.75rem;"><i class="fas fa-clock"></i> ${formatarMinutos(minAberto)}</span>`;
         } else if (chamado.status === 'Resolvido') {
             infoSLA = `<span style="color: var(--ccol-green-bright); font-size: 0.75rem;"><i class="fas fa-check-double"></i> Concluído em ${formatarMinutos(chamado.sla_resolucao_minutos)}</span>`;
@@ -236,8 +242,8 @@ window.TI_aplicarFiltrosNaTela = function() {
             <td><span style="padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; display: inline-block; ${badgeStyle}">${chamado.status}</span></td>
             <td>${infoSLA}</td>
             <td>
-                <button class="btn-secondary-dark" onclick="window.TI_abrirAtendimento('${chamado.id}', '${escape(chamado.nome_usuario)}', '${chamado.data_criacao}', '${escape(chamado.titulo)}', '${escape(chamado.descricao)}', '${chamado.status}', '${escape(chamado.resposta_ti || '')}')" style="padding: 5px 10px; text-transform: none; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;">
-                    <i class="fas fa-laptop-code"></i> Tratar
+                <button class="btn-primary-blue" onclick="window.TI_abrirChat('${chamado.id}')" style="padding: 5px 10px; text-transform: none; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;">
+                    <i class="fas fa-headset"></i> Atender
                 </button>
             </td>
         `;
@@ -245,40 +251,48 @@ window.TI_aplicarFiltrosNaTela = function() {
     });
 };
 
+// ================= LÓGICA DO CHAT DA TI =================
 let objChamadoRawData = null;
 
-window.TI_abrirAtendimento = function(id, nomeUser, dataCriacaoISO, titulo, descricao, statusAtual, respostaAtual) {
+window.TI_abrirChat = function(id) {
     idChamadoEmEdicao = id;
     
     // Guardamos a data original para calcular os SLAs na hora de salvar
     objChamadoRawData = chamadosDataCache.find(c => c.id === id);
+    if (!objChamadoRawData) return;
 
-    document.getElementById('modalTINomeUser').innerText = unescape(nomeUser);
-    document.getElementById('modalTIDataAbertura').innerText = new Date(dataCriacaoISO).toLocaleString('pt-BR');
-    document.getElementById('modalTITitulo').innerText = unescape(titulo);
-    document.getElementById('modalTIDescricao').innerText = unescape(descricao);
+    document.getElementById('modalTINomeUser').innerText = objChamadoRawData.nome_usuario;
+    document.getElementById('modalTIDataAbertura').innerText = new Date(objChamadoRawData.data_criacao).toLocaleString('pt-BR');
+    document.getElementById('modalTITitulo').innerText = objChamadoRawData.titulo;
+    document.getElementById('modalTIDescricao').innerText = objChamadoRawData.descricao;
     
-    document.getElementById('modalTIStatusDefinir').value = statusAtual === 'Aberto' ? 'Em Andamento' : statusAtual;
-    document.getElementById('modalTIRespostaTexto').value = unescape(respostaAtual);
+    document.getElementById('modalTIStatusDefinir').value = objChamadoRawData.status === 'Aberto' ? 'Em Andamento' : objChamadoRawData.status;
 
     document.getElementById('modalTIResponderChamado').classList.add('show');
+    
+    // Aproveita a mesma função de renderização do app.js para desenhar os balões do chat
+    if (typeof window.renderizarMensagensChat === 'function') {
+        window.renderizarMensagensChat(objChamadoRawData.historico_conversa || []);
+    }
 };
 
 window.TI_fecharModalResponder = function() {
     document.getElementById('modalTIResponderChamado').classList.remove('show');
     idChamadoEmEdicao = null;
     objChamadoRawData = null;
+    document.getElementById('modalTIRespostaTexto').value = '';
 };
 
+// TI envia mensagem e altera status do chamado
 window.TI_salvarSolucaoChamado = async function() {
     if (!idChamadoEmEdicao || !objChamadoRawData) return;
 
     const novoStatus = document.getElementById('modalTIStatusDefinir').value;
-    const respostaTexto = document.getElementById('modalTIRespostaTexto').value;
+    const textoMsg = document.getElementById('modalTIRespostaTexto').value.trim();
 
     const btn = document.getElementById('btnTISalvarChamado');
     const txtOriginal = btn.innerHTML;
-    btn.innerHTML = '⏳ Calculando SLA e Salvando...';
+    btn.innerHTML = '⏳ Calculando SLA e Salvando...'; 
     btn.disabled = true;
 
     try {
@@ -289,16 +303,27 @@ window.TI_salvarSolucaoChamado = async function() {
         const agora = new Date();
         const dataCriacaoObj = new Date(objChamadoRawData.data_criacao);
         
+        let historico = objChamadoRawData.historico_conversa || [];
+
+        // Só adiciona no chat se a TI digitou alguma coisa
+        if (textoMsg) {
+            historico.push({
+                autor: 'TI',
+                nome: window.currentUser.username, // Nome do técnico que respondeu
+                data: agora.toISOString(),
+                mensagem: textoMsg
+            });
+        }
+
         let updatePayload = {
             status: novoStatus,
-            resposta_ti: respostaTexto,
+            historico_conversa: historico,
             atendente_id: atendenteId,
             data_atualizacao: agora.toISOString()
         };
 
         // Regras de cálculo de SLA baseadas na mudança de status
-        
-        // 1. SLA de Primeira Resposta (Dispara na primeira vez que sai de Aberto para Em Andamento ou Resolvido)
+        // 1. SLA de Primeira Resposta (Dispara na primeira vez que sai de Aberto)
         if (objChamadoRawData.status === 'Aberto' && (novoStatus === 'Em Andamento' || novoStatus === 'Resolvido')) {
             updatePayload.data_primeira_resposta = agora.toISOString();
             updatePayload.sla_resposta_minutos = Math.floor((agora - dataCriacaoObj) / 60000);
@@ -317,15 +342,27 @@ window.TI_salvarSolucaoChamado = async function() {
 
         if (error) throw error;
 
-        alert("✅ Incidente atualizado e SLA registrado!");
-        window.TI_fecharModalResponder();
-        await window.TI_atualizarTabelaChamados();
+        // Atualiza as variáveis em memória para refletir imediatamente na tela
+        objChamadoRawData.historico_conversa = historico;
+        objChamadoRawData.status = novoStatus;
+        
+        // Limpa campo e atualiza a caixinha do chat sem fechar o modal
+        document.getElementById('modalTIRespostaTexto').value = '';
+        if (typeof window.renderizarMensagensChat === 'function') {
+            window.renderizarMensagensChat(historico);
+        }
+        
+        // Atualiza a tabela de fundo com os novos status
+        window.TI_aplicarFiltrosNaTela();
+        
+        // Pequeno alerta de confirmação no console para não incomodar o técnico a cada mensagem enviada
+        console.log("Incidente atualizado e SLA registrado!");
 
     } catch (e) {
         console.error("Erro ao salvar atualização de chamado:", e);
         alert("Erro técnico ao salvar modificações no banco de dados.");
     } finally {
-        btn.innerHTML = txtOriginal;
+        btn.innerHTML = txtOriginal; 
         btn.disabled = false;
     }
 };

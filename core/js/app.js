@@ -8,7 +8,6 @@ window.atualizarStats = function() {
         const statDisponiveis = document.getElementById('statDisponiveis');
         const statCavalos = document.getElementById('statCavalos');
         
-        // Proteção caso os dados ainda não existam
         const listaConjuntos = typeof conjuntos !== 'undefined' ? conjuntos : [];
         const listaMotoristas = typeof motoristas !== 'undefined' ? motoristas : [];
 
@@ -23,15 +22,27 @@ window.atualizarStats = function() {
             const qtdeDisponiveis = listaMotoristas.filter(m => !m.conjuntoId).length;
             statDisponiveis.innerText = qtdeDisponiveis;
         }
-    } catch (e) {
-        console.error("Aviso: Erro rápido ao atualizar contadores (ignorado).", e);
-    }
+    } catch (e) { }
 }
+
+// NOVO: Função para carregar os modais de suporte dinamicamente de outro arquivo
+window.carregarModaisChamados = async function() {
+    try {
+        const response = await fetch(`modules/global/modais_chamados.html?v=${new Date().getTime()}`);
+        if (response.ok) {
+            const html = await response.text();
+            const container = document.createElement('div');
+            container.id = 'containerModaisChamados';
+            container.innerHTML = html;
+            document.body.appendChild(container);
+        }
+    } catch (e) {
+        console.error("Erro ao carregar modais de chamados", e);
+    }
+};
 
 window.initDashboard = async function() {
     const containerApp = document.getElementById('conteudo-principal');
-    
-    // Mostra um aviso visual na tela informando que os dados estão sendo baixados
     if (containerApp) {
         containerApp.innerHTML = `
             <div id="loadingSincronizacao" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 50vh; text-align: center; padding: 20px;">
@@ -41,189 +52,239 @@ window.initDashboard = async function() {
             </div>
         `;
     }
+    
+    // Injeta os modais na tela sem travar o usuário
+    await window.carregarModaisChamados();
 
-    // 1. PRIMEIRO: BUSCA OS DADOS (Garante que a tela não carregue vazia)
     try {
-        // SISTEMA ANTI-TRAVAMENTO (Timeout máximo de 5 segundos para consultas)
         const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 5000));
-        
         const chamadasBanco = async () => {
             if (typeof carregarDadosIniciais === 'function') await carregarDadosIniciais();
-            if (typeof carregarDadosTreinamento === 'function') await carregarDadosTreinamento();
             return 'OK';
         };
+        await Promise.race([chamadasBanco(), timeoutPromise]);
+    } catch (e) {}
 
-        const resultado = await Promise.race([chamadasBanco(), timeoutPromise]);
-        
-        if (resultado === 'TIMEOUT') {
-            console.warn("Aviso: Lentidão na rede. Iniciando a interface em modo de segurança...");
-        }
-    } catch (erroCritico) {
-        console.error("Erro na busca de dados (Ignorado para liberar a tela):", erroCritico);
-    }
-
-    // 2. DEPOIS: RENDERIZA O MENU (Que vai disparar o clique na primeira tela já com os dados prontos)
     try {
         if (typeof window.renderizarMenu === 'function') {
             await window.renderizarMenu();
-            
-            // Verifica se destravou a tela ou se o usuário não tem menus após a renderização
-            setTimeout(() => {
-                const loadingAindaNaTela = document.getElementById('loadingSincronizacao');
-                if (loadingAindaNaTela && containerApp) {
-                    console.warn("Travamento evitado: Nenhum menu foi clicado automaticamente.");
-                    
-                    containerApp.innerHTML = `
-                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 50vh; text-align: center; padding: 20px;">
-                            <i class="fas fa-lock fa-4x" style="color: #64748b; margin-bottom: 20px;"></i>
-                            <h2 style="color: #f8fafc; margin-bottom: 10px;">Sistema Iniciado</h2>
-                            <p style="color: #94a3b8; font-size: 1.1rem; max-width: 600px; line-height: 1.5;">
-                                Se você está vendo esta tela, é porque o seu perfil de usuário <strong>ainda não possui menus liberados</strong>.<br><br>
-                                Solicite ao Administrador do sistema que acesse <br><span style="color: var(--ccol-blue-bright);">Configurações > Permissões de Acesso</span><br> e marque as caixinhas de liberação para a sua função.
-                            </p>
-                        </div>
-                    `;
-                }
-            }, 1000);
-        } else {
-            console.error("Função renderizarMenu não encontrada.");
         }
-    } catch (errMenu) {
-        console.error("Erro ao desenhar os menus:", errMenu);
-        if (containerApp) containerApp.innerHTML = `<h3 style="color:red; text-align:center; margin-top: 50px;">Erro de interface. Recarregue a página.</h3>`;
-    }
-    
+    } catch (e) {}
     atualizarStats();
 }
 
-/**
- * Exporta o painel completo (Gráfico + Título) para uma imagem PNG de alta qualidade.
- */
-window.exportarGraficoPNG = async function(idElemento, nomeArquivo) {
-    const chartDiv = document.getElementById(idElemento);
-    if (!chartDiv) {
-        console.error("Elemento do gráfico não encontrado:", idElemento);
-        return;
-    }
+// ==================== MÓDULO: CHAMADOS DE SUPORTE (VISÃO USUÁRIO) ====================
 
-    const container = chartDiv.closest('.content-panel');
-    if (!container) {
-        alert("Container do painel não encontrado.");
-        return;
-    }
+let meusChamadosCache = [];
+let idChamadoChatAtual = null;
 
-    const botoes = container.querySelectorAll('button');
-    botoes.forEach(btn => btn.style.display = 'none');
-
+window.abrirPainelMeusChamados = async function() {
+    const modal = document.getElementById('modalMeusChamados');
+    if(modal) modal.classList.add('show');
+    
+    const tbody = document.getElementById('corpoTabelaMeusChamados');
+    if(tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Buscando...</td></tr>`;
+    
     try {
-        const canvas = await html2canvas(container, {
-            scale: 2, 
-            backgroundColor: '#0f172a',
-            useCORS: true 
+        const { data, error } = await supabaseClient
+            .from('chamados_suporte')
+            .select('*')
+            .eq('nome_usuario', window.currentUser.username)
+            .order('data_criacao', { ascending: false });
+
+        if (error) throw error;
+        meusChamadosCache = data || [];
+
+        if (meusChamadosCache.length === 0 && tbody) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#9ca3af; padding: 20px;">Você não possui nenhum chamado aberto no momento.</td></tr>`;
+            return;
+        }
+
+        if(tbody) tbody.innerHTML = '';
+        meusChamadosCache.forEach(c => {
+            const dataFmt = new Date(c.data_criacao).toLocaleString('pt-BR').substring(0, 16);
+            let badge = '';
+            if (c.status === 'Aberto') badge = `<span style="color:#ef4444; font-weight:bold;">🔴 Aberto</span>`;
+            else if (c.status === 'Em Andamento') badge = `<span style="color:#fb923c; font-weight:bold;">🟡 Em Análise</span>`;
+            else if (c.status === 'Resolvido') badge = `<span style="color:var(--ccol-green-bright); font-weight:bold;">🟢 Resolvido</span>`;
+            else badge = `<span style="color:#9ca3af; font-weight:bold;">⚫ Cancelado</span>`;
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-size: 0.8rem; color: #9ca3af;">${dataFmt}</td>
+                <td><strong style="color: #fff; font-size: 0.85rem;">${c.titulo}</strong></td>
+                <td>${badge}</td>
+                <td>
+                    <button class="btn-primary-blue" onclick="window.abrirChatChamado('${c.id}')" style="padding: 4px 10px; font-size: 0.75rem;">
+                        <i class="fas fa-comments"></i> Conversar
+                    </button>
+                </td>
+            `;
+            if(tbody) tbody.appendChild(tr);
         });
 
-        const url = canvas.toDataURL('image/png');
-        const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
-        
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${nomeArquivo}_${dataAtual}.png`;
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-    } catch (e) {
-        console.error("Erro ao exportar imagem completa:", e);
-        alert("Não foi possível gerar a imagem. Tente atualizar a página.");
-    } finally {
-        botoes.forEach(btn => btn.style.display = '');
+    } catch(e) {
+        if(tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#ef4444;">Erro ao buscar chamados.</td></tr>`;
     }
 };
 
-// ==================== MÓDULO: CHAMADOS DE SUPORTE (TI) ====================
-
-window.abrirModalChamado = function() {
-    document.getElementById('modalChamadoSuporte').classList.add('show');
+window.fecharPainelMeusChamados = function() {
+    const modal = document.getElementById('modalMeusChamados');
+    if(modal) modal.classList.remove('show');
 };
 
-window.fecharModalChamado = function() {
-    document.getElementById('modalChamadoSuporte').classList.remove('show');
-    // Limpa os campos após fechar
-    document.getElementById('chamadoTitulo').value = '';
-    document.getElementById('chamadoDescricao').value = '';
-    document.getElementById('chamadoTipo').value = 'Bug/Erro';
-    document.getElementById('chamadoModulo').value = 'Geral/Não sei';
+window.abrirModalNovoChamado = function() {
+    const modal = document.getElementById('modalChamadoSuporte');
+    if(modal) modal.classList.add('show');
+};
+
+window.fecharModalNovoChamado = function() {
+    const modal = document.getElementById('modalChamadoSuporte');
+    if(modal) modal.classList.remove('show');
+    
+    if(document.getElementById('chamadoTitulo')) document.getElementById('chamadoTitulo').value = '';
+    if(document.getElementById('chamadoDescricao')) document.getElementById('chamadoDescricao').value = '';
 };
 
 window.salvarChamadoSuporte = async function() {
     const tipo = document.getElementById('chamadoTipo').value;
     const modulo = document.getElementById('chamadoModulo').value;
+    const urgencia = document.getElementById('chamadoUrgencia').value;
     const titulo = document.getElementById('chamadoTitulo').value;
     const descricao = document.getElementById('chamadoDescricao').value;
 
-    if (!titulo || !descricao) {
-        alert("Por favor, preencha o Título e a Descrição para que a TI possa entender o problema.");
-        return;
+    if (!titulo || !descricao) { 
+        alert("Preencha o título e a descrição detalhada para a TI poder te ajudar."); 
+        return; 
     }
 
     const btn = document.getElementById('btnSalvarChamado');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '⏳ Enviando...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...'; 
     btn.disabled = true;
 
     try {
-        // Inicializa com defaults em caso de falha de leitura
-        let usuarioId = '00000000-0000-0000-0000-000000000000'; 
-        let nomeUsuario = document.getElementById('loggedUserName') ? document.getElementById('loggedUserName').innerText : 'Usuário Não Identificado';
-        let filialId = '00000000-0000-0000-0000-000000000000';
+        const filialIdDoUsuario = window.currentUser.filial_id === 'CENTRAL' ? null : window.currentUser.filial_id;
 
-        // Tenta buscar as informações diretamente da sessão ativa do Supabase
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        
-        if (session && session.user) {
-            usuarioId = session.user.id;
-            
-            // Prioriza o nome e a filial que estiverem no metadata da autenticação
-            if (session.user.user_metadata?.nome) {
-                nomeUsuario = session.user.user_metadata.nome;
-            }
-            if (session.user.user_metadata?.filial_id) {
-                filialId = session.user.user_metadata.filial_id;
-            } else if (localStorage.getItem('filial_id_atual')) {
-                filialId = localStorage.getItem('filial_id_atual');
-            }
-        } else {
-            // Fallback para buscar a filial pelo LocalStorage caso a sessão falhe
-            const storedFilial = localStorage.getItem('filial_id_atual');
-            if (storedFilial) filialId = storedFilial;
-        }
+        // Anexamos a urgência diretamente na primeira mensagem do chat, assim não precisamos alterar o banco de dados
+        const mensagemInicial = `[Urgência: ${urgencia}]\n\n${descricao}`;
 
-        // Faz a inserção no banco de dados na tabela recém criada
+        const historicoInicial = [{
+            autor: 'Usuário',
+            nome: window.currentUser.username,
+            data: new Date().toISOString(),
+            mensagem: mensagemInicial
+        }];
+
         const { error } = await supabaseClient.from('chamados_suporte').insert([{
-            usuario_id: usuarioId,
-            nome_usuario: nomeUsuario,
-            filial_id: filialId,
+            usuario_id: window.currentUser.id || '00000000-0000-0000-0000-000000000000',
+            nome_usuario: window.currentUser.username,
+            filial_id: filialIdDoUsuario, 
             tipo: tipo,
             modulo: modulo,
             titulo: titulo,
-            descricao: descricao,
-            status: 'Aberto'
+            descricao: descricao, // Descrição crua
+            status: 'Aberto',
+            historico_conversa: historicoInicial 
         }]);
 
-        if (error) {
-            console.error("Erro banco:", error);
-            throw error;
-        }
-
-        alert("✅ Chamado registrado com sucesso! A equipe de TI foi notificada.");
-        window.fecharModalChamado();
+        if (error) throw error;
+        alert("✅ Chamado registrado com sucesso! A equipe de tecnologia já foi notificada.");
+        window.fecharModalNovoChamado();
+        window.abrirPainelMeusChamados(); 
 
     } catch (e) {
-        console.error("Erro ao salvar chamado:", e);
-        alert("Erro ao enviar chamado. Por favor, verifique sua conexão ou tente novamente mais tarde.");
+        console.error(e); 
+        alert("Erro ao criar chamado. Verifique sua conexão.");
     } finally {
-        btn.innerHTML = originalText;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Chamado'; 
         btn.disabled = false;
+    }
+};
+
+window.abrirChatChamado = function(id) {
+    idChamadoChatAtual = id;
+    const chamado = meusChamadosCache.find(c => c.id === id);
+    if (!chamado) return;
+
+    document.getElementById('chatTituloHeader').innerHTML = `<i class="fas fa-comments"></i> Chat: ${chamado.titulo}`;
+    document.getElementById('modalChatChamado').classList.add('show');
+    
+    window.renderizarMensagensChat(chamado.historico_conversa || []);
+};
+
+window.fecharChatChamado = function() {
+    document.getElementById('modalChatChamado').classList.remove('show');
+    idChamadoChatAtual = null;
+    document.getElementById('chatNovaMensagem').value = '';
+};
+
+window.renderizarMensagensChat = function(historico) {
+    const container = document.getElementById('chatMensagensContainer');
+    container.innerHTML = '';
+
+    if (!historico || historico.length === 0) {
+        container.innerHTML = `<p style="color:#9ca3af; text-align:center; margin-top:20px;">Nenhuma interação registrada.</p>`;
+        return;
+    }
+
+    historico.forEach(msg => {
+        const dataFmt = new Date(msg.data).toLocaleString('pt-BR');
+        const isUsuario = msg.autor === 'Usuário';
+
+        const align = isUsuario ? 'align-self: flex-end;' : 'align-self: flex-start;';
+        const bgColor = isUsuario ? 'background: #2563eb;' : 'background: #374151;';
+        const borderRadius = isUsuario ? 'border-radius: 12px 12px 0 12px;' : 'border-radius: 12px 12px 12px 0;';
+        const iconUser = isUsuario ? '👤' : '💻 TI';
+
+        const div = document.createElement('div');
+        div.style.cssText = `max-width: 85%; padding: 12px 16px; color: #fff; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.1); ${align} ${bgColor} ${borderRadius}`;
+        
+        div.innerHTML = `
+            <div style="font-size: 0.75rem; color: #cbd5e1; margin-bottom: 8px; font-weight:bold; display: flex; justify-content: space-between; gap: 15px;">
+                <span>${iconUser} ${msg.nome}</span> 
+                <span style="font-weight:normal; opacity: 0.8;">${dataFmt}</span>
+            </div>
+            <div style="font-size: 0.95rem; line-height: 1.5; word-wrap: break-word; white-space: pre-wrap;">${msg.mensagem}</div>
+        `;
+        container.appendChild(div);
+    });
+
+    setTimeout(() => { container.scrollTop = container.scrollHeight; }, 100);
+};
+
+window.enviarMensagemUsuario = async function() {
+    if (!idChamadoChatAtual) return;
+    const txtMsg = document.getElementById('chatNovaMensagem').value.trim();
+    if (!txtMsg) return;
+
+    const btn = document.getElementById('btnEnviarMensagemUsuario');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true;
+
+    try {
+        const chamado = meusChamadosCache.find(c => c.id === idChamadoChatAtual);
+        let historico = chamado.historico_conversa || [];
+
+        historico.push({
+            autor: 'Usuário',
+            nome: window.currentUser.username,
+            data: new Date().toISOString(),
+            mensagem: txtMsg
+        });
+
+        const { error } = await supabaseClient
+            .from('chamados_suporte')
+            .update({ historico_conversa: historico })
+            .eq('id', idChamadoChatAtual);
+
+        if (error) throw error;
+
+        chamado.historico_conversa = historico;
+        window.renderizarMensagensChat(historico);
+        document.getElementById('chatNovaMensagem').value = '';
+
+    } catch (e) {
+        alert("Erro ao enviar mensagem.");
+    } finally {
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i>'; btn.disabled = false;
     }
 };

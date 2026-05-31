@@ -6,6 +6,11 @@
     <title>SISF - Serrana Florestal</title>
     <link rel="icon" href="assets/logo.png" type="image/png">
     
+    <!-- Meta Tags para evitar Cache (Garante que os usuários sempre vejam a versão nova ao atualizar) -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -51,7 +56,8 @@
                     <div class="q-stat" title="Motoristas Cadastrados">👥 <span id="statMotoristas">0</span></div>
                 </div>
                 
-                <button onclick="window.abrirModalChamado()" title="Abrir Chamado para TI" style="background: none; border: none; color: #a855f7; font-size: 1.6rem; cursor: pointer; margin-left: 10px; margin-right: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                <!-- BOTÃO FONE DE OUVIDO AGORA ABRE OS CHAMADOS DO USUÁRIO -->
+                <button onclick="window.abrirPainelMeusChamados()" title="Meus Chamados / Suporte TI" style="background: none; border: none; color: #a855f7; font-size: 1.6rem; cursor: pointer; margin-left: 10px; margin-right: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                     <i class="fas fa-headset"></i>
                 </button>
 
@@ -257,57 +263,12 @@
         </div>
     </div>
 
-    <div id="modalChamadoSuporte" class="modal-overlay">
-        <div class="custom-modal" style="max-width: 500px;">
-            <div class="modal-header">
-                <h3>🎧 Abrir Chamado para TI</h3>
-                <button class="close-modal" onclick="window.fecharModalChamado()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 5px;">Relate problemas (bugs), tire dúvidas ou sugira melhorias. A equipe de tecnologia será notificada.</p>
-                
-                <div class="form-group-dark">
-                    <label>Tipo de Solicitação</label>
-                    <select id="chamadoTipo" class="dark-select">
-                        <option value="Bug/Erro">🐞 Bug/Erro no Sistema</option>
-                        <option value="Dúvida">❓ Dúvida de Uso</option>
-                        <option value="Melhoria">💡 Sugestão de Melhoria</option>
-                        <option value="Acesso">🔑 Problema de Acesso/Permissão</option>
-                    </select>
-                </div>
-                <div class="form-group-dark">
-                    <label>Módulo Relacionado</label>
-                    <select id="chamadoModulo" class="dark-select">
-                        <option value="Geral/Não sei">Geral / Não sei informar</option>
-                        <option value="Logística">Logística (Frota, Escala, etc)</option>
-                        <option value="Manutenção">Manutenção (OS, Serviços)</option>
-                        <option value="Monitoramento">Monitoramento (Jornadas, Gruas)</option>
-                        <option value="SSMA">SSMA (Treinamentos, Recados)</option>
-                        <option value="Almoxarifado">Almoxarifado</option>
-                        <option value="Controladoria">Controladoria</option>
-                        <option value="Indicadores">Indicadores/Dashboards</option>
-                    </select>
-                </div>
-                <div class="form-group-dark">
-                    <label>Título Resumido</label>
-                    <input type="text" id="chamadoTitulo" placeholder="Ex: Erro ao tentar salvar a escala...">
-                </div>
-                <div class="form-group-dark">
-                    <label>Descrição Detalhada</label>
-                    <textarea id="chamadoDescricao" rows="4" placeholder="Explique passo a passo o que você tentou fazer e qual foi o erro que apareceu na tela..."></textarea>
-                </div>
-            </div>
-            <div class="modal-overlay-footer" style="padding: 15px 20px; border-top: 1px solid var(--border-dim); display: flex; justify-content: flex-end; gap: 10px; background: rgba(0,0,0,0.1);">
-                <button class="btn-secondary-dark" onclick="window.fecharModalChamado()">Cancelar</button>
-                <button class="btn-primary-blue" onclick="window.salvarChamadoSuporte()" id="btnSalvarChamado">🚀 Enviar Chamado</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- Scripts externos -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
+    <!-- Scripts do Sistema -->
     <script src="core/js/database.js"></script>
     <script src="core/js/auth.js"></script> 
     <script src="core/js/estado.js"></script>
