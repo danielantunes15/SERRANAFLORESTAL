@@ -6,7 +6,6 @@
     <title>SISF - Serrana Florestal</title>
     <link rel="icon" href="assets/logo.png" type="image/png">
     
-    <!-- Meta Tags para evitar Cache (Garante que os usuários sempre vejam a versão nova ao atualizar) -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -56,7 +55,6 @@
                     <div class="q-stat" title="Motoristas Cadastrados">👥 <span id="statMotoristas">0</span></div>
                 </div>
                 
-                <!-- BOTÃO FONE DE OUVIDO AGORA ABRE OS CHAMADOS DO USUÁRIO -->
                 <button onclick="window.abrirPainelMeusChamados()" title="Meus Chamados / Suporte TI" style="background: none; border: none; color: #a855f7; font-size: 1.6rem; cursor: pointer; margin-left: 10px; margin-right: 5px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
                     <i class="fas fa-headset"></i>
                 </button>
@@ -263,12 +261,10 @@
         </div>
     </div>
 
-    <!-- Scripts externos -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-    <!-- Scripts do Sistema -->
     <script src="core/js/database.js"></script>
     <script src="core/js/auth.js"></script> 
     <script src="core/js/estado.js"></script>
@@ -329,6 +325,8 @@
     <script src="modules/monitoramento/jornadas/jornadas.js"></script>
     
     <script src="modules/controladoria/centro_custo/centro_custo.js"></script>
+
+    <script src="core/js/exportacao.js"></script>
 
     <script src="core/js/app.js"></script> 
 
