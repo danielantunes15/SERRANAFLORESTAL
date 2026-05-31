@@ -219,6 +219,13 @@ window.adicionarUsuario = async function() {
         };
 
         await db.addUsuario(novoUsuarioObj);
+        
+        // ---------- AUDITORIA: INSERINDO LOG DE CRIAÇÃO ----------
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('Gestão de Usuários', 'Criação de Usuário', `Novo usuário de sistema cadastrado: ${nome} (Permissão Base: ${systemRole})`);
+        }
+        // --------------------------------------------------------
+
         document.getElementById('novoUsername').value = '';
         selectCargo.value = '';
         
@@ -236,6 +243,13 @@ window.resetarSenhaUsuario = async function(id) {
 
     if(confirm(`Deseja resetar a senha deste usuário para "12345"? Ele precisará criar uma nova senha ao logar.`)) {
         await db.updateUsuarioSenhaEReset(id, "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5");
+        
+        // ---------- AUDITORIA: INSERINDO LOG DE RESET ----------
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Segurança', `Senha do usuário ${u.username} foi resetada para a senha padrão.`);
+        }
+        // -------------------------------------------------------
+
         alert(`Senha resetada com sucesso.`); 
         window.renderizarUsuarios();
     }
@@ -247,6 +261,13 @@ window.excluirUsuario = async function(id) {
 
     if(confirm(`🚨 ATENÇÃO: Deseja EXCLUIR permanentemente o acesso deste usuário e o desvincular do organograma?`)) {
         await db.deleteUsuario(id);
+        
+        // ---------- AUDITORIA: INSERINDO LOG DE EXCLUSÃO ----------
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('Gestão de Usuários', 'Exclusão de Usuário', `O usuário ${u.username} foi excluído permanentemente do sistema.`);
+        }
+        // ---------------------------------------------------------
+
         alert('Usuário desvinculado e excluído com sucesso.'); 
         window.renderizarUsuarios();
     }
@@ -349,6 +370,7 @@ window.salvarEdicaoUsuario = async function() {
     const systemRole = cargoOption.getAttribute('data-role'); 
     const centroCustoId = cargoOption.getAttribute('data-cc');
     const cargoId = parseInt(selectCargo.value);
+    const cargoNome = cargoOption.text;
 
     if ((systemRole === 'Gerente' || systemRole === 'SuperAdmin') && (!window.currentUser || window.currentUser.role !== 'SuperAdmin')) {
         alert('⚠️ Acesso Negado: Apenas Administradores Globais podem promover ou conceder acessos para cargos deste nível.');
@@ -365,6 +387,12 @@ window.salvarEdicaoUsuario = async function() {
         }).eq('id', id);
 
         if (error) throw error;
+
+        // ---------- AUDITORIA: INSERINDO LOG DE ATUALIZAÇÃO ----------
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Usuário', `Dados e permissões atualizadas para o usuário: ${nome} (Novo cargo: ${cargoNome})`);
+        }
+        // -------------------------------------------------------------
 
         alert('✅ Cadastro do funcionário atualizado e readequado no organograma com sucesso!');
         window.fecharModalEdicaoUsuario();
