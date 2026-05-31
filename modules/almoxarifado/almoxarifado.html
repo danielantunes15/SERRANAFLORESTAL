@@ -123,7 +123,7 @@
         <div class="almo-tabs">
             <button class="almo-tab-btn active" onclick="mudarAbaAlmoxarifado('estoque', this)"><i class="fas fa-box-open"></i> Estoque Atual</button>
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('requisicoes', this)" style="display: inline-flex; align-items: center; gap: 6px;">
-                <i class="fas fa-clipboard-check"></i> Requisições da Oficina
+                <i class="fas fa-clipboard-check"></i> Requisições Pendentes
                 <span id="badgeReqPendente" style="display:none; background:#ef4444; color:#fff; border-radius:10px; padding:3px 7px; font-size:0.75rem; font-weight:bold; line-height:1;">0</span>
             </button>
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('movimentacoes', this)"><i class="fas fa-exchange-alt"></i> Histórico & Auditoria</button>
@@ -161,8 +161,8 @@
             <thead>
                 <tr>
                     <th>Data/Hora</th>
-                    <th>O.S. / Frota</th>
-                    <th>Mecânico</th>
+                    <th>Origem (RM Interna / O.S)</th>
+                    <th>Usuário / Mecânico</th>
                     <th>Peça Solicitada</th>
                     <th>Qtd</th>
                     <th>Status</th>

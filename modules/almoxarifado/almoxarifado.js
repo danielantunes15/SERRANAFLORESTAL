@@ -37,9 +37,7 @@ async function carregarDadosAlmoxarifado() {
         
         atualizarKPIsAlmoxarifado();
         gerarRelatoriosAvancados();
-    } catch (e) {
-        console.error("Erro ao carregar almoxarifado", e);
-    }
+    } catch (e) { console.error("Erro ao carregar almoxarifado", e); }
 }
 
 function classificarCurvaABC(lista) {
@@ -60,10 +58,7 @@ function atualizarTabelaPecas(listaPecas) {
     const tbody = document.getElementById('tabelaPecasBody');
     if (!tbody) return;
     tbody.innerHTML = '';
-
-    if(listaPecas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma peça encontrada.</td></tr>'; return;
-    }
+    if(listaPecas.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma peça encontrada.</td></tr>'; return; }
 
     listaPecas.forEach(peca => {
         const estaBaixo = peca.quantidade <= peca.estoque_minimo;
@@ -93,27 +88,29 @@ function atualizarTabelaRequisicoes(listaReqs) {
     const tbody = document.getElementById('tabelaRequisicoesBody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    if(listaReqs.length === 0) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma requisição da oficina encontrada.</td></tr>'; return; }
+    if(listaReqs.length === 0) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma requisição pendente.</td></tr>'; return; }
 
     listaReqs.forEach(req => {
         const dataFormatada = req.created_at ? new Date(req.created_at).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
         const pecaRef = pecasEstoque.find(p => String(p.id) === String(req.peca_id));
         const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
-        
-        const frota = req.placa || (req.os_id ? `OS #${req.os_id}` : 'Desconhecida');
-        const mecanico = req.mecanico_responsavel || 'Mecânico';
+        const usuarioReq = req.mecanico_responsavel || 'Usuário';
         const stat = req.status || 'Pendente'; 
         
+        let tituloOrigem = req.centro_custo 
+            ? `<strong style="color:#a855f7; font-size:1.05rem;">RM #${req.id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-building"></i> ${req.centro_custo}</span>` 
+            : `<strong style="color:#60a5fa; font-size:1.05rem;">O.S #${req.os_id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-truck"></i> ${req.placa || 'Frota'}</span>`;
+
         let statusBadge = '', btnAcao = '';
 
         if (stat === 'Pendente') {
-            statusBadge = '<span class="badge" style="background:#f59e0b; color:#fff;"><i class="fas fa-clock"></i> Aguardando Liberação</span>';
+            statusBadge = '<span class="badge" style="background:#f59e0b; color:#fff;"><i class="fas fa-clock"></i> Aguardando</span>';
             btnAcao = `
-                <button class="btn-action-sm btn-success" title="Aprovar e Baixar Estoque" onclick="aprovarRequisicao(${req.id}, ${req.peca_id}, ${req.quantidade}, '${req.os_id}', '${frota}', ${req.valor_unitario})"><i class="fas fa-check"></i></button>
+                <button class="btn-action-sm btn-success" title="Aprovar e Baixar Estoque" onclick="aprovarRequisicao(${req.id})"><i class="fas fa-check"></i></button>
                 <button class="btn-action-sm btn-delete" title="Recusar" onclick="recusarRequisicao(${req.id})"><i class="fas fa-times"></i></button>
             `;
         } else if (stat === 'Aprovado') {
-            statusBadge = '<span class="badge" style="background:#10b981; color:#fff;"><i class="fas fa-check"></i> Entregue</span>';
+            statusBadge = '<span class="badge" style="background:#10b981; color:#fff;"><i class="fas fa-check"></i> Liberada</span>';
             btnAcao = '<span style="color:#94a3b8; font-size:0.8rem;">Processada</span>';
         } else {
             statusBadge = '<span class="badge" style="background:#ef4444; color:#fff;"><i class="fas fa-times"></i> Recusada</span>';
@@ -123,10 +120,10 @@ function atualizarTabelaRequisicoes(listaReqs) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="color: #94a3b8;">${dataFormatada}</td>
-            <td>O.S. #${req.os_id} <br><strong style="color:#60a5fa;">${frota}</strong></td>
-            <td><strong style="color:#e2e8f0;">${mecanico}</strong></td>
+            <td>${tituloOrigem}</td>
+            <td><strong style="color:#e2e8f0;">${usuarioReq}</strong></td>
             <td>${nomePeca}</td>
-            <td style="font-weight: bold; font-size: 1.1rem;">${req.quantidade}</td>
+            <td style="font-weight: bold; font-size: 1.1rem; color:#f8fafc;">${req.quantidade}</td>
             <td>${statusBadge}</td>
             <td style="text-align: right; display:flex; gap:5px; justify-content: flex-end;">${btnAcao}</td>
         `;
@@ -183,7 +180,6 @@ function atualizarTabelaPneus(lista) {
     lista.forEach(p => {
         let statusCor = p.status === 'Estoque' ? '#34d399' : (p.status === 'Rodando' ? '#60a5fa' : (p.status === 'Sucata' ? '#f87171' : '#fcd34d'));
         let localTxt = p.status === 'Rodando' ? `Frota: <b style="color:#f8fafc;">${p.cavalo_atual}</b>` : '<span style="color:#94a3b8;">No Almoxarifado</span>';
-        
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="font-weight:bold; color:#fff; font-size:1.1rem;">${p.num_fogo}</td>
@@ -276,7 +272,7 @@ window.filtrarAlmoxarifado = function() {
     if (abaAtualAlmox === 'estoque') atualizarTabelaPecas(pecasEstoque.filter(p => (p.nome||'').toLowerCase().includes(termo) || (p.codigo||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'movimentacoes') atualizarTabelaMovimentacoes(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.cavalo||'').toLowerCase().includes(termo) || (m.setor_destino||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'pneus') atualizarTabelaPneus(pneusEstoque.filter(p => (p.num_fogo||'').toLowerCase().includes(termo) || (p.cavalo_atual||'').toLowerCase().includes(termo)));
-    else if (abaAtualAlmox === 'requisicoes') atualizarTabelaRequisicoes(requisicoesEstoque.filter(r => (r.placa||'').toLowerCase().includes(termo) || (r.mecanico_responsavel||'').toLowerCase().includes(termo)));
+    else if (abaAtualAlmox === 'requisicoes') atualizarTabelaRequisicoes(requisicoesEstoque.filter(r => (r.placa||'').toLowerCase().includes(termo) || (r.mecanico_responsavel||'').toLowerCase().includes(termo) || (r.centro_custo||'').toLowerCase().includes(termo)));
 }
 
 window.mudarAbaAlmoxarifado = function(abaId, btn) {
@@ -295,53 +291,66 @@ window.carregarCentrosCustoAlmox = async function() {
         let query = window.supabaseClient.from('centro_custo').select('id, nome, codigo').eq('status', 'Ativo');
         if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
         const { data } = await query;
-        
-        if (data && data.length > 0) {
-            selectCC.innerHTML = '<option value="" disabled selected>-- Selecione o Centro de Custo --</option>' + 
-                data.map(cc => `<option value="${cc.nome}">[${cc.codigo}] ${cc.nome}</option>`).join('');
-        } else { selectCC.innerHTML = '<option value="" disabled>Nenhum Centro Cadastrado nesta Filial</option>'; }
+        if (data && data.length > 0) { selectCC.innerHTML = '<option value="" disabled selected>-- Selecione o Centro de Custo --</option>' + data.map(cc => `<option value="${cc.nome}">[${cc.codigo}] ${cc.nome}</option>`).join(''); } 
+        else { selectCC.innerHTML = '<option value="" disabled>Nenhum Centro Cadastrado nesta Filial</option>'; }
     } catch (e) { selectCC.innerHTML = '<option value="" disabled>Erro ao carregar</option>'; }
 };
 
 window.toggleTipoSaida = function() {
     const tipo = document.getElementById('movTipoSaida').value;
     if (tipo === 'frota') {
-        document.getElementById('camposFrotaSaida').style.display = 'flex';
-        document.getElementById('camposSetorSaida').style.display = 'none';
-        document.getElementById('movOS').required = true;  // OBRIGATORIO PARA FROTA
-        document.getElementById('movCentroCusto').required = false;
-        document.getElementById('movCentroCusto').value = '';
+        document.getElementById('camposFrotaSaida').style.display = 'flex'; document.getElementById('camposSetorSaida').style.display = 'none';
+        document.getElementById('movOS').required = true; document.getElementById('movCentroCusto').required = false; document.getElementById('movCentroCusto').value = '';
     } else {
-        document.getElementById('camposFrotaSaida').style.display = 'none';
-        document.getElementById('camposSetorSaida').style.display = 'block';
-        document.getElementById('movOS').required = false;
-        document.getElementById('movCentroCusto').required = true;
-        document.getElementById('movCavalo').value = '';
-        document.getElementById('movOS').value = '';
+        document.getElementById('camposFrotaSaida').style.display = 'none'; document.getElementById('camposSetorSaida').style.display = 'block';
+        document.getElementById('movOS').required = false; document.getElementById('movCentroCusto').required = true; document.getElementById('movCavalo').value = ''; document.getElementById('movOS').value = '';
     }
 }
 
-window.aprovarRequisicao = async function(reqId, pecaId, qtd, osId, cavalo, valorUnitario) {
-    const peca = pecasEstoque.find(p => p.id == pecaId);
-    if (!peca || peca.quantidade < qtd) { alert(`Estoque insuficiente! Você possui apenas ${peca ? peca.quantidade : 0} unidade(s).`); return; }
-    if(!confirm(`Confirma a liberação de ${qtd} unidades de "${peca.nome}" para a OS #${osId}?`)) return;
+// ================= LÓGICA DE APROVAÇÃO INTELIGENTE =================
+window.aprovarRequisicao = async function(reqId) {
+    const req = requisicoesEstoque.find(r => r.id == reqId);
+    if(!req) { alert("Requisição não encontrada no sistema."); return; }
+
+    const peca = pecasEstoque.find(p => p.id == req.peca_id);
+    if (!peca || peca.quantidade < req.quantidade) { alert(`Estoque insuficiente! Você possui apenas ${peca ? peca.quantidade : 0} unidade(s).`); return; }
+    
+    if(!confirm(`Confirma a liberação de ${req.quantidade} unidades de "${peca.nome}"?`)) return;
 
     try {
         await window.supabaseClient.from('os_pecas_utilizadas').update({ status: 'Aprovado' }).eq('id', reqId);
-        await db.addMovimentacao({
-            peca_id: pecaId, tipo: 'saida', quantidade: qtd, valor_unitario: valorUnitario || peca.preco_medio,
-            cavalo: cavalo || 'Oficina', os_id: osId, nota_fiscal: 'Requisição Web',
-            usuario: window.currentUser ? window.currentUser.username : 'Sistema', data_movimentacao: new Date().toISOString()
-        });
-        alert("Requisição Aprovada e peça baixada!"); await carregarDadosAlmoxarifado();
-    } catch (e) { alert("Erro ao aprovar requisição."); }
+        
+        // Define para onde o custo vai (Frota ou Centro de Custo) dependendo de onde a solicitação veio
+        let novaMovimentacao = {
+            peca_id: req.peca_id, 
+            tipo: 'saida', 
+            quantidade: req.quantidade, 
+            valor_unitario: req.valor_unitario || peca.preco_medio,
+            usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
+            data_movimentacao: new Date().toISOString()
+        };
+
+        if (req.centro_custo) {
+            novaMovimentacao.setor_destino = req.centro_custo;
+            novaMovimentacao.nota_fiscal = `RM #${req.id}`;
+        } else {
+            novaMovimentacao.cavalo = req.placa || 'Oficina';
+            novaMovimentacao.os_id = req.os_id;
+            novaMovimentacao.nota_fiscal = `Requisição Oficina`;
+        }
+
+        await db.addMovimentacao(novaMovimentacao);
+        alert("Requisição Aprovada com sucesso! Custo direcionado."); 
+        await carregarDadosAlmoxarifado();
+    } catch (e) { alert("Erro ao aprovar requisição. Tente novamente."); console.error(e); }
 }
 
 window.recusarRequisicao = async function(reqId) {
-    if(!confirm("Deseja RECUSAR esta peça? O mecânico será notificado.")) return;
+    if(!confirm("Deseja RECUSAR esta peça? O solicitante será notificado.")) return;
     try { await window.supabaseClient.from('os_pecas_utilizadas').update({ status: 'Recusado' }).eq('id', reqId); await carregarDadosAlmoxarifado(); } 
     catch(e) { alert("Erro ao recusar."); }
 }
+// ===================================================================
 
 window.prepararModalMovimentacao = function(tipo) {
     document.getElementById('formMovimentacao').reset();
@@ -403,7 +412,6 @@ window.prepararModalMovimentacao = function(tipo) {
         document.getElementById('ajustePecaId').required = true; document.getElementById('ajusteQtdReal').required = true; document.getElementById('ajusteMotivo').required = true;
         preencherSelectPecas('ajustePecaId'); document.getElementById('ajusteQtdAtual').value = '';
     }
-    
     document.getElementById('modalMovimentacao').style.display = 'flex';
 }
 
@@ -445,7 +453,7 @@ window.salvarMovimentacao = async function(e) {
             if (tipoSaidaDestino === 'frota') {
                 osVal = document.getElementById('movOS').value;
                 cavaloVal = document.getElementById('movCavalo').value.toUpperCase();
-                if(!cavaloVal || cavaloVal === "OS NÃO ENCONTRADA") { alert("Atenção: Você precisa informar uma OS válida para puxar a placa do caminhão."); throw new Error("Sem placa"); }
+                if(!cavaloVal || cavaloVal === "OS NÃO ENCONTRADA") { alert("Atenção: Você precisa informar uma OS válida para puxar a placa."); throw new Error("Sem placa"); }
             } else {
                 setorVal = document.getElementById('movCentroCusto').value;
             }
@@ -504,9 +512,7 @@ window.processarArquivoNF = async function(event) {
                 renderizarItensLoteNF(); alert(`Leitura Concluída!`);
             } catch (err) { alert("Erro ao ler XML."); document.getElementById('movNF').value = ""; }
         }; reader.readAsText(file);
-    } else {
-        alert("No momento o leitor suporta apenas arquivos .XML da NF-e.");
-    }
+    } else { alert("No momento o leitor suporta apenas arquivos .XML da NF-e."); }
 }
 window.renderizarItensLoteNF = function() {
     const tbody = document.getElementById('tabelaLoteNFBody');
