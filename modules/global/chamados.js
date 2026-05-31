@@ -6,7 +6,6 @@ let idChamadoEmEdicao = null;
 let mapaFiliaisCache = {};
 let chamadosDataCache = []; 
 
-// Instâncias do ECharts
 let chartModulo = null;
 let chartStatus = null;
 
@@ -67,7 +66,7 @@ window.TI_atualizarTabelaChamados = async function() {
 
     } catch (e) {
         console.error("Erro ao listar chamados:", e);
-        tbody.innerHTML = `<tr><td colspan="8" style="padding:30px; color:#ef4444; text-align:center;">Erro crítico ao carregar chamados de suporte.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="padding:30px; color:#ef4444; text-align:center;">Erro crítico ao carregar chamados de suporte.</td></tr>`;
     }
 };
 
@@ -107,17 +106,24 @@ window.TI_atualizarDashboardDashboard = function(data) {
         }
     });
 
+    // 1. KPI Total
+    const kpiTotal = document.getElementById('kpiTotal');
+    if(kpiTotal) kpiTotal.innerText = data.length;
+
+    // 2. KPI Abertos
     const kpiAbertos = document.getElementById('kpiAbertos');
     if(kpiAbertos) kpiAbertos.innerText = abertos;
     
-    let tmResposta = countResposta > 0 ? (somaMinutosResposta / countResposta) : 0;
-    const kpiTMResposta = document.getElementById('kpiTMResposta');
-    if(kpiTMResposta) kpiTMResposta.innerText = formatarMinutos(tmResposta);
-    
+    // 3. KPI Resolvidos
+    const kpiResolvidos = document.getElementById('kpiResolvidos');
+    if(kpiResolvidos) kpiResolvidos.innerText = totalResolvidos;
+
+    // 4. KPI SLA
     let tmResolucao = countResolucao > 0 ? (somaMinutosResolucao / countResolucao) : 0;
     const kpiTMResolucao = document.getElementById('kpiTMResolucao');
     if(kpiTMResolucao) kpiTMResolucao.innerText = formatarMinutos(tmResolucao);
     
+    // 5. KPI Taxa
     let taxa = data.length > 0 ? ((totalResolvidos / data.length) * 100).toFixed(1) : 0;
     const kpiTaxaResolucao = document.getElementById('kpiTaxaResolucao');
     if(kpiTaxaResolucao) kpiTaxaResolucao.innerText = `${taxa}%`;
@@ -174,7 +180,7 @@ window.TI_aplicarFiltrosNaTela = function() {
     if (chamadoFiltroModulo !== 'Todos') dadosFiltrados = dadosFiltrados.filter(c => c.modulo === chamadoFiltroModulo);
 
     if (dadosFiltrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="padding: 30px; text-align: center; color: var(--text-secondary);">Nenhum chamado encontrado para os filtros selecionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="padding: 30px; text-align: center; color: var(--text-secondary);">Nenhum chamado encontrado para os filtros selecionados.</td></tr>`;
         return;
     }
 
@@ -202,6 +208,7 @@ window.TI_aplicarFiltrosNaTela = function() {
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td><strong style="color: var(--ccol-blue-bright); font-size: 0.9rem;">#${chamado.id}</strong></td>
             <td style="font-weight: 500; font-size: 0.8rem; color: var(--text-secondary);">${dataFormatada}</td>
             <td style="font-weight: 600; color: #fff;">${nomeFilial}</td>
             <td><strong style="font-size: 0.85rem;">${chamado.nome_usuario}</strong></td>
@@ -227,7 +234,6 @@ window.TI_aplicarFiltrosNaTela = function() {
 // ================= LÓGICA DO CHAT DA TI =================
 let objChamadoRawData = null;
 
-// NOVO: Função exclusiva para renderizar o Chat na visão do Técnico de TI
 window.renderizarMensagensChatTI = function(historico) {
     const container = document.getElementById('chatMensagensContainerTI');
     if (!container) return;
@@ -243,7 +249,6 @@ window.renderizarMensagensChatTI = function(historico) {
         const dataFmt = new Date(msg.data).toLocaleString('pt-BR');
         const isTI = msg.autor === 'TI';
 
-        // Para a TI: As mensagens dela ficam na direita (Azul), as do usuário na esquerda (Cinza)
         const align = isTI ? 'align-self: flex-end;' : 'align-self: flex-start;';
         const bgColor = isTI ? 'background: #2563eb;' : 'background: #374151;';
         const borderRadius = isTI ? 'border-radius: 12px 12px 0 12px;' : 'border-radius: 12px 12px 12px 0;';
@@ -266,21 +271,23 @@ window.renderizarMensagensChatTI = function(historico) {
 };
 
 window.TI_abrirChat = function(id) {
-    idChamadoEmEdicao = id;
+    idChamadoEmEdicao = parseInt(id);
     
-    objChamadoRawData = chamadosDataCache.find(c => c.id === id);
+    objChamadoRawData = chamadosDataCache.find(c => c.id === idChamadoEmEdicao);
     if (!objChamadoRawData) return;
 
     document.getElementById('modalTINomeUser').innerText = objChamadoRawData.nome_usuario;
     document.getElementById('modalTIDataAbertura').innerText = new Date(objChamadoRawData.data_criacao).toLocaleString('pt-BR');
-    document.getElementById('modalTITitulo').innerText = objChamadoRawData.titulo;
+    
+    // Atualiza o título adicionando o número da OS/Chamado!
+    document.getElementById('modalTITitulo').innerText = `Chamado #${objChamadoRawData.id} - ${objChamadoRawData.titulo}`;
+    
     document.getElementById('modalTIDescricao').innerText = objChamadoRawData.descricao;
     
     document.getElementById('modalTIStatusDefinir').value = objChamadoRawData.status === 'Aberto' ? 'Em Andamento' : objChamadoRawData.status;
 
     document.getElementById('modalTIResponderChamado').classList.add('show');
     
-    // Chama a função exclusiva da TI para desenhar os balões do chat
     window.renderizarMensagensChatTI(objChamadoRawData.historico_conversa || []);
 };
 

@@ -25,7 +25,6 @@ window.atualizarStats = function() {
     } catch (e) { }
 }
 
-// NOVO: Função para carregar os modais de suporte dinamicamente de outro arquivo
 window.carregarModaisChamados = async function() {
     try {
         const response = await fetch(`modules/global/modais_chamados.html?v=${new Date().getTime()}`);
@@ -53,7 +52,6 @@ window.initDashboard = async function() {
         `;
     }
     
-    // Injeta os modais na tela sem travar o usuário
     await window.carregarModaisChamados();
 
     try {
@@ -83,7 +81,7 @@ window.abrirPainelMeusChamados = async function() {
     if(modal) modal.classList.add('show');
     
     const tbody = document.getElementById('corpoTabelaMeusChamados');
-    if(tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Buscando...</td></tr>`;
+    if(tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Buscando...</td></tr>`;
     
     try {
         const { data, error } = await supabaseClient
@@ -96,7 +94,7 @@ window.abrirPainelMeusChamados = async function() {
         meusChamadosCache = data || [];
 
         if (meusChamadosCache.length === 0 && tbody) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#9ca3af; padding: 20px;">Você não possui nenhum chamado aberto no momento.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#9ca3af; padding: 20px;">Você não possui nenhum chamado aberto no momento.</td></tr>`;
             return;
         }
 
@@ -111,6 +109,7 @@ window.abrirPainelMeusChamados = async function() {
             
             const tr = document.createElement('tr');
             tr.innerHTML = `
+                <td><strong style="color: var(--ccol-blue-bright); font-size: 0.9rem;">#${c.id}</strong></td>
                 <td style="font-size: 0.8rem; color: #9ca3af;">${dataFmt}</td>
                 <td><strong style="color: #fff; font-size: 0.85rem;">${c.titulo}</strong></td>
                 <td>${badge}</td>
@@ -124,7 +123,7 @@ window.abrirPainelMeusChamados = async function() {
         });
 
     } catch(e) {
-        if(tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#ef4444;">Erro ao buscar chamados.</td></tr>`;
+        if(tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#ef4444;">Erro ao buscar chamados.</td></tr>`;
     }
 };
 
@@ -164,8 +163,6 @@ window.salvarChamadoSuporte = async function() {
 
     try {
         const filialIdDoUsuario = window.currentUser.filial_id === 'CENTRAL' ? null : window.currentUser.filial_id;
-
-        // Anexamos a urgência diretamente na primeira mensagem do chat
         const mensagemInicial = `[Urgência: ${urgencia}]\n\n${descricao}`;
 
         const historicoInicial = [{
@@ -176,7 +173,7 @@ window.salvarChamadoSuporte = async function() {
         }];
 
         const { error } = await supabaseClient.from('chamados_suporte').insert([{
-            usuario_id: window.currentUser.id || 0, // CORRIGIDO PARA ZERO/INTEIRO
+            usuario_id: window.currentUser.id || 0, 
             nome_usuario: window.currentUser.username,
             filial_id: filialIdDoUsuario, 
             tipo: tipo,
@@ -202,11 +199,13 @@ window.salvarChamadoSuporte = async function() {
 };
 
 window.abrirChatChamado = function(id) {
-    idChamadoChatAtual = id;
-    const chamado = meusChamadosCache.find(c => c.id === id);
+    // Como o ID agora é Int, podemos convertê-lo ou usá-lo com parse para garantir a busca
+    idChamadoChatAtual = parseInt(id);
+    const chamado = meusChamadosCache.find(c => c.id === idChamadoChatAtual);
     if (!chamado) return;
 
-    document.getElementById('chatTituloHeader').innerHTML = `<i class="fas fa-comments"></i> Chat: ${chamado.titulo}`;
+    // Atualiza o Título com o Número do Chamado
+    document.getElementById('chatTituloHeader').innerHTML = `<i class="fas fa-comments"></i> Chamado #${chamado.id}: ${chamado.titulo}`;
     document.getElementById('modalChatChamado').classList.add('show');
     
     window.renderizarMensagensChat(chamado.historico_conversa || []);
