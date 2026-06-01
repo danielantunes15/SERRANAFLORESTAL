@@ -54,6 +54,7 @@ function renderizarTabelaOS() {
                     <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; align-items: center;">
                         <button class="btn-primary-blue" onclick="abrirModalServicoExtra(${os.id})" title="Adicionar Serviço e Prorrogar Prazo" style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; border-radius: 4px;">➕ Serviço Extra</button>
                         <button class="btn-primary-green" onclick="abrirModalConclusaoOS(${os.id})" style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; border-radius: 4px;">✅ Concluir OS</button>
+                        <button class="btn-secondary-dark" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 6px 10px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
                         <button class="btn-secondary-dark" onclick="imprimirOS(${os.id})" title="Imprimir" style="padding: 6px 10px; font-size: 0.8rem; border-radius: 4px;">🖨️</button>
                     </div>
                 </td>
@@ -141,7 +142,6 @@ window.renderizarTabelaSOS = function() {
             mensagemZap += `📍 *Localização GPS:*\nSem link cadastrado`;
         }
 
-        // CONCATENAÇÃO TRADICIONAL PARA EVITAR PROBLEMAS DE INTERPRETAÇÃO NO WHATSAPP
         const urlZap = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(mensagemZap);
 
         let btnMapa = linkMapa ? `<a href="${linkMapa}" target="_blank" class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;"><i class="fas fa-map-marked-alt"></i> Ver Mapa</a>` : `<span style="font-size: 0.8rem; color: #9ca3af;"><br>📍 Sem Mapa</span>`;
@@ -162,6 +162,7 @@ window.renderizarTabelaSOS = function() {
                     <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; align-items: center;">
                         <a href="${urlZap}" target="_blank" class="btn-primary-green" style="padding: 6px 12px; font-size: 0.8rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; background-color: #22c55e;"><i class="fab fa-whatsapp"></i> Enviar a Mecânicos</a>
                         <button class="btn-primary-blue" onclick="abrirModalConclusaoOS(${os.id})" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 4px;">✅ Finalizar S.O.S</button>
+                        <button class="btn-secondary-dark" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 6px 10px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
                     </div>
                 </td>
             </tr>
@@ -203,6 +204,7 @@ function renderizarTabelaSinistro() {
                     <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; align-items: center;">
                         <button class="btn-primary-blue" onclick="abrirModalServicoExtra(${os.id})" title="Atualizar Previsão" style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; border-radius: 4px;">📅 Nova Previsão</button>
                         <button class="btn-primary-green" onclick="abrirModalConclusaoOS(${os.id})" style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; border-radius: 4px;">✅ Retorno</button>
+                        <button class="btn-secondary-dark" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 6px 10px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
                     </div>
                 </td>
             </tr>
