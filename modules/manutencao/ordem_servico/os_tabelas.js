@@ -290,6 +290,7 @@ window.renderizarTabelaHistoricoOS = function(resetPage = true) {
                 <td><span style="color: ${corStatus}; font-weight: bold;">${os.status}</span></td>
                 <td>
                     <div style="display: flex; gap: 5px; justify-content: flex-start;">
+                        <button class="btn-primary-blue" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 4px 8px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
                         <button class="btn-secondary-dark" onclick="imprimirOS(${os.id})" title="Imprimir O.S." style="padding: 4px 8px; font-size: 0.8rem; border-radius: 4px;">🖨️</button>
                         <button class="btn-danger-outline" onclick="excluirOS(${os.id})" title="Excluir" style="padding: 4px 8px; font-size: 0.8rem; border-radius: 4px;">🗑️</button>
                     </div>
@@ -328,6 +329,107 @@ function renderizarControlesPaginacaoOS(totalPages) {
     
     container.innerHTML = html;
 }
+
+// NOVA FUNÇÃO: Visualizar O.S Completa (Modal Dinâmico)
+window.abrirVisualizacaoOS = async function(id) {
+    const os = ordensServico.find(o => o.id === id);
+    if (!os) return;
+
+    // Popula Dados Básicos
+    document.getElementById('visOSId').value = os.id;
+    document.getElementById('visOSNum').innerText = '#' + (os.numero_os || os.id);
+    
+    let corStatus = '#f59e0b';
+    if (os.status === 'Concluída') corStatus = 'var(--ccol-green-bright)';
+    if (os.status === 'Em Manutenção') corStatus = '#3b82f6';
+    if (os.status === 'Sinistrado' || os.tipo === 'Sinistro') corStatus = '#ef4444';
+    
+    const statusEl = document.getElementById('visOSStatus');
+    statusEl.innerText = os.status;
+    statusEl.style.color = corStatus;
+
+    document.getElementById('visOSPlaca').innerText = os.placa || '-';
+    document.getElementById('visOSAbertura').innerText = formatarDataHoraBrasil(os.data_abertura);
+    document.getElementById('visOSConclusao').innerText = os.data_conclusao ? formatarDataHoraBrasil(os.data_conclusao) : 'Em Andamento';
+    
+    document.getElementById('visOSMotorista').innerText = os.motorista || '-';
+    document.getElementById('visOSTipo').innerText = os.tipo || '-';
+    
+    let prioridadeBadge = `<span style="background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 4px; font-size: 0.85rem;">${os.prioridade || 'Normal'}</span>`;
+    if(os.prioridade === 'Urgente') prioridadeBadge = `<span style="background: #ef4444; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">Urgente</span>`;
+    if(os.prioridade === 'Alta') prioridadeBadge = `<span style="background: #f97316; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold;">Alta</span>`;
+    document.getElementById('visOSPrioridade').innerHTML = prioridadeBadge;
+    
+    document.getElementById('visOSHodometro').innerText = os.hodometro || '-';
+    
+    let problemaFormatado = os.problema || 'Nenhum problema relatado.';
+    problemaFormatado = problemaFormatado.replace(/\n/g, '<br>');
+    document.getElementById('visOSProblema').innerHTML = problemaFormatado;
+
+    let obsFormatada = os.observacoes || 'Nenhuma observação extra informada.';
+    obsFormatada = obsFormatada.replace(/\n/g, '<br>');
+    document.getElementById('visOSObservacoes').innerHTML = obsFormatada;
+
+    document.getElementById('modalVisualizarOS').style.display = 'flex';
+
+    // Popula Serviços e Peças
+    const servicosContainer = document.getElementById('visOSServicosList');
+    const pecasContainer = document.getElementById('visOSPecasList');
+    
+    servicosContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i> Buscando serviços...</div>';
+    pecasContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i> Buscando peças...</div>';
+
+    try {
+        const resServ = await window.supabaseClient.from('os_servicos_executados').select('*').eq('os_id', os.id).order('id');
+        if (resServ.data && resServ.data.length > 0) {
+            servicosContainer.innerHTML = resServ.data.map(s => `
+                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem;">
+                    <i class="fas fa-check" style="color: var(--ccol-blue-bright); margin-right: 5px;"></i> ${s.descricao}
+                </div>
+            `).join('');
+        } else {
+            servicosContainer.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 10px;">Nenhum serviço apontado nesta O.S.</div>';
+        }
+
+        const resPecas = await window.supabaseClient.from('os_pecas_utilizadas').select('*, almoxarifado_pecas(nome, unidade)').eq('os_id', os.id).order('id');
+        if (resPecas.data && resPecas.data.length > 0) {
+            pecasContainer.innerHTML = resPecas.data.map(p => {
+                const nomePeca = p.almoxarifado_pecas ? p.almoxarifado_pecas.nome : 'Peça Indisponível';
+                const unidadePeca = p.almoxarifado_pecas ? p.almoxarifado_pecas.unidade : 'UN';
+                const compartimento = p.compartimento || 'GERAL';
+                
+                let corStatusPeca = '#f59e0b';
+                if(p.status === 'Aprovado') corStatusPeca = '#10b981';
+                else if (p.status === 'Recusado') corStatusPeca = '#ef4444';
+
+                return `
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                        <div style="flex: 1;">
+                            <span style="color: var(--ccol-green-bright); font-weight: bold; font-size: 0.8rem;">[${compartimento}]</span><br>
+                            ${nomePeca}
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                            <div style="font-weight: bold; font-size: 1.1rem; color: #fff; background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px;">
+                                ${p.quantidade} ${unidadePeca}
+                            </div>
+                            <span style="font-size: 0.7rem; color: ${corStatusPeca}; font-weight: bold; margin-top: 3px; text-transform: uppercase;">${p.status || 'Pendente'}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            pecasContainer.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 10px;">Nenhuma requisição de peça vinculada.</div>';
+        }
+    } catch (e) {
+        console.error('Erro ao buscar detalhes adicionais da OS:', e);
+        servicosContainer.innerHTML = '<div style="color: #ef4444; font-size: 0.9rem;">Erro ao carregar serviços executados.</div>';
+        pecasContainer.innerHTML = '<div style="color: #ef4444; font-size: 0.9rem;">Erro ao carregar peças requisitadas.</div>';
+    }
+};
+
+window.fecharVisualizacaoOS = function() {
+    document.getElementById('modalVisualizarOS').style.display = 'none';
+};
 
 function renderizarTabelaFrotaManutencao() {
     const tbody = document.getElementById('tabelaFrotaManutencao');
