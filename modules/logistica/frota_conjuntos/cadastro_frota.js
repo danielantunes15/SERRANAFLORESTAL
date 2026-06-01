@@ -145,7 +145,7 @@ function renderizarTabelaCadastroFrota() {
         const listaOriginal = categoriasAgrupadas[cat];
         if (listaOriginal.length === 0) return;
 
-        // NOVA LÓGICA DE ORDENAÇÃO POR Nº FROTA
+        // LÓGICA DE ORDENAÇÃO POR Nº FROTA
         listaOriginal.sort((a, b) => {
             const numA = (a.numero_frota || a.go || a.cavalo || '').toString();
             const numB = (b.numero_frota || b.go || b.cavalo || '').toString();
@@ -271,6 +271,7 @@ function renderizarTabelaCadastroFrota() {
                         ${colunasDinamicas}
                         <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
                             ${(cat === 'TRITREM' || cat === 'PRANCHA') ? `<button title="Gerenciar Composição (Trocar/Desengatar)" class="btn-action-sm" style="background-color: #8b5cf6;" onclick="abrirModalTransferenciaFrota(${frota.id})"><i class="fas fa-exchange-alt"></i></button>` : ''}
+                            ${(frota.status === 'Reserva') ? `<button title="Substituir por Ativo" class="btn-action-sm" style="background-color: #f59e0b;" onclick="abrirModalSubstituicaoFrota(${frota.id})"><i class="fas fa-sync-alt"></i></button>` : ''}
                             <button title="Editar" class="btn-action-sm btn-edit" onclick="editarFrotaManutencao(${frota.id})"><i class="fas fa-pen"></i></button>
                             <button title="Excluir" class="btn-action-sm btn-delete" onclick="excluirFrotaManutencao(${frota.id})"><i class="fas fa-trash"></i></button>
                         </td>
@@ -571,6 +572,65 @@ window.confirmarTransferenciaFrota = async function() {
         await carregarDadosOS();
         renderizarTabelaCadastroFrota();
     } catch (e) { alert("Erro ao transferir frota."); }
+};
+
+
+// ================== LÓGICA DE SUBSTITUIÇÃO (RESERVA <-> ATIVO) ==================
+
+window.abrirModalSubstituicaoFrota = function(idReserva) {
+    const frotaReserva = frotasManutencao.find(f => f.id === idReserva);
+    if (!frotaReserva) return;
+    
+    document.getElementById('substFrotaReservaId').value = frotaReserva.id;
+    document.getElementById('substFrotaReservaText').innerText = frotaReserva.cavalo + (frotaReserva.numero_frota ? ` (${frotaReserva.numero_frota})` : '');
+
+    const selectAtivos = document.getElementById('selectFrotaAtivaSubst');
+    selectAtivos.innerHTML = '<option value="">Selecione o Veículo Ativo...</option>';
+    
+    // Popula o select com frotas Ativas da mesma categoria para permitir a troca do cavalo
+    frotasManutencao.forEach(f => {
+        if (f.id !== frotaReserva.id && f.status === 'Ativo' && f.categoria === frotaReserva.categoria) {
+            selectAtivos.innerHTML += `<option value="${f.id}">${f.cavalo} - GO: ${f.go || 'S/GO'}</option>`;
+        }
+    });
+
+    document.getElementById('modalSubstituicaoFrota').style.display = 'flex';
+};
+
+window.fecharModalSubstituicaoFrota = function() {
+    document.getElementById('modalSubstituicaoFrota').style.display = 'none';
+};
+
+window.confirmarSubstituicaoFrota = async function() {
+    const idReserva = document.getElementById('substFrotaReservaId').value;
+    const idAtivo = document.getElementById('selectFrotaAtivaSubst').value;
+
+    if (!idAtivo) return alert("Selecione um veículo ativo para substituir.");
+
+    const frotaReserva = frotasManutencao.find(f => String(f.id) === String(idReserva));
+    const frotaAtiva = frotasManutencao.find(f => String(f.id) === String(idAtivo));
+
+    if (!frotaReserva || !frotaAtiva) return;
+
+    try {
+        // O veículo Reserva apenas assume o status de Ativo (mantém suas próprias carretas e GO intactos)
+        await supabaseClient.from('frotas_manutencao').update({
+            status: 'Ativo'
+        }).eq('id', frotaReserva.id);
+
+        // O veículo Ativo apenas assume o status de Reserva (mantém suas próprias carretas e GO intactos)
+        await supabaseClient.from('frotas_manutencao').update({
+            status: 'Reserva'
+        }).eq('id', frotaAtiva.id);
+
+        alert("Substituição realizada com sucesso! Os veículos inverteram o status e mantiveram suas composições.");
+        fecharModalSubstituicaoFrota();
+        await carregarDadosOS();
+        renderizarTabelaCadastroFrota();
+    } catch (e) {
+        alert("Erro ao realizar a substituição no banco de dados.");
+        console.error(e);
+    }
 };
 
 window.exportarFrotaManutencaoExcel = function() {
