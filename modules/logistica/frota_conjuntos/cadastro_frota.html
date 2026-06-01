@@ -16,6 +16,11 @@
     .card-resumo .valor { font-size: 1.8rem; font-weight: bold; color: #22c55e; }
     .card-resumo.destaque { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); }
     .card-resumo.destaque .valor { color: var(--ccol-blue-bright); }
+    
+    /* Card especifico para Reserva */
+    .card-resumo.reserva { background: rgba(245, 158, 11, 0.05); border-color: rgba(245, 158, 11, 0.3); }
+    .card-resumo.reserva .valor { color: #f59e0b; }
+    .card-resumo.reserva .label span { color: #f59e0b !important; }
 </style>
 
 <div class="tab-header">
@@ -30,6 +35,10 @@
         <div class="card-resumo">
             <div class="label">Tritrem <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
             <div class="valor" id="resumoTritrem">0</div>
+        </div>
+        <div class="card-resumo reserva">
+            <div class="label">Tritrem <span style="font-size: 0.7rem;">(Reserva)</span></div>
+            <div class="valor" id="resumoTritremReserva">0</div>
         </div>
         <div class="card-resumo">
             <div class="label">Prancha <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
@@ -233,10 +242,3 @@
             <div class="form-group-dark hidden-field" id="editFrotaDivC2"><label>Carreta 2 (2º Comp.)</label><input type="text" id="editFrotaCarreta2" style="text-transform:uppercase;"></div>
             <div class="form-group-dark hidden-field" id="editFrotaDivC3"><label>Carreta 3 (3º Comp.)</label><input type="text" id="editFrotaCarreta3" style="text-transform:uppercase;"></div>
         </div>
-        
-        <div class="modal-footer" style="padding: 15px 20px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: flex-end; gap: 10px;">
-            <button class="btn-secondary-dark" onclick="fecharModalEditarFrota()">Cancelar</button>
-            <button class="btn-primary-green" onclick="salvarEdicaoFrota()">Salvar Alterações</button>
-        </div>
-    </div>
-</div>

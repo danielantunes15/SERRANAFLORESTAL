@@ -101,7 +101,7 @@ function renderizarTabelaCadastroFrota() {
         return;
     }
 
-    let countTritrem = 0, countPrancha = 0, countComboio = 0, countGrua = 0, countCarreta = 0, countLeve = 0, countTotal = 0;
+    let countTritrem = 0, countTritremReserva = 0, countPrancha = 0, countComboio = 0, countGrua = 0, countCarreta = 0, countLeve = 0, countTotal = 0;
 
     const categoriasAgrupadas = {
         'TRITREM': [],
@@ -126,11 +126,14 @@ function renderizarTabelaCadastroFrota() {
             else if (cat === 'GRUA') countGrua++;
             else if (cat === 'CARRETA') countCarreta++;
             else if (cat === 'Frota Leve') countLeve++;
+        } else if (f.status === 'Reserva') {
+            if (cat === 'TRITREM') countTritremReserva++;
         }
     });
 
     if (document.getElementById('resumoTritrem')) {
         document.getElementById('resumoTritrem').innerText = countTritrem;
+        if (document.getElementById('resumoTritremReserva')) document.getElementById('resumoTritremReserva').innerText = countTritremReserva;
         document.getElementById('resumoPrancha').innerText = countPrancha;
         document.getElementById('resumoComboio').innerText = countComboio;
         document.getElementById('resumoGrua').innerText = countGrua;
@@ -354,10 +357,8 @@ window.salvarFrotaManutencao = async function() {
         const { error } = await supabaseClient.from('frotas_manutencao').insert([payload]);
         if (error) throw error;
 
-        // Mensagem de sucesso atualizada para orientar o usuário
         alert("Registro cadastrado com sucesso! A tela continuará limpa para o próximo cadastro.");
         
-        // Limpa o formulário mantendo-o na mesma aba
         document.querySelectorAll('#abaCadastroFrota input').forEach(inp => inp.value = '');
         document.getElementById('osFrotaStatus').value = 'Ativo';
         document.getElementById('osFrotaCategoria').value = '';
@@ -365,7 +366,6 @@ window.salvarFrotaManutencao = async function() {
         document.getElementById('osFrotaCor').value = '';
         window.mudouCategoria('', 'osFrota');
 
-        // Atualiza a tabela silenciosamente para caso ele troque de aba depois
         await carregarDadosOS();
         
     } catch(err) { alert("Erro ao inserir o novo conjunto."); console.error(err); }
@@ -375,7 +375,6 @@ window.editarFrotaManutencao = function(id) {
     const frota = frotasManutencao.find(f => f.id === id);
     if (!frota) return;
 
-    // É preciso chamar mudouCategoria primeiro para preparar as opções de Status, caso seja TRITREM e tenha Reserva
     document.getElementById('editFrotaCategoria').value = frota.categoria || '';
     window.mudouCategoria(frota.categoria || '', 'editFrota');
 
@@ -472,7 +471,6 @@ window.abrirModalTransferenciaFrota = function(idOriginal) {
     const selectDestino = document.getElementById('selectFrotaDestino');
     selectDestino.innerHTML = '<option value="">Selecione o Destino...</option>';
     
-    // Opção de Desengatar apenas se tiver cavalo (Tritrem ou Prancha)
     if (frotaOrigem.categoria === 'TRITREM' || frotaOrigem.categoria === 'PRANCHA') {
         selectDestino.innerHTML += `<option value="DESENGATAR" style="color: #ef4444; font-weight: bold;">-- DESENGATAR (Mover p/ Categoria Carreta Avulsa) --</option>`;
     }
@@ -498,7 +496,6 @@ window.confirmarTransferenciaFrota = async function() {
     const frotaOrigem = frotasManutencao.find(f => String(f.id) === String(idOrigem));
     if (!frotaOrigem) return;
 
-    // Ação: Desengatar e mandar para a Categoria CARRETA (Avulsa)
     if (idDestino === 'DESENGATAR') {
         if (!frotaOrigem.carreta1 && !frotaOrigem.carreta2 && !frotaOrigem.carreta3) {
             return alert("Este cavalo já não possui carretas para desengatar.");
@@ -522,7 +519,6 @@ window.confirmarTransferenciaFrota = async function() {
         try {
             await supabaseClient.from('frotas_manutencao').insert([payloadCarreta]);
             
-            // O cavalo original perde as carretas e o Nº GO, já que o conjunto foi desengatado
             await supabaseClient.from('frotas_manutencao').update({
                 go: null, carreta1: null, carreta2: null, carreta3: null
             }).eq('id', frotaOrigem.id);
@@ -535,7 +531,6 @@ window.confirmarTransferenciaFrota = async function() {
         return;
     }
 
-    // Ação: Trocar com outro conjunto/cavalo
     const frotaDestino = frotasManutencao.find(f => String(f.id) === String(idDestino));
     if (!frotaDestino) return;
 
@@ -550,17 +545,14 @@ window.confirmarTransferenciaFrota = async function() {
         const destC2 = frotaDestino.carreta2;
         const destC3 = frotaDestino.carreta3;
 
-        // O Cavalo origem recebe as carretas E o Nº GO do destino
         await supabaseClient.from('frotas_manutencao').update({
             go: destGo, carreta1: destC1, carreta2: destC2, carreta3: destC3
         }).eq('id', frotaOrigem.id);
 
-        // O destino recebe as carretas E o Nº GO da origem
         await supabaseClient.from('frotas_manutencao').update({
             go: origGo, carreta1: origC1, carreta2: origC2, carreta3: origC3
         }).eq('id', frotaDestino.id);
 
-        // Limpeza automática se uma CARRETA avulsa ficou totalmente vazia após a troca
         if (frotaOrigem.categoria === 'CARRETA' && !destC1 && !destC2 && !destC3) {
             await supabaseClient.from('frotas_manutencao').delete().eq('id', frotaOrigem.id);
         } else if (frotaDestino.categoria === 'CARRETA' && !origC1 && !origC2 && !origC3) {
@@ -587,7 +579,6 @@ window.abrirModalSubstituicaoFrota = function(idReserva) {
     const selectAtivos = document.getElementById('selectFrotaAtivaSubst');
     selectAtivos.innerHTML = '<option value="">Selecione o Veículo Ativo...</option>';
     
-    // Popula o select com frotas Ativas da mesma categoria para permitir a troca do cavalo
     frotasManutencao.forEach(f => {
         if (f.id !== frotaReserva.id && f.status === 'Ativo' && f.categoria === frotaReserva.categoria) {
             selectAtivos.innerHTML += `<option value="${f.id}">${f.cavalo} - GO: ${f.go || 'S/GO'}</option>`;
@@ -613,12 +604,10 @@ window.confirmarSubstituicaoFrota = async function() {
     if (!frotaReserva || !frotaAtiva) return;
 
     try {
-        // O veículo Reserva apenas assume o status de Ativo (mantém suas próprias carretas e GO intactos)
         await supabaseClient.from('frotas_manutencao').update({
             status: 'Ativo'
         }).eq('id', frotaReserva.id);
 
-        // O veículo Ativo apenas assume o status de Reserva (mantém suas próprias carretas e GO intactos)
         await supabaseClient.from('frotas_manutencao').update({
             status: 'Reserva'
         }).eq('id', frotaAtiva.id);
