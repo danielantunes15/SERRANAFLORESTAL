@@ -73,7 +73,7 @@ window.buscarCoordenadaNoMapaSOS = function() {
         return;
     }
 
-    // Expressão regular para encontrar as latitudes e longitudes (Ex: -17.7804821, -39.6039536)
+    // Expressão regular para encontrar as latitudes e longitudes
     const regex = /(-?\d+\.\d+)(?:,|\s)+(-?\d+\.\d+)/;
     const match = inputCoordenadas.match(regex);
 
@@ -356,6 +356,23 @@ window.salvarNovaOS = async function() {
         pacoteDadosOS = window.injetarFilial(pacoteDadosOS);
     }
 
+    // --- LÓGICA DE SEQUÊNCIA POR FILIAL BASEADA ESTRITAMENTE NA COLUNA numero_os ---
+    let maxNum = 0;
+    
+    if (typeof ordensServico !== 'undefined' && ordensServico && ordensServico.length > 0) {
+        ordensServico.forEach(os => {
+            // Puxa apenas a coluna numero_os. O id foi completamente ignorado.
+            let num = parseInt(os.numero_os);
+            if (!isNaN(num) && num > maxNum) {
+                maxNum = num;
+            }
+        });
+    }
+
+    // Se maxNum for maior que 0, soma 1. Se for 0 (filial nova), começa do número 1.
+    pacoteDadosOS.numero_os = maxNum > 0 ? maxNum + 1 : 1;
+    // --- FIM DA LÓGICA ---
+
     try {
         const { error } = await supabaseClient.from('ordens_servico').insert([pacoteDadosOS]);
         if (error) {
@@ -376,6 +393,8 @@ window.salvarNovaOS = async function() {
 
 window.excluirOS = async function(id) {
     if(confirm("Excluir esta O.S.?")) {
+        // NOTA: O 'delete' via Supabase continua precisando do 'id' (Primary Key) para saber qual linha do banco excluir,
+        // mas isso não afeta a numeração sequencial (numero_os) que o usuário vê.
         await supabaseClient.from('ordens_servico').delete().eq('id', id);
         await carregarDadosOS();
         if(typeof renderizarTabelaHistoricoOS === 'function') renderizarTabelaHistoricoOS();
@@ -408,7 +427,7 @@ window.aceitarOS = async function(id) {
                     status: 'Em Manutenção',
                     mecanico: nomeMecanico
                 })
-                .eq('id', id);
+                .eq('id', id); // O update usa o id primário, mas não altera o numero_os
 
             if (error) throw error;
 

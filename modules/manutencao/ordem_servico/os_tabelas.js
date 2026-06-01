@@ -37,10 +37,13 @@ function renderizarTabelaOS() {
         }
 
         const linhaStyle = isVencida ? 'background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444;' : '';
+        
+        // Define o numero a ser exibido
+        const numeroExibicao = os.numero_os || os.id;
 
         return `
             <tr style="${linhaStyle}">
-                <td><strong>#${os.id}</strong></td>
+                <td><strong>#${numeroExibicao}</strong></td>
                 <td>${modoIcon} ${inicioStr}</td>
                 <td>${previsaoStr} ${isVencida ? '⚠️' : ''}</td>
                 <td style="color: var(--ccol-blue-bright); font-weight: bold;">${os.placa || '-'}</td>
@@ -103,9 +106,11 @@ window.renderizarTabelaSOS = function() {
             problemaLimpo = problemaLimpo.trim();
         }
 
+        const numeroExibicao = os.numero_os || os.id;
+
         let mensagemZap = `🚨 *NOVO CHAMADO DE S.O.S* 🚨\n`;
         mensagemZap += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        mensagemZap += `📄 *O.S. Número:* #${os.id}\n`;
+        mensagemZap += `📄 *O.S. Número:* #${numeroExibicao}\n`;
         mensagemZap += `🚚 *Placa (Conjunto):* ${os.placa || 'Não informada'}\n`;
         mensagemZap += `👤 *Motorista:* ${os.motorista || 'Não informado'}\n`;
         mensagemZap += `⏱️ *Horário Abertura:* ${inicioStr}\n`;
@@ -143,7 +148,7 @@ window.renderizarTabelaSOS = function() {
 
         return `
             <tr style="background: rgba(249, 115, 22, 0.05); border-left: 4px solid #f97316;">
-                <td><strong>#${os.id}</strong></td>
+                <td><strong>#${numeroExibicao}</strong></td>
                 <td>🚨 ${inicioStr}</td>
                 <td style="color: #f97316; font-weight: bold; font-size: 1.1rem;">${os.placa || '-'}</td>
                 <td>${os.motorista || '-'}</td>
@@ -182,10 +187,12 @@ function renderizarTabelaSinistro() {
         let corStatus = '#ef4444'; 
         const inicioStr = formatarDataHoraBrasil(os.data_abertura);
         const previsaoStr = os.previsao_entrega ? formatarDataHoraBrasil(os.previsao_entrega) : 'Indeterminada';
+        
+        const numeroExibicao = os.numero_os || os.id;
 
         return `
             <tr style="background: rgba(239, 68, 68, 0.05); border-left: 4px solid #ef4444;">
-                <td><strong>#${os.id}</strong></td>
+                <td><strong>#${numeroExibicao}</strong></td>
                 <td>💥 ${inicioStr}</td>
                 <td>${previsaoStr}</td>
                 <td style="color: #ef4444; font-weight: bold; font-size: 1.1rem;">${os.placa || '-'}</td>
@@ -221,7 +228,8 @@ window.renderizarTabelaHistoricoOS = function(resetPage = true) {
 
     let filtradas = ordensServico;
 
-    if (num) filtradas = filtradas.filter(o => o.id.toString() === num);
+    // Atualizado para filtrar também pelo numero_os
+    if (num) filtradas = filtradas.filter(o => (o.numero_os && o.numero_os.toString() === num) || o.id.toString() === num);
     if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
     if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
     
@@ -268,10 +276,12 @@ window.renderizarTabelaHistoricoOS = function(resetPage = true) {
 
         const dataAbertura = formatarDataHoraBrasil(os.data_abertura);
         const dataConclusao = os.data_conclusao ? formatarDataHoraBrasil(os.data_conclusao) : '-';
+        
+        const numeroExibicao = os.numero_os || os.id;
 
         return `
             <tr>
-                <td><strong>#${os.id}</strong></td>
+                <td><strong>#${numeroExibicao}</strong></td>
                 <td>${dataAbertura}</td>
                 <td style="${os.status === 'Concluída' ? 'color: var(--ccol-green-bright);' : ''}">${dataConclusao}</td>
                 <td style="color: var(--ccol-blue-bright); font-weight: bold;">${os.placa || '-'}</td>
