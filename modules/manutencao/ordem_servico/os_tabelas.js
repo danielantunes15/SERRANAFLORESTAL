@@ -230,7 +230,6 @@ window.renderizarTabelaHistoricoOS = function(resetPage = true) {
 
     let filtradas = ordensServico;
 
-    // Atualizado para filtrar também pelo numero_os
     if (num) filtradas = filtradas.filter(o => (o.numero_os && o.numero_os.toString() === num) || o.id.toString() === num);
     if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
     if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
@@ -337,8 +336,16 @@ window.abrirVisualizacaoOS = async function(id) {
     const os = ordensServico.find(o => o.id === id);
     if (!os) return;
 
+    // --- TRAVA DE SEGURANÇA PARA CACHE DESATUALIZADO ---
+    const inputVisOsId = document.getElementById('visOSId');
+    if (!inputVisOsId) {
+        alert("⚠️ ATUALIZAÇÃO DETECTADA!\n\nSeu navegador está utilizando uma versão antiga desta tela.\nPor favor, aperte as teclas [ CTRL + F5 ] simultaneamente para carregar a versão mais recente do sistema.");
+        return; // Interrompe a execução para não causar o TypeError no console
+    }
+    // ---------------------------------------------------
+
     // Popula Dados Básicos
-    document.getElementById('visOSId').value = os.id;
+    inputVisOsId.value = os.id;
     document.getElementById('visOSNum').innerText = '#' + (os.numero_os || os.id);
     
     let corStatus = '#f59e0b';
