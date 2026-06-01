@@ -39,6 +39,23 @@ window.mudouCategoria = function(categoria, prefix) {
     const divC2     = document.getElementById(prefix + 'DivC2');
     const divC3     = document.getElementById(prefix + 'DivC3');
 
+    // Lógica para controle do campo Status dinâmico
+    const statusSelect = document.getElementById(prefix + 'Status');
+    if (statusSelect) {
+        const currentVal = statusSelect.value;
+        let optionsHTML = '<option value="Ativo">Ativo</option><option value="Inativo">Inativo</option>';
+        if (categoria === 'TRITREM') {
+            optionsHTML += '<option value="Reserva">Reserva</option>';
+        }
+        statusSelect.innerHTML = optionsHTML;
+        
+        if (currentVal === 'Reserva' && categoria !== 'TRITREM') {
+            statusSelect.value = 'Ativo';
+        } else if (currentVal) {
+            statusSelect.value = currentVal;
+        }
+    }
+
     if(!divMeta) return;
 
     if (divCavalo) divCavalo.classList.remove('hidden-field');
@@ -125,17 +142,24 @@ function renderizarTabelaCadastroFrota() {
     const ordemExibicao = ['TRITREM', 'PRANCHA', 'COMBOIO', 'GRUA', 'CARRETA', 'Frota Leve', 'Sem Categoria'];
 
     ordemExibicao.forEach(cat => {
-        const lista = categoriasAgrupadas[cat];
-        if (lista.length === 0) return;
+        const listaOriginal = categoriasAgrupadas[cat];
+        if (listaOriginal.length === 0) return;
 
         // NOVA LÓGICA DE ORDENAÇÃO POR Nº FROTA
-        lista.sort((a, b) => {
-            // Em caso de gruas ou carretas sem Nº Frota usamos o GO ou Cavalo como fallback
+        listaOriginal.sort((a, b) => {
             const numA = (a.numero_frota || a.go || a.cavalo || '').toString();
             const numB = (b.numero_frota || b.go || b.cavalo || '').toString();
             return numA.localeCompare(numB, undefined, { numeric: true, sensitivity: 'base' });
         });
-        // FIM DA NOVA LÓGICA DE ORDENAÇÃO
+
+        // Separar reservas se for TRITREM
+        let listaPrincipal = listaOriginal;
+        let listaReserva = [];
+
+        if (cat === 'TRITREM') {
+            listaPrincipal = listaOriginal.filter(f => f.status !== 'Reserva');
+            listaReserva = listaOriginal.filter(f => f.status === 'Reserva');
+        }
 
         let theadHTML = '';
         if (cat === 'CARRETA') {
@@ -173,7 +197,7 @@ function renderizarTabelaCadastroFrota() {
 
         let htmlSecao = `
         <div class="cat-section">
-            <h3 class="cat-title"><i class="fas fa-list-ul"></i> Categoria: ${cat} <span style="font-size: 0.9rem; margin-left: 10px; color: var(--text-secondary);">(${lista.length} registros)</span></h3>
+            <h3 class="cat-title"><i class="fas fa-list-ul"></i> Categoria: ${cat} <span style="font-size: 0.9rem; margin-left: 10px; color: var(--text-secondary);">(${listaOriginal.length} registros)</span></h3>
             <div class="table-modern-wrapper">
                 <table class="data-table-modern">
                     <thead>
@@ -182,9 +206,12 @@ function renderizarTabelaCadastroFrota() {
                     <tbody>
         `;
 
-        lista.forEach(frota => {
+        const renderizarLinhaTabela = (frota) => {
             const statusTexto = frota.status || 'Ativo';
-            const statusCor = statusTexto === 'Ativo' ? '#22c55e' : '#ef4444';
+            let statusCor = '#22c55e'; // Default Ativo
+            if (statusTexto === 'Inativo') statusCor = '#ef4444';
+            else if (statusTexto === 'Reserva') statusCor = '#f59e0b';
+            
             const badgeStatus = `<span style="background-color: ${statusCor}20; color: ${statusCor}; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; border: 1px solid ${statusCor}40;">${statusTexto}</span>`;
 
             let dataFormatada = '01/04/2026';
@@ -193,8 +220,10 @@ function renderizarTabelaCadastroFrota() {
                 if (partes.length === 3) dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
             }
 
+            let trHtml = '';
+
             if (cat === 'CARRETA') {
-                htmlSecao += `
+                trHtml += `
                     <tr>
                         <td>${badgeStatus}</td>
                         <td style="font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">${frota.go || '-'}</td>
@@ -231,7 +260,7 @@ function renderizarTabelaCadastroFrota() {
                 let exibirCavalo = frota.cavalo ? frota.cavalo : '<span style="color: #64748b; font-size: 0.8rem;">(Sem Placa)</span>';
                 let descricaoStr = frota.descricao ? frota.descricao : '-';
 
-                htmlSecao += `
+                trHtml += `
                     <tr>
                         <td>${badgeStatus}</td>
                         <td style="color: #94a3b8; font-size: 0.9rem;">${dataFormatada}</td>
@@ -248,7 +277,27 @@ function renderizarTabelaCadastroFrota() {
                     </tr>
                 `;
             }
+            return trHtml;
+        };
+
+        // Renderiza os principais (Ativos/Inativos)
+        listaPrincipal.forEach(frota => {
+            htmlSecao += renderizarLinhaTabela(frota);
         });
+
+        // Adiciona o divisor e renderiza os Reservas apenas na categoria TRITREM
+        if (cat === 'TRITREM' && listaReserva.length > 0) {
+            htmlSecao += `
+                <tr>
+                    <td colspan="12" style="text-align: center; background: rgba(245, 158, 11, 0.1); color: #f59e0b; font-weight: bold; padding: 15px; border-top: 2px solid rgba(245, 158, 11, 0.3); border-bottom: 2px solid rgba(245, 158, 11, 0.3); font-size: 1.1rem; letter-spacing: 1px;">
+                        <i class="fas fa-pause-circle"></i> CONJUNTOS EM RESERVA
+                    </td>
+                </tr>
+            `;
+            listaReserva.forEach(frota => {
+                htmlSecao += renderizarLinhaTabela(frota);
+            });
+        }
 
         htmlSecao += `</tbody></table></div></div>`;
         container.innerHTML += htmlSecao;
@@ -325,14 +374,15 @@ window.editarFrotaManutencao = function(id) {
     const frota = frotasManutencao.find(f => f.id === id);
     if (!frota) return;
 
+    // É preciso chamar mudouCategoria primeiro para preparar as opções de Status, caso seja TRITREM e tenha Reserva
+    document.getElementById('editFrotaCategoria').value = frota.categoria || '';
+    window.mudouCategoria(frota.categoria || '', 'editFrota');
+
     document.getElementById('editFrotaId').value = frota.id;
     document.getElementById('editFrotaStatus').value = frota.status || 'Ativo';
     document.getElementById('editFrotaDataInicial').value = frota.data_inicial || '2026-04-01';
     document.getElementById('editFrotaCor').value = frota.cor || '';
-    document.getElementById('editFrotaCategoria').value = frota.categoria || '';
     document.getElementById('editFrotaDescricao').value = frota.descricao || ''; 
-    
-    window.mudouCategoria(frota.categoria || '', 'editFrota');
 
     if (frota.categoria !== 'GRUA' && frota.categoria !== 'CARRETA') {
         document.getElementById('editFrotaCavalo').value = frota.cavalo || '';
