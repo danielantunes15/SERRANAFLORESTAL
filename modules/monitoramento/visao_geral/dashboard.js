@@ -263,11 +263,9 @@ const centerTextPlugin = {
 
 async function loadDashboardDataInit() {
     try {
-        // Usa o client principal conectado ao banco de dados correto
         const osResp = await window.supabaseClient.from('ordens_servico').select('*');
         if (osResp.data) osParaMeta = osResp.data;
 
-        // Busca Frota prioritariamente da tabela cadastro_frota, fallback para frotas_manutencao
         let frotasResp = await window.supabaseClient.from('cadastro_frota').select('*');
         if (!frotasResp.data || frotasResp.data.length === 0) {
             frotasResp = await window.supabaseClient.from('frotas_manutencao').select('*');
@@ -678,6 +676,7 @@ function loadDashboardData() {
         if(document.getElementById('dbStatusLabel')) document.getElementById('dbStatusLabel').innerText = "Filtro Vazio";
         if(document.getElementById('totalViagens')) document.getElementById('totalViagens').innerText = '0';
         if(document.getElementById('totalPesoLiq')) document.getElementById('totalPesoLiq').innerHTML = '<span class="text-white">0 t</span>';
+        if(document.getElementById('mediaRPV')) document.getElementById('mediaRPV').innerText = '0';
         if(document.getElementById('produtividadeGlobal')) document.getElementById('produtividadeGlobal').innerText = '0.0';
         if(document.getElementById('ociosidadeGlobal')) document.getElementById('ociosidadeGlobal').innerText = '0%';
         if(document.getElementById('bestPlacaValue')) document.getElementById('bestPlacaValue').innerText = '0.0';
@@ -735,7 +734,6 @@ function loadDashboardData() {
         const frotasAtivas = frotasParaMeta.filter(f => {
             const st = String(f.status || '').trim().toUpperCase();
             const cat = String(f.categoria || f.tipo || f.tipo_veiculo || '').trim().toUpperCase();
-            // Lógica mais maleável baseada nas tabelas prováveis
             return (st === 'ATIVO' || st === 'ATIVA') && (cat.includes('TRITREM') || cat === '');
         });
 
@@ -784,7 +782,6 @@ function loadDashboardData() {
         let totalDispNoPeriodoMs = 0;
 
         frotasAtivas.forEach(frota => {
-            // Recua o ano limite para 2020 para prevenir DM zerada em pesquisas antigas
             let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2020-01-01';
             let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
 
@@ -797,7 +794,7 @@ function loadDashboardData() {
 
             if (totalMsDisponivelVeiculo > 0) {
                 let msManutVeiculo = 0;
-                let placaFrota = frota.placa || frota.cavalo; // Garante a verificação para cadastro_frota e frotas_manutencao
+                let placaFrota = frota.placa || frota.cavalo; 
                 const todasOSCavalo = osParaMeta.filter(o => o.placa === placaFrota && o.status !== 'Agendada' && o.tipo !== 'Cavalo Disponível S/ Carreta');
                 
                 todasOSCavalo.forEach(os => {
@@ -877,8 +874,25 @@ function loadDashboardData() {
 
     if(document.getElementById('totalViagens')) document.getElementById('totalViagens').innerText = totalViagens.toLocaleString('pt-PT');
 
-    const totalPesoKg = cardsData.reduce((sum, r) => sum + r.pesoLiquido, 0);
+    // =========================================================================================
+    // CÁLCULOS PRINCIPAIS - RPV E PBTC
+    // =========================================================================================
+    
+    // Cálculo do PBTC: Usa a nova coluna peso_na_entrada (se não existir em registros antigos, usa o pesoLiquido)
+    const totalPesoKg = cardsData.reduce((sum, r) => sum + (r.peso_na_entrada || r.pesoLiquido || 0), 0);
     const mediaPBTC = totalViagens > 0 ? (totalPesoKg / 1000) / totalViagens : 0;
+    
+    // Cálculo do RPV (Filtrando apenas as viagens que tem RPV calculado válido para fazer a média)
+    const validRpv = cardsData.filter(d => d.rpv !== null && d.rpv > 0);
+    const mediaRPV = validRpv.length > 0 ? validRpv.reduce((sum, r) => sum + r.rpv, 0) / validRpv.length : 0;
+
+    // Atualizando o indicador visual de RPV
+    if(document.getElementById('mediaRPV')) {
+        document.getElementById('mediaRPV').innerText = mediaRPV > 0 ? mediaRPV.toLocaleString('pt-PT', {maximumFractionDigits: 2}) : "0";
+    }
+
+    // =========================================================================================
+    
     const totalVolumeReal = cardsData.reduce((sum, r) => sum + (parseFloat(String(r.volumeReal).replace(',','.')) || 0), 0);
     const mediaVolume = totalViagens > 0 ? totalVolumeReal / totalViagens : 0;
     const mediaAsfalto = totalViagens > 0 ? cardsData.reduce((sum, r) => sum + (r.distanciaAsfalto||0), 0) / totalViagens : 0;

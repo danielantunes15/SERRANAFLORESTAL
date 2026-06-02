@@ -137,8 +137,13 @@ function parseSheetToData(sheet) {
     const movimentoKey = findKey(['movimento', 'id_movimento']);
     const transpKey = findKey(['transportadora', 'nome da transportadora']);
     const placaKey = findKey(['placa do cavalo', 'placa cavalo', 'placa']);
-    const pesoLiqKey = findKey(['Peso na Entrada', 'peso na entrada']);
-    const volumeKey = findKey(['volume real', 'volume_real']);
+    
+    // =======================================================================
+    // CORREÇÃO: SEPARANDO AS DUAS COLUNAS DE PESO DA PLANILHA
+    // =======================================================================
+    const pesoLiqKey = findKey(['peso liquido', 'peso líquido', 'peso_liquido']); // Para o RPV
+    const pesoBrutoKey = findKey(['Peso na Entrada', 'peso na entrada', 'peso bruto', 'pbtc']); // O PBTC
+    const volumeKey = findKey(['volume real', 'volume_real', 'volume']);
     const gruaKey = findKey(['carregador florestal', 'carregador', 'grua']); 
     
     // Chaves
@@ -204,14 +209,34 @@ function parseSheetToData(sheet) {
             return String(val);
         };
 
+        // =======================================================================
+        // LÓGICA DO RPV E DOS PESOS (COM A NOVA COLUNA)
+        // =======================================================================
+        const valorPesoLiquido = parsePtBrNumber(getValue(pesoLiqKey)); // Peso Líquido
+        const valorPesoBruto = parsePtBrNumber(getValue(pesoBrutoKey)); // Peso na Entrada (PBTC)
+        const valorVolumeReal = parsePtBrNumber(getValue(volumeKey));
+        
+        let calculoRpv = null;
+        // O cálculo do RPV continua sendo feito com o Peso Líquido
+        if (valorPesoLiquido > 0 && valorVolumeReal > 0) {
+            let resultadoDivisao = valorPesoLiquido / valorVolumeReal;
+            calculoRpv = Number(resultadoDivisao.toFixed(2));
+        }
+        // =======================================================================
+
         return {
             movimento: String(getValue(movimentoKey) || `MOV-GEN-${Date.now()}-${idx}`),
             dataDaBaseExcel: strDataBase,
             dataLancamento: new Date().toLocaleDateString('pt-PT'),
             transportadora: String(getValue(transpKey) || "Outras").trim(),
             placa: String(getValue(placaKey) || "-").trim(),
-            pesoLiquido: parsePtBrNumber(getValue(pesoLiqKey)),
-            volumeReal: parsePtBrNumber(getValue(volumeKey)),
+            
+            // AGORA AS COLUNAS ESTÃO SEPARADAS:
+            pesoLiquido: valorPesoLiquido,
+            peso_na_entrada: valorPesoBruto, // <--- NOVA COLUNA PBTC 
+            volumeReal: valorVolumeReal,
+            rpv: calculoRpv,
+            
             grua: String(getValue(gruaKey) || "-").trim(),
             distanciaAsfalto: parsePtBrNumber(getValue(findKey(['distancia por asfalto', 'distância por asfalto', 'distancia asfalto']))),
             distanciaTerra: parsePtBrNumber(getValue(findKey(['distancia por terra', 'distância por terra', 'distancia terra']))),
@@ -243,7 +268,8 @@ function parseSheetToData(sheet) {
         };
     });
     
-    return mappedData.filter(item => item.pesoLiquido > 0 || item.volumeReal > 0);
+    // Modificado para garantir que a linha será salva se qualquer um dos dois pesos estiver preenchido
+    return mappedData.filter(item => item.pesoLiquido > 0 || item.peso_na_entrada > 0 || item.volumeReal > 0);
 }
 
 async function processAndSaveFile(file) {
