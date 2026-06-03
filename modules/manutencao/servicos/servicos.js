@@ -25,11 +25,10 @@ window.renderizarTelaServicos = async function() {
         if (osError) throw osError;
         mOS_ListaGeral = osData || [];
         
-        // MODIFICAÇÃO: Busca as OSs em execução de todos os mecânicos, permitindo acesso compartilhado
+        // BUSCA AS ORDENS EM EXECUÇÃO DE TODOS OS MECÂNICOS (Acesso compartilhado no pátio)
         const osEmExecucao = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção').map(os => os.id);
         
         if (osEmExecucao.length > 0) {
-            // REMOVIDO O JOIN "almoxarifado_pecas(nome)" QUE CAUSAVA O ERRO 400 BAD REQUEST
             let queryReq = window.supabaseClient.from('os_pecas_utilizadas').select(`*`).in('os_id', osEmExecucao).order('id', { ascending: false });
             if (typeof window.aplicarFiltroFilial === 'function') queryReq = window.aplicarFiltroFilial(queryReq);
             const { data: reqData } = await queryReq;
@@ -128,10 +127,9 @@ function mecanicoAtualizarContadores() {
     const osDisponiveisNormais = mOS_ListaGeral.filter(os => os.status === 'Aguardando Oficina' && !(os.tipo && os.tipo.startsWith('S.O.S')));
     const countAceite = osDisponiveisNormais.length;
     
-    // MODIFICAÇÃO: Conta todas as OS abertas no pátio para o painel principal, sem filtrar pelo usuário
+    // Contagem global de ordens em andamento no pátio
     const countAbertas = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção').length;
     const countReq = mOS_Requisicoes.filter(r => r.status === 'Pendente').length;
-    
     const countSOS = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S')).length;
     
     document.getElementById('countAceite').innerText = countAceite;
@@ -166,8 +164,6 @@ function mecanicoRenderizarTabelas() {
         
     } else if (mOS_AbaAtiva === 'abertas') {
         const container = document.getElementById('listaMinhasOSAbertas');
-        
-        // MODIFICAÇÃO: Permite exibir todas as OS em manutenção da oficina para qualquer mecânico visualizar ou interagir
         const abertasOs = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção');
         
         if (abertasOs.length === 0) {
@@ -212,7 +208,6 @@ function mecanicoRenderizarTabelas() {
         }
 
         tbody.innerHTML = mOS_Requisicoes.map(r => {
-            // Busca o nome da peça no Cache local (Evitando o erro do JOIN do banco)
             const pecaObj = mOS_PecasCache.find(p => p.id == r.peca_id);
             const pecaNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
 
@@ -253,7 +248,6 @@ function mecanicoRenderizarTabelas() {
 
             const inicioStr = formatarDataHoraBrasil(os.data_abertura);
 
-            // TEXTO ESTRUTURADO PARA WHATSAPP
             let textoZap = `🚨 *NOVO CHAMADO DE S.O.S* 🚨%0A`;
             textoZap += `━━━━━━━━━━━━━━━━━━━━━━━%0A`;
             textoZap += `📄 *O.S. Número:* #${os.id}%0A`;
@@ -272,7 +266,6 @@ function mecanicoRenderizarTabelas() {
             let btnMapa = linkMapa ? `<a href="${linkMapa}" target="_blank" style="color: #3b82f6; text-decoration: underline;"><i class="fas fa-location-arrow"></i> Ver GPS Celular</a>` : `<span style="color: #9ca3af;">Sem GPS</span>`;
             
             let acaoHTML = '';
-            // MODIFICAÇÃO: Se for SOS e estiver em manutenção, permite ir para a aba O.S e interagir
             if (os.status === 'Aguardando Oficina') {
                 acaoHTML = `<button style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; white-space: nowrap; margin-bottom: 5px;" onclick="mecanicoAceitarOS(${os.id}, '${os.placa}')">🚗 ASSUMIR SOCORRO</button>`;
                 acaoHTML += `<a href="${urlZap}" target="_blank" style="background: #22c55e; color: white; padding: 8px 12px; border-radius: 6px; text-decoration: none; display: block; text-align: center; font-weight: bold;"><i class="fab fa-whatsapp"></i> Repassar WhatsApp</a>`;
@@ -480,7 +473,6 @@ window.mecanicoAddPeca = async function() {
 
     if (!pecaIdVal || qtd <= 0) return alert("Selecione a peça e quantidade.");
     
-    // Converte para Number garantindo que o banco não lance o erro 400 por erro de tipagem String vs Integer
     const pecaId = isNaN(pecaIdVal) ? pecaIdVal : Number(pecaIdVal);
     const pecaDb = mOS_PecasCache.find(p => p.id == pecaId);
 
@@ -496,7 +488,6 @@ window.mecanicoAddPeca = async function() {
 
     let res = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
     
-    // Fallback de Segurança: Se a coluna valor_unitario não existir no banco, ele retira e tenta novamente.
     if(res.error && res.error.message && res.error.message.includes('column')) {
         delete insertPeca.valor_unitario;
         res = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
@@ -532,11 +523,9 @@ async function mecanicoAtualizarTabelasModal() {
         </div>
     `).join('') : '<p style="padding:15px; text-align:center; color: #94a3b8;">Nenhum serviço lançado ainda.</p>';
 
-    // REMOVIDO O JOIN DO BANCO PARA EVITAR O 400
     const { data: p } = await window.supabaseClient.from('os_pecas_utilizadas').select(`*`).eq('os_id', mOS_Atual);
     
     document.getElementById('tabelaPecasLancadas').innerHTML = (p && p.length > 0) ? p.map(item => {
-        // Busca os dados visuais no cache que já foi carregado
         const pecaObj = mOS_PecasCache.find(x => x.id == item.peca_id);
         const pUnidade = pecaObj ? (pecaObj.unidade || 'UN') : 'UN';
         const pNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';

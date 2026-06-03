@@ -1,74 +1,6 @@
 <style>
-    .serv-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-dim); padding-bottom: 10px; flex-wrap: wrap; }
-    .serv-tab-btn { background: transparent; border: none; color: #94a3b8; font-size: 1rem; font-weight: bold; cursor: pointer; padding: 10px 15px; border-bottom: 3px solid transparent; transition: 0.3s; display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center; min-width: 150px; }
-    @media(min-width: 768px) { .serv-tab-btn { flex: none; justify-content: flex-start; } }
-    .serv-tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); border-radius: 6px 6px 0 0; }
-    .serv-tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
-    
-    /* Cor especial para aba ativa de SOS */
-    .serv-tab-btn.active-sos { color: #f97316; border-bottom-color: #f97316; }
-
-    .serv-tab-btn .badge-count { background: #334155; color: #fff; font-size: 0.75rem; padding: 3px 8px; border-radius: 12px; }
-    
-    .card-os-aberta { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; margin-bottom: 15px; border-left: 5px solid #10b981; }
-    .os-header-flex { display: flex; justify-content: space-between; align-items: flex-start; flex-direction: column; gap: 15px; }
-    @media(min-width: 768px) { .os-header-flex { flex-direction: row; align-items: center; gap: 0; } }
-
-    .modal-overlay-fullscreen {
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(4px);
-        display: flex; align-items: center; justify-content: center; z-index: 9999;
-    }
-    
-    .custom-modal-responsive {
-        background: #0f172a; color: #fff;
-        width: 100%; height: 100%;
-        display: flex; flex-direction: column;
-        animation: slideUp 0.3s ease-out;
-    }
-    
-    @media (min-width: 900px) {
-        .custom-modal-responsive {
-            width: 95%; max-width: 1200px; height: 90vh;
-            border-radius: 12px; border: 1px solid #334155;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-        .modal-pequeno {
-            max-width: 600px;
-            height: auto;
-            max-height: 80vh;
-        }
-    }
-
-    .modal-header-responsive {
-        background: #1e293b; padding: 15px 20px; border-bottom: 1px solid #334155;
-        display: flex; justify-content: space-between; align-items: center;
-    }
-    .modal-header-responsive h3 { margin: 0; font-size: 1.2rem; color: #6366f1; display: flex; align-items: center; gap: 10px; }
-    .close-btn-responsive { background: transparent; border: none; color: #94a3b8; font-size: 2rem; cursor: pointer; line-height: 1; }
-    .close-btn-responsive:hover { color: #ef4444; }
-
-    .modal-body-scroll { flex: 1; overflow-y: auto; padding: 20px; }
-    
-    .apontamento-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
-    @media(min-width: 900px) { .apontamento-grid { grid-template-columns: 1fr 1fr; } }
-    
-    .box-apontamento { background: rgba(255,255,255,0.03); border: 1px solid #334155; border-radius: 8px; padding: 20px; }
-    .label-oficina { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; display: block; }
-    
-    .input-otimizado { 
-        width: 100%; padding: 12px 15px; background: #1e293b; border: 1px solid #475569; 
-        border-radius: 8px; color: #fff; font-size: 1rem; outline: none; margin-bottom: 15px; 
-    }
-    .input-otimizado:focus { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.2); }
-    
-    .btn-acao-grande { 
-        width: 100%; padding: 15px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; 
-        cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; border: none; transition: 0.2s;
-    }
-    .btn-acao-grande:active { transform: scale(0.98); }
-    
-    @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    /* Vincula a folha de estilo externa otimizada para tablets/computadores */
+    @import url('modules/manutencao/servicos/servicos.css');
 </style>
 
 <div class="content-panel" style="animation: fadeIn 0.4s ease-in-out;">
@@ -96,7 +28,7 @@
     </div>
 
     <div id="divServAceite">
-        <div class="table-modern-wrapper" style="overflow-x: auto;">
+        <div class="table-modern-wrapper">
             <table class="data-table-modern" style="min-width: 600px;">
                 <thead>
                     <tr>
@@ -119,7 +51,7 @@
     </div>
 
     <div id="divServRequisicoes" style="display: none;">
-        <div class="table-modern-wrapper" style="overflow-x: auto;">
+        <div class="table-modern-wrapper">
             <table class="data-table-modern" style="min-width: 600px;">
                 <thead>
                     <tr>
@@ -142,7 +74,7 @@
         
         <div id="mapaSOSMecanico" style="height: 400px; width: 100%; border-radius: 8px; border: 2px solid #f97316; margin-bottom: 20px; z-index: 1;"></div>
         
-        <div class="table-modern-wrapper" style="overflow-x: auto;">
+        <div class="table-modern-wrapper">
             <table class="data-table-modern" style="min-width: 600px;">
                 <thead>
                     <tr>
