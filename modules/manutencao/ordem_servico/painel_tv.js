@@ -2,17 +2,17 @@
 // Gerenciador exclusivo do Modo TV (Imersivo), Relógio, Cards e Anúncios por Voz
 
 // Conjuntos para evitar que a TV fale duas vezes o mesmo aviso
-if (!window.osLiberadasAnunciadas) {
-    window.osLiberadasAnunciadas = new Set();
-}
-if (!window.osNovasAnunciadas) {
+if (typeof window.isFirstRenderTV === 'undefined') {
     window.osNovasAnunciadas = new Set();
+    window.osLiberadasAnunciadas = new Set();
     window.isFirstRenderTV = true; // Previne que a TV anuncie todas as OS antigas ao ligar
 }
 
 // Funções de Síntese de Voz (Falar no Auto-falante da TV)
 window.falarVeiculoLiberado = function(placa, frota) {
     if ('speechSynthesis' in window) {
+        window.speechSynthesis.resume(); // Acorda a API se tiver adormecido
+        
         let placaFalada = String(placa).split('').join(' ');
         let texto = `Atenção Pátio! Veículo placa ${placaFalada} , liberado da oficina.`;
         if (frota && frota !== '') {
@@ -31,6 +31,8 @@ window.falarVeiculoLiberado = function(placa, frota) {
 
 window.falarNovaOS = function(numero, tipo, placa) {
     if ('speechSynthesis' in window) {
+        window.speechSynthesis.resume(); // Acorda a API se tiver adormecido
+        
         let placaFalada = String(placa).split('').join(' ');
         
         let tipoLimpo = String(tipo).replace('Manutenção', '').replace('- P.A Serrana', '').trim();
@@ -148,8 +150,10 @@ window.toggleFullScreenTV = function() {
         });
         
         if ('speechSynthesis' in window) {
-            let u = new SpeechSynthesisUtterance('');
-            u.volume = 0; window.speechSynthesis.speak(u);
+            window.speechSynthesis.resume();
+            let u = new SpeechSynthesisUtterance('Painel ativado');
+            u.volume = 0; // Fala silenciosa só pra desbloquear o áudio do navegador
+            window.speechSynthesis.speak(u);
         }
     } else {
         if (document.exitFullscreen) {
@@ -165,16 +169,12 @@ window.ajustarEscalaTV = function() {
 
     const isFullscreen = !!document.fullscreenElement;
 
-    // Reset antes do cálculo para medir o tamanho real ocupado pelos cartões
+    // Reseta escala de forma síncrona para não piscar
     painel.style.zoom = "1";
     painel.style.height = 'auto';
     painel.style.overflowY = 'auto';
     document.body.style.overflow = '';
-    
-    // Volta o CSS Original para garantir que não distorça
     container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(450px, 1fr))';
-    container.style.alignContent = 'start';
-    container.style.alignItems = 'start';
 
     if (!isFullscreen) return;
 
@@ -182,20 +182,17 @@ window.ajustarEscalaTV = function() {
     document.body.style.overflow = 'hidden';
     painel.style.overflowY = 'hidden';
 
-    setTimeout(() => {
-        const wH = window.innerHeight;
-        // Pega a altura total do painel
-        const h = painel.scrollHeight + 20; 
+    // Mede a altura instantaneamente sem setTimeout para evitar o "clarão"
+    const h = painel.scrollHeight + 20; 
+    const wH = window.innerHeight;
 
-        if (h > wH && wH > 0) {
-            const z = wH / h;
-            painel.style.zoom = z.toFixed(4);
-            // Corrige o bug de corte: O height do painel precisa aumentar na mesma proporção do zoom
-            painel.style.height = (100 / z).toFixed(2) + 'vh';
-        } else {
-            painel.style.height = '100vh';
-        }
-    }, 50);
+    if (h > wH && wH > 0) {
+        const z = wH / h;
+        painel.style.zoom = z.toFixed(4);
+        painel.style.height = (100 / z).toFixed(2) + 'vh';
+    } else {
+        painel.style.height = '100vh';
+    }
 };
 
 function atualizarRelogioTV() {
@@ -229,27 +226,11 @@ window.renderizarCardsTV = function() {
         frotasValidas = frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM');
     }
 
-    const placasExibicao = [];
-    if (typeof frotasManutencao !== 'undefined' && Array.isArray(frotasManutencao)) {
-        frotasManutencao.forEach(f => {
-            if (f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM') {
-                if (f.cavalo) placasExibicao.push(String(f.cavalo).trim().toUpperCase());
-            }
-            if (f.go && String(f.go).trim() !== '') {
-                placasExibicao.push(String(f.go).trim().toUpperCase());
-            }
-        });
-    }
-
     const agora = new Date();
     const hojeInicio = new Date(agora); hojeInicio.setHours(0,0,0,0);
     const hojeFim = new Date(agora); hojeFim.setHours(23,59,59,999);
     
     const osHoje = ordensServico.filter(o => {
-        const placaOS = o.placa ? String(o.placa).trim().toUpperCase() : '';
-        const ehApenasGO = (o.motorista && String(o.motorista).trim().toUpperCase() === 'N/A (APENAS GO)');
-
-        if (!placaOS || (!placasExibicao.includes(placaOS) && !ehApenasGO)) return false;
         if(o.tipo === 'Sinistro') return false;
         
         let dIni = o.data_abertura ? new Date(String(o.data_abertura).replace('Z', '').replace('+00:00', '')) : null;
@@ -265,16 +246,7 @@ window.renderizarCardsTV = function() {
     const abertasHoje = osHoje.filter(o => o.status !== 'Concluída').length;
     const fechadasHoje = osHoje.filter(o => o.status === 'Concluída' && o.data_conclusao && new Date(String(o.data_conclusao).replace('Z', '').replace('+00:00', '')) >= hojeInicio).length;
     
-    const totalOsHoje = ordensServico.filter(o => {
-        const placaOS = o.placa ? String(o.placa).trim().toUpperCase() : '';
-        const ehApenasGO = (o.motorista && String(o.motorista).trim().toUpperCase() === 'N/A (APENAS GO)');
-
-        if (!placaOS || (!placasExibicao.includes(placaOS) && !ehApenasGO)) return false;
-        if(!o.data_abertura || o.tipo === 'Sinistro') return false;
-        
-        let dIni = new Date(String(o.data_abertura).replace('Z', '').replace('+00:00', ''));
-        return dIni >= hojeInicio && dIni <= hojeFim;
-    }).length; 
+    const totalOsHoje = osHoje.length;
     
     let tempoTotalDispMs = frotasValidas.length * 24 * 60 * 60 * 1000;
     let tempoManutencaoMs = 0;
@@ -311,14 +283,10 @@ window.renderizarCardsTV = function() {
     if(document.getElementById('tvKpiDisponiveis')) document.getElementById('tvKpiDisponiveis').innerText = veiculosDisponiveis;
     if(document.getElementById('tvKpiEmManutencao')) document.getElementById('tvKpiEmManutencao').innerText = veiculosManutencao;
     
-    // Filtro Melhorado: Agora inclui OS concluídas nos últimos 3 MINUTOS para fazer o efeito de Saída
+    // Filtro Flexível: Aceita QUALQUER OS aberta para a TV
     const osAtivas = ordensServico.filter(o => {
         if (o.tipo === 'Sinistro') return false;
 
-        const placaOS = o.placa ? String(o.placa).trim().toUpperCase() : '';
-        const ehApenasGO = (o.motorista && String(o.motorista).trim().toUpperCase() === 'N/A (APENAS GO)');
-
-        if (!placasExibicao.includes(placaOS) && !ehApenasGO) return false;
         if (o.status === 'Aguardando Oficina' || o.status === 'Em Manutenção') return true;
 
         if (o.status === 'Concluída' && o.data_conclusao) {
@@ -329,10 +297,10 @@ window.renderizarCardsTV = function() {
                 if (!window.osLiberadasAnunciadas.has(o.id)) {
                     window.osLiberadasAnunciadas.add(o.id);
                     let frotaVinculada = frotasValidas.find(f => 
-                        (f.cavalo && String(f.cavalo).trim().toUpperCase() === placaOS) || 
-                        (f.go && String(f.go).trim().toUpperCase() === placaOS)
+                        (f.cavalo && String(f.cavalo).trim().toUpperCase() === String(o.placa).trim().toUpperCase()) || 
+                        (f.go && String(f.go).trim().toUpperCase() === String(o.placa).trim().toUpperCase())
                     );
-                    falarVeiculoLiberado(placaOS, frotaVinculada ? frotaVinculada.numero_frota : '');
+                    falarVeiculoLiberado(o.placa || '', frotaVinculada ? frotaVinculada.numero_frota : '');
                 }
                 return true; 
             }
@@ -350,6 +318,7 @@ window.renderizarCardsTV = function() {
             }
         }
     });
+    
     window.isFirstRenderTV = false;
     
     if (osAtivas.length === 0) {
@@ -359,6 +328,7 @@ window.renderizarCardsTV = function() {
                 <p style="color: #94a3b8; font-size: 2rem;">Nenhum veículo aguardando manutenção.</p>
             </div>
         `;
+        window.ajustarEscalaTV();
         return;
     }
     
@@ -447,24 +417,23 @@ window.renderizarCardsTV = function() {
         
         if(alertaClass === 'piscar-alerta') alertaClass += ' piscar-alerta';
 
-        // O HTML DE VOLTA AO SEU ESTADO ORIGINAL! Flexível, sem quebrar.
         return `
             <div class="${alertaClass}" style="background: ${bgStatus}; border: 3px solid ${borderStatus}; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; transition: all 0.3s ease;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
                     <div>
                         <div style="font-size: 1rem; color: #94a3b8; margin-bottom: 5px;">O.S. #${os.numero_os || os.id} | ${textoStatus}</div>
-                        <div style="font-size: 3rem; font-weight: 900; color: #fff; line-height: 1;">${os.placa}</div>
+                        <div style="font-size: 3rem; font-weight: 900; color: #fff; line-height: 1;">${os.placa || 'S/ PLACA'}</div>
                     </div>
                     <div style="text-align: right;">
-                        <div style="background: ${corPrioridade}; color: #fff; font-weight: bold; padding: 5px 15px; border-radius: 20px; font-size: 1.1rem; text-transform: uppercase;">${os.prioridade}</div>
+                        <div style="background: ${corPrioridade}; color: #fff; font-weight: bold; padding: 5px 15px; border-radius: 20px; font-size: 1.1rem; text-transform: uppercase;">${os.prioridade || 'Normal'}</div>
                     </div>
                 </div>
                 
                 <div style="margin-bottom: 15px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; width: 100%;">${conjuntosBadge}</div>
                 
                 <div style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: 15px; margin-bottom: 15px; flex: 1;">
-                    <div style="color: #60a5fa; font-weight: bold; font-size: 1.2rem; margin-bottom: 5px;">${os.tipo}</div>
-                    <div style="color: #cbd5e1; font-size: 1.1rem;">Motorista: <strong style="color: #fff;">${os.motorista}</strong></div>
+                    <div style="color: #60a5fa; font-weight: bold; font-size: 1.2rem; margin-bottom: 5px;">${os.tipo || '-'}</div>
+                    <div style="color: #cbd5e1; font-size: 1.1rem;">Motorista: <strong style="color: #fff;">${os.motorista || '-'}</strong></div>
                     <div style="color: #cbd5e1; font-size: 1.1rem; margin-top: 5px;">Mecânico: <strong style="color: var(--ccol-green-bright); text-transform: uppercase;">${nomeDoMecanico}</strong></div>
                     <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 8px;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
                 </div>
@@ -481,5 +450,6 @@ window.renderizarCardsTV = function() {
         `;
     }).join('');
 
-    setTimeout(window.ajustarEscalaTV, 50);
+    // Removemos o setTimeout para aplicar o cálculo instantaneamente (Sem tela piscando)
+    window.ajustarEscalaTV();
 };
