@@ -25,12 +25,12 @@ window.renderizarTelaServicos = async function() {
         if (osError) throw osError;
         mOS_ListaGeral = osData || [];
         
-        const usuarioLogado = mecanicoPegarUsuario();
-        const osDesteMecanico = mOS_ListaGeral.filter(os => os.mecanico_responsavel === usuarioLogado).map(os => os.id);
+        // MODIFICAÇÃO: Busca as OSs em execução de todos os mecânicos, permitindo acesso compartilhado
+        const osEmExecucao = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção').map(os => os.id);
         
-        if (osDesteMecanico.length > 0) {
+        if (osEmExecucao.length > 0) {
             // REMOVIDO O JOIN "almoxarifado_pecas(nome)" QUE CAUSAVA O ERRO 400 BAD REQUEST
-            let queryReq = window.supabaseClient.from('os_pecas_utilizadas').select(`*`).in('os_id', osDesteMecanico).order('id', { ascending: false });
+            let queryReq = window.supabaseClient.from('os_pecas_utilizadas').select(`*`).in('os_id', osEmExecucao).order('id', { ascending: false });
             if (typeof window.aplicarFiltroFilial === 'function') queryReq = window.aplicarFiltroFilial(queryReq);
             const { data: reqData } = await queryReq;
             mOS_Requisicoes = reqData || [];
@@ -125,11 +125,11 @@ window.mecanicoInicializarMapaSOS = function() {
 };
 
 function mecanicoAtualizarContadores() {
-    const usuario = mecanicoPegarUsuario();
     const osDisponiveisNormais = mOS_ListaGeral.filter(os => os.status === 'Aguardando Oficina' && !(os.tipo && os.tipo.startsWith('S.O.S')));
     const countAceite = osDisponiveisNormais.length;
     
-    const countAbertas = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção' && os.mecanico_responsavel === usuario).length;
+    // MODIFICAÇÃO: Conta todas as OS abertas no pátio para o painel principal, sem filtrar pelo usuário
+    const countAbertas = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção').length;
     const countReq = mOS_Requisicoes.filter(r => r.status === 'Pendente').length;
     
     const countSOS = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S')).length;
@@ -166,14 +166,16 @@ function mecanicoRenderizarTabelas() {
         
     } else if (mOS_AbaAtiva === 'abertas') {
         const container = document.getElementById('listaMinhasOSAbertas');
-        const minhasOs = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção' && os.mecanico_responsavel === usuarioLogado);
         
-        if (minhasOs.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:40px;">Você não possui O.S. em execução.</p>';
+        // MODIFICAÇÃO: Permite exibir todas as OS em manutenção da oficina para qualquer mecânico visualizar ou interagir
+        const abertasOs = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção');
+        
+        if (abertasOs.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#94a3b8; padding:40px;">Não há O.S. em execução no momento.</p>';
             return;
         }
 
-        container.innerHTML = minhasOs.map(os => {
+        container.innerHTML = abertasOs.map(os => {
             const isSOS = os.tipo && os.tipo.startsWith('S.O.S');
             const colorTag = isSOS ? '#f97316' : '#10b981';
             const tagNome = isSOS ? 'EMERGÊNCIA (S.O.S) EM EXECUÇÃO' : 'O.S. EM EXECUÇÃO';
@@ -184,6 +186,7 @@ function mecanicoRenderizarTabelas() {
                     <div style="flex: 1;">
                         <span style="background:${colorTag}; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.75rem; font-weight:bold;">#${os.id} ${tagNome}</span>
                         <h3 style="margin:8px 0; color:#fff; font-size: 1.3rem;">FROTA / CONJUNTO: ${os.placa}</h3>
+                        <p style="color:#3b82f6; font-size:0.95rem; margin:0 0 5px 0;"><strong>Mecânico Resp:</strong> ${os.mecanico_responsavel || 'Não atribuído'}</p>
                         <p style="color:#94a3b8; font-size:0.95rem; margin:0; line-height: 1.4;"><strong>Problema:</strong> ${os.problema}</p>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 250px;">
@@ -269,13 +272,14 @@ function mecanicoRenderizarTabelas() {
             let btnMapa = linkMapa ? `<a href="${linkMapa}" target="_blank" style="color: #3b82f6; text-decoration: underline;"><i class="fas fa-location-arrow"></i> Ver GPS Celular</a>` : `<span style="color: #9ca3af;">Sem GPS</span>`;
             
             let acaoHTML = '';
+            // MODIFICAÇÃO: Se for SOS e estiver em manutenção, permite ir para a aba O.S e interagir
             if (os.status === 'Aguardando Oficina') {
                 acaoHTML = `<button style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; white-space: nowrap; margin-bottom: 5px;" onclick="mecanicoAceitarOS(${os.id}, '${os.placa}')">🚗 ASSUMIR SOCORRO</button>`;
                 acaoHTML += `<a href="${urlZap}" target="_blank" style="background: #22c55e; color: white; padding: 8px 12px; border-radius: 6px; text-decoration: none; display: block; text-align: center; font-weight: bold;"><i class="fab fa-whatsapp"></i> Repassar WhatsApp</a>`;
-            } else if (os.status === 'Em Manutenção' && os.mecanico_responsavel === usuarioLogado) {
-                acaoHTML = `<button style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; white-space: nowrap;" onclick="mecanicoMudarAba('abertas')">📝 JÁ ASSUMIDO (IR P/ O.S)</button>`;
+            } else if (os.status === 'Em Manutenção') {
+                acaoHTML = `<button style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; white-space: nowrap;" onclick="mecanicoMudarAba('abertas')">📝 EM ATEND. (${os.mecanico_responsavel || 'OUTRO'})</button>`;
             } else {
-                acaoHTML = `<div style="color: #f59e0b; font-weight: bold; font-size: 0.85rem; background: rgba(245,158,11,0.1); padding: 8px; border-radius: 6px;">Em Atendimento (${os.mecanico_responsavel || 'Outro'})</div>`;
+                acaoHTML = `<div style="color: #f59e0b; font-weight: bold; font-size: 0.85rem; background: rgba(245,158,11,0.1); padding: 8px; border-radius: 6px;">Status: ${os.status}</div>`;
             }
 
             return `
