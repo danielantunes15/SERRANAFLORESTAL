@@ -68,7 +68,13 @@ window.initDashboard = async function() {
             await window.renderizarMenu();
         }
     } catch (e) {}
+    
     atualizarStats();
+
+    // INICIAR MONITORAMENTO DE CHAMADOS E NOTIFICAÇÕES (Para o usuário)
+    if (window.currentUser) {
+        window.iniciarMonitoramentoChamados();
+    }
 }
 
 // ==================== MÓDULO: CHAMADOS DE SUPORTE (VISÃO USUÁRIO) ====================
@@ -76,8 +82,147 @@ window.initDashboard = async function() {
 let meusChamadosCache = [];
 let idChamadoChatAtual = null;
 let chatIntervalUsuario = null; 
+let notificacaoInterval = null;
+const audioNotificacao = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg'); 
+
+// Monitora ativamente o banco em busca de novas respostas da TI
+window.iniciarMonitoramentoChamados = async function() {
+    if (notificacaoInterval) clearInterval(notificacaoInterval);
+    
+    // Carga inicial silenciada para povoar o cache
+    try {
+        const { data } = await supabaseClient
+            .from('chamados_suporte')
+            .select('id, historico_conversa, titulo, status')
+            .eq('nome_usuario', window.currentUser.username)
+            .in('status', ['Aberto', 'Em Andamento', 'Resolvido']);
+        if (data) meusChamadosCache = data;
+    } catch(e) {}
+
+    // Polling a cada 8 segundos verificando novidades
+    notificacaoInterval = setInterval(async () => {
+        try {
+            const { data } = await supabaseClient
+                .from('chamados_suporte')
+                .select('id, historico_conversa, titulo, status')
+                .eq('nome_usuario', window.currentUser.username)
+                .in('status', ['Aberto', 'Em Andamento']);
+            
+            if (data) {
+                data.forEach(chamadoNovo => {
+                    const chamadoVelho = meusChamadosCache.find(c => c.id === chamadoNovo.id);
+                    const histNovo = chamadoNovo.historico_conversa || [];
+                    const histVelho = (chamadoVelho && chamadoVelho.historico_conversa) ? chamadoVelho.historico_conversa : [];
+
+                    // Se a quantidade de mensagens aumentou
+                    if (histNovo.length > histVelho.length) {
+                        const ultimaMsg = histNovo[histNovo.length - 1];
+                        
+                        // E se a última for da TI
+                        if (ultimaMsg.autor === 'TI') {
+                            window.tocarSomNotificacao();
+                            
+                            // Só exibe o toast se o modal desse chamado específico NÃO estiver aberto no momento
+                            if (idChamadoChatAtual !== chamadoNovo.id) {
+                                window.exibirToastNotificacao(chamadoNovo.id, chamadoNovo.titulo, ultimaMsg.mensagem);
+                                window.adicionarBolinhaNotificacao();
+                            }
+                        }
+                    }
+                    
+                    // Atualiza o cache local silenciosamente
+                    if (chamadoVelho) {
+                        chamadoVelho.historico_conversa = histNovo;
+                        chamadoVelho.status = chamadoNovo.status;
+                    } else {
+                        meusChamadosCache.push(chamadoNovo);
+                    }
+                });
+            }
+        } catch(e) {}
+    }, 8000);
+};
+
+window.tocarSomNotificacao = function() {
+    try {
+        audioNotificacao.play().catch(() => {});
+    } catch (e) {}
+};
+
+window.exibirToastNotificacao = function(idChamado, titulo, mensagem) {
+    let container = document.getElementById('toast-container-chamados');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container-chamados';
+        container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.style.cssText = 'background: var(--bg-panel, #1e293b); border-left: 4px solid var(--ccol-blue-bright, #3b82f6); color: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); width: 320px; display: flex; flex-direction: column; gap: 10px; transition: transform 0.3s ease-out, opacity 0.3s ease-out; transform: translateX(100%); opacity: 0; pointer-events: auto;';
+    
+    toast.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong style="font-size: 0.9rem; color: var(--ccol-blue-bright, #3b82f6);"><i class="fas fa-bell"></i> Nova Resposta da TI</strong>
+            <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: #94a3b8; cursor: pointer;"><i class="fas fa-times"></i></button>
+        </div>
+        <div style="font-size: 0.85rem; color: #e2e8f0; font-weight: bold;">Chamado #${idChamado}: ${titulo}</div>
+        <div style="font-size: 0.8rem; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">"${mensagem}"</div>
+        <button onclick="window.abrirChatChamadoToast('${idChamado}', this)" style="background: var(--ccol-blue-bright, #3b82f6); color: #fff; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: bold; margin-top: 5px; transition: 0.2s;">
+            Visualizar Conversa
+        </button>
+    `;
+
+    container.appendChild(toast);
+    
+    // Animação de entrada
+    setTimeout(() => {
+        toast.style.transform = 'translateX(0)';
+        toast.style.opacity = '1';
+    }, 10);
+
+    // Some sozinho após 12 segundos
+    setTimeout(() => {
+        if(toast.parentElement) {
+            toast.style.transform = 'translateX(100%)';
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 12000); 
+};
+
+window.abrirChatChamadoToast = async function(id, btnElement) {
+    if (btnElement && btnElement.parentElement) {
+        btnElement.parentElement.remove();
+    }
+    window.removerBolinhaNotificacao();
+    
+    await window.abrirPainelMeusChamados();
+    window.abrirChatChamado(id);
+};
+
+window.adicionarBolinhaNotificacao = function() {
+    const btnMenu = document.querySelector('[onclick*="abrirPainelMeusChamados"]');
+    if (btnMenu) {
+        btnMenu.style.position = 'relative';
+        let badge = btnMenu.querySelector('.badge-notificacao-ti');
+        if (!badge) {
+            btnMenu.insertAdjacentHTML('beforeend', '<span class="badge-notificacao-ti" style="position: absolute; top: 0px; right: 0px; background: #ef4444; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--bg-panel, #1e293b); box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);"></span>');
+        }
+    }
+};
+
+window.removerBolinhaNotificacao = function() {
+    const btnMenu = document.querySelector('[onclick*="abrirPainelMeusChamados"]');
+    if (btnMenu) {
+        let badge = btnMenu.querySelector('.badge-notificacao-ti');
+        if (badge) badge.remove();
+    }
+};
 
 window.abrirPainelMeusChamados = async function() {
+    window.removerBolinhaNotificacao(); // Limpa bolinha visual
+    
     const modal = document.getElementById('modalMeusChamados');
     if(modal) modal.classList.add('show');
     
@@ -200,6 +345,7 @@ window.salvarChamadoSuporte = async function() {
 };
 
 window.abrirChatChamado = function(id) {
+    window.removerBolinhaNotificacao(); // Limpa bolinha se abrir direto
     idChamadoChatAtual = parseInt(id);
     const chamado = meusChamadosCache.find(c => c.id === idChamadoChatAtual);
     if (!chamado) return;
@@ -223,6 +369,10 @@ window.abrirChatChamado = function(id) {
                 if (data.historico_conversa.length > historicoLocal.length) {
                     chamado.historico_conversa = data.historico_conversa;
                     window.renderizarMensagensChat(data.historico_conversa);
+                    // Toca som se for recebido dentro do chat ativo
+                    if(data.historico_conversa[data.historico_conversa.length -1].autor === 'TI') {
+                         window.tocarSomNotificacao();
+                    }
                 }
             }
         } catch(e) {}
