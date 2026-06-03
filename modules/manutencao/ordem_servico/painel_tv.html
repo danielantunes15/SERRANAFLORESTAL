@@ -1,4 +1,6 @@
-<div style="padding: 20px; background: #0f172a; min-height: calc(100vh - 60px);">
+<link rel="stylesheet" href="modules/manutencao/ordem_servico/painel_tv.css">
+
+<div id="painelTvFundo" style="padding: 20px; background: #0f172a; min-height: 100vh; overflow-y: auto;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #1e293b; padding-bottom: 15px; flex-wrap: wrap; gap: 20px;">
         
         <div style="flex: 1; min-width: 300px;">
@@ -9,30 +11,30 @@
         </div>
         
         <div id="tvKpis" style="display: flex; gap: 15px; align-items: center; justify-content: center; flex: 3; min-width: 600px;">
-            <div style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
+            <div class="kpi-box" style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
                 <div style="color: #cbd5e1; font-size: 0.85rem; font-weight: bold;">O.S. (HOJE)</div>
                 <div id="tvKpiTotal" style="color: #fff; font-size: 1.8rem; font-weight: 900;">0</div>
             </div>
-            <div style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
+            <div class="kpi-box" style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
                 <div style="color: #cbd5e1; font-size: 0.85rem; font-weight: bold;">ABERTAS (HOJE)</div>
                 <div id="tvKpiAbertas" style="color: #fff; font-size: 1.8rem; font-weight: 900;">0</div>
             </div>
-            <div style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
+            <div class="kpi-box" style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
                 <div style="color: #cbd5e1; font-size: 0.85rem; font-weight: bold;">FECHADAS (HOJE)</div>
                 <div id="tvKpiFechadas" style="color: #fff; font-size: 1.8rem; font-weight: 900;">0</div>
             </div>
-            <div style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
+            <div class="kpi-box" style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
                 <div style="color: #cbd5e1; font-size: 0.85rem; font-weight: bold;">TAXA DM (DIA)</div>
                 <div id="tvKpiDM" style="color: #fff; font-size: 1.8rem; font-weight: 900;">0%</div>
             </div>
 
             <div style="width: 2px; height: 50px; background: rgba(255,255,255,0.1); margin: 0 5px;"></div>
 
-            <div style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
+            <div class="kpi-box" style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
                 <div style="color: #cbd5e1; font-size: 0.85rem; font-weight: bold;">DISPONÍVEIS 🚚</div>
                 <div id="tvKpiDisponiveis" style="color: #fff; font-size: 1.8rem; font-weight: 900;">0</div>
             </div>
-            <div style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
+            <div class="kpi-box" style="background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.2);">
                 <div style="color: #cbd5e1; font-size: 0.85rem; font-weight: bold;">EM OFICINA 🔧</div>
                 <div id="tvKpiEmManutencao" style="color: #fff; font-size: 1.8rem; font-weight: 900;">0</div>
             </div>
@@ -44,5 +46,5 @@
         </div>
     </div>
     
-    <div id="tvCardsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); gap: 25px;"></div>
+    <div id="tvCardsContainer" class="tv-grid-container"></div>
 </div>

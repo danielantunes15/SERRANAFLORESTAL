@@ -1,0 +1,86 @@
+/* ==================== painel_tv.css ==================== */
+
+@keyframes piscarLiberado {
+    0% { box-shadow: 0 0 10px #10b981; border-color: #10b981; }
+    50% { box-shadow: 0 0 40px #34d399; border-color: #34d399; transform: scale(1.02); }
+    100% { box-shadow: 0 0 10px #10b981; border-color: #10b981; }
+}
+
+@keyframes piscarAlerta {
+    0% { box-shadow: 0 0 10px #ef4444; border-color: #ef4444; }
+    50% { box-shadow: 0 0 30px #f87171; border-color: #f87171; }
+    100% { box-shadow: 0 0 10px #ef4444; border-color: #ef4444; }
+}
+
+/* Modo Noturno */
+.modo-noturno { background: #020617 !important; }
+.modo-noturno h1 { color: #64748b !important; text-shadow: none !important; }
+.modo-noturno .kpi-box { background: rgba(0,0,0,0.6) !important; border-color: rgba(255,255,255,0.05) !important; }
+.modo-noturno #tvRelogio, .modo-noturno #tvData { text-shadow: none !important; opacity: 0.8; }
+
+/* Grid Container - A mágica da proporção está aqui */
+.tv-grid-container {
+    display: grid;
+    /* 360px é a largura ideal para caber 5 ou 6 colunas na TV sem distorcer */
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 25px;
+    align-content: start; /* Impede esticamento vertical do grid se houver poucos cartões */
+    align-items: stretch; /* Garante que todos os cartões da MESMA LINHA tenham a mesma altura */
+    padding-bottom: 40px; /* Margem de segurança para o zoom não cortar o último da tela */
+}
+
+/* O Cartão (O.S) */
+.tv-card {
+    background: #1e293b;
+    border: 3px solid #475569;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column; /* Transforma o cartão num Flex container */
+    height: 100%; 
+    transition: all 0.3s ease;
+}
+
+.tv-card.manutencao {
+    background: #1e3a8a;
+    border-color: #3b82f6;
+}
+
+.tv-card.liberado {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: #10b981;
+    animation: piscarLiberado 1.5s infinite;
+}
+
+.tv-card.piscar-alerta {
+    animation: piscarAlerta 2s infinite;
+}
+
+.tv-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+/* O Corpo do Cartão - Esta div vai 'crescer' para igualar a altura */
+.tv-card-body {
+    background: rgba(0,0,0,0.4);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    flex-grow: 1; /* ESSA É A PROPRIEDADE QUE EMPURRA O RODAPÉ PARA O FUNDO */
+    display: flex;
+    flex-direction: column;
+}
+
+/* O Rodapé (Cronômetro e Entrada) */
+.tv-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 15px;
+    margin-top: auto; /* Garante que fique travado sempre na base do quadrado */
+}

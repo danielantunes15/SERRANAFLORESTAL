@@ -10,39 +10,6 @@ if (!window.osNovasAnunciadas) {
     window.isFirstRenderTV = true; // Previne que a TV anuncie todas as OS antigas ao ligar
 }
 
-// Injetar CSS das animações e Modo Noturno
-if (!document.getElementById('tv-custom-styles')) {
-    const style = document.createElement('style');
-    style.id = 'tv-custom-styles';
-    style.innerHTML = `
-        @keyframes piscarLiberado {
-            0% { box-shadow: 0 0 10px #10b981; border-color: #10b981; }
-            50% { box-shadow: 0 0 40px #34d399; border-color: #34d399; transform: scale(1.02); }
-            100% { box-shadow: 0 0 10px #10b981; border-color: #10b981; }
-        }
-        .card-liberado {
-            animation: piscarLiberado 1.5s infinite;
-        }
-        /* Estilos do Modo Noturno */
-        .modo-noturno {
-            background: #020617 !important; /* Fundo mais escuro */
-        }
-        .modo-noturno h1 {
-            color: #64748b !important;
-            text-shadow: none !important;
-        }
-        .modo-noturno .kpi-box {
-            background: rgba(0,0,0,0.6) !important;
-            border-color: rgba(255,255,255,0.05) !important;
-        }
-        .modo-noturno #tvRelogio, .modo-noturno #tvData {
-            text-shadow: none !important;
-            opacity: 0.8;
-        }
-    `;
-    document.head.appendChild(style);
-}
-
 // Funções de Síntese de Voz (Falar no Auto-falante da TV)
 window.falarVeiculoLiberado = function(placa, frota) {
     if ('speechSynthesis' in window) {
@@ -66,7 +33,6 @@ window.falarNovaOS = function(numero, tipo, placa) {
     if ('speechSynthesis' in window) {
         let placaFalada = String(placa).split('').join(' ');
         
-        // Remove algumas palavras repetitivas do tipo para a voz ficar mais natural
         let tipoLimpo = String(tipo).replace('Manutenção', '').replace('- P.A Serrana', '').trim();
         if (tipoLimpo === '') tipoLimpo = 'Manutenção';
 
@@ -145,15 +111,11 @@ window.sairModoTV = function() {
         mainContent.style.maxWidth = '';
     }
 
-    const container = document.getElementById('tvCardsContainer');
-    const painel = container?.parentElement;
-    if (container) {
-        container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(320px, 1fr))';
-    }
+    const painel = document.getElementById('painelTvFundo');
     if (painel) {
         painel.style.zoom = '1';
-        painel.style.overflow = '';
-        painel.style.height = '';
+        painel.style.overflowY = 'auto';
+        painel.style.height = 'auto';
     }
     document.body.style.overflow = '';
     
@@ -185,7 +147,6 @@ window.toggleFullScreenTV = function() {
             console.warn("Tela cheia falhou:", err);
         });
         
-        // Dispara um som mudo rápido só para o navegador garantir a permissão de Áudio
         if ('speechSynthesis' in window) {
             let u = new SpeechSynthesisUtterance('');
             u.volume = 0; window.speechSynthesis.speak(u);
@@ -199,31 +160,35 @@ window.toggleFullScreenTV = function() {
 
 window.ajustarEscalaTV = function() {
     const container = document.getElementById('tvCardsContainer');
-    const painel = container?.parentElement;
+    const painel = document.getElementById('painelTvFundo');
     if (!container || !painel) return;
 
     const isFullscreen = !!document.fullscreenElement;
 
+    // Reset antes do cálculo para medir o tamanho real ocupado pelos cartões
     painel.style.zoom = "1";
     painel.style.height = 'auto';
-    painel.style.overflow = '';
+    painel.style.overflowY = 'auto';
     document.body.style.overflow = '';
-    
-    container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(320px, 1fr))';
 
     if (!isFullscreen) return;
 
+    // Oculta a barra de rolagem
     document.body.style.overflow = 'hidden';
-    painel.style.overflow = 'hidden';
-    painel.style.height = '100vh';
+    painel.style.overflowY = 'hidden';
 
     setTimeout(() => {
-        const windowHeight = window.innerHeight;
-        const contentHeight = painel.scrollHeight;
+        const wH = window.innerHeight;
+        // Pega a altura total do painel (O Segredo para não cortar)
+        const h = painel.scrollHeight + 20; 
 
-        if (contentHeight > windowHeight && windowHeight > 0) {
-            const zoomFactor = windowHeight / contentHeight;
-            painel.style.zoom = (zoomFactor - 0.02).toFixed(4); 
+        if (h > wH && wH > 0) {
+            const z = wH / h;
+            painel.style.zoom = z.toFixed(4);
+            // Corrige o bug de corte: O height do painel precisa aumentar na mesma proporção do zoom do navegador
+            painel.style.height = (100 / z).toFixed(2) + 'vh';
+        } else {
+            painel.style.height = '100vh';
         }
     }, 50);
 };
@@ -238,18 +203,13 @@ function atualizarRelogioTV() {
     const opcoesData = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     elData.innerText = agora.toLocaleDateString('pt-BR', opcoesData).toUpperCase();
 
-    // Verificador de Modo Noturno Automático (Das 18h às 05:59)
-    const containerTV = elRelogio.closest('div[style*="background: #0f172a"]');
+    const containerTV = document.getElementById('painelTvFundo');
     if (containerTV) {
         const hora = agora.getHours();
-        const divsKpi = document.querySelectorAll('#tvKpis > div');
-        
         if (hora >= 18 || hora < 6) {
             containerTV.classList.add('modo-noturno');
-            divsKpi.forEach(el => el.classList.add('kpi-box'));
         } else {
             containerTV.classList.remove('modo-noturno');
-            divsKpi.forEach(el => el.classList.remove('kpi-box'));
         }
     }
 }
@@ -346,6 +306,7 @@ window.renderizarCardsTV = function() {
     if(document.getElementById('tvKpiDisponiveis')) document.getElementById('tvKpiDisponiveis').innerText = veiculosDisponiveis;
     if(document.getElementById('tvKpiEmManutencao')) document.getElementById('tvKpiEmManutencao').innerText = veiculosManutencao;
     
+    // Filtro Melhorado: Agora inclui OS concluídas nos últimos 3 MINUTOS para fazer o efeito de Saída
     const osAtivas = ordensServico.filter(o => {
         if (o.tipo === 'Sinistro') return false;
 
@@ -353,7 +314,6 @@ window.renderizarCardsTV = function() {
         const ehApenasGO = (o.motorista && String(o.motorista).trim().toUpperCase() === 'N/A (APENAS GO)');
 
         if (!placasExibicao.includes(placaOS) && !ehApenasGO) return false;
-
         if (o.status === 'Aguardando Oficina' || o.status === 'Em Manutenção') return true;
 
         if (o.status === 'Concluída' && o.data_conclusao) {
@@ -363,12 +323,10 @@ window.renderizarCardsTV = function() {
             if (diffMinutos <= 3) {
                 if (!window.osLiberadasAnunciadas.has(o.id)) {
                     window.osLiberadasAnunciadas.add(o.id);
-                    
                     let frotaVinculada = frotasValidas.find(f => 
                         (f.cavalo && String(f.cavalo).trim().toUpperCase() === placaOS) || 
                         (f.go && String(f.go).trim().toUpperCase() === placaOS)
                     );
-                    
                     falarVeiculoLiberado(placaOS, frotaVinculada ? frotaVinculada.numero_frota : '');
                 }
                 return true; 
@@ -377,20 +335,16 @@ window.renderizarCardsTV = function() {
         return false;
     });
 
-    // === Lógica de Anúncio de Novas O.S. ===
     osAtivas.forEach(o => {
         if (o.status !== 'Concluída') {
             if (window.isFirstRenderTV) {
-                // No primeiro carregamento, apenas anota que já viu para não falar tudo
                 window.osNovasAnunciadas.add(o.id);
             } else if (!window.osNovasAnunciadas.has(o.id)) {
-                // É uma nova O.S! Anuncia na TV
                 window.osNovasAnunciadas.add(o.id);
                 falarNovaOS(o.numero_os || o.id, o.tipo || 'Manutenção', o.placa || 'Não informada');
             }
         }
     });
-    // Desliga a flag do primeiro carregamento após a primeira rodada
     window.isFirstRenderTV = false;
     
     if (osAtivas.length === 0) {
@@ -413,18 +367,6 @@ window.renderizarCardsTV = function() {
         if (pA !== pB) return pB - pA;
         return new Date(a.data_abertura) - new Date(b.data_abertura);
     });
-    
-    const isFullscreen = !!document.fullscreenElement;
-    let sf = 1; 
-
-    if (isFullscreen) {
-        const count = osAtivas.length;
-        if (count >= 24) sf = 0.55;       
-        else if (count >= 18) sf = 0.65;  
-        else if (count >= 12) sf = 0.75;  
-        else if (count >= 8) sf = 0.85;   
-        else sf = 0.90;                   
-    }
 
     container.innerHTML = osAtivas.map(os => {
         let corPrioridade = '#3b82f6'; 
@@ -460,67 +402,73 @@ window.renderizarCardsTV = function() {
         let conjuntosBadge = '';
 
         if (frotaVinculada.numero_frota && String(frotaVinculada.numero_frota).trim() !== '') {
-            conjuntosBadge += `<span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: ${2*sf}px ${6*sf}px; border-radius: 4px; font-size: ${0.85*sf}rem; border: 1px solid rgba(245, 158, 11, 0.5); font-weight: bold; white-space: nowrap;">FR: ${String(frotaVinculada.numero_frota).toUpperCase()}</span>`;
+            conjuntosBadge += `<span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(245, 158, 11, 0.5); font-weight: bold; white-space: nowrap;">FR: ${String(frotaVinculada.numero_frota).toUpperCase()}</span>`;
         }
         
         if (frotaVinculada.go && String(frotaVinculada.go).trim() !== '') {
-            conjuntosBadge += `<span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: ${2*sf}px ${6*sf}px; border-radius: 4px; font-size: ${0.85*sf}rem; border: 1px solid rgba(59, 130, 246, 0.5); font-weight: bold; white-space: nowrap;">GO: ${String(frotaVinculada.go).toUpperCase()}</span>`;
+            conjuntosBadge += `<span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(59, 130, 246, 0.5); font-weight: bold; white-space: nowrap;">GO: ${String(frotaVinculada.go).toUpperCase()}</span>`;
         }
         
         conjuntosBadge += [frotaVinculada.carreta1, frotaVinculada.carreta2, frotaVinculada.carreta3]
             .filter(Boolean)
-            .map(c => `<span style="background: rgba(255,255,255,0.1); padding: ${2*sf}px ${6*sf}px; border-radius: 4px; font-size: ${0.85*sf}rem; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;">${c}</span>`).join('');
+            .map(c => `<span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;">${c}</span>`).join('');
             
         let avisoPrevisao = ''; let campoPrevisao = os.previsao_entrega || os.previsao;
         if (campoPrevisao) {
             const dataPrevisao = new Date(String(campoPrevisao).replace('Z', '').replace('+00:00', ''));
             if (agora > dataPrevisao) {
-                avisoPrevisao = `<div style="background: #ef4444; color: #fff; padding: ${5*sf}px; text-align: center; font-weight: bold; border-radius: 4px; margin-top: ${10*sf}px; font-size: ${1*sf}rem; border: 2px solid #fff;">⚠️ PREVISÃO VENCIDA: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
+                avisoPrevisao = `<div style="background: #ef4444; color: #fff; padding: 5px; text-align: center; font-weight: bold; border-radius: 4px; margin-top: 10px; font-size: 1rem; border: 2px solid #fff;">⚠️ PREVISÃO VENCIDA: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
             } else {
-                avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: ${5*sf}px; text-align: center; border-radius: 4px; margin-top: ${10*sf}px; font-size: ${1*sf}rem; font-weight: bold;">PREVISÃO: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
+                avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 5px; text-align: center; border-radius: 4px; margin-top: 10px; font-size: 1rem; font-weight: bold;">PREVISÃO: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
                 if(os.status !== 'Concluída') colorCronometro = '#10b981'; alertaClass = '';
             }
         } else {
-             avisoPrevisao = `<div style="background: rgba(255,255,255,0.05); color: #94a3b8; padding: ${5*sf}px; text-align: center; border-radius: 4px; margin-top: ${10*sf}px; font-size: ${0.9*sf}rem;">AGUARDANDO PREVISÃO</div>`;
+             avisoPrevisao = `<div style="background: rgba(255,255,255,0.05); color: #94a3b8; padding: 5px; text-align: center; border-radius: 4px; margin-top: 10px; font-size: 0.9rem;">AGUARDANDO PREVISÃO</div>`;
         }
         
-        let textoStatus = os.status === 'Em Manutenção' ? '  EM OFICINA' : '  AGUARDANDO ATENDIMENTO';
-        let bgStatus = os.status === 'Em Manutenção' ? '#1e3a8a' : '#1e293b'; 
-        let borderStatus = os.status === 'Em Manutenção' ? '#3b82f6' : '#475569'; 
+        let cardClass = 'tv-card';
+        let textoStatus = 'AGUARDANDO ATENDIMENTO';
         let nomeDoMecanico = os.mecanico_responsavel || os.mecanico || 'NÃO ATRIBUÍDO';
 
         if (os.status === 'Concluída') {
+            cardClass += ' liberado';
             textoStatus = '✅ VEÍCULO LIBERADO';
-            bgStatus = 'rgba(16, 185, 129, 0.15)'; 
-            borderStatus = '#10b981'; 
-            alertaClass = 'card-liberado'; 
-            avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: ${5*sf}px; text-align: center; border-radius: 4px; margin-top: ${10*sf}px; font-size: ${1.1*sf}rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 10px rgba(16,185,129,0.5);">PRONTO PARA RODAR</div>`;
+            avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 5px; text-align: center; border-radius: 4px; margin-top: 10px; font-size: 1.1rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 10px rgba(16,185,129,0.5);">PRONTO PARA RODAR</div>`;
             colorCronometro = '#10b981'; 
+        } else if (os.status === 'Em Manutenção') {
+            cardClass += ' manutencao';
+            textoStatus = 'EM OFICINA';
         }
+        
+        if(alertaClass === 'piscar-alerta') cardClass += ' piscar-alerta';
 
+        // Usa as novas DIVS e classes Flex do painel_tv.css
         return `
-            <div class="${alertaClass}" style="background: ${bgStatus}; border: 3px solid ${borderStatus}; border-radius: 12px; padding: ${20*sf}px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; transition: all 0.3s ease;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: ${15*sf}px;">
+            <div class="${cardClass}">
+                <div class="tv-card-header">
                     <div>
-                        <div style="font-size: ${1*sf}rem; color: #94a3b8; margin-bottom: 5px;">O.S. #${os.numero_os || os.id} | ${textoStatus}</div>
-                        <div style="font-size: ${3*sf}rem; font-weight: 900; color: #fff; line-height: 1;">${os.placa}</div>
+                        <div style="font-size: 1rem; color: #94a3b8; margin-bottom: 5px;">O.S. #${os.numero_os || os.id} | ${textoStatus}</div>
+                        <div style="font-size: 3rem; font-weight: 900; color: #fff; line-height: 1;">${os.placa}</div>
                     </div>
                     <div style="text-align: right;">
-                        <div style="background: ${corPrioridade}; color: #fff; font-weight: bold; padding: ${5*sf}px ${15*sf}px; border-radius: 20px; font-size: ${1.1*sf}rem; text-transform: uppercase;">${os.prioridade}</div>
+                        <div style="background: ${corPrioridade}; color: #fff; font-weight: bold; padding: 5px 15px; border-radius: 20px; font-size: 1.1rem; text-transform: uppercase;">${os.prioridade}</div>
                     </div>
                 </div>
-                <div style="margin-bottom: ${15*sf}px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; width: 100%;">${conjuntosBadge}</div>
-                <div style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: ${15*sf}px; margin-bottom: ${15*sf}px; flex: 1;">
-                    <div style="color: #60a5fa; font-weight: bold; font-size: ${1.2*sf}rem; margin-bottom: 5px;">${os.tipo}</div>
-                    <div style="color: #cbd5e1; font-size: ${1.1*sf}rem;">Motorista: <strong style="color: #fff;">${os.motorista}</strong></div>
-                    <div style="color: #cbd5e1; font-size: ${1.1*sf}rem; margin-top: 5px;">Mecânico: <strong style="color: var(--ccol-green-bright); text-transform: uppercase;">${nomeDoMecanico}</strong></div>
-                    <div style="color: #94a3b8; font-size: ${0.9*sf}rem; margin-top: 8px; max-height: ${60*sf}px; overflow: hidden; text-overflow: ellipsis;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
+                
+                <div style="margin-bottom: 15px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; width: 100%;">${conjuntosBadge}</div>
+                
+                <div class="tv-card-body">
+                    <div style="color: #60a5fa; font-weight: bold; font-size: 1.2rem; margin-bottom: 5px;">${os.tipo}</div>
+                    <div style="color: #cbd5e1; font-size: 1.1rem;">Motorista: <strong style="color: #fff;">${os.motorista}</strong></div>
+                    <div style="color: #cbd5e1; font-size: 1.1rem; margin-top: 5px;">Mecânico: <strong style="color: var(--ccol-green-bright); text-transform: uppercase;">${nomeDoMecanico}</strong></div>
+                    <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 8px; max-height: 60px; overflow: hidden; text-overflow: ellipsis;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: ${15*sf}px;">
-                    <div style="color: #94a3b8; font-size: ${1*sf}rem;">Entrada: <br><strong style="color: #fff;">${entradaHoraStr}</strong></div>
+                
+                <div class="tv-card-footer">
+                    <div style="color: #94a3b8; font-size: 1rem;">Entrada: <br><strong style="color: #fff;">${entradaHoraStr}</strong></div>
                     <div style="text-align: right;">
-                        <div style="font-size: ${0.9*sf}rem; color: #94a3b8;">TEMPO NO PÁTIO</div>
-                        <div style="font-size: ${2.2*sf}rem; font-weight: 900; color: ${colorCronometro}; font-family: monospace;">${String(diffHrs).padStart(2,'0')}:${String(diffMin).padStart(2,'0')}</div>
+                        <div style="font-size: 0.9rem; color: #94a3b8;">TEMPO NO PÁTIO</div>
+                        <div style="font-size: 2.2rem; font-weight: 900; color: ${colorCronometro}; font-family: monospace;">${String(diffHrs).padStart(2,'0')}:${String(diffMin).padStart(2,'0')}</div>
                     </div>
                 </div>
                 ${avisoPrevisao}
