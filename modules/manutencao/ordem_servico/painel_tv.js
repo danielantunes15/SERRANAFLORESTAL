@@ -1,9 +1,13 @@
 // ==================== modules/manutencao/ordem_servico/painel_tv.js ====================
-// Gerenciador exclusivo do Modo TV (Imersivo), Relógio e Cards Responsivos Proporcionais
+// Gerenciador exclusivo do Modo TV (Imersivo), Relógio, Cards e Anúncios por Voz
 
-// Conjunto para evitar que a TV fale duas vezes o mesmo veículo liberado
+// Conjuntos para evitar que a TV fale duas vezes o mesmo aviso
 if (!window.osLiberadasAnunciadas) {
     window.osLiberadasAnunciadas = new Set();
+}
+if (!window.osNovasAnunciadas) {
+    window.osNovasAnunciadas = new Set();
+    window.isFirstRenderTV = true; // Previne que a TV anuncie todas as OS antigas ao ligar
 }
 
 // Injetar CSS das animações e Modo Noturno
@@ -39,12 +43,10 @@ if (!document.getElementById('tv-custom-styles')) {
     document.head.appendChild(style);
 }
 
-// Função de Síntese de Voz (Falar no Auto-falante da TV)
+// Funções de Síntese de Voz (Falar no Auto-falante da TV)
 window.falarVeiculoLiberado = function(placa, frota) {
     if ('speechSynthesis' in window) {
-        // Soletra a placa para a IA falar melhor (Ex: ABC1234 -> A B C 1 2 3 4)
         let placaFalada = String(placa).split('').join(' ');
-        
         let texto = `Atenção Pátio! Veículo placa ${placaFalada} , liberado da oficina.`;
         if (frota && frota !== '') {
             texto += ` Número da Frota: ${frota}.`;
@@ -52,7 +54,27 @@ window.falarVeiculoLiberado = function(placa, frota) {
 
         const utterance = new SpeechSynthesisUtterance(texto);
         utterance.lang = 'pt-BR';
-        utterance.rate = 0.85; // Velocidade um pouco mais lenta para clareza no pátio
+        utterance.rate = 0.85; 
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        
+        window.speechSynthesis.speak(utterance);
+    }
+};
+
+window.falarNovaOS = function(numero, tipo, placa) {
+    if ('speechSynthesis' in window) {
+        let placaFalada = String(placa).split('').join(' ');
+        
+        // Remove algumas palavras repetitivas do tipo para a voz ficar mais natural
+        let tipoLimpo = String(tipo).replace('Manutenção', '').replace('- P.A Serrana', '').trim();
+        if (tipoLimpo === '') tipoLimpo = 'Manutenção';
+
+        let texto = `Atenção Oficina! Nova Ordem de Serviço número ${numero}. Serviço de ${tipoLimpo}, para o veículo placa ${placaFalada}.`;
+
+        const utterance = new SpeechSynthesisUtterance(texto);
+        utterance.lang = 'pt-BR';
+        utterance.rate = 0.85; 
         utterance.pitch = 1;
         utterance.volume = 1;
         
@@ -123,6 +145,16 @@ window.sairModoTV = function() {
         mainContent.style.maxWidth = '';
     }
 
+    const container = document.getElementById('tvCardsContainer');
+    const painel = container?.parentElement;
+    if (container) {
+        container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(320px, 1fr))';
+    }
+    if (painel) {
+        painel.style.zoom = '1';
+        painel.style.overflow = '';
+        painel.style.height = '';
+    }
     document.body.style.overflow = '';
     
     const btnSair = document.getElementById('btnSairTV');
@@ -144,7 +176,7 @@ window.iniciarRelogioTV = function() {
         } else {
             if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
         }
-    }, 15000); // Atualiza a tela a cada 15 segundos
+    }, 15000);
 };
 
 window.toggleFullScreenTV = function() {
@@ -163,6 +195,37 @@ window.toggleFullScreenTV = function() {
             document.exitFullscreen();
         }
     }
+};
+
+window.ajustarEscalaTV = function() {
+    const container = document.getElementById('tvCardsContainer');
+    const painel = container?.parentElement;
+    if (!container || !painel) return;
+
+    const isFullscreen = !!document.fullscreenElement;
+
+    painel.style.zoom = "1";
+    painel.style.height = 'auto';
+    painel.style.overflow = '';
+    document.body.style.overflow = '';
+    
+    container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(320px, 1fr))';
+
+    if (!isFullscreen) return;
+
+    document.body.style.overflow = 'hidden';
+    painel.style.overflow = 'hidden';
+    painel.style.height = '100vh';
+
+    setTimeout(() => {
+        const windowHeight = window.innerHeight;
+        const contentHeight = painel.scrollHeight;
+
+        if (contentHeight > windowHeight && windowHeight > 0) {
+            const zoomFactor = windowHeight / contentHeight;
+            painel.style.zoom = (zoomFactor - 0.02).toFixed(4); 
+        }
+    }, 50);
 };
 
 function atualizarRelogioTV() {
@@ -283,7 +346,6 @@ window.renderizarCardsTV = function() {
     if(document.getElementById('tvKpiDisponiveis')) document.getElementById('tvKpiDisponiveis').innerText = veiculosDisponiveis;
     if(document.getElementById('tvKpiEmManutencao')) document.getElementById('tvKpiEmManutencao').innerText = veiculosManutencao;
     
-    // Filtro Melhorado: Agora inclui OS concluídas nos últimos 3 MINUTOS para fazer o efeito de Saída
     const osAtivas = ordensServico.filter(o => {
         if (o.tipo === 'Sinistro') return false;
 
@@ -292,16 +354,13 @@ window.renderizarCardsTV = function() {
 
         if (!placasExibicao.includes(placaOS) && !ehApenasGO) return false;
 
-        // Mantém as que estão ativas
         if (o.status === 'Aguardando Oficina' || o.status === 'Em Manutenção') return true;
 
-        // Se estiver Concluída, verifica o tempo
         if (o.status === 'Concluída' && o.data_conclusao) {
             const dataConclusao = new Date(String(o.data_conclusao).replace('Z', '').replace('+00:00', ''));
-            const diffMinutos = (agora - dataConclusao) / (1000 * 60); // Em minutos
+            const diffMinutos = (agora - dataConclusao) / (1000 * 60); 
             
             if (diffMinutos <= 3) {
-                // Se a OS concluiu recentemente, fala no som e entra na tela piscando
                 if (!window.osLiberadasAnunciadas.has(o.id)) {
                     window.osLiberadasAnunciadas.add(o.id);
                     
@@ -312,11 +371,27 @@ window.renderizarCardsTV = function() {
                     
                     falarVeiculoLiberado(placaOS, frotaVinculada ? frotaVinculada.numero_frota : '');
                 }
-                return true; // Exibe o cartão por 3 minutos
+                return true; 
             }
         }
         return false;
     });
+
+    // === Lógica de Anúncio de Novas O.S. ===
+    osAtivas.forEach(o => {
+        if (o.status !== 'Concluída') {
+            if (window.isFirstRenderTV) {
+                // No primeiro carregamento, apenas anota que já viu para não falar tudo
+                window.osNovasAnunciadas.add(o.id);
+            } else if (!window.osNovasAnunciadas.has(o.id)) {
+                // É uma nova O.S! Anuncia na TV
+                window.osNovasAnunciadas.add(o.id);
+                falarNovaOS(o.numero_os || o.id, o.tipo || 'Manutenção', o.placa || 'Não informada');
+            }
+        }
+    });
+    // Desliga a flag do primeiro carregamento após a primeira rodada
+    window.isFirstRenderTV = false;
     
     if (osAtivas.length === 0) {
         container.innerHTML = `
@@ -329,7 +404,6 @@ window.renderizarCardsTV = function() {
     }
     
     osAtivas.sort((a, b) => {
-        // Se for recém-concluída, joga para o topo da TV
         if (a.status === 'Concluída' && b.status !== 'Concluída') return -1;
         if (a.status !== 'Concluída' && b.status === 'Concluída') return 1;
 
@@ -344,19 +418,13 @@ window.renderizarCardsTV = function() {
     let sf = 1; 
 
     if (isFullscreen) {
-        document.body.style.overflow = 'hidden'; 
         const count = osAtivas.length;
         if (count >= 24) sf = 0.55;       
         else if (count >= 18) sf = 0.65;  
         else if (count >= 12) sf = 0.75;  
         else if (count >= 8) sf = 0.85;   
         else sf = 0.90;                   
-    } else {
-        document.body.style.overflow = '';
     }
-
-    container.style.gridTemplateColumns = `repeat(auto-fill, minmax(${450 * sf}px, 1fr))`;
-    container.style.gap = `${25 * sf}px`;
 
     container.innerHTML = osAtivas.map(os => {
         let corPrioridade = '#3b82f6'; 
@@ -367,7 +435,6 @@ window.renderizarCardsTV = function() {
         let diffHrs = 0; let diffMin = 0; let entradaHoraStr = '--:--';
         if (os.data_abertura) {
             const inicio = new Date(String(os.data_abertura).replace('Z', '').replace('+00:00', ''));
-            // Se já concluiu, congela o cronômetro no tempo em que foi concluído
             const tempoFim = (os.status === 'Concluída' && os.data_conclusao) ? new Date(String(os.data_conclusao).replace('Z', '').replace('+00:00', '')) : agora;
             
             const diffMs = tempoFim - inicio;
@@ -422,21 +489,20 @@ window.renderizarCardsTV = function() {
         let borderStatus = os.status === 'Em Manutenção' ? '#3b82f6' : '#475569'; 
         let nomeDoMecanico = os.mecanico_responsavel || os.mecanico || 'NÃO ATRIBUÍDO';
 
-        // Lógica Visual do "Veículo Liberado"
         if (os.status === 'Concluída') {
             textoStatus = '✅ VEÍCULO LIBERADO';
-            bgStatus = 'rgba(16, 185, 129, 0.15)'; // Verde escuro de fundo
-            borderStatus = '#10b981'; // Borda Verde claro
-            alertaClass = 'card-liberado'; // Adiciona a animação de piscar
+            bgStatus = 'rgba(16, 185, 129, 0.15)'; 
+            borderStatus = '#10b981'; 
+            alertaClass = 'card-liberado'; 
             avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: ${5*sf}px; text-align: center; border-radius: 4px; margin-top: ${10*sf}px; font-size: ${1.1*sf}rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 10px rgba(16,185,129,0.5);">PRONTO PARA RODAR</div>`;
-            colorCronometro = '#10b981'; // Congela o cronômetro na cor verde
+            colorCronometro = '#10b981'; 
         }
 
         return `
             <div class="${alertaClass}" style="background: ${bgStatus}; border: 3px solid ${borderStatus}; border-radius: 12px; padding: ${20*sf}px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; transition: all 0.3s ease;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: ${15*sf}px;">
                     <div>
-                        <div style="font-size: ${1*sf}rem; color: #94a3b8; margin-bottom: 5px;">O.S. #${os.id} | ${textoStatus}</div>
+                        <div style="font-size: ${1*sf}rem; color: #94a3b8; margin-bottom: 5px;">O.S. #${os.numero_os || os.id} | ${textoStatus}</div>
                         <div style="font-size: ${3*sf}rem; font-weight: 900; color: #fff; line-height: 1;">${os.placa}</div>
                     </div>
                     <div style="text-align: right;">
@@ -461,4 +527,6 @@ window.renderizarCardsTV = function() {
             </div>
         `;
     }).join('');
+
+    setTimeout(window.ajustarEscalaTV, 50);
 };
