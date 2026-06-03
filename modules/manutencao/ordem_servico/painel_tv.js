@@ -170,6 +170,11 @@ window.ajustarEscalaTV = function() {
     painel.style.height = 'auto';
     painel.style.overflowY = 'auto';
     document.body.style.overflow = '';
+    
+    // Volta o CSS Original para garantir que não distorça
+    container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(450px, 1fr))';
+    container.style.alignContent = 'start';
+    container.style.alignItems = 'start';
 
     if (!isFullscreen) return;
 
@@ -179,13 +184,13 @@ window.ajustarEscalaTV = function() {
 
     setTimeout(() => {
         const wH = window.innerHeight;
-        // Pega a altura total do painel (O Segredo para não cortar)
+        // Pega a altura total do painel
         const h = painel.scrollHeight + 20; 
 
         if (h > wH && wH > 0) {
             const z = wH / h;
             painel.style.zoom = z.toFixed(4);
-            // Corrige o bug de corte: O height do painel precisa aumentar na mesma proporção do zoom do navegador
+            // Corrige o bug de corte: O height do painel precisa aumentar na mesma proporção do zoom
             painel.style.height = (100 / z).toFixed(2) + 'vh';
         } else {
             painel.style.height = '100vh';
@@ -426,26 +431,26 @@ window.renderizarCardsTV = function() {
              avisoPrevisao = `<div style="background: rgba(255,255,255,0.05); color: #94a3b8; padding: 5px; text-align: center; border-radius: 4px; margin-top: 10px; font-size: 0.9rem;">AGUARDANDO PREVISÃO</div>`;
         }
         
-        let cardClass = 'tv-card';
-        let textoStatus = 'AGUARDANDO ATENDIMENTO';
+        let textoStatus = os.status === 'Em Manutenção' ? '  EM OFICINA' : '  AGUARDANDO ATENDIMENTO';
+        let bgStatus = os.status === 'Em Manutenção' ? '#1e3a8a' : '#1e293b'; 
+        let borderStatus = os.status === 'Em Manutenção' ? '#3b82f6' : '#475569'; 
         let nomeDoMecanico = os.mecanico_responsavel || os.mecanico || 'NÃO ATRIBUÍDO';
 
         if (os.status === 'Concluída') {
-            cardClass += ' liberado';
             textoStatus = '✅ VEÍCULO LIBERADO';
+            bgStatus = 'rgba(16, 185, 129, 0.15)'; 
+            borderStatus = '#10b981'; 
+            alertaClass = 'card-liberado'; 
             avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 5px; text-align: center; border-radius: 4px; margin-top: 10px; font-size: 1.1rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 10px rgba(16,185,129,0.5);">PRONTO PARA RODAR</div>`;
             colorCronometro = '#10b981'; 
-        } else if (os.status === 'Em Manutenção') {
-            cardClass += ' manutencao';
-            textoStatus = 'EM OFICINA';
         }
         
-        if(alertaClass === 'piscar-alerta') cardClass += ' piscar-alerta';
+        if(alertaClass === 'piscar-alerta') alertaClass += ' piscar-alerta';
 
-        // Usa as novas DIVS e classes Flex do painel_tv.css
+        // O HTML DE VOLTA AO SEU ESTADO ORIGINAL! Flexível, sem quebrar.
         return `
-            <div class="${cardClass}">
-                <div class="tv-card-header">
+            <div class="${alertaClass}" style="background: ${bgStatus}; border: 3px solid ${borderStatus}; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; transition: all 0.3s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
                     <div>
                         <div style="font-size: 1rem; color: #94a3b8; margin-bottom: 5px;">O.S. #${os.numero_os || os.id} | ${textoStatus}</div>
                         <div style="font-size: 3rem; font-weight: 900; color: #fff; line-height: 1;">${os.placa}</div>
@@ -457,14 +462,14 @@ window.renderizarCardsTV = function() {
                 
                 <div style="margin-bottom: 15px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; width: 100%;">${conjuntosBadge}</div>
                 
-                <div class="tv-card-body">
+                <div style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: 15px; margin-bottom: 15px; flex: 1;">
                     <div style="color: #60a5fa; font-weight: bold; font-size: 1.2rem; margin-bottom: 5px;">${os.tipo}</div>
                     <div style="color: #cbd5e1; font-size: 1.1rem;">Motorista: <strong style="color: #fff;">${os.motorista}</strong></div>
                     <div style="color: #cbd5e1; font-size: 1.1rem; margin-top: 5px;">Mecânico: <strong style="color: var(--ccol-green-bright); text-transform: uppercase;">${nomeDoMecanico}</strong></div>
-                    <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 8px; max-height: 60px; overflow: hidden; text-overflow: ellipsis;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
+                    <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 8px;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
                 </div>
                 
-                <div class="tv-card-footer">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
                     <div style="color: #94a3b8; font-size: 1rem;">Entrada: <br><strong style="color: #fff;">${entradaHoraStr}</strong></div>
                     <div style="text-align: right;">
                         <div style="font-size: 0.9rem; color: #94a3b8;">TEMPO NO PÁTIO</div>

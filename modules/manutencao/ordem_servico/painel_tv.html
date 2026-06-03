@@ -46,5 +46,7 @@
         </div>
     </div>
     
-    <div id="tvCardsContainer" class="tv-grid-container"></div>
+    <!-- GRID ORIGINAL REVERTIDO: auto-fill minmax(450px) para não cortar nada e ficar perfeito -->
+    <!-- align-content: start e align-items: start evita que estiquem verticalmente -->
+    <div id="tvCardsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); gap: 25px; align-content: start; align-items: start; padding-bottom: 30px;"></div>
 </div>
