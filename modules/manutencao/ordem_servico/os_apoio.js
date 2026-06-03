@@ -13,7 +13,12 @@ async function carregarDadosOSApoio() {
         
         if (!osError && osData) ordensServicoApoio = osData;
 
-        let queryFrota = supabaseClient.from('frotas_pequenas').select('*').order('placa', { ascending: true });
+        // Modificado: Busca a frota de apoio da tabela principal usando o filtro de categoria
+        let queryFrota = supabaseClient.from('frotas_manutencao')
+            .select('*')
+            .in('categoria', ['Frota Leve', 'PRANCHA', 'COMBOIO'])
+            .order('cavalo', { ascending: true });
+            
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
         const { data: frotaData, error: frotaError } = await queryFrota;
             
@@ -175,14 +180,25 @@ async function salvarFrotaApoio() {
         return;
     }
 
-    let frota = { placa, marca_modelo, cor };
+    // Auto define a categoria do apoio de acordo com a digitação
+    let categoriaEscolhida = 'Frota Leve';
+    if(marca_modelo.toUpperCase().includes('PRANCHA')) categoriaEscolhida = 'PRANCHA';
+    if(marca_modelo.toUpperCase().includes('COMBOIO')) categoriaEscolhida = 'COMBOIO';
+
+    let frota = { 
+        cavalo: placa, 
+        descricao: marca_modelo, 
+        cor: cor, 
+        categoria: categoriaEscolhida,
+        status: 'Ativo'
+    };
 
     if (id) {
-        const { error } = await supabaseClient.from('frotas_pequenas').update(frota).eq('id', id);
+        const { error } = await supabaseClient.from('frotas_manutencao').update(frota).eq('id', id);
         if(error) alert("Erro: " + error.message); else alert("Veículo atualizado!");
     } else {
         if (typeof window.injetarFilial === 'function') frota = window.injetarFilial(frota);
-        const { error } = await supabaseClient.from('frotas_pequenas').insert([frota]);
+        const { error } = await supabaseClient.from('frotas_manutencao').insert([frota]);
         if(error) alert("Erro: " + error.message); else alert("Veículo cadastrado!");
     }
 
@@ -203,9 +219,9 @@ function renderizarTabelaFrotaApoio() {
     frotasApoio.forEach(f => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="font-weight: bold; color: var(--ccol-blue-bright);">${f.placa}</td>
-            <td>${f.marca_modelo || '-'}</td>
-            <td>${f.cor || '-'}</td>
+            <td style="font-weight: bold; color: var(--ccol-blue-bright);">${f.cavalo}</td>
+            <td>${f.descricao || f.categoria || '-'}</td>
+            <td>${f.cor || f.numero_frota || '-'}</td>
             <td>
                 <button class="btn-primary-blue" onclick="editarFrotaApoio('${f.id}')" style="padding: 4px 8px; font-size: 0.8rem;">Editar</button>
                 <button class="btn-danger-outline" onclick="excluirFrotaApoio('${f.id}')" style="padding: 4px 8px; font-size: 0.8rem;">Excluir</button>
@@ -216,18 +232,18 @@ function renderizarTabelaFrotaApoio() {
 }
 
 function editarFrotaApoio(id) {
-    const frota = frotasApoio.find(f => f.id === id);
+    const frota = frotasApoio.find(f => f.id == id);
     if(frota) {
         document.getElementById('osApoioFrotaId').value = frota.id;
-        document.getElementById('osApoioFrotaPlaca').value = frota.placa;
-        document.getElementById('osApoioFrotaModelo').value = frota.marca_modelo;
-        document.getElementById('osApoioFrotaCor').value = frota.cor;
+        document.getElementById('osApoioFrotaPlaca').value = frota.cavalo;
+        document.getElementById('osApoioFrotaModelo').value = frota.descricao || frota.categoria || '';
+        document.getElementById('osApoioFrotaCor').value = frota.cor || frota.numero_frota || '';
     }
 }
 
 async function excluirFrotaApoio(id) {
     if(confirm("Tem certeza que deseja excluir este veículo de Apoio?")) {
-        await supabaseClient.from('frotas_pequenas').delete().eq('id', id);
+        await supabaseClient.from('frotas_manutencao').delete().eq('id', id);
         await carregarDadosOSApoio();
         renderizarTabelaFrotaApoio();
     }
@@ -278,7 +294,7 @@ function carregarSelectVeiculosApoio() {
     if(!select) return;
     select.innerHTML = '<option value="">Selecione o Veículo...</option>';
     frotasApoio.forEach(f => {
-        select.innerHTML += `<option value="${f.placa}">${f.placa} (${f.marca_modelo})</option>`;
+        select.innerHTML += `<option value="${f.cavalo}">${f.cavalo} (${f.descricao || f.categoria || '-'})</option>`;
     });
 }
 
@@ -304,7 +320,7 @@ function imprimirOSApoio(osId) {
     const os = ordensServicoApoio.find(o => o.id === osId);
     if (!os) return;
     
-    const frota = frotasApoio.find(f => f.placa === os.placa) || {};
+    const frota = frotasApoio.find(f => f.cavalo === os.placa) || {};
     
     let infoAbertoPor = 'Não Informado';
     try {
@@ -400,8 +416,8 @@ function imprimirOSApoio(osId) {
             <table style="margin-bottom: 5px;">
                 <tr>
                     <td style="background-color: #f0f0f0; font-weight: bold; width: 20%; text-align: center;">Detalhes do Veículo</td>
-                    <td style="width: 26%;"><strong>Marca/Modelo/Tipo:</strong> ${frota.marca_modelo || '-'}</td>
-                    <td style="width: 26%;"><strong>Cor/Prefixo:</strong> ${frota.cor || '-'}</td>
+                    <td style="width: 26%;"><strong>Marca/Modelo/Tipo:</strong> ${frota.descricao || frota.categoria || '-'}</td>
+                    <td style="width: 26%;"><strong>Cor/Prefixo:</strong> ${frota.cor || frota.numero_frota || '-'}</td>
                     <td style="width: 28%;"><strong>Observações O.S:</strong> ${os.observacoes || '-'}</td>
                 </tr>
             </table>
