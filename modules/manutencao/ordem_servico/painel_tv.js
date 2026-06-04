@@ -222,38 +222,42 @@ window.toggleFullScreenTV = function() {
     }
 };
 
-// ================== LÓGICA DE ESCALA MATEMÁTICA PURA ==================
+// ================== LÓGICA DE ESCALA INTELIGENTE (FLEX GRID) ==================
 
 window.ajustarEscalaTV = function() {
     const container = document.getElementById('tvCardsContainer');
     const painel = document.getElementById('painelTvFundo');
     if (!container || !painel) return;
 
+    // Reseta qualquer zoom anterior 
     painel.style.zoom = "1";
     
     if (document.fullscreenElement) {
         painel.style.overflow = 'hidden';
         document.body.style.overflow = 'hidden';
         
+        container.style.alignContent = 'stretch';
         container.style.gridTemplateColumns = 'repeat(4, 1fr)';
-
-        setTimeout(() => {
-            const alturaTela = window.innerHeight;
-            const alturaConteudo = painel.scrollHeight;
-
-            if (alturaConteudo > 0) {
-                let proporcao = (alturaTela / alturaConteudo) * 0.97;
-                
-                if (proporcao > 1.3) proporcao = 1.3;
-
-                painel.style.zoom = proporcao.toFixed(4);
-            }
-        }, 50);
+        
+        const hasPagination = document.getElementById('tvPaginationIndicator') !== null;
+        const numCards = container.children.length - (hasPagination ? 1 : 0);
+        
+        if (numCards > 4) {
+            // Se tem mais de 4 cards, força a usar 100% da altura da tela dividida em 2 linhas iguais
+            container.style.height = 'calc(100vh - 140px)'; 
+            container.style.gridTemplateRows = hasPagination ? '1fr 1fr 60px' : '1fr 1fr';
+        } else {
+            // Se for só 1 linha (1 a 4 cards), deixa a altura automática para não ficarem absurdamente compridos
+            container.style.height = 'auto'; 
+            container.style.gridTemplateRows = hasPagination ? 'auto 60px' : 'auto';
+        }
 
     } else {
         painel.style.overflowY = 'auto';
         document.body.style.overflow = '';
+        container.style.height = 'auto';
         container.style.gridTemplateColumns = 'repeat(auto-fit, minmax(420px, 1fr))';
+        container.style.gridTemplateRows = 'auto';
     }
 };
 
@@ -366,7 +370,6 @@ window.renderizarCardsTV = function() {
                     );
                     falarVeiculoLiberado(o.placa || '', frotaVinculada ? frotaVinculada.numero_frota : '');
                     
-                    // FORÇA PULAR PARA A PRIMEIRA PÁGINA PARA MOSTRAR O VEÍCULO LIBERADO
                     window.tvPaginaAtual = 0; 
                 }
                 return true; 
@@ -383,7 +386,6 @@ window.renderizarCardsTV = function() {
                 window.osNovasAnunciadas.add(o.id);
                 falarNovaOS(o.numero_os || o.id, o.tipo || 'Manutenção', o.placa || 'Não informada');
                 
-                // FORÇA PULAR PARA A PRIMEIRA PÁGINA PARA MOSTRAR A NOVA O.S
                 window.tvPaginaAtual = 0;
             }
         }
@@ -429,7 +431,6 @@ window.renderizarCardsTV = function() {
         ? osAtivas.slice(window.tvPaginaAtual * MAX_CARDS_PAGINA, (window.tvPaginaAtual + 1) * MAX_CARDS_PAGINA)
         : osAtivas;
 
-    // Trava o carrossel se tiver alguma O.S Concluída sendo exibida nesta página
     window.tvPausarCarrossel = osParaExibir.some(os => os.status === 'Concluída');
 
     let htmlCards = osParaExibir.map(os => {
@@ -481,13 +482,13 @@ window.renderizarCardsTV = function() {
         if (campoPrevisao) {
             const dataPrevisao = new Date(String(campoPrevisao).replace('Z', '').replace('+00:00', ''));
             if (agora > dataPrevisao) {
-                avisoPrevisao = `<div style="background: #ef4444; color: #fff; padding: 5px; text-align: center; font-weight: bold; border-radius: 4px; margin-top: 10px; font-size: 1rem; border: 2px solid #fff;">⚠️ PREVISÃO VENCIDA: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
+                avisoPrevisao = `<div style="background: #ef4444; color: #fff; padding: 6px; text-align: center; font-weight: bold; border-radius: 4px; margin-top: 15px; font-size: 1.05rem; border: 2px solid #fff;">⚠️ PREVISÃO VENCIDA: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
             } else {
-                avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 5px; text-align: center; border-radius: 4px; margin-top: 10px; font-size: 1rem; font-weight: bold;">PREVISÃO: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
+                avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 6px; text-align: center; border-radius: 4px; margin-top: 15px; font-size: 1.05rem; font-weight: bold;">PREVISÃO: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
                 if(os.status !== 'Concluída') colorCronometro = '#10b981'; alertaClass = '';
             }
         } else {
-             avisoPrevisao = `<div style="background: rgba(255,255,255,0.05); color: #94a3b8; padding: 5px; text-align: center; border-radius: 4px; margin-top: 10px; font-size: 0.9rem;">AGUARDANDO PREVISÃO</div>`;
+             avisoPrevisao = `<div style="background: rgba(255,255,255,0.05); color: #94a3b8; padding: 6px; text-align: center; border-radius: 4px; margin-top: 15px; font-size: 0.95rem;">AGUARDANDO PREVISÃO</div>`;
         }
         
         let textoStatus = os.status === 'Em Manutenção' ? '🔧 EM OFICINA' : '🕑 AGUARDANDO ATENDIMENTO';
@@ -500,38 +501,40 @@ window.renderizarCardsTV = function() {
             bgStatus = 'rgba(16, 185, 129, 0.15)'; 
             borderStatus = '#10b981'; 
             alertaClass = 'card-liberado'; 
-            avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 5px; text-align: center; border-radius: 4px; margin-top: 10px; font-size: 1.1rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 10px rgba(16,185,129,0.5);">PRONTO PARA RODAR</div>`;
+            avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 6px; text-align: center; border-radius: 4px; margin-top: 15px; font-size: 1.15rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 10px rgba(16,185,129,0.5);">PRONTO PARA RODAR</div>`;
             colorCronometro = '#10b981'; 
         }
         
         if(alertaClass === 'piscar-alerta') alertaClass += ' piscar-alerta';
 
+        // O segredo do Layout perfeito: height: 100%, box-sizing: border-box e a Caixa do Meio com flex: 1
         return `
-            <div class="${alertaClass}" style="background: ${bgStatus}; border: 3px solid ${borderStatus}; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; transition: all 0.3s ease;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+            <div class="${alertaClass}" style="background: ${bgStatus}; border: 3px solid ${borderStatus}; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; transition: all 0.3s ease;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                     <div>
                         <div style="font-size: 1.05rem; color: #e2e8f0; font-weight: 600; margin-bottom: 5px;">O.S. #${os.numero_os || os.id} | ${textoStatus}</div>
-                        <div style="font-size: 3rem; font-weight: 900; color: #fff; line-height: 1;">${os.placa || 'S/ PLACA'}</div>
+                        <div style="font-size: 3.2rem; font-weight: 900; color: #fff; line-height: 1;">${os.placa || 'S/ PLACA'}</div>
                     </div>
                     <div style="text-align: right;">
-                        <div style="background: ${corPrioridade}; color: #fff; font-weight: bold; padding: 5px 15px; border-radius: 20px; font-size: 1.1rem; text-transform: uppercase;">${os.prioridade || 'Normal'}</div>
+                        <div style="background: ${corPrioridade}; color: #fff; font-weight: bold; padding: 6px 18px; border-radius: 20px; font-size: 1.1rem; text-transform: uppercase;">${os.prioridade || 'Normal'}</div>
                     </div>
                 </div>
                 
-                <div style="margin-bottom: 15px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; width: 100%;">${conjuntosBadge}</div>
+                <div style="margin-bottom: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; width: 100%;">${conjuntosBadge}</div>
                 
-                <div style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: 15px; margin-bottom: 15px; flex: 1;">
-                    <div style="color: #60a5fa; font-weight: bold; font-size: 1.2rem; margin-bottom: 5px;">${os.tipo || '-'}</div>
-                    <div style="color: #cbd5e1; font-size: 1.1rem;">Motorista: <strong style="color: #fff;">${os.motorista || '-'}</strong></div>
-                    <div style="color: #cbd5e1; font-size: 1.1rem; margin-top: 5px;">Mecânico: <strong style="color: var(--ccol-green-bright); text-transform: uppercase;">${nomeDoMecanico}</strong></div>
-                    <div style="color: #ffffff; font-size: 0.95rem; font-weight: 500; margin-top: 8px;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
+                <div style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: 15px; margin-bottom: 15px; flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="color: #60a5fa; font-weight: bold; font-size: 1.3rem; margin-bottom: 5px;">${os.tipo || '-'}</div>
+                    <div style="color: #cbd5e1; font-size: 1.15rem;">Motorista: <strong style="color: #fff;">${os.motorista || '-'}</strong></div>
+                    <div style="color: #cbd5e1; font-size: 1.15rem; margin-top: 5px;">Mecânico: <strong style="color: var(--ccol-green-bright); text-transform: uppercase;">${nomeDoMecanico}</strong></div>
+                    <div style="color: #ffffff; font-size: 1.05rem; font-weight: 500; margin-top: 10px; line-height: 1.4;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
                 </div>
                 
-                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-                    <div style="color: #94a3b8; font-size: 1rem;">Entrada: <br><strong style="color: #fff;">${entradaHoraStr}</strong></div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: auto;">
+                    <div style="color: #94a3b8; font-size: 1.05rem;">Entrada: <br><strong style="color: #fff; font-size: 1.2rem;">${entradaHoraStr}</strong></div>
                     <div style="text-align: right;">
-                        <div style="font-size: 0.9rem; color: #94a3b8;">TEMPO NO PÁTIO</div>
-                        <div style="font-size: 2.2rem; font-weight: 900; color: ${colorCronometro}; font-family: monospace;">${String(diffHrs).padStart(2,'0')}:${String(diffMin).padStart(2,'0')}</div>
+                        <div style="font-size: 0.95rem; color: #94a3b8; margin-bottom: 2px;">TEMPO NO PÁTIO</div>
+                        <div style="font-size: 2.6rem; font-weight: 900; color: ${colorCronometro}; font-family: monospace; line-height: 1;">${String(diffHrs).padStart(2,'0')}:${String(diffMin).padStart(2,'0')}</div>
                     </div>
                 </div>
                 ${avisoPrevisao}
@@ -546,7 +549,7 @@ window.renderizarCardsTV = function() {
             : `<span style="font-size: 0.9rem; margin-left: 10px; font-weight: normal;">(Aguarde para ver a próxima...)</span>`;
             
         htmlCards += `
-            <div style="grid-column: 1 / -1; text-align: center; color: #64748b; font-size: 1.3rem; margin-top: 15px; font-weight: bold; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+            <div id="tvPaginationIndicator" style="grid-column: 1 / -1; text-align: center; color: #64748b; font-size: 1.3rem; margin-top: 15px; font-weight: bold; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; height: 50px; display: flex; align-items: center; justify-content: center;">
                 EXIBINDO PÁGINA ${window.tvPaginaAtual + 1} DE ${totalPaginas} ${msgAviso}
             </div>
         `;
