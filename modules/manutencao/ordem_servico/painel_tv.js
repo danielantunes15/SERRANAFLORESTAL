@@ -52,7 +52,7 @@ window.falarNovaOS = function(numero, tipo, placa) {
 
 if (!window.tvEventListenersConfigured) {
     window.addEventListener('resize', () => {
-        if (document.fullscreenElement && typeof renderizarCardsTV === 'function') renderizarCardsTV();
+        if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
     });
     document.addEventListener('fullscreenchange', () => {
         if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
@@ -162,38 +162,47 @@ window.toggleFullScreenTV = function() {
     }
 };
 
+// ================== LÓGICA DE ESCALA PROPORCIONAL (MÁTÉMATICA DIRETA) ==================
+
 window.ajustarEscalaTV = function() {
     const container = document.getElementById('tvCardsContainer');
     const painel = document.getElementById('painelTvFundo');
     if (!container || !painel) return;
 
-    const isFullscreen = !!document.fullscreenElement;
-
-    // Reseta escala de forma síncrona para não piscar
+    // 1. Configuração Padrão (Sem Tela Cheia)
     painel.style.zoom = "1";
-    painel.style.height = 'auto';
     painel.style.overflowY = 'auto';
     document.body.style.overflow = '';
-    container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(450px, 1fr))';
+    container.style.gridTemplateColumns = 'repeat(auto-fit, minmax(420px, 1fr))';
 
-    if (!isFullscreen) return;
+    // 2. Se estiver em TELA CHEIA, aplica a matemática de proporção
+    if (document.fullscreenElement) {
+        // Trava a rolagem na tela cheia
+        painel.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
 
-    // Oculta a barra de rolagem
-    document.body.style.overflow = 'hidden';
-    painel.style.overflowY = 'hidden';
+        // Dá um pequeno atraso (50ms) para o navegador calcular as alturas reais dos cards antes de fazer a conta
+        setTimeout(() => {
+            const alturaTela = window.innerHeight;
+            const alturaConteudo = painel.scrollHeight;
 
-    // Mede a altura instantaneamente sem setTimeout para evitar o "clarão"
-    const h = painel.scrollHeight + 20; 
-    const wH = window.innerHeight;
-
-    if (h > wH && wH > 0) {
-        const z = wH / h;
-        painel.style.zoom = z.toFixed(4);
-        painel.style.height = (100 / z).toFixed(2) + 'vh';
-    } else {
-        painel.style.height = '100vh';
+            if (alturaConteudo > 0) {
+                if (alturaConteudo > alturaTela) {
+                    // Tem muitos cards e passou da tela: Encolhe proporcionalmente
+                    // Multiplicamos por 0.98 para deixar uma pequena margem de segurança e não colar nas bordas
+                    const proporcao = (alturaTela / alturaConteudo) * 0.98;
+                    painel.style.zoom = proporcao.toFixed(4);
+                } else if (alturaConteudo < alturaTela * 0.7) {
+                    // Tem poucos cards: Estica um pouco para preencher o vazio da TV (limite de 1.5x)
+                    const proporcao = Math.min(1.5, (alturaTela * 0.85) / alturaConteudo);
+                    painel.style.zoom = proporcao.toFixed(4);
+                }
+            }
+        }, 50);
     }
 };
+
+// ==============================================================================
 
 function atualizarRelogioTV() {
     const elRelogio = document.getElementById('tvRelogio');
@@ -324,7 +333,7 @@ window.renderizarCardsTV = function() {
     if (osAtivas.length === 0) {
         container.innerHTML = `
             <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh;">
-                <h1 style="color: var(--ccol-green-bright); font-size: 4rem; margin: 0;">PÁTIO VAZIO  </h1>
+                <h1 style="color: var(--ccol-green-bright); font-size: 4rem; margin: 0;">PÁTIO VAZIO</h1>
                 <p style="color: #94a3b8; font-size: 2rem;">Nenhum veículo aguardando manutenção.</p>
             </div>
         `;
@@ -401,7 +410,7 @@ window.renderizarCardsTV = function() {
              avisoPrevisao = `<div style="background: rgba(255,255,255,0.05); color: #94a3b8; padding: 5px; text-align: center; border-radius: 4px; margin-top: 10px; font-size: 0.9rem;">AGUARDANDO PREVISÃO</div>`;
         }
         
-        let textoStatus = os.status === 'Em Manutenção' ? '  EM OFICINA' : '  AGUARDANDO ATENDIMENTO';
+        let textoStatus = os.status === 'Em Manutenção' ? '🔧 EM OFICINA' : '🕑 AGUARDANDO ATENDIMENTO';
         let bgStatus = os.status === 'Em Manutenção' ? '#1e3a8a' : '#1e293b'; 
         let borderStatus = os.status === 'Em Manutenção' ? '#3b82f6' : '#475569'; 
         let nomeDoMecanico = os.mecanico_responsavel || os.mecanico || 'NÃO ATRIBUÍDO';
@@ -450,6 +459,6 @@ window.renderizarCardsTV = function() {
         `;
     }).join('');
 
-    // Removemos o setTimeout para aplicar o cálculo instantaneamente (Sem tela piscando)
+    // Ajuste proporcional sempre é chamado por último após montar os cards
     window.ajustarEscalaTV();
 };
