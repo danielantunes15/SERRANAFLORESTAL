@@ -5,50 +5,103 @@
 if (typeof window.isFirstRenderTV === 'undefined') {
     window.osNovasAnunciadas = new Set();
     window.osLiberadasAnunciadas = new Set();
-    window.isFirstRenderTV = true; // Previne que a TV anuncie todas as OS antigas ao ligar
+    window.isFirstRenderTV = true; 
+    window.isGongoTocando = false; 
+    window.tvPaginaAtual = 0; // Controle do Carrossel de Páginas
+    window.tvPausarCarrossel = false; // Trava a paginação se houver OS finalizada na tela
 }
 
-// Funções de Síntese de Voz (Falar no Auto-falante da TV)
-window.falarVeiculoLiberado = function(placa, frota) {
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.resume(); // Acorda a API se tiver adormecido
-        
-        let placaFalada = String(placa).split('').join(' ');
-        let texto = `Atenção Pátio! Veículo placa ${placaFalada} , liberado da oficina.`;
-        if (frota && frota !== '') {
-            texto += ` Número da Frota: ${frota}.`;
-        }
+// ================== LÓGICA DE ÁUDIO E VOZ (COM GONGO) ==================
 
+function tocarGongoSintetizado(callback) {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) throw new Error("Áudio não suportado");
+        
+        const ctx = new AudioContext();
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+
+        osc1.frequency.setValueAtTime(659.25, ctx.currentTime);
+        osc2.frequency.setValueAtTime(523.25, ctx.currentTime + 0.5);
+
+        gainNode.gain.setValueAtTime(0, ctx.currentTime);
+        
+        gainNode.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        
+        gainNode.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 0.55);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.5);
+
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        osc1.start(ctx.currentTime);
+        osc1.stop(ctx.currentTime + 0.5);
+        
+        osc2.start(ctx.currentTime + 0.5);
+        osc2.stop(ctx.currentTime + 1.5);
+
+        setTimeout(() => {
+            if (callback) callback();
+        }, 1500);
+
+    } catch (e) {
+        if (callback) callback();
+    }
+}
+
+function anunciarComGongo(texto) {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.resume(); 
+
+    const executarVoz = () => {
         const utterance = new SpeechSynthesisUtterance(texto);
         utterance.lang = 'pt-BR';
         utterance.rate = 0.85; 
         utterance.pitch = 1;
         utterance.volume = 1;
-        
         window.speechSynthesis.speak(utterance);
+    };
+
+    if (window.isGongoTocando || window.speechSynthesis.speaking) {
+        executarVoz();
+        return;
     }
+
+    window.isGongoTocando = true;
+    
+    tocarGongoSintetizado(() => {
+        window.isGongoTocando = false;
+        executarVoz();
+    });
+}
+
+window.falarVeiculoLiberado = function(placa, frota) {
+    let placaFalada = String(placa).split('').join(' ');
+    let texto = `Atenção Pátio! Veículo placa ${placaFalada} , liberado da oficina.`;
+    if (frota && frota !== '') {
+        texto += ` Número da Frota: ${frota}.`;
+    }
+    anunciarComGongo(texto);
 };
 
 window.falarNovaOS = function(numero, tipo, placa) {
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.resume(); // Acorda a API se tiver adormecido
-        
-        let placaFalada = String(placa).split('').join(' ');
-        
-        let tipoLimpo = String(tipo).replace('Manutenção', '').replace('- P.A Serrana', '').trim();
-        if (tipoLimpo === '') tipoLimpo = 'Manutenção';
+    let placaFalada = String(placa).split('').join(' ');
+    
+    let tipoLimpo = String(tipo).replace('Manutenção', '').replace('- P.A Serrana', '').trim();
+    if (tipoLimpo === '') tipoLimpo = 'Manutenção';
 
-        let texto = `Atenção Oficina! Nova Ordem de Serviço número ${numero}. Serviço de ${tipoLimpo}, para o veículo placa ${placaFalada}.`;
-
-        const utterance = new SpeechSynthesisUtterance(texto);
-        utterance.lang = 'pt-BR';
-        utterance.rate = 0.85; 
-        utterance.pitch = 1;
-        utterance.volume = 1;
-        
-        window.speechSynthesis.speak(utterance);
-    }
+    let texto = `Atenção Oficina! Nova Ordem de Serviço número ${numero}. Serviço de ${tipoLimpo}, para o veículo placa ${placaFalada}.`;
+    anunciarComGongo(texto);
 };
+
+// =======================================================================
 
 if (!window.tvEventListenersConfigured) {
     window.addEventListener('resize', () => {
@@ -132,7 +185,14 @@ window.iniciarRelogioTV = function() {
     }
     
     if (window.tvInterval) clearInterval(window.tvInterval);
+    
+    // Roda a cada 15 segundos para avançar a página
     window.tvInterval = setInterval(() => {
+        // Só avança a página se o carrossel NÃO estiver pausado (por causa de OS Concluída na tela)
+        if (document.fullscreenElement && !window.tvPausarCarrossel) {
+            window.tvPaginaAtual++; 
+        }
+
         if(typeof carregarDadosOS === 'function') {
             carregarDadosOS().then(() => {
                 if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
@@ -140,7 +200,7 @@ window.iniciarRelogioTV = function() {
         } else {
             if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
         }
-    }, 15000);
+    }, 15000); 
 };
 
 window.toggleFullScreenTV = function() {
@@ -151,8 +211,8 @@ window.toggleFullScreenTV = function() {
         
         if ('speechSynthesis' in window) {
             window.speechSynthesis.resume();
-            let u = new SpeechSynthesisUtterance('Painel ativado');
-            u.volume = 0; // Fala silenciosa só pra desbloquear o áudio do navegador
+            let u = new SpeechSynthesisUtterance('');
+            u.volume = 0; 
             window.speechSynthesis.speak(u);
         }
     } else {
@@ -162,43 +222,38 @@ window.toggleFullScreenTV = function() {
     }
 };
 
-// ================== LÓGICA DE ESCALA PROPORCIONAL (MÁTÉMATICA DIRETA) ==================
+// ================== LÓGICA DE ESCALA MATEMÁTICA PURA ==================
 
 window.ajustarEscalaTV = function() {
     const container = document.getElementById('tvCardsContainer');
     const painel = document.getElementById('painelTvFundo');
     if (!container || !painel) return;
 
-    // 1. Configuração Padrão (Sem Tela Cheia)
     painel.style.zoom = "1";
-    painel.style.overflowY = 'auto';
-    document.body.style.overflow = '';
-    container.style.gridTemplateColumns = 'repeat(auto-fit, minmax(420px, 1fr))';
-
-    // 2. Se estiver em TELA CHEIA, aplica a matemática de proporção
+    
     if (document.fullscreenElement) {
-        // Trava a rolagem na tela cheia
         painel.style.overflow = 'hidden';
         document.body.style.overflow = 'hidden';
+        
+        container.style.gridTemplateColumns = 'repeat(4, 1fr)';
 
-        // Dá um pequeno atraso (50ms) para o navegador calcular as alturas reais dos cards antes de fazer a conta
         setTimeout(() => {
             const alturaTela = window.innerHeight;
             const alturaConteudo = painel.scrollHeight;
 
             if (alturaConteudo > 0) {
-                if (alturaConteudo > alturaTela) {
-                    // Tem muitos cards e passou da tela: Encolhe proporcionalmente
-                    // Multiplicamos por 0.98 para deixar uma pequena margem de segurança e não colar nas bordas
-                    const proporcao = (alturaTela / alturaConteudo) * 0.98;
-                    painel.style.zoom = proporcao.toFixed(4);
-                } else if (alturaConteudo < alturaTela * 0.7) {
-                    // Tem poucos cards: Estica um pouco para preencher o vazio da TV (limite de 1.5x)
-                    const proporcao = Math.min(1.5, (alturaTela * 0.85) / alturaConteudo);
-                    painel.style.zoom = proporcao.toFixed(4);
-                }
+                let proporcao = (alturaTela / alturaConteudo) * 0.97;
+                
+                if (proporcao > 1.3) proporcao = 1.3;
+
+                painel.style.zoom = proporcao.toFixed(4);
             }
         }, 50);
+
+    } else {
+        painel.style.overflowY = 'auto';
+        document.body.style.overflow = '';
+        container.style.gridTemplateColumns = 'repeat(auto-fit, minmax(420px, 1fr))';
     }
 };
 
@@ -292,7 +347,7 @@ window.renderizarCardsTV = function() {
     if(document.getElementById('tvKpiDisponiveis')) document.getElementById('tvKpiDisponiveis').innerText = veiculosDisponiveis;
     if(document.getElementById('tvKpiEmManutencao')) document.getElementById('tvKpiEmManutencao').innerText = veiculosManutencao;
     
-    // Filtro Flexível: Aceita QUALQUER OS aberta para a TV
+    // Filtro de O.S abertas ou recentemente concluídas
     const osAtivas = ordensServico.filter(o => {
         if (o.tipo === 'Sinistro') return false;
 
@@ -310,6 +365,9 @@ window.renderizarCardsTV = function() {
                         (f.go && String(f.go).trim().toUpperCase() === String(o.placa).trim().toUpperCase())
                     );
                     falarVeiculoLiberado(o.placa || '', frotaVinculada ? frotaVinculada.numero_frota : '');
+                    
+                    // FORÇA PULAR PARA A PRIMEIRA PÁGINA PARA MOSTRAR O VEÍCULO LIBERADO
+                    window.tvPaginaAtual = 0; 
                 }
                 return true; 
             }
@@ -324,6 +382,9 @@ window.renderizarCardsTV = function() {
             } else if (!window.osNovasAnunciadas.has(o.id)) {
                 window.osNovasAnunciadas.add(o.id);
                 falarNovaOS(o.numero_os || o.id, o.tipo || 'Manutenção', o.placa || 'Não informada');
+                
+                // FORÇA PULAR PARA A PRIMEIRA PÁGINA PARA MOSTRAR A NOVA O.S
+                window.tvPaginaAtual = 0;
             }
         }
     });
@@ -337,10 +398,12 @@ window.renderizarCardsTV = function() {
                 <p style="color: #94a3b8; font-size: 2rem;">Nenhum veículo aguardando manutenção.</p>
             </div>
         `;
+        window.tvPausarCarrossel = false;
         window.ajustarEscalaTV();
         return;
     }
     
+    // Ordenação (Concluídas sempre ficam no topo/início da fila)
     osAtivas.sort((a, b) => {
         if (a.status === 'Concluída' && b.status !== 'Concluída') return -1;
         if (a.status !== 'Concluída' && b.status === 'Concluída') return 1;
@@ -352,7 +415,24 @@ window.renderizarCardsTV = function() {
         return new Date(a.data_abertura) - new Date(b.data_abertura);
     });
 
-    container.innerHTML = osAtivas.map(os => {
+    // ==============================================================
+    // LÓGICA DE PAGINAÇÃO: MÁXIMO 8 CARDS POR TELA PARA TV CHEIA (4x2)
+    // ==============================================================
+    const MAX_CARDS_PAGINA = 8;
+    const totalPaginas = Math.ceil(osAtivas.length / MAX_CARDS_PAGINA);
+
+    if (window.tvPaginaAtual >= totalPaginas) {
+        window.tvPaginaAtual = 0;
+    }
+
+    const osParaExibir = document.fullscreenElement 
+        ? osAtivas.slice(window.tvPaginaAtual * MAX_CARDS_PAGINA, (window.tvPaginaAtual + 1) * MAX_CARDS_PAGINA)
+        : osAtivas;
+
+    // Trava o carrossel se tiver alguma O.S Concluída sendo exibida nesta página
+    window.tvPausarCarrossel = osParaExibir.some(os => os.status === 'Concluída');
+
+    let htmlCards = osParaExibir.map(os => {
         let corPrioridade = '#3b82f6'; 
         if (os.prioridade === 'Urgente') corPrioridade = '#ef4444';
         else if (os.prioridade === 'Alta') corPrioridade = '#f97316';
@@ -430,7 +510,7 @@ window.renderizarCardsTV = function() {
             <div class="${alertaClass}" style="background: ${bgStatus}; border: 3px solid ${borderStatus}; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; transition: all 0.3s ease;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
                     <div>
-                        <div style="font-size: 1rem; color: #94a3b8; margin-bottom: 5px;">O.S. #${os.numero_os || os.id} | ${textoStatus}</div>
+                        <div style="font-size: 1.05rem; color: #e2e8f0; font-weight: 600; margin-bottom: 5px;">O.S. #${os.numero_os || os.id} | ${textoStatus}</div>
                         <div style="font-size: 3rem; font-weight: 900; color: #fff; line-height: 1;">${os.placa || 'S/ PLACA'}</div>
                     </div>
                     <div style="text-align: right;">
@@ -444,7 +524,7 @@ window.renderizarCardsTV = function() {
                     <div style="color: #60a5fa; font-weight: bold; font-size: 1.2rem; margin-bottom: 5px;">${os.tipo || '-'}</div>
                     <div style="color: #cbd5e1; font-size: 1.1rem;">Motorista: <strong style="color: #fff;">${os.motorista || '-'}</strong></div>
                     <div style="color: #cbd5e1; font-size: 1.1rem; margin-top: 5px;">Mecânico: <strong style="color: var(--ccol-green-bright); text-transform: uppercase;">${nomeDoMecanico}</strong></div>
-                    <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 8px;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
+                    <div style="color: #ffffff; font-size: 0.95rem; font-weight: 500; margin-top: 8px;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
                 </div>
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
@@ -459,6 +539,20 @@ window.renderizarCardsTV = function() {
         `;
     }).join('');
 
-    // Ajuste proporcional sempre é chamado por último após montar os cards
+    // Adiciona o indicador de página no rodapé apenas se houver mais de uma página na TV
+    if (document.fullscreenElement && totalPaginas > 1) {
+        let msgAviso = window.tvPausarCarrossel 
+            ? `<span style="color: #10b981;">(Aguardando liberação de veículo...)</span>`
+            : `<span style="font-size: 0.9rem; margin-left: 10px; font-weight: normal;">(Aguarde para ver a próxima...)</span>`;
+            
+        htmlCards += `
+            <div style="grid-column: 1 / -1; text-align: center; color: #64748b; font-size: 1.3rem; margin-top: 15px; font-weight: bold; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                EXIBINDO PÁGINA ${window.tvPaginaAtual + 1} DE ${totalPaginas} ${msgAviso}
+            </div>
+        `;
+    }
+
+    container.innerHTML = htmlCards;
+
     window.ajustarEscalaTV();
 };
