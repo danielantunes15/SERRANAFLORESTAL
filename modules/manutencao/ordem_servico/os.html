@@ -4,7 +4,6 @@
         <button class="btn-primary-blue" onclick="alternarTelaOS('lista')">  Acompanhamento (Abertas)</button>
         <button class="btn-danger-outline" onclick="alternarTelaOS('sos')" style="border-color: #f97316; color: #f97316; font-weight: bold;">🚨 Painel S.O.S</button>
         <button class="btn-danger-outline" onclick="alternarTelaOS('sinistro')" style="border-color: #ef4444; color: #ef4444;">  Acompanhamento (Sinistros)</button>
-        <button class="btn-secondary-dark" onclick="alternarTelaOS('historico'); carregarFiltrosSelectHistoricoOS();">  Histórico (Todas)</button>
         <button class="btn-primary-green" onclick="alternarTelaOS('nova'); carregarSelectCavalosOS(); carregarMotoristasSelectOS();">  Abrir Nova O.S.</button>
         <button class="btn-secondary-dark" onclick="alternarTelaOS('disponibilidade')" style="background-color: #047857; border-color: #047857; color: white;">  Disponibilidade (Geral)</button>
     </div>
@@ -86,88 +85,6 @@
             <tbody id="tabelaAcompanhamentoSinistro"></tbody>
         </table>
     </div>
-</div>
-
-<div id="telaHistoricoOS" class="content-panel" style="display: none;">
-    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-        <h3 style="margin: 0;">  Histórico Geral de Ordens de Serviço</h3>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="btn-primary-green" onclick="exportarHistoricoOSExcel()" style="padding: 8px 15px;">  Exportar (Excel)</button>
-            <button class="btn-primary-blue" onclick="imprimirTodasOSFiltradas()" style="padding: 8px 15px;"><i class="fas fa-print"></i>  Imprimir Todas</button>
-            <button class="btn-danger-outline" onclick="exportarHistoricoOSPDF()" style="padding: 8px 15px; border-color: #ef4444; color: #ef4444;">  Exportar (PDF)</button>
-        </div>
-    </div>
-    
-    <div class="form-grid" style="margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
-        <div class="form-group-dark">
-            <label>Nº da O.S.</label>
-            <input type="text" id="filtroHistOSNum" placeholder="Ex: 15" oninput="renderizarTabelaHistoricoOS()">
-        </div>
-        <div class="form-group-dark">
-            <label>Placa (Cavalo ou GO)</label>
-            <select id="filtroHistPlaca" class="dark-select" onchange="renderizarTabelaHistoricoOS()"><option value="">Todas as Placas</option></select>
-        </div>
-        <div class="form-group-dark">
-            <label>Motorista</label>
-            <select id="filtroHistMotorista" class="dark-select" onchange="renderizarTabelaHistoricoOS()"><option value="">Todos os Motoristas</option></select>
-        </div>
-        <div class="form-group-dark">
-            <label>Tipo de Serviço</label>
-            <select id="filtroHistTipo" class="dark-select" onchange="renderizarTabelaHistoricoOS()">
-                <option value="">Todos os Tipos</option>
-                <option value="_SUZANO_" style="color: var(--ccol-blue-bright); font-weight: bold;">Todos da Suzano (Preventiva, Corretiva, S.O.S)</option>
-                <option value="Manutenção Corretiva - P.A Serrana">Manutenção Corretiva - P.A Serrana</option>
-                <option value="Manutenção Corretiva - C.M.C Suzano">Manutenção Corretiva - C.M.C Suzano</option>
-                <option value="Manutenção Preventiva - P.A Serrana">Manutenção Preventiva - P.A Serrana</option>
-                <option value="Manutenção Preventiva - C.M.C Suzano">Manutenção Preventiva - C.M.C Suzano</option>
-                <option value="Manutenção Externa">Manutenção Externa</option>
-                <option value="Manutenção Externa Volvo">Manutenção Externa Volvo</option>
-                <option value="Cavalo Disponível S/ Carreta">Cavalo Disponível S/ Carreta</option>
-                <option value="Elétrica">Elétrica</option>
-                <option value="Lubrificação / Filtros">Lubrificação / Filtros</option>
-                <option value="Borracharia (PNEU)">Borracharia (PNEU)</option>
-                <option value="S.O.S (Socorro Serrana)">S.O.S (Socorro Serrana)</option>
-                <option value="S.O.S (Socorro Suzano)">S.O.S (Socorro Suzano)</option>
-                <option value="Inspeção Eletromecânica">Inspeção Eletromecânica</option>
-                <option value="Maxtrack">Maxtrack</option>
-                <option value="Conferência e Reaperto de Fueiros">Conferência e Reaperto de Fueiros</option>
-                <option value="ITR ( Inspeção Técnica de Rotina )">ITR ( Inspeção Técnica de Rotina )</option>
-                <option value="Sinistro">Sinistro</option>
-            </select>
-        </div>
-        
-        <div class="form-group-dark">
-            <label style="color: var(--ccol-green-bright);">Mês Específico</label>
-            <select id="filtroHistMesAno" class="dark-select" onchange="renderizarTabelaHistoricoOS()" style="border-color: var(--ccol-green-bright);"><option value="">Todos os Meses</option></select>
-        </div>
-        
-        <div class="form-group-dark" style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; background: rgba(0,0,0,0.15); padding: 10px; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.1);">
-            <div><label style="color: var(--ccol-blue-bright);">Filtrar de (Data Início):</label><input type="date" id="filtroHistDataInicio" class="dark-select" onchange="renderizarTabelaHistoricoOS()"></div>
-            <div><label style="color: var(--ccol-blue-bright);">Até (Data Fim):</label><input type="date" id="filtroHistDataFim" class="dark-select" onchange="renderizarTabelaHistoricoOS()"></div>
-            <div><button class="btn-primary-blue" onclick="setFiltroMesAtualOS()" style="padding: 8px 15px; height: 38px;">Mês Atual</button></div>
-        </div>
-    </div>
-    
-    <div class="table-modern-wrapper">
-        <table class="data-table-modern">
-            <thead>
-                <tr>
-                    <th>Nº O.S.</th>
-                    <th>Abertura</th>
-                    <th>Conclusão</th>
-                    <th>Placa (Cavalo/GO)</th>
-                    <th>Motorista</th>
-                    <th>Tipo</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody id="tabelaHistoricoOS"></tbody>
-        </table>
-    </div>
-    
-    <div id="paginacaoHistoricoOS" style="display: flex; justify-content: center; align-items: center; margin-top: 20px; gap: 15px;"></div>
-    
 </div>
 
 <div id="telaNovaOS" class="content-panel form-panel-dark" style="display: none;">

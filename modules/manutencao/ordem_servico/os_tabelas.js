@@ -1,10 +1,6 @@
 // ==================== js/os_tabelas.js ====================
 // Módulo responsável pela renderização das tabelas e listas da OS
 
-// Variáveis de Paginação do Histórico
-let currentPageHistoricoOS = 1;
-const itemsPerPageHistoricoOS = 20;
-
 function renderizarTabelaOS() {
     const tbody = document.getElementById('tabelaAcompanhamentoOS');
     if (!tbody) return;
@@ -38,7 +34,6 @@ function renderizarTabelaOS() {
 
         const linhaStyle = isVencida ? 'background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444;' : '';
         
-        // Define o numero a ser exibido
         const numeroExibicao = os.numero_os || os.id;
 
         return `
@@ -96,11 +91,10 @@ window.renderizarTabelaSOS = function() {
             ref = local; 
         }
 
-        // Limpeza aprimorada do problema
         let problemaLimpo = os.problema || 'Não detalhado';
         if (problemaLimpo !== 'Não detalhado') {
             problemaLimpo = problemaLimpo.replace(/\[?LINK S\.O\.S MAPS:.*?\]?\n?/gi, '');
-            problemaLimpo = problemaLimpo.replace(/https?:\/\/[^\s]+/g, ''); // Remove links web
+            problemaLimpo = problemaLimpo.replace(/https?:\/\/[^\s]+/g, '');
             problemaLimpo = problemaLimpo.replace(/📍\s*Localização GPS:?/gi, '');
             problemaLimpo = problemaLimpo.replace(/📍\s*Abrir Rota no GPS \(Maps\):?/gi, '');
             problemaLimpo = problemaLimpo.replace(/Localização:/gi, '');
@@ -212,139 +206,17 @@ function renderizarTabelaSinistro() {
     }).join('');
 }
 
-window.renderizarTabelaHistoricoOS = function(resetPage = true) {
-    if (resetPage === true) {
-        currentPageHistoricoOS = 1;
-    }
-
-    const tbody = document.getElementById('tabelaHistoricoOS');
-    if (!tbody) return;
-
-    const num = document.getElementById('filtroHistOSNum')?.value.toLowerCase();
-    const placa = document.getElementById('filtroHistPlaca')?.value;
-    const motorista = document.getElementById('filtroHistMotorista')?.value;
-    const dataInicio = document.getElementById('filtroHistDataInicio')?.value;
-    const dataFim = document.getElementById('filtroHistDataFim')?.value;
-    const tipo = document.getElementById('filtroHistTipo')?.value;
-    const mesAno = document.getElementById('filtroHistMesAno')?.value;
-
-    let filtradas = ordensServico;
-
-    if (num) filtradas = filtradas.filter(o => (o.numero_os && o.numero_os.toString() === num) || o.id.toString() === num);
-    if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
-    if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
-    
-    if (mesAno) {
-        filtradas = filtradas.filter(o => {
-            if (!o.data_abertura) return false;
-            return o.data_abertura.substring(0, 7) === mesAno;
-        });
-    }
-    
-    if (dataInicio || dataFim) {
-        filtradas = filtradas.filter(o => {
-            if (!o.data_abertura) return false;
-            const dtAbertura = o.data_abertura.split('T')[0];
-            if (dataInicio && dtAbertura < dataInicio) return false;
-            if (dataFim && dtAbertura > dataFim) return false;
-            return true;
-        });
-    }
-    
-    if (tipo) {
-        if (tipo === '_SUZANO_') {
-            filtradas = filtradas.filter(o => o.tipo && o.tipo.toUpperCase().includes('SUZANO'));
-        } else {
-            filtradas = filtradas.filter(o => o.tipo && o.tipo === tipo);
-        }
-    }
-
-    // ========== LÓGICA DE PAGINAÇÃO ==========
-    const totalItems = filtradas.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPageHistoricoOS) || 1;
-    
-    if (currentPageHistoricoOS > totalPages) currentPageHistoricoOS = totalPages;
-    if (currentPageHistoricoOS < 1) currentPageHistoricoOS = 1;
-
-    const startIndex = (currentPageHistoricoOS - 1) * itemsPerPageHistoricoOS;
-    const paginatedItems = filtradas.slice(startIndex, startIndex + itemsPerPageHistoricoOS);
-
-    tbody.innerHTML = paginatedItems.map(os => {
-        let corStatus = '#f59e0b';
-        if (os.status === 'Concluída') corStatus = 'var(--ccol-green-bright)';
-        if (os.status === 'Em Manutenção') corStatus = '#3b82f6';
-        if (os.status === 'Sinistrado' || os.tipo === 'Sinistro') corStatus = '#ef4444';
-
-        const dataAbertura = formatarDataHoraBrasil(os.data_abertura);
-        const dataConclusao = os.data_conclusao ? formatarDataHoraBrasil(os.data_conclusao) : '-';
-        
-        const numeroExibicao = os.numero_os || os.id;
-
-        return `
-            <tr>
-                <td><strong>#${numeroExibicao}</strong></td>
-                <td>${dataAbertura}</td>
-                <td style="${os.status === 'Concluída' ? 'color: var(--ccol-green-bright);' : ''}">${dataConclusao}</td>
-                <td style="color: var(--ccol-blue-bright); font-weight: bold;">${os.placa || '-'}</td>
-                <td>${os.motorista || '-'}</td>
-                <td>${os.tipo}</td>
-                <td><span style="color: ${corStatus}; font-weight: bold;">${os.status}</span></td>
-                <td>
-                    <div style="display: flex; gap: 5px; justify-content: flex-start;">
-                        <button class="btn-primary-blue" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 4px 8px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
-                        <button class="btn-secondary-dark" onclick="imprimirOS(${os.id})" title="Imprimir O.S." style="padding: 4px 8px; font-size: 0.8rem; border-radius: 4px;">🖨️</button>
-                        <button class="btn-danger-outline" onclick="excluirOS(${os.id})" title="Excluir" style="padding: 4px 8px; font-size: 0.8rem; border-radius: 4px;">🗑️</button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
-    renderizarControlesPaginacaoOS(totalPages);
-};
-
-window.mudarPaginaHistoricoOS = function(novaPagina) {
-    currentPageHistoricoOS = novaPagina;
-    window.renderizarTabelaHistoricoOS(false);
-};
-
-function renderizarControlesPaginacaoOS(totalPages) {
-    const container = document.getElementById('paginacaoHistoricoOS');
-    if (!container) return;
-    
-    let html = '';
-    
-    html += `<button class="btn-secondary-dark" onclick="mudarPaginaHistoricoOS(${currentPageHistoricoOS - 1})" 
-            ${currentPageHistoricoOS === 1 ? 'disabled style="opacity: 0.5; cursor: not-allowed; padding: 6px 15px;"' : 'style="padding: 6px 15px;"'}>
-            Anterior
-            </button>`;
-    
-    html += `<span style="color: #94a3b8; font-size: 0.95rem; font-weight: bold; background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 6px;">
-             Página ${currentPageHistoricoOS} de ${totalPages}
-             </span>`;
-    
-    html += `<button class="btn-secondary-dark" onclick="mudarPaginaHistoricoOS(${currentPageHistoricoOS + 1})" 
-            ${currentPageHistoricoOS === totalPages ? 'disabled style="opacity: 0.5; cursor: not-allowed; padding: 6px 15px;"' : 'style="padding: 6px 15px;"'}>
-            Próxima
-            </button>`;
-    
-    container.innerHTML = html;
-}
-
-// NOVA FUNÇÃO: Visualizar O.S Completa (Modal Dinâmico)
+// ====== FUNÇÃO DE VISUALIZAÇÃO COM O ERRO 400 CORRIGIDO ======
 window.abrirVisualizacaoOS = async function(id) {
     const os = ordensServico.find(o => o.id === id);
     if (!os) return;
 
-    // --- TRAVA DE SEGURANÇA PARA CACHE DESATUALIZADO ---
     const inputVisOsId = document.getElementById('visOSId');
     if (!inputVisOsId) {
         alert("⚠️ ATUALIZAÇÃO DETECTADA!\n\nSeu navegador está utilizando uma versão antiga desta tela.\nPor favor, aperte as teclas [ CTRL + F5 ] simultaneamente para carregar a versão mais recente do sistema.");
-        return; // Interrompe a execução para não causar o TypeError no console
+        return; 
     }
-    // ---------------------------------------------------
 
-    // Popula Dados Básicos
     inputVisOsId.value = os.id;
     document.getElementById('visOSNum').innerText = '#' + (os.numero_os || os.id);
     
@@ -381,7 +253,6 @@ window.abrirVisualizacaoOS = async function(id) {
 
     document.getElementById('modalVisualizarOS').style.display = 'flex';
 
-    // Popula Serviços e Peças
     const servicosContainer = document.getElementById('visOSServicosList');
     const pecasContainer = document.getElementById('visOSPecasList');
     
@@ -400,11 +271,13 @@ window.abrirVisualizacaoOS = async function(id) {
             servicosContainer.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 10px;">Nenhum serviço apontado nesta O.S.</div>';
         }
 
-        const resPecas = await window.supabaseClient.from('os_pecas_utilizadas').select('*, almoxarifado_pecas(nome, unidade)').eq('os_id', os.id).order('id');
+        // BUSCA SEM O JOIN NO SUPABASE (PREVINE O ERRO 400)
+        const resPecas = await window.supabaseClient.from('os_pecas_utilizadas').select('*').eq('os_id', os.id).order('id');
         if (resPecas.data && resPecas.data.length > 0) {
             pecasContainer.innerHTML = resPecas.data.map(p => {
-                const nomePeca = p.almoxarifado_pecas ? p.almoxarifado_pecas.nome : 'Peça Indisponível';
-                const unidadePeca = p.almoxarifado_pecas ? p.almoxarifado_pecas.unidade : 'UN';
+                const pecaDb = (window.pecasAlmoxarifadoCache || []).find(x => x.id == p.peca_id);
+                const nomePeca = pecaDb ? pecaDb.nome : 'Peça Indisponível';
+                const unidadePeca = pecaDb ? pecaDb.unidade : 'UN';
                 const compartimento = p.compartimento || 'GERAL';
                 
                 let corStatusPeca = '#f59e0b';
@@ -460,22 +333,4 @@ function renderizarTabelaFrotaManutencao() {
             </td>
         </tr>
     `).join('');
-}
-
-function setFiltroMesAtualOS() {
-    const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-    const ultimoDia = new Date(ano, hoje.getMonth() + 1, 0).getDate();
-
-    const dataInicio = `${ano}-${mes}-01`;
-    const dataFim = `${ano}-${mes}-${String(ultimoDia).padStart(2, '0')}`;
-
-    const inputInicio = document.getElementById('filtroHistDataInicio');
-    const inputFim = document.getElementById('filtroHistDataFim');
-
-    if (inputInicio) inputInicio.value = dataInicio;
-    if (inputFim) inputFim.value = dataFim;
-
-    if (typeof renderizarTabelaHistoricoOS === 'function') renderizarTabelaHistoricoOS();
 }

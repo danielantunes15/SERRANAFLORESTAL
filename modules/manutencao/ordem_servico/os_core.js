@@ -39,8 +39,7 @@ async function carregarDadosOS() {
 async function alternarTelaOS(tela) {
     const telaLista = document.getElementById('telaListaOS');
     const telaListaSinistro = document.getElementById('telaListaSinistro');
-    const telaListaSOS = document.getElementById('telaListaSOS'); // Nova Tela S.O.S
-    const telaHistorico = document.getElementById('telaHistoricoOS');
+    const telaListaSOS = document.getElementById('telaListaSOS'); 
     const telaNova = document.getElementById('telaNovaOS');
     const telaFrota = document.getElementById('telaFrotaOS');
     const telaDisponibilidade = document.getElementById('telaDisponibilidadeOS');
@@ -48,7 +47,6 @@ async function alternarTelaOS(tela) {
     if(telaLista) telaLista.style.display = 'none';
     if(telaListaSinistro) telaListaSinistro.style.display = 'none';
     if(telaListaSOS) telaListaSOS.style.display = 'none';
-    if(telaHistorico) telaHistorico.style.display = 'none';
     if(telaNova) telaNova.style.display = 'none';
     if(telaFrota) telaFrota.style.display = 'none';
     if(telaDisponibilidade) telaDisponibilidade.style.display = 'none';
@@ -63,13 +61,9 @@ async function alternarTelaOS(tela) {
     } else if (tela === 'sinistro') {
         if(telaListaSinistro) telaListaSinistro.style.display = 'block';
         if (typeof renderizarTabelaSinistro === 'function') renderizarTabelaSinistro();
-    } else if (tela === 'sos') { // NOVO CONDICIONAL S.O.S
+    } else if (tela === 'sos') { 
         if(telaListaSOS) telaListaSOS.style.display = 'block';
         if (typeof renderizarTabelaSOS === 'function') renderizarTabelaSOS();
-    } else if (tela === 'historico') {
-        telaHistorico.style.display = 'block';
-        if (typeof carregarFiltrosSelectHistoricoOS === 'function') carregarFiltrosSelectHistoricoOS();
-        if (typeof renderizarTabelaHistoricoOS === 'function') renderizarTabelaHistoricoOS();
     } else if (tela === 'nova') {
         telaNova.style.display = 'block';
         if (typeof carregarMotoristasSelectOS === 'function') carregarMotoristasSelectOS();
@@ -78,7 +72,6 @@ async function alternarTelaOS(tela) {
         document.getElementById('osModoEntrada').value = 'imediata';
         if (typeof mudarModoEntrada === 'function') mudarModoEntrada();
         
-        // AQUI ESTAVA O SEGUNDO ERRO! CORRIGIDO PARA tratarCamposDinamicos()
         if (typeof tratarCamposDinamicos === 'function') tratarCamposDinamicos(); 
         
     } else if (tela === 'frota') {

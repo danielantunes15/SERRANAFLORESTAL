@@ -5,7 +5,7 @@ window.imprimirOS = async function(osId) {
     const os = ordensServico.find(o => o.id === osId);
     if (!os) return;
     
-    // Busca a frota pelo Cavalo OU pelo GO (quando for manutenção apenas nas carretas)
+    // Busca a frota pelo Cavalo OU pelo GO
     const frota = frotasManutencao.find(f => f.cavalo === os.placa || f.go === os.placa) || {};
     const infoAbertoPor = os.aberto_por || os.usuario || 'Não Informado';
     
@@ -33,37 +33,29 @@ window.imprimirOS = async function(osId) {
         `;
     }
 
-    // Limpeza do texto do problema para a impressão
     let problemaLimpo = os.problema || '';
     if (problemaLimpo) {
         problemaLimpo = problemaLimpo.replace(/https?:\/\/[^\s]+/g, '');
         problemaLimpo = problemaLimpo.replace(/📍\s*Localização GPS:?/gi, '');
         problemaLimpo = problemaLimpo.replace(/📍\s*Abrir Rota no GPS \(Maps\):?/gi, '');
         problemaLimpo = problemaLimpo.replace(/Localização:/gi, '');
-        problemaLimpo = problemaLimpo.replace(/\[?LINK S\.O\.S MAPS:?\]?/gi, ''); // Remove a tag do SOS Maps
+        problemaLimpo = problemaLimpo.replace(/\[?LINK S\.O\.S MAPS:?\]?/gi, ''); 
         problemaLimpo = problemaLimpo.trim();
     }
 
-    // ==========================================
-    // BUSCA DE DADOS NO SUPABASE
-    // ==========================================
     let servicos = [];
     let pecas = [];
     try {
-        // Busca Serviços
         const resServ = await window.supabaseClient.from('os_servicos_executados').select('*').eq('os_id', os.id).order('id');
         if (resServ.data) servicos = resServ.data;
 
-        // Busca Peças e faz JOIN com almoxarifado_pecas para trazer o nome e código
-        const resPecas = await window.supabaseClient.from('os_pecas_utilizadas').select('*, almoxarifado_pecas(nome, codigo, unidade)').eq('os_id', os.id).order('id');
+        // ====== CORREÇÃO DO ERRO 400 (BUSCA SIMPLES SEM O JOIN) ======
+        const resPecas = await window.supabaseClient.from('os_pecas_utilizadas').select('*').eq('os_id', os.id).order('id');
         if (resPecas.data) pecas = resPecas.data;
     } catch (e) { 
         console.error("Erro ao buscar dados para impressão:", e); 
     }
 
-    // ==========================================
-    // MONTAGEM DA TABELA DE SERVIÇOS
-    // ==========================================
     let linhasServicos = '';
     for(let i=0; i<5; i++) {
         const serv = servicos[i];
@@ -99,13 +91,12 @@ window.imprimirOS = async function(osId) {
         }
     }
 
-    // ==========================================
-    // MONTAGEM DA TABELA DE PEÇAS
-    // ==========================================
     let linhasPecas = '';
     for(let i=0; i<5; i++) {
         const peca = pecas[i];
         if (peca) {
+            // CRUZAMENTO MANUAL DA PEÇA NO CACHE
+            const pecaDb = (window.pecasAlmoxarifadoCache || []).find(x => x.id == peca.peca_id);
             const compRaw = (peca.compartimento || '').toUpperCase();
             
             const cFrota = (compRaw.includes('FROTA') || compRaw.includes('CAVALO')) ? 'X' : '&nbsp;&nbsp;';
@@ -113,11 +104,10 @@ window.imprimirOS = async function(osId) {
             const c2 = compRaw.includes('2ª') ? 'X' : '&nbsp;&nbsp;';
             const c3 = compRaw.includes('3ª') ? 'X' : '&nbsp;&nbsp;';
             
-            const codigo = peca.almoxarifado_pecas?.codigo || '-';
-            const descricao = peca.almoxarifado_pecas?.nome || 'Peça não identificada no sistema';
-            const qtd = `${peca.quantidade} ${peca.almoxarifado_pecas?.unidade || 'UN'}`;
+            const codigo = pecaDb?.codigo || '-';
+            const descricao = pecaDb?.nome || 'Peça não identificada no sistema';
+            const qtd = `${peca.quantidade} ${pecaDb?.unidade || 'UN'}`;
             
-            // Coloca o Mecânico na coluna de Solicitante junto com a data (se houver)
             const solicitante = os.mecanico_responsavel || 'Mecânico';
             const dataSolicitacao = peca.created_at ? new Date(peca.created_at).toLocaleDateString('pt-BR') : '';
 
@@ -152,16 +142,7 @@ window.imprimirOS = async function(osId) {
             <title>OS ${os.placa} - #${numeroOSFormatado}</title>
             <style>
                 @page { size: landscape; margin: 10mm; }
-                body { 
-                    font-family: Arial, sans-serif; 
-                    font-size: 11px; 
-                    color: #000; 
-                    margin: 0; 
-                    padding: 0; 
-                    -webkit-print-color-adjust: exact; 
-                    print-color-adjust: exact; 
-                }
-                
+                body { font-family: Arial, sans-serif; font-size: 11px; color: #000; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 .header-container { display: flex; border: 2px solid #000; margin-bottom: 5px; }
                 .header-left { padding: 10px; border-right: 2px solid #000; display: flex; align-items: center; justify-content: center; width: 140px; }
                 .header-left img { max-height: 45px; max-width: 100%; object-fit: contain; }
@@ -170,35 +151,25 @@ window.imprimirOS = async function(osId) {
                 .header-center h2 { margin: 2px 0 0 0; font-size: 12px; font-weight: normal; }
                 .header-right { padding: 10px; border-left: 2px solid #000; text-align: center; display: flex; flex-direction: column; justify-content: center; background: #f0f0f0; }
                 .header-right strong { font-size: 18px; color: red; }
-                
                 table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
                 th, td { border: 1px solid #000; padding: 3px 5px; font-size: 11px; text-align: left; }
                 th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
-                
                 .info-table td { width: 25%; }
-                
                 .section-title { font-weight: bold; background-color: #f0f0f0; border: 1px solid #000; border-bottom: none; padding: 4px; font-size: 11px; text-align: center; text-transform: uppercase; margin-bottom: 0; }
                 .box-content { border: 1px solid #000; padding: 5px; font-size: 11px; min-height: 35px; margin-bottom: 5px; }
-                
                 .assinaturas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; margin-top: 20px; padding: 0 20px; text-align: center; }
                 .linha-ass { border-top: 1px solid #000; padding-top: 4px; font-weight: bold; font-size: 11px; }
             </style>
         </head>
         <body>
             <div class="header-container">
-                <div class="header-left">
-                    <img src="assets/logoverde.png" alt="Serrana Log">
-                </div>
+                <div class="header-left"><img src="assets/logoverde.png" alt="Serrana Log"></div>
                 <div class="header-center">
                     <h1>ORDEM DE SERVIÇO DE MANUTENÇÃO E FROTAS</h1>
                     <h2>CCOL - Centro de Controle Operacional Logístico</h2>
                 </div>
-                <div class="header-right">
-                    O.S. Nº<br>
-                    <strong>${numeroOSFormatado}</strong>
-                </div>
+                <div class="header-right">O.S. Nº<br><strong>${numeroOSFormatado}</strong></div>
             </div>
-            
             <table class="info-table">
                 <tr>
                     <td><strong>Conjunto / Frota:</strong> ${os.placa || '-'}</td>
@@ -220,45 +191,24 @@ window.imprimirOS = async function(osId) {
                     </td>
                 </tr>
             </table>
-            
             ${painelBorracharia}
-            
             <div class="section-title">Diagnóstico Inicial do Condutor / Problema</div>
-            <div class="box-content">
-                ${problemaLimpo ? problemaLimpo.replace(/\n/g, '<br>') : ''}
-            </div>
+            <div class="box-content">${problemaLimpo ? problemaLimpo.replace(/\n/g, '<br>') : ''}</div>
             
             <div class="section-title">Serviços Executados (Preenchimento da Oficina)</div>
             <table>
                 <thead>
-                    <tr>
-                        <th style="width: 38%;">Descrição do Serviço</th>
-                        <th style="width: 26%;">Compartimento</th>
-                        <th style="width: 10%;">Início</th>
-                        <th style="width: 10%;">Fim</th>
-                        <th style="width: 16%;">Mecânico</th>
-                    </tr>
+                    <tr><th style="width: 38%;">Descrição do Serviço</th><th style="width: 26%;">Compartimento</th><th style="width: 10%;">Início</th><th style="width: 10%;">Fim</th><th style="width: 16%;">Mecânico</th></tr>
                 </thead>
-                <tbody>
-                    ${linhasServicos}
-                </tbody>
+                <tbody>${linhasServicos}</tbody>
             </table>
             
             <div class="section-title">Materiais e Peças Utilizados (CCOL / Estoque)</div>
             <table>
                 <thead>
-                    <tr>
-                        <th style="width: 12%;">Código</th>
-                        <th style="width: 28%;">Descrição da Peça / Material Utilizado</th>
-                        <th style="width: 26%;">Compartimento</th>
-                        <th style="width: 6%;">Qtd</th>
-                        <th style="width: 14%;">Solicitante / Data</th>
-                        <th style="width: 14%;">Data/Hora Retirada</th>
-                    </tr>
+                    <tr><th style="width: 12%;">Código</th><th style="width: 28%;">Descrição da Peça / Material Utilizado</th><th style="width: 26%;">Compartimento</th><th style="width: 6%;">Qtd</th><th style="width: 14%;">Solicitante / Data</th><th style="width: 14%;">Data/Hora Retirada</th></tr>
                 </thead>
-                <tbody>
-                    ${linhasPecas}
-                </tbody>
+                <tbody>${linhasPecas}</tbody>
             </table>
             
             <div class="section-title" style="border-bottom: 1px solid #000; margin-bottom: 0;">Observações Gerais / Pendências</div>
@@ -271,10 +221,7 @@ window.imprimirOS = async function(osId) {
                 <div class="linha-ass">Mecânico / Oficina</div>
                 <div class="linha-ass">CCOL / Gestor</div>
             </div>
-            
-            <script>
-                window.onload = function() { setTimeout(() => { window.print(); }, 250); }
-            </script>
+            <script>window.onload = function() { setTimeout(() => { window.print(); }, 250); }</script>
         </body>
         </html>
     `);
@@ -354,31 +301,29 @@ window.imprimirTodasOSFiltradas = async function() {
             `;
         }
 
-        // Limpeza do texto do problema para a impressão em lote
         let problemaLimpo = os.problema || '';
         if (problemaLimpo) {
             problemaLimpo = problemaLimpo.replace(/https?:\/\/[^\s]+/g, '');
             problemaLimpo = problemaLimpo.replace(/📍\s*Localização GPS:?/gi, '');
             problemaLimpo = problemaLimpo.replace(/📍\s*Abrir Rota no GPS \(Maps\):?/gi, '');
             problemaLimpo = problemaLimpo.replace(/Localização:/gi, '');
-            problemaLimpo = problemaLimpo.replace(/\[?LINK S\.O\.S MAPS:?\]?/gi, ''); // Remove a tag do SOS Maps
+            problemaLimpo = problemaLimpo.replace(/\[?LINK S\.O\.S MAPS:?\]?/gi, '');
             problemaLimpo = problemaLimpo.trim();
         }
 
-        // Busca dados no Supabase para preencher o lote
         let servicos = [];
         let pecas = [];
         try {
             const resServ = await window.supabaseClient.from('os_servicos_executados').select('*').eq('os_id', os.id).order('id');
             if (resServ.data) servicos = resServ.data;
             
-            const resPecas = await window.supabaseClient.from('os_pecas_utilizadas').select('*, almoxarifado_pecas(nome, codigo, unidade)').eq('os_id', os.id).order('id');
+            // ====== CORREÇÃO DO ERRO 400 EM LOTE ======
+            const resPecas = await window.supabaseClient.from('os_pecas_utilizadas').select('*').eq('os_id', os.id).order('id');
             if (resPecas.data) pecas = resPecas.data;
         } catch (e) { 
             console.error("Erro ao buscar dados em lote:", e); 
         }
 
-        // Tabela de Serviços (Lote)
         let linhasServicos = '';
         for(let i=0; i<5; i++) {
             const serv = servicos[i];
@@ -414,11 +359,11 @@ window.imprimirTodasOSFiltradas = async function() {
             }
         }
 
-        // Tabela de Peças (Lote)
         let linhasPecas = '';
         for(let i=0; i<5; i++) {
             const peca = pecas[i];
             if (peca) {
+                const pecaDb = (window.pecasAlmoxarifadoCache || []).find(x => x.id == peca.peca_id);
                 const compRaw = (peca.compartimento || '').toUpperCase();
                 
                 const cFrota = (compRaw.includes('FROTA') || compRaw.includes('CAVALO')) ? 'X' : '&nbsp;&nbsp;';
@@ -426,9 +371,9 @@ window.imprimirTodasOSFiltradas = async function() {
                 const c2 = compRaw.includes('2ª') ? 'X' : '&nbsp;&nbsp;';
                 const c3 = compRaw.includes('3ª') ? 'X' : '&nbsp;&nbsp;';
                 
-                const codigo = peca.almoxarifado_pecas?.codigo || '-';
-                const descricao = peca.almoxarifado_pecas?.nome || 'Peça não identificada';
-                const qtd = `${peca.quantidade} ${peca.almoxarifado_pecas?.unidade || 'UN'}`;
+                const codigo = pecaDb?.codigo || '-';
+                const descricao = pecaDb?.nome || 'Peça não identificada';
+                const qtd = `${peca.quantidade} ${pecaDb?.unidade || 'UN'}`;
                 
                 const solicitante = os.mecanico_responsavel || 'Mecânico';
                 const dataSolicitacao = peca.created_at ? new Date(peca.created_at).toLocaleDateString('pt-BR') : '';
@@ -543,7 +488,7 @@ window.imprimirTodasOSFiltradas = async function() {
                 </div>
             </div>
         `;
-    } // Fim do for
+    }
 
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`

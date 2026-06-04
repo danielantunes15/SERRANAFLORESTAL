@@ -10,6 +10,7 @@ window.MAPA_MENUS = [
     { id: 'documentos_frota', label: 'Documentos da Frota', setor: 'Logística', icon: 'fas fa-file-pdf' },
     
     { id: 'os', label: 'Gestão de O.S.', setor: 'Manutenção', icon: 'fas fa-clipboard-list' },
+    { id: 'historico_os', label: 'Histórico de O.S.', setor: 'Manutenção', icon: 'fas fa-history' },
     { id: 'painel_tv', label: 'Painel TV (Tempo Real)', setor: 'Manutenção', icon: 'fas fa-tv' },
     { id: 'servicos', label: 'Serviços (Mecânicos)', setor: 'Manutenção', icon: 'fas fa-toolbox' },
     { id: 'cadastro_frota', label: 'Cadastro Frota (O.S.)', setor: 'Manutenção', icon: 'fas fa-truck-moving' },
@@ -61,6 +62,7 @@ const ROTAS = {
     'cadastro_frota': 'modules/logistica/frota_conjuntos/cadastro_frota.html',
     'documentos_frota': 'modules/logistica/documentos_frota/documentos_frota.html',
     'os': 'modules/manutencao/ordem_servico/os.html',
+    'historico_os': 'modules/manutencao/historico_os/historico_os.html',
     'painel_tv': 'modules/manutencao/painel_tv/painel_tv.html',
     'os_apoio': 'modules/manutencao/ordem_servico/os_apoio.html',
     'servicos': 'modules/manutencao/servicos/servicos.html',
@@ -267,6 +269,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'requisicao_materiais' && typeof window.renderizarRequisicoes === 'function') window.renderizarRequisicoes();
         
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
+        if (pagina === 'historico_os' && typeof window.initHistoricoOS === 'function') window.initHistoricoOS();
         
         if (pagina === 'painel_tv') {
             try { 
