@@ -1,4 +1,4 @@
-// ==================== modules/manutencao/ordem_servico/painel_tv.js ====================
+// ==================== modules/manutencao/painel_tv/painel_tv.js ====================
 // Gerenciador exclusivo do Modo TV (Imersivo), Relógio, Cards e Anúncios por Voz
 
 // Conjuntos para evitar que a TV fale duas vezes o mesmo aviso

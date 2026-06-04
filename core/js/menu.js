@@ -61,7 +61,7 @@ const ROTAS = {
     'cadastro_frota': 'modules/logistica/frota_conjuntos/cadastro_frota.html',
     'documentos_frota': 'modules/logistica/documentos_frota/documentos_frota.html',
     'os': 'modules/manutencao/ordem_servico/os.html',
-    'painel_tv': 'modules/manutencao/ordem_servico/painel_tv.html',
+    'painel_tv': 'modules/manutencao/painel_tv/painel_tv.html',
     'os_apoio': 'modules/manutencao/ordem_servico/os_apoio.html',
     'servicos': 'modules/manutencao/servicos/servicos.html',
     'treinamento': 'modules/ssma/treinamento/treinamento.html',
