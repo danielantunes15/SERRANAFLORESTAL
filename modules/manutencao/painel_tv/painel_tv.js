@@ -149,6 +149,7 @@ window.entrarModoTV = function() {
 
 window.sairModoTV = function() {
     if (window.tvInterval) { clearInterval(window.tvInterval); window.tvInterval = null; }
+    if (window.tvFetchInterval) { clearInterval(window.tvFetchInterval); window.tvFetchInterval = null; }
     if (window.tvClockInterval) { clearInterval(window.tvClockInterval); window.tvClockInterval = null; }
     
     const mainHeader = document.querySelector('.main-header');
@@ -185,22 +186,24 @@ window.iniciarRelogioTV = function() {
     }
     
     if (window.tvInterval) clearInterval(window.tvInterval);
+    if (window.tvFetchInterval) clearInterval(window.tvFetchInterval);
     
-    // Roda a cada 15 segundos para avançar a página
+    // INTERVALO 1: Apenas para avançar a página (Roda a cada 15 segundos)
     window.tvInterval = setInterval(() => {
-        // Só avança a página se o carrossel NÃO estiver pausado (por causa de OS Concluída na tela)
         if (document.fullscreenElement && !window.tvPausarCarrossel) {
             window.tvPaginaAtual++; 
+            if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
         }
+    }, 15000); 
 
+    // INTERVALO 2: Busca novidades no banco quase instantaneamente (Roda a cada 4 segundos)
+    window.tvFetchInterval = setInterval(() => {
         if(typeof carregarDadosOS === 'function') {
             carregarDadosOS().then(() => {
                 if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
             });
-        } else {
-            if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
         }
-    }, 15000); 
+    }, 4000);
 };
 
 window.toggleFullScreenTV = function() {
@@ -237,16 +240,13 @@ window.ajustarEscalaTV = function() {
         
         container.style.alignContent = 'stretch';
         
-        // Uso de minmax(0, 1fr) impede overflow horizontal agressivo
         container.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
         
         const numCards = container.children.length;
         
         if (numCards > 4) {
-            // Dividir as linhas em flex-grow 1 igualmente
             container.style.gridTemplateRows = 'repeat(2, minmax(0, 1fr))';
         } else {
-            // Apenas 1 linha que consome a altura inteira do container
             container.style.gridTemplateRows = 'minmax(0, 1fr)';
         }
 
@@ -532,7 +532,7 @@ window.renderizarCardsTV = function() {
 
     container.innerHTML = htmlCards;
 
-    // Lógica da Paginação renderizada no div isolado na base da tela (se houver paginação na TV Cheia)
+    // Lógica da Paginação renderizada no div isolado na base da tela
     if (document.fullscreenElement && totalPaginas > 1) {
         let msgAviso = window.tvPausarCarrossel 
             ? `<span style="color: #10b981; margin-left: 10px; font-weight: normal;">(Aguardando liberação...)</span>`
