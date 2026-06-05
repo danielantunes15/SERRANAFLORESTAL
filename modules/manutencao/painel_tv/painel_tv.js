@@ -11,6 +11,15 @@ if (typeof window.isFirstRenderTV === 'undefined') {
     window.tvPausarCarrossel = false; // Trava a paginação se houver OS finalizada na tela
 }
 
+// ================== PREPARAÇÃO DA API DE VOZ ==================
+// Força o navegador a pré-carregar as vozes assim que o script é lido
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = function() {
+        window.speechSynthesis.getVoices();
+    };
+}
+
 // ================== LÓGICA DE ÁUDIO E VOZ (COM GONGO) ==================
 
 function tocarGongoSintetizado(callback) {
@@ -26,6 +35,7 @@ function tocarGongoSintetizado(callback) {
         osc1.type = 'sine';
         osc2.type = 'sine';
 
+        // Notas do Gongo
         osc1.frequency.setValueAtTime(659.25, ctx.currentTime);
         osc2.frequency.setValueAtTime(523.25, ctx.currentTime + 0.5);
 
@@ -47,54 +57,75 @@ function tocarGongoSintetizado(callback) {
         osc2.start(ctx.currentTime + 0.5);
         osc2.stop(ctx.currentTime + 1.5);
 
+        // Aguarda o término exato do gongo antes de chamar a voz
         setTimeout(() => {
             if (callback) callback();
-        }, 1500);
+        }, 1600);
 
     } catch (e) {
-        if (callback) callback();
+        console.warn("Aviso: Falha ao tocar o gongo inicial.", e);
+        if (callback) callback(); // Se falhar o gongo, tenta falar mesmo assim
     }
 }
 
 function anunciarComGongo(texto) {
     if (!('speechSynthesis' in window)) return;
 
-    // Tenta acordar a API antes de tocar o som
-    window.speechSynthesis.resume();
-
     const executarVoz = () => {
-        // CORREÇÃO VITAL PARA TV: Limpa a fila presa (bug comum do Chrome em painéis de longa duração)
+        // Limpa a fila presa (muito comum no Chrome)
         window.speechSynthesis.cancel(); 
         
-        // Força a engine a "acordar" logo depois de limpar a fila
-        window.speechSynthesis.resume();
+        // Timeout de 100ms vital para dar tempo ao navegador de limpar a fila antes de adicionar uma nova
+        setTimeout(() => {
+            const utterance = new SpeechSynthesisUtterance(texto);
+            utterance.lang = 'pt-BR';
+            utterance.rate = 0.85; 
+            utterance.pitch = 1;
+            utterance.volume = 1;
 
-        const utterance = new SpeechSynthesisUtterance(texto);
-        utterance.lang = 'pt-BR';
-        utterance.rate = 0.85; 
-        utterance.pitch = 1;
-        utterance.volume = 1;
+            // Busca agressiva por qualquer voz em português disponível na máquina
+            const vozes = window.speechSynthesis.getVoices();
+            const vozBR = vozes.find(v => 
+                v.lang.toLowerCase() === 'pt-br' || 
+                v.lang.toLowerCase() === 'pt_br' || 
+                v.name.toLowerCase().includes('brasil') ||
+                v.name.toLowerCase().includes('portuguese')
+            );
+            
+            if (vozBR) {
+                utterance.voice = vozBR;
+            }
 
-        // Tenta forçar a voz correta em Português (evita que o navegador se perca se mudar o idioma base)
-        const vozes = window.speechSynthesis.getVoices();
-        const vozBR = vozes.find(v => v.lang === 'pt-BR' || v.lang === 'pt_BR');
-        if (vozBR) {
-            utterance.voice = vozBR;
-        }
+            // Força a engine a acordar logo antes e depois de falar
+            window.speechSynthesis.resume();
+            
+            utterance.onerror = function(e) {
+                console.warn("Erro na síntese de voz:", e);
+                window.isGongoTocando = false;
+            };
 
-        window.speechSynthesis.speak(utterance);
+            utterance.onend = function() {
+                window.isGongoTocando = false;
+            };
+
+            window.speechSynthesis.speak(utterance);
+            
+            // Hack para navegadores que dormem durante a fala
+            if (window.speechSynthesis.isPaused) {
+                window.speechSynthesis.resume();
+            }
+        }, 100);
     };
 
     if (window.isGongoTocando || window.speechSynthesis.speaking) {
         // Se já estiver tocando algo, agenda a fala para o próximo ciclo
-        setTimeout(executarVoz, 1500);
+        setTimeout(() => anunciarComGongo(texto), 2000);
         return;
     }
 
     window.isGongoTocando = true;
     
     tocarGongoSintetizado(() => {
-        window.isGongoTocando = false;
         executarVoz();
     });
 }
@@ -169,6 +200,10 @@ window.sairModoTV = function() {
     if (window.tvFetchInterval) { clearInterval(window.tvFetchInterval); window.tvFetchInterval = null; }
     if (window.tvClockInterval) { clearInterval(window.tvClockInterval); window.tvClockInterval = null; }
     
+    // Libera a voz e interrompe caso algo esteja tocando
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    window.isGongoTocando = false;
+
     const mainHeader = document.querySelector('.main-header');
     const menuContainer = document.getElementById('menu-container');
     const mainFooter = document.querySelector('.main-footer');
@@ -224,17 +259,19 @@ window.iniciarRelogioTV = function() {
 };
 
 window.toggleFullScreenTV = function() {
+    // DESPERTADOR DA API DE VOZ: Toca uma fala vazia para desbloquear o áudio do navegador por interação humana
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        let u = new SpeechSynthesisUtterance('');
+        u.volume = 0; 
+        window.speechSynthesis.speak(u);
+        window.speechSynthesis.resume();
+    }
+
     if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(err => {
             console.warn("Tela cheia falhou:", err);
         });
-        
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.resume();
-            let u = new SpeechSynthesisUtterance('');
-            u.volume = 0; 
-            window.speechSynthesis.speak(u);
-        }
     } else {
         if (document.exitFullscreen) {
             document.exitFullscreen();
@@ -258,7 +295,7 @@ window.ajustarEscalaTV = function() {
         container.style.alignContent = 'stretch';
         container.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
         
-        // CORREÇÃO: Força sempre 2 linhas no layout de tela cheia, 
+        // Força sempre 2 linhas no layout de tela cheia, 
         // independentemente da quantidade de cards. Assim eles não esticam!
         container.style.gridTemplateRows = 'repeat(2, minmax(0, 1fr))';
 
