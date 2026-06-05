@@ -256,16 +256,11 @@ window.ajustarEscalaTV = function() {
         document.body.style.overflow = 'hidden';
         
         container.style.alignContent = 'stretch';
-        
         container.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
         
-        const numCards = container.children.length;
-        
-        if (numCards > 4) {
-            container.style.gridTemplateRows = 'repeat(2, minmax(0, 1fr))';
-        } else {
-            container.style.gridTemplateRows = 'minmax(0, 1fr)';
-        }
+        // CORREÇÃO: Força sempre 2 linhas no layout de tela cheia, 
+        // independentemente da quantidade de cards. Assim eles não esticam!
+        container.style.gridTemplateRows = 'repeat(2, minmax(0, 1fr))';
 
     } else {
         painel.style.overflowY = 'auto';
