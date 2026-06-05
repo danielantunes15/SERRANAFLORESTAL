@@ -119,7 +119,12 @@ async function carregarStatusDash() {
     const { data: statusData } = await queryCtrl;
     
     const nomeCtrl = (statusData && statusData.length > 0 && statusData[0].controlador) ? statusData[0].controlador : 'NÃO DEFINIDO';
-    document.getElementById('dash-controlador-nome').textContent = nomeCtrl;
+    
+    // CORREÇÃO: Verifica se o elemento existe antes de tentar injetar o nome do controlador
+    const elControlador = document.getElementById('dash-controlador-nome');
+    if (elControlador) {
+        elControlador.textContent = nomeCtrl;
+    }
     
     const turnos = await db.getTurnosOperacionais();
     let turnoTexto = "06:00 às 18:00"; // Padrão
