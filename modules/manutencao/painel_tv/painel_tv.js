@@ -229,7 +229,6 @@ window.ajustarEscalaTV = function() {
     const painel = document.getElementById('painelTvFundo');
     if (!container || !painel) return;
 
-    // Reseta qualquer zoom anterior 
     painel.style.zoom = "1";
     
     if (document.fullscreenElement) {
@@ -237,26 +236,24 @@ window.ajustarEscalaTV = function() {
         document.body.style.overflow = 'hidden';
         
         container.style.alignContent = 'stretch';
-        container.style.gridTemplateColumns = 'repeat(4, 1fr)';
         
-        const hasPagination = document.getElementById('tvPaginationIndicator') !== null;
-        const numCards = container.children.length - (hasPagination ? 1 : 0);
+        // Uso de minmax(0, 1fr) impede overflow horizontal agressivo
+        container.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
+        
+        const numCards = container.children.length;
         
         if (numCards > 4) {
-            // Se tem mais de 4 cards, força a usar 100% da altura da tela dividida em 2 linhas iguais
-            container.style.height = 'calc(100vh - 140px)'; 
-            container.style.gridTemplateRows = hasPagination ? '1fr 1fr 60px' : '1fr 1fr';
+            // Dividir as linhas em flex-grow 1 igualmente
+            container.style.gridTemplateRows = 'repeat(2, minmax(0, 1fr))';
         } else {
-            // Se for só 1 linha (1 a 4 cards), deixa a altura automática para não ficarem absurdamente compridos
-            container.style.height = 'auto'; 
-            container.style.gridTemplateRows = hasPagination ? 'auto 60px' : 'auto';
+            // Apenas 1 linha que consome a altura inteira do container
+            container.style.gridTemplateRows = 'minmax(0, 1fr)';
         }
 
     } else {
         painel.style.overflowY = 'auto';
         document.body.style.overflow = '';
-        container.style.height = 'auto';
-        container.style.gridTemplateColumns = 'repeat(auto-fit, minmax(420px, 1fr))';
+        container.style.gridTemplateColumns = 'repeat(auto-fit, minmax(380px, 1fr))';
         container.style.gridTemplateRows = 'auto';
     }
 };
@@ -286,6 +283,7 @@ function atualizarRelogioTV() {
 
 window.renderizarCardsTV = function() {
     const container = document.getElementById('tvCardsContainer');
+    const pagContainer = document.getElementById('tvPaginationContainer');
     if (!container) return;
     if (typeof ordensServico === 'undefined' || !ordensServico) return;
 
@@ -351,10 +349,8 @@ window.renderizarCardsTV = function() {
     if(document.getElementById('tvKpiDisponiveis')) document.getElementById('tvKpiDisponiveis').innerText = veiculosDisponiveis;
     if(document.getElementById('tvKpiEmManutencao')) document.getElementById('tvKpiEmManutencao').innerText = veiculosManutencao;
     
-    // Filtro de O.S abertas ou recentemente concluídas
     const osAtivas = ordensServico.filter(o => {
         if (o.tipo === 'Sinistro') return false;
-
         if (o.status === 'Aguardando Oficina' || o.status === 'Em Manutenção') return true;
 
         if (o.status === 'Concluída' && o.data_conclusao) {
@@ -369,7 +365,6 @@ window.renderizarCardsTV = function() {
                         (f.go && String(f.go).trim().toUpperCase() === String(o.placa).trim().toUpperCase())
                     );
                     falarVeiculoLiberado(o.placa || '', frotaVinculada ? frotaVinculada.numero_frota : '');
-                    
                     window.tvPaginaAtual = 0; 
                 }
                 return true; 
@@ -385,7 +380,6 @@ window.renderizarCardsTV = function() {
             } else if (!window.osNovasAnunciadas.has(o.id)) {
                 window.osNovasAnunciadas.add(o.id);
                 falarNovaOS(o.numero_os || o.id, o.tipo || 'Manutenção', o.placa || 'Não informada');
-                
                 window.tvPaginaAtual = 0;
             }
         }
@@ -395,17 +389,17 @@ window.renderizarCardsTV = function() {
     
     if (osAtivas.length === 0) {
         container.innerHTML = `
-            <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh;">
-                <h1 style="color: var(--ccol-green-bright); font-size: 4rem; margin: 0;">PÁTIO VAZIO</h1>
-                <p style="color: #94a3b8; font-size: 2rem;">Nenhum veículo aguardando manutenção.</p>
+            <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+                <h1 style="color: var(--ccol-green-bright); font-size: clamp(2rem, 5vw, 4rem); margin: 0;">PÁTIO VAZIO</h1>
+                <p style="color: #94a3b8; font-size: clamp(1rem, 2.5vw, 2rem);">Nenhum veículo aguardando manutenção.</p>
             </div>
         `;
+        if (pagContainer) pagContainer.style.display = 'none';
         window.tvPausarCarrossel = false;
         window.ajustarEscalaTV();
         return;
     }
     
-    // Ordenação (Concluídas sempre ficam no topo/início da fila)
     osAtivas.sort((a, b) => {
         if (a.status === 'Concluída' && b.status !== 'Concluída') return -1;
         if (a.status !== 'Concluída' && b.status === 'Concluída') return 1;
@@ -417,9 +411,6 @@ window.renderizarCardsTV = function() {
         return new Date(a.data_abertura) - new Date(b.data_abertura);
     });
 
-    // ==============================================================
-    // LÓGICA DE PAGINAÇÃO: MÁXIMO 8 CARDS POR TELA PARA TV CHEIA (4x2)
-    // ==============================================================
     const MAX_CARDS_PAGINA = 8;
     const totalPaginas = Math.ceil(osAtivas.length / MAX_CARDS_PAGINA);
 
@@ -467,28 +458,28 @@ window.renderizarCardsTV = function() {
         let conjuntosBadge = '';
 
         if (frotaVinculada.numero_frota && String(frotaVinculada.numero_frota).trim() !== '') {
-            conjuntosBadge += `<span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(245, 158, 11, 0.5); font-weight: bold; white-space: nowrap;">FR: ${String(frotaVinculada.numero_frota).toUpperCase()}</span>`;
+            conjuntosBadge += `<span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px 6px; border-radius: 4px; font-size: clamp(0.7rem, 1.2vh, 0.85rem); border: 1px solid rgba(245, 158, 11, 0.5); font-weight: bold; white-space: nowrap;">FR: ${String(frotaVinculada.numero_frota).toUpperCase()}</span>`;
         }
         
         if (frotaVinculada.go && String(frotaVinculada.go).trim() !== '') {
-            conjuntosBadge += `<span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(59, 130, 246, 0.5); font-weight: bold; white-space: nowrap;">GO: ${String(frotaVinculada.go).toUpperCase()}</span>`;
+            conjuntosBadge += `<span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 2px 6px; border-radius: 4px; font-size: clamp(0.7rem, 1.2vh, 0.85rem); border: 1px solid rgba(59, 130, 246, 0.5); font-weight: bold; white-space: nowrap;">GO: ${String(frotaVinculada.go).toUpperCase()}</span>`;
         }
         
         conjuntosBadge += [frotaVinculada.carreta1, frotaVinculada.carreta2, frotaVinculada.carreta3]
             .filter(Boolean)
-            .map(c => `<span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;">${c}</span>`).join('');
+            .map(c => `<span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: clamp(0.7rem, 1.2vh, 0.85rem); border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;">${c}</span>`).join('');
             
         let avisoPrevisao = ''; let campoPrevisao = os.previsao_entrega || os.previsao;
         if (campoPrevisao) {
             const dataPrevisao = new Date(String(campoPrevisao).replace('Z', '').replace('+00:00', ''));
             if (agora > dataPrevisao) {
-                avisoPrevisao = `<div style="background: #ef4444; color: #fff; padding: 6px; text-align: center; font-weight: bold; border-radius: 4px; margin-top: 15px; font-size: 1.05rem; border: 2px solid #fff;">⚠️ PREVISÃO VENCIDA: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
+                avisoPrevisao = `<div style="background: #ef4444; color: #fff; padding: 4px; text-align: center; font-weight: bold; border-radius: 4px; font-size: clamp(0.85rem, 1.5vh, 1.05rem); border: 2px solid #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">⚠️ PREVISÃO VENCIDA: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
             } else {
-                avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 6px; text-align: center; border-radius: 4px; margin-top: 15px; font-size: 1.05rem; font-weight: bold;">PREVISÃO: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
+                avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 4px; text-align: center; border-radius: 4px; font-size: clamp(0.85rem, 1.5vh, 1.05rem); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">PREVISÃO: ${formatarDataHoraBrasil(campoPrevisao)}</div>`;
                 if(os.status !== 'Concluída') colorCronometro = '#10b981'; alertaClass = '';
             }
         } else {
-             avisoPrevisao = `<div style="background: rgba(255,255,255,0.05); color: #94a3b8; padding: 6px; text-align: center; border-radius: 4px; margin-top: 15px; font-size: 0.95rem;">AGUARDANDO PREVISÃO</div>`;
+             avisoPrevisao = `<div style="background: rgba(255,255,255,0.05); color: #94a3b8; padding: 4px; text-align: center; border-radius: 4px; font-size: clamp(0.8rem, 1.4vh, 0.95rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">AGUARDANDO PREVISÃO</div>`;
         }
         
         let textoStatus = os.status === 'Em Manutenção' ? '🔧 EM OFICINA' : '🕑 AGUARDANDO ATENDIMENTO';
@@ -498,64 +489,69 @@ window.renderizarCardsTV = function() {
 
         if (os.status === 'Concluída') {
             textoStatus = '✅ VEÍCULO LIBERADO';
-            bgStatus = 'rgba(16, 185, 129, 0.15)'; 
-            borderStatus = '#10b981'; 
-            alertaClass = 'card-liberado'; 
-            avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 6px; text-align: center; border-radius: 4px; margin-top: 15px; font-size: 1.15rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 10px rgba(16,185,129,0.5);">PRONTO PARA RODAR</div>`;
+            bgStatus = 'rgba(16, 185, 129, 0.15)'; borderStatus = '#10b981'; alertaClass = 'card-liberado'; 
+            avisoPrevisao = `<div style="background: #10b981; color: #ffffff; padding: 4px; text-align: center; border-radius: 4px; font-size: clamp(1rem, 1.8vh, 1.2rem); font-weight: bold; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 10px rgba(16,185,129,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">PRONTO PARA RODAR</div>`;
             colorCronometro = '#10b981'; 
         }
         
         if(alertaClass === 'piscar-alerta') alertaClass += ' piscar-alerta';
 
-        // O segredo do Layout perfeito: height: 100%, box-sizing: border-box e a Caixa do Meio com flex: 1
         return `
-            <div class="${alertaClass}" style="background: ${bgStatus}; border: 3px solid ${borderStatus}; border-radius: 12px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; transition: all 0.3s ease;">
+            <div class="${alertaClass}" style="background: ${bgStatus}; border: 3px solid ${borderStatus}; border-radius: 12px; padding: clamp(10px, 1.5vh, 20px); box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; transition: all 0.3s ease; overflow: hidden;">
                 
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                    <div>
-                        <div style="font-size: 1.05rem; color: #e2e8f0; font-weight: 600; margin-bottom: 5px;">O.S. #${os.numero_os || os.id} | ${textoStatus}</div>
-                        <div style="font-size: 3.2rem; font-weight: 900; color: #fff; line-height: 1;">${os.placa || 'S/ PLACA'}</div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8vh;">
+                    <div style="flex: 1; min-width: 0; padding-right: 10px;">
+                        <div style="font-size: clamp(0.85rem, 1.5vh, 1.05rem); color: #e2e8f0; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">O.S. #${os.numero_os || os.id} | ${textoStatus}</div>
+                        <div style="font-size: clamp(2rem, 3.8vh, 3.2rem); font-weight: 900; color: #fff; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${os.placa || 'S/ PLACA'}</div>
                     </div>
+                    <div style="text-align: right; flex-shrink: 0;">
+                        <div style="background: ${corPrioridade}; color: #fff; font-weight: bold; padding: 4px 12px; border-radius: 20px; font-size: clamp(0.8rem, 1.5vh, 1.1rem); text-transform: uppercase;">${os.prioridade || 'Normal'}</div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1vh; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; width: 100%; overflow: hidden; flex-shrink: 0;">${conjuntosBadge}</div>
+                
+                <div style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: clamp(8px, 1.2vh, 15px); margin-bottom: 1vh; flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; overflow: hidden;">
+                    <div style="color: #60a5fa; font-weight: bold; font-size: clamp(1rem, 1.8vh, 1.3rem); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${os.tipo || '-'}</div>
+                    <div style="color: #cbd5e1; font-size: clamp(0.85rem, 1.5vh, 1.15rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Motorista: <strong style="color: #fff;">${os.motorista || '-'}</strong></div>
+                    <div style="color: #cbd5e1; font-size: clamp(0.85rem, 1.5vh, 1.15rem); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Mecânico: <strong style="color: var(--ccol-green-bright); text-transform: uppercase;">${nomeDoMecanico}</strong></div>
+                    <div style="color: #ffffff; font-size: clamp(0.8rem, 1.4vh, 1.05rem); font-weight: 500; margin-top: 6px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1vh; flex-shrink: 0;">
+                    <div style="color: #94a3b8; font-size: clamp(0.85rem, 1.4vh, 1.05rem);">Entrada: <br><strong style="color: #fff; font-size: clamp(1rem, 1.8vh, 1.2rem);">${entradaHoraStr}</strong></div>
                     <div style="text-align: right;">
-                        <div style="background: ${corPrioridade}; color: #fff; font-weight: bold; padding: 6px 18px; border-radius: 20px; font-size: 1.1rem; text-transform: uppercase;">${os.prioridade || 'Normal'}</div>
+                        <div style="font-size: clamp(0.75rem, 1.2vh, 0.95rem); color: #94a3b8; margin-bottom: 2px;">TEMPO NO PÁTIO</div>
+                        <div style="font-size: clamp(1.8rem, 3.5vh, 2.6rem); font-weight: 900; color: ${colorCronometro}; font-family: monospace; line-height: 1;">${String(diffHrs).padStart(2,'0')}:${String(diffMin).padStart(2,'0')}</div>
                     </div>
                 </div>
-                
-                <div style="margin-bottom: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; width: 100%;">${conjuntosBadge}</div>
-                
-                <div style="background: rgba(0,0,0,0.4); border-radius: 8px; padding: 15px; margin-bottom: 15px; flex: 1; display: flex; flex-direction: column; justify-content: center;">
-                    <div style="color: #60a5fa; font-weight: bold; font-size: 1.3rem; margin-bottom: 5px;">${os.tipo || '-'}</div>
-                    <div style="color: #cbd5e1; font-size: 1.15rem;">Motorista: <strong style="color: #fff;">${os.motorista || '-'}</strong></div>
-                    <div style="color: #cbd5e1; font-size: 1.15rem; margin-top: 5px;">Mecânico: <strong style="color: var(--ccol-green-bright); text-transform: uppercase;">${nomeDoMecanico}</strong></div>
-                    <div style="color: #ffffff; font-size: 1.05rem; font-weight: 500; margin-top: 10px; line-height: 1.4;">Detalhe: ${os.problema || 'Nenhum detalhe reportado'}</div>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: auto;">
-                    <div style="color: #94a3b8; font-size: 1.05rem;">Entrada: <br><strong style="color: #fff; font-size: 1.2rem;">${entradaHoraStr}</strong></div>
-                    <div style="text-align: right;">
-                        <div style="font-size: 0.95rem; color: #94a3b8; margin-bottom: 2px;">TEMPO NO PÁTIO</div>
-                        <div style="font-size: 2.6rem; font-weight: 900; color: ${colorCronometro}; font-family: monospace; line-height: 1;">${String(diffHrs).padStart(2,'0')}:${String(diffMin).padStart(2,'0')}</div>
-                    </div>
-                </div>
-                ${avisoPrevisao}
+                <div style="margin-top: 1vh; flex-shrink: 0;">${avisoPrevisao}</div>
             </div>
         `;
     }).join('');
 
-    // Adiciona o indicador de página no rodapé apenas se houver mais de uma página na TV
+    container.innerHTML = htmlCards;
+
+    // Lógica da Paginação renderizada no div isolado na base da tela (se houver paginação na TV Cheia)
     if (document.fullscreenElement && totalPaginas > 1) {
         let msgAviso = window.tvPausarCarrossel 
-            ? `<span style="color: #10b981;">(Aguardando liberação de veículo...)</span>`
-            : `<span style="font-size: 0.9rem; margin-left: 10px; font-weight: normal;">(Aguarde para ver a próxima...)</span>`;
+            ? `<span style="color: #10b981; margin-left: 10px; font-weight: normal;">(Aguardando liberação...)</span>`
+            : `<span style="font-size: clamp(0.7rem, 1.2vh, 0.9rem); margin-left: 10px; font-weight: normal;">(Aguarde para ver a próxima...)</span>`;
             
-        htmlCards += `
-            <div id="tvPaginationIndicator" style="grid-column: 1 / -1; text-align: center; color: #64748b; font-size: 1.3rem; margin-top: 15px; font-weight: bold; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; height: 50px; display: flex; align-items: center; justify-content: center;">
-                EXIBINDO PÁGINA ${window.tvPaginaAtual + 1} DE ${totalPaginas} ${msgAviso}
-            </div>
-        `;
+        if(pagContainer) {
+            pagContainer.innerHTML = `
+                <div style="text-align: center; color: #64748b; font-size: clamp(0.9rem, 1.6vh, 1.3rem); font-weight: bold; padding: 0.8vh; background: rgba(0,0,0,0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; width: 100%;">
+                    EXIBINDO PÁGINA ${window.tvPaginaAtual + 1} DE ${totalPaginas} ${msgAviso}
+                </div>
+            `;
+            pagContainer.style.display = 'block';
+        }
+    } else {
+        if(pagContainer) {
+            pagContainer.innerHTML = '';
+            pagContainer.style.display = 'none';
+        }
     }
-
-    container.innerHTML = htmlCards;
 
     window.ajustarEscalaTV();
 };
