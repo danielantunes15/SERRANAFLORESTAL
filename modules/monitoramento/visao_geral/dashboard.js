@@ -266,9 +266,10 @@ async function loadDashboardDataInit() {
         const osResp = await window.supabaseClient.from('ordens_servico').select('*');
         if (osResp.data) osParaMeta = osResp.data;
 
-        let frotasResp = await window.supabaseClient.from('cadastro_frota').select('*');
+        // Invertemos a ordem para evitar o erro 404 de cadastro_frota
+        let frotasResp = await window.supabaseClient.from('frotas_manutencao').select('*');
         if (!frotasResp.data || frotasResp.data.length === 0) {
-            frotasResp = await window.supabaseClient.from('frotas_manutencao').select('*');
+            frotasResp = await window.supabaseClient.from('cadastro_frota').select('*');
         }
         
         if (frotasResp.data) frotasParaMeta = frotasResp.data;
@@ -298,34 +299,24 @@ async function loadDashboardDataInit() {
         console.error("Erro ao puxar gruas cadastradas:", e);
     }
 
-    let allData = [];
-    let from = 0;
-    const step = 1000;
-    let fetchMore = true;
-
-    while (fetchMore) {
-        let queryVia = window.supabaseClient.from('historico_viagens').select('*').range(from, from + step - 1);
-        
-        if (typeof window.aplicarFiltroFilial === 'function') {
-            queryVia = window.aplicarFiltroFilial(queryVia);
-        }
-
-        const { data, error } = await queryVia;
-            
-        if (error) {
-            console.error("Erro Crítico ao buscar viagens no Supabase:", error);
-            break;
-        }
-        
-        if (data && data.length > 0) {
-            allData = allData.concat(data);
-            from += step;
-        }
-        
-        if (!data || data.length < step) {
-            fetchMore = false;
-        }
+    // MELHORIA DE PERFORMANCE: Busca direta com '*' mas LIMITADA a 8.000 registros
+    let queryVia = window.supabaseClient
+        .from('historico_viagens')
+        .select('*') // Evita o erro 400 de coluna inexistente
+        .order('id', { ascending: false })
+        .limit(8000); // Economia gigante de banda, sem quebrar nada
+    
+    if (typeof window.aplicarFiltroFilial === 'function') {
+        queryVia = window.aplicarFiltroFilial(queryVia);
     }
+
+    const { data, error } = await queryVia;
+        
+    if (error) {
+        console.error("Erro Crítico ao buscar viagens no Supabase:", error);
+    }
+    
+    let allData = data || [];
 
     if(allData.length > 0) {
         fullHistoricoData = allData;

@@ -99,7 +99,7 @@ window.iniciarMonitoramentoChamados = async function() {
         if (data) meusChamadosCache = data;
     } catch(e) {}
 
-    // Polling a cada 8 segundos verificando novidades
+    // MELHORIA DE PERFORMANCE: Polling alterado para 60 segundos (Economia GIGANTE de banda)
     notificacaoInterval = setInterval(async () => {
         try {
             const { data } = await supabaseClient
@@ -140,7 +140,7 @@ window.iniciarMonitoramentoChamados = async function() {
                 });
             }
         } catch(e) {}
-    }, 8000);
+    }, 60000);
 };
 
 window.tocarSomNotificacao = function() {
@@ -356,6 +356,7 @@ window.abrirChatChamado = function(id) {
     window.renderizarMensagensChat(chamado.historico_conversa || []);
 
     if (chatIntervalUsuario) clearInterval(chatIntervalUsuario);
+    // MELHORIA DE PERFORMANCE: Polling do chat alterado para 15 segundos
     chatIntervalUsuario = setInterval(async () => {
         try {
             const { data } = await supabaseClient
@@ -376,7 +377,7 @@ window.abrirChatChamado = function(id) {
                 }
             }
         } catch(e) {}
-    }, 4000);
+    }, 15000);
 };
 
 window.fecharChatChamado = function() {
