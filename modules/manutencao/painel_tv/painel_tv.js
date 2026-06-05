@@ -58,19 +58,36 @@ function tocarGongoSintetizado(callback) {
 
 function anunciarComGongo(texto) {
     if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.resume(); 
+
+    // Tenta acordar a API antes de tocar o som
+    window.speechSynthesis.resume();
 
     const executarVoz = () => {
+        // CORREÇÃO VITAL PARA TV: Limpa a fila presa (bug comum do Chrome em painéis de longa duração)
+        window.speechSynthesis.cancel(); 
+        
+        // Força a engine a "acordar" logo depois de limpar a fila
+        window.speechSynthesis.resume();
+
         const utterance = new SpeechSynthesisUtterance(texto);
         utterance.lang = 'pt-BR';
         utterance.rate = 0.85; 
         utterance.pitch = 1;
         utterance.volume = 1;
+
+        // Tenta forçar a voz correta em Português (evita que o navegador se perca se mudar o idioma base)
+        const vozes = window.speechSynthesis.getVoices();
+        const vozBR = vozes.find(v => v.lang === 'pt-BR' || v.lang === 'pt_BR');
+        if (vozBR) {
+            utterance.voice = vozBR;
+        }
+
         window.speechSynthesis.speak(utterance);
     };
 
     if (window.isGongoTocando || window.speechSynthesis.speaking) {
-        executarVoz();
+        // Se já estiver tocando algo, agenda a fala para o próximo ciclo
+        setTimeout(executarVoz, 1500);
         return;
     }
 
