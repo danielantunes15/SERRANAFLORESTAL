@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Oficina - Terminal do Mecânico</title>
+    
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="stylesheet" href="core/css/global.css">
+    <link rel="stylesheet" href="modules/manutencao/servicos/servicos.css">
+    
+    <style>
+        /* ====================================================
+           MODO APLICATIVO TABLET - TELA CHEIA E TOUCH-FRIENDLY
+           ==================================================== */
+        
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent; /* Remove piscar azul no touch */
+        }
+
+        body {
+            background-color: #020617; /* Fundo mais escuro para economizar bateria e dar contraste */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: -webkit-fill-available;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Topbar do Tablet */
+        .app-header {
+            background-color: #0f172a;
+            padding: 18px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #334155;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        .app-header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .app-header-left img {
+            height: 40px;
+            width: auto;
+            border-radius: 8px;
+        }
+
+        .app-header h1 {
+            font-size: 1.6rem;
+            color: #f8fafc;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .app-header h1 i { color: #6366f1; }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-name {
+            color: #e2e8f0;
+            font-weight: 700;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.05);
+            padding: 8px 16px;
+            border-radius: 12px;
+        }
+
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 2px solid #ef4444;
+            border-radius: 12px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-weight: 800;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:active { background: #ef4444; color: #fff; transform: scale(0.95); }
+
+        /* Container Principal do App */
+        .app-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: hidden;
+            background: #020617;
+        }
+
+        /* Abas maiores e otimizadas para os dedos */
+        .serv-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #1e293b;
+            padding-bottom: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .serv-tab-btn {
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-bottom: none;
+            color: #94a3b8;
+            font-size: 1.2rem;
+            font-weight: 700;
+            padding: 20px 24px;
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .serv-tab-btn.active {
+            background: #1e1b4b;
+            color: #818cf8;
+            border-color: #6366f1;
+            border-bottom: 3px solid #6366f1;
+            transform: translateY(2px);
+        }
+
+        .badge-count {
+            background: #334155; color: #fff;
+            padding: 4px 14px; border-radius: 20px;
+            font-size: 1rem; font-weight: 800;
+        }
+
+        .serv-tab-btn.active .badge-count { background: #6366f1; }
+        .serv-tab-btn[onclick*="sos"].active .badge-count { background: #ea580c; }
+
+        /* Área de Scroll Interno (As listas de OS) */
+        .scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 30px;
+            padding-right: 10px;
+        }
+
+        /* Scrollbar Personalizada para o Tablet */
+        .scroll-area::-webkit-scrollbar { width: 8px; }
+        .scroll-area::-webkit-scrollbar-track { background: #0f172a; border-radius: 10px; }
+        .scroll-area::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+
+        /* Modais Otimizados para Touch */
+        .modal-overlay-fullscreen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000; padding: 20px;
+        }
+
+        .custom-modal-responsive {
+            background: #0f172a; border: 2px solid #334155; border-radius: 20px;
+            width: 100%; max-width: 900px; max-height: 95vh;
+            display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7);
+        }
+
+        .modal-header-responsive {
+            background: #1e293b; padding: 20px 24px; border-radius: 18px 18px 0 0;
+            display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155;
+        }
+
+        .modal-header-responsive h3 { font-size: 1.5rem; color: #f8fafc; margin: 0; }
+
+        .close-btn-responsive {
+            background: rgba(239, 68, 68, 0.1); color: #ef4444; border: none;
+            width: 50px; height: 50px; border-radius: 12px; font-size: 1.5rem;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+
+        .close-btn-responsive:active { background: #ef4444; color: #fff; }
+
+        .modal-body-scroll { padding: 24px; overflow-y: auto; flex: 1; }
+
+        /* Inputs e Botões Gigantes para Dedos (Fat-finger friendly) */
+        .input-otimizado {
+            width: 100%; background: #020617; border: 2px solid #334155; color: #f8fafc;
+            padding: 16px; border-radius: 12px; font-size: 1.1rem; outline: none; transition: 0.3s;
+            margin-bottom: 12px;
+        }
+        .input-otimizado:focus { border-color: #6366f1; background: #0f172a; }
+
+        .btn-acao-grande {
+            width: 100%; padding: 18px; border-radius: 12px; border: none; font-size: 1.2rem;
+            font-weight: 800; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px;
+            transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        .btn-acao-grande:active { transform: scale(0.98); }
+
+        .box-apontamento {
+            background: #1e293b; border: 2px solid #334155; border-radius: 16px; padding: 20px; margin-bottom: 20px;
+        }
+
+        .label-oficina { display: block; color: #94a3b8; font-weight: 700; margin-bottom: 8px; font-size: 1.1rem; }
+        
+        /* Grid de Apontamento 1 coluna no tablet em retrato, 2 em paisagem */
+        .apontamento-grid { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 20px; }
+        @media(min-width: 800px) { .apontamento-grid { grid-template-columns: 1fr 1fr; } }
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="app-header-left">
+            <img src="assets/logo.png" alt="Logo" onerror="this.style.display='none'">
+            <h1><i class="fas fa-tablet-alt"></i> Terminal da Oficina</h1>
+        </div>
+        <div class="user-info">
+            <div class="user-name">
+                <i class="fas fa-hard-hat" style="font-size: 1.4rem; color: #3ddc84;"></i> 
+                <span id="lblNomeMecanico">Mecânico</span>
+            </div>
+            <button class="btn-logout" onclick="sairApp()">
+                <i class="fas fa-power-off"></i> Sair
+            </button>
+        </div>
+    </header>
+
+    <main class="app-content">
+        
+        <div class="serv-tabs">
+            <button id="btnAbaAceite" class="serv-tab-btn active" onclick="mecanicoMudarAba('aceite')">
+                <i class="fas fa-hand-holding-medical"></i> Pegar Serviço
+                <span class="badge-count" id="countAceite">0</span>
+            </button>
+            <button id="btnAbaAbertas" class="serv-tab-btn" onclick="mecanicoMudarAba('abertas')">
+                <i class="fas fa-wrench"></i> Meus Serviços
+                <span class="badge-count" id="countAbertas">0</span>
+            </button>
+            <button id="btnAbaRequisicoes" class="serv-tab-btn" onclick="mecanicoMudarAba('requisicoes')">
+                <i class="fas fa-clipboard-list"></i> Peças Pedidas
+                <span class="badge-count" id="countRequisicoes">0</span>
+            </button>
+            <button id="btnAbaSOS" class="serv-tab-btn" onclick="mecanicoMudarAba('sos')" style="color: #fca5a5;">
+                <i class="fas fa-ambulance"></i> S.O.S (Campo)
+                <span class="badge-count" id="countSOS" style="background: #ea580c; color: white;">0</span>
+            </button>
+        </div>
+
+        <div id="divServAceite" class="scroll-area">
+            <div id="tabelaServicosDisponiveis" class="grid-cards-container">
+                <p style="text-align: center; color:#94a3b8; font-size: 1.2rem; margin-top: 40px;">
+                    <i class="fas fa-circle-notch fa-spin fa-2x"></i><br><br>Buscando ordens de serviço...
+                </p>
+            </div>
+        </div>
+
+        <div id="divServAbertas" class="scroll-area" style="display: none;">
+            <div id="listaMinhasOSAbertas" class="grid-cards-container"></div>
+        </div>
+
+        <div id="divServRequisicoes" class="scroll-area" style="display: none;">
+            <div id="tabelaMinhasRequisicoes" class="grid-cards-container"></div>
+        </div>
+
+        <div id="divServSOS" class="scroll-area" style="display: none; background: rgba(249, 115, 22, 0.05); padding: 20px; border-radius: 16px; border: 2px solid #f97316;">
+            <div id="mapaSOSMecanico" style="height: 350px; width: 100%; border-radius: 16px; border: 4px solid #f97316; margin-bottom: 25px; z-index: 1; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);"></div>
+            <div id="tabelaServicosSOS" class="grid-cards-container"></div>
+        </div>
+
+    </main>
+
+    <div id="modalApontamentoOS" class="modal-overlay-fullscreen" style="display: none;">
+        <div class="custom-modal-responsive">
+            
+            <div class="modal-header-responsive">
+                <h3><i class="fas fa-clipboard-check"></i> Preencher Serviço</h3>
+                <button class="close-btn-responsive" onclick="mecanicoFecharModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body-scroll">
+                
+                <div style="display: flex; flex-wrap: wrap; gap: 15px; background: rgba(99, 102, 241, 0.1); border: 2px solid #6366f1; padding: 20px; border-radius: 16px; margin-bottom: 20px;">
+                    <div style="flex: 1; min-width: 150px;">
+                        <span class="label-oficina" style="color:#818cf8;">Frota em Manutenção</span>
+                        <strong id="apontPlaca" style="font-size:2rem; color:#fff; letter-spacing: 2px;">-</strong>
+                    </div>
+                    <div style="flex: 2; min-width: 250px;">
+                        <span class="label-oficina" style="color:#818cf8;">Sua Previsão de Término</span>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="datetime-local" id="aponPrevisaoGlobal" class="input-otimizado" style="margin-bottom:0;">
+                            <button class="btn-acao-grande" style="background:#4f46e5; color:#fff; width: auto; padding: 0 25px;" onclick="mecanicoSalvarPrevisaoOS()">
+                                <i class="fas fa-save"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="apontamento-grid">
+                    
+                    <div class="box-apontamento">
+                        <h4 style="color:#818cf8; font-size: 1.3rem; margin-top:0; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-tools"></i> 1. Lançar Serviço
+                        </h4>
+                        
+                        <label class="label-oficina">Sistema do Caminhão</label>
+                        <div id="aponCheckboxesServico" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                            </div>
+
+                        <label class="label-oficina">O que foi feito?</label>
+                        <input type="text" id="aponDescServico" class="input-otimizado" placeholder="Ex: Troca de lonas de freio...">
+                        
+                        <button class="btn-acao-grande" style="background: #3b82f6; color: white; margin-top: 10px;" onclick="mecanicoAddServico()">
+                            <i class="fas fa-plus-circle"></i> Adicionar Serviço
+                        </button>
+
+                        <div class="lista-lancamentos" style="margin-top:20px;" id="tabelaServicosLancados"></div>
+                    </div>
+
+                    <div class="box-apontamento">
+                        <h4 style="color:#34d399; font-size: 1.3rem; margin-top:0; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-box-open"></i> 2. Pedir Peças
+                        </h4>
+                        
+                        <div style="display: flex; gap: 15px; margin-bottom: 5px;">
+                            <div style="flex: 1;">
+                                <label class="label-oficina">Onde vai a peça?</label>
+                                <select id="aponCompartimentoPeca" class="input-otimizado"></select>
+                            </div>
+                            <div style="width: 120px;">
+                                <label class="label-oficina">Qtd</label>
+                                <input type="number" step="0.01" id="aponQtdPeca" value="1" class="input-otimizado" style="font-size: 1.3rem; text-align: center;">
+                            </div>
+                        </div>
+
+                        <label class="label-oficina">Buscar no Estoque</label>
+                        <input type="text" id="pesquisaPeca" class="input-otimizado" placeholder="Digite o nome ou código..." onkeyup="mecanicoFiltrarPecas()">
+                        
+                        <select id="aponPeca" class="input-otimizado" style="margin-bottom: 15px;"></select>
+                        
+                        <button class="btn-acao-grande" style="background: #10b981; color: white;" onclick="mecanicoAddPeca()">
+                            <i class="fas fa-paper-plane"></i> Enviar Pedido
+                        </button>
+
+                        <div class="lista-lancamentos" style="margin-top:20px;" id="tabelaPecasLancadas"></div>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="nomeMecanicoLabel" value="">
+            </div>
+        </div>
+    </div>
+
+    <div id="modalFinalizarOS" class="modal-overlay-fullscreen" style="display: none;">
+        <div class="custom-modal-responsive" style="max-width: 600px;">
+            
+            <div class="modal-header-responsive" style="background: #064e3b; border-bottom-color: #059669;">
+                <h3 style="color: #34d399;"><i class="fas fa-flag-checkered"></i> Liberar Veículo</h3>
+                <button class="close-btn-responsive" onclick="fecharModalFinalizarOS()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body-scroll">
+                <form onsubmit="mecanicoConfirmarFinalizacao(event)" style="display: flex; flex-direction: column; height: 100%;">
+                    <input type="hidden" id="finOsId">
+                    
+                    <div class="box-apontamento" style="background: rgba(16, 185, 129, 0.1); border-color: #10b981; text-align: center; padding: 30px;">
+                        <h4 style="color:#fff; margin:0; font-size: 1.6rem;">Placa: <span id="finOsPlaca" style="color: #34d399; font-size: 2rem; display: block; margin-top: 10px; letter-spacing: 2px;"></span></h4>
+                    </div>
+                    
+                    <div style="margin-top: 20px;">
+                        <label class="label-oficina">Horário Exato de Término</label>
+                        <input type="datetime-local" id="finDataConclusao" class="input-otimizado" style="font-size: 1.3rem;" required>
+                    </div>
+                    
+                    <div style="flex: 1; margin-top: 15px; margin-bottom: 30px;">
+                        <label class="label-oficina">Observações (Opcional)</label>
+                        <textarea id="finObservacoes" class="input-otimizado" style="height: 140px; resize: none;" placeholder="Tem algo pendente? Deixe um aviso para a gestão..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn-acao-grande" style="background: #10b981; color: white; padding: 22px; font-size: 1.4rem; text-transform: uppercase;">
+                        <i class="fas fa-check-double"></i> Concluir Manutenção
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="core/js/database.js"></script>
+    <script src="modules/manutencao/servicos/servicos.js"></script>
+
+    <script>
+        // Função utilitária de formatação requerida pelo servicos.js
+        function formatarDataHoraBrasil(dataString) {
+            if (!dataString) return '-';
+            const partes = dataString.split('T');
+            const data = partes[0].split('-').reverse().join('/');
+            return partes[1] ? `${data} ${partes[1].substring(0, 5)}` : data;
+        }
+
+        // Script de Inicialização e Verificação de Login
+        document.addEventListener('DOMContentLoaded', async () => {
+            
+            // 1. Verifica se o mecânico está logado no tablet
+            const sessaoSalva = localStorage.getItem('ccol_user_session');
+            if (!sessaoSalva) {
+                // Se não estiver logado, manda para a tela de login
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // 2. Registra o usuário logado para o database.js usar
+            const currentUser = JSON.parse(sessaoSalva);
+            window.currentUser = currentUser;
+            
+            // 3. Exibe o nome do mecânico na tela
+            document.getElementById('lblNomeMecanico').innerText = currentUser.username || currentUser.nome || 'Mecânico';
+            
+            // 4. Inicia as lógicas do servicos.js (Mesmas funções do painel principal)
+            await window.renderizarTelaServicos();
+
+            // 5. Atualização Silenciosa (Live Update)
+            // A cada 15 segundos ele busca novas ordens ou liberações do almoxarifado
+            // sem piscar a tela ou atrapalhar o mecânico.
+            setInterval(async () => {
+                const modalAberto = document.getElementById('modalApontamentoOS').style.display === 'flex' || 
+                                    document.getElementById('modalFinalizarOS').style.display === 'flex';
+                
+                // Só atualiza os cards se ele não estiver com nenhum modal aberto preenchendo dados
+                if (!modalAberto) {
+                    await window.renderizarTelaServicos();
+                }
+            }, 15000);
+        });
+
+        // Deslogar do Tablet
+        function sairApp() {
+            if(confirm('Tem certeza que deseja sair do sistema?')) {
+                localStorage.removeItem('ccol_user_session');
+                window.location.href = 'login.html';
+            }
+        }
+    </script>
+</body>
+</html>
