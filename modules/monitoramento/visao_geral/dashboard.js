@@ -674,6 +674,22 @@ function loadDashboardData() {
         if(document.getElementById('bestPlacaName')) document.getElementById('bestPlacaName').innerText = 'Nenhum cavalo encontrado';
         if(document.getElementById('tempoCarregamento')) document.getElementById('tempoCarregamento').innerText = '0 h';
         
+        // Zera os Visuais de Volume se não tiver dados
+        if(document.getElementById('mediaVolumeViagem')) {
+            const el = document.getElementById('mediaVolumeViagem');
+            el.className = "text-3xl font-extrabold text-white m-0 transition-all";
+            el.innerHTML = '0 m³';
+            const sub = el.parentElement.nextElementSibling;
+            if(sub) { sub.innerText = "Caixa de Carga"; sub.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest"; }
+        }
+        if(document.getElementById('totalVolumeReal')) {
+            const el = document.getElementById('totalVolumeReal');
+            el.className = "text-3xl font-extrabold text-white m-0 transition-all";
+            el.innerHTML = '0 m³';
+            const sub = el.parentElement.nextElementSibling;
+            if(sub) { sub.innerText = "Acumulado Período"; sub.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest"; }
+        }
+
         renderizarTabelaComparativo([]); 
         
         if(chartCiclo) chartCiclo.destroy();
@@ -718,6 +734,7 @@ function loadDashboardData() {
     
     let diasConsideradosCalc = 1;
     let mediaAtivosReal = 0;
+    let metaViagensCalculada = 0;
     const elMetaTexto = document.getElementById('metaViagensText');
     const elIconeMeta = document.getElementById('iconeMetaViagens');
 
@@ -832,7 +849,7 @@ function loadDashboardData() {
 
         let configTPropria = transpPropriaConfig ? transpPropriaConfig : 'SERRANALOG';
         if (activeT === 'ALL' || activeT.toUpperCase().includes(configTPropria)) {
-            let metaViagensCalculada = Math.round(totalMetaCalculadaExata); 
+            metaViagensCalculada = Math.round(totalMetaCalculadaExata); 
             
             elMetaTexto.innerHTML = `Disp: <b class="text-emerald-400">${mediaAtivosReal}</b> carros (DM) | Meta Total: <b class="text-sky-400">${metaViagensCalculada}</b> viag.`;
             elMetaTexto.classList.remove('hidden');
@@ -866,24 +883,84 @@ function loadDashboardData() {
     if(document.getElementById('totalViagens')) document.getElementById('totalViagens').innerText = totalViagens.toLocaleString('pt-PT');
 
     // =========================================================================================
-    // CÁLCULOS PRINCIPAIS - RPV E PBTC
+    // CÁLCULOS PRINCIPAIS - RPV E PBTC (COM REGRAS DE SLA DO CONTRATO)
     // =========================================================================================
     
-    // Cálculo do PBTC: Usa a nova coluna peso_na_entrada (se não existir em registros antigos, usa o pesoLiquido)
-    const totalPesoKg = cardsData.reduce((sum, r) => sum + (r.peso_na_entrada || r.pesoLiquido || 0), 0);
+    // Cálculo do PBTC: Usa EXCLUSIVAMENTE a coluna peso_na_entrada conforme seu pedido
+    const totalPesoKg = cardsData.reduce((sum, r) => sum + (r.peso_na_entrada || 0), 0);
     const mediaPBTC = totalViagens > 0 ? (totalPesoKg / 1000) / totalViagens : 0;
     
     // Cálculo do RPV (Filtrando apenas as viagens que tem RPV calculado válido para fazer a média)
     const validRpv = cardsData.filter(d => d.rpv !== null && d.rpv > 0);
     const mediaRPV = validRpv.length > 0 ? validRpv.reduce((sum, r) => sum + r.rpv, 0) / validRpv.length : 0;
 
-    // Atualizando o indicador visual de RPV
-    if(document.getElementById('mediaRPV')) {
-        document.getElementById('mediaRPV').innerText = mediaRPV > 0 ? mediaRPV.toLocaleString('pt-PT', {maximumFractionDigits: 2}) : "0";
+    // --- NOVA LÓGICA DE INDICADOR SLA (Matriz RPV x PBTC Mínimo) ---
+    // Descobre qual é a meta de PBTC com base na faixa da média do RPV atual
+    let reqPbtc = 74.0;
+    if (mediaRPV <= 700 && mediaRPV > 0) reqPbtc = 71.0;
+    else if (mediaRPV > 700 && mediaRPV < 800) reqPbtc = 73.0;
+    else reqPbtc = 74.0;
+
+    // SLA é atendido se o PBTC médio alcançou a meta estipulada pela faixa do RPV
+    let slaAtendido = (mediaPBTC >= reqPbtc);
+
+    const elRpv = document.getElementById('mediaRPV');
+    if (elRpv) {
+        let rpvStr = mediaRPV > 0 ? mediaRPV.toLocaleString('pt-PT', {maximumFractionDigits: 2}) : "0";
+        const pSub = elRpv.parentElement.nextElementSibling; // A tag div que fica embaixo do número
+
+        if (mediaRPV > 0) {
+            if (slaAtendido) {
+                elRpv.className = "text-3xl font-extrabold text-emerald-400 m-0 transition-all drop-shadow-md";
+                elRpv.innerHTML = `${rpvStr} <i class="fas fa-check-circle text-[20px] ml-2" title="SLA Atendido (PBTC >= ${reqPbtc}t)"></i>`;
+                if(pSub) {
+                    pSub.innerText = `SLA OK (Alvo PBTC: ${reqPbtc}t)`;
+                    pSub.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-emerald-500 uppercase tracking-widest";
+                }
+            } else {
+                elRpv.className = "text-3xl font-extrabold text-rose-500 m-0 transition-all drop-shadow-md";
+                elRpv.innerHTML = `${rpvStr} <i class="fas fa-exclamation-circle text-[20px] ml-2" title="SLA Não Atendido (Faltou PBTC >= ${reqPbtc}t)"></i>`;
+                if(pSub) {
+                    pSub.innerText = `SLA PENDENTE (Falta PBTC: ${reqPbtc}t)`;
+                    pSub.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-rose-500 uppercase tracking-widest";
+                }
+            }
+        } else {
+            elRpv.className = "text-3xl font-extrabold text-white m-0 transition-all";
+            elRpv.innerText = "0";
+            if(pSub) {
+                pSub.innerText = "kg / m³";
+                pSub.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest";
+            }
+        }
     }
 
-    // =========================================================================================
+    // --- ATUALIZAÇÃO DA COR DO PBTC PARA ACOMPANHAR A META DO CONTRATO ---
+    let pbtcCor = "text-white";
+    let pbtcIcone = "";
+
+    if (mediaPBTC > 0) {
+        if (mediaPBTC < reqPbtc) { 
+            // Abaixo da meta dinâmica do SLA
+            pbtcCor = "text-rose-500"; 
+            pbtcIcone = `<i class="fas fa-exclamation-circle text-rose-500 text-sm ml-2" title="Abaixo da Meta SLA (${reqPbtc}t)"></i>`; 
+        }
+        else if (mediaPBTC >= reqPbtc && mediaPBTC <= 77.7) { 
+            // Bateu a meta da faixa atual do RPV!
+            pbtcCor = "text-emerald-400"; 
+            pbtcIcone = `<i class="fas fa-check-circle text-emerald-400 text-sm ml-2" title="Dentro do SLA (${reqPbtc}t)"></i>`; 
+        }
+        else if (mediaPBTC > 77.7) { 
+            // Acima do Limite Legal/Tolerância
+            pbtcCor = "text-amber-500"; 
+            pbtcIcone = '<i class="fas fa-exclamation-triangle text-amber-500 text-sm ml-2" title="Acima da Tolerância Legal"></i>'; 
+        }
+    }
+
+    if(document.getElementById('totalPesoLiq')) document.getElementById('totalPesoLiq').innerHTML = `<span class="${pbtcCor}">${mediaPBTC.toLocaleString('pt-PT', {maximumFractionDigits: 1})} t</span>${pbtcIcone}`;
     
+    // =========================================================================================
+
     const totalVolumeReal = cardsData.reduce((sum, r) => sum + (parseFloat(String(r.volumeReal).replace(',','.')) || 0), 0);
     const mediaVolume = totalViagens > 0 ? totalVolumeReal / totalViagens : 0;
     const mediaAsfalto = totalViagens > 0 ? cardsData.reduce((sum, r) => sum + (r.distanciaAsfalto||0), 0) / totalViagens : 0;
@@ -905,25 +982,72 @@ function loadDashboardData() {
 
     const produtividadeGlobalM3 = somaCiclosTotais > 0 ? (totalVolumeReal / somaCiclosTotais) : 0;
     
-    let pbtcCor = "text-white";
-    let pbtcIcone = "";
+    // --- LÓGICA DE METAS E CORES PARA OS INDICADORES DE VOLUME ---
+    let metaCaixaFinal = (metasGlobaisObj && metasGlobaisObj.cx_prog) ? parseFloat(metasGlobaisObj.cx_prog) : 48;
     
-    if (mediaPBTC > 0) {
-        if (mediaPBTC < 74) {
-            pbtcCor = "text-yellow-400";
-            pbtcIcone = '<i class="fas fa-exclamation-triangle text-yellow-400 text-sm ml-2" title="Abaixo do ideal"></i>';
-        } else if (mediaPBTC >= 74 && mediaPBTC <= 77.7) {
-            pbtcCor = "text-green-400";
-            pbtcIcone = '<i class="fas fa-check-circle text-green-400 text-sm ml-2" title="Ideal"></i>';
-        } else if (mediaPBTC > 77.7) {
-            pbtcCor = "text-red-500";
-            pbtcIcone = '<i class="fas fa-times-circle text-red-500 text-sm ml-2" title="Acima do ideal"></i>';
+    let metaVolumeCalculada = 0;
+    if (metasGlobaisObj && metasGlobaisObj.vol_prog > 0) { 
+        metaVolumeCalculada = metasGlobaisObj.vol_prog * diasConsideradosCalc; 
+    } else if (metaViagensCalculada > 0) { 
+        metaVolumeCalculada = metaViagensCalculada * metaCaixaFinal; 
+    } else { 
+        metaVolumeCalculada = (50 * 2 * diasConsideradosCalc) * metaCaixaFinal; 
+    }
+
+    // 1. Atualizando o Card "Média de Vol. (m³)"
+    let elMediaVol = document.getElementById('mediaVolumeViagem');
+    if (elMediaVol) {
+        if (metaCaixaFinal > 0) {
+            if (mediaVolume >= metaCaixaFinal) {
+                elMediaVol.className = "text-3xl font-extrabold text-emerald-400 m-0 transition-all drop-shadow-md";
+                elMediaVol.innerHTML = `${mediaVolume.toLocaleString('pt-PT', {maximumFractionDigits: 1})} m³ <i class="fas fa-check-circle text-[20px] ml-2" title="Meta Atendida (>= ${metaCaixaFinal} m³)"></i>`;
+                const subMedia = elMediaVol.parentElement.nextElementSibling;
+                if(subMedia) {
+                    subMedia.innerText = `Meta: ${metaCaixaFinal} m³`;
+                    subMedia.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-emerald-500 uppercase tracking-widest";
+                }
+            } else {
+                elMediaVol.className = "text-3xl font-extrabold text-rose-500 m-0 transition-all drop-shadow-md";
+                elMediaVol.innerHTML = `${mediaVolume.toLocaleString('pt-PT', {maximumFractionDigits: 1})} m³ <i class="fas fa-exclamation-circle text-[20px] ml-2" title="Abaixo da Meta"></i>`;
+                const subMedia = elMediaVol.parentElement.nextElementSibling;
+                if(subMedia) {
+                    subMedia.innerText = `Meta: ${metaCaixaFinal} m³`;
+                    subMedia.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-rose-500 uppercase tracking-widest";
+                }
+            }
+        } else {
+            elMediaVol.className = "text-3xl font-extrabold text-white m-0 transition-all";
+            elMediaVol.innerText = mediaVolume.toLocaleString('pt-PT', {maximumFractionDigits: 1}) + " m³";
         }
     }
 
-    if(document.getElementById('totalPesoLiq')) document.getElementById('totalPesoLiq').innerHTML = `<span class="${pbtcCor}">${mediaPBTC.toLocaleString('pt-PT', {maximumFractionDigits: 1})} t</span>${pbtcIcone}`;
-    if(document.getElementById('mediaVolumeViagem')) document.getElementById('mediaVolumeViagem').innerText = mediaVolume.toLocaleString('pt-PT', {maximumFractionDigits: 1}) + " m³";
-    if(document.getElementById('totalVolumeReal')) document.getElementById('totalVolumeReal').innerText = totalVolumeReal.toLocaleString('pt-PT', {maximumFractionDigits: 1}) + " m³";
+    // 2. Atualizando o Card "Volume Total"
+    let elTotalVol = document.getElementById('totalVolumeReal');
+    if (elTotalVol) {
+        if (metaVolumeCalculada > 0) {
+            if (totalVolumeReal >= metaVolumeCalculada) {
+                elTotalVol.className = "text-3xl font-extrabold text-emerald-400 m-0 transition-all drop-shadow-md";
+                elTotalVol.innerHTML = `${totalVolumeReal.toLocaleString('pt-PT', {maximumFractionDigits: 1})} m³ <i class="fas fa-check-circle text-[20px] ml-2" title="Meta Atendida (>= ${metaVolumeCalculada.toLocaleString('pt-PT')} m³)"></i>`;
+                const subTotal = elTotalVol.parentElement.nextElementSibling;
+                if(subTotal) {
+                    subTotal.innerHTML = `Meta: <b class="text-emerald-400">${metaVolumeCalculada.toLocaleString('pt-PT')} m³</b>`;
+                    subTotal.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-emerald-500 uppercase tracking-widest";
+                }
+            } else {
+                elTotalVol.className = "text-3xl font-extrabold text-rose-500 m-0 transition-all drop-shadow-md";
+                elTotalVol.innerHTML = `${totalVolumeReal.toLocaleString('pt-PT', {maximumFractionDigits: 1})} m³ <i class="fas fa-exclamation-circle text-[20px] ml-2" title="Abaixo da Meta"></i>`;
+                const subTotal = elTotalVol.parentElement.nextElementSibling;
+                if(subTotal) {
+                    subTotal.innerHTML = `Meta: <b class="text-rose-500">${metaVolumeCalculada.toLocaleString('pt-PT')} m³</b>`;
+                    subTotal.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-rose-500 uppercase tracking-widest";
+                }
+            }
+        } else {
+            elTotalVol.className = "text-3xl font-extrabold text-white m-0 transition-all";
+            elTotalVol.innerText = totalVolumeReal.toLocaleString('pt-PT', {maximumFractionDigits: 1}) + " m³";
+        }
+    }
+
     if(document.getElementById('mediaDistancia')) document.getElementById('mediaDistancia').innerText = mediaDistTotal.toLocaleString('pt-PT', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " km";
     if(document.getElementById('mediaAsfalto')) document.getElementById('mediaAsfalto').innerText = mediaAsfalto.toLocaleString('pt-PT', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     if(document.getElementById('mediaTerra')) document.getElementById('mediaTerra').innerText = mediaTerra.toLocaleString('pt-PT', {minimumFractionDigits: 2, maximumFractionDigits: 2});
