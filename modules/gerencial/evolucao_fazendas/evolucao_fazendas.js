@@ -10,7 +10,7 @@ var dicionarioUpFazenda = {};
 var chartEvolucaoDiariaObj = null;
 var chartEvolucaoTopFazendasObj = null;
 
-// ==================== PARSERS SEGUROS ====================
+// ==================== PARSERS E CLASSIFICADORES ====================
 function getSupabaseClientEvolucao() {
     return window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
 }
@@ -33,6 +33,15 @@ function toNumber(val) {
     let strLimpa = String(val).replace('R$', '').trim().replace(',', '.');
     let num = parseFloat(strLimpa);
     return isNaN(num) ? 0 : num;
+}
+
+// NOVA FUNÇÃO: Agrupa Transportadoras (Serrana vs Resto)
+function classificarTransportadora(nomeOriginal) {
+    const nome = String(nomeOriginal || '').trim().toUpperCase();
+    if (nome.includes('SERRANALOG') || nome.includes('SERRANA LOG')) {
+        return 'SERRANALOG TRANSPORTES LTDA';
+    }
+    return 'OUTRAS TRANSPORTADORAS';
 }
 // ========================================================
 
@@ -193,14 +202,11 @@ function popularDropdownsIniciais() {
     const selectTransp = document.getElementById('filtroTransportadoraEvol');
     if(!selectTransp) return;
 
-    const transpSet = new Set();
-    dadosViagensEvolucao.forEach(v => {
-        const transp = getCampo(v, ['transportadora']);
-        if(transp && String(transp).trim() !== '') transpSet.add(String(transp).trim().toUpperCase());
-    });
-
+    // Filtro Injetado com as duas opções de Visão Gerencial Fixas
     let html = '<option value="">Todas as Transportadoras</option>';
-    Array.from(transpSet).sort().forEach(t => { html += `<option value="${t}">${t}</option>`; });
+    html += '<option value="SERRANALOG TRANSPORTES LTDA">SERRANALOG TRANSPORTES LTDA</option>';
+    html += '<option value="OUTRAS TRANSPORTADORAS">OUTRAS TRANSPORTADORAS</option>';
+    
     selectTransp.innerHTML = html;
 
     atualizarDropdownFazenda();
@@ -215,8 +221,10 @@ function atualizarDropdownFazenda() {
     const fazendas = new Set();
 
     dadosViagensEvolucao.forEach(v => {
-        const tStr = String(getCampo(v, ['transportadora'])).trim().toUpperCase();
-        if(transpSelecionada === '' || tStr === transpSelecionada) {
+        // Usa o classificador para saber de qual "balde" é a viagem
+        const tClassificada = classificarTransportadora(getCampo(v, ['transportadora']));
+        
+        if(transpSelecionada === '' || tClassificada === transpSelecionada) {
             const codUp = String(getCampo(v, ['up'])).trim().toUpperCase();
             let nomeDaFazenda = dicionarioUpFazenda[codUp] || "NÃO VINCULADA";
             fazendas.add(nomeDaFazenda.toUpperCase());
@@ -262,8 +270,9 @@ function processarFiltrosEExibirEvolucao() {
         const timeV = converterDataExcel(dataV).getTime();
         if (timeV < timeInicio || timeV > timeFim) return false;
 
-        const transpStr = String(getCampo(registro, ['transportadora'])).trim().toUpperCase();
-        if (transpFiltro !== '' && transpStr !== transpFiltro) return false;
+        // Compara com a classificação Master (Serrana x Outras)
+        const tClassificada = classificarTransportadora(getCampo(registro, ['transportadora']));
+        if (transpFiltro !== '' && tClassificada !== transpFiltro) return false;
 
         const codUp = String(getCampo(registro, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
@@ -298,10 +307,12 @@ function calcularAgrupamentosERenderizar() {
             dataStr = crAt ? String(crAt).split('T')[0] : 'S/D';
         }
 
-        const transpStr = String(getCampo(r, ['transportadora'])).trim().toUpperCase() || 'N/A';
+        // Aplica o Nome Classificado para a Transportadora
+        const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora']));
+        
         const codUp = String(getCampo(r, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
-        const chaveGrupo = `${nomeDaFazenda} || ${transpStr}`;
+        const chaveGrupo = `${nomeDaFazenda} || ${transpAgrupada}`;
 
         totVolumeGlobal += vol;
 
@@ -315,7 +326,7 @@ function calcularAgrupamentosERenderizar() {
         agrupamentoDiario[dataStr][nomeDaFazenda].volume += vol;
 
         if(!agrupamentoFazenda[chaveGrupo]) {
-            agrupamentoFazenda[chaveGrupo] = { fazenda: nomeDaFazenda, transportadora: transpStr, viagens: 0, volume: 0, scoreDMT: 0, scoreRPV: 0 };
+            agrupamentoFazenda[chaveGrupo] = { fazenda: nomeDaFazenda, transportadora: transpAgrupada, viagens: 0, volume: 0, scoreDMT: 0, scoreRPV: 0 };
         }
         agrupamentoFazenda[chaveGrupo].viagens += 1;
         agrupamentoFazenda[chaveGrupo].volume += vol;
@@ -348,6 +359,10 @@ function renderizarQuadroLadoALado(fazendas, totalVolumePeriodo) {
         const partVolume = totalVolumePeriodo > 0 ? ((f.volume / totalVolumePeriodo) * 100).toFixed(1) : 0;
         const colorTitle = f.fazenda === "NÃO VINCULADA" ? "text-rose-400" : "text-white";
 
+        // Cores Dinâmicas Baseadas na Transportadora (Serrana = Verde/Azul | Outras = Roxo/Amarelo)
+        const isSerrana = f.transportadora.includes('SERRANALOG');
+        const iconColor = isSerrana ? 'text-sky-500' : 'text-purple-400';
+
         html += `
             <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700/60 hover:border-emerald-500/50 hover:bg-slate-800 transition-all shadow-md flex flex-col justify-between group relative overflow-hidden">
                 <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl transition-all group-hover:bg-emerald-500/10"></div>
@@ -362,8 +377,8 @@ function renderizarQuadroLadoALado(fazendas, totalVolumePeriodo) {
                     <h4 class="${colorTitle} font-black text-sm tracking-wide uppercase truncate mb-1" title="${f.fazenda}">
                         <i class="fas fa-tractor text-slate-500 text-xs mr-1"></i> ${f.fazenda}
                     </h4>
-                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-tight truncate border-b border-slate-700/50 pb-2 mb-3">
-                        <i class="fas fa-truck text-sky-500 mr-1"></i> ${f.transportadora}
+                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-tight truncate border-b border-slate-700/50 pb-2 mb-3" title="${f.transportadora}">
+                        <i class="fas fa-truck ${iconColor} mr-1"></i> ${f.transportadora}
                     </p>
                 </div>
 
@@ -540,12 +555,15 @@ function renderizarTabelaEvolucao(dados) {
         const rpvMedio = d.viagens > 0 ? (d.scoreRPV / d.viagens) : 0;
         
         const corFazenda = d.fazenda === "NÃO VINCULADA" ? "text-rose-400" : "text-white";
+        // Destaca a fonte da transportadora se for "OUTRAS" para fácil identificação
+        const isSerrana = d.transportadora.includes('SERRANALOG');
+        const corTransportadora = isSerrana ? "text-slate-300" : "text-purple-300 font-bold";
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-700/30 transition-colors";
         tr.innerHTML = `
             <td class="px-6 py-3 ${corFazenda} font-bold text-xs uppercase">${d.fazenda}</td>
-            <td class="px-6 py-3 text-slate-300 font-medium text-xs uppercase">${d.transportadora}</td>
+            <td class="px-6 py-3 ${corTransportadora} text-xs uppercase">${d.transportadora}</td>
             <td class="px-6 py-3 text-center text-sky-400 font-black font-mono">${d.viagens}</td>
             <td class="px-6 py-3 text-right text-emerald-400 font-mono font-bold">${d.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
             <td class="px-6 py-3 text-right text-amber-400 font-mono">${dmtMedio.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
@@ -565,7 +583,7 @@ function exportarExcelEvolucao() {
 
     const obj = {};
     dadosFiltradosEvolucao.forEach(r => {
-        const transpStr = String(getCampo(r, ['transportadora'])).trim().toUpperCase() || 'N/A';
+        const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora']));
         const codUp = String(getCampo(r, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
         
@@ -575,13 +593,13 @@ function exportarExcelEvolucao() {
             dataStr = crAt ? String(crAt).split('T')[0] : 'S/D';
         }
         
-        const ch = `${dataStr}_${nomeDaFazenda}_${transpStr}`;
+        const ch = `${dataStr}_${nomeDaFazenda}_${transpAgrupada}`;
         const vol = toNumber(getCampo(r, ['volumeReal', 'pesoLiquido']));
         const dmt = toNumber(getCampo(r, ['distanciaAsfalto'])) + toNumber(getCampo(r, ['distanciaTerra']));
         const rpv = toNumber(getCampo(r, ['rpv']));
 
         if(!obj[ch]) {
-            obj[ch] = { Data: dataStr, Fazenda: nomeDaFazenda, Transportadora: transpStr, Viagens: 0, Volume: 0, SomaDMT: 0, SomaRPV: 0 };
+            obj[ch] = { Data: dataStr, Fazenda: nomeDaFazenda, Transportadora: transpAgrupada, Viagens: 0, Volume: 0, SomaDMT: 0, SomaRPV: 0 };
         }
         obj[ch].Viagens += 1;
         obj[ch].Volume += vol;
