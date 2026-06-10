@@ -41,6 +41,7 @@ window.MAPA_MENUS = [
     { id: 'cadastro_up', label: 'Cadastro de UP e Fazendas', setor: 'Monitoramento', icon: 'fas fa-map-marked-alt' },
 
     { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Gerencial', icon: 'fas fa-money-bill-wave' },
+    { id: 'evolucao_fazendas', label: 'Evolução das Fazendas', setor: 'Gerencial', icon: 'fas fa-seedling' },
     { id: 'visao_executiva', label: 'Visão Executiva (Global)', setor: 'Gerencial', icon: 'fas fa-globe-americas' },
     
     // --- MÓDULO GLOBAL ---
@@ -85,6 +86,7 @@ const ROTAS = {
     'operacional': 'modules/monitoramento/operacional/operacional.html',
     'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
     'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', 
+    'evolucao_fazendas': 'modules/gerencial/evolucao_fazendas/evolucao_fazendas.html',
     'visao_executiva': 'modules/gerencial/visao_executiva/visao_executiva.html', 
     'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
     'historico_producao': 'modules/monitoramento/historico/historico.html',
@@ -307,6 +309,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
         if (pagina === 'desempenho_frota' && typeof window.initDesempenhoFrota === 'function') window.initDesempenhoFrota();
         if (pagina === 'producao_frota' && typeof window.initProducaoFrota === 'function') window.initProducaoFrota();
+        if (pagina === 'evolucao_fazendas' && typeof window.initEvolucaoFazendas === 'function') window.initEvolucaoFazendas();
         if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();
         if (pagina === 'historico_producao' && typeof window.initHistoricoProducao === 'function') window.initHistoricoProducao();

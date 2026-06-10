@@ -1,0 +1,113 @@
+<div class="max-w-[96rem] mx-auto px-6 py-8">
+    
+    <div class="flex justify-between items-center mb-8 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm flex-wrap gap-4">
+        <div class="flex items-center gap-4 flex-wrap">
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
+                <i class="fas fa-tractor text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-extrabold text-white">Resumo e Evolução das Fazendas</h1>
+                <p class="text-sm text-slate-400 font-medium">Análise de produção e volume transportado agrupado pelo nome da Fazenda (via vínculo de UP).</p>
+            </div>
+        </div>
+        <span id="statusEvolucao" class="text-xs font-bold bg-slate-900 border border-slate-700 text-sky-400 px-3 py-1 rounded-lg font-mono">
+            Conectando ao banco...
+        </span>
+    </div>
+
+    <section class="animate-fade-in space-y-6">
+        <div class="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 shadow-lg flex flex-col xl:flex-row justify-between items-end gap-4">
+            <div class="flex flex-wrap items-end gap-4 w-full xl:w-auto">
+                <div class="flex flex-col">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Transportadora</label>
+                    <select id="filtroTransportadoraEvol" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-emerald-500 shadow-inner cursor-pointer min-w-[200px]">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Filtrar por Fazenda</label>
+                    <select id="filtroFazenda" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-emerald-500 shadow-inner cursor-pointer min-w-[200px]">
+                        <option value="">Todas as Fazendas</option>
+                    </select>
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Data Início</label>
+                    <input type="date" id="dataInicioEvol" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-emerald-500 shadow-inner cursor-pointer">
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Data Fim</label>
+                    <input type="date" id="dataFimEvol" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-emerald-500 shadow-inner cursor-pointer">
+                </div>
+                <button id="btnFiltrarEvolucao" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2 rounded-lg border border-emerald-500 transition-all shadow-md flex items-center gap-2">
+                    <i class="fas fa-filter"></i> Analisar
+                </button>
+            </div>
+            <div>
+                <button id="btnExportarEvolucao" class="bg-slate-700 hover:bg-emerald-600 text-white font-bold px-5 py-2 rounded-lg border border-slate-600 hover:border-emerald-500 transition-all shadow-md flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-file-excel"></i> Exportar
+                </button>
+            </div>
+        </div>
+
+        <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <i class="fas fa-th-large text-emerald-400"></i> Produção das Fazendas (Lado a Lado)
+            </h3>
+            <div id="quadroEvolucaoLadoALado" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div class="col-span-full text-center text-slate-500 py-6 border border-dashed border-slate-700 rounded-xl bg-slate-800/20">
+                    <i class="fas fa-spinner fa-spin mr-2"></i>Cruzando UPs com as Fazendas cadastradas...
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl p-5 border border-slate-700/50 flex flex-col w-full">
+                <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-chart-column text-emerald-400 mr-2 text-lg"></i> Top Fazendas (Volume m³)
+                    </h3>
+                </div>
+                <div class="w-full relative h-[320px]">
+                    <canvas id="chartEvolucaoTopFazendas"></canvas>
+                </div>
+            </div>
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl p-5 border border-slate-700/50 flex flex-col w-full">
+                <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-chart-line text-sky-400 mr-2 text-lg"></i> Comportamento Diário Global
+                    </h3>
+                </div>
+                <div class="w-full relative h-[320px]">
+                    <canvas id="chartEvolucaoDiaria"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col">
+            <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                    <i class="fas fa-list text-indigo-400 mr-2 text-lg"></i> Histórico Analítico (Fazenda x Transportadora)
+                </h3>
+            </div>
+            <div class="overflow-x-auto max-h-[400px] overflow-y-auto custom-scrollbar">
+                <table class="min-w-full text-sm text-left">
+                    <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-700 sticky top-0 z-10 shadow-md backdrop-blur-sm">
+                        <tr>
+                            <th class="px-6 py-4">Fazenda</th>
+                            <th class="px-6 py-4">Transportadora</th>
+                            <th class="px-6 py-4 text-center">Nº Viagens</th>
+                            <th class="px-6 py-4 text-right">Volume (m³)</th>
+                            <th class="px-6 py-4 text-right">DMT Médio (km)</th>
+                            <th class="px-6 py-4 text-right">RPV Médio</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyEvolucaoFazendas" class="divide-y divide-slate-800/80 text-slate-300">
+                        <tr>
+                            <td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Aguardando filtro...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>

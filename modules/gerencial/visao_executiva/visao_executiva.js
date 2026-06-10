@@ -39,10 +39,12 @@ window.atualizarDadosExecutivos = async function() {
         if (!filiaisDB || filiaisDB.length === 0) {
             if (containerCards) containerCards.innerHTML = '<div class="col-span-full text-center text-yellow-400 py-10"><i class="fas fa-exclamation-triangle fa-2x mb-3"></i><p>Nenhuma filial encontrada.</p></div>';
             
-            document.getElementById('kpiFatGlobal').innerText = 'R$ 0,00';
-            document.getElementById('kpiProdGlobal').innerText = '0 m³';
-            document.getElementById('kpiDmGlobal').innerText = '0%';
-            document.getElementById('kpiFiliaisAtivas').innerText = '0';
+            // Tratamento de erro seguro
+            if (document.getElementById('kpiFatGlobal')) document.getElementById('kpiFatGlobal').innerText = 'R$ 0,00';
+            if (document.getElementById('kpiProdGlobal')) document.getElementById('kpiProdGlobal').innerText = '0 m³';
+            if (document.getElementById('kpiDmGlobal')) document.getElementById('kpiDmGlobal').innerText = '0%';
+            if (document.getElementById('kpiFiliaisAtivas')) document.getElementById('kpiFiliaisAtivas').innerText = '0';
+            
             renderizarGraficoComparativo([]);
             return;
         }
@@ -238,12 +240,20 @@ window.atualizarDadosExecutivos = async function() {
         }
 
         // =========================================================
-        // 6. ATUALIZAR KPIs GLOBAIS NO TOPO
+        // 6. ATUALIZAR KPIs GLOBAIS NO TOPO (Com validação se existem no DOM)
         // =========================================================
-        document.getElementById('kpiFatGlobal').innerText = totalFatGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('kpiProdGlobal').innerText = totalProdGlobal.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' m³';
-        document.getElementById('kpiDmGlobal').innerText = dmGlobalMediaMes + '%'; // Utilizando o dado Oficial puxado
-        document.getElementById('kpiFiliaisAtivas').innerText = filiaisData.length.toString();
+        if (document.getElementById('kpiFatGlobal')) {
+            document.getElementById('kpiFatGlobal').innerText = totalFatGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+        if (document.getElementById('kpiProdGlobal')) {
+            document.getElementById('kpiProdGlobal').innerText = totalProdGlobal.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' m³';
+        }
+        if (document.getElementById('kpiDmGlobal')) {
+            document.getElementById('kpiDmGlobal').innerText = dmGlobalMediaMes + '%'; 
+        }
+        if (document.getElementById('kpiFiliaisAtivas')) {
+            document.getElementById('kpiFiliaisAtivas').innerText = filiaisData.length.toString();
+        }
 
         // =========================================================
         // 7. RENDERIZAR OS CARDS DA FILIAIS
