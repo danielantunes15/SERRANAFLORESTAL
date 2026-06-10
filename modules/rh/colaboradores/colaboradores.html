@@ -1,0 +1,127 @@
+<div class="action-bar">
+    <div class="filter-group">
+        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-id-badge"></i> Cadastro de Colaboradores</h2>
+        <input type="text" id="buscaColaborador" class="search-input-dark" placeholder="Buscar por nome ou CPF..." onkeyup="window.filtrarColaboradores()">
+    </div>
+    <div class="button-group" style="display: flex; gap: 10px;">
+        <button class="btn-secondary-dark" onclick="window.abrirModalGerenciarCursos()"><i class="fas fa-book"></i> Gerenciar Cursos</button>
+        <button class="btn-primary-green" onclick="window.abrirModalColaborador()"><i class="fas fa-plus"></i> Novo Colaborador</button>
+    </div>
+</div>
+
+<div class="content-panel">
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Matrícula / Status</th>
+                    <th>Nome do Colaborador</th>
+                    <th>Função / Cargo</th>
+                    <th>Telefone</th>
+                    <th>Alertas (Vencimentos)</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbColaboradores">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modalColaborador" class="modal-overlay">
+    <div class="custom-modal" style="max-width: 800px; width: 95%;">
+        <div class="modal-header">
+            <h3 id="modalColaboradorTitle">Ficha Completa do Colaborador</h3>
+            <button class="close-modal" onclick="window.fecharModalColaborador()">&times;</button>
+        </div>
+        
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto; padding-right: 15px;">
+            <input type="hidden" id="colaboradorId">
+            
+            <h4 style="grid-column: 1 / -1; margin-top: 0; color: var(--ccol-blue-bright); border-bottom: 1px solid var(--border-dim); padding-bottom: 5px; margin-bottom: 15px;"><i class="fas fa-user"></i> Dados Pessoal & Contrato</h4>
+            <div class="form-grid-conjunto" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                <div class="form-group-dark">
+                    <label>Status</label>
+                    <select id="colStatus" class="dark-select">
+                        <option value="Ativo">🟢 Ativo</option>
+                        <option value="Inativo">⚫ Inativo / Desligado</option>
+                        <option value="Férias">🟡 De Férias</option>
+                        <option value="Afastado">🔴 Afastado (INSS/Saúde)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Matrícula (Cód. Func.)</label>
+                    <input type="text" id="colCodFuncionario" readonly placeholder="Gerado Auto" style="background-color: rgba(0,0,0,0.4); border-color: transparent; color: #94a3b8; cursor: not-allowed; font-weight: bold; text-align: center;">
+                </div>
+                <div class="form-group-dark"><label>Data de Admissão</label><input type="date" id="colDataAdmissao"></div>
+                
+                <div class="form-group-dark" style="grid-column: 1 / -1;"><label>Nome Completo *</label><input type="text" id="colNome" placeholder="Digite o nome completo"></div>
+                
+                <div class="form-group-dark"><label>CPF</label><input type="text" id="colCpf" placeholder="000.000.000-00"></div>
+                <div class="form-group-dark"><label>RG</label><input type="text" id="colRg" placeholder="Número do RG"></div>
+                <div class="form-group-dark"><label>Data de Nascimento</label><input type="date" id="colDataNascimento"></div>
+                
+                <div class="form-group-dark"><label>Função / Cargo</label><input type="text" id="colFuncao" placeholder="Ex: Motorista Carreteiro"></div>
+                <div class="form-group-dark"><label>Telefone / WhatsApp</label><input type="text" id="colTelefone" placeholder="(00) 00000-0000"></div>
+                <div class="form-group-dark" style="grid-column: 1 / -1;"><label>Endereço Completo</label><input type="text" id="colEndereco" placeholder="Rua, Número, Bairro, Cidade - UF"></div>
+            </div>
+
+            <h4 style="grid-column: 1 / -1; color: #f59e0b; border-bottom: 1px solid var(--border-dim); padding-bottom: 5px; margin-bottom: 15px;"><i class="fas fa-id-card"></i> Habilitação & Experiência Operacional</h4>
+            <div class="form-grid-conjunto" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                <div class="form-group-dark"><label>Número da CNH</label><input type="text" id="colCnhNumero" placeholder="Nº de Registro"></div>
+                <div class="form-group-dark"><label>Categoria CNH</label><input type="text" id="colCnhCategoria" placeholder="Ex: AE"></div>
+                <div class="form-group-dark"><label>Vencimento da CNH</label><input type="date" id="colCnhVencimento"></div>
+                <div class="form-group-dark" style="grid-column: 1 / -1;">
+                    <label>Resumo de Experiência (Máquinas / Caminhões)</label>
+                    <input type="text" id="colExperiencia" placeholder="Ex: 5 anos de exp. com rodotrem canavieiro e florestal...">
+                </div>
+            </div>
+
+            <h4 style="grid-column: 1 / -1; color: #10b981; border-bottom: 1px solid var(--border-dim); padding-bottom: 5px; margin-bottom: 15px;"><i class="fas fa-notes-medical"></i> Saúde & Segurança (SSMA)</h4>
+            <div class="form-grid-conjunto" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                <div class="form-group-dark"><label>Vencimento ASO (Exame Saúde)</label><input type="date" id="colAsoVencimento"></div>
+                <div class="form-group-dark"><label>Vencimento Toxicológico</label><input type="date" id="colToxicologico"></div>
+            </div>
+
+            <h4 style="grid-column: 1 / -1; color: #8b5cf6; border-bottom: 1px solid var(--border-dim); padding-bottom: 5px; margin-bottom: 15px;"><i class="fas fa-graduation-cap"></i> Cursos Obrigatórios (Vencimentos)</h4>
+            <div id="containerCursosDinamicos" class="form-grid-conjunto" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; width: 100%;">
+                </div>
+
+            <h4 style="grid-column: 1 / -1; color: #94a3b8; border-bottom: 1px solid var(--border-dim); padding-bottom: 5px; margin-bottom: 15px;"><i class="fas fa-comment-dots"></i> Informações Adicionais</h4>
+            <div class="form-group-dark" style="margin-bottom: 20px;">
+                <label>Observações Gerais / Fardamento</label>
+                <textarea id="colObservacoes" rows="3" placeholder="Anotações extras, tamanho de uniforme, contato de emergência..."></textarea>
+            </div>
+        </div>
+        
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.fecharModalColaborador()">Cancelar</button>
+            <button class="btn-primary-green" onclick="window.salvarColaborador()">💾 Salvar Colaborador</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalGerenciarCursos" class="modal-overlay">
+    <div class="custom-modal" style="max-width: 500px; width: 90%;">
+        <div class="modal-header">
+            <h3><i class="fas fa-book"></i> Cursos Cadastrados no Sistema</h3>
+            <button class="close-modal" onclick="window.fecharModalGerenciarCursos()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid var(--border-dim); margin-bottom: 15px;">
+                <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-bottom:5px;">Adicionar Novo Curso à Operação</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="novoCursoNome" placeholder="Ex: MOPP, NR-11, Direção Defensiva" class="search-input-dark" style="flex:1; width:auto;">
+                    <button class="btn-primary-green" onclick="window.salvarNovoCursoGlobal()"><i class="fas fa-plus"></i> Incluir</button>
+                </div>
+            </div>
+            
+            <h5 style="color:#fff; margin-bottom:10px; font-weight:600;">Lista de Cursos Ativos:</h5>
+            <div id="listaCursosGlobais" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px;">
+                </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.fecharModalGerenciarCursos()">Fechar</button>
+        </div>
+    </div>
+</div>

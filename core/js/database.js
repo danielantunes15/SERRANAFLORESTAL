@@ -411,6 +411,25 @@ const db = {
     },
     async deleteTurnoOperacional(id) {
         await supabaseClient.from('turnos_operacionais').update({ status: 'Inativo' }).eq('id', id);
+    },
+
+    // --- RH COLABORADORES ---
+    async getColaboradores() {
+        try {
+            const query = supabaseClient.from('rh_colaboradores').select('*').order('nome', { ascending: true });
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getColaboradores:", e); return []; }
+    },
+    async addColaborador(colaborador) {
+        await supabaseClient.from('rh_colaboradores').insert([injetarFilial(colaborador)]);
+    },
+    async updateColaborador(id, updates) {
+        await supabaseClient.from('rh_colaboradores').update(updates).eq('id', id);
+    },
+    async deleteColaborador(id) {
+        await supabaseClient.from('rh_colaboradores').delete().eq('id', id);
     }
 };
 
