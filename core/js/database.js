@@ -275,7 +275,7 @@ const db = {
             const query = supabaseClient.from('almoxarifado_movimentacoes')
                 .select('*')
                 .order('data_movimentacao', { ascending: false })
-                .limit(limite); // <- AQUI ESTÁ A PROTEÇÃO
+                .limit(limite); 
 
             const { data, error } = await aplicarFiltroFilial(query);
             if(error) throw error;
@@ -430,6 +430,22 @@ const db = {
     },
     async deleteColaborador(id) {
         await supabaseClient.from('rh_colaboradores').delete().eq('id', id);
+    },
+
+    // --- RH ATESTADOS ---
+    async getAtestados() {
+        try {
+            const query = supabaseClient.from('rh_atestados').select('*, rh_colaboradores(nome, cod_funcionario)').order('data_inicio', { ascending: false });
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getAtestados:", e); return []; }
+    },
+    async addAtestado(atestado) {
+        await supabaseClient.from('rh_atestados').insert([injetarFilial(atestado)]);
+    },
+    async deleteAtestado(id) {
+        await supabaseClient.from('rh_atestados').delete().eq('id', id);
     }
 };
 
