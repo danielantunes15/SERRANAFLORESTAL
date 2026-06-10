@@ -60,25 +60,26 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl p-5 border border-slate-700/50 flex flex-col w-full">
+                <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-chart-line text-sky-400 mr-2 text-lg"></i> Comportamento Diário e Escoamento por Fazenda
+                    </h3>
+                </div>
+                <div class="w-full relative h-[420px]">
+                    <canvas id="chartEvolucaoDiaria"></canvas>
+                </div>
+            </div>
+
             <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl p-5 border border-slate-700/50 flex flex-col w-full">
                 <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
                     <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
                         <i class="fas fa-chart-column text-emerald-400 mr-2 text-lg"></i> Top Fazendas (Volume m³)
                     </h3>
                 </div>
-                <div class="w-full relative h-[320px]">
+                <div class="w-full relative h-[420px]">
                     <canvas id="chartEvolucaoTopFazendas"></canvas>
-                </div>
-            </div>
-            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl p-5 border border-slate-700/50 flex flex-col w-full">
-                <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
-                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
-                        <i class="fas fa-chart-line text-sky-400 mr-2 text-lg"></i> Comportamento Diário Global
-                    </h3>
-                </div>
-                <div class="w-full relative h-[320px]">
-                    <canvas id="chartEvolucaoDiaria"></canvas>
                 </div>
             </div>
         </div>

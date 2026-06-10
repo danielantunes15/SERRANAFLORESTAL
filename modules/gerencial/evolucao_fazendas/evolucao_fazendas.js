@@ -5,7 +5,7 @@ if(typeof Chart !== 'undefined') {
 
 var dadosViagensEvolucao = [];
 var dadosFiltradosEvolucao = [];
-var dicionarioUpFazenda = {}; // Vai guardar "CODIGO_UP" -> "NOME DA FAZENDA"
+var dicionarioUpFazenda = {}; 
 
 var chartEvolucaoDiariaObj = null;
 var chartEvolucaoTopFazendasObj = null;
@@ -41,10 +41,7 @@ window.initEvolucaoFazendas = async function() {
     configurarEventosEvolucao();
     definirDatasPadraoEvolucao();
     
-    // 1. Primeiro cria o vinculo das UPs com os Nomes das Fazendas
     await mapearFazendasUPs();
-    
-    // 2. Depois baixa as viagens
     buscarDadosEvolucao();
 };
 
@@ -57,14 +54,12 @@ async function mapearFazendasUPs() {
     dicionarioUpFazenda = {}; 
 
     try {
-        // A. Baixar as Fazendas
         const { data: tbFazendas } = await client.from('monitoramento_fazendas').select('id, nome');
         const mapFaz = {};
         if (tbFazendas) {
             tbFazendas.forEach(f => mapFaz[f.id] = f.nome);
         }
 
-        // B. Baixar as UPs e cruzar com as Fazendas
         const { data: tbUps } = await client.from('monitoramento_ups').select('codigo, fazenda_id');
         if (tbUps) {
             tbUps.forEach(u => {
@@ -74,7 +69,6 @@ async function mapearFazendasUPs() {
                 }
             });
         }
-        console.log(`[DEBUG] Mapeamento concluído. Dicionário possui ${Object.keys(dicionarioUpFazenda).length} UPs cadastradas.`);
     } catch (e) {
         console.error("Erro ao mapear UPs e Fazendas:", e);
     }
@@ -182,14 +176,8 @@ function atualizarDropdownFazenda() {
     dadosViagensEvolucao.forEach(v => {
         const tStr = String(getCampo(v, ['transportadora'])).trim().toUpperCase();
         if(transpSelecionada === '' || tStr === transpSelecionada) {
-            
-            // Pega o Codigo da UP do historico de viagens
             const codUp = String(getCampo(v, ['up'])).trim().toUpperCase();
-            
-            // Traduz para o Nome da Fazenda
-            let nomeDaFazenda = dicionarioUpFazenda[codUp];
-            if (!nomeDaFazenda) nomeDaFazenda = "NÃO VINCULADA"; // Caso a UP nao esteja na tabela
-            
+            let nomeDaFazenda = dicionarioUpFazenda[codUp] || "NÃO VINCULADA";
             fazendas.add(nomeDaFazenda.toUpperCase());
         }
     });
@@ -236,7 +224,6 @@ function processarFiltrosEExibirEvolucao() {
         const transpStr = String(getCampo(registro, ['transportadora'])).trim().toUpperCase();
         if (transpFiltro !== '' && transpStr !== transpFiltro) return false;
 
-        // Regra de Fazenda Traduzida
         const codUp = String(getCampo(registro, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
         if (fazendaFiltro !== '' && nomeDaFazenda !== fazendaFiltro) return false;
@@ -271,24 +258,23 @@ function calcularAgrupamentosERenderizar() {
         }
 
         const transpStr = String(getCampo(r, ['transportadora'])).trim().toUpperCase() || 'N/A';
-        
-        // Tradução Mágica da Fazenda
         const codUp = String(getCampo(r, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
-        
-        // Chave vinculando pela Fazenda e Transportadora (escondemos a UP)
         const chaveGrupo = `${nomeDaFazenda} || ${transpStr}`;
 
         totVolumeGlobal += vol;
 
-        // Agrupamento Diário Global
+        // Agrupamento Diário Inteligente (Por Dia E Por Fazenda)
         if(!agrupamentoDiario[dataStr]) {
-            agrupamentoDiario[dataStr] = { viagens: 0, volume: 0 };
+            agrupamentoDiario[dataStr] = {};
         }
-        agrupamentoDiario[dataStr].viagens += 1;
-        agrupamentoDiario[dataStr].volume += vol;
+        if(!agrupamentoDiario[dataStr][nomeDaFazenda]) {
+            agrupamentoDiario[dataStr][nomeDaFazenda] = { viagens: 0, volume: 0 };
+        }
+        agrupamentoDiario[dataStr][nomeDaFazenda].viagens += 1;
+        agrupamentoDiario[dataStr][nomeDaFazenda].volume += vol;
 
-        // Agrupamento por Fazenda
+        // Agrupamento Analítico
         if(!agrupamentoFazenda[chaveGrupo]) {
             agrupamentoFazenda[chaveGrupo] = { fazenda: nomeDaFazenda, transportadora: transpStr, viagens: 0, volume: 0, scoreDMT: 0, scoreRPV: 0 };
         }
@@ -367,15 +353,40 @@ function renderizarQuadroLadoALado(fazendas, totalVolumePeriodo) {
 }
 
 function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
+    // ---- 1. Gráfico Diário Agrupado por Fazenda ----
     const diasOrd = Object.keys(agrDiario).filter(d => d !== 'S/D').sort((a,b) => converterDataExcel(a).getTime() - converterDataExcel(b).getTime());
-    const labelsDiario = [];
-    const volDiario = [];
-    const viaDiario = [];
+    const labelsDiario = diasOrd.map(d => d.substring(0,5)); // Ex: 15/04
 
+    // Descobrir todas as fazendas exclusivas que operaram no periodo para gerar as séries do gráfico
+    const fazendasNoPeriodoSet = new Set();
     diasOrd.forEach(d => {
-        labelsDiario.push(d.substring(0,5)); 
-        volDiario.push(parseFloat(agrDiario[d].volume.toFixed(2)));
-        viaDiario.push(agrDiario[d].viagens);
+        Object.keys(agrDiario[d]).forEach(faz => fazendasNoPeriodoSet.add(faz));
+    });
+    const arrayFazendas = Array.from(fazendasNoPeriodoSet).sort();
+
+    // Paleta de cores para cada fazenda diferente
+    const paleta = ['#10b981', '#38bdf8', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
+
+    const datasetsDiario = arrayFazendas.map((faz, index) => {
+        const dataVol = [];
+        const dataViagens = []; // Usado internamente pelo plugin de labels
+        
+        diasOrd.forEach(d => {
+            const inf = agrDiario[d][faz] || { volume: 0, viagens: 0 };
+            dataVol.push(parseFloat(inf.volume.toFixed(1)));
+            dataViagens.push(inf.viagens);
+        });
+
+        return {
+            type: 'bar',
+            label: faz,
+            data: dataVol,
+            _viagens: dataViagens, // Customizado
+            backgroundColor: paleta[index % paleta.length],
+            borderRadius: 4,
+            barPercentage: 0.85,
+            categoryPercentage: 0.85
+        };
     });
 
     if(chartEvolucaoDiariaObj) chartEvolucaoDiariaObj.destroy();
@@ -385,25 +396,58 @@ function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
             type: 'bar',
             data: {
                 labels: labelsDiario,
-                datasets: [
-                    { type: 'bar', label: 'Volume Entregue (m³)', data: volDiario, backgroundColor: '#10b981', borderRadius: 4, yAxisID: 'y', order: 2 },
-                    { type: 'line', label: 'Viagens Efetuadas', data: viaDiario, borderColor: '#38bdf8', backgroundColor: '#38bdf8', borderWidth: 3, pointBackgroundColor: '#0f172a', tension: 0.2, yAxisID: 'y1', order: 1 }
-                ]
+                datasets: datasetsDiario
             },
             options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: '#e2e8f0', font: { weight: 'bold' } } } },
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { 
+                        position: 'top',
+                        labels: { color: '#e2e8f0', font: { weight: 'bold', size: 11 }, usePointStyle: true, boxWidth: 8 } 
+                    },
+                    datalabels: {
+                        // Ativando labels múltiplas (Uma no Topo, Outra na Base)
+                        labels: {
+                            volumeTop: {
+                                align: 'top',
+                                anchor: 'end',
+                                color: '#fff',
+                                font: { weight: 'bold', size: 10 },
+                                formatter: (val) => val > 0 ? val.toLocaleString('pt-BR') : ''
+                            },
+                            viagensBase: {
+                                align: 'top',
+                                anchor: 'start',
+                                offset: 4,
+                                color: '#0f172a', // Cor escura para contrastar com a barra
+                                backgroundColor: 'rgba(255,255,255,0.85)',
+                                borderRadius: 4,
+                                font: { weight: 'bold', size: 9 },
+                                padding: { top: 2, bottom: 2, left: 4, right: 4 },
+                                formatter: (val, ctx) => {
+                                    const viags = ctx.dataset._viagens[ctx.dataIndex];
+                                    return viags > 0 ? viags + ' vgs' : '';
+                                }
+                            }
+                        }
+                    }
+                },
                 scales: {
                     x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { weight: 'bold' } } },
-                    y: { display: true, position: 'left', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#10b981' } },
-                    y1: { display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#38bdf8' } }
+                    y: { 
+                        display: true, 
+                        position: 'left', 
+                        grid: { color: 'rgba(255,255,255,0.05)' }, 
+                        ticks: { color: '#94a3b8' },
+                        grace: '10%' // Dá um espaço extra no topo pro rótulo do volume não cortar
+                    }
                 }
             }
         });
     }
 
-    // Chart Top 10 FAZENDAS (nao Frentes)
-    // Precisamos agrupar puramente por Fazenda para o grafico de barras
+    // ---- 2. Gráfico Top Fazendas ----
     const agrupamentoPuroFazenda = {};
     listaFazendas.forEach(f => {
         if(!agrupamentoPuroFazenda[f.fazenda]) agrupamentoPuroFazenda[f.fazenda] = 0;
@@ -424,15 +468,19 @@ function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
             type: 'bar',
             data: {
                 labels: labelsTop,
-                datasets: [
-                    { label: 'Volume (m³)', data: volTop, backgroundColor: '#818cf8', borderRadius: 5 }
-                ]
+                datasets: [{ label: 'Volume (m³)', data: volTop, backgroundColor: '#818cf8', borderRadius: 5 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    datalabels: { display: true, color: '#fff', font: { weight: 'bold', size: 10 }, anchor: 'end', align: 'bottom' }
+                    datalabels: { 
+                        display: true, 
+                        color: '#fff', 
+                        font: { weight: 'bold', size: 10 }, 
+                        anchor: 'end', 
+                        align: 'bottom' 
+                    }
                 },
                 scales: {
                     x: { ticks: { color: '#94a3b8', font: { size: 10, weight: 'bold' } }, grid: { display: false } },
@@ -484,7 +532,6 @@ function exportarExcelEvolucao() {
     const obj = {};
     dadosFiltradosEvolucao.forEach(r => {
         const transpStr = String(getCampo(r, ['transportadora'])).trim().toUpperCase() || 'N/A';
-        
         const codUp = String(getCampo(r, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
         
