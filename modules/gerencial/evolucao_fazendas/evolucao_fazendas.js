@@ -81,6 +81,9 @@ function configurarEventosEvolucao() {
     const btnExcel = document.getElementById('btnExportarEvolucao');
     if(btnExcel) btnExcel.addEventListener('click', exportarExcelEvolucao);
 
+    const btnPNG = document.getElementById('btnExportarPNG');
+    if(btnPNG) btnPNG.addEventListener('click', exportarTelaParaPNG);
+
     const filtroTransp = document.getElementById('filtroTransportadoraEvol');
     if(filtroTransp) {
         filtroTransp.addEventListener('change', () => {
@@ -92,6 +95,44 @@ function configurarEventosEvolucao() {
     const filtroFazenda = document.getElementById('filtroFazenda');
     if(filtroFazenda) {
         filtroFazenda.addEventListener('change', processarFiltrosEExibirEvolucao);
+    }
+}
+
+async function exportarTelaParaPNG() {
+    if (typeof html2canvas === 'undefined') {
+        alert('A biblioteca html2canvas não foi carregada no index.html.');
+        return;
+    }
+
+    const btn = document.getElementById('btnExportarPNG');
+    const originalText = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando Alta Qualidade...';
+    btn.disabled = true;
+
+    try {
+        const areaPrint = document.getElementById('conteudoEvolucaoFazendas');
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const canvas = await html2canvas(areaPrint, {
+            scale: 2, 
+            useCORS: true, 
+            backgroundColor: '#0f172a'
+        });
+
+        const imagemDataUrl = canvas.toDataURL('image/png');
+        
+        const link = document.createElement('a');
+        link.download = `Dashboard_Fazendas_${new Date().toISOString().slice(0,10)}.png`;
+        link.href = imagemDataUrl;
+        link.click();
+
+    } catch (error) {
+        console.error('Erro ao gerar PNG:', error);
+        alert('Ocorreu um erro ao tentar gerar a imagem.');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 }
 
@@ -264,7 +305,6 @@ function calcularAgrupamentosERenderizar() {
 
         totVolumeGlobal += vol;
 
-        // Agrupamento Diário Inteligente (Por Dia E Por Fazenda)
         if(!agrupamentoDiario[dataStr]) {
             agrupamentoDiario[dataStr] = {};
         }
@@ -274,7 +314,6 @@ function calcularAgrupamentosERenderizar() {
         agrupamentoDiario[dataStr][nomeDaFazenda].viagens += 1;
         agrupamentoDiario[dataStr][nomeDaFazenda].volume += vol;
 
-        // Agrupamento Analítico
         if(!agrupamentoFazenda[chaveGrupo]) {
             agrupamentoFazenda[chaveGrupo] = { fazenda: nomeDaFazenda, transportadora: transpStr, viagens: 0, volume: 0, scoreDMT: 0, scoreRPV: 0 };
         }
@@ -353,23 +392,20 @@ function renderizarQuadroLadoALado(fazendas, totalVolumePeriodo) {
 }
 
 function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
-    // ---- 1. Gráfico Diário Agrupado por Fazenda ----
     const diasOrd = Object.keys(agrDiario).filter(d => d !== 'S/D').sort((a,b) => converterDataExcel(a).getTime() - converterDataExcel(b).getTime());
-    const labelsDiario = diasOrd.map(d => d.substring(0,5)); // Ex: 15/04
+    const labelsDiario = diasOrd.map(d => d.substring(0,5));
 
-    // Descobrir todas as fazendas exclusivas que operaram no periodo para gerar as séries do gráfico
     const fazendasNoPeriodoSet = new Set();
     diasOrd.forEach(d => {
         Object.keys(agrDiario[d]).forEach(faz => fazendasNoPeriodoSet.add(faz));
     });
     const arrayFazendas = Array.from(fazendasNoPeriodoSet).sort();
 
-    // Paleta de cores para cada fazenda diferente
     const paleta = ['#10b981', '#38bdf8', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
 
     const datasetsDiario = arrayFazendas.map((faz, index) => {
         const dataVol = [];
-        const dataViagens = []; // Usado internamente pelo plugin de labels
+        const dataViagens = []; 
         
         diasOrd.forEach(d => {
             const inf = agrDiario[d][faz] || { volume: 0, viagens: 0 };
@@ -381,7 +417,7 @@ function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
             type: 'bar',
             label: faz,
             data: dataVol,
-            _viagens: dataViagens, // Customizado
+            _viagens: dataViagens, 
             backgroundColor: paleta[index % paleta.length],
             borderRadius: 4,
             barPercentage: 0.85,
@@ -407,7 +443,6 @@ function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
                         labels: { color: '#e2e8f0', font: { weight: 'bold', size: 11 }, usePointStyle: true, boxWidth: 8 } 
                     },
                     datalabels: {
-                        // Ativando labels múltiplas (Uma no Topo, Outra na Base)
                         labels: {
                             volumeTop: {
                                 align: 'top',
@@ -420,7 +455,7 @@ function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
                                 align: 'top',
                                 anchor: 'start',
                                 offset: 4,
-                                color: '#0f172a', // Cor escura para contrastar com a barra
+                                color: '#0f172a',
                                 backgroundColor: 'rgba(255,255,255,0.85)',
                                 borderRadius: 4,
                                 font: { weight: 'bold', size: 9 },
@@ -440,14 +475,13 @@ function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
                         position: 'left', 
                         grid: { color: 'rgba(255,255,255,0.05)' }, 
                         ticks: { color: '#94a3b8' },
-                        grace: '10%' // Dá um espaço extra no topo pro rótulo do volume não cortar
+                        grace: '10%' 
                     }
                 }
             }
         });
     }
 
-    // ---- 2. Gráfico Top Fazendas ----
     const agrupamentoPuroFazenda = {};
     listaFazendas.forEach(f => {
         if(!agrupamentoPuroFazenda[f.fazenda]) agrupamentoPuroFazenda[f.fazenda] = 0;
