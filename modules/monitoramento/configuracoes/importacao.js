@@ -146,6 +146,9 @@ function parseSheetToData(sheet) {
     const volumeKey = findKey(['volume real', 'volume_real', 'volume']);
     const gruaKey = findKey(['carregador florestal', 'carregador', 'grua']); 
     
+    // NOVA COLUNA ADICIONADA: UP
+    const upKey = findKey(['up', 'u.p', 'u.p.', 'unidade de producao', 'unidade de produção', 'código up', 'codigo up']);
+    
     // Chaves
     const dtSaidaBaseKey = findKey(['data de saída', 'data saída', 'data saída fábrica']);
     const dtSaidaFabKey = findKey(['data saída fábrica', 'data saida fabrica', 'data de saída', 'data saída']);
@@ -238,6 +241,7 @@ function parseSheetToData(sheet) {
             rpv: calculoRpv,
             
             grua: String(getValue(gruaKey) || "-").trim(),
+            up: String(getValue(upKey) || "-").trim(), // <--- NOVA COLUNA UP MAPEADA AQUI
             distanciaAsfalto: parsePtBrNumber(getValue(findKey(['distancia por asfalto', 'distância por asfalto', 'distancia asfalto']))),
             distanciaTerra: parsePtBrNumber(getValue(findKey(['distancia por terra', 'distância por terra', 'distancia terra']))),
             
