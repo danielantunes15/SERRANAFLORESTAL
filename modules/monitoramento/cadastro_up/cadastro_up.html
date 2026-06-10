@@ -1,0 +1,117 @@
+<div class="container-cadastro-up" style="padding: 20px; color: #fff;">
+    <div style="margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+        <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--ccol-blue-bright); display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-map-marked-alt"></i> Gestão e Cadastro de UP e Fazendas
+        </h2>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 4px;">Gerenciamento de Unidades de Produção, Fazendas e distâncias de transporte (DMT).</p>
+    </div>
+
+    <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 30px;">
+        <div style="display: table-row;">
+            
+            <div style="display: table-cell; width: 35%; padding-right: 20px; vertical-align: top;">
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.08); padding: 20px; border-radius: 8px;">
+                    <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-estate"></i> 1. Cadastrar Fazenda
+                    </h3>
+                    <div class="form-group-dark" style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-size: 0.85rem; color: var(--text-secondary);">Nome da Fazenda</label>
+                        <input type="text" id="upFazendaNome" placeholder="Ex: Fazenda Santa Maria" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px;">
+                    </div>
+                    <button class="btn-primary-blue" onclick="window.salvarFazenda()" style="width: 100%; padding: 10px; font-weight: bold; cursor: pointer;">
+                        <i class="fas fa-plus"></i> Adicionar Fazenda
+                    </button>
+                </div>
+            </div>
+
+            <div style="display: table-cell; width: 65%; padding-left: 20px; vertical-align: top;">
+                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.08); padding: 20px; border-radius: 8px;">
+                    <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-layer-group"></i> 2. Cadastrar / Vincular Código de UP
+                    </h3>
+                    
+                    <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 15px;">
+                        <div style="display: table-row;">
+                            <div style="display: table-cell; padding-right: 10px;">
+                                <div class="form-group-dark">
+                                    <label style="display: block; margin-bottom: 5px; font-size: 0.85rem; color: var(--text-secondary);">Selecionar Fazenda</label>
+                                    <select id="selectUpFazenda" class="dark-select" style="width: 100%;">
+                                        <option value="">Selecione uma fazenda...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="display: table-cell; padding-left: 10px;">
+                                <div class="form-group-dark">
+                                    <label style="display: block; margin-bottom: 5px; font-size: 0.85rem; color: var(--text-secondary);">Código da UP (Disponíveis)</label>
+                                    <select id="upCodigo" class="dark-select" style="width: 100%;" onchange="window.preencherDistanciasUP()">
+                                        <option value="">Aguarde, buscando UPs no banco...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 15px;">
+                        <div style="display: table-row;">
+                            <div style="display: table-cell; padding-right: 10px;">
+                                <div class="form-group-dark">
+                                    <label style="display: block; margin-bottom: 5px; font-size: 0.85rem; color: var(--text-secondary);">Dist. Asfalto <span style="font-size:0.7rem; color:#ef4444;">(Bloqueado)</span></label>
+                                    <input type="number" step="0.01" id="upDistAsfalto" value="0.00" readonly style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.05); color: #9ca3af; border-radius: 4px; cursor: not-allowed;">
+                                </div>
+                            </div>
+                            <div style="display: table-cell; padding-left: 10px; padding-right: 10px;">
+                                <div class="form-group-dark">
+                                    <label style="display: block; margin-bottom: 5px; font-size: 0.85rem; color: var(--text-secondary);">Dist. Terra <span style="font-size:0.7rem; color:#ef4444;">(Bloqueado)</span></label>
+                                    <input type="number" step="0.01" id="upDistTerra" value="0.00" readonly style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.05); color: #9ca3af; border-radius: 4px; cursor: not-allowed;">
+                                </div>
+                            </div>
+                            <div style="display: table-cell; padding-left: 10px;">
+                                <div class="form-group-dark">
+                                    <label style="display: block; margin-bottom: 5px; font-size: 0.85rem; color: #fb923c;">DMT Médio Total (km)</label>
+                                    <input type="number" step="0.01" id="upDmtMedio" value="0.00" readonly style="width: 100%; padding: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fb923c; font-weight: bold; border-radius: 4px; cursor: not-allowed;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-primary-green" onclick="window.salvarUP()" style="width: 100%; padding: 10px; font-weight: bold; cursor: pointer;">
+                        <i class="fas fa-save"></i> Salvar e Vincular UP
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="font-size: 1.2rem; color: #fff; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-list"></i> Relação Completa (Agrupada por Fazenda)
+            </h3>
+            <div style="position: relative; width: 300px;">
+                <input type="text" id="buscaTabelaUp" oninput="window.filtrarTabelaUPs()" placeholder="🔍 Filtrar por Fazenda ou UP..." style="width: 100%; padding: 6px 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 4px; font-size: 0.85rem;">
+            </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table class="tabela-escala" style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(255,255,255,0.1);">
+                        <th style="padding: 12px; font-size: 0.85rem; color: var(--ccol-blue-bright);">Código da UP / Nome Fazenda</th>
+                        <th style="padding: 12px; font-size: 0.85rem; color: #fff; text-align: center;">Dist. Asfalto (km)</th>
+                        <th style="padding: 12px; font-size: 0.85rem; color: #fff; text-align: center;">Dist. Terra (km)</th>
+                        <th style="padding: 12px; font-size: 0.85rem; color: #fb923c; text-align: center;">DMT Médio (km)</th>
+                        <th style="padding: 12px; font-size: 0.85rem; color: #fff; text-align: center; width: 120px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyCadastroUp">
+                    <tr>
+                        <td colspan="5" style="padding: 20px; text-align: center; color: var(--text-secondary);">
+                            <i class="fas fa-spinner fa-spin"></i> Carregando registros...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

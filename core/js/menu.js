@@ -38,6 +38,7 @@ window.MAPA_MENUS = [
     { id: 'historico_producao', label: 'Histórico de Produção', setor: 'Monitoramento', icon: 'fas fa-database' },
     { id: 'historico_jornadas', label: 'Histórico de Jornadas', setor: 'Monitoramento', icon: 'fas fa-history' },
     { id: 'configuracoes_gerencial', label: 'Configurações de Metas', setor: 'Monitoramento', icon: 'fas fa-cogs' },
+    { id: 'cadastro_up', label: 'Cadastro de UP e Fazendas', setor: 'Monitoramento', icon: 'fas fa-map-marked-alt' },
 
     { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Gerencial', icon: 'fas fa-money-bill-wave' },
     { id: 'visao_executiva', label: 'Visão Executiva (Global)', setor: 'Gerencial', icon: 'fas fa-globe-americas' },
@@ -89,6 +90,7 @@ const ROTAS = {
     'historico_producao': 'modules/monitoramento/historico/historico.html',
     'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
     'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html',
+    'cadastro_up': 'modules/monitoramento/cadastro_up/cadastro_up.html',
     
     'gestao_usuarios': 'modules/configuracoes/gestao_usuarios.html',
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
@@ -310,6 +312,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'historico_producao' && typeof window.initHistoricoProducao === 'function') window.initHistoricoProducao();
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();
         if (pagina === 'configuracoes_gerencial' && typeof window.inicializarConfiguracoesGerencial === 'function') window.inicializarConfiguracoesGerencial();
+        if (pagina === 'cadastro_up' && typeof window.initCadastroUP === 'function') window.initCadastroUP();
 
         if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
         if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
