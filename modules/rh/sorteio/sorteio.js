@@ -111,12 +111,12 @@ window.sortearProximo = function() {
     btnSortear.style.display = 'none';
 
     // Parâmetros do Embaralhador Rápido de Nomes (Efeito Roleta)
-    let tempoTotalAnimação = 2200; 
-    let intervaloAtualizacao = 50;  
+    let tempoTotalAnimacao = 2200; 
+    let intervaloFrame = 50;  // <-- A variável agora está declarada corretamente!
     let tempoDecorrido = 0;
 
     let loopRoletaMarquee = setInterval(() => {
-        tempoDecorrido += intervaloAtualizacao;
+        tempoDecorrido += intervaloFrame; 
         
         // Seleção aleatória rápida apenas para efeito de animação em tela cheia
         const idxFake = Math.floor(Math.random() * window.candidatosSorteioAtual.length);
@@ -131,7 +131,7 @@ window.sortearProximo = function() {
         `;
 
         // Condição de parada do suspense: Seleciona e exibe o vencedor real
-        if (tempoDecorrido >= tempoTotalAnimação) {
+        if (tempoDecorrido >= tempoTotalAnimacao) {
             clearInterval(loopRoletaMarquee);
 
             // Sorteio Real Oficial
@@ -200,5 +200,5 @@ window.sortearProximo = function() {
                 btnSortear.onclick = window.fecharArenaSorteio;
             }
         }
-    }, intervaloFrame);
+    }, intervaloFrame); // O intervalo agora usa a variável declarada corretamente!
 };
