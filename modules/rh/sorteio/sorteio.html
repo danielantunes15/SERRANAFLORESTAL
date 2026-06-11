@@ -1,0 +1,23 @@
+<div class="action-bar" style="justify-content: center; text-align: center; flex-direction: column;">
+    <h2 style="color: #fff;"><i class="fas fa-random"></i> Sorteio de Colaboradores</h2>
+    <p style="color: var(--text-secondary); font-size: 0.9rem;">Selecione os critérios e realize o sorteio entre os colaboradores ativos.</p>
+</div>
+
+<div class="content-panel" style="max-width: 600px; margin: 0 auto; text-align: center; padding: 30px;">
+    <div class="form-group-dark" style="margin-bottom: 25px; text-align: left;">
+        <label>Filtro de Plano de Saúde</label>
+        <select id="filtroPlanoSaude" class="dark-select">
+            <option value="Todos">Todos os Colaboradores Gerais</option>
+            <option value="Ativos">Apenas Ativos no Plano de Saúde</option>
+            <option value="NaoAtivos">Apenas NÃO Ativos no Plano de Saúde</option>
+        </select>
+    </div>
+
+    <button class="btn-primary-blue btn-full" style="padding: 15px; font-size: 1.2rem; display: flex; justify-content: center; align-items: center; gap: 10px;" onclick="window.realizarSorteio()">
+        <i class="fas fa-gift"></i> REALIZAR SORTEIO
+    </button>
+
+    <div id="resultadoSorteio" style="margin-top: 30px; min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px dashed var(--border-dim); padding: 20px;">
+        <span style="color: var(--text-secondary);">O resultado do sorteio aparecerá aqui</span>
+    </div>
+</div>

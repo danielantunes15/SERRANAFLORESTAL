@@ -89,7 +89,7 @@ window.excluirCursoGlobal = async function(id) {
 window.carregarColaboradores = async function() {
     try {
         const tbody = document.getElementById('tbColaboradores');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando banco de dados de RH...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando banco de dados de RH...</td></tr>`;
         
         window.listaColaboradores = await db.getColaboradores();
         window.renderizarTabelaColaboradores(window.listaColaboradores);
@@ -124,7 +124,7 @@ window.renderizarTabelaColaboradores = function(lista) {
     tbody.innerHTML = '';
 
     if (lista.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador encontrado.</td></tr>`;
         return;
     }
 
@@ -135,6 +135,10 @@ window.renderizarTabelaColaboradores = function(lista) {
         else corStatus = 'var(--ccol-green-bright)';
 
         const matriculaFormatada = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'Novo';
+
+        // Badge do Plano de Saúde
+        const isPlanoAtivo = c.plano_saude === 'Sim';
+        const badgePlanoSaude = `<span style="background: ${isPlanoAtivo ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; color: ${isPlanoAtivo ? '#10b981' : '#ef4444'}; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-dim); font-weight: bold;">${isPlanoAtivo ? '🟢 Ativo' : '🔴 Inativo'}</span>`;
 
         // Varre os cursos dinâmicos para verificar se há algum alerta crítico
         let htmlAlertasCursos = '';
@@ -161,6 +165,7 @@ window.renderizarTabelaColaboradores = function(lista) {
             </td>
             <td><span style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-dim);">${c.funcao || 'Não definida'}</span></td>
             <td>${c.telefone || '-'}</td>
+            <td>${badgePlanoSaude}</td>
             <td style="text-align: left;">
                 <div style="font-size: 0.8rem; margin-bottom: 2px;"><strong>CNH:</strong> ${window.calcularBadgeVencimento(c.cnh_vencimento)}</div>
                 <div style="font-size: 0.8rem; margin-bottom: 2px;"><strong>ASO:</strong> ${window.calcularBadgeVencimento(c.aso_vencimento)}</div>
@@ -245,6 +250,7 @@ window.abrirModalColaborador = async function() {
                     
     campos.forEach(id => document.getElementById(id).value = '');
     document.getElementById('colStatus').value = 'Ativo';
+    document.getElementById('colPlanoSaude').value = 'Não';
     
     window.montarCamposCursosDinamicos({});
     
@@ -265,6 +271,7 @@ window.editarColaborador = async function(id) {
     document.getElementById('colCodFuncionario').value = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'N/A';
     
     document.getElementById('colStatus').value = c.status || 'Ativo';
+    document.getElementById('colPlanoSaude').value = c.plano_saude || 'Não';
     document.getElementById('colCpf').value = c.cpf || '';
     document.getElementById('colRg').value = c.rg || '';
     document.getElementById('colNome').value = c.nome || '';
@@ -309,6 +316,7 @@ window.salvarColaborador = async function() {
 
     const dados = {
         status: getValue('colStatus'),
+        plano_saude: getValue('colPlanoSaude'),
         nome: getValue('colNome'),
         cpf: getValue('colCpf'),
         rg: getValue('colRg'),
