@@ -3,6 +3,11 @@ window.candidatosSorteioAtual = [];
 window.vencedoresSorteio = [];
 window.quantidadeSorteios = 1;
 
+// Efeitos Sonoros Oficiais (Carregados via URL pública para evitar necessidade de arquivos locais)
+window.audioRoletaSorteio = new Audio('https://actions.google.com/sounds/v1/science_fiction/spaceship_engine.ogg');
+window.audioRoletaSorteio.loop = true;
+window.audioVitoriaSorteio = new Audio('https://actions.google.com/sounds/v1/crowds/crowd_cheer.ogg');
+
 window.initRHSorteio = async function() {
     try {
         window.listaParaSorteio = await db.getColaboradores();
@@ -16,6 +21,8 @@ window.initRHSorteio = async function() {
 window.prepararSorteio = function() {
     const qtdInput = document.getElementById('qtdSorteios').value;
     const filtro = document.getElementById('filtroPlanoSaude').value;
+    const filtroFuncao = document.getElementById('filtroFuncao').value.toLowerCase().trim();
+    const filtroMes = document.getElementById('filtroMesAdmissao').value;
     
     window.quantidadeSorteios = parseInt(qtdInput);
     if (isNaN(window.quantidadeSorteios) || window.quantidadeSorteios <= 0) {
@@ -26,15 +33,29 @@ window.prepararSorteio = function() {
     // Isola e clona a listagem para preservar integridade dos dados originais
     let candidatos = [...window.listaParaSorteio];
 
-    // Aplicação dos filtros de plano de saúde
+    // 1. Filtro de Plano de Saúde
     if (filtro === 'Ativos') {
         candidatos = candidatos.filter(c => c.plano_saude === 'Sim');
     } else if (filtro === 'NaoAtivos') {
         candidatos = candidatos.filter(c => c.plano_saude !== 'Sim');
     }
 
+    // 2. Novo Filtro de Função
+    if (filtroFuncao !== '') {
+        candidatos = candidatos.filter(c => c.funcao && c.funcao.toLowerCase().includes(filtroFuncao));
+    }
+
+    // 3. Novo Filtro de Mês de Admissão
+    if (filtroMes !== 'Todos') {
+        candidatos = candidatos.filter(c => {
+            if(!c.data_admissao) return false;
+            const mesAdmissao = c.data_admissao.split('-')[1]; // Extrai apenas o mês do formato YYYY-MM-DD
+            return mesAdmissao === filtroMes;
+        });
+    }
+
     if (candidatos.length === 0) {
-        alert('Nenhum colaborador elegível localizado com os parâmetros informados.');
+        alert('Nenhum colaborador elegível localizado com os parâmetros informados (Função/Mês).');
         return;
     }
 
@@ -42,6 +63,10 @@ window.prepararSorteio = function() {
         alert(`Operação cancelada: O número de ganhadores solicitado (${window.quantidadeSorteios}) é superior ao volume de colaboradores filtrados disponíveis (${candidatos.length}).`);
         return;
     }
+
+    // Remove botão de PDF antigo se existir da rodada anterior
+    const btnPdfExistente = document.getElementById('btnGerarPDFSorteio');
+    if (btnPdfExistente) btnPdfExistente.remove();
 
     // Configuração inicial dos estados da rodada atual
     window.candidatosSorteioAtual = candidatos;
@@ -77,23 +102,26 @@ window.fecharArenaSorteio = function() {
             return;
         }
     }
+    try { window.audioRoletaSorteio.pause(); window.audioVitoriaSorteio.pause(); } catch(e){}
     document.getElementById('sorteioArena').style.display = 'none';
     document.getElementById('sorteioLobby').style.display = 'block';
 };
 
 window.resetarSorteio = function() {
     if(confirm("Deseja realmente resetar o sorteio atual? Isso limpará todos os ganhadores desta rodada e permitirá reconfigurar os filtros.")) {
+        try { window.audioRoletaSorteio.pause(); window.audioVitoriaSorteio.pause(); } catch(e){}
         window.candidatosSorteioAtual = [];
         window.vencedoresSorteio = [];
         window.quantidadeSorteios = 1;
         
-        // Retorna a interface ao estado inicial do lobby de parametrização
         document.getElementById('sorteioArena').style.display = 'none';
         document.getElementById('sorteioLobby').style.display = 'block';
         
-        // Reseta valores de inputs para padrão de segurança
+        // Reseta valores de inputs para padrão
         document.getElementById('qtdSorteios').value = 1;
         document.getElementById('filtroPlanoSaude').value = 'Todos';
+        document.getElementById('filtroFuncao').value = '';
+        document.getElementById('filtroMesAdmissao').value = 'Todos';
     }
 };
 
@@ -107,18 +135,23 @@ window.sortearProximo = function() {
     const areaDestaque = document.getElementById('areaDestaqueSorteio');
     const statusHeader = document.getElementById('statusSorteioHeader');
 
-    // Remove temporariamente o botão da tela para focar o suspense visual
     btnSortear.style.display = 'none';
 
-    // Parâmetros do Embaralhador Rápido de Nomes (Efeito Roleta)
-    let tempoTotalAnimacao = 2200; 
-    let intervaloFrame = 50;  // <-- A variável agora está declarada corretamente!
+    // Inicia Efeito Sonoro da Roleta (Garante que o som de vitória anterior pare)
+    try { 
+        window.audioVitoriaSorteio.pause();
+        window.audioVitoriaSorteio.currentTime = 0;
+        window.audioRoletaSorteio.play().catch(e => console.log("Áudio bloqueado pelo navegador")); 
+    } catch(e){}
+
+    // Parâmetros do Embaralhador
+    let tempoTotalAnimacao = 3500; // Tempo aumentado para dar mais emoção com o áudio
+    let intervaloFrame = 50;  
     let tempoDecorrido = 0;
 
     let loopRoletaMarquee = setInterval(() => {
         tempoDecorrido += intervaloFrame; 
         
-        // Seleção aleatória rápida apenas para efeito de animação em tela cheia
         const idxFake = Math.floor(Math.random() * window.candidatosSorteioAtual.length);
         const candidatoVisual = window.candidatosSorteioAtual[idxFake];
 
@@ -130,22 +163,27 @@ window.sortearProximo = function() {
             </div>
         `;
 
-        // Condição de parada do suspense: Seleciona e exibe o vencedor real
         if (tempoDecorrido >= tempoTotalAnimacao) {
             clearInterval(loopRoletaMarquee);
+
+            // Para o som de roleta e toca o de vitória
+            try { 
+                window.audioRoletaSorteio.pause(); 
+                window.audioRoletaSorteio.currentTime = 0;
+                window.audioVitoriaSorteio.play().catch(e => console.log("Áudio bloqueado"));
+            } catch(e){}
 
             // Sorteio Real Oficial
             const indexReal = Math.floor(Math.random() * window.candidatosSorteioAtual.length);
             const vencedorDefinitivo = window.candidatosSorteioAtual[indexReal];
 
-            // Remove o colaborador sorteado para evitar duplicidade na mesma rodada
+            // Remove o colaborador sorteado para evitar que ele ganhe 2x na mesma rodada
             window.candidatosSorteioAtual.splice(indexReal, 1);
             window.vencedoresSorteio.push(vencedorDefinitivo);
 
             const numGanhadorAtual = window.vencedoresSorteio.length;
             statusHeader.innerText = `Rodada em andamento • Sorteado ${numGanhadorAtual} de ${window.quantidadeSorteios}`;
 
-            // Apresentação Premium em Tela Cheia do Ganhador da Rodada
             areaDestaque.innerHTML = `
                 <div style="text-align: center; animation: revealEpicCard 0.55s cubic-bezier(0.19, 1, 0.22, 1) forwards; background: rgba(61, 220, 132, 0.08); padding: 50px 70px; border-radius: 24px; border: 2px solid var(--ccol-green-bright); box-shadow: 0 0 60px rgba(61, 220, 132, 0.25); backdrop-filter: blur(12px); max-width: 850px; width: 100%; box-sizing: border-box;">
                     <div style="display: inline-flex; align-items: center; justify-content: center; width: 75px; height: 75px; background: rgba(245, 158, 11, 0.15); border-radius: 50%; margin-bottom: 20px; box-shadow: 0 0 20px rgba(245,158,11,0.25);">
@@ -167,14 +205,12 @@ window.sortearProximo = function() {
                 </div>
             `;
 
-            // Adiciona o mini card reativo na listagem inferior acumulada
             const placeholder = document.getElementById('placeholderVencedores');
             if (placeholder) placeholder.remove();
 
             const galeriaDiv = document.getElementById('listaVencedoresSorteio');
             const cardMini = document.createElement('div');
             
-            // Simplificação nominal inteligente para exibição compacta nos cards inferiores
             const splitNome = vencedorDefinitivo.nome.split(' ');
             const nomeExibicao = splitNome.length > 1 ? `${splitNome[0]} ${splitNome[splitNome.length - 1]}` : splitNome[0];
 
@@ -192,13 +228,96 @@ window.sortearProximo = function() {
                 btnSortear.innerHTML = `<i class="fas fa-forward"></i> SORTEAR GANHADOR #${numGanhadorAtual + 1}`;
             } else {
                 statusHeader.innerHTML = `Sorteio Finalizado com Sucesso • <span style="color: var(--ccol-green-bright); font-weight: bold;">${window.quantidadeSorteios} Ganhadores Definidos</span>`;
+                
                 btnSortear.style.display = 'inline-flex';
                 btnSortear.className = 'btn-secondary-dark';
                 btnSortear.style.borderColor = 'var(--ccol-green-bright)';
                 btnSortear.style.color = '#fff';
                 btnSortear.innerHTML = '<i class="fas fa-check-double" style="color:var(--ccol-green-bright);"></i> CONCLUIR E FECHAR ARENA';
                 btnSortear.onclick = window.fecharArenaSorteio;
+
+                // INJEÇÃO DA MELHORIA: Cria o botão de Baixar PDF ao lado do botão de concluir
+                if (!document.getElementById('btnGerarPDFSorteio')) {
+                    const btnPdf = document.createElement('button');
+                    btnPdf.id = 'btnGerarPDFSorteio';
+                    btnPdf.className = 'btn-primary-green';
+                    btnPdf.style.cssText = 'font-size: 1.6rem; font-weight: 900; padding: 22px 40px; border-radius: 50px; box-shadow: 0 15px 35px rgba(61,220,132,0.35); cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 15px; margin-left: 15px; transition: transform 0.2s;';
+                    btnPdf.innerHTML = '<i class="fas fa-file-pdf"></i> GERAR PDF DO SORTEIO';
+                    btnPdf.onmouseover = function() { this.style.transform = 'scale(1.05)'; };
+                    btnPdf.onmouseout = function() { this.style.transform = 'scale(1)'; };
+                    btnPdf.onclick = window.gerarRelatorioSorteioPDF;
+                    
+                    document.getElementById('containerBotoesSorteio').appendChild(btnPdf);
+                }
             }
         }
-    }, intervaloFrame); // O intervalo agora usa a variável declarada corretamente!
+    }, intervaloFrame);
+};
+
+// ================= LÓGICA DE EXPORTAÇÃO DO PDF =================
+window.gerarRelatorioSorteioPDF = function() {
+    if (window.vencedoresSorteio.length === 0) {
+        alert("Nenhum ganhador para gerar o relatório.");
+        return;
+    }
+
+    try {
+        // Instancia a biblioteca jsPDF que já está importada no seu index.html
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Cabeçalho e Título do Documento
+        doc.setFontSize(18);
+        doc.setTextColor(41, 128, 185); // Cor azul da identidade visual
+        doc.text("Relatório Oficial de Sorteio - Serrana Florestal", 14, 20);
+
+        // Captura o texto exato dos filtros usados na rodada
+        const selectFiltroPlano = document.getElementById('filtroPlanoSaude');
+        const selectFiltroMes = document.getElementById('filtroMesAdmissao');
+        const filtroPlano = selectFiltroPlano.options[selectFiltroPlano.selectedIndex].text;
+        const filtroMes = selectFiltroMes.options[selectFiltroMes.selectedIndex].text;
+        const filtroFuncao = document.getElementById('filtroFuncao').value || 'Todas as Funções';
+        
+        const dataAtual = new Date().toLocaleDateString('pt-BR');
+        const horaAtual = new Date().toLocaleTimeString('pt-BR');
+
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Data da Realização: ${dataAtual} às ${horaAtual}`, 14, 30);
+        doc.text(`Filtros Aplicados: Saúde (${filtroPlano}) | Mês (${filtroMes}) | Função (${filtroFuncao})`, 14, 36);
+        doc.text(`Total de Vencedores na Rodada: ${window.vencedoresSorteio.length}`, 14, 42);
+
+        // Preparar as linhas da tabela pegando o array de vencedores
+        const linhas = window.vencedoresSorteio.map((v, index) => {
+            const matricula = v.cod_funcionario ? String(v.cod_funcionario).padStart(4, '0') : 'N/A';
+            return [
+                index + 1, // Exibe o número da rodada (1º a sair, 2º a sair...)
+                matricula,
+                v.nome,
+                v.funcao || 'Não informada'
+            ];
+        });
+
+        // Desenhar a Tabela usando o plugin AutoTable
+        doc.autoTable({
+            startY: 48,
+            head: [['Ordem Sorteio', 'Matrícula', 'Nome do Colaborador', 'Função / Cargo']],
+            body: linhas,
+            theme: 'grid',
+            headStyles: { fillColor: [59, 130, 246] }, // Azul
+            styles: { fontSize: 10 }
+        });
+
+        // Linha para assinatura do gestor no final da página
+        const finalY = doc.lastAutoTable.finalY || 45;
+        doc.text("________________________________________________", 105, finalY + 30, { align: 'center' });
+        doc.text("Assinatura do Responsável (Recursos Humanos)", 105, finalY + 35, { align: 'center' });
+
+        // Aciona o Download para o dispositivo do usuário
+        doc.save(`Relatorio_Sorteio_Serrana_${new Date().getTime()}.pdf`);
+        
+    } catch (e) {
+        console.error(e);
+        alert('Erro ao gerar PDF. Verifique se a biblioteca jspdf foi carregada no index.html.');
+    }
 };
