@@ -1,56 +1,75 @@
 <div class="sorteio-modulo-container" style="width: 100%; min-height: calc(100vh - 140px); display: flex; flex-direction: column; justify-content: center; align-items: center; background: #0f172a; font-family: 'Inter', system-ui, sans-serif; padding: 20px; box-sizing: border-box;">
     
-    <div id="sorteioLobby" style="width: 100%; max-width: 550px; background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 16px; padding: 40px; box-shadow: var(--shadow-md); text-align: center; animation: terminalFadeIn 0.4s ease-out; box-sizing: border-box;">
+    <div id="sorteioLobby" style="width: 100%; max-width: 600px; background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 16px; padding: 40px; box-shadow: var(--shadow-md); text-align: center; animation: terminalFadeIn 0.4s ease-out; box-sizing: border-box; max-height: 85vh; overflow-y: auto;">
         
-        <div style="margin-bottom: 35px;">
-            <div style="display: inline-flex; align-items: center; justify-content: center; width: 70px; height: 70px; background: rgba(96, 165, 250, 0.1); border: 1px solid rgba(96, 165, 250, 0.2); border-radius: 16px; margin-bottom: 15px; box-shadow: 0 0 25px rgba(96, 165, 250, 0.15);">
-                <i class="fas fa-random" style="color: var(--ccol-blue-bright); font-size: 2rem;"></i>
+        <div style="margin-bottom: 30px;">
+            <div style="display: inline-flex; align-items: center; justify-content: center; width: 60px; height: 60px; background: rgba(96, 165, 250, 0.1); border: 1px solid rgba(96, 165, 250, 0.2); border-radius: 16px; margin-bottom: 10px; box-shadow: 0 0 25px rgba(96, 165, 250, 0.15);">
+                <i class="fas fa-random" style="color: var(--ccol-blue-bright); font-size: 1.8rem;"></i>
             </div>
-            <h2 style="color: #fff; font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px;">Configuração do Sorteio</h2>
-            <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.4;">Defina a quantidade de colaboradores a serem sorteados e os filtros de elegibilidade para a rodada.</p>
+            <h2 style="color: #fff; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px;">Configuração do Sorteio</h2>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.4;">Defina os filtros de elegibilidade e cadastre os prêmios da rodada.</p>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 20px; text-align: left;">
-            <div class="form-group-dark">
-                <label style="font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.75rem; color: var(--ccol-blue-bright); margin-bottom: 8px; display: block;">Quantidade de Ganhadores</label>
-                <input type="number" id="qtdSorteios" min="1" value="1" placeholder="Ex: 3" style="width: 100%; padding: 14px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); border-radius: 8px; color: #fff; font-size: 1.1rem; font-weight: bold; box-sizing: border-box;">
+        <div style="display: flex; flex-direction: column; gap: 15px; text-align: left;">
+            
+            <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px dashed var(--ccol-rust-bright); margin-bottom: 5px;">
+                <h4 style="color: var(--ccol-rust-bright); margin-top: 0; margin-bottom: 15px; font-size: 0.85rem; text-transform: uppercase; font-weight: 800; letter-spacing: 1px;"><i class="fas fa-gift"></i> 1. Prêmios a Sortear (Opcional)</h4>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <input type="text" id="inputPremioNome" placeholder="Ex: TV 50, Cesta Básica..." class="dark-select" style="flex: 2; padding: 12px; background: rgba(0,0,0,0.4);">
+                    <input type="number" id="inputPremioQtd" placeholder="Qtd" min="1" value="1" class="dark-select" style="flex: 1; text-align: center; padding: 12px; background: rgba(0,0,0,0.4);">
+                    <button class="btn-primary-green" onclick="window.adicionarPremioLocal()" style="padding: 10px 18px; border-radius: 8px;"><i class="fas fa-plus"></i></button>
+                </div>
+                
+                <div id="listaPremiosLobby" style="display: flex; flex-direction: column; gap: 8px; max-height: 140px; overflow-y: auto; padding-right: 5px;">
+                    <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0; font-style: italic; text-align: center;">Nenhum prêmio adicionado. (Será um sorteio simples de nomes)</p>
+                </div>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 12px; border: 1px solid var(--border-dim);">
+                <h4 style="color: var(--ccol-blue-bright); margin-top: 0; margin-bottom: 15px; font-size: 0.85rem; text-transform: uppercase; font-weight: 800; letter-spacing: 1px;"><i class="fas fa-filter"></i> 2. Elegibilidade (Quem participa?)</h4>
+                
+                <div class="form-group-dark" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.75rem;">Filtro de Plano de Saúde</label>
+                    <select id="filtroPlanoSaude" class="dark-select" style="width: 100%; padding: 12px; background: #111827 !important;">
+                        <option value="Todos">Todos os Colaboradores Ativos</option>
+                        <option value="Ativos">Apenas Ativos no Plano de Saúde</option>
+                        <option value="NaoAtivos">Apenas NÃO Ativos no Plano de Saúde</option>
+                    </select>
+                </div>
+
+                <div class="form-group-dark" style="margin-bottom: 12px;">
+                    <label style="font-size: 0.75rem;">Filtro por Função / Cargo</label>
+                    <input type="text" id="filtroFuncao" placeholder="Ex: Motorista (Deixe vazio para todos)" style="width: 100%; padding: 12px; background: #111827;">
+                </div>
+
+                <div class="form-group-dark">
+                    <label style="font-size: 0.75rem;">Filtro por Mês de Admissão (Aniversário de Empresa)</label>
+                    <select id="filtroMesAdmissao" class="dark-select" style="width: 100%; padding: 12px; background: #111827 !important;">
+                        <option value="Todos">Qualquer Mês (Todos)</option>
+                        <option value="01">Janeiro</option>
+                        <option value="02">Fevereiro</option>
+                        <option value="03">Março</option>
+                        <option value="04">Abril</option>
+                        <option value="05">Maio</option>
+                        <option value="06">Junho</option>
+                        <option value="07">Julho</option>
+                        <option value="08">Agosto</option>
+                        <option value="09">Setembro</option>
+                        <option value="10">Outubro</option>
+                        <option value="11">Novembro</option>
+                        <option value="12">Dezembro</option>
+                    </select>
+                </div>
             </div>
 
             <div class="form-group-dark">
-                <label style="font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.75rem; color: var(--ccol-blue-bright); margin-bottom: 8px; display: block;">Filtro de Plano de Saúde</label>
-                <select id="filtroPlanoSaude" class="dark-select" style="width: 100%; padding: 14px; background: #111827 !important; border: 1px solid var(--border-dim); border-radius: 8px; color: #fff; font-size: 1rem; height: auto; box-sizing: border-box;">
-                    <option value="Todos">Todos os Colaboradores Ativos</option>
-                    <option value="Ativos">Apenas Ativos no Plano de Saúde</option>
-                    <option value="NaoAtivos">Apenas NÃO Ativos no Plano de Saúde</option>
-                </select>
+                <label style="font-weight: 800; color: #fff; font-size: 0.9rem; text-align: center; display: block; margin-bottom: 5px;">Quantos nomes vamos sortear?</label>
+                <input type="number" id="qtdSorteios" min="1" value="1" style="width: 100%; padding: 16px; background: rgba(0,0,0,0.5); border: 2px solid var(--border-dim); border-radius: 8px; color: var(--ccol-green-bright); font-size: 1.5rem; font-weight: 900; text-align: center;">
             </div>
 
-            <div class="form-group-dark">
-                <label style="font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.75rem; color: var(--ccol-blue-bright); margin-bottom: 8px; display: block;">Filtro por Função / Cargo</label>
-                <input type="text" id="filtroFuncao" placeholder="Ex: Motorista (Deixe vazio para sortear todos)" style="width: 100%; padding: 14px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); border-radius: 8px; color: #fff; font-size: 1rem; box-sizing: border-box;">
-            </div>
-
-            <div class="form-group-dark">
-                <label style="font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.75rem; color: var(--ccol-blue-bright); margin-bottom: 8px; display: block;">Filtro por Mês de Admissão</label>
-                <select id="filtroMesAdmissao" class="dark-select" style="width: 100%; padding: 14px; background: #111827 !important; border: 1px solid var(--border-dim); border-radius: 8px; color: #fff; font-size: 1rem; height: auto; box-sizing: border-box;">
-                    <option value="Todos">Qualquer Mês (Todos)</option>
-                    <option value="01">Janeiro</option>
-                    <option value="02">Fevereiro</option>
-                    <option value="03">Março</option>
-                    <option value="04">Abril</option>
-                    <option value="05">Maio</option>
-                    <option value="06">Junho</option>
-                    <option value="07">Julho</option>
-                    <option value="08">Agosto</option>
-                    <option value="09">Setembro</option>
-                    <option value="10">Outubro</option>
-                    <option value="11">Novembro</option>
-                    <option value="12">Dezembro</option>
-                </select>
-            </div>
-
-            <button class="btn-primary-blue btn-full" style="padding: 16px; font-size: 1.1rem; font-weight: 800; margin-top: 15px; display: flex; justify-content: center; align-items: center; gap: 10px; border-radius: 10px; box-shadow: 0 10px 20px rgba(96, 165, 250, 0.2);" onclick="window.prepararSorteio()">
-                <i class="fas fa-expand-arrows-alt"></i> ABRIR ARENA EM TELA CHEIA
+            <button class="btn-primary-blue btn-full" style="padding: 18px; font-size: 1.2rem; font-weight: 900; margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 10px; border-radius: 10px; box-shadow: 0 10px 25px rgba(96, 165, 250, 0.25);" onclick="window.prepararSorteio()">
+                <i class="fas fa-expand-arrows-alt"></i> ABRIR ARENA DE SORTEIO
             </button>
         </div>
     </div>
@@ -76,10 +95,19 @@
         <div id="areaDestaqueSorteio" style="flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; margin: 20px 0; box-sizing: border-box; overflow: hidden;">
         </div>
 
-        <div style="text-align: center; margin-bottom: 25px; box-sizing: border-box; display: flex; justify-content: center; align-items: center; gap: 20px;" id="containerBotoesSorteio">
-            <button id="btnSortearProximo" class="btn-primary-blue" style="font-size: 1.6rem; font-weight: 900; padding: 22px 65px; border-radius: 50px; box-shadow: 0 15px 35px rgba(59,130,246,0.35); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); display: inline-flex; align-items: center; gap: 15px; border: none; cursor: pointer;" onclick="window.sortearProximo()">
-                <i class="fas fa-play-circle"></i> INICIAR SORTEIO
-            </button>
+        <div style="text-align: center; margin-bottom: 25px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 15px;">
+            
+            <div id="containerSeletorPremio" style="display: none; background: rgba(0,0,0,0.4); padding: 10px 20px; border-radius: 50px; border: 1px solid var(--ccol-rust-bright); box-shadow: 0 0 15px rgba(251, 146, 60, 0.15);">
+                <label style="color: var(--ccol-rust-bright); font-size: 0.85rem; font-weight: 900; margin-right: 10px; text-transform: uppercase; letter-spacing: 1px;"><i class="fas fa-box-open"></i> Sorteando Agora:</label>
+                <select id="selectPremioRodada" class="dark-select" style="width: auto; min-width: 250px; font-size: 1.1rem; padding: 5px 10px; font-weight: bold; color: #fff; background: transparent !important; border: none !important; cursor: pointer; outline: none;">
+                </select>
+            </div>
+
+            <div id="containerBotoesSorteio" style="display: flex; gap: 15px;">
+                <button id="btnSortearProximo" class="btn-primary-blue" style="font-size: 1.6rem; font-weight: 900; padding: 22px 65px; border-radius: 50px; box-shadow: 0 15px 35px rgba(59,130,246,0.35); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); display: inline-flex; align-items: center; gap: 15px; border: none; cursor: pointer;" onclick="window.sortearProximo()">
+                    <i class="fas fa-play-circle"></i> INICIAR SORTEIO
+                </button>
+            </div>
         </div>
 
         <div style="width: 100%; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(10px); border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); padding: 20px; box-shadow: inset 0 0 30px rgba(0,0,0,0.5); box-sizing: border-box;">
@@ -95,4 +123,6 @@
     @keyframes revealEpicCard { 0% { opacity: 0; transform: scale(0.75) translateY(40px); filter: blur(8px); } 100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
     #listaVencedoresSorteio::-webkit-scrollbar { width: 4px; height: 4px; }
     #listaVencedoresSorteio::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+    #listaPremiosLobby::-webkit-scrollbar { width: 4px; }
+    #listaPremiosLobby::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 </style>
