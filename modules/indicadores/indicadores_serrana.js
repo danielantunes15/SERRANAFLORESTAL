@@ -356,7 +356,13 @@ async function renderizarGraficoEvolucaoDmSerrana() {
             return;
         }
 
-        let queryOS = supabaseClient.from('ordens_servico').select('placa, data_abertura, data_conclusao, status, tipo').neq('status', 'Agendada');
+        // CORREÇÃO APLICADA: Limite ampliado e ordenação por data adicionados para não perder dados recentes
+        let queryOS = supabaseClient.from('ordens_servico')
+            .select('placa, data_abertura, data_conclusao, status, tipo')
+            .neq('status', 'Agendada')
+            .order('data_abertura', { ascending: false })
+            .limit(5000);
+            
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData } = await queryOS;
         
@@ -381,6 +387,7 @@ async function renderizarGraficoEvolucaoDmSerrana() {
 
         const placasEmOS = [...new Set(ordensServico.map(os => limpaPlaca(os.placa)))];
 
+        // MANTENDO A EVOLUÇÃO HORÁRIA
         for (let h = 0; h < 24; h++) {
             const inicioHora = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), h, 0, 0, 0);
             const fimHora = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), h, 59, 59, 999);
