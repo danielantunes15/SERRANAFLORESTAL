@@ -1,5 +1,25 @@
 // ==================== js/indicadores_serrana.js ====================
 
+// FUNÇÃO UNIVERSAL PARA CORRIGIR FUSO HORÁRIO DO SUPABASE
+window.corrigirDataSupabase = function(dateStr) {
+    if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return null;
+    let str = String(dateStr).trim();
+    
+    if (!str.includes('T')) str = str.replace(' ', 'T');
+    
+    // Verifica se a hora veio sem o fuso horário (Z, + ou -). Se sim, força o Z (UTC).
+    const partes = str.split('T');
+    if (partes.length === 2) {
+        const horaStr = partes[1];
+        if (!horaStr.includes('Z') && !horaStr.includes('+') && !horaStr.includes('-')) {
+            str += 'Z'; 
+        }
+    }
+    
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+}
+
 window.carregarDadosDashboardSerrana = async function() {
     atualizarRelogioSerrana();
     setInterval(atualizarRelogioSerrana, 1000);
@@ -41,7 +61,6 @@ async function atualizarPonteirosSerrana() {
     let listaDeCavalos = [];
     
     try {
-        // FILTRO ADICIONADO: Pega apenas status Ativo E categoria TRITREM
         let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo').eq('categoria', 'TRITREM');
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
         const { data: frotaData, error } = await queryFrota;
@@ -57,7 +76,6 @@ async function atualizarPonteirosSerrana() {
     let cavalosSinistrados = 0;
 
     try {
-        // FILTRO OTIMIZADO: Busca apenas O.S. em andamento para não estourar limite do banco e evitar quebra por O.S. antigas
         let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']);
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData, error: osError } = await queryOS;
@@ -68,7 +86,7 @@ async function atualizarPonteirosSerrana() {
             const setCavalosSinistro = new Set();
 
             osData.forEach(os => {
-                if (!os.placa) return; // Segurança contra placas nulas
+                if (!os.placa) return; 
                 if (os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA') return;
 
                 const placaLimpa = os.placa.trim().toUpperCase();
@@ -124,7 +142,6 @@ async function carregarFrotasParadasSerrana() {
     const container = document.getElementById('lista-frotas-paradas');
     if(!container) return;
     try {
-        // FILTRO ADICIONADO: Pega apenas status Ativo E categoria TRITREM
         let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo').eq('categoria', 'TRITREM');
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
         const { data: frotaData } = await queryFrota;
@@ -148,26 +165,23 @@ async function carregarFrotasParadasSerrana() {
             let frotasProcessadas = osFiltradas.map(os => {
                 let diffMs = 0;
                 let textoTempo = 'N/I';
-                if (os.data_abertura) {
-                    let osInicioStr = String(os.data_abertura);
-                    if (!osInicioStr.includes('T')) osInicioStr += 'T00:00:00';
-                    let inicio = new Date(osInicioStr.replace('Z', '').replace('+00:00', ''));
-                    
-                    if (!isNaN(inicio.getTime())) {
-                        diffMs = agora - inicio;
-                        if (diffMs > 0) {
-                            const diffMinutos = Math.floor(diffMs / (1000 * 60));
-                            const dias = Math.floor(diffMinutos / (60 * 24));
-                            const horas = Math.floor((diffMinutos % (60 * 24)) / 60);
-                            const minutos = diffMinutos % 60;
-                            
-                            if (dias > 0) textoTempo = `${dias}d ${horas}h ${minutos}m`;
-                            else if (horas > 0) textoTempo = `${horas}h ${minutos}m`;
-                            else textoTempo = `${minutos}m`;
-                        } else {
-                            textoTempo = 'Agora';
-                            diffMs = 0; 
-                        }
+                
+                let inicio = window.corrigirDataSupabase(os.data_abertura);
+                
+                if (inicio) {
+                    diffMs = agora - inicio;
+                    if (diffMs > 0) {
+                        const diffMinutos = Math.floor(diffMs / (1000 * 60));
+                        const dias = Math.floor(diffMinutos / (60 * 24));
+                        const horas = Math.floor((diffMinutos % (60 * 24)) / 60);
+                        const minutos = diffMinutos % 60;
+                        
+                        if (dias > 0) textoTempo = `${dias}d ${horas}h ${minutos}m`;
+                        else if (horas > 0) textoTempo = `${horas}h ${minutos}m`;
+                        else textoTempo = `${minutos}m`;
+                    } else {
+                        textoTempo = 'Agora';
+                        diffMs = 0; 
                     }
                 }
                 
@@ -238,7 +252,10 @@ async function carregarStatusDashSerrana() {
     const { data: statusData } = await queryCtrl;
     
     const nomeCtrl = (statusData && statusData.length > 0 && statusData[0].controlador) ? statusData[0].controlador : 'NÃO DEFINIDO';
-    document.getElementById('dash-controlador-nome').textContent = nomeCtrl;
+    const elDashControladorNome = document.getElementById('dash-controlador-nome');
+    if (elDashControladorNome) {
+        elDashControladorNome.textContent = nomeCtrl;
+    }
 
     const turnos = await db.getTurnosOperacionais();
     let turnoTexto = "06:00 às 18:00";
@@ -323,7 +340,6 @@ async function renderizarGraficoEvolucaoDmSerrana() {
     if (!chartDom) return;
 
     try {
-        // FILTRO ADICIONADO: Pega apenas status Ativo E categoria TRITREM
         let queryFrota = supabaseClient.from('frotas_manutencao').select('cavalo').eq('status', 'Ativo').eq('categoria', 'TRITREM');
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);
         const { data: frotaData } = await queryFrota;
@@ -378,21 +394,17 @@ async function renderizarGraficoEvolucaoDmSerrana() {
                 osDesteCavalo.forEach(os => {
                     let osInicio = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 0, 0, 0); 
                     if (os.data_abertura && os.data_abertura !== 'null') {
-                        let osInicioStr = String(os.data_abertura);
-                        if (!osInicioStr.includes('T')) osInicioStr += 'T00:00:00';
-                        osInicio = new Date(osInicioStr.replace('Z', '').replace('+00:00', ''));
+                        let d = window.corrigirDataSupabase(os.data_abertura);
+                        if (d) osInicio = d;
                     } else if (os.status === 'Concluída' || os.status === 'Resolvido') {
                         return;
                     }
                     
                     let osFim = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 23, 59, 59, 999);
                     if (os.data_conclusao && os.data_conclusao !== 'null') {
-                        let osFimStr = String(os.data_conclusao);
-                        if (!osFimStr.includes('T')) osFimStr += 'T00:00:00';
-                        osFim = new Date(osFimStr.replace('Z', '').replace('+00:00', ''));
+                        let d = window.corrigirDataSupabase(os.data_conclusao);
+                        if (d) osFim = d;
                     }
-
-                    if (isNaN(osInicio.getTime())) osInicio = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 0, 0, 0);
 
                     const overlapInicio = osInicio > inicioHora ? osInicio : inicioHora;
                     const overlapFim = osFim < fimHora ? osFim : fimHora;
