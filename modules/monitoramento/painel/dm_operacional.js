@@ -242,6 +242,23 @@ window.renderizarGraficoDMOperacional = async function(filtroPeriodo = '30') {
 // ------------------------------------------------------------------
 // 2. LÓGICA DO GRÁFICO: DM GERAL - OFICINA (AZUL - LÓGICA DE O.S.)
 // ------------------------------------------------------------------
+
+// Função para garantir fuso horário correto
+function corrigirDataSupabaseLocal(dateStr) {
+    if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return null;
+    let str = String(dateStr).trim();
+    if (!str.includes('T')) str = str.replace(' ', 'T');
+    const partes = str.split('T');
+    if (partes.length === 2) {
+        const horaStr = partes[1];
+        if (!horaStr.includes('Z') && !horaStr.includes('+') && !horaStr.includes('-')) {
+            str += 'Z'; 
+        }
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+}
+
 window.renderizarGraficoEvolucaoDM = async function(filtroValue = '30') {
     const chartDom = document.getElementById('graficoEvolucaoDM');
     if (!chartDom || chartDom.offsetWidth === 0) return;
@@ -252,10 +269,13 @@ window.renderizarGraficoEvolucaoDM = async function(filtroValue = '30') {
             .select('*')
             .order('cavalo', { ascending: true });
 
+        // Ampliando limite de busca para não perder OS antigas
         const { data: osData, error: errOs } = await supabaseDM
             .from('ordens_servico')
             .select('*')
-            .order('created_at', { ascending: false });
+            .neq('status', 'Agendada')
+            .order('data_abertura', { ascending: false })
+            .limit(5000);
 
         if (errFrotas || errOs) {
             console.error("Erro ao buscar dados da Oficina:", errFrotas || errOs);
@@ -263,16 +283,16 @@ window.renderizarGraficoEvolucaoDM = async function(filtroValue = '30') {
             return;
         }
 
-        // =====================================================================
-        // CORREÇÃO: FILTRAR APENAS VEÍCULOS "ATIVOS" DA CATEGORIA "TRITREM"
-        // =====================================================================
         const frotasManutencao = (frotasData || []).filter(f => 
             f.status === 'Ativo' && 
             f.categoria && 
             f.categoria.toUpperCase() === 'TRITREM'
         );
 
-        const ordensServico = osData || [];
+        // Excluindo cavalos disponíveis sem carreta do cálculo (Alinhando com CCOL Serrana)
+        const ordensServico = (osData || []).filter(os => 
+            !(os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA')
+        );
 
         if (frotasManutencao.length === 0) {
             chartDom.innerHTML = `<div style="color:#94a3b8; display:flex; justify-content:center; align-items:center; height:100%; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px;">📂 Nenhuma frota TRITREM ativa encontrada na base.</div>`;
@@ -282,11 +302,7 @@ window.renderizarGraficoEvolucaoDM = async function(filtroValue = '30') {
         const agora = new Date();
         const categoriasDias = [];
         const dadosDM = [];
-
-        const msPorDia = 24 * 60 * 60 * 1000;
-        const totalMsDisponivelPorDia = frotasManutencao.length * msPorDia;
         
-        // Detecta o filtro ativo na interface
         let activeQF = document.querySelector('#quickFiltersGroup .btn-qf.active')?.getAttribute('data-qf') || 'ALL';
         if (filtroValue === 'mes_atual' || filtroValue === 'MES') activeQF = 'MES';
         if (filtroValue === 'SEM') activeQF = 'SEM';
@@ -294,9 +310,9 @@ window.renderizarGraficoEvolucaoDM = async function(filtroValue = '30') {
         let diasARenderizar = 30;
 
         if (activeQF === 'MES') {
-            diasARenderizar = agora.getDate(); // Dia 1 até o dia atual
+            diasARenderizar = agora.getDate(); 
         } else if (activeQF === 'SEM') {
-            diasARenderizar = agora.getDay() + 1; // Domingo até o dia atual
+            diasARenderizar = agora.getDay() + 1; 
         } else {
             if (activeQF === 'D-7') diasARenderizar = 7;
             else if (activeQF === 'D-2') diasARenderizar = 2;
@@ -304,7 +320,6 @@ window.renderizarGraficoEvolucaoDM = async function(filtroValue = '30') {
             else diasARenderizar = 30;
         }
 
-        // Monta o gráfico dia a dia, subtraindo os dias reais
         for (let i = diasARenderizar - 1; i >= 0; i--) {
             const dataDia = new Date(agora);
             dataDia.setDate(agora.getDate() - i);
@@ -312,44 +327,66 @@ window.renderizarGraficoEvolucaoDM = async function(filtroValue = '30') {
             const inicioDia = new Date(dataDia.getFullYear(), dataDia.getMonth(), dataDia.getDate(), 0, 0, 0);
             const fimDia = new Date(dataDia.getFullYear(), dataDia.getMonth(), dataDia.getDate(), 23, 59, 59, 999);
             
-            let msManutencaoNesteDia = 0;
+            let msTotalDia = 24 * 60 * 60 * 1000;
+            let fimParaCalculo = fimDia;
+            const ehHoje = (dataDia.toDateString() === agora.toDateString());
+            
+            // CORREÇÃO: Limitar o cálculo do "hoje" apenas até a hora atual
+            if (ehHoje) {
+                msTotalDia = agora.getTime() - inicioDia.getTime();
+                fimParaCalculo = agora;
+            }
 
-            frotasManutencao.forEach(frota => {
-                let manutencaoCavalo = 0;
-                const todasOSCavalo = ordensServico.filter(o => o.placa === frota.cavalo);
-                
-                todasOSCavalo.forEach(os => {
-                    let osInicioStr = os.data_abertura;
-                    if (!osInicioStr) return;
-                    if (!osInicioStr.includes('T')) osInicioStr += 'T00:00:00';
-                    const osInicio = new Date(osInicioStr.replace('Z', '').replace('+00:00', ''));
+            if (msTotalDia > 0) {
+                let totalMsDisponivelNoDia = 0;
+                let msManutencaoNesteDia = 0;
+
+                frotasManutencao.forEach(frota => {
+                    // Impede o caminhão de dar DM antes de ser cadastrado/comprado
+                    let dtEntrada = new Date('2026-04-01T00:00:00');
+                    if(frota.data_inicial) dtEntrada = new Date(frota.data_inicial + 'T00:00:00');
                     
-                    let osFim = agora;
-                    if (os.data_conclusao) {
-                        let osFimStr = os.data_conclusao;
-                        if (!osFimStr.includes('T')) osFimStr += 'T00:00:00';
-                        osFim = new Date(osFimStr.replace('Z', '').replace('+00:00', ''));
+                    let overlapDispInicio = dtEntrada > inicioDia ? dtEntrada : inicioDia;
+                    if (overlapDispInicio < fimParaCalculo) {
+                        totalMsDisponivelNoDia += (fimParaCalculo - overlapDispInicio);
                     }
 
-                    const overlapInicio = osInicio > inicioDia ? osInicio : inicioDia;
-                    const overlapFim = osFim < fimDia ? osFim : fimDia;
+                    let manutencaoCavalo = 0;
+                    const todasOSCavalo = ordensServico.filter(o => o.placa === frota.cavalo);
+                    
+                    todasOSCavalo.forEach(os => {
+                        let osInicio = corrigirDataSupabaseLocal(os.data_abertura);
+                        if (!osInicio) return;
+                        
+                        let osFim = os.data_conclusao ? corrigirDataSupabaseLocal(os.data_conclusao) : agora;
 
-                    if (overlapInicio < overlapFim && os.status !== 'Agendada') {
-                        manutencaoCavalo += (overlapFim - overlapInicio);
-                    }
+                        let inicioValido = osInicio > dtEntrada ? osInicio : dtEntrada;
+                        const overlapInicio = inicioValido > inicioDia ? inicioValido : inicioDia;
+                        const overlapFim = osFim < fimParaCalculo ? osFim : fimParaCalculo;
+
+                        if (overlapInicio < overlapFim) {
+                            manutencaoCavalo += (overlapFim - overlapInicio);
+                        }
+                    });
+                    
+                    if (manutencaoCavalo > msTotalDia) manutencaoCavalo = msTotalDia;
+                    msManutencaoNesteDia += manutencaoCavalo;
                 });
-                
-                if (manutencaoCavalo > msPorDia) manutencaoCavalo = msPorDia;
-                msManutencaoNesteDia += manutencaoCavalo;
-            });
 
-            let dispNesteDia = totalMsDisponivelPorDia - msManutencaoNesteDia;
-            if(dispNesteDia < 0) dispNesteDia = 0;
-            
-            let percentDM = (dispNesteDia / totalMsDisponivelPorDia) * 100;
-            
-            categoriasDias.push(`${String(dataDia.getDate()).padStart(2,'0')}/${String(dataDia.getMonth()+1).padStart(2,'0')}`);
-            dadosDM.push(percentDM.toFixed(2));
+                let dispNesteDia = totalMsDisponivelNoDia - msManutencaoNesteDia;
+                if (dispNesteDia < 0) dispNesteDia = 0;
+                
+                let percentDM = 100;
+                if (totalMsDisponivelNoDia > 0) {
+                    percentDM = (dispNesteDia / totalMsDisponivelNoDia) * 100;
+                }
+                
+                categoriasDias.push(`${String(dataDia.getDate()).padStart(2,'0')}/${String(dataDia.getMonth()+1).padStart(2,'0')}`);
+                dadosDM.push(percentDM.toFixed(1)); // Alterado de .toFixed(2) para .toFixed(1) para igualar estética do Serrana
+            } else {
+                categoriasDias.push(`${String(dataDia.getDate()).padStart(2,'0')}/${String(dataDia.getMonth()+1).padStart(2,'0')}`);
+                dadosDM.push(100.0);
+            }
         }
 
         if (typeof echarts === 'undefined') return;
