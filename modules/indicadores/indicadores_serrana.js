@@ -57,7 +57,8 @@ async function atualizarPonteirosSerrana() {
     let cavalosSinistrados = 0;
 
     try {
-        let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo');
+        // FILTRO OTIMIZADO: Busca apenas O.S. em andamento para não estourar limite do banco e evitar quebra por O.S. antigas
+        let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']);
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData, error: osError } = await queryOS;
             
@@ -67,6 +68,7 @@ async function atualizarPonteirosSerrana() {
             const setCavalosSinistro = new Set();
 
             osData.forEach(os => {
+                if (!os.placa) return; // Segurança contra placas nulas
                 if (os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA') return;
 
                 const placaLimpa = os.placa.trim().toUpperCase();
@@ -137,6 +139,7 @@ async function carregarFrotasParadasSerrana() {
         const agora = new Date();
         
         const osFiltradas = osData ? osData.filter(os => 
+            os.placa && 
             listaCavalos.includes(os.placa.trim().toUpperCase()) && 
             !(os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA')
         ) : [];
@@ -345,6 +348,7 @@ async function renderizarGraficoEvolucaoDmSerrana() {
         const frotasCavalosArray = frotas.map(c => limpaPlaca(c));
         
         let ordensServico = (osData || []).filter(os => 
+            os.placa &&
             frotasCavalosArray.includes(limpaPlaca(os.placa)) && 
             !(os.tipo && os.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA')
         );

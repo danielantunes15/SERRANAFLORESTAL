@@ -52,7 +52,8 @@ async function atualizarPonteiros() {
     let cavalosSinistrados = 0; 
 
     try {
-        let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo');
+        // FILTRO OTIMIZADO: Busca apenas O.S. em andamento para não estourar limite do banco e evitar quebra por O.S. antigas
+        let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']);
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData, error: osError } = await queryOS;
             
@@ -62,6 +63,7 @@ async function atualizarPonteiros() {
             const setCavalosSinistro = new Set();
 
             osData.forEach(os => {
+                if (!os.placa) return; // Segurança contra placas nulas
                 const placaLimpa = os.placa.trim().toUpperCase();
                 
                 if (listaDeCavalos.includes(placaLimpa) && os.tipo !== 'Cavalo Disponível S/ Carreta') {
@@ -120,7 +122,6 @@ async function carregarStatusDash() {
     
     const nomeCtrl = (statusData && statusData.length > 0 && statusData[0].controlador) ? statusData[0].controlador : 'NÃO DEFINIDO';
     
-    // CORREÇÃO: Verifica se o elemento existe antes de tentar injetar o nome do controlador
     const elControlador = document.getElementById('dash-controlador-nome');
     if (elControlador) {
         elControlador.textContent = nomeCtrl;
@@ -237,7 +238,8 @@ async function carregarFrotasParadas() {
         
         const listaCavalos = frotaData ? frotaData.map(f => f.cavalo.trim().toUpperCase()) : [];
 
-        let queryOS = supabaseClient.from('ordens_servico').select('placa, tipo, status').in('status', ['Aguardando Oficina', 'Em Manutenção']); 
+        // Incluído 'Sinistrado' para que ele entre na contagem visual também
+        let queryOS = supabaseClient.from('ordens_servico').select('placa, tipo, status').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']); 
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data, error } = await queryOS;
 
@@ -246,7 +248,7 @@ async function carregarFrotasParadas() {
         if(!container) return;
         container.innerHTML = ''; 
         
-        const osFiltradas = data ? data.filter(os => listaCavalos.includes(os.placa.trim().toUpperCase()) && os.tipo !== 'Cavalo Disponível S/ Carreta') : [];
+        const osFiltradas = data ? data.filter(os => os.placa && listaCavalos.includes(os.placa.trim().toUpperCase()) && os.tipo !== 'Cavalo Disponível S/ Carreta') : [];
 
         if (!osFiltradas || osFiltradas.length === 0) {
             container.innerHTML = `
@@ -263,16 +265,21 @@ async function carregarFrotasParadas() {
             let icone = 'fas fa-wrench';
             let textColor = 'text-red';
             
-            if (tipoString.includes('preventiva')) {
+            if (os.status === 'Sinistrado') {
+                tipoString = 'sinistro';
+                classeCss = 'corretiva'; 
+                icone = 'fas fa-exclamation-triangle';
+                textColor = 'text-red';
+            } else if (tipoString.includes('preventiva')) {
                 classeCss = 'preventiva';
                 icone = 'fas fa-clipboard-check';
                 textColor = 'text-orange';
-            }
-            if (tipoString.includes('borracharia') || tipoString.includes('pneu')) {
+            } else if (tipoString.includes('borracharia') || tipoString.includes('pneu')) {
                 classeCss = 'borracharia';
                 icone = 'fas fa-life-ring';
                 textColor = 'text-blue';
             }
+
             container.innerHTML += `
                 <div class="item-frota-parada ${classeCss}">
                     <div class="cavalo-info">
