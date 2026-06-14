@@ -19,6 +19,21 @@ let frotasParaMeta = [];
 
 let filterTransportadora, filterData, filterMes, filterDataInicio, filterDataFim, btnQFs;
 
+function corrigirDataSupabaseLocal(dateStr) {
+    if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return null;
+    let str = String(dateStr).trim();
+    if (!str.includes('T')) str = str.replace(' ', 'T');
+    const partes = str.split('T');
+    if (partes.length === 2) {
+        const horaStr = partes[1];
+        if (!horaStr.includes('Z') && !horaStr.includes('+') && !horaStr.includes('-')) {
+            str += 'Z';
+        }
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+}
+
 window.carregarDadosDashboardAnalitico = async function() {
     filterTransportadora = document.getElementById('filterTransportadora');
     filterData = document.getElementById('filterData');
@@ -263,13 +278,18 @@ const centerTextPlugin = {
 
 async function loadDashboardDataInit() {
     try {
-        const osResp = await window.supabaseClient.from('ordens_servico').select('*');
+        const osResp = await window.supabaseClient
+            .from('ordens_servico')
+            .select('*')
+            .neq('status', 'Agendada')
+            .order('data_abertura', { ascending: false })
+            .limit(5000); 
+
         if (osResp.data) osParaMeta = osResp.data;
 
-        // Invertemos a ordem para evitar o erro 404 de cadastro_frota
-        let frotasResp = await window.supabaseClient.from('frotas_manutencao').select('*');
+        let frotasResp = await window.supabaseClient.from('frotas_manutencao').select('*').limit(2000);
         if (!frotasResp.data || frotasResp.data.length === 0) {
-            frotasResp = await window.supabaseClient.from('cadastro_frota').select('*');
+            frotasResp = await window.supabaseClient.from('cadastro_frota').select('*').limit(2000);
         }
         
         if (frotasResp.data) frotasParaMeta = frotasResp.data;
@@ -299,12 +319,11 @@ async function loadDashboardDataInit() {
         console.error("Erro ao puxar gruas cadastradas:", e);
     }
 
-    // MELHORIA DE PERFORMANCE: Busca direta com '*' mas LIMITADA a 8.000 registros
     let queryVia = window.supabaseClient
         .from('historico_viagens')
-        .select('*') // Evita o erro 400 de coluna inexistente
+        .select('*') 
         .order('id', { ascending: false })
-        .limit(8000); // Economia gigante de banda, sem quebrar nada
+        .limit(8000); 
     
     if (typeof window.aplicarFiltroFilial === 'function') {
         queryVia = window.aplicarFiltroFilial(queryVia);
@@ -674,7 +693,6 @@ function loadDashboardData() {
         if(document.getElementById('bestPlacaName')) document.getElementById('bestPlacaName').innerText = 'Nenhum cavalo encontrado';
         if(document.getElementById('tempoCarregamento')) document.getElementById('tempoCarregamento').innerText = '0 h';
         
-        // Zera os Visuais de Volume se não tiver dados
         if(document.getElementById('mediaVolumeViagem')) {
             const el = document.getElementById('mediaVolumeViagem');
             el.className = "text-3xl font-extrabold text-white m-0 transition-all";
@@ -739,11 +757,11 @@ function loadDashboardData() {
     const elIconeMeta = document.getElementById('iconeMetaViagens');
 
     if (elMetaTexto && frotasParaMeta && osParaMeta) {
-        const frotasAtivas = frotasParaMeta.filter(f => {
-            const st = String(f.status || '').trim().toUpperCase();
-            const cat = String(f.categoria || f.tipo || f.tipo_veiculo || '').trim().toUpperCase();
-            return (st === 'ATIVO' || st === 'ATIVA') && (cat.includes('TRITREM') || cat === '');
-        });
+        const frotasAtivas = frotasParaMeta.filter(f => 
+            f.status === 'Ativo' && 
+            f.categoria && 
+            f.categoria.toUpperCase() === 'TRITREM'
+        );
 
         let dataInicioCalc = new Date(); dataInicioCalc.setHours(0,0,0,0);
         let dataFimCalc = new Date(); dataFimCalc.setHours(23,59,59,999);
@@ -790,8 +808,8 @@ function loadDashboardData() {
         let totalDispNoPeriodoMs = 0;
 
         frotasAtivas.forEach(frota => {
-            let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2020-01-01';
-            let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
+            let dtEntradaVeiculo = new Date('2026-04-01T00:00:00');
+            if(frota.data_inicial) dtEntradaVeiculo = new Date(frota.data_inicial + 'T00:00:00');
 
             let overlapDispInicio = dtEntradaVeiculo > dataInicioCalc ? dtEntradaVeiculo : dataInicioCalc;
             let totalMsDisponivelVeiculo = 0;
@@ -803,20 +821,19 @@ function loadDashboardData() {
             if (totalMsDisponivelVeiculo > 0) {
                 let msManutVeiculo = 0;
                 let placaFrota = frota.placa || frota.cavalo; 
-                const todasOSCavalo = osParaMeta.filter(o => o.placa === placaFrota && o.status !== 'Agendada' && o.tipo !== 'Cavalo Disponível S/ Carreta');
+                
+                const todasOSCavalo = osParaMeta.filter(o => {
+                    if (o.placa !== placaFrota) return false;
+                    if (o.status === 'Agendada') return false;
+                    if (o.tipo && o.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA') return false;
+                    return true;
+                });
                 
                 todasOSCavalo.forEach(os => {
-                    let osInicioStr = os.data_abertura;
-                    if (!osInicioStr) return;
-                    if (!osInicioStr.includes('T')) osInicioStr += 'T00:00:00';
-                    const osInicio = new Date(osInicioStr.replace('Z', '').replace('+00:00', ''));
+                    let osInicio = corrigirDataSupabaseLocal(os.data_abertura);
+                    if (!osInicio) return;
                     
-                    let osFim = new Date(); 
-                    if (os.data_conclusao) {
-                        let osFimStr = os.data_conclusao;
-                        if (!osFimStr.includes('T')) osFimStr += 'T00:00:00';
-                        osFim = new Date(osFimStr.replace('Z', '').replace('+00:00', ''));
-                    }
+                    let osFim = os.data_conclusao ? corrigirDataSupabaseLocal(os.data_conclusao) : new Date();
                     
                     let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
                     const overlapInicio = inicioValido > dataInicioCalc ? inicioValido : dataInicioCalc;
@@ -886,28 +903,23 @@ function loadDashboardData() {
     // CÁLCULOS PRINCIPAIS - RPV E PBTC (COM REGRAS DE SLA DO CONTRATO)
     // =========================================================================================
     
-    // Cálculo do PBTC: Usa EXCLUSIVAMENTE a coluna peso_na_entrada conforme seu pedido
     const totalPesoKg = cardsData.reduce((sum, r) => sum + (r.peso_na_entrada || 0), 0);
     const mediaPBTC = totalViagens > 0 ? (totalPesoKg / 1000) / totalViagens : 0;
     
-    // Cálculo do RPV (Filtrando apenas as viagens que tem RPV calculado válido para fazer a média)
     const validRpv = cardsData.filter(d => d.rpv !== null && d.rpv > 0);
     const mediaRPV = validRpv.length > 0 ? validRpv.reduce((sum, r) => sum + r.rpv, 0) / validRpv.length : 0;
 
-    // --- NOVA LÓGICA DE INDICADOR SLA (Matriz RPV x PBTC Mínimo) ---
-    // Descobre qual é a meta de PBTC com base na faixa da média do RPV atual
     let reqPbtc = 74.0;
     if (mediaRPV <= 700 && mediaRPV > 0) reqPbtc = 71.0;
     else if (mediaRPV > 700 && mediaRPV < 800) reqPbtc = 73.0;
     else reqPbtc = 74.0;
 
-    // SLA é atendido se o PBTC médio alcançou a meta estipulada pela faixa do RPV
     let slaAtendido = (mediaPBTC >= reqPbtc);
 
     const elRpv = document.getElementById('mediaRPV');
     if (elRpv) {
         let rpvStr = mediaRPV > 0 ? mediaRPV.toLocaleString('pt-PT', {maximumFractionDigits: 2}) : "0";
-        const pSub = elRpv.parentElement.nextElementSibling; // A tag div que fica embaixo do número
+        const pSub = elRpv.parentElement.nextElementSibling; 
 
         if (mediaRPV > 0) {
             if (slaAtendido) {
@@ -935,23 +947,19 @@ function loadDashboardData() {
         }
     }
 
-    // --- ATUALIZAÇÃO DA COR DO PBTC PARA ACOMPANHAR A META DO CONTRATO ---
     let pbtcCor = "text-white";
     let pbtcIcone = "";
 
     if (mediaPBTC > 0) {
         if (mediaPBTC < reqPbtc) { 
-            // Abaixo da meta dinâmica do SLA
             pbtcCor = "text-rose-500"; 
             pbtcIcone = `<i class="fas fa-exclamation-circle text-rose-500 text-sm ml-2" title="Abaixo da Meta SLA (${reqPbtc}t)"></i>`; 
         }
         else if (mediaPBTC >= reqPbtc && mediaPBTC <= 77.7) { 
-            // Bateu a meta da faixa atual do RPV!
             pbtcCor = "text-emerald-400"; 
             pbtcIcone = `<i class="fas fa-check-circle text-emerald-400 text-sm ml-2" title="Dentro do SLA (${reqPbtc}t)"></i>`; 
         }
         else if (mediaPBTC > 77.7) { 
-            // Acima do Limite Legal/Tolerância
             pbtcCor = "text-amber-500"; 
             pbtcIcone = '<i class="fas fa-exclamation-triangle text-amber-500 text-sm ml-2" title="Acima da Tolerância Legal"></i>'; 
         }
@@ -982,7 +990,6 @@ function loadDashboardData() {
 
     const produtividadeGlobalM3 = somaCiclosTotais > 0 ? (totalVolumeReal / somaCiclosTotais) : 0;
     
-    // --- LÓGICA DE METAS E CORES PARA OS INDICADORES DE VOLUME ---
     let metaCaixaFinal = (metasGlobaisObj && metasGlobaisObj.cx_prog) ? parseFloat(metasGlobaisObj.cx_prog) : 48;
     
     let metaVolumeCalculada = 0;
@@ -994,7 +1001,6 @@ function loadDashboardData() {
         metaVolumeCalculada = (50 * 2 * diasConsideradosCalc) * metaCaixaFinal; 
     }
 
-    // 1. Atualizando o Card "Média de Vol. (m³)"
     let elMediaVol = document.getElementById('mediaVolumeViagem');
     if (elMediaVol) {
         if (metaCaixaFinal > 0) {
@@ -1021,7 +1027,6 @@ function loadDashboardData() {
         }
     }
 
-    // 2. Atualizando o Card "Volume Total"
     let elTotalVol = document.getElementById('totalVolumeReal');
     if (elTotalVol) {
         if (metaVolumeCalculada > 0) {
