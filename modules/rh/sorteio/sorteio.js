@@ -3,8 +3,9 @@ window.candidatosSorteioAtual = [];
 window.vencedoresSorteio = [];
 window.quantidadeSorteios = 1;
 
-// Gerenciamento Local de Prêmios
+// Gerenciamento Local de Prêmios e Exceções (Persistidas no Banco)
 window.listaPremiosLocal = [];
+window.nomesExcluidosSorteio = [];
 
 // Efeitos Sonoros Oficiais
 window.audioRoletaSorteio = new Audio('https://actions.google.com/sounds/v1/science_fiction/spaceship_engine.ogg');
@@ -15,9 +16,92 @@ window.initRHSorteio = async function() {
     try {
         window.listaParaSorteio = await db.getColaboradores();
         window.listaParaSorteio = window.listaParaSorteio.filter(c => c.status !== 'Inativo');
+        
+        await window.carregarExcecoesSorteioDB();
+        
         window.renderizarPremiosLobby();
+        window.renderizarListaExcecoes();
     } catch(e) {
-        console.error("Erro ao carregar colaboradores:", e);
+        console.error("Erro ao carregar colaboradores para o sorteio:", e);
+    }
+};
+
+// ================= GESTÃO DE EXCEÇÕES (BANCO DE DADOS E LOBBY) =================
+window.carregarExcecoesSorteioDB = async function() {
+    try {
+        const { data, error } = await window.supabaseClient.from('rh_sorteio_excecoes').select('colaborador_id');
+        if (error) throw error;
+        window.nomesExcluidosSorteio = data.map(d => d.colaborador_id);
+    } catch(e) {
+        console.error("Erro ao carregar exceções do banco:", e);
+    }
+};
+
+window.renderizarListaExcecoes = function(termoBusca = '') {
+    const div = document.getElementById('listaExcecoesSorteio');
+    if (!div) return;
+    div.innerHTML = '';
+    
+    let filtrados = window.listaParaSorteio;
+    if(termoBusca) {
+        filtrados = filtrados.filter(c => c.nome.toLowerCase().includes(termoBusca.toLowerCase()));
+    }
+    
+    if (filtrados.length === 0) {
+        div.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0; font-style: italic; text-align: center; padding-top: 10px;">Nenhum colaborador encontrado.</p>';
+        return;
+    }
+
+    filtrados.forEach(c => {
+        const isChecked = window.nomesExcluidosSorteio.includes(c.id) ? 'checked' : '';
+        div.innerHTML += `
+            <label style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;">
+                <input type="checkbox" value="${c.id}" ${isChecked} onchange="window.toggleExcecaoSorteio('${c.id}', this.checked)" style="transform: scale(1.2); accent-color: #ef4444;">
+                <span style="color: ${isChecked ? '#ef4444' : '#fff'}; font-size: 0.85rem; font-weight: ${isChecked ? 'bold' : 'normal'}; transition: color 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${c.nome}</span>
+            </label>
+        `;
+    });
+};
+
+window.toggleExcecaoSorteio = async function(id, isChecked) {
+    try {
+        if(isChecked) {
+            if(!window.nomesExcluidosSorteio.includes(id)) {
+                window.nomesExcluidosSorteio.push(id);
+                await window.supabaseClient.from('rh_sorteio_excecoes').insert([{ colaborador_id: id }]);
+            }
+        } else {
+            window.nomesExcluidosSorteio = window.nomesExcluidosSorteio.filter(e => e !== id);
+            await window.supabaseClient.from('rh_sorteio_excecoes').delete().eq('colaborador_id', id);
+        }
+        const termo = document.getElementById('buscaExcecaoSorteio').value;
+        window.renderizarListaExcecoes(termo);
+    } catch(e) {
+        console.error("Erro ao salvar exceção no banco:", e);
+    }
+};
+
+window.filtrarListaExcecoes = function() {
+    const termo = document.getElementById('buscaExcecaoSorteio').value;
+    window.renderizarListaExcecoes(termo);
+};
+
+window.limparExcecoes = async function() {
+    if(window.nomesExcluidosSorteio.length === 0) return;
+
+    if(confirm("Deseja realmente restaurar TODOS os colaboradores? Isso limpará a tabela de exceções no banco de dados e todos voltarão a participar dos sorteios.")) {
+        try {
+            document.getElementById('listaExcecoesSorteio').innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: #94a3b8; margin-top: 20px;"><i class="fas fa-spinner fa-spin"></i> Restaurando todos...</p>';
+            
+            await window.supabaseClient.from('rh_sorteio_excecoes').delete().in('colaborador_id', window.nomesExcluidosSorteio);
+            
+            window.nomesExcluidosSorteio = [];
+            document.getElementById('buscaExcecaoSorteio').value = '';
+            window.renderizarListaExcecoes();
+        } catch(e) {
+            console.error("Erro ao limpar banco de exceções:", e);
+            alert("Erro ao limpar exceções. Tente novamente.");
+        }
     }
 };
 
@@ -35,7 +119,7 @@ window.adicionarPremioLocal = function() {
         id: 'premio_' + new Date().getTime(),
         nome: nome,
         qtdOriginal: qtd,
-        qtdAtual: qtd // Este valor vai diminuindo durante o sorteio
+        qtdAtual: qtd 
     });
 
     document.getElementById('inputPremioNome').value = '';
@@ -85,10 +169,14 @@ window.prepararSorteio = function() {
 
     let candidatos = [...window.listaParaSorteio];
 
+    // Aplica o filtro de Plano de Saúde (Restringindo para Ativos se selecionado)
     if (filtro === 'Ativos') {
         candidatos = candidatos.filter(c => c.plano_saude === 'Sim');
-    } else if (filtro === 'NaoAtivos') {
-        candidatos = candidatos.filter(c => c.plano_saude !== 'Sim');
+    }
+
+    // Aplica o filtro das EXCEÇÕES SALVAS NO BANCO
+    if (window.nomesExcluidosSorteio.length > 0) {
+        candidatos = candidatos.filter(c => !window.nomesExcluidosSorteio.includes(c.id));
     }
 
     if (filtroFuncao !== '') {
@@ -104,7 +192,7 @@ window.prepararSorteio = function() {
     }
 
     if (candidatos.length === 0) {
-        alert('Nenhum colaborador elegível localizado com os parâmetros informados (Função/Mês).');
+        alert('Nenhum colaborador elegível localizado com os parâmetros e exceções informados.');
         return;
     }
 
@@ -167,7 +255,6 @@ window.atualizarDropdownPremiosArena = function() {
 
     selectPremio.innerHTML = html;
 
-    // Mantém a opção que estava selecionada se ela não esgotou
     if (valorAtual) {
         const opcaoAntiga = selectPremio.querySelector(`option[value="${valorAtual}"]`);
         if (opcaoAntiga && !opcaoAntiga.disabled) {
@@ -196,7 +283,6 @@ window.resetarSorteio = function() {
         window.vencedoresSorteio = [];
         window.quantidadeSorteios = 1;
         
-        // Restaura a quantidade dos prêmios
         window.listaPremiosLocal.forEach(p => p.qtdAtual = p.qtdOriginal);
         window.renderizarPremiosLobby();
         
@@ -212,7 +298,6 @@ window.sortearProximo = function() {
         return;
     }
 
-    // Lógica para capturar qual prêmio o usuário escolheu no Dropdown da Arena
     let premioDestaRodada = null;
     let objPremioRef = null;
 
@@ -248,7 +333,7 @@ window.sortearProximo = function() {
     const statusHeader = document.getElementById('statusSorteioHeader');
 
     btnSortear.style.display = 'none';
-    document.getElementById('containerSeletorPremio').style.display = 'none'; // Esconde seletor durante a animação
+    document.getElementById('containerSeletorPremio').style.display = 'none'; 
 
     try { 
         window.audioVitoriaSorteio.pause();
@@ -271,7 +356,6 @@ window.sortearProximo = function() {
                 <i class="fas fa-sync-alt fa-spin fa-4x" style="color: var(--ccol-blue-bright); margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(96,165,250,0.5));"></i>
         `;
         
-        // Exibe o prêmio rodando junto se houver
         if (premioDestaRodada) {
             htmlAnimacao += `<div style="color: var(--ccol-rust-bright); font-size: 1.3rem; font-weight: 800; margin-bottom: 10px; text-transform: uppercase;">🎁 Sorteando: ${premioDestaRodada}</div>`;
         }
@@ -298,7 +382,6 @@ window.sortearProximo = function() {
 
             window.candidatosSorteioAtual.splice(indexReal, 1);
             
-            // Associação e Desconto do Prêmio na Memória
             if (objPremioRef) {
                 objPremioRef.qtdAtual--;
                 vencedorDefinitivo.premio_ganho = objPremioRef.nome;
@@ -358,7 +441,7 @@ window.sortearProximo = function() {
             galeriaDiv.appendChild(cardMini);
 
             if (window.vencedoresSorteio.length < window.quantidadeSorteios) {
-                if(window.listaPremiosLocal.length > 0) document.getElementById('containerSeletorPremio').style.display = 'block'; // Volta o seletor
+                if(window.listaPremiosLocal.length > 0) document.getElementById('containerSeletorPremio').style.display = 'block'; 
                 btnSortear.style.display = 'inline-flex';
                 btnSortear.innerHTML = `<i class="fas fa-forward"></i> PRÓXIMO SORTEIO (#${numGanhadorAtual + 1})`;
             } else {
@@ -418,7 +501,6 @@ window.gerarRelatorioSorteioPDF = function() {
         doc.text(`Filtros: Saúde (${filtroPlano}) | Mês (${filtroMes}) | Função (${filtroFuncao})`, 14, 36);
         doc.text(`Total de Vencedores na Rodada: ${window.vencedoresSorteio.length}`, 14, 42);
 
-        // Verifica se teve distribuição de prêmios para incluir a coluna extra
         const sorteioComPremios = window.vencedoresSorteio.some(v => v.premio_ganho);
         const cabecalho = sorteioComPremios 
             ? [['Ordem', 'Matrícula', 'Nome do Colaborador', 'Função / Cargo', 'Prêmio Entregue']] 
