@@ -56,14 +56,30 @@ window.carregarDadosCadastroUP = async function() {
 window.carregarUPsPendentes = async function() {
     const selectUp = document.getElementById('upCodigo');
     if(selectUp) {
-        selectUp.innerHTML = '<option value="">Buscando UPs nas viagens...</option>';
+        selectUp.innerHTML = '<option value="">Buscando UPs recentes nas viagens...</option>';
     }
 
     try {
+        // Obter data de hoje e ontem no formato DD/MM/YYYY para filtrar
+        const hoje = new Date();
+        const ontem = new Date(hoje);
+        ontem.setDate(ontem.getDate() - 1);
+
+        const formatarData = (d) => {
+            const dia = String(d.getDate()).padStart(2, '0');
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const ano = d.getFullYear();
+            return `${dia}/${mes}/${ano}`;
+        };
+
+        const dataHoje = formatarData(hoje);
+        const dataOntem = formatarData(ontem);
+
         let dadosViagens = [];
         let start = 0; 
         const step = 2000; 
 
+        // Tenta buscar as UPs faturadas no dia de Hoje e Ontem
         while(true) {
             let query = supabaseClient
                 .from('historico_viagens')
@@ -72,6 +88,7 @@ window.carregarUPsPendentes = async function() {
                 .neq('up', '')
                 .neq('up', '-')
                 .neq('up', 'NULL')
+                .in('dataDaBaseExcel', [dataHoje, dataOntem]) // Filtra estritamente hoje e ontem
                 .range(start, start + step - 1);
                 
             if (window.currentUser && window.currentUser.filial_id !== null && window.currentUser.filial_id !== 'CENTRAL') {
@@ -87,8 +104,21 @@ window.carregarUPsPendentes = async function() {
             start += step;
         }
 
+        // Fallback: se não houver registros nesses dois dias específicos, busca um pequeno volume dos últimos lançamentos
         if (dadosViagens.length === 0) {
-            let queryFb = supabaseClient.from('historico_viagens').select('*').not('up', 'is', null).neq('up', '-').limit(5000);
+            let queryFb = supabaseClient
+                .from('historico_viagens')
+                .select('up, distanciaAsfalto, distanciaTerra')
+                .not('up', 'is', null)
+                .neq('up', '')
+                .neq('up', '-')
+                .neq('up', 'NULL')
+                .limit(2000);
+                
+            if (window.currentUser && window.currentUser.filial_id !== null && window.currentUser.filial_id !== 'CENTRAL') {
+                queryFb = queryFb.eq('filial_id', window.currentUser.filial_id);
+            }
+            
             const { data: fbData } = await queryFb;
             if (fbData && fbData.length > 0) dadosViagens = fbData;
         }
@@ -134,7 +164,7 @@ window.carregarUPsPendentes = async function() {
             });
             
             if(upsOrdenadas.length === 0) {
-                selectUp.innerHTML = '<option value="">Nenhuma UP pendente na base.</option>';
+                selectUp.innerHTML = '<option value="">Nenhuma UP pendente nos últimos dias.</option>';
             }
         }
 
