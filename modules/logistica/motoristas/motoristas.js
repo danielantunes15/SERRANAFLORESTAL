@@ -148,8 +148,6 @@ window.salvarEdicaoMotorista = async function() {
     m.turno = document.getElementById('editMotoristaTurno').value || '-';
     m.data_ancora = document.getElementById('editMotoristaDataAncora').value || null;
 
-    // Constrói os dados da mesma forma que são usados na interface
-    // ATENÇÃO: Se as colunas no Supabase estiverem com underline (ex: master_drive), você deverá alterar a chave antes dos dois pontos. Ex: "master_drive: m.masterDrive"
     const payload = {
         nome: m.nome, 
         masterDrive: m.masterDrive, 
@@ -161,7 +159,6 @@ window.salvarEdicaoMotorista = async function() {
         data_ancora: m.data_ancora
     };
 
-    // Previne envio de string vazia caso o banco exija null em alguma coluna não preenchida
     Object.keys(payload).forEach(k => {
         if (payload[k] === "") payload[k] = null;
     });
@@ -180,7 +177,7 @@ window.salvarEdicaoMotorista = async function() {
 };
 
 window.excluirMotorista = async function(id) {
-    if(currentUser && currentUser.role !== 'Admin') { alert('⛔ Acesso Negado: Apenas Administradores podem excluir motoristas.'); return; }
+    // REMOVIDA A VALIDAÇÃO DE ADMIN: Qualquer usuário logado com acesso à tela agora pode excluir
     
     const m = motoristas.find(mot => mot.id === id);
     if (!confirm(`⚠️ Deseja excluir DE VEZ o motorista ${m ? m.nome : ''} do sistema?`)) return;
@@ -198,4 +195,95 @@ window.excluirMotorista = async function(id) {
     if(typeof renderizarAlocacao === 'function') renderizarAlocacao();
     if(typeof renderizarEscala === 'function') renderizarEscala();
     if(typeof renderizarSSMA === 'function') renderizarSSMA();
+};
+
+// ==================== NOVA FUNÇÃO: EXPORTAR PARA EXCEL ====================
+window.exportarMotoristasExcel = function() {
+    // Função auxiliar para determinar a frota baseada na equipe do motorista
+    const getFrota = (equipe) => {
+        if (['A', 'D'].includes(equipe)) return 'Frota 1';
+        if (['B', 'E'].includes(equipe)) return 'Frota 2';
+        if (['C', 'F'].includes(equipe)) return 'Folguista';
+        return 'Sem Frota';
+    };
+
+    // Ordena os motoristas por nome antes de exportar
+    const motoristasOrdenados = [...motoristas].sort((a, b) => a.nome.localeCompare(b.nome));
+
+    // Monta a estrutura HTML da tabela que o Excel lerá nativamente
+    let tabelaHtml = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+            <meta charset="utf-8">
+            <style>
+                table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+                th { background-color: #10b981; color: white; font-weight: bold; border: 1px solid #cccccc; padding: 10px; text-align: left; }
+                td { border: 1px solid #cccccc; padding: 8px; text-align: left; }
+                tr:nth-child(even) { background-color: #f9fafb; }
+                tr:hover { background-color: #f1f5f9; }
+                .text-center { text-align: center; }
+            </style>
+        </head>
+        <body>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nome do Motorista</th>
+                        <th class="text-center">Conjunto</th>
+                        <th class="text-center">Equipe</th>
+                        <th class="text-center">Frota</th>
+                        <th class="text-center">Turno Padrão</th>
+                        <th class="text-center">Master Drive</th>
+                        <th class="text-center">Destra</th>
+                        <th>Cidade</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    motoristasOrdenados.forEach(m => {
+        let nome = m.nome || '-';
+        let conjunto = m.conjuntoId ? `Conjunto ${m.conjuntoId}` : 'Reserva / Disponível';
+        let equipe = (m.equipe && m.equipe !== '-') ? `Equipe ${m.equipe}` : '-';
+        let frota = getFrota(m.equipe);
+        let turno = m.turno || '-';
+        let master = m.masterDrive || 'Não';
+        let destra = m.destra || 'Não';
+        let cidade = m.cidade || '-';
+
+        tabelaHtml += `
+            <tr>
+                <td><strong>${nome}</strong></td>
+                <td class="text-center">${conjunto}</td>
+                <td class="text-center">${equipe}</td>
+                <td class="text-center">${frota}</td>
+                <td class="text-center">${turno}</td>
+                <td class="text-center">${master}</td>
+                <td class="text-center">${destra}</td>
+                <td>${cidade}</td>
+            </tr>
+        `;
+    });
+
+    tabelaHtml += `
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `;
+
+    // Cria o arquivo Excel (.xls) com base na tabela HTML para manter a estilização (bem bonitinho)
+    const blob = new Blob([tabelaHtml], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    
+    // Nome do arquivo com a data de hoje para melhor organização
+    const dataHoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    a.href = url;
+    a.download = `Relatorio_Motoristas_${dataHoje}.xls`;
+    
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 };
