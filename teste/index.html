@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SERRANA FLORESTAL</title>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+        /* Céu com degradê realista */
+        background: linear-gradient(to bottom, #87CEEB 0%, #e0f6ff 100%);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Título Modernizado */
+    .titulo {
+        position: absolute;
+        top: 40px;
+        width: 100%;
+        text-align: center;
+        font-size: 50px;
+        font-weight: 900;
+        color: #ffffff;
+        text-shadow: 2px 2px 0px #2c4a20, 4px 4px 10px rgba(0,0,0,0.3);
+        letter-spacing: 2px;
+        z-index: 100;
+    }
+
+    /* Cenário: Montanhas (Serrana) */
+    .mountain {
+        position: absolute;
+        bottom: 120px;
+        width: 0;
+        height: 0;
+        border-left: 200px solid transparent;
+        border-right: 200px solid transparent;
+        border-bottom: 300px solid #7a9e7e;
+        z-index: 1;
+        opacity: 0.8;
+    }
+    .m1 { left: -50px; border-bottom-color: #6b8e6f; }
+    .m2 { left: 300px; border-bottom: 400px solid #8baea0; z-index: 0; }
+    .m3 { right: -100px; border-bottom-color: #5c7f60; }
+
+    /* Cenário: Árvores (Florestal) */
+    .tree {
+        position: absolute;
+        bottom: 120px;
+        z-index: 2;
+    }
+    .tree::before {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: -15px;
+        width: 0;
+        height: 0;
+        border-left: 20px solid transparent;
+        border-right: 20px solid transparent;
+        border-bottom: 60px solid #2d4c1e;
+    }
+    .tree::after {
+        content: "";
+        position: absolute;
+        bottom: 30px;
+        left: -15px;
+        width: 0;
+        height: 0;
+        border-left: 20px solid transparent;
+        border-right: 20px solid transparent;
+        border-bottom: 50px solid #3a6327;
+    }
+    .trunk {
+        position: absolute;
+        bottom: -20px;
+        left: -2px;
+        width: 10px;
+        height: 20px;
+        background: #4a3621;
+    }
+    .t1 { left: 150px; transform: scale(1.5); }
+    .t2 { left: 450px; transform: scale(1.2); }
+    .t3 { right: 250px; transform: scale(1.8); }
+    .t4 { right: 100px; transform: scale(1.1); }
+
+    /* Nuvens Suavizadas */
+    .cloud {
+        position: absolute;
+        width: 160px;
+        height: 50px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 50px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        z-index: 5;
+    }
+    .cloud::before, .cloud::after {
+        content: "";
+        position: absolute;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 50%;
+    }
+    .cloud::before {
+        width: 70px;
+        height: 70px;
+        top: -30px;
+        left: 20px;
+    }
+    .cloud::after {
+        width: 90px;
+        height: 90px;
+        top: -45px;
+        right: 20px;
+    }
+    .c1 { top: 80px; animation: nuvem 40s linear infinite; opacity: 0.8; }
+    .c2 { top: 180px; transform: scale(0.8); animation: nuvem 55s linear infinite; opacity: 0.6; }
+
+    @keyframes nuvem {
+        from { left: -250px; }
+        to { left: 100vw; }
+    }
+
+    /* Chão com Textura Simples */
+    .ground {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        height: 120px;
+        background: #4d3319; /* Terra */
+        border-top: 15px solid #3e5f1e; /* Grama */
+        z-index: 10;
+        box-shadow: inset 0 20px 20px -20px rgba(0,0,0,0.5);
+    }
+
+    /* Dino Realista (Formas Orgânicas) */
+    .dino-container {
+        position: absolute;
+        bottom: 120px;
+        left: -300px;
+        width: 250px;
+        height: 180px;
+        z-index: 15;
+        animation: correr 12s linear infinite;
+    }
+
+    /* Simula o peso do dinossauro caminhando */
+    .dino-body-wrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        animation: peso 0.6s infinite alternate ease-in-out;
+    }
+
+    @keyframes correr {
+        from { left: -300px; }
+        to { left: 110vw; }
+    }
+
+    @keyframes peso {
+        0% { transform: translateY(0px); }
+        100% { transform: translateY(6px); }
+    }
+
+    /* Cores do Dino */
+    :root {
+        --dino-main: #2E5A27;
+        --dino-dark: #1D3B18;
+        --dino-belly: #447A3B;
+    }
+
+    /* Tronco */
+    .body {
+        position: absolute;
+        width: 110px;
+        height: 65px;
+        background: var(--dino-main);
+        border-radius: 50% 50% 40% 40%;
+        top: 60px;
+        left: 60px;
+        box-shadow: inset -10px -10px 0 var(--dino-belly);
+    }
+
+    /* Pescoço */
+    .neck {
+        position: absolute;
+        width: 35px;
+        height: 60px;
+        background: var(--dino-main);
+        top: 20px;
+        left: 135px;
+        transform: rotate(35deg);
+        border-radius: 10px;
+    }
+
+    /* Cabeça */
+    .head {
+        position: absolute;
+        width: 60px;
+        height: 40px;
+        background: var(--dino-main);
+        border-radius: 20px 40px 10px 15px;
+        top: -5px;
+        left: 155px;
+    }
+
+    /* Mandíbula Inferior */
+    .jaw {
+        position: absolute;
+        width: 35px;
+        height: 15px;
+        background: var(--dino-belly);
+        border-radius: 0 0 10px 10px;
+        top: 25px;
+        left: 20px;
+    }
+
+    /* Olho */
+    .eye {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        background: #ffcc00;
+        border-radius: 50%;
+        top: 10px;
+        left: 35px;
+        box-shadow: inset 2px 2px 0 #000;
+    }
+
+    /* Cauda */
+    .tail {
+        position: absolute;
+        width: 100px;
+        height: 35px;
+        background: var(--dino-main);
+        border-radius: 20px 100% 10px 30%;
+        top: 65px;
+        left: -15px;
+        transform: rotate(-15deg);
+    }
+
+    /* Braço (T-Rex style) */
+    .arm {
+        position: absolute;
+        width: 12px;
+        height: 25px;
+        background: var(--dino-dark);
+        border-radius: 10px;
+        top: 85px;
+        left: 140px;
+        transform: rotate(20deg);
+    }
+    .arm::after {
+        content: "";
+        position: absolute;
+        bottom: -5px;
+        left: 2px;
+        width: 15px;
+        height: 6px;
+        background: var(--dino-dark);
+        border-radius: 5px;
+        transform: rotate(30deg);
+    }
+
+    /* Pernas */
+    .leg {
+        position: absolute;
+        width: 22px;
+        height: 55px;
+        background: var(--dino-main);
+        border-radius: 15px;
+        top: 105px;
+        transform-origin: top center;
+    }
+
+    /* Pés com garras */
+    .leg::after {
+        content: "";
+        position: absolute;
+        bottom: -5px;
+        left: 0px;
+        width: 35px;
+        height: 12px;
+        background: inherit;
+        border-radius: 10px 15px 5px 5px;
+    }
+
+    /* Animação realista das pernas */
+    .leg1 {
+        left: 80px;
+        background: var(--dino-dark); /* Perna de trás mais escura */
+        animation: andar 0.6s infinite ease-in-out;
+        z-index: -1;
+    }
+
+    .leg2 {
+        left: 120px;
+        animation: andar 0.6s infinite ease-in-out;
+        animation-delay: -0.3s; /* Atrasa metade do ciclo para alternar */
+    }
+
+    @keyframes andar {
+        0% { transform: rotate(-25deg); }
+        50% { transform: rotate(25deg); }
+        100% { transform: rotate(-25deg); }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="titulo">SERRANA FLORESTAL</div>
+
+<div class="mountain m1"></div>
+<div class="mountain m2"></div>
+<div class="mountain m3"></div>
+
+<div class="cloud c1"></div>
+<div class="cloud c2"></div>
+
+<div class="tree t1"><div class="trunk"></div></div>
+<div class="tree t2"><div class="trunk"></div></div>
+<div class="tree t3"><div class="trunk"></div></div>
+<div class="tree t4"><div class="trunk"></div></div>
+
+<div class="dino-container">
+    <div class="dino-body-wrapper">
+        <div class="tail"></div>
+        <div class="leg leg1"></div>
+        
+        <div class="body"></div>
+        <div class="neck"></div>
+        <div class="head">
+            <div class="jaw"></div>
+            <div class="eye"></div>
+        </div>
+        
+        <div class="arm"></div>
+        <div class="leg leg2"></div>
+    </div>
+</div>
+
+<div class="ground"></div>
+
+</body>
+</html>
