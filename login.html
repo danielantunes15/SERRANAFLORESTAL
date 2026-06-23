@@ -10,6 +10,33 @@
 </head>
 <body class="dark-theme">
 
+    <script src="core/js/config_manutencao.js"></script>
+    
+    <div id="telaManutencao" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #0f172a; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #f8fafc; font-family: 'Inter', sans-serif;">
+        <img src="assets/logoverde.png" alt="Serrana Florestal" style="width: 180px; margin-bottom: 2rem;" onerror="this.style.display='none'">
+        <div style="position: relative;">
+            <i class="fas fa-cog fa-spin" style="font-size: 5rem; color: #10b981; margin-bottom: 1.5rem; position: absolute; opacity: 0.2; left: -20px; top: -10px;"></i>
+            <i class="fas fa-tools" style="font-size: 5rem; color: #10b981; margin-bottom: 1.5rem; position: relative; z-index: 2;"></i>
+        </div>
+        <h1 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem; color: #fff;">Sistema em Manutenção</h1>
+        <p style="font-size: 1.1rem; color: #94a3b8; max-width: 500px; line-height: 1.6; margin-bottom: 2rem;">
+            Estamos realizando melhorias e atualizações em nossos servidores para garantir uma melhor experiência e segurança dos dados.<br><br>
+            Por favor, aguarde. Voltaremos em breve!
+        </p>
+        <div style="display: flex; align-items: center; gap: 10px; background: rgba(16, 185, 129, 0.1); padding: 10px 20px; border-radius: 50px; border: 1px solid rgba(16, 185, 129, 0.2);">
+            <i class="fas fa-circle-notch fa-spin" style="color: #10b981; font-size: 1.2rem;"></i>
+            <span style="color: #10b981; font-weight: 600; font-size: 0.9rem;">Trabalhando nisso...</span>
+        </div>
+    </div>
+
+    <script>
+        if (typeof SISTEMA_EM_MANUTENCAO !== 'undefined' && SISTEMA_EM_MANUTENCAO) {
+            const style = document.createElement('style');
+            style.innerHTML = 'body > *:not(#telaManutencao):not(script) { display: none !important; }';
+            document.head.appendChild(style);
+            document.getElementById('telaManutencao').style.display = 'flex';
+        }
+    </script>
     <div class="login-container">
         <div class="login-banner">
             <div class="banner-overlay"></div>
