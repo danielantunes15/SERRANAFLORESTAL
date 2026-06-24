@@ -17,10 +17,25 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
     const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
     const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
     
+    // Ciclo Matemático 6 dias: 4 Trabalha, 2 Folga
+    // A cada dia do ciclo (0 a 5), duas equipes trabalham e uma folga!
     const cycleDay = ((diffDays % 6) + 6) % 6;
     
-    // Pela regra 4x2 do campo: os 4 primeiros dias TRABALHAM, os 2 últimos são FOLGA.
-    const statusTrabalho = (cycleDay < 4) ? 'TRAB' : 'FOLGA';
+    let statusTrabalho = 'TRAB';
+    const eq = operador.equipe || '';
+
+    // Lógica 4x2 Perfeita para A, B e C
+    if (eq === 'Equipe A' || eq === 'A') {
+        if (cycleDay === 4 || cycleDay === 5) statusTrabalho = 'FOLGA';
+    } 
+    else if (eq === 'Equipe B' || eq === 'B') {
+        if (cycleDay === 0 || cycleDay === 1) statusTrabalho = 'FOLGA';
+    } 
+    else if (eq === 'Equipe C' || eq.includes('Folguista') || eq === 'C') {
+        if (cycleDay === 2 || cycleDay === 3) statusTrabalho = 'FOLGA';
+    } else {
+        if (cycleDay === 4 || cycleDay === 5) statusTrabalho = 'FOLGA'; // Fallback
+    }
 
     let valorExibicao = 'F';
 
@@ -76,11 +91,10 @@ window.renderizarEscalaCampo = function() {
         return;
     }
 
-    // Alimenta o filtro de Frentes
     const filtroSelect = document.getElementById('campoFiltroFrente');
     if (filtroSelect && filtroSelect.options.length <= 1 && window.maquinasCampo.length > 0) {
         let htmlOpts = '<option value="Todos">Todas as Frentes</option>';
-        window.maquinasCampo.forEach(m => { htmlOpts += `<option value="${m.id}">${m.nome}</option>`; });
+        window.maquinasCampo.forEach(m => { htmlOpts += `<option value="${m.id}">${m.nome || `Frente ${m.id}`}</option>`; });
         filtroSelect.innerHTML = htmlOpts;
     }
 
@@ -115,7 +129,6 @@ window.renderizarEscalaCampo = function() {
         let operadoresMaq = window.equipeCampo.filter(op => String(op.maquina_id) === String(maq.id));
         if (operadoresMaq.length === 0) return;
 
-        // Separa líderes e operadores normais para a visualização
         let lideresDia = operadoresMaq.filter(o => o.funcao === 'Líder de Campo' && (o.turno||'').includes('06:00'));
         let lideresNoite = operadoresMaq.filter(o => o.funcao === 'Líder de Campo' && (o.turno||'').includes('18:00'));
         
@@ -125,7 +138,6 @@ window.renderizarEscalaCampo = function() {
             👑 Líder Noite: <b>${lideresNoite.map(l=>l.nome).join(', ') || 'N/A'}</b>
         </span>`;
 
-        // Ordenação visual da escala
         operadoresMaq.sort((a, b) => {
             const isLiderA = a.funcao === 'Líder de Campo' ? -1 : 1;
             const isLiderB = b.funcao === 'Líder de Campo' ? -1 : 1;
@@ -169,7 +181,7 @@ window.renderizarEscalaCampo = function() {
                     borderSide = '1px solid rgba(168, 85, 247, 0.5)';
                 }
                 
-                let opcoes = `<option value="FOLGA" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fb923c;">FOLGA</option>`;
+                let opcoes = `<option value="F" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fb923c;">F</option>`;
                 
                 if (op.funcao === 'Líder de Campo') {
                     opcoes += `<option value="LÍDER" ${escala.statusEscala === 'LÍDER' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">LÍDER</option>`;
@@ -276,7 +288,7 @@ async function handleEscalaCampoChange(e) {
                     operador_id: Number(op.id),  
                     data: data, 
                     turno: op.turno, 
-                    frente: novoStatusEscala, // Utilizamos a mesma coluna DB, porém injetamos a máquina/status
+                    frente: novoStatusEscala, 
                     status: 'manual' 
                 });
             }
@@ -327,7 +339,7 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
     </head>
     <body>
         <div class="header">
-            <h1>Serrana Florestal - Escala Automática (Campo)</h1>
+            <h1>Serrana Florestal - Escala (Campo)</h1>
             <p><strong>Semana Iniciada em: ${window.currentDatasCampo[0].diaNum}</strong></p>
         </div>
     `;
@@ -461,8 +473,8 @@ window.gerarRelatorioImpressaoCampo = function() {
     if (trabs.length === 0) {
         html += '<p style="text-align:center;">Nenhum operador escalado na operação para o dia selecionado.</p>';
     } else {
-        html += `<div class="section-title">OPERAÇÃO NO DIA (${trabs.length} operadores)</div>`;
-        html += `<table><thead><tr><th style="width: 12%">TURNO</th><th style="width: 25%">FRENTE</th><th style="width: 26%">LÍDER/OPERADOR</th><th style="width: 15%">EQUIPE</th><th style="width: 15%">MÁQUINA/FROTA ATRIBUÍDA</th></tr></thead><tbody>`;
+        html += `<div class="section-title">OPERAÇÃO NO DIA (${trabs.length} pessoas)</div>`;
+        html += `<table><thead><tr><th style="width: 12%">TURNO</th><th style="width: 25%">FRENTE</th><th style="width: 26%">LÍDER/OPERADOR</th><th style="width: 15%">EQUIPE</th><th style="width: 15%">ALOCAÇÃO (FROTA)</th></tr></thead><tbody>`;
         trabs.forEach(l => {
             html += `<tr>
                 <td style="font-weight:bold;">${l.turno}</td>
