@@ -18,8 +18,6 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
     const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
     
     // Ciclo Matemático 6 dias: 4 Trabalha, 2 Folga
-    // Fixo trabalha dia 0, 1, 2, 3. Folga 4 e 5.
-    // Folguista folga dia 0 e 1, e trabalha 2, 3, 4, 5 (Cobre o fixo no 4 e 5 perfeitamente)
     const cycleDay = ((diffDays % 6) + 6) % 6;
     let statusTrabalho = 'TRAB';
 
@@ -37,10 +35,19 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
         } else {
             let maq = window.maquinasCampo.find(m => String(m.id) === String(operador.maquina_id));
             if (maq) {
-                if (operador.maquina_especifica === 'Máquina 1') valorExibicao = maq.numero_frota_1 || 'TRAB';
-                else if (operador.maquina_especifica === 'Máquina 2') valorExibicao = maq.numero_frota_2 || 'TRAB';
-                else if (operador.maquina_especifica === 'Máquina 3') valorExibicao = maq.numero_frota_3 || 'TRAB';
-                else valorExibicao = 'TRAB';
+                if (operador.equipe === 'Folguista') {
+                    // O folguista trabalha 4 dias. Os 2 primeiros pega Máquina 1, os 2 últimos pega Máquina 2.
+                    if (cycleDay === 2 || cycleDay === 3) {
+                        valorExibicao = maq.numero_frota_1 || 'Máquina 1';
+                    } else { // cycleDay === 4 || 5
+                        valorExibicao = maq.numero_frota_2 || 'Máquina 2';
+                    }
+                } else {
+                    if (operador.maquina_especifica === 'Máquina 1') valorExibicao = maq.numero_frota_1 || 'TRAB';
+                    else if (operador.maquina_especifica === 'Máquina 2') valorExibicao = maq.numero_frota_2 || 'TRAB';
+                    else if (operador.maquina_especifica === 'Máquina 3') valorExibicao = maq.numero_frota_3 || 'TRAB';
+                    else valorExibicao = 'TRAB';
+                }
             } else {
                 valorExibicao = 'TRAB';
             }
@@ -104,79 +111,105 @@ window.renderizarEscalaCampo = function() {
         let operadoresMaq = window.equipeCampo.filter(op => String(op.maquina_id) === String(frente.id));
         if (operadoresMaq.length === 0) return;
 
-        // Ordenar pra agrupar bonitinho: Máquina 1 -> Máquina 2 -> Máquina 3
-        operadoresMaq.sort((a, b) => {
-            const getRank = o => {
-                if (o.funcao === 'Líder de Campo') return '0';
-                if (o.maquina_especifica === 'Máquina 1') return '1' + o.turno + o.equipe;
-                if (o.maquina_especifica === 'Máquina 2') return '2' + o.turno + o.equipe;
-                if (o.maquina_especifica === 'Máquina 3') return '3' + o.turno + o.equipe;
-                return '4';
-            };
-            return getRank(a).localeCompare(getRank(b));
-        });
-
         html += `<div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #3b82f6; border-radius: 8px; margin-bottom: 30px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">`;
         html += `<div style="background: #1e293b; padding: 12px 20px; font-size: 1.1rem; font-weight: 800; color: #3b82f6; border-bottom: 2px solid #3b82f6; text-transform: uppercase;">
                       <i class="fas fa-network-wired"></i> ${frente.nome || `Frente ${frente.id}`}
                  </div>`;
-        html += `<div style="overflow-x: auto; width: 100%;">`;
-        html += `<table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem; min-width: 1050px;">`;
-        html += `<thead>
-                    <tr style="background-color: rgba(0, 0, 0, 0.4); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem;">
-                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 12%;">Máquina/Frota</th>
-                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 8%;">Regime</th>
-                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">Turno</th>
-                        <th style="padding: 12px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 22%;">Operador</th>
-                        ${diasRender.map(d => `<th style="padding: 10px 5px; border: 1px solid rgba(255,255,255,0.05); width: 6.8%; color: #cbd5e1;">${d.diaTexto}<br><span style="font-size:0.85rem; font-weight:800; color: #fff;">${d.diaNum}</span></th>`).join('')}
-                    </tr>
-                 </thead><tbody>`;
 
-        operadoresMaq.forEach(op => {
-            let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Liderança' : (op.maquina_especifica || 'Sem Máquina');
-            let colorMaq = op.funcao === 'Líder de Campo' ? '#fbbf24' : '#34d399';
+        // Função interna para desenhar uma tabela separada por Máquina
+        const renderTable = (ops, title, colorTitle) => {
+            if (ops.length === 0) return '';
+            let tHtml = `<div style="padding: 10px 15px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <h4 style="color: ${colorTitle}; margin: 0 0 10px 0;">${title}</h4>`;
+            tHtml += `<div style="overflow-x: auto; width: 100%;">`;
+            tHtml += `<table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem; min-width: 1050px;">`;
+            tHtml += `<thead>
+                        <tr style="background-color: rgba(0, 0, 0, 0.4); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem;">
+                            <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 12%;">Máquina/Frota</th>
+                            <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 8%;">Regime</th>
+                            <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">Turno</th>
+                            <th style="padding: 12px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 22%;">Operador</th>
+                            ${diasRender.map(d => `<th style="padding: 10px 5px; border: 1px solid rgba(255,255,255,0.05); width: 6.8%; color: #cbd5e1;">${d.diaTexto}<br><span style="font-size:0.85rem; font-weight:800; color: #fff;">${d.diaNum}</span></th>`).join('')}
+                        </tr>
+                     </thead><tbody>`;
 
-            html += `<tr style="background-color: transparent; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;">`;
-            html += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 800; color: ${colorMaq};">${nomeMaqVisual}</td>`;
-            html += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #c084fc; font-weight: bold;">${op.equipe || '-'}</td>`;
-            html += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #38bdf8; font-weight: bold;">${op.turno || '-'}</td>`;
-            html += `<td class="td-name" style="padding: 8px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; color: #fff; font-weight: 600;">${op.nome}</td>`;
-            
-            diasRender.forEach(d => {
-                const escala = window.getEscalaCampoDiaComputada(op, d.dateKey);
-                const isFolga = escala.statusEscala === 'FOLGA' || escala.statusEscala === 'F';
-                const isManual = escala.status === 'manual';
-                
-                let bgCell = isFolga ? 'rgba(249, 115, 22, 0.15)' : 'rgba(16, 185, 129, 0.15)';
-                let colorCell = isFolga ? '#fb923c' : '#34d399';
-                let borderSide = isFolga ? '1px solid rgba(249, 115, 22, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)';
-                
-                if (isManual) {
-                    bgCell = 'rgba(168, 85, 247, 0.15)';
-                    borderSide = '1px solid rgba(168, 85, 247, 0.5)';
-                }
-                
-                let opcoes = `<option value="F" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fb923c;">F</option>`;
-                if (op.funcao === 'Líder de Campo') {
-                    opcoes += `<option value="LÍDER" ${escala.statusEscala === 'LÍDER' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">LÍDER</option>`;
-                } else {
-                    if(frente.numero_frota_1) opcoes += `<option value="${frente.numero_frota_1}" ${escala.statusEscala === frente.numero_frota_1 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_1}</option>`;
-                    if(frente.numero_frota_2) opcoes += `<option value="${frente.numero_frota_2}" ${escala.statusEscala === frente.numero_frota_2 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_2}</option>`;
-                    if(frente.numero_frota_3) opcoes += `<option value="${frente.numero_frota_3}" ${escala.statusEscala === frente.numero_frota_3 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_3}</option>`;
-                    opcoes += `<option value="TRAB" ${escala.statusEscala === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">TRAB</option>`;
-                }
-                if (isManual) opcoes += `<option value="AUTO" style="background: #0f172a; color: #fbbf24; font-weight: bold;"> Voltar p/ Auto</option>`;
-
-                html += `<td style="padding: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: ${borderSide}; border-right: ${borderSide}; background-color: ${bgCell}; text-align: center;">
-                    <select class="select-escala-campo" data-operador="${op.id}" data-data="${d.dateKey}" style="width: 100%; padding: 6px 0; background: transparent; border: none; color: ${colorCell}; font-weight: 800; font-size: 0.85rem; text-align: center; appearance: none; cursor: pointer; outline: none; text-align-last: center;">
-                        ${opcoes}
-                    </select>
-                </td>`;
+            // Ordena os operadores pela hierarquia de turno e equipe
+            ops.sort((a,b) => {
+                const peso = o => (o.turno.includes('06:00') ? 0 : 10) + (o.equipe==='Fixo' ? 1 : 2);
+                return peso(a) - peso(b);
             });
-            html += `</tr>`;
+
+            ops.forEach(op => {
+                let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Liderança' : (op.maquina_especifica || 'Sem Máquina');
+                if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') {
+                    nomeMaqVisual = 'Máquinas 1 e 2';
+                }
+
+                let colorMaq = op.funcao === 'Líder de Campo' ? '#fbbf24' : '#34d399';
+
+                tHtml += `<tr style="background-color: transparent; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;">`;
+                tHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 800; color: ${colorMaq};">${nomeMaqVisual}</td>`;
+                tHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #c084fc; font-weight: bold;">${op.equipe || '-'}</td>`;
+                tHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #38bdf8; font-weight: bold;">${op.turno || '-'}</td>`;
+                tHtml += `<td class="td-name" style="padding: 8px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; color: #fff; font-weight: 600;">${op.nome}</td>`;
+                
+                diasRender.forEach(d => {
+                    const escala = window.getEscalaCampoDiaComputada(op, d.dateKey);
+                    const isFolga = escala.statusEscala === 'FOLGA' || escala.statusEscala === 'F';
+                    const isManual = escala.status === 'manual';
+                    
+                    let bgCell = isFolga ? 'rgba(249, 115, 22, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+                    let colorCell = isFolga ? '#fb923c' : '#34d399';
+                    let borderSide = isFolga ? '1px solid rgba(249, 115, 22, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)';
+                    
+                    if (isManual) {
+                        bgCell = 'rgba(168, 85, 247, 0.15)';
+                        borderSide = '1px solid rgba(168, 85, 247, 0.5)';
+                    }
+                    
+                    let opcoes = `<option value="F" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fb923c;">F</option>`;
+                    if (op.funcao === 'Líder de Campo') {
+                        opcoes += `<option value="LÍDER" ${escala.statusEscala === 'LÍDER' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">LÍDER</option>`;
+                    } else {
+                        if(frente.numero_frota_1) opcoes += `<option value="${frente.numero_frota_1}" ${escala.statusEscala === frente.numero_frota_1 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_1}</option>`;
+                        if(frente.numero_frota_2) opcoes += `<option value="${frente.numero_frota_2}" ${escala.statusEscala === frente.numero_frota_2 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_2}</option>`;
+                        if(frente.numero_frota_3) opcoes += `<option value="${frente.numero_frota_3}" ${escala.statusEscala === frente.numero_frota_3 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_3}</option>`;
+                        opcoes += `<option value="TRAB" ${escala.statusEscala === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">TRAB</option>`;
+                    }
+                    if (isManual) opcoes += `<option value="AUTO" style="background: #0f172a; color: #fbbf24; font-weight: bold;"> Voltar p/ Auto</option>`;
+
+                    tHtml += `<td style="padding: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: ${borderSide}; border-right: ${borderSide}; background-color: ${bgCell}; text-align: center;">
+                        <select class="select-escala-campo" data-operador="${op.id}" data-data="${d.dateKey}" style="width: 100%; padding: 6px 0; background: transparent; border: none; color: ${colorCell}; font-weight: 800; font-size: 0.85rem; text-align: center; appearance: none; cursor: pointer; outline: none; text-align-last: center;">
+                            ${opcoes}
+                        </select>
+                    </td>`;
+                });
+                tHtml += `</tr>`;
+            });
+            tHtml += `</tbody></table></div></div>`;
+            return tHtml;
+        };
+
+        // 1. Líderes em Primeiro
+        const lideres = operadoresMaq.filter(o => o.funcao === 'Líder de Campo');
+        html += renderTable(lideres, '👑 Liderança da Frente', '#fbbf24');
+
+        // 2. Separar por Máquinas
+        ['Máquina 1', 'Máquina 2', 'Máquina 3'].forEach(maq => {
+            const ops = operadoresMaq.filter(o => o.funcao !== 'Líder de Campo' && o.maquina_especifica === maq);
+            if (ops.length > 0) {
+                let numFrota = frente[maq === 'Máquina 1' ? 'numero_frota_1' : (maq === 'Máquina 2' ? 'numero_frota_2' : 'numero_frota_3')] || 'Sem Frota';
+                html += renderTable(ops, `🚜 ${maq} (${numFrota})`, '#34d399');
+            }
         });
 
-        html += `</tbody></table></div></div>`;
+        // 3. Outros (Ex: Folguistas ou Operadores que não tem Máquina Especifica definida)
+        const semMaquina = operadoresMaq.filter(o => o.funcao !== 'Líder de Campo' && !['Máquina 1', 'Máquina 2', 'Máquina 3'].includes(o.maquina_especifica));
+        if (semMaquina.length > 0) {
+            html += renderTable(semMaquina, '👥 Outros Operadores / Reservas', '#c084fc');
+        }
+
+        html += `</div>`;
     });
 
     if(html === '') {
@@ -236,7 +269,13 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
         let ops = window.equipeCampo.filter(op => String(op.maquina_id) === String(maq.id));
         if (ops.length === 0) return;
         html += `<h3>${maq.nome || `Frente ${maq.id}`}</h3><table><thead><tr><th style="width:12%;">Máquina/Liderança</th><th style="width:10%;">Regime</th><th style="width:10%;">Turno</th><th style="text-align:left;">Nome</th>${window.currentDatasCampo.map(d => `<th style="width:7%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
-        ops.sort((a,b) => (a.maquina_especifica||'').localeCompare(b.maquina_especifica||''));
+        
+        ops.sort((a,b) => {
+            if(a.funcao === 'Líder de Campo' && b.funcao !== 'Líder de Campo') return -1;
+            if(a.funcao !== 'Líder de Campo' && b.funcao === 'Líder de Campo') return 1;
+            return (a.maquina_especifica||'').localeCompare(b.maquina_especifica||'');
+        });
+        
         ops.forEach(op => {
             html += `<tr><td>${op.maquina_especifica || 'Líder'}</td><td>${op.equipe||'-'}</td><td>${op.turno||'-'}</td><td style="text-align:left;"><b>${op.nome}</b></td>`;
             window.currentDatasCampo.forEach(d => {
@@ -259,7 +298,17 @@ window.exportarEscalaCampoExcel = function() {
     let csvContent = "\uFEFFFrente;Máquina;Turno;Regime;Operador";
     for (let dia = 1; dia <= diasNoMes; dia++) csvContent += `;${dia.toString().padStart(2, '0')}/${(mes + 1).toString().padStart(2, '0')}`;
     csvContent += "\n";
-    window.equipeCampo.forEach(op => {
+    
+    // Organiza por Frente e depois Lider no topo
+    let excelOps = [...window.equipeCampo];
+    excelOps.sort((a,b) => {
+        if(a.maquina_id !== b.maquina_id) return (a.maquina_id || 0) - (b.maquina_id || 0);
+        if(a.funcao === 'Líder de Campo' && b.funcao !== 'Líder de Campo') return -1;
+        if(a.funcao !== 'Líder de Campo' && b.funcao === 'Líder de Campo') return 1;
+        return (a.maquina_especifica||'').localeCompare(b.maquina_especifica||'');
+    });
+
+    excelOps.forEach(op => {
         let nomeFrente = "Reserva", mq = window.maquinasCampo.find(m => String(m.id) === String(op.maquina_id));
         if(mq) nomeFrente = mq.nome || `Frente ${mq.id}`;
         let linha = `${nomeFrente};${op.maquina_especifica||'Líder'};${op.turno||'-'};${op.equipe||'-'};${op.nome}`;

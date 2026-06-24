@@ -61,7 +61,7 @@ window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
             </select>
         </td>
         <td style="padding: 5px;">
-            <input type="date" class="dark-select" id="aloc_data_${op.id}" value="${dataAncoraValor}" style="padding: 4px 8px; width: 120px; font-size: 0.8rem; border-color: #f59e0b;" title="Data Inicial do Ciclo">
+            <input type="date" class="dark-select" id="aloc_data_${op.id}" value="${dataAncoraValor}" style="padding: 4px 8px; width: 120px; font-size: 0.8rem; border-color: #f59e0b; background: transparent; color: #fff; color-scheme: dark;" title="Data Inicial do Ciclo">
         </td>
         <td style="padding: 5px; text-align: center;">
             <button class="btn-primary-green" style="padding: 5px 12px; font-size: 0.8rem; font-weight: bold;" onclick="window.salvarAlocacaoLinha(${op.id})">💾 Salvar</button>
