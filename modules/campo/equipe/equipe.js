@@ -14,7 +14,7 @@ window.carregarEquipeCampo = async function() {
         try {
             const { data } = await window.supabaseClient.from('maquinas_campo').select('*');
             if (data) window.maquinasCampo = data;
-        } catch (e) { console.warn("Erro ao carregar máquinas na equipe"); }
+        } catch (e) { console.warn("Erro ao carregar frentes na equipe"); }
     }
 
     try {
@@ -85,7 +85,7 @@ window.abrirModalNovoMembroCampo = function() {
     document.getElementById('formMembroId').value = '';
     document.getElementById('formMembroNome').value = '';
     document.getElementById('formMembroFuncao').value = 'Operador de Máquina';
-    document.getElementById('formMembroEquipe').value = 'Fixo Frente A';
+    document.getElementById('formMembroEquipe').value = 'Equipe A';
     document.getElementById('formMembroMaquina').value = '';
     document.getElementById('formMembroMaquinaEspecifica').value = '';
     document.getElementById('formMembroTurno').value = '06:00 - 18:00';
@@ -105,7 +105,7 @@ window.abrirModalEditarMembroCampo = function(id) {
     document.getElementById('formMembroId').value = m.id;
     document.getElementById('formMembroNome').value = m.nome;
     document.getElementById('formMembroFuncao').value = m.funcao || 'Operador de Máquina';
-    document.getElementById('formMembroEquipe').value = m.equipe;
+    document.getElementById('formMembroEquipe').value = m.equipe || 'Equipe A';
     document.getElementById('formMembroMaquina').value = m.maquina_id || '';
     document.getElementById('formMembroMaquinaEspecifica').value = m.maquina_especifica || '';
     document.getElementById('formMembroTurno').value = m.turno || '06:00 - 18:00';

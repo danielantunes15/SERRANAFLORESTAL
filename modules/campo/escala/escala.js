@@ -7,10 +7,9 @@ window.currentDatasCampo = [];
 
 window.calcularEscalaCampoMatematica = function(operador, dateKey) {
     if (!operador.data_ancora) {
-        return { frente: 'FOLGA', turno: operador.turno, status: 'fallback' };
+        return { statusEscala: 'FOLGA', turno: operador.turno, status: 'fallback' };
     }
-
-    const eq = operador.equipe || ''; 
+    
     const dDate = new Date(dateKey + 'T00:00:00');
     const dAncora = new Date(operador.data_ancora.split('T')[0] + 'T00:00:00');
     
@@ -20,21 +19,28 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
     
     const cycleDay = ((diffDays % 6) + 6) % 6;
     
-    if (cycleDay === 4 || cycleDay === 5) {
-        return { frente: 'FOLGA', turno: operador.turno, status: 'auto' };
+    // Pela regra 4x2 do campo: os 4 primeiros dias TRABALHAM, os 2 últimos são FOLGA.
+    const statusTrabalho = (cycleDay < 4) ? 'TRAB' : 'FOLGA';
+
+    let valorExibicao = 'F';
+
+    if (statusTrabalho === 'TRAB') {
+        if (operador.funcao === 'Líder de Campo') {
+            valorExibicao = 'LÍDER';
+        } else {
+            let maq = window.maquinasCampo.find(m => String(m.id) === String(operador.maquina_id));
+            if (maq) {
+                if (operador.maquina_especifica === 'Máquina 1') valorExibicao = maq.numero_frota_1 || 'TRAB';
+                else if (operador.maquina_especifica === 'Máquina 2') valorExibicao = maq.numero_frota_2 || 'TRAB';
+                else if (operador.maquina_especifica === 'Máquina 3') valorExibicao = maq.numero_frota_3 || 'TRAB';
+                else valorExibicao = 'TRAB';
+            } else {
+                valorExibicao = 'TRAB';
+            }
+        }
     }
 
-    let frenteAtuacao = 'Frente A';
-    if (eq.includes('Frente A') || eq === 'A') frenteAtuacao = 'Frente A';
-    else if (eq.includes('Frente B') || eq === 'B') frenteAtuacao = 'Frente B';
-    else if (eq.includes('Folguista') || eq === 'C') {
-        if (cycleDay === 0 || cycleDay === 1) frenteAtuacao = 'Frente A';
-        else if (cycleDay === 2 || cycleDay === 3) frenteAtuacao = 'Frente B';
-    } else {
-        frenteAtuacao = 'Frente A'; 
-    }
-
-    return { frente: frenteAtuacao, turno: operador.turno, status: 'auto' };
+    return { statusEscala: valorExibicao, turno: operador.turno, status: 'auto' };
 };
 
 window.getEscalaCampoDiaComputada = function(operador, dateKey) {
@@ -70,6 +76,14 @@ window.renderizarEscalaCampo = function() {
         return;
     }
 
+    // Alimenta o filtro de Frentes
+    const filtroSelect = document.getElementById('campoFiltroFrente');
+    if (filtroSelect && filtroSelect.options.length <= 1 && window.maquinasCampo.length > 0) {
+        let htmlOpts = '<option value="Todos">Todas as Frentes</option>';
+        window.maquinasCampo.forEach(m => { htmlOpts += `<option value="${m.id}">${m.nome}</option>`; });
+        filtroSelect.innerHTML = htmlOpts;
+    }
+
     let dataInput = document.getElementById('campoDataEscala').value;
     if (!dataInput) {
         const hj = new Date();
@@ -93,55 +107,29 @@ window.renderizarEscalaCampo = function() {
     }
     window.currentDatasCampo = diasRender;
 
-    const alocacaoPorMaquina = {};
-    window.maquinasCampo.forEach(maq => { alocacaoPorMaquina[maq.id] = []; });
-    alocacaoPorMaquina['S/M'] = []; 
-
-    window.equipeCampo.forEach(op => {
-        if (op.maquina_id && alocacaoPorMaquina[op.maquina_id]) {
-            alocacaoPorMaquina[op.maquina_id].push(op);
-        } else {
-            alocacaoPorMaquina['S/M'].push(op);
-        }
-    });
-
     let html = '';
 
-    const maquinasRender = [...window.maquinasCampo];
-    maquinasRender.push({ id: 'S/M', nome: 'RESERVAS / SEM FRENTE' });
+    window.maquinasCampo.forEach(maq => {
+        if (filtroFrente !== 'Todos' && String(maq.id) !== String(filtroFrente)) return;
 
-    maquinasRender.forEach(maq => {
-        let operadoresMaq = alocacaoPorMaquina[maq.id] || [];
+        let operadoresMaq = window.equipeCampo.filter(op => String(op.maquina_id) === String(maq.id));
         if (operadoresMaq.length === 0) return;
 
-        if (filtroFrente !== 'Todos') {
-            const atuaNaFrente = operadoresMaq.some(op => {
-                return diasRender.some(d => window.getEscalaCampoDiaComputada(op, d.dateKey).frente === filtroFrente);
-            });
-            if (!atuaNaFrente) return; 
-        }
-
-        // LÍDERES
+        // Separa líderes e operadores normais para a visualização
         let lideresDia = operadoresMaq.filter(o => o.funcao === 'Líder de Campo' && (o.turno||'').includes('06:00'));
         let lideresNoite = operadoresMaq.filter(o => o.funcao === 'Líder de Campo' && (o.turno||'').includes('18:00'));
         
         let headerFrente = `<i class="fas fa-tractor"></i> ${maq.nome || `Frente ${maq.id}`}`;
-        if (maq.id !== 'S/M') {
-            headerFrente += `<span style="margin-left: 15px; font-size: 0.85rem; color: #fbbf24; font-weight: normal;">
-                👑 Líder Dia: <b>${lideresDia.map(l=>l.nome).join(', ') || 'N/A'}</b> | 
-                👑 Líder Noite: <b>${lideresNoite.map(l=>l.nome).join(', ') || 'N/A'}</b>
-            </span>`;
-        }
+        headerFrente += `<span style="margin-left: 15px; font-size: 0.85rem; color: #fbbf24; font-weight: normal;">
+            👑 Líder Dia: <b>${lideresDia.map(l=>l.nome).join(', ') || 'N/A'}</b> | 
+            👑 Líder Noite: <b>${lideresNoite.map(l=>l.nome).join(', ') || 'N/A'}</b>
+        </span>`;
 
-        // Ordenação
+        // Ordenação visual da escala
         operadoresMaq.sort((a, b) => {
-            const getPeso = (eq) => {
-                if (eq?.includes('A')) return 1;
-                if (eq?.includes('B')) return 2;
-                if (eq?.includes('Folguista')) return 3;
-                return 99;
-            };
-            return (a.maquina_especifica || '').localeCompare(b.maquina_especifica || '') || getPeso(a.equipe) - getPeso(b.equipe) || a.nome.localeCompare(b.nome);
+            const isLiderA = a.funcao === 'Líder de Campo' ? -1 : 1;
+            const isLiderB = b.funcao === 'Líder de Campo' ? -1 : 1;
+            return (isLiderA - isLiderB) || (a.maquina_especifica || '').localeCompare(b.maquina_especifica || '') || a.nome.localeCompare(b.nome);
         });
 
         html += `<div style="background: rgba(15, 23, 42, 0.4); border-radius: 8px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">`;
@@ -152,26 +140,24 @@ window.renderizarEscalaCampo = function() {
         html += `<table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem; min-width: 1050px;">`;
         html += `<thead>
                     <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem;">
-                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 8%;">Máquina</th>
-                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">Turno</th>
                         <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">Equipe</th>
-                        <th style="padding: 12px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 22%;">Operador</th>
-                        ${diasRender.map(d => `<th style="padding: 10px 5px; border: 1px solid rgba(255,255,255,0.05); width: 6.5%; color: #cbd5e1;">${d.diaTexto}<br><span style="font-size:0.85rem; font-weight:800; color: #fff;">${d.diaNum}</span></th>`).join('')}
+                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">Turno</th>
+                        <th style="padding: 12px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 25%;">Líder / Operador</th>
+                        ${diasRender.map(d => `<th style="padding: 10px 5px; border: 1px solid rgba(255,255,255,0.05); width: 7%; color: #cbd5e1;">${d.diaTexto}<br><span style="font-size:0.85rem; font-weight:800; color: #fff;">${d.diaNum}</span></th>`).join('')}
                     </tr>
                  </thead><tbody>`;
 
         operadoresMaq.forEach(op => {
             html += `<tr style="background-color: transparent; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;">`;
-            html += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #10b981; font-weight: bold;">${op.maquina_especifica || '-'}</td>`;
+            html += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 800; color: #c084fc;">${op.equipe || '-'}</td>`;
             html += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #38bdf8; font-weight: bold;">${op.turno || '-'}</td>`;
-            html += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 800; color: #f8fafc;">${op.equipe || '-'}</td>`;
             
-            const liderIcon = op.funcao === 'Líder de Campo' ? '👑 ' : '';
+            const liderIcon = op.funcao === 'Líder de Campo' ? '<i class="fas fa-crown" style="color: #fbbf24;"></i> ' : '';
             html += `<td class="td-name" style="padding: 8px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${liderIcon}${op.nome}</td>`;
             
             diasRender.forEach(d => {
                 const escala = window.getEscalaCampoDiaComputada(op, d.dateKey);
-                const isFolga = escala.frente === 'FOLGA';
+                const isFolga = escala.statusEscala === 'FOLGA' || escala.statusEscala === 'F';
                 const isManual = escala.status === 'manual';
                 
                 let bgCell = isFolga ? 'rgba(249, 115, 22, 0.15)' : 'rgba(16, 185, 129, 0.15)';
@@ -184,8 +170,15 @@ window.renderizarEscalaCampo = function() {
                 }
                 
                 let opcoes = `<option value="FOLGA" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fb923c;">FOLGA</option>`;
-                opcoes += `<option value="Frente A" ${escala.frente === 'Frente A' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">Fr. A</option>`;
-                opcoes += `<option value="Frente B" ${escala.frente === 'Frente B' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">Fr. B</option>`;
+                
+                if (op.funcao === 'Líder de Campo') {
+                    opcoes += `<option value="LÍDER" ${escala.statusEscala === 'LÍDER' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">LÍDER</option>`;
+                } else {
+                    if(maq.numero_frota_1) opcoes += `<option value="${maq.numero_frota_1}" ${escala.statusEscala === maq.numero_frota_1 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${maq.numero_frota_1}</option>`;
+                    if(maq.numero_frota_2) opcoes += `<option value="${maq.numero_frota_2}" ${escala.statusEscala === maq.numero_frota_2 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${maq.numero_frota_2}</option>`;
+                    if(maq.numero_frota_3) opcoes += `<option value="${maq.numero_frota_3}" ${escala.statusEscala === maq.numero_frota_3 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${maq.numero_frota_3}</option>`;
+                    opcoes += `<option value="TRAB" ${escala.statusEscala === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">TRAB</option>`;
+                }
                 
                 if (isManual) {
                     opcoes += `<option value="AUTO" style="background: #0f172a; color: #fbbf24; font-weight: bold;"> Voltar p/ Auto</option>`;
@@ -261,13 +254,13 @@ async function handleEscalaCampoChange(e) {
     const select = e.target;
     const operadorIdStr = String(select.dataset.operador); 
     const data = select.dataset.data;
-    const novaFrente = select.value;
+    const novoStatusEscala = select.value;
     
     const op = window.equipeCampo.find(o => String(o.id) === operadorIdStr);
     if(op) {
         const idExcecao = String(`${op.id}_${data}`);
         
-        if (novaFrente === 'AUTO') {
+        if (novoStatusEscala === 'AUTO') {
             try {
                 if (typeof db !== 'undefined' && db.deleteEscalaCampo) await db.deleteEscalaCampo(idExcecao);
                 if (window.escalasCampoExcecoes[op.id]) delete window.escalasCampoExcecoes[op.id][data];
@@ -283,13 +276,13 @@ async function handleEscalaCampoChange(e) {
                     operador_id: Number(op.id),  
                     data: data, 
                     turno: op.turno, 
-                    frente: novaFrente, 
+                    frente: novoStatusEscala, // Utilizamos a mesma coluna DB, porém injetamos a máquina/status
                     status: 'manual' 
                 });
             }
 
             if (!window.escalasCampoExcecoes[op.id]) window.escalasCampoExcecoes[op.id] = {};
-            window.escalasCampoExcecoes[op.id][data] = { turno: op.turno, frente: novaFrente, status: 'manual' };
+            window.escalasCampoExcecoes[op.id][data] = { turno: op.turno, statusEscala: novoStatusEscala, status: 'manual' };
             
             window.renderizarEscalaCampo(); 
         } catch (error) {
@@ -339,25 +332,21 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
         </div>
     `;
 
-    const alocacaoPorMaquina = {};
-    window.maquinasCampo.forEach(maq => alocacaoPorMaquina[maq.id] = []);
-    window.equipeCampo.forEach(op => {
-        if (op.maquina_id && alocacaoPorMaquina[op.maquina_id]) alocacaoPorMaquina[op.maquina_id].push(op);
-    });
-
     window.maquinasCampo.forEach(maq => {
-        let operadoresMaq = alocacaoPorMaquina[maq.id] || [];
+        let operadoresMaq = window.equipeCampo.filter(op => String(op.maquina_id) === String(maq.id));
         if (operadoresMaq.length === 0) return;
 
         html += `<div class="maq-box"><div class="maq-num">${maq.nome || `Frente ${maq.id}`}</div>`;
-        html += `<table><thead><tr><th style="width:8%;">MÁQUINA</th><th style="width:10%;">TURNO</th><th style="width:12%;">EQUIPE</th><th style="text-align:left;">OPERADOR</th>${window.currentDatasCampo.map(d => `<th style="width:8%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
+        html += `<table><thead><tr><th style="width:10%;">TURNO</th><th style="width:12%;">EQUIPE</th><th style="text-align:left;">LÍDER / OPERADOR</th>${window.currentDatasCampo.map(d => `<th style="width:8%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
         
+        operadoresMaq.sort((a,b) => (a.funcao === 'Líder de Campo' ? -1 : 1) || a.nome.localeCompare(b.nome));
+
         operadoresMaq.forEach(op => {
-            html += `<tr><td>${op.maquina_especifica||'-'}</td><td>${op.turno||'-'}</td><td>${op.equipe||'-'}</td><td style="text-align:left;"><b>${op.nome}</b></td>`;
+            html += `<tr><td>${op.turno||'-'}</td><td>${op.equipe||'-'}</td><td style="text-align:left;"><b>${op.nome}</b></td>`;
             window.currentDatasCampo.forEach(d => {
                 const esc = window.getEscalaCampoDiaComputada(op, d.dateKey);
-                const isF = esc.frente === 'FOLGA';
-                const valorExibicao = isF ? 'F' : (esc.frente === 'Frente A' ? 'Fr. A' : 'Fr. B');
+                const isF = esc.statusEscala === 'FOLGA' || esc.statusEscala === 'F';
+                const valorExibicao = isF ? 'F' : esc.statusEscala;
                 html += `<td class="${isF ? 'folga' : 'trab'}">${valorExibicao}</td>`;
             });
             html += `</tr>`;
@@ -379,7 +368,7 @@ window.exportarEscalaCampoExcel = function() {
     const mes = dataBase.getMonth(); 
     const diasNoMes = new Date(ano, mes + 1, 0).getDate(); 
 
-    let csvContent = "\uFEFFFrente;Máquina Específica;Turno;Equipe;Operador";
+    let csvContent = "\uFEFFFrente;Turno;Equipe;Função;Operador";
     for (let dia = 1; dia <= diasNoMes; dia++) csvContent += `;${dia.toString().padStart(2, '0')}/${(mes + 1).toString().padStart(2, '0')}`;
     csvContent += "\n";
 
@@ -396,12 +385,12 @@ window.exportarEscalaCampoExcel = function() {
             if(mq) nomeFrente = mq.nome || `Frente ${mq.id}`;
         }
 
-        let linha = `${nomeFrente};${op.maquina_especifica||'-'};${op.turno||'-'};${op.equipe||'-'};${op.nome}`;
+        let linha = `${nomeFrente};${op.turno||'-'};${op.equipe||'-'};${op.funcao||'Operador'};${op.nome}`;
 
         for (let dia = 1; dia <= diasNoMes; dia++) {
             const dataAtualStr = `${ano}-${(mes + 1).toString().padStart(2, '0')}-${dia.toString().padStart(2, '0')}`;
             const escalaDia = window.getEscalaCampoDiaComputada(op, dataAtualStr);
-            const valorExibicao = escalaDia.frente === 'FOLGA' ? 'F' : (escalaDia.frente === 'Frente A' ? 'Fr. A' : 'Fr. B');
+            const valorExibicao = (escalaDia.statusEscala === 'FOLGA' || escalaDia.statusEscala === 'F') ? 'F' : escalaDia.statusEscala;
             linha += `;${valorExibicao}`;
         }
         csvContent += linha + "\n";
@@ -416,7 +405,6 @@ window.exportarEscalaCampoExcel = function() {
 
 window.gerarRelatorioImpressaoCampo = function() {
     const dataStr = document.getElementById('printDataCampo').value;
-    const frenteFiltro = document.getElementById('printFrenteCampo').value;
     
     if (!dataStr) { alert('Selecione uma data.'); return; }
 
@@ -442,15 +430,14 @@ window.gerarRelatorioImpressaoCampo = function() {
     <body>
         <div class="header">
             <h1>Serrana Florestal - Diária Campo</h1>
-            <p><strong>Data: ${dataFormatada} | Filtro: ${frenteFiltro}</strong></p>
+            <p><strong>Data: ${dataFormatada}</strong></p>
         </div>
     `;
 
     const trabs = [];
     window.equipeCampo.forEach(op => {
         const escala = window.getEscalaCampoDiaComputada(op, dataStr);
-        if (escala.frente !== 'FOLGA') {
-            if (frenteFiltro !== 'Todas' && escala.frente !== frenteFiltro) return;
+        if (escala.statusEscala !== 'FOLGA' && escala.statusEscala !== 'F') {
             
             let frenteNome = "Reserva/Sem Frente";
             if(op.maquina_id) {
@@ -461,29 +448,28 @@ window.gerarRelatorioImpressaoCampo = function() {
             trabs.push({ 
                 nome: op.nome, 
                 frenteGeral: frenteNome, 
-                maqEspec: op.maquina_especifica || '-',
+                funcao: op.funcao || 'Operador',
                 eq: op.equipe || '-', 
                 turno: op.turno || '-', 
-                frente: escala.frente 
+                maquinaTrabalho: escala.statusEscala
             });
         }
     });
 
-    trabs.sort((a, b) => a.frenteGeral.localeCompare(b.frenteGeral) || a.maqEspec.localeCompare(b.maqEspec) || a.nome.localeCompare(b.nome));
+    trabs.sort((a, b) => a.frenteGeral.localeCompare(b.frenteGeral) || a.nome.localeCompare(b.nome));
 
     if (trabs.length === 0) {
-        html += '<p style="text-align:center;">Nenhum operador alocado nesta frente para o dia selecionado.</p>';
+        html += '<p style="text-align:center;">Nenhum operador escalado na operação para o dia selecionado.</p>';
     } else {
-        html += `<div class="section-title">OPERAÇÃO (${trabs.length} operadores)</div>`;
-        html += `<table><thead><tr><th style="width: 12%">TURNO</th><th style="width: 25%">FRENTE</th><th style="width: 12%">MÁQUINA</th><th style="width: 26%">OPERADOR</th><th style="width: 10%">EQUIPE</th><th style="width: 15%">ALOCAÇÃO</th></tr></thead><tbody>`;
+        html += `<div class="section-title">OPERAÇÃO NO DIA (${trabs.length} operadores)</div>`;
+        html += `<table><thead><tr><th style="width: 12%">TURNO</th><th style="width: 25%">FRENTE</th><th style="width: 26%">LÍDER/OPERADOR</th><th style="width: 15%">EQUIPE</th><th style="width: 15%">MÁQUINA/FROTA ATRIBUÍDA</th></tr></thead><tbody>`;
         trabs.forEach(l => {
             html += `<tr>
                 <td style="font-weight:bold;">${l.turno}</td>
                 <td>${l.frenteGeral}</td>
-                <td>${l.maqEspec}</td>
                 <td style="text-align:left; font-weight:bold;">${l.nome}</td>
                 <td>${l.eq}</td>
-                <td class="trab">${l.frente}</td>
+                <td class="trab">${l.maquinaTrabalho}</td>
             </tr>`;
         });
         html += `</tbody></table>`;

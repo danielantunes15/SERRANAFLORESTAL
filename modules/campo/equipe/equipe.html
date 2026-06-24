@@ -20,8 +20,8 @@
                 <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
                     <th style="padding: 12px 15px; text-align: left;">Nome Completo</th>
                     <th style="padding: 12px 8px;">Função / Cargo</th>
-                    <th style="padding: 12px 8px;">Equipe / Regime</th>
-                    <th style="padding: 12px 8px;">Frente (Conjunto)</th>
+                    <th style="padding: 12px 8px;">Equipe</th>
+                    <th style="padding: 12px 8px;">Frente Vinculada</th>
                     <th style="padding: 12px 8px;">Máquina Específica</th>
                     <th style="padding: 12px 8px;">Data Âncora</th>
                     <th style="padding: 12px 8px;">Ações</th>
@@ -53,22 +53,24 @@
                 </select>
             </div>
             <div class="form-group-dark">
-                <label>Regime de Escala</label>
+                <label>Equipe</label>
                 <select id="formMembroEquipe" class="dark-select">
-                    <option value="Fixo Frente A">Fixo Frente A</option>
-                    <option value="Fixo Frente B">Fixo Frente B</option>
-                    <option value="Folguista">Folguista (Alterna frentes)</option>
+                    <option value="Equipe A">Equipe A</option>
+                    <option value="Equipe B">Equipe B</option>
+                    <option value="Equipe C">Equipe C</option>
+                    <option value="Equipe D">Equipe D</option>
+                    <option value="Folguista">Folguista</option>
                 </select>
             </div>
             <div class="form-group-dark">
-                <label>Frente Vinculada (Conjunto de Máquinas)</label>
+                <label>Frente Vinculada</label>
                 <select id="formMembroMaquina" class="dark-select">
                 </select>
             </div>
             <div class="form-group-dark">
-                <label>Máquina Específica (Qual das máquinas ele opera?)</label>
+                <label>Máquina Específica</label>
                 <select id="formMembroMaquinaEspecifica" class="dark-select">
-                    <option value="">Indefinido / Todas</option>
+                    <option value="">Indefinido / Nenhuma</option>
                     <option value="Máquina 1">Máquina 1</option>
                     <option value="Máquina 2">Máquina 2</option>
                     <option value="Máquina 3">Máquina 3</option>

@@ -1,35 +1,20 @@
 <div class="content-panel" style="margin-bottom: 25px; border: 1px solid #3b82f6; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px 20px; background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(15, 23, 42, 0) 100%);">
         <h3 style="color: #3b82f6; margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: 0.5px;">
-            <i class="fas fa-users-cog"></i> Alocação Geral do Campo (Frentes e Líderes)
+            <i class="fas fa-users-cog"></i> Alocação Geral das Frentes de Trabalho
         </h3>
         <button class="btn-primary-blue" onclick="window.carregarAlocacaoCampo()" style="padding: 5px 15px; font-size: 0.85rem; font-weight: bold;">🔄 Recarregar</button>
     </div>
     
-    <div style="padding: 15px;">
-        <div class="table-modern-wrapper">
-            <table class="data-table-modern" style="width: 100%; border-collapse: collapse; text-align: center;">
-                <thead>
-                    <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem;">
-                        <th style="padding: 12px 10px; text-align: left;">Operador</th>
-                        <th style="padding: 12px 10px;">Função (Líder/Op)</th>
-                        <th style="padding: 12px 10px;">Turno</th>
-                        <th style="padding: 12px 10px;">Equipe (Regime)</th>
-                        <th style="padding: 12px 10px;">Frente Vinculada</th>
-                        <th style="padding: 12px 10px;">Máquina Específica</th>
-                        <th style="padding: 12px 10px;">Ação Rápida</th>
-                    </tr>
-                </thead>
-                <tbody id="alocacaoCampoList"></tbody>
-            </table>
-        </div>
+    <div style="padding: 15px;" id="alocacaoCampoList">
+        <!-- As tabelas geradas agrupadas por Frente aparecerão aqui -->
     </div>
 </div>
 
 <div id="modalAlocacaoRapida" class="modal-overlay">
     <div class="custom-modal">
         <div class="modal-header">
-            <h3>⚙️ Ajuste Rápido de Alocação</h3>
+            <h3>⚙️ Configuração Rápida de Operador/Líder</h3>
             <button class="close-modal" onclick="window.fecharModalAlocacaoRapida()">&times;</button>
         </div>
         <div class="modal-body">
@@ -50,9 +35,9 @@
             </div>
             
             <div class="form-group-dark">
-                <label>Máquina Específica</label>
+                <label>Máquina Específica (Se for Operador)</label>
                 <select id="alocFormMaquinaEspecifica" class="dark-select">
-                    <option value="">Indefinido / Todas</option>
+                    <option value="">Indefinido / Nenhuma</option>
                     <option value="Máquina 1">Máquina 1</option>
                     <option value="Máquina 2">Máquina 2</option>
                     <option value="Máquina 3">Máquina 3</option>
@@ -62,23 +47,25 @@
             <div class="form-group-dark">
                 <label>Equipe</label>
                 <select id="alocFormEquipe" class="dark-select">
-                    <option value="Fixo Frente A">Fixo Frente A</option>
-                    <option value="Fixo Frente B">Fixo Frente B</option>
+                    <option value="Equipe A">Equipe A</option>
+                    <option value="Equipe B">Equipe B</option>
+                    <option value="Equipe C">Equipe C</option>
+                    <option value="Equipe D">Equipe D</option>
                     <option value="Folguista">Folguista</option>
                 </select>
             </div>
             
             <div class="form-group-dark">
-                <label>Turno</label>
+                <label>Turno Padrão</label>
                 <select id="alocFormTurno" class="dark-select">
-                    <option value="06:00 - 18:00">06:00 - 18:00 (Dia)</option>
-                    <option value="18:00 - 06:00">18:00 - 06:00 (Noite)</option>
+                    <option value="06:00 - 18:00">06:00 - 18:00 (Diurno)</option>
+                    <option value="18:00 - 06:00">18:00 - 06:00 (Noturno)</option>
                 </select>
             </div>
         </div>
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="window.fecharModalAlocacaoRapida()">Cancelar</button>
-            <button class="btn-primary-green" onclick="window.salvarAlocacaoRapida()">💾 Salvar Alocação</button>
+            <button class="btn-primary-green" onclick="window.salvarAlocacaoRapida()">💾 Aplicar na Escala</button>
         </div>
     </div>
 </div>
