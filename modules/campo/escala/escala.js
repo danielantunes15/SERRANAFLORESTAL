@@ -17,14 +17,14 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
     const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
     const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
     
-    // Ciclo Matemático 6 dias: 4 Trabalha, 2 Folga
+    // Ciclo Matemático 6 dias (4x2): 0, 1, 2, 3 = Trabalho | 4, 5 = Folga
     const cycleDay = ((diffDays % 6) + 6) % 6;
+    
     let statusTrabalho = 'TRAB';
-
-    if (operador.equipe === 'Fixo') {
-        if (cycleDay === 4 || cycleDay === 5) statusTrabalho = 'FOLGA';
-    } else { // Folguista
-        if (cycleDay === 0 || cycleDay === 1) statusTrabalho = 'FOLGA';
+    
+    // Todos descansam no dia 4 e 5 do SEU PRÓPRIO ciclo (definido pela Data Âncora)
+    if (cycleDay === 4 || cycleDay === 5) {
+        statusTrabalho = 'FOLGA';
     }
 
     let valorExibicao = 'F';
@@ -35,14 +35,27 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
         } else {
             let maq = window.maquinasCampo.find(m => String(m.id) === String(operador.maquina_id));
             if (maq) {
-                if (operador.equipe === 'Folguista') {
-                    // O folguista trabalha 4 dias. Os 2 primeiros pega Máquina 1, os 2 últimos pega Máquina 2.
-                    if (cycleDay === 2 || cycleDay === 3) {
+                let isFolguistasFrente = maq.nome && maq.nome.toUpperCase().includes('FOLGUISTA');
+                
+                if (isFolguistasFrente) {
+                    // Regra estrita: 2 dias F6, 2 dias F5 e Folga 2
+                    if (cycleDay === 0 || cycleDay === 1) {
+                        let f6 = window.maquinasCampo.find(m => m.nome && m.nome.includes('6'));
+                        valorExibicao = f6 ? `[F6] ${f6.numero_frota_1 || 'GRUA'}` : `[F6] TRAB`;
+                    } else if (cycleDay === 2 || cycleDay === 3) {
+                        let f5 = window.maquinasCampo.find(m => m.nome && m.nome.includes('5'));
+                        valorExibicao = f5 ? `[F5] ${f5.numero_frota_1 || 'GRUA'}` : `[F5] TRAB`;
+                    }
+                }
+                else if (operador.equipe === 'Folguista') {
+                    // Folguista em Frente Normal cobrindo M1 e M2
+                    if (cycleDay === 0 || cycleDay === 1) {
                         valorExibicao = maq.numero_frota_1 || 'Máquina 1';
-                    } else { // cycleDay === 4 || 5
+                    } else { // cycleDay === 2 || 3
                         valorExibicao = maq.numero_frota_2 || 'Máquina 2';
                     }
                 } else {
+                    // Operador Fixo Normal
                     if (operador.maquina_especifica === 'Máquina 1') valorExibicao = maq.numero_frota_1 || 'TRAB';
                     else if (operador.maquina_especifica === 'Máquina 2') valorExibicao = maq.numero_frota_2 || 'TRAB';
                     else if (operador.maquina_especifica === 'Máquina 3') valorExibicao = maq.numero_frota_3 || 'TRAB';
@@ -111,6 +124,8 @@ window.renderizarEscalaCampo = function() {
         let ops = window.equipeCampo.filter(op => String(op.maquina_id) === String(frente.id));
         if (ops.length === 0) return;
 
+        let isFolguistasFrente = frente.nome && frente.nome.toUpperCase().includes('FOLGUISTA');
+
         html += `<div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #3b82f6; border-radius: 8px; margin-bottom: 30px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">`;
         html += `<div style="background: #1e293b; padding: 12px 20px; font-size: 1.1rem; font-weight: 800; color: #3b82f6; border-bottom: 2px solid #3b82f6; text-transform: uppercase;">
                       <i class="fas fa-network-wired"></i> ${frente.nome || `Frente ${frente.id}`}
@@ -128,23 +143,18 @@ window.renderizarEscalaCampo = function() {
                     </tr>
                  </thead><tbody>`;
 
-        // Ordenar logicamente de forma consolidada
         ops.sort((a,b) => {
-            // Líder Sempre em Primeiro
             if(a.funcao === 'Líder de Campo' && b.funcao !== 'Líder de Campo') return -1;
             if(a.funcao !== 'Líder de Campo' && b.funcao === 'Líder de Campo') return 1;
             
-            // Depois M1, M2, M3
             let maqA = a.maquina_especifica || 'Z';
             let maqB = b.maquina_especifica || 'Z';
             if(maqA !== maqB) return maqA.localeCompare(maqB);
             
-            // Depois por Turno
             let turnoA = a.turno || '';
             let turnoB = b.turno || '';
             if(turnoA !== turnoB) return turnoA.localeCompare(turnoB);
 
-            // Depois por Regime (Fixo em cima de Folguista)
             let eqA = a.equipe === 'Fixo' ? 1 : 2;
             let eqB = b.equipe === 'Fixo' ? 1 : 2;
             return eqA - eqB;
@@ -152,7 +162,10 @@ window.renderizarEscalaCampo = function() {
 
         ops.forEach(op => {
             let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Liderança' : (op.maquina_especifica || 'Sem Máquina');
-            if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') {
+            
+            if (isFolguistasFrente && op.funcao !== 'Líder de Campo') {
+                nomeMaqVisual = op.maquina_especifica || 'Cobrir F6 e F5';
+            } else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') {
                 nomeMaqVisual = 'Cobrir M1 e M2';
             }
 
@@ -182,10 +195,41 @@ window.renderizarEscalaCampo = function() {
                 if (op.funcao === 'Líder de Campo') {
                     opcoes += `<option value="LÍDER" ${escala.statusEscala === 'LÍDER' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">LÍDER</option>`;
                 } else {
-                    if(frente.numero_frota_1) opcoes += `<option value="${frente.numero_frota_1}" ${escala.statusEscala === frente.numero_frota_1 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_1}</option>`;
-                    if(frente.numero_frota_2) opcoes += `<option value="${frente.numero_frota_2}" ${escala.statusEscala === frente.numero_frota_2 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_2}</option>`;
-                    if(frente.numero_frota_3) opcoes += `<option value="${frente.numero_frota_3}" ${escala.statusEscala === frente.numero_frota_3 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_3}</option>`;
-                    opcoes += `<option value="TRAB" ${escala.statusEscala === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">TRAB</option>`;
+                    if (isFolguistasFrente) {
+                        // Injeta máquinas formatadas com [Frente] para escolha clara do folguista
+                        window.maquinasCampo.forEach(mAll => {
+                            if (mAll.nome && mAll.nome.toUpperCase().includes('FOLGUISTA')) return; 
+                            
+                            let fnome = mAll.nome || `F${mAll.id}`;
+                            fnome = fnome.replace(/Frente\s*/i, 'F');
+                            
+                            if (mAll.numero_frota_1) {
+                                let v = `[${fnome}] ${mAll.numero_frota_1}`;
+                                opcoes += `<option value="${v}" ${escala.statusEscala === v ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${v}</option>`;
+                            }
+                            if (mAll.numero_frota_2) {
+                                let v = `[${fnome}] ${mAll.numero_frota_2}`;
+                                opcoes += `<option value="${v}" ${escala.statusEscala === v ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${v}</option>`;
+                            }
+                            if (mAll.numero_frota_3) {
+                                let v = `[${fnome}] ${mAll.numero_frota_3}`;
+                                opcoes += `<option value="${v}" ${escala.statusEscala === v ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${v}</option>`;
+                            }
+                        });
+                        
+                        // Fallback manual se a máquina não estiver cadastrada
+                        if (!opcoes.includes('>[F6]')) opcoes += `<option value="[F6] TRAB" ${escala.statusEscala === '[F6] TRAB' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">[F6] TRAB</option>`;
+                        if (!opcoes.includes('>[F5]')) opcoes += `<option value="[F5] TRAB" ${escala.statusEscala === '[F5] TRAB' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">[F5] TRAB</option>`;
+                        
+                        opcoes += `<option value="COBERTURA" ${escala.statusEscala === 'COBERTURA' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">COBERTURA</option>`;
+                        opcoes += `<option value="TRAB" ${escala.statusEscala === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">TRAB</option>`;
+                    } else {
+                        // Opções normais da frente atual
+                        if(frente.numero_frota_1) opcoes += `<option value="${frente.numero_frota_1}" ${escala.statusEscala === frente.numero_frota_1 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_1}</option>`;
+                        if(frente.numero_frota_2) opcoes += `<option value="${frente.numero_frota_2}" ${escala.statusEscala === frente.numero_frota_2 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_2}</option>`;
+                        if(frente.numero_frota_3) opcoes += `<option value="${frente.numero_frota_3}" ${escala.statusEscala === frente.numero_frota_3 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_3}</option>`;
+                        opcoes += `<option value="TRAB" ${escala.statusEscala === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">TRAB</option>`;
+                    }
                 }
                 if (isManual) opcoes += `<option value="AUTO" style="background: #0f172a; color: #fbbf24; font-weight: bold;"> Voltar p/ Auto</option>`;
 
@@ -256,6 +300,9 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
     window.maquinasCampo.forEach(maq => {
         let ops = window.equipeCampo.filter(op => String(op.maquina_id) === String(maq.id));
         if (ops.length === 0) return;
+        
+        let isFolguistasFrente = maq.nome && maq.nome.toUpperCase().includes('FOLGUISTA');
+
         html += `<h3>${maq.nome || `Frente ${maq.id}`}</h3><table><thead><tr><th style="width:12%;">Máquina/Liderança</th><th style="width:10%;">Regime</th><th style="width:10%;">Turno</th><th style="text-align:left;">Nome</th>${window.currentDatasCampo.map(d => `<th style="width:7%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
         
         ops.sort((a,b) => {
@@ -273,7 +320,11 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
         
         ops.forEach(op => {
             let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-            if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') nomeMaqVisual = 'Cobrir M1/M2';
+            if (isFolguistasFrente && op.funcao !== 'Líder de Campo') {
+                nomeMaqVisual = op.maquina_especifica || 'Cobrir F6 e F5';
+            } else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) {
+                nomeMaqVisual = 'Cobrir M1/M2';
+            }
 
             html += `<tr><td>${nomeMaqVisual}</td><td>${op.equipe||'-'}</td><td>${op.turno||'-'}</td><td style="text-align:left;"><b>${op.nome}</b></td>`;
             window.currentDatasCampo.forEach(d => {
@@ -315,10 +366,18 @@ window.exportarEscalaCampoExcel = function() {
 
     excelOps.forEach(op => {
         let nomeFrente = "Reserva", mq = window.maquinasCampo.find(m => String(m.id) === String(op.maquina_id));
-        if(mq) nomeFrente = mq.nome || `Frente ${mq.id}`;
+        let isFolguistasFrente = false;
+        if(mq) {
+            nomeFrente = mq.nome || `Frente ${mq.id}`;
+            if (mq.nome && mq.nome.toUpperCase().includes('FOLGUISTA')) isFolguistasFrente = true;
+        }
         
         let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-        if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') nomeMaqVisual = 'Cobrir M1/M2';
+        if (isFolguistasFrente && op.funcao !== 'Líder de Campo') {
+            nomeMaqVisual = op.maquina_especifica || 'Cobrir F6 e F5';
+        } else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) {
+            nomeMaqVisual = 'Cobrir M1/M2';
+        }
 
         let linha = `${nomeFrente};${nomeMaqVisual};${op.turno||'-'};${op.equipe||'-'};${op.nome}`;
         for (let dia = 1; dia <= diasNoMes; dia++) {
@@ -343,10 +402,21 @@ window.gerarRelatorioImpressaoCampo = function() {
         const esc = window.getEscalaCampoDiaComputada(op, dStr);
         if (esc.statusEscala !== 'FOLGA' && esc.statusEscala !== 'F') {
             let m = window.maquinasCampo.find(x => String(x.id) === String(op.maquina_id));
-            let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-            if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') nomeMaqVisual = 'Cobrir M1/M2';
+            let isFolguistasFrente = false;
+            let nFront = "Reserva";
+            if (m) {
+                nFront = m.nome;
+                if (m.nome && m.nome.toUpperCase().includes('FOLGUISTA')) isFolguistasFrente = true;
+            }
 
-            trabs.push({ n: op.nome, f: m ? m.nome : "Reserva", m: nomeMaqVisual, t: op.turno||'-', v: esc.statusEscala });
+            let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
+            if (isFolguistasFrente && op.funcao !== 'Líder de Campo') {
+                nomeMaqVisual = op.maquina_especifica || 'Cobrir F6 e F5';
+            } else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) {
+                nomeMaqVisual = 'Cobrir M1/M2';
+            }
+
+            trabs.push({ n: op.nome, f: nFront, m: nomeMaqVisual, t: op.turno||'-', v: esc.statusEscala });
         }
     });
     if (trabs.length === 0) html += '<p>Ninguém escalado.</p>';
