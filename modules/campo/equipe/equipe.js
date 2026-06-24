@@ -4,14 +4,7 @@ window.equipeCampo = [];
 
 window.formatarDescricaoConjunto = function(m) {
     if (!m) return "Sem Vínculo (Reserva)";
-    let frota1 = m.numero_frota_1 || m.numero_frota || m.ficha || '';
-    let frota2 = m.numero_frota_2 || '';
-    let texto = `Conjunto ${m.id}`;
-    
-    if (frota1 && frota2) texto += ` [Frotas: ${frota1} e ${frota2}]`;
-    else if (frota1) texto += ` [Frota: ${frota1}]`;
-    
-    return texto;
+    return m.nome || `Frente ${m.id}`;
 };
 
 window.carregarEquipeCampo = async function() {
@@ -46,7 +39,7 @@ window.renderizarEquipeCampo = function() {
     });
 
     if (filtrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #94a3b8;">Nenhum membro listado ou cadastrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #94a3b8;">Nenhum membro listado ou cadastrado.</td></tr>`;
         return;
     }
 
@@ -58,9 +51,10 @@ window.renderizarEquipeCampo = function() {
         html += `
         <tr style="background-color: transparent; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;">
             <td style="padding: 10px; text-align: left; font-weight: bold; color: #fff;">${m.nome}</td>
-            <td style="padding: 10px; color: #cbd5e1; font-weight: 500;">${m.funcao}</td>
+            <td style="padding: 10px; color: #cbd5e1; font-weight: 500;">${m.funcao || 'Operador'}</td>
             <td style="padding: 10px;"><span style="background: rgba(168,85,247,0.15); border: 1px solid #a855f7; color: #c084fc; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;">${m.equipe || '-'}</span></td>
             <td style="padding: 10px; color: #38bdf8; font-weight: bold;">${descMaquina}</td>
+            <td style="padding: 10px; color: #10b981; font-weight: bold;">${m.maquina_especifica || '-'}</td>
             <td style="padding: 10px; color: #94a3b8; font-family: monospace;">${m.data_ancora || '-'}</td>
             <td style="padding: 10px;">
                 <button class="btn-primary-blue" style="padding: 3px 8px; font-size: 0.75rem; margin-right: 5px;" onclick="window.abrirModalEditarMembroCampo(${m.id})">✏️ Editar</button>
@@ -76,7 +70,7 @@ window.popularSelectMaquinas = function() {
     const select = document.getElementById('formMembroMaquina');
     if (!select) return;
 
-    let html = '<option value="">Deixar em Reserva (Sem Conjunto)</option>';
+    let html = '<option value="">Deixar em Reserva (Sem Frente)</option>';
     const listaMaquinas = window.maquinasCampo || [];
     listaMaquinas.forEach(m => {
         const desc = window.formatarDescricaoConjunto(m);
@@ -93,6 +87,7 @@ window.abrirModalNovoMembroCampo = function() {
     document.getElementById('formMembroFuncao').value = 'Operador de Máquina';
     document.getElementById('formMembroEquipe').value = 'Fixo Frente A';
     document.getElementById('formMembroMaquina').value = '';
+    document.getElementById('formMembroMaquinaEspecifica').value = '';
     document.getElementById('formMembroTurno').value = '06:00 - 18:00';
     
     const hoje = new Date().toISOString().split('T')[0];
@@ -109,9 +104,10 @@ window.abrirModalEditarMembroCampo = function(id) {
 
     document.getElementById('formMembroId').value = m.id;
     document.getElementById('formMembroNome').value = m.nome;
-    document.getElementById('formMembroFuncao').value = m.funcao;
+    document.getElementById('formMembroFuncao').value = m.funcao || 'Operador de Máquina';
     document.getElementById('formMembroEquipe').value = m.equipe;
     document.getElementById('formMembroMaquina').value = m.maquina_id || '';
+    document.getElementById('formMembroMaquinaEspecifica').value = m.maquina_especifica || '';
     document.getElementById('formMembroTurno').value = m.turno || '06:00 - 18:00';
     document.getElementById('formMembroDataAncora').value = m.data_ancora || '';
 
@@ -128,6 +124,7 @@ window.salvarMembroCampo = async function() {
     const funcao = document.getElementById('formMembroFuncao').value;
     const equipe = document.getElementById('formMembroEquipe').value;
     const maquinaVal = document.getElementById('formMembroMaquina').value;
+    const maqEspecifica = document.getElementById('formMembroMaquinaEspecifica').value;
     const turno = document.getElementById('formMembroTurno').value;
     const dataAncora = document.getElementById('formMembroDataAncora').value;
 
@@ -141,6 +138,7 @@ window.salvarMembroCampo = async function() {
         funcao: funcao,
         equipe: equipe,
         maquina_id: maquinaVal ? Number(maquinaVal) : null,
+        maquina_especifica: maqEspecifica,
         turno: turno,
         data_ancora: dataAncora
     };

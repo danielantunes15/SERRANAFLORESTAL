@@ -1,16 +1,12 @@
 // ==================== modules/campo/escala/escala.js ====================
 
-// Variáveis globais para armazenar dados em memória para a tela
 window.equipeCampo = window.equipeCampo || []; 
 window.maquinasCampo = window.maquinasCampo || [];
-window.escalasCampoExcecoes = window.escalasCampoExcecoes || {}; // { operadorId: { dateKey: { status, frente } } }
+window.escalasCampoExcecoes = window.escalasCampoExcecoes || {}; 
 window.currentDatasCampo = [];
 
-// =========================================================================
-// LÓGICA MATEMÁTICA: 4x2 PARA CAMPO
-// =========================================================================
 window.calcularEscalaCampoMatematica = function(operador, dateKey) {
-    if (!operador.data_ancora || operador.masterDrive === 'Não' || operador.destra === 'Não') {
+    if (!operador.data_ancora) {
         return { frente: 'FOLGA', turno: operador.turno, status: 'fallback' };
     }
 
@@ -22,32 +18,25 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
     const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
     const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
     
-    // Ciclo de 6 dias (4 trabalha, 2 folga)
     const cycleDay = ((diffDays % 6) + 6) % 6;
     
-    // Dia 4 e 5 são Folga
     if (cycleDay === 4 || cycleDay === 5) {
         return { frente: 'FOLGA', turno: operador.turno, status: 'auto' };
     }
 
     let frenteAtuacao = 'Frente A';
-    
-    if (eq.includes('Frente A') || eq === 'A') {
-        frenteAtuacao = 'Frente A';
-    } else if (eq.includes('Frente B') || eq === 'B') {
-        frenteAtuacao = 'Frente B';
-    } else if (eq.includes('Folguista') || eq === 'C') {
-        // Folguista: 2 dias A, 2 dias B
+    if (eq.includes('Frente A') || eq === 'A') frenteAtuacao = 'Frente A';
+    else if (eq.includes('Frente B') || eq === 'B') frenteAtuacao = 'Frente B';
+    else if (eq.includes('Folguista') || eq === 'C') {
         if (cycleDay === 0 || cycleDay === 1) frenteAtuacao = 'Frente A';
         else if (cycleDay === 2 || cycleDay === 3) frenteAtuacao = 'Frente B';
     } else {
-        frenteAtuacao = 'Frente A'; // Fallback
+        frenteAtuacao = 'Frente A'; 
     }
 
     return { frente: frenteAtuacao, turno: operador.turno, status: 'auto' };
 };
 
-// Puxa a escala computada ou a exceção manual
 window.getEscalaCampoDiaComputada = function(operador, dateKey) {
     if (window.escalasCampoExcecoes[operador.id] && window.escalasCampoExcecoes[operador.id][dateKey] && window.escalasCampoExcecoes[operador.id][dateKey].status === 'manual') {
         return window.escalasCampoExcecoes[operador.id][dateKey];
@@ -55,7 +44,6 @@ window.getEscalaCampoDiaComputada = function(operador, dateKey) {
     return window.calcularEscalaCampoMatematica(operador, dateKey);
 };
 
-// Popular seletor de busca
 window.popularSelectOperadores = function() {
     const select = document.getElementById('buscaOperadorEscala');
     if (!select) return;
@@ -71,9 +59,6 @@ window.popularSelectOperadores = function() {
     }
 };
 
-// =========================================================================
-// RENDERIZAÇÃO DA TABELA (ESTILO LOGÍSTICA)
-// =========================================================================
 window.renderizarEscalaCampo = function() {
     const container = document.getElementById('campoGridEscala');
     if (!container) return;
@@ -108,10 +93,9 @@ window.renderizarEscalaCampo = function() {
     }
     window.currentDatasCampo = diasRender;
 
-    // Agrupar por máquina
     const alocacaoPorMaquina = {};
     window.maquinasCampo.forEach(maq => { alocacaoPorMaquina[maq.id] = []; });
-    alocacaoPorMaquina['S/M'] = []; // Sem máquina
+    alocacaoPorMaquina['S/M'] = []; 
 
     window.equipeCampo.forEach(op => {
         if (op.maquina_id && alocacaoPorMaquina[op.maquina_id]) {
@@ -124,13 +108,12 @@ window.renderizarEscalaCampo = function() {
     let html = '';
 
     const maquinasRender = [...window.maquinasCampo];
-    maquinasRender.push({ id: 'S/M', nome: 'RESERVAS / SEM MÁQUINA' });
+    maquinasRender.push({ id: 'S/M', nome: 'RESERVAS / SEM FRENTE' });
 
     maquinasRender.forEach(maq => {
         let operadoresMaq = alocacaoPorMaquina[maq.id] || [];
         if (operadoresMaq.length === 0) return;
 
-        // Se tiver filtro de frente, verifica se alguém da máquina atua na frente nesta semana
         if (filtroFrente !== 'Todos') {
             const atuaNaFrente = operadoresMaq.some(op => {
                 return diasRender.some(d => window.getEscalaCampoDiaComputada(op, d.dateKey).frente === filtroFrente);
@@ -138,7 +121,19 @@ window.renderizarEscalaCampo = function() {
             if (!atuaNaFrente) return; 
         }
 
-        // Ordenação: Fixo A, Fixo B, Folguistas, Outros
+        // LÍDERES
+        let lideresDia = operadoresMaq.filter(o => o.funcao === 'Líder de Campo' && (o.turno||'').includes('06:00'));
+        let lideresNoite = operadoresMaq.filter(o => o.funcao === 'Líder de Campo' && (o.turno||'').includes('18:00'));
+        
+        let headerFrente = `<i class="fas fa-tractor"></i> ${maq.nome || `Frente ${maq.id}`}`;
+        if (maq.id !== 'S/M') {
+            headerFrente += `<span style="margin-left: 15px; font-size: 0.85rem; color: #fbbf24; font-weight: normal;">
+                👑 Líder Dia: <b>${lideresDia.map(l=>l.nome).join(', ') || 'N/A'}</b> | 
+                👑 Líder Noite: <b>${lideresNoite.map(l=>l.nome).join(', ') || 'N/A'}</b>
+            </span>`;
+        }
+
+        // Ordenação
         operadoresMaq.sort((a, b) => {
             const getPeso = (eq) => {
                 if (eq?.includes('A')) return 1;
@@ -146,31 +141,33 @@ window.renderizarEscalaCampo = function() {
                 if (eq?.includes('Folguista')) return 3;
                 return 99;
             };
-            return getPeso(a.equipe) - getPeso(b.equipe) || a.nome.localeCompare(b.nome);
+            return (a.maquina_especifica || '').localeCompare(b.maquina_especifica || '') || getPeso(a.equipe) - getPeso(b.equipe) || a.nome.localeCompare(b.nome);
         });
 
         html += `<div style="background: rgba(15, 23, 42, 0.4); border-radius: 8px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">`;
         html += `<div style="background: #0f172a; padding: 12px 20px; font-size: 1.1rem; font-weight: 800; color: #fff; border-bottom: 2px solid #10b981; text-align: left;">
-                      <i class="fas fa-tractor"></i> ${maq.nome}
+                      ${headerFrente}
                  </div>`;
         html += `<div style="overflow-x: auto; width: 100%;">`;
-        html += `<table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem; min-width: 950px;">`;
+        html += `<table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem; min-width: 1050px;">`;
         html += `<thead>
                     <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem;">
-                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 12%;">Turno</th>
-                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 12%;">Equipe</th>
-                        <th style="padding: 12px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 25%;">Operador</th>
+                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 8%;">Máquina</th>
+                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">Turno</th>
+                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">Equipe</th>
+                        <th style="padding: 12px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 22%;">Operador</th>
                         ${diasRender.map(d => `<th style="padding: 10px 5px; border: 1px solid rgba(255,255,255,0.05); width: 6.5%; color: #cbd5e1;">${d.diaTexto}<br><span style="font-size:0.85rem; font-weight:800; color: #fff;">${d.diaNum}</span></th>`).join('')}
                     </tr>
                  </thead><tbody>`;
 
         operadoresMaq.forEach(op => {
-            const isBlocked = op.masterDrive === 'Não' || op.destra === 'Não';
-            
             html += `<tr style="background-color: transparent; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;">`;
+            html += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #10b981; font-weight: bold;">${op.maquina_especifica || '-'}</td>`;
             html += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #38bdf8; font-weight: bold;">${op.turno || '-'}</td>`;
             html += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 800; color: #f8fafc;">${op.equipe || '-'}</td>`;
-            html += `<td class="td-name" style="padding: 8px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; ${isBlocked ? 'color: #f87171;' : 'color: #fff;'} font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${op.nome}</td>`;
+            
+            const liderIcon = op.funcao === 'Líder de Campo' ? '👑 ' : '';
+            html += `<td class="td-name" style="padding: 8px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${liderIcon}${op.nome}</td>`;
             
             diasRender.forEach(d => {
                 const escala = window.getEscalaCampoDiaComputada(op, d.dateKey);
@@ -195,8 +192,8 @@ window.renderizarEscalaCampo = function() {
                 }
 
                 html += `<td style="padding: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: ${borderSide}; border-right: ${borderSide}; background-color: ${bgCell}; text-align: center;">
-                    <select class="select-escala-campo" data-operador="${op.id}" data-data="${d.dateKey}" ${isBlocked ? 'disabled' : ''} style="width: 100%; padding: 6px 0; background: transparent; border: none; color: ${colorCell}; font-weight: 800; font-size: 0.85rem; text-align: center; appearance: none; cursor: pointer; outline: none; text-align-last: center;">
-                        ${isBlocked ? '<option value="FOLGA">Bloq</option>' : opcoes}
+                    <select class="select-escala-campo" data-operador="${op.id}" data-data="${d.dateKey}" style="width: 100%; padding: 6px 0; background: transparent; border: none; color: ${colorCell}; font-weight: 800; font-size: 0.85rem; text-align: center; appearance: none; cursor: pointer; outline: none; text-align-last: center;">
+                        ${opcoes}
                     </select>
                 </td>`;
             });
@@ -222,9 +219,6 @@ window.atualizarEscalaCampo = function() {
     window.renderizarEscalaCampo();
 };
 
-// =========================================================================
-// EVENTOS E BUSCA
-// =========================================================================
 window.limparBuscaOperador = function() {
     const selectBusca = document.getElementById('buscaOperadorEscala');
     if(selectBusca) selectBusca.value = '';
@@ -263,7 +257,6 @@ window.buscarOperadorEscala = function() {
     });
 };
 
-// Manipulação de mudança manual
 async function handleEscalaCampoChange(e) {
     const select = e.target;
     const operadorIdStr = String(select.dataset.operador); 
@@ -305,10 +298,6 @@ async function handleEscalaCampoChange(e) {
         }
     }
 }
-
-// =========================================================================
-// IMPRESSÃO E EXPORTAÇÃO
-// =========================================================================
 
 window.abrirModalImpressaoCampo = function() {
     const hoje = new Date();
@@ -360,11 +349,11 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
         let operadoresMaq = alocacaoPorMaquina[maq.id] || [];
         if (operadoresMaq.length === 0) return;
 
-        html += `<div class="maq-box"><div class="maq-num">${maq.nome}</div>`;
-        html += `<table><thead><tr><th style="width:12%;">TURNO</th><th style="width:15%;">EQUIPE</th><th style="text-align:left;">OPERADOR</th>${window.currentDatasCampo.map(d => `<th style="width:8%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
+        html += `<div class="maq-box"><div class="maq-num">${maq.nome || `Frente ${maq.id}`}</div>`;
+        html += `<table><thead><tr><th style="width:8%;">MÁQUINA</th><th style="width:10%;">TURNO</th><th style="width:12%;">EQUIPE</th><th style="text-align:left;">OPERADOR</th>${window.currentDatasCampo.map(d => `<th style="width:8%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
         
         operadoresMaq.forEach(op => {
-            html += `<tr><td>${op.turno||'-'}</td><td>${op.equipe||'-'}</td><td style="text-align:left;"><b>${op.nome}</b></td>`;
+            html += `<tr><td>${op.maquina_especifica||'-'}</td><td>${op.turno||'-'}</td><td>${op.equipe||'-'}</td><td style="text-align:left;"><b>${op.nome}</b></td>`;
             window.currentDatasCampo.forEach(d => {
                 const esc = window.getEscalaCampoDiaComputada(op, d.dateKey);
                 const isF = esc.frente === 'FOLGA';
@@ -390,7 +379,7 @@ window.exportarEscalaCampoExcel = function() {
     const mes = dataBase.getMonth(); 
     const diasNoMes = new Date(ano, mes + 1, 0).getDate(); 
 
-    let csvContent = "\uFEFFMáquina;Turno;Equipe;Operador";
+    let csvContent = "\uFEFFFrente;Máquina Específica;Turno;Equipe;Operador";
     for (let dia = 1; dia <= diasNoMes; dia++) csvContent += `;${dia.toString().padStart(2, '0')}/${(mes + 1).toString().padStart(2, '0')}`;
     csvContent += "\n";
 
@@ -401,13 +390,13 @@ window.exportarEscalaCampoExcel = function() {
     });
 
     opsOrdenados.forEach(op => {
-        let nomeMaq = "Sem Máquina";
+        let nomeFrente = "Reserva/Sem Frente";
         if(op.maquina_id) {
             let mq = window.maquinasCampo.find(m => String(m.id) === String(op.maquina_id));
-            if(mq) nomeMaq = mq.nome;
+            if(mq) nomeFrente = mq.nome || `Frente ${mq.id}`;
         }
 
-        let linha = `${nomeMaq};${op.turno||'-'};${op.equipe||'-'};${op.nome}`;
+        let linha = `${nomeFrente};${op.maquina_especifica||'-'};${op.turno||'-'};${op.equipe||'-'};${op.nome}`;
 
         for (let dia = 1; dia <= diasNoMes; dia++) {
             const dataAtualStr = `${ano}-${(mes + 1).toString().padStart(2, '0')}-${dia.toString().padStart(2, '0')}`;
@@ -463,15 +452,16 @@ window.gerarRelatorioImpressaoCampo = function() {
         if (escala.frente !== 'FOLGA') {
             if (frenteFiltro !== 'Todas' && escala.frente !== frenteFiltro) return;
             
-            let maqNome = "Reserva/Sem Máquina";
+            let frenteNome = "Reserva/Sem Frente";
             if(op.maquina_id) {
                 let m = window.maquinasCampo.find(x => String(x.id) === String(op.maquina_id));
-                if(m) maqNome = m.nome;
+                if(m) frenteNome = m.nome || `Frente ${m.id}`;
             }
 
             trabs.push({ 
                 nome: op.nome, 
-                maquina: maqNome, 
+                frenteGeral: frenteNome, 
+                maqEspec: op.maquina_especifica || '-',
                 eq: op.equipe || '-', 
                 turno: op.turno || '-', 
                 frente: escala.frente 
@@ -479,17 +469,18 @@ window.gerarRelatorioImpressaoCampo = function() {
         }
     });
 
-    trabs.sort((a, b) => a.maquina.localeCompare(b.maquina) || a.nome.localeCompare(b.nome));
+    trabs.sort((a, b) => a.frenteGeral.localeCompare(b.frenteGeral) || a.maqEspec.localeCompare(b.maqEspec) || a.nome.localeCompare(b.nome));
 
     if (trabs.length === 0) {
         html += '<p style="text-align:center;">Nenhum operador alocado nesta frente para o dia selecionado.</p>';
     } else {
         html += `<div class="section-title">OPERAÇÃO (${trabs.length} operadores)</div>`;
-        html += `<table><thead><tr><th style="width: 15%">TURNO</th><th style="width: 25%">MÁQUINA</th><th style="width: 35%">OPERADOR</th><th style="width: 10%">EQUIPE</th><th style="width: 15%">FRENTE</th></tr></thead><tbody>`;
+        html += `<table><thead><tr><th style="width: 12%">TURNO</th><th style="width: 25%">FRENTE</th><th style="width: 12%">MÁQUINA</th><th style="width: 26%">OPERADOR</th><th style="width: 10%">EQUIPE</th><th style="width: 15%">ALOCAÇÃO</th></tr></thead><tbody>`;
         trabs.forEach(l => {
             html += `<tr>
                 <td style="font-weight:bold;">${l.turno}</td>
-                <td>${l.maquina}</td>
+                <td>${l.frenteGeral}</td>
+                <td>${l.maqEspec}</td>
                 <td style="text-align:left; font-weight:bold;">${l.nome}</td>
                 <td>${l.eq}</td>
                 <td class="trab">${l.frente}</td>

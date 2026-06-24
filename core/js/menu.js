@@ -9,11 +9,11 @@ window.MAPA_MENUS = [
     { id: 'caminhoes', label: 'Conjuntos & Caminhões', setor: 'Logística', icon: 'fas fa-truck' },
     { id: 'documentos_frota', label: 'Documentos da Frota', setor: 'Logística', icon: 'fas fa-file-pdf' },
     
-    // --- NOVO MÓDULO: CAMPO ---
+    // --- MÓDULO: CAMPO (ATUALIZADO) ---
     { id: 'campo_escala', label: 'Escala Semanal', setor: 'Campo', icon: 'fas fa-calendar-alt' },
-    { id: 'campo_troca_turno', label: 'Troca de Turno', setor: 'Campo', icon: 'fas fa-exchange-alt' },
+    { id: 'alocacao_campo', label: 'Alocação Geral', setor: 'Campo', icon: 'fas fa-users-cog' },
     { id: 'campo_equipe', label: 'Cadastro de Equipe', setor: 'Campo', icon: 'fas fa-users' },
-    { id: 'campo_maquinas', label: 'Máquinas', setor: 'Campo', icon: 'fas fa-tractor' },
+    { id: 'campo_maquinas', label: 'Máquinas (Frentes)', setor: 'Campo', icon: 'fas fa-tractor' },
     
     { id: 'os', label: 'Gestão de O.S.', setor: 'Manutenção', icon: 'fas fa-clipboard-list' },
     { id: 'historico_os', label: 'Histórico de O.S.', setor: 'Manutenção', icon: 'fas fa-history' },
@@ -75,7 +75,7 @@ const ROTAS = {
     
     // --- ROTAS DO MÓDULO CAMPO ---
     'campo_escala': 'modules/campo/escala/escala.html',
-    'campo_troca_turno': 'modules/campo/troca_turno/troca_turno.html',
+    'alocacao_campo': 'modules/campo/alocacao/alocacao.html',
     'campo_equipe': 'modules/campo/equipe/equipe.html',
     'campo_maquinas': 'modules/campo/maquinas/maquinas.html',
     
@@ -121,7 +121,7 @@ const ROTAS = {
     'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html'
 };
 
-const VERSAO_SISTEMA = "1.0.11";
+const VERSAO_SISTEMA = "1.0.12";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -294,7 +294,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         // CHAMADAS DE RENDERIZAÇÃO DO MÓDULO CAMPO
         if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
-        if (pagina === 'campo_troca_turno' && typeof window.renderizarTrocaTurnoCampo === 'function') window.renderizarTrocaTurnoCampo();
+        if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();
         if (pagina === 'campo_equipe' && typeof window.renderizarEquipeCampo === 'function') window.renderizarEquipeCampo();
         if (pagina === 'campo_maquinas' && typeof window.renderizarMaquinasCampo === 'function') window.renderizarMaquinasCampo();
 

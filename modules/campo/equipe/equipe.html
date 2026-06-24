@@ -20,20 +20,21 @@
                 <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
                     <th style="padding: 12px 15px; text-align: left;">Nome Completo</th>
                     <th style="padding: 12px 8px;">Função / Cargo</th>
-                    <th style="padding: 12px 8px;">Equipa / Regime</th>
-                    <th style="padding: 12px 8px;">Equipamento Vinculado</th>
-                    <th style="padding: 12px 8px;">Data Âncora (Ciclo)</th>
+                    <th style="padding: 12px 8px;">Equipe / Regime</th>
+                    <th style="padding: 12px 8px;">Frente (Conjunto)</th>
+                    <th style="padding: 12px 8px;">Máquina Específica</th>
+                    <th style="padding: 12px 8px;">Data Âncora</th>
                     <th style="padding: 12px 8px;">Ações</th>
                 </tr>
             </thead>
             <tbody id="equipeCampoList">
-                </tbody>
+            </tbody>
         </table>
     </div>
 </div>
 
 <div id="modalMembroCampo" class="modal-overlay">
-    <div class="custom-modal">
+    <div class="custom-modal" style="max-height: 90vh; overflow-y: auto;">
         <div class="modal-header">
             <h3>👥 Gestão de Integrante do Campo</h3>
             <button class="close-modal" onclick="window.fecharModalMembroCampo()">&times;</button>
@@ -52,7 +53,7 @@
                 </select>
             </div>
             <div class="form-group-dark">
-                <label>Regime de Escala / Frente</label>
+                <label>Regime de Escala</label>
                 <select id="formMembroEquipe" class="dark-select">
                     <option value="Fixo Frente A">Fixo Frente A</option>
                     <option value="Fixo Frente B">Fixo Frente B</option>
@@ -60,9 +61,18 @@
                 </select>
             </div>
             <div class="form-group-dark">
-                <label>Máquina Vinculada</label>
+                <label>Frente Vinculada (Conjunto de Máquinas)</label>
                 <select id="formMembroMaquina" class="dark-select">
-                    </select>
+                </select>
+            </div>
+            <div class="form-group-dark">
+                <label>Máquina Específica (Qual das máquinas ele opera?)</label>
+                <select id="formMembroMaquinaEspecifica" class="dark-select">
+                    <option value="">Indefinido / Todas</option>
+                    <option value="Máquina 1">Máquina 1</option>
+                    <option value="Máquina 2">Máquina 2</option>
+                    <option value="Máquina 3">Máquina 3</option>
+                </select>
             </div>
             <div class="form-group-dark">
                 <label>Turno Padrão</label>
