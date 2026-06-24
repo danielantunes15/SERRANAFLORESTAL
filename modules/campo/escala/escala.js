@@ -30,27 +30,26 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
     let valorExibicao = 'F';
 
     if (statusTrabalho === 'TRAB') {
-        if (operador.equipe === 'Folguista') {
-            // Folguista roda entre FRENTE 5 e FRENTE 6
-            if (cycleDay === 2 || cycleDay === 3) {
-                valorExibicao = 'FRENTE 5';
-            } else if (cycleDay === 4 || cycleDay === 5) {
-                valorExibicao = 'FRENTE 6';
-            }
+        if (operador.funcao === 'Líder de Campo') {
+            valorExibicao = 'LÍDER';
         } else {
-            // Fixo
-            if (operador.funcao === 'Líder de Campo') {
-                valorExibicao = 'LÍDER';
-            } else {
-                let maq = window.maquinasCampo.find(m => String(m.id) === String(operador.maquina_id));
-                if (maq) {
+            let maq = window.maquinasCampo.find(m => String(m.id) === String(operador.maquina_id));
+            if (maq) {
+                if (operador.equipe === 'Folguista') {
+                    // O folguista trabalha 4 dias. Os 2 primeiros pega Máquina 1, os 2 últimos pega Máquina 2.
+                    if (cycleDay === 2 || cycleDay === 3) {
+                        valorExibicao = maq.numero_frota_1 || 'Máquina 1';
+                    } else { // cycleDay === 4 || 5
+                        valorExibicao = maq.numero_frota_2 || 'Máquina 2';
+                    }
+                } else {
                     if (operador.maquina_especifica === 'Máquina 1') valorExibicao = maq.numero_frota_1 || 'TRAB';
                     else if (operador.maquina_especifica === 'Máquina 2') valorExibicao = maq.numero_frota_2 || 'TRAB';
                     else if (operador.maquina_especifica === 'Máquina 3') valorExibicao = maq.numero_frota_3 || 'TRAB';
                     else valorExibicao = 'TRAB';
-                } else {
-                    valorExibicao = 'TRAB';
                 }
+            } else {
+                valorExibicao = 'TRAB';
             }
         }
     }
@@ -153,10 +152,8 @@ window.renderizarEscalaCampo = function() {
 
         ops.forEach(op => {
             let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Liderança' : (op.maquina_especifica || 'Sem Máquina');
-            
-            // Tratamento visual claro para Folguistas (Líder ou Operador)
-            if (op.equipe === 'Folguista') {
-                nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder (Cobertura FR5/FR6)' : 'Operador (Cobertura FR5/FR6)';
+            if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') {
+                nomeMaqVisual = 'Cobrir M1 e M2';
             }
 
             let colorMaq = op.funcao === 'Líder de Campo' ? '#fbbf24' : '#34d399';
@@ -182,12 +179,7 @@ window.renderizarEscalaCampo = function() {
                 }
                 
                 let opcoes = `<option value="F" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fb923c;">F</option>`;
-                
-                // Opções dinâmicas para o dropdown baseado na nova lógica
-                if (op.equipe === 'Folguista') {
-                    opcoes += `<option value="FRENTE 5" ${escala.statusEscala === 'FRENTE 5' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">FRENTE 5</option>`;
-                    opcoes += `<option value="FRENTE 6" ${escala.statusEscala === 'FRENTE 6' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">FRENTE 6</option>`;
-                } else if (op.funcao === 'Líder de Campo') {
+                if (op.funcao === 'Líder de Campo') {
                     opcoes += `<option value="LÍDER" ${escala.statusEscala === 'LÍDER' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">LÍDER</option>`;
                 } else {
                     if(frente.numero_frota_1) opcoes += `<option value="${frente.numero_frota_1}" ${escala.statusEscala === frente.numero_frota_1 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_1}</option>`;
@@ -281,9 +273,7 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
         
         ops.forEach(op => {
             let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-            if (op.equipe === 'Folguista') {
-                nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder (Cobertura FR5/FR6)' : 'Operador (Cobertura FR5/FR6)';
-            }
+            if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') nomeMaqVisual = 'Cobrir M1/M2';
 
             html += `<tr><td>${nomeMaqVisual}</td><td>${op.equipe||'-'}</td><td>${op.turno||'-'}</td><td style="text-align:left;"><b>${op.nome}</b></td>`;
             window.currentDatasCampo.forEach(d => {
@@ -328,9 +318,7 @@ window.exportarEscalaCampoExcel = function() {
         if(mq) nomeFrente = mq.nome || `Frente ${mq.id}`;
         
         let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-        if (op.equipe === 'Folguista') {
-            nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder (Cobertura FR5/FR6)' : 'Operador (Cobertura FR5/FR6)';
-        }
+        if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') nomeMaqVisual = 'Cobrir M1/M2';
 
         let linha = `${nomeFrente};${nomeMaqVisual};${op.turno||'-'};${op.equipe||'-'};${op.nome}`;
         for (let dia = 1; dia <= diasNoMes; dia++) {
@@ -356,9 +344,7 @@ window.gerarRelatorioImpressaoCampo = function() {
         if (esc.statusEscala !== 'FOLGA' && esc.statusEscala !== 'F') {
             let m = window.maquinasCampo.find(x => String(x.id) === String(op.maquina_id));
             let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-            if (op.equipe === 'Folguista') {
-                nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder (Cobertura FR5/FR6)' : 'Operador (Cobertura FR5/FR6)';
-            }
+            if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') nomeMaqVisual = 'Cobrir M1/M2';
 
             trabs.push({ n: op.nome, f: m ? m.nome : "Reserva", m: nomeMaqVisual, t: op.turno||'-', v: esc.statusEscala });
         }
