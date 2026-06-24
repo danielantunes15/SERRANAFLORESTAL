@@ -7,5 +7,67 @@
     </div>
     
     <div style="padding: 20px; display: flex; flex-direction: column; gap: 20px;" id="alocacaoCampoCards">
+        <!-- O JS vai gerar os blocos de Frentes e Máquinas aqui -->
+    </div>
+</div>
+
+<div id="modalAlocacaoRapida" class="modal-overlay">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3>⚙️ Configuração Rápida de Operador/Líder</h3>
+            <button class="close-modal" onclick="window.fecharModalAlocacaoRapida()">&times;</button>
         </div>
+        <div class="modal-body">
+            <input type="hidden" id="alocFormId">
+            <p style="color: #fff; font-size: 1.1rem; margin-bottom: 15px;">Ajustando: <strong id="alocNomeExibicao" style="color: #38bdf8;"></strong></p>
+            
+            <div class="form-group-dark">
+                <label>Função</label>
+                <select id="alocFormFuncao" class="dark-select">
+                    <option value="Operador de Máquina">Operador de Máquina</option>
+                    <option value="Líder de Campo">Líder de Campo</option>
+                </select>
+            </div>
+            
+            <div class="form-group-dark">
+                <label>Frente Vinculada</label>
+                <select id="alocFormMaquina" class="dark-select"></select>
+            </div>
+            
+            <div class="form-group-dark">
+                <label>Máquina Específica (Se for Operador)</label>
+                <select id="alocFormMaquinaEspecifica" class="dark-select">
+                    <option value="">Indefinido / Nenhuma</option>
+                    <option value="Máquina 1">Máquina 1</option>
+                    <option value="Máquina 2">Máquina 2</option>
+                    <option value="Máquina 3">Máquina 3</option>
+                </select>
+            </div>
+            
+            <div class="form-group-dark">
+                <label>Regime (Ciclo 4x2)</label>
+                <select id="alocFormEquipe" class="dark-select">
+                    <option value="Fixo">Fixo</option>
+                    <option value="Folguista">Folguista</option>
+                </select>
+            </div>
+            
+            <div class="form-group-dark">
+                <label>Turno Padrão</label>
+                <select id="alocFormTurno" class="dark-select">
+                    <option value="06:00 - 18:00">06:00 - 18:00 (Diurno)</option>
+                    <option value="18:00 - 06:00">18:00 - 06:00 (Noturno)</option>
+                </select>
+            </div>
+
+            <div class="form-group-dark" style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                <label style="color: #f59e0b;"><i class="fas fa-calendar-day"></i> Data Inicial (Início da escala 4x2)</label>
+                <input type="date" id="alocFormDataAncora" class="dark-select" style="border-color: #f59e0b;">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.fecharModalAlocacaoRapida()">Cancelar</button>
+            <button class="btn-primary-green" onclick="window.salvarAlocacaoRapida()">💾 Aplicar na Escala</button>
+        </div>
+    </div>
 </div>
