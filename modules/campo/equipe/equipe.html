@@ -20,7 +20,7 @@
                 <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
                     <th style="padding: 12px 15px; text-align: left;">Nome Completo</th>
                     <th style="padding: 12px 8px;">Função / Cargo</th>
-                    <th style="padding: 12px 8px;">Equipe (A,B,C)</th>
+                    <th style="padding: 12px 8px;">Regime</th>
                     <th style="padding: 12px 8px;">Frente Vinculada</th>
                     <th style="padding: 12px 8px;">Máquina Específica</th>
                     <th style="padding: 12px 8px;">Data Âncora</th>
@@ -36,7 +36,7 @@
 <div id="modalMembroCampo" class="modal-overlay">
     <div class="custom-modal" style="max-height: 90vh; overflow-y: auto;">
         <div class="modal-header">
-            <h3>👥 Gestão de Integrante do Campo</h3>
+            <h3>👥 Cadastro de Integrante do Campo</h3>
             <button class="close-modal" onclick="window.fecharModalMembroCampo()">&times;</button>
         </div>
         <div class="modal-body">
@@ -52,21 +52,20 @@
                     <option value="Líder de Campo">Líder de Campo</option>
                 </select>
             </div>
-            <div class="form-group-dark">
-                <label>Equipe</label>
-                <select id="formMembroEquipe" class="dark-select">
-                    <option value="Equipe A">Equipe A</option>
-                    <option value="Equipe B">Equipe B</option>
-                    <option value="Equipe C">Equipe C</option>
+            <div class="form-group-dark" style="background: rgba(56, 189, 248, 0.1); padding: 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3);">
+                <label style="color: #38bdf8;">Regime na Máquina (Ciclo 4x2)</label>
+                <select id="formMembroEquipe" class="dark-select" style="border-color: #38bdf8;">
+                    <option value="Fixo">Fixo (Trabalha 4 dias seguidos)</option>
+                    <option value="Folguista">Folguista (Cobre as folgas do Fixo)</option>
                 </select>
             </div>
             <div class="form-group-dark">
-                <label>Frente Vinculada</label>
+                <label>Frente Vinculada (Conjunto)</label>
                 <select id="formMembroMaquina" class="dark-select">
                 </select>
             </div>
             <div class="form-group-dark">
-                <label>Máquina Específica</label>
+                <label>Máquina Específica (Obrigatório para Operadores)</label>
                 <select id="formMembroMaquinaEspecifica" class="dark-select">
                     <option value="">Indefinido / Nenhuma</option>
                     <option value="Máquina 1">Máquina 1</option>
@@ -82,7 +81,7 @@
                 </select>
             </div>
             <div class="form-group-dark">
-                <label>Data de Início do Ciclo 4x2 (Fundamental para a Escala)</label>
+                <label>Data de Início do Ciclo (Mantenha a mesma data para Fixo e Folguista sincronizarem)</label>
                 <input type="date" id="formMembroDataAncora" class="dark-select">
             </div>
         </div>

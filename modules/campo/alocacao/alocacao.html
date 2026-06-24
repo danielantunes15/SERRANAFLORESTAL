@@ -1,25 +1,11 @@
 <div class="content-panel" style="margin-bottom: 25px; border: 1px solid #3b82f6; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px 20px; background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(15, 23, 42, 0) 100%);">
         <h3 style="color: #3b82f6; margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: 0.5px;">
-            <i class="fas fa-exchange-alt"></i> Painel Rápido de Alocação e Trocas
+            <i class="fas fa-users-cog"></i> Alocação (4 Operadores por Máquina)
         </h3>
         <button class="btn-primary-blue" onclick="window.carregarAlocacaoCampo()" style="padding: 5px 15px; font-size: 0.85rem; font-weight: bold;">🔄 Recarregar</button>
     </div>
     
-    <div style="padding: 15px; overflow-x: auto;">
-        <table class="data-table-modern" style="width: 100%; text-align: center; border-collapse: collapse; font-size: 0.85rem; min-width: 1000px;">
-            <thead>
-                <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem;">
-                    <th style="padding: 12px 10px; text-align: left;">Operador / Líder</th>
-                    <th style="padding: 12px 10px;">Função</th>
-                    <th style="padding: 12px 10px;">Equipe (A, B, C)</th>
-                    <th style="padding: 12px 10px;">Turno (Horário)</th>
-                    <th style="padding: 12px 10px;">Frente (Conjunto)</th>
-                    <th style="padding: 12px 10px;">Máquina Específica</th>
-                    <th style="padding: 12px 10px;">Ação</th>
-                </tr>
-            </thead>
-            <tbody id="alocacaoCampoList"></tbody>
-        </table>
-    </div>
+    <div style="padding: 20px; display: flex; flex-direction: column; gap: 20px;" id="alocacaoCampoCards">
+        </div>
 </div>

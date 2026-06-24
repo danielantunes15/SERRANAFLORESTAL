@@ -4,7 +4,7 @@ window.carregarAlocacaoCampo = async function() {
     if (typeof window.supabaseClient === 'undefined') return;
 
     try {
-        document.getElementById('alocacaoCampoList').innerHTML = '<tr><td colspan="7" style="padding: 20px; color: #fff;">Carregando dados da operação...</td></tr>';
+        document.getElementById('alocacaoCampoCards').innerHTML = '<div style="color:#fff; text-align:center;">Carregando painel de máquinas...</div>';
         
         const pMaquinas = window.supabaseClient.from('maquinas_campo').select('*').order('id');
         const pEquipe = window.supabaseClient.from('equipe_campo').select('*').order('nome');
@@ -14,91 +14,124 @@ window.carregarAlocacaoCampo = async function() {
         window.maquinasCampo = resMaquinas.data || [];
         window.equipeCampo = resEquipe.data || [];
         
-        window.renderizarTabelaAlocacaoCampo();
+        window.renderizarPainelMaquinasCampo();
     } catch (error) {
         console.error("Erro ao carregar dados de alocação:", error);
     }
 };
 
-window.renderizarTabelaAlocacaoCampo = function() {
-    const tbody = document.getElementById('alocacaoCampoList');
-    if (!tbody) return;
+window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
+    let frontSel = selectFrentes.replace(`value="${op.maquina_id||''}"`, `value="${op.maquina_id||''}" selected`);
+    
+    return `
+    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);" id="row_aloc_${op.id}">
+        <td style="padding: 10px; text-align: left; font-weight: 800; color: #fff; width: 25%;">
+            ${op.funcao === 'Líder de Campo' ? '<i class="fas fa-crown" style="color:#fbbf24;"></i> ' : ''}${op.nome}
+        </td>
+        <td style="padding: 5px;">
+            <select class="dark-select" id="aloc_funcao_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem;">
+                <option value="Operador de Máquina" ${op.funcao==='Operador de Máquina'?'selected':''}>Operador</option>
+                <option value="Líder de Campo" ${op.funcao==='Líder de Campo'?'selected':''}>Líder</option>
+            </select>
+        </td>
+        <td style="padding: 5px;">
+            <select class="dark-select" id="aloc_equipe_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem; border-color: #c084fc;">
+                <option value="Fixo" ${op.equipe==='Fixo'?'selected':''}>Fixo</option>
+                <option value="Folguista" ${op.equipe==='Folguista'?'selected':''}>Folguista</option>
+            </select>
+        </td>
+        <td style="padding: 5px;">
+            <select class="dark-select" id="aloc_turno_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem; border-color: #38bdf8;">
+                <option value="06:00 - 18:00" ${op.turno==='06:00 - 18:00'?'selected':''}>06:00 - 18:00</option>
+                <option value="18:00 - 06:00" ${op.turno==='18:00 - 06:00'?'selected':''}>18:00 - 06:00</option>
+            </select>
+        </td>
+        <td style="padding: 5px;">
+            <select class="dark-select" id="aloc_frente_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem;">
+                ${frontSel}
+            </select>
+        </td>
+        <td style="padding: 5px;">
+            <select class="dark-select" id="aloc_maqesp_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem;">
+                <option value="" ${!op.maquina_especifica?'selected':''}>Nenhuma</option>
+                <option value="Máquina 1" ${op.maquina_especifica==='Máquina 1'?'selected':''}>Máquina 1</option>
+                <option value="Máquina 2" ${op.maquina_especifica==='Máquina 2'?'selected':''}>Máquina 2</option>
+                <option value="Máquina 3" ${op.maquina_especifica==='Máquina 3'?'selected':''}>Máquina 3</option>
+            </select>
+        </td>
+        <td style="padding: 5px; text-align: center;">
+            <button class="btn-primary-green" style="padding: 5px 15px; font-size: 0.8rem; font-weight: bold;" onclick="window.salvarAlocacaoLinha(${op.id})">💾 Salvar</button>
+        </td>
+    </tr>`;
+};
 
-    if (window.equipeCampo.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; color: #94a3b8;">Nenhum membro na equipe. Cadastre no menu "Cadastro de Equipe".</td></tr>`;
-        return;
-    }
+window.renderizarPainelMaquinasCampo = function() {
+    const container = document.getElementById('alocacaoCampoCards');
+    if (!container) return;
+
+    let optionsFrentes = '<option value="">Reserva / Sem Frente</option>';
+    window.maquinasCampo.forEach(m => { optionsFrentes += `<option value="${m.id}">${m.nome || `Frente ${m.id}`}</option>`; });
 
     let html = '';
 
-    // Gerando opções de frentes
-    let optionsFrentes = '<option value="">Reserva / Sem Frente</option>';
-    window.maquinasCampo.forEach(m => {
-        optionsFrentes += `<option value="${m.id}">${m.nome || `Frente ${m.id}`}</option>`;
-    });
+    window.maquinasCampo.forEach(frente => {
+        const membrosFrente = window.equipeCampo.filter(op => String(op.maquina_id) === String(frente.id));
+        if (membrosFrente.length === 0) return;
 
-    // Ordenação: Líderes primeiro, depois alfabético
-    const equipeOrdenada = [...window.equipeCampo].sort((a,b) => {
-        const isLiderA = a.funcao === 'Líder de Campo' ? -1 : 1;
-        const isLiderB = b.funcao === 'Líder de Campo' ? -1 : 1;
-        return (isLiderA - isLiderB) || a.nome.localeCompare(b.nome);
-    });
-
-    equipeOrdenada.forEach(op => {
-        const isLider = op.funcao === 'Líder de Campo';
+        html += `<div style="background: rgba(15, 23, 42, 0.8); border: 2px solid #3b82f6; border-radius: 10px; padding: 15px;">`;
+        html += `<h2 style="color: #3b82f6; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(59, 130, 246, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-network-wired"></i> ${frente.nome || `Frente ${frente.id}`}</h2>`;
         
-        // Replace para pre-selecionar a frente atual do operador
-        let frenteSelect = optionsFrentes;
-        if (op.maquina_id) {
-            frenteSelect = frenteSelect.replace(`value="${op.maquina_id}"`, `value="${op.maquina_id}" selected`);
-        } else {
-            frenteSelect = frenteSelect.replace(`value=""`, `value="" selected`);
+        // ---- 1. LÍDERES ----
+        const lideres = membrosFrente.filter(op => op.funcao === 'Líder de Campo');
+        if (lideres.length > 0) {
+            html += `<div style="margin-bottom: 20px; background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; border-radius: 8px; padding: 10px;">
+                <h4 style="color: #fbbf24; margin: 0 0 10px 0;"><i class="fas fa-crown"></i> Líderes da Frente</h4>
+                <table style="width: 100%; border-collapse: collapse;"><tbody>`;
+            lideres.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
+            html += `</tbody></table></div>`;
         }
 
-        html += `
-        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.3s;" id="row_aloc_${op.id}">
-            <td style="padding: 10px; text-align: left; font-weight: bold; color: ${isLider ? '#fbbf24' : '#fff'};">
-                ${isLider ? '<i class="fas fa-crown" title="Líder"></i> ' : ''}${op.nome}
-            </td>
-            <td style="padding: 5px;">
-                <select class="dark-select" id="aloc_funcao_${op.id}" style="padding: 4px 8px; width: 140px; font-size: 0.8rem;">
-                    <option value="Operador de Máquina" ${op.funcao==='Operador de Máquina'?'selected':''}>Operador</option>
-                    <option value="Líder de Campo" ${op.funcao==='Líder de Campo'?'selected':''}>Líder</option>
-                </select>
-            </td>
-            <td style="padding: 5px;">
-                <select class="dark-select" id="aloc_equipe_${op.id}" style="padding: 4px 8px; width: 110px; font-size: 0.8rem;">
-                    <option value="Equipe A" ${op.equipe==='Equipe A'?'selected':''}>Equipe A</option>
-                    <option value="Equipe B" ${op.equipe==='Equipe B'?'selected':''}>Equipe B</option>
-                    <option value="Equipe C" ${op.equipe==='Equipe C'?'selected':''}>Equipe C</option>
-                </select>
-            </td>
-            <td style="padding: 5px;">
-                <select class="dark-select" id="aloc_turno_${op.id}" style="padding: 4px 8px; width: 130px; font-size: 0.8rem;">
-                    <option value="06:00 - 18:00" ${op.turno==='06:00 - 18:00'?'selected':''}>06:00 - 18:00</option>
-                    <option value="18:00 - 06:00" ${op.turno==='18:00 - 06:00'?'selected':''}>18:00 - 06:00</option>
-                </select>
-            </td>
-            <td style="padding: 5px;">
-                <select class="dark-select" id="aloc_frente_${op.id}" style="padding: 4px 8px; width: 180px; font-size: 0.8rem;">
-                    ${frenteSelect}
-                </select>
-            </td>
-            <td style="padding: 5px;">
-                <select class="dark-select" id="aloc_maqesp_${op.id}" style="padding: 4px 8px; width: 120px; font-size: 0.8rem;">
-                    <option value="" ${!op.maquina_especifica?'selected':''}>Nenhuma</option>
-                    <option value="Máquina 1" ${op.maquina_especifica==='Máquina 1'?'selected':''}>Máquina 1</option>
-                    <option value="Máquina 2" ${op.maquina_especifica==='Máquina 2'?'selected':''}>Máquina 2</option>
-                    <option value="Máquina 3" ${op.maquina_especifica==='Máquina 3'?'selected':''}>Máquina 3</option>
-                </select>
-            </td>
-            <td style="padding: 5px;">
-                <button class="btn-primary-green" style="padding: 5px 12px; font-size: 0.8rem; font-weight: bold;" onclick="window.salvarAlocacaoLinha(${op.id})">💾 Salvar</button>
-            </td>
-        </tr>`;
+        // ---- 2. MÁQUINAS (1 a 3) ----
+        ['Máquina 1', 'Máquina 2', 'Máquina 3'].forEach(nomeMaq => {
+            const numFrota = frente[nomeMaq === 'Máquina 1' ? 'numero_frota_1' : (nomeMaq === 'Máquina 2' ? 'numero_frota_2' : 'numero_frota_3')];
+            if (!numFrota && membrosFrente.filter(o => o.maquina_especifica === nomeMaq).length === 0) return; // Se a máquina não existe e não tem ngm, pula.
+
+            const operadores = membrosFrente.filter(op => op.maquina_especifica === nomeMaq && op.funcao !== 'Líder de Campo');
+            
+            // Ordenar logicamente os 4 operadores: Fixo Dia, Folguista Dia, Fixo Noite, Folguista Noite
+            operadores.sort((a,b) => {
+                const peso = o => (o.turno.includes('06:00') ? 0 : 10) + (o.equipe==='Fixo' ? 1 : 2);
+                return peso(a) - peso(b);
+            });
+
+            html += `<div style="margin-bottom: 15px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 10px;">
+                <h4 style="color: #34d399; margin: 0 0 10px 0;"><i class="fas fa-tractor"></i> ${nomeMaq} (Frota: ${numFrota || 'S/N'}) - <span style="font-size: 0.8rem; color:#94a3b8;">4 Operadores Ideais</span></h4>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Regime</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Ação</th></tr></thead>
+                    <tbody>`;
+            
+            if (operadores.length === 0) {
+                html += `<tr><td colspan="7" style="padding: 10px; color:#9ca3af; text-align:center;">Nenhum operador alocado nesta máquina.</td></tr>`;
+            } else {
+                operadores.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
+            }
+            html += `</tbody></table></div>`;
+        });
+
+        html += `</div>`;
     });
 
-    tbody.innerHTML = html;
+    // ---- 3. RESERVAS ----
+    const reservas = window.equipeCampo.filter(op => !op.maquina_id);
+    if (reservas.length > 0) {
+        html += `<div style="background: rgba(239, 68, 68, 0.1); border: 2px solid #ef4444; border-radius: 10px; padding: 15px;">
+            <h2 style="color: #ef4444; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(239, 68, 68, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-exclamation-triangle"></i> Sem Frente Definida (Reservas)</h2>
+            <table style="width: 100%; border-collapse: collapse;"><tbody>`;
+        reservas.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
+        html += `</tbody></table></div>`;
+    }
+
+    container.innerHTML = html;
 };
 
 window.salvarAlocacaoLinha = async function(id) {
@@ -119,18 +152,17 @@ window.salvarAlocacaoLinha = async function(id) {
     try {
         await window.supabaseClient.from('equipe_campo').update(payload).eq('id', id);
         
-        // Efeito visual de sucesso na linha
         const row = document.getElementById(`row_aloc_${id}`);
         if(row) {
             row.style.backgroundColor = 'rgba(16, 185, 129, 0.4)';
             setTimeout(() => { row.style.backgroundColor = 'transparent'; }, 1200);
         }
 
-        // Atualiza a memória local silenciosamente
         const opIndex = window.equipeCampo.findIndex(x => String(x.id) === String(id));
-        if (opIndex > -1) {
-            window.equipeCampo[opIndex] = { ...window.equipeCampo[opIndex], ...payload };
-        }
+        if (opIndex > -1) window.equipeCampo[opIndex] = { ...window.equipeCampo[opIndex], ...payload };
+        
+        // Recarrega dinamicamente para agrupar na máquina certa
+        setTimeout(() => { window.renderizarPainelMaquinasCampo(); }, 1200);
         
     } catch (e) {
         console.error("Erro ao salvar:", e);

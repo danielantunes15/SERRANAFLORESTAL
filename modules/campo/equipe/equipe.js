@@ -52,7 +52,7 @@ window.renderizarEquipeCampo = function() {
         <tr style="background-color: transparent; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;">
             <td style="padding: 10px; text-align: left; font-weight: bold; color: #fff;">${m.nome}</td>
             <td style="padding: 10px; color: #cbd5e1; font-weight: 500;">${m.funcao || 'Operador'}</td>
-            <td style="padding: 10px;"><span style="background: rgba(168,85,247,0.15); border: 1px solid #a855f7; color: #c084fc; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;">${m.equipe || '-'}</span></td>
+            <td style="padding: 10px;"><span style="background: rgba(168,85,247,0.15); border: 1px solid #a855f7; color: #c084fc; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.75rem;">${m.equipe || 'Fixo'}</span></td>
             <td style="padding: 10px; color: #38bdf8; font-weight: bold;">${descMaquina}</td>
             <td style="padding: 10px; color: #10b981; font-weight: bold;">${m.maquina_especifica || '-'}</td>
             <td style="padding: 10px; color: #94a3b8; font-family: monospace;">${m.data_ancora || '-'}</td>
@@ -85,7 +85,7 @@ window.abrirModalNovoMembroCampo = function() {
     document.getElementById('formMembroId').value = '';
     document.getElementById('formMembroNome').value = '';
     document.getElementById('formMembroFuncao').value = 'Operador de Máquina';
-    document.getElementById('formMembroEquipe').value = 'Equipe A';
+    document.getElementById('formMembroEquipe').value = 'Fixo';
     document.getElementById('formMembroMaquina').value = '';
     document.getElementById('formMembroMaquinaEspecifica').value = '';
     document.getElementById('formMembroTurno').value = '06:00 - 18:00';
@@ -105,7 +105,7 @@ window.abrirModalEditarMembroCampo = function(id) {
     document.getElementById('formMembroId').value = m.id;
     document.getElementById('formMembroNome').value = m.nome;
     document.getElementById('formMembroFuncao').value = m.funcao || 'Operador de Máquina';
-    document.getElementById('formMembroEquipe').value = m.equipe || 'Equipe A';
+    document.getElementById('formMembroEquipe').value = m.equipe || 'Fixo';
     document.getElementById('formMembroMaquina').value = m.maquina_id || '';
     document.getElementById('formMembroMaquinaEspecifica').value = m.maquina_especifica || '';
     document.getElementById('formMembroTurno').value = m.turno || '06:00 - 18:00';
@@ -129,7 +129,7 @@ window.salvarMembroCampo = async function() {
     const dataAncora = document.getElementById('formMembroDataAncora').value;
 
     if (!nome || !dataAncora) {
-        alert("Obrigatório informar o nome e a data de ciclo.");
+        alert("Obrigatório informar o nome e a data âncora.");
         return;
     }
 

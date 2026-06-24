@@ -1,6 +1,6 @@
 <div class="action-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 15px; flex-wrap: nowrap; overflow-x: auto; background-color: rgba(30, 41, 59, 0.5); border-bottom: 1px solid rgba(255,255,255,0.05);">
     <div class="filter-group" style="display: flex; align-items: center; gap: 10px; white-space: nowrap;">
-        <h2 style="color: var(--ccol-blue-bright); margin-right: 10px; font-size: 1.1rem; margin-top: 0; margin-bottom: 0;"><i class="fas fa-calendar-alt"></i> Escala Semanal do Campo</h2>
+        <h2 style="color: var(--ccol-blue-bright); margin-right: 10px; font-size: 1.1rem; margin-top: 0; margin-bottom: 0;"><i class="fas fa-calendar-alt"></i> Escala Semanal (4x2)</h2>
         
         <div style="display: flex; align-items: center; background: rgba(0, 0, 0, 0.25); border-radius: 6px; padding: 2px 10px; border: 1px solid #4b5563; transition: border-color 0.2s;">
             <span style="margin-right: 8px; font-size: 1rem; opacity: 0.8;">📅</span>
@@ -14,13 +14,6 @@
         </select>
         
         <button class="btn-icon-only" style="height: 30px; width: 30px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Atualizar Escala" onclick="window.atualizarEscalaCampo()">🔄</button>
-        
-        <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 2px;"></div> 
-        <label for="buscaOperadorEscala" style="font-size: 0.8rem; color: #9ca3af; font-weight: 600; text-transform: uppercase;">Buscar:</label>
-        <select id="buscaOperadorEscala" class="dark-select" onchange="window.buscarOperadorEscala()" style="min-width: 180px; padding: 2px 8px; font-size: 0.85rem; border-radius: 6px; height: 30px;">
-            <option value="">Selecione o operador...</option>
-        </select>
-        <button class="btn-icon-only" style="height: 30px; width: 30px; padding: 0; display: flex; align-items: center; justify-content: center; color: #ef4444; background: rgba(239, 68, 68, 0.1);" title="Limpar Destaque" onclick="window.limparBuscaOperador()">✖</button>
     </div>
     
     <div class="button-group" style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
@@ -31,8 +24,8 @@
 </div>
 
 <div class="system-note">
-    <span class="note-icon">💡</span>
-    <p>O ciclo é calculado em 4x2 com as Equipes A, B e C. Se houver falha, acesse <b>Alocação Geral</b> para configurar equipe e máquina. O grid exibe a <b>Frota da Máquina</b> ou a tag <b>LÍDER</b> nos dias de trabalho.</p>
+    <span class="note-icon">✅</span>
+    <p>O ciclo é de 4 dias trabalhados e 2 de folga. O <b>Folguista</b> trabalha nos exatos 2 dias de folga do <b>Fixo</b>. É só garantir que ambos tenham a mesma <b>Data Âncora</b> no cadastro.</p>
 </div>
 
 <div id="campoGridEscala" class="escala-viz-container" style="padding: 15px;">
@@ -41,7 +34,7 @@
 
 <div id="modalImpressaoCampo" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;">
     <div class="modal-content" style="background: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #334155; width: 400px;">
-        <h3 style="color: #fff; margin-top: 0; border-bottom: 1px solid #334155; padding-bottom: 10px;">Imprimir Escala Diária (Campo)</h3>
+        <h3 style="color: #fff; margin-top: 0; border-bottom: 1px solid #334155; padding-bottom: 10px;">Imprimir Escala Diária</h3>
         <div style="margin-bottom: 15px;">
             <label style="color: #94a3b8; font-size: 0.85rem; display: block; margin-bottom: 5px;">Selecione a Data:</label>
             <input type="date" id="printDataCampo" style="width: 100%; padding: 8px; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 4px;">
