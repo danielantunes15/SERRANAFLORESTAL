@@ -1,0 +1,63 @@
+<div class="action-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 15px; background-color: rgba(30, 41, 59, 0.5); border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <div class="filter-group" style="display: flex; align-items: center; gap: 10px; white-space: nowrap;">
+        <label style="font-size: 0.85rem; color: #f8fafc; font-weight: bold; text-transform: uppercase;"><i class="fas fa-tractor"></i> Conjuntos de Máquinas (Ativos)</label>
+    </div>
+    
+    <div class="button-group">
+        <button class="btn-primary-blue" style="padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.abrirModalNovaMaquinaCampo()">➕ Cadastrar Conjunto</button>
+    </div>
+</div>
+
+<div style="padding: 15px;">
+    <div style="background: rgba(15, 23, 42, 0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+        <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem;">
+            <thead>
+                <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
+                    <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05);">ID Conjunto</th>
+                    <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left;">Máquina 1 (Principal)</th>
+                    <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); text-align: left;">Máquina 2 (Secundária / Opcional)</th>
+                    <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05);">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="maquinasCampoList">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modalMaquinaCampo" class="modal-overlay">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3>🚜 Cadastro de Conjunto Máquina</h3>
+            <button class="close-modal" onclick="window.fecharModalMaquinaCampo()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="formMaquinaId">
+            
+            <h4 style="color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 5px; margin-bottom: 15px; margin-top: 0;">Máquina 1 (Obrigatória)</h4>
+            <div class="form-group-dark">
+                <label>Modelo do Equipamento 1</label>
+                <input type="text" id="formMaquinaModelo1" placeholder="Ex: John Deere CH570">
+            </div>
+            <div class="form-group-dark">
+                <label>Número da Frota 1</label>
+                <input type="text" id="formMaquinaFrota1" placeholder="Ex: 01">
+            </div>
+
+            <h4 style="color: #a855f7; border-bottom: 1px solid #334155; padding-bottom: 5px; margin-bottom: 15px; margin-top: 20px;">Máquina 2 (Opcional)</h4>
+            <div class="form-group-dark">
+                <label>Modelo do Equipamento 2</label>
+                <input type="text" id="formMaquinaModelo2" placeholder="Deixe em branco se for apenas 1 máquina">
+            </div>
+            <div class="form-group-dark">
+                <label>Número da Frota 2</label>
+                <input type="text" id="formMaquinaFrota2" placeholder="Ex: 02">
+            </div>
+
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.fecharModalMaquinaCampo()">Cancelar</button>
+            <button class="btn-primary-green" onclick="window.salvarMaquinaCampo()">💾 Salvar Conjunto</button>
+        </div>
+    </div>
+</div>

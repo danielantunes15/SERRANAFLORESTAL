@@ -1,0 +1,84 @@
+<div class="action-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 15px; background-color: rgba(30, 41, 59, 0.5); border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <div class="filter-group" style="display: flex; align-items: center; gap: 10px; white-space: nowrap;">
+        <label style="font-size: 0.8rem; color: #9ca3af; font-weight: 600; text-transform: uppercase;">Filtrar Operação:</label>
+        <select id="filtroFuncaoEquipe" class="dark-select" style="height: 30px; font-size: 0.85rem;" onchange="window.renderizarEquipeCampo()">
+            <option value="Todos">Todos os Cargos</option>
+            <option value="Líder de Campo">Líderes de Campo</option>
+            <option value="Operador de Máquina">Operadores de Máquina</option>
+        </select>
+    </div>
+    
+    <div class="button-group">
+        <button class="btn-primary-blue" style="padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.abrirModalNovoMembroCampo()">➕ Adicionar Integrante</button>
+    </div>
+</div>
+
+<div style="padding: 15px;">
+    <div style="background: rgba(15, 23, 42, 0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+        <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem;">
+            <thead>
+                <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
+                    <th style="padding: 12px 15px; text-align: left;">Nome Completo</th>
+                    <th style="padding: 12px 8px;">Função / Cargo</th>
+                    <th style="padding: 12px 8px;">Equipa / Regime</th>
+                    <th style="padding: 12px 8px;">Equipamento Vinculado</th>
+                    <th style="padding: 12px 8px;">Data Âncora (Ciclo)</th>
+                    <th style="padding: 12px 8px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="equipeCampoList">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modalMembroCampo" class="modal-overlay">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3>👥 Gestão de Integrante do Campo</h3>
+            <button class="close-modal" onclick="window.fecharModalMembroCampo()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="formMembroId">
+            <div class="form-group-dark">
+                <label>Nome Completo</label>
+                <input type="text" id="formMembroNome" placeholder="Nome do colaborador">
+            </div>
+            <div class="form-group-dark">
+                <label>Função / Cargo</label>
+                <select id="formMembroFuncao" class="dark-select">
+                    <option value="Operador de Máquina">Operador de Máquina</option>
+                    <option value="Líder de Campo">Líder de Campo</option>
+                </select>
+            </div>
+            <div class="form-group-dark">
+                <label>Regime de Escala / Frente</label>
+                <select id="formMembroEquipe" class="dark-select">
+                    <option value="Fixo Frente A">Fixo Frente A</option>
+                    <option value="Fixo Frente B">Fixo Frente B</option>
+                    <option value="Folguista">Folguista (Alterna frentes)</option>
+                </select>
+            </div>
+            <div class="form-group-dark">
+                <label>Máquina Vinculada</label>
+                <select id="formMembroMaquina" class="dark-select">
+                    </select>
+            </div>
+            <div class="form-group-dark">
+                <label>Turno Padrão</label>
+                <select id="formMembroTurno" class="dark-select">
+                    <option value="06:00 - 18:00">06:00 - 18:00 (Diurno)</option>
+                    <option value="18:00 - 06:00">18:00 - 06:00 (Noturno)</option>
+                </select>
+            </div>
+            <div class="form-group-dark">
+                <label>Data de Início do Ciclo 4x2</label>
+                <input type="date" id="formMembroDataAncora" class="dark-select">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.fecharModalMembroCampo()">Cancelar</button>
+            <button class="btn-primary-green" onclick="window.salvarMembroCampo()">💾 Salvar Integrante</button>
+        </div>
+    </div>
+</div>

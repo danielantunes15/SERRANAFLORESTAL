@@ -9,6 +9,12 @@ window.MAPA_MENUS = [
     { id: 'caminhoes', label: 'Conjuntos & Caminhões', setor: 'Logística', icon: 'fas fa-truck' },
     { id: 'documentos_frota', label: 'Documentos da Frota', setor: 'Logística', icon: 'fas fa-file-pdf' },
     
+    // --- NOVO MÓDULO: CAMPO ---
+    { id: 'campo_escala', label: 'Escala Semanal', setor: 'Campo', icon: 'fas fa-calendar-alt' },
+    { id: 'campo_troca_turno', label: 'Troca de Turno', setor: 'Campo', icon: 'fas fa-exchange-alt' },
+    { id: 'campo_equipe', label: 'Cadastro de Equipe', setor: 'Campo', icon: 'fas fa-users' },
+    { id: 'campo_maquinas', label: 'Máquinas', setor: 'Campo', icon: 'fas fa-tractor' },
+    
     { id: 'os', label: 'Gestão de O.S.', setor: 'Manutenção', icon: 'fas fa-clipboard-list' },
     { id: 'historico_os', label: 'Histórico de O.S.', setor: 'Manutenção', icon: 'fas fa-history' },
     { id: 'painel_tv', label: 'Painel TV (Tempo Real)', setor: 'Manutenção', icon: 'fas fa-tv' },
@@ -66,6 +72,13 @@ const ROTAS = {
     'caminhoes': 'modules/manutencao/caminhoes/caminhoes.html',
     'cadastro_frota': 'modules/logistica/frota_conjuntos/cadastro_frota.html',
     'documentos_frota': 'modules/logistica/documentos_frota/documentos_frota.html',
+    
+    // --- ROTAS DO MÓDULO CAMPO ---
+    'campo_escala': 'modules/campo/escala/escala.html',
+    'campo_troca_turno': 'modules/campo/troca_turno/troca_turno.html',
+    'campo_equipe': 'modules/campo/equipe/equipe.html',
+    'campo_maquinas': 'modules/campo/maquinas/maquinas.html',
+    
     'os': 'modules/manutencao/ordem_servico/os.html',
     'historico_os': 'modules/manutencao/historico_os/historico_os.html',
     'painel_tv': 'modules/manutencao/painel_tv/painel_tv.html',
@@ -197,6 +210,7 @@ window.renderizarMenu = async function() {
 window.getIconSetor = function(setor) {
     const icones = {
         'Logística': 'fas fa-truck',
+        'Campo': 'fas fa-tractor',
         'Manutenção': 'fas fa-tools',
         'Almoxarifado': 'fas fa-boxes', 
         'SSMA': 'fas fa-hard-hat',
@@ -278,6 +292,12 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
         if (pagina === 'requisicao_materiais' && typeof window.renderizarRequisicoes === 'function') window.renderizarRequisicoes();
         
+        // CHAMADAS DE RENDERIZAÇÃO DO MÓDULO CAMPO
+        if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
+        if (pagina === 'campo_troca_turno' && typeof window.renderizarTrocaTurnoCampo === 'function') window.renderizarTrocaTurnoCampo();
+        if (pagina === 'campo_equipe' && typeof window.renderizarEquipeCampo === 'function') window.renderizarEquipeCampo();
+        if (pagina === 'campo_maquinas' && typeof window.renderizarMaquinasCampo === 'function') window.renderizarMaquinasCampo();
+
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
         if (pagina === 'historico_os' && typeof window.initHistoricoOS === 'function') window.initHistoricoOS();
         
