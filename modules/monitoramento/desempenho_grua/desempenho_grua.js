@@ -1,11 +1,12 @@
 // ==========================================
-// js/desempenho_grua.js - LÓGICA DE GRUAS (APENAS PRÓPRIAS)
+// js/desempenho_grua.js - LÓGICA DE GRUAS (APENAS PRÓPRIAS + GRÁFICO)
 // ==========================================
 
 (function() {
     var dadosHistoricoCompletosGrua = []; 
     var listaQuadroGruasAtual = []; 
-    var gruasPropriasPermitidas = []; // Nova variável para armazenar as gruas próprias
+    var gruasPropriasPermitidas = []; 
+    var graficoGruasInstancia = null; // Instância do Chart.js
 
     var activeFilter = 'MES'; 
     var customDateStr = ''; 
@@ -110,11 +111,11 @@
     function atualizarUIBotoesGrua(botoes, filtroAtivo) {
         botoes.forEach(b => {
             if(b.getAttribute('data-qf') === filtroAtivo) {
-                b.classList.add('border-emerald-500/50', 'text-emerald-400', 'bg-emerald-900/30', 'active');
-                b.classList.remove('border-slate-600', 'text-slate-400', 'hover:bg-slate-700');
+                b.classList.add('bg-emerald-500/20', 'text-emerald-400', 'active', 'border-emerald-500/50');
+                b.classList.remove('bg-transparent', 'text-slate-400');
             } else {
-                b.classList.remove('border-emerald-500/50', 'text-emerald-400', 'bg-emerald-900/30', 'active');
-                b.classList.add('border-slate-600', 'text-slate-400', 'hover:bg-slate-700');
+                b.classList.remove('bg-emerald-500/20', 'text-emerald-400', 'active', 'border-emerald-500/50');
+                b.classList.add('bg-transparent', 'text-slate-400');
             }
         });
     }
@@ -185,21 +186,23 @@
     async function buscarDadosSupabaseGrua() {
         const client = getSupabaseClient();
         const tbody = document.getElementById('tbodyQuadroGruas');
+        const loadingChart = document.getElementById('chartLoading');
         
         if (!client) {
             if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-rose-500">Erro: SupabaseClient não encontrado.</td></tr>`;
+            if (loadingChart) loadingChart.style.display = 'none';
             return;
         }
 
         if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center p-12 text-slate-500"><i class="fas fa-spinner fa-spin mr-2 text-emerald-500"></i> Buscando configurações de frentes Próprias...</td></tr>`;
+        if (loadingChart) loadingChart.style.display = 'flex';
         
         try {
             // =========================================================================
-            // 1. BUSCAR CONFIGURAÇÃO DE GRUAS PRÓPRIAS PRIMEIRO
+            // 1. BUSCAR CONFIGURAÇÃO DE GRUAS PRÓPRIAS
             // =========================================================================
             let frentesQuery = client.from('config_gruas').select('*').eq('tipo_frente', 'Propria');
             
-            // Aplica filtro de filial se existir globalmente
             if (typeof window.aplicarFiltroFilial === 'function') {
                 frentesQuery = window.aplicarFiltroFilial(frentesQuery);
             } else if (typeof window.aplicarFiltroLocal === 'function') {
@@ -217,7 +220,6 @@
                     }
                 });
             }
-            // Remove duplicatas caso exista
             gruasPropriasPermitidas = [...new Set(gruasPropriasPermitidas)];
             console.log("[DESEMPENHO GRUA] Filtro Ativado - Gruas Próprias Permitidas:", gruasPropriasPermitidas);
 
@@ -261,13 +263,13 @@
                 }
             }
 
-            console.log(`[DESEMPENHO GRUA] Concluído! Viagens lidas: ${dadosHistoricoCompletosGrua.length}`);
             popularDropdownMesesGrua(dadosHistoricoCompletosGrua);
             processarEExibirDadosGrua();
             
         } catch (e) {
             console.error("[DESEMPENHO GRUA] Erro global na busca de dados:", e);
-            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-rose-500 bg-rose-900/20">Erro ao carregar dados. Verifique a conexão ou o console (F12).</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-rose-500 bg-rose-900/20">Erro ao carregar dados. Verifique a conexão (F12).</td></tr>`;
+            if (loadingChart) loadingChart.style.display = 'none';
         }
     }
 
@@ -275,7 +277,7 @@
         try {
             let dadosFiltrados = [];
 
-            // Aplica os filtros de Data/Período
+            // Aplica Filtros de Data
             if (activeFilter === 'D-1') {
                 const d = getPastDateStringGrua(1);
                 dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => convertDateFromBaseStr(x.dtFimCarregCampo) === d);
@@ -303,7 +305,7 @@
             }
 
             // =========================================================================
-            // APLICA O FILTRO DE GRUAS PRÓPRIAS E EXCLUI AS VAZIAS
+            // FILTRO DE GRUAS PRÓPRIAS E EXCLUI VAZIAS
             // =========================================================================
             dadosFiltrados = dadosFiltrados.filter(x => {
                 if (!x.grua || x.grua.trim() === '') return false;
@@ -349,7 +351,6 @@
 
             for (const grua in statsPorGrua) {
                 const st = statsPorGrua[grua];
-                
                 const minMedios = st.viagensComTempoValido > 0 ? (st.minutosCarregamentoTotais / st.viagensComTempoValido) : 0;
                 
                 somaMinutosGeral += st.minutosCarregamentoTotais;
@@ -380,9 +381,10 @@
                 cardTempoMedioGrua.innerText = formatarMinutosParaHora(tempoGeralMedio);
             }
 
-            // Ordena pelo maior número de viagens primeiro
+            // Ordena pelo maior número de viagens e preenche tabela e gráfico
             listaQuadroGruasAtual.sort((a, b) => b.viagensTotais - a.viagensTotais);
             preencherQuadroGruas(listaQuadroGruasAtual);
+            atualizarGraficoGruas(listaQuadroGruasAtual);
 
         } catch (erroInterface) {
             console.error("[DESEMPENHO GRUA] Erro Crítico ao processar:", erroInterface);
@@ -396,11 +398,10 @@
             tbody.innerHTML = '';
 
             if(lista.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center p-12 text-slate-500 bg-slate-900/30">Nenhum dado encontrado ou nenhuma <b>Grua Própria</b> cadastrada no painel de Metas.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center p-12 text-slate-500 bg-slate-900/30">Nenhum dado encontrado para as <b>Gruas Próprias</b> no período selecionado.</td></tr>`;
                 return;
             }
 
-            // Encontra o volume máximo para a barra de progresso visual
             const maxVolume = Math.max(...lista.map(r => r.volumeTotal), 0);
 
             lista.forEach(r => {
@@ -409,29 +410,28 @@
                 const widthPct = maxVolume > 0 ? (r.volumeTotal / maxVolume) * 100 : 0;
 
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-800/40 transition-colors group border-b border-slate-700/50 last:border-0";
+                tr.className = "hover:bg-slate-700/50 transition-colors group border-b border-slate-700/50 last:border-0";
                 
-                // HTML Moderno da Tabela
                 tr.innerHTML = `
-                    <td class="px-6 py-4">
+                    <td class="px-5 py-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-full bg-emerald-900/30 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner group-hover:scale-110 transition-transform">
-                                <i class="fas fa-truck-loading text-[11px]"></i>
+                            <div class="w-8 h-8 rounded-full bg-emerald-900/30 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner group-hover:scale-110 transition-transform">
+                                <i class="fas fa-truck-loading text-[10px]"></i>
                             </div>
-                            <span class="bg-slate-900 px-3 py-1.5 rounded-md border border-slate-700/80 font-mono tracking-widest text-sky-100 text-xs font-bold shadow-sm">${r.grua}</span>
+                            <span class="bg-slate-950 px-2 py-1 rounded-md border border-slate-700/80 font-mono tracking-widest text-sky-100 text-xs font-bold shadow-sm">${r.grua}</span>
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-center text-sm text-slate-300 font-mono font-medium">${r.diasOperados}</td>
-                    <td class="px-6 py-4 text-center text-sm font-black text-sky-400 drop-shadow-sm">${r.viagensTotais}</td>
-                    <td class="px-6 py-4 text-center">
-                        <div class="bg-purple-900/20 inline-flex items-center px-3 py-1 rounded-md text-purple-300 border border-purple-500/20 shadow-inner text-xs font-mono font-bold">
-                            <i class="far fa-clock mr-2 opacity-70"></i> ${tempoFormat}
+                    <td class="px-5 py-4 text-center text-sm text-slate-300 font-mono font-medium">${r.diasOperados}</td>
+                    <td class="px-5 py-4 text-center text-sm font-black text-sky-400 drop-shadow-sm">${r.viagensTotais}</td>
+                    <td class="px-5 py-4 text-center">
+                        <div class="bg-purple-900/20 inline-flex items-center px-2.5 py-1 rounded text-purple-300 border border-purple-500/20 shadow-inner text-xs font-mono font-bold">
+                            <i class="far fa-clock mr-1.5 opacity-70"></i> ${tempoFormat}
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-right">
-                        <div class="flex flex-col items-end gap-1.5">
+                    <td class="px-5 py-4 text-right">
+                        <div class="flex flex-col items-end gap-1.5 w-full">
                             <span class="text-xs font-mono font-bold text-amber-400 drop-shadow-sm">${volFormat}</span>
-                            <div class="w-32 h-1.5 bg-slate-900/80 rounded-full overflow-hidden border border-slate-700/50 shadow-inner" title="${widthPct.toFixed(1)}% do volume máximo do período">
+                            <div class="w-24 lg:w-32 h-1.5 bg-slate-900/80 rounded-full overflow-hidden border border-slate-700/50 shadow-inner" title="${widthPct.toFixed(1)}% do max">
                                 <div class="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all duration-1000 ease-out" style="width: ${widthPct}%"></div>
                             </div>
                         </div>
@@ -440,6 +440,110 @@
                 tbody.appendChild(tr);
             });
         } catch(e) { console.error("[DESEMPENHO GRUA] Erro em preencherQuadroGruas:", e); }
+    }
+
+    // ==========================================
+    // NOVA FUNÇÃO: GRÁFICO CHART.JS
+    // ==========================================
+    function atualizarGraficoGruas(lista) {
+        const loadingDiv = document.getElementById('chartLoading');
+        if (loadingDiv) loadingDiv.style.display = 'none';
+
+        if (typeof Chart === 'undefined') {
+            console.warn("[DESEMPENHO GRUA] Biblioteca Chart.js não encontrada.");
+            return;
+        }
+
+        const ctx = document.getElementById('graficoGruasProprias');
+        if (!ctx) return;
+
+        // Destrói o gráfico anterior se existir
+        if (graficoGruasInstancia) {
+            graficoGruasInstancia.destroy();
+        }
+
+        // Pega no máximo as Top 10 Gruas para o gráfico não ficar poluído
+        const topGruas = lista.slice(0, 10);
+        const labels = topGruas.map(g => g.grua);
+        const dataVolume = topGruas.map(g => g.volumeTotal.toFixed(2));
+        const dataViagens = topGruas.map(g => g.viagensTotais);
+
+        graficoGruasInstancia = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Volume (m³)',
+                        data: dataVolume,
+                        backgroundColor: 'rgba(245, 158, 11, 0.8)', // Amber-500
+                        borderColor: 'rgba(245, 158, 11, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        yAxisID: 'y',
+                        order: 2
+                    },
+                    {
+                        label: 'Nº Viagens',
+                        data: dataViagens,
+                        type: 'line',
+                        backgroundColor: 'rgba(56, 189, 248, 1)', // Sky-400
+                        borderColor: 'rgba(56, 189, 248, 1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#0f172a',
+                        pointBorderColor: 'rgba(56, 189, 248, 1)',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        tension: 0.3,
+                        yAxisID: 'y1',
+                        order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: '#cbd5e1', font: { family: 'monospace' } },
+                        position: 'top',
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#38bdf8',
+                        bodyColor: '#e2e8f0',
+                        borderColor: 'rgba(51, 65, 85, 0.8)',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(51, 65, 85, 0.3)', drawBorder: false },
+                        ticks: { color: '#94a3b8', font: { family: 'monospace', size: 10 } }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        grid: { color: 'rgba(51, 65, 85, 0.3)', drawBorder: false },
+                        ticks: { color: '#fbbf24', font: { size: 10 } }, // Amber
+                        title: { display: true, text: 'Volume (m³)', color: '#94a3b8', font: {size: 10} }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false }, 
+                        ticks: { color: '#38bdf8', font: { size: 10 }, stepSize: 1 }, // Sky
+                        title: { display: true, text: 'Qtd. Viagens', color: '#94a3b8', font: {size: 10} }
+                    }
+                }
+            }
+        });
     }
 
     function exportarParaExcelGrua() {
