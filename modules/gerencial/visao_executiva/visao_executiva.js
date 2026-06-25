@@ -1,8 +1,8 @@
 // ==================== modules/gerencial/visao_executiva/visao_executiva.js ====================
 
 // 1. CONEXÃO COM O BANCO DE DADOS EXCLUSIVO (DM / OFICINA)
-const supabaseUrlDM = 'https://ihgiyxzxdldqmrkziijl.supabase.co';
-const supabaseKeyDM = 'sb_publishable_JpMZhW5ZrFKBr7m9KXBkoQ_cpxy1k3x';
+const supabaseUrl = 'https://arjzadbtkhagfydymxda.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyanphZGJ0a2hhZ2Z5ZHlteGRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODQ3MzUsImV4cCI6MjA5Nzc2MDczNX0.B7d0-lJyYpF9aRgD4t9-ZeyE9haLxBZf4D8WwrKCny8';
 const supabaseDM = window.supabase.createClient(supabaseUrlDM, supabaseKeyDM);
 
 window.initVisaoExecutiva = function() {
