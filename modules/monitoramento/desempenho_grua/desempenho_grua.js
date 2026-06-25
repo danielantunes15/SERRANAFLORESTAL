@@ -1,12 +1,12 @@
 // ==========================================
-// js/desempenho_grua.js - LÓGICA DE GRUAS (APENAS PRÓPRIAS + GRÁFICO)
+// js/desempenho_grua.js - LÓGICA DE GRUAS (APENAS PRÓPRIAS + GRÁFICO MELHORADO)
 // ==========================================
 
 (function() {
     var dadosHistoricoCompletosGrua = []; 
     var listaQuadroGruasAtual = []; 
     var gruasPropriasPermitidas = []; 
-    var graficoGruasInstancia = null; // Instância do Chart.js
+    var graficoGruasInstancia = null; 
 
     var activeFilter = 'MES'; 
     var customDateStr = ''; 
@@ -221,7 +221,6 @@
                 });
             }
             gruasPropriasPermitidas = [...new Set(gruasPropriasPermitidas)];
-            console.log("[DESEMPENHO GRUA] Filtro Ativado - Gruas Próprias Permitidas:", gruasPropriasPermitidas);
 
             if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center p-12 text-slate-500"><i class="fas fa-spinner fa-spin mr-2 text-emerald-500"></i> Extraindo histórico operacional...</td></tr>`;
 
@@ -277,7 +276,6 @@
         try {
             let dadosFiltrados = [];
 
-            // Aplica Filtros de Data
             if (activeFilter === 'D-1') {
                 const d = getPastDateStringGrua(1);
                 dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => convertDateFromBaseStr(x.dtFimCarregCampo) === d);
@@ -304,9 +302,7 @@
                 });
             }
 
-            // =========================================================================
-            // FILTRO DE GRUAS PRÓPRIAS E EXCLUI VAZIAS
-            // =========================================================================
+            // Filtro de Gruas Próprias
             dadosFiltrados = dadosFiltrados.filter(x => {
                 if (!x.grua || x.grua.trim() === '') return false;
                 const gruaFormatada = x.grua.trim().toUpperCase();
@@ -365,7 +361,6 @@
                 });
             }
 
-            // Atualiza Cards Superiores
             const cardTotalGruas = document.getElementById('cardTotalGruas');
             if (cardTotalGruas) cardTotalGruas.innerText = totais.gruasUnicas.size;
             
@@ -381,7 +376,6 @@
                 cardTempoMedioGrua.innerText = formatarMinutosParaHora(tempoGeralMedio);
             }
 
-            // Ordena pelo maior número de viagens e preenche tabela e gráfico
             listaQuadroGruasAtual.sort((a, b) => b.viagensTotais - a.viagensTotais);
             preencherQuadroGruas(listaQuadroGruasAtual);
             atualizarGraficoGruas(listaQuadroGruasAtual);
@@ -443,7 +437,7 @@
     }
 
     // ==========================================
-    // NOVA FUNÇÃO: GRÁFICO CHART.JS
+    // GRÁFICO CHART.JS COM PLUGIN DE TEXTO INTERNO
     // ==========================================
     function atualizarGraficoGruas(lista) {
         const loadingDiv = document.getElementById('chartLoading');
@@ -457,16 +451,52 @@
         const ctx = document.getElementById('graficoGruasProprias');
         if (!ctx) return;
 
-        // Destrói o gráfico anterior se existir
         if (graficoGruasInstancia) {
             graficoGruasInstancia.destroy();
         }
 
-        // Pega no máximo as Top 10 Gruas para o gráfico não ficar poluído
         const topGruas = lista.slice(0, 10);
         const labels = topGruas.map(g => g.grua);
         const dataVolume = topGruas.map(g => g.volumeTotal.toFixed(2));
         const dataViagens = topGruas.map(g => g.viagensTotais);
+
+        // PLUGIN CUSTOMIZADO: Escreve o texto em PRETO dentro das barras amarelas
+        const desenharValoresNasBarras = {
+            id: 'desenharValoresNasBarras',
+            afterDatasetsDraw(chart, args, options) {
+                const { ctx } = chart;
+                chart.data.datasets.forEach((dataset, i) => {
+                    // Executa apenas para o dataset de índice 0 (Volume / Barras)
+                    if (i !== 0) return; 
+                    
+                    const meta = chart.getDatasetMeta(i);
+                    if (!meta.hidden) {
+                        meta.data.forEach((element, index) => {
+                            const valor = dataset.data[index];
+                            if (!valor || valor == 0) return;
+
+                            ctx.fillStyle = '#000000'; // Cor do texto (Preto)
+                            ctx.font = 'bold 13px Arial'; // Fonte maior e em negrito
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            
+                            const position = element.tooltipPosition();
+                            
+                            // Calcula onde o texto vai ficar (um pouco abaixo do topo da barra)
+                            let yPos = position.y + 14; 
+                            
+                            // Se a barra for muito baixinha, desenha o texto acima dela para não cortar
+                            if (element.base - position.y < 25) {
+                                yPos = position.y - 12; 
+                                ctx.fillStyle = '#fbbf24'; // Se ficar fora da barra, pinta de amarelo pra dar contraste com o fundo escuro
+                            }
+
+                            ctx.fillText(valor, position.x, yPos);
+                        });
+                    }
+                });
+            }
+        };
 
         graficoGruasInstancia = new Chart(ctx, {
             type: 'bar',
@@ -476,7 +506,7 @@
                     {
                         label: 'Volume (m³)',
                         data: dataVolume,
-                        backgroundColor: 'rgba(245, 158, 11, 0.8)', // Amber-500
+                        backgroundColor: 'rgba(245, 158, 11, 0.9)', // Amber-500
                         borderColor: 'rgba(245, 158, 11, 1)',
                         borderWidth: 1,
                         borderRadius: 4,
@@ -500,6 +530,7 @@
                     }
                 ]
             },
+            plugins: [desenharValoresNasBarras], // Chamando o plugin criado
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -509,7 +540,7 @@
                 },
                 plugins: {
                     legend: {
-                        labels: { color: '#cbd5e1', font: { family: 'monospace' } },
+                        labels: { color: '#cbd5e1', font: { family: 'monospace', size: 12 } },
                         position: 'top',
                     },
                     tooltip: {
@@ -523,23 +554,24 @@
                 scales: {
                     x: {
                         grid: { color: 'rgba(51, 65, 85, 0.3)', drawBorder: false },
-                        ticks: { color: '#94a3b8', font: { family: 'monospace', size: 10 } }
+                        // MELHORIA AQUI: Nomes em branco, negrito e fonte 13
+                        ticks: { color: '#ffffff', font: { family: 'monospace', size: 13, weight: 'bold' } }
                     },
                     y: {
                         type: 'linear',
                         display: true,
                         position: 'left',
                         grid: { color: 'rgba(51, 65, 85, 0.3)', drawBorder: false },
-                        ticks: { color: '#fbbf24', font: { size: 10 } }, // Amber
-                        title: { display: true, text: 'Volume (m³)', color: '#94a3b8', font: {size: 10} }
+                        ticks: { color: '#fbbf24', font: { size: 11, weight: 'bold' } }, 
+                        title: { display: true, text: 'Volume (m³)', color: '#94a3b8', font: {size: 11} }
                     },
                     y1: {
                         type: 'linear',
                         display: true,
                         position: 'right',
                         grid: { drawOnChartArea: false }, 
-                        ticks: { color: '#38bdf8', font: { size: 10 }, stepSize: 1 }, // Sky
-                        title: { display: true, text: 'Qtd. Viagens', color: '#94a3b8', font: {size: 10} }
+                        ticks: { color: '#38bdf8', font: { size: 11, weight: 'bold' }, stepSize: 1 }, 
+                        title: { display: true, text: 'Qtd. Viagens', color: '#94a3b8', font: {size: 11} }
                     }
                 }
             }
