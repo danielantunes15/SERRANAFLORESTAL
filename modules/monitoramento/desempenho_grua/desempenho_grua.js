@@ -1,10 +1,11 @@
 // ==========================================
-// js/desempenho_grua.js - LÓGICA DE GRUAS
+// js/desempenho_grua.js - LÓGICA DE GRUAS (APENAS PRÓPRIAS)
 // ==========================================
 
 (function() {
     var dadosHistoricoCompletosGrua = []; 
     var listaQuadroGruasAtual = []; 
+    var gruasPropriasPermitidas = []; // Nova variável para armazenar as gruas próprias
 
     var activeFilter = 'MES'; 
     var customDateStr = ''; 
@@ -23,7 +24,6 @@
     };
 
     function convertDateFromBaseStr(dateStr) {
-        // Assume que a string vem no formato '2026-06-25' ou parecida do banco, ou '25/06/2026'
         if(!dateStr) return '';
         if(dateStr.includes('-')) {
             const parts = dateStr.split('-');
@@ -32,7 +32,6 @@
         return dateStr;
     }
 
-    // Calcula diferença entre hora inicio e fim (hh:mm) e retorna em minutos
     function calcularMinutosEntreHoras(hrInicio, hrFim) {
         if (!hrInicio || !hrFim) return 0;
         try {
@@ -42,9 +41,7 @@
             let min1 = h1 * 60 + m1;
             let min2 = h2 * 60 + m2;
             
-            // Se cruzou o dia
             if (min2 < min1) min2 += 24 * 60;
-            
             return min2 - min1;
         } catch(e) {
             return 0;
@@ -113,11 +110,11 @@
     function atualizarUIBotoesGrua(botoes, filtroAtivo) {
         botoes.forEach(b => {
             if(b.getAttribute('data-qf') === filtroAtivo) {
-                b.classList.add('border-sky-500/50', 'text-sky-400', 'bg-sky-900/30', 'active');
-                b.classList.remove('border-transparent', 'text-slate-400', 'hover:bg-slate-700/50');
+                b.classList.add('border-emerald-500/50', 'text-emerald-400', 'bg-emerald-900/30', 'active');
+                b.classList.remove('border-slate-600', 'text-slate-400', 'hover:bg-slate-700');
             } else {
-                b.classList.remove('border-sky-500/50', 'text-sky-400', 'bg-sky-900/30', 'active');
-                b.classList.add('border-transparent', 'text-slate-400', 'hover:bg-slate-700/50');
+                b.classList.remove('border-emerald-500/50', 'text-emerald-400', 'bg-emerald-900/30', 'active');
+                b.classList.add('border-slate-600', 'text-slate-400', 'hover:bg-slate-700');
             }
         });
     }
@@ -194,9 +191,41 @@
             return;
         }
 
-        if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da Serrana...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center p-12 text-slate-500"><i class="fas fa-spinner fa-spin mr-2 text-emerald-500"></i> Buscando configurações de frentes Próprias...</td></tr>`;
         
         try {
+            // =========================================================================
+            // 1. BUSCAR CONFIGURAÇÃO DE GRUAS PRÓPRIAS PRIMEIRO
+            // =========================================================================
+            let frentesQuery = client.from('config_gruas').select('*').eq('tipo_frente', 'Propria');
+            
+            // Aplica filtro de filial se existir globalmente
+            if (typeof window.aplicarFiltroFilial === 'function') {
+                frentesQuery = window.aplicarFiltroFilial(frentesQuery);
+            } else if (typeof window.aplicarFiltroLocal === 'function') {
+                frentesQuery = window.aplicarFiltroLocal(frentesQuery);
+            }
+
+            const { data: frentes } = await frentesQuery;
+
+            gruasPropriasPermitidas = [];
+            if (frentes) {
+                frentes.forEach(f => {
+                    if (f.codigos) {
+                        const cods = f.codigos.split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+                        gruasPropriasPermitidas.push(...cods);
+                    }
+                });
+            }
+            // Remove duplicatas caso exista
+            gruasPropriasPermitidas = [...new Set(gruasPropriasPermitidas)];
+            console.log("[DESEMPENHO GRUA] Filtro Ativado - Gruas Próprias Permitidas:", gruasPropriasPermitidas);
+
+            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center p-12 text-slate-500"><i class="fas fa-spinner fa-spin mr-2 text-emerald-500"></i> Extraindo histórico operacional...</td></tr>`;
+
+            // =========================================================================
+            // 2. BUSCAR DADOS DO HISTÓRICO
+            // =========================================================================
             dadosHistoricoCompletosGrua = [];
             let from = 0;
             const step = 1000;
@@ -209,7 +238,9 @@
                     .ilike('transportadora', '%SERRANALOG%')
                     .range(from, from + step - 1);
                     
-                if (typeof window.aplicarFiltroLocal === 'function') {
+                if (typeof window.aplicarFiltroFilial === 'function') {
+                    query = window.aplicarFiltroFilial(query);
+                } else if (typeof window.aplicarFiltroLocal === 'function') {
                     query = window.aplicarFiltroLocal(query);
                 }
 
@@ -236,7 +267,7 @@
             
         } catch (e) {
             console.error("[DESEMPENHO GRUA] Erro global na busca de dados:", e);
-            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-rose-500">Erro ao carregar dados (F12).</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-rose-500 bg-rose-900/20">Erro ao carregar dados. Verifique a conexão ou o console (F12).</td></tr>`;
         }
     }
 
@@ -244,6 +275,7 @@
         try {
             let dadosFiltrados = [];
 
+            // Aplica os filtros de Data/Período
             if (activeFilter === 'D-1') {
                 const d = getPastDateStringGrua(1);
                 dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => convertDateFromBaseStr(x.dtFimCarregCampo) === d);
@@ -270,8 +302,14 @@
                 });
             }
 
-            // Exige que o campo grua esteja preenchido
-            dadosFiltrados = dadosFiltrados.filter(x => x.grua && x.grua.trim() !== '');
+            // =========================================================================
+            // APLICA O FILTRO DE GRUAS PRÓPRIAS E EXCLUI AS VAZIAS
+            // =========================================================================
+            dadosFiltrados = dadosFiltrados.filter(x => {
+                if (!x.grua || x.grua.trim() === '') return false;
+                const gruaFormatada = x.grua.trim().toUpperCase();
+                return gruasPropriasPermitidas.includes(gruaFormatada);
+            });
 
             const statsPorGrua = {};
             let totais = { viagens: 0, volume: 0, gruasUnicas: new Set() };
@@ -334,7 +372,7 @@
             if (cardTotalViagensGrua) cardTotalViagensGrua.innerText = totais.viagens;
             
             const cardVolumeTotalGrua = document.getElementById('cardVolumeTotalGrua');
-            if (cardVolumeTotalGrua) cardVolumeTotalGrua.innerText = totais.volume.toLocaleString('pt-PT', {maximumFractionDigits:1});
+            if (cardVolumeTotalGrua) cardVolumeTotalGrua.innerText = totais.volume.toLocaleString('pt-BR', {maximumFractionDigits:1});
             
             const cardTempoMedioGrua = document.getElementById('cardTempoMedioGrua');
             if (cardTempoMedioGrua) {
@@ -342,6 +380,7 @@
                 cardTempoMedioGrua.innerText = formatarMinutosParaHora(tempoGeralMedio);
             }
 
+            // Ordena pelo maior número de viagens primeiro
             listaQuadroGruasAtual.sort((a, b) => b.viagensTotais - a.viagensTotais);
             preencherQuadroGruas(listaQuadroGruasAtual);
 
@@ -357,22 +396,46 @@
             tbody.innerHTML = '';
 
             if(lista.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-slate-500">Nenhum dado encontrado para o período e critérios.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center p-12 text-slate-500 bg-slate-900/30">Nenhum dado encontrado ou nenhuma <b>Grua Própria</b> cadastrada no painel de Metas.</td></tr>`;
                 return;
             }
 
+            // Encontra o volume máximo para a barra de progresso visual
+            const maxVolume = Math.max(...lista.map(r => r.volumeTotal), 0);
+
             lista.forEach(r => {
-                const volFormat = r.volumeTotal.toLocaleString('pt-PT', {maximumFractionDigits:2});
+                const volFormat = r.volumeTotal.toLocaleString('pt-BR', {maximumFractionDigits:2});
                 const tempoFormat = formatarMinutosParaHora(r.tempoMedioMinutos);
+                const widthPct = maxVolume > 0 ? (r.volumeTotal / maxVolume) * 100 : 0;
 
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-700/30 transition-colors group";
+                tr.className = "hover:bg-slate-800/40 transition-colors group border-b border-slate-700/50 last:border-0";
+                
+                // HTML Moderno da Tabela
                 tr.innerHTML = `
-                    <td class="px-6 py-3 text-sm font-bold text-white"><span class="bg-slate-900 px-2 py-1 rounded border border-slate-700 font-mono tracking-widest">${r.grua}</span></td>
-                    <td class="px-6 py-3 text-center text-sm text-slate-300 font-mono">${r.diasOperados}</td>
-                    <td class="px-6 py-3 text-center text-sm font-black text-emerald-400">${r.viagensTotais}</td>
-                    <td class="px-6 py-3 text-center text-sm font-mono text-purple-400">${tempoFormat}</td>
-                    <td class="px-6 py-3 text-right text-sm font-mono text-slate-400">${volFormat}</td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-emerald-900/30 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner group-hover:scale-110 transition-transform">
+                                <i class="fas fa-truck-loading text-[11px]"></i>
+                            </div>
+                            <span class="bg-slate-900 px-3 py-1.5 rounded-md border border-slate-700/80 font-mono tracking-widest text-sky-100 text-xs font-bold shadow-sm">${r.grua}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-center text-sm text-slate-300 font-mono font-medium">${r.diasOperados}</td>
+                    <td class="px-6 py-4 text-center text-sm font-black text-sky-400 drop-shadow-sm">${r.viagensTotais}</td>
+                    <td class="px-6 py-4 text-center">
+                        <div class="bg-purple-900/20 inline-flex items-center px-3 py-1 rounded-md text-purple-300 border border-purple-500/20 shadow-inner text-xs font-mono font-bold">
+                            <i class="far fa-clock mr-2 opacity-70"></i> ${tempoFormat}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex flex-col items-end gap-1.5">
+                            <span class="text-xs font-mono font-bold text-amber-400 drop-shadow-sm">${volFormat}</span>
+                            <div class="w-32 h-1.5 bg-slate-900/80 rounded-full overflow-hidden border border-slate-700/50 shadow-inner" title="${widthPct.toFixed(1)}% do volume máximo do período">
+                                <div class="h-full bg-gradient-to-r from-amber-600 to-amber-400 rounded-full transition-all duration-1000 ease-out" style="width: ${widthPct}%"></div>
+                            </div>
+                        </div>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -389,7 +452,7 @@
         const nomeMes = filterMes && filterMes.options[filterMes.selectedIndex] ? filterMes.options[filterMes.selectedIndex].text : 'Periodo';
 
         const dadosExcel = listaQuadroGruasAtual.map(r => ({
-            "Grua": r.grua,
+            "Grua Própria": r.grua,
             "Dias Operados": r.diasOperados,
             "Total de Viagens": r.viagensTotais,
             "Tempo Médio Carregamento": formatarMinutosParaHora(r.tempoMedioMinutos),
@@ -400,9 +463,9 @@
             const ws = XLSX.utils.json_to_sheet(dadosExcel);
             const wb = XLSX.utils.book_new();
 
-            XLSX.utils.book_append_sheet(wb, ws, "Desempenho Gruas");
+            XLSX.utils.book_append_sheet(wb, ws, "Gruas_Proprias");
 
-            const fileName = `Desempenho_Gruas_SerranaLog_${nomeMes.replace('/', '_')}.xlsx`;
+            const fileName = `Desempenho_Gruas_Proprias_${nomeMes.replace('/', '_')}.xlsx`;
             XLSX.writeFile(wb, fileName);
         } else {
             alert("A biblioteca Excel não carregou. Tente novamente em instantes.");
