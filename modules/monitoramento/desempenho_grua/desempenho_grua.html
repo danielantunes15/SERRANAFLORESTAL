@@ -1,0 +1,84 @@
+<div class="p-6 h-full flex flex-col gap-6 bg-slate-900 min-h-screen">
+    <div class="flex flex-col lg:flex-row justify-between items-center bg-slate-800 p-4 rounded-lg shadow-lg border border-slate-700">
+        <div class="mb-4 lg:mb-0">
+            <h2 class="text-2xl font-black text-white flex items-center gap-3">
+                <i class="fas fa-truck-loading text-sky-500"></i> Desempenho de Gruas
+            </h2>
+            <p class="text-slate-400 text-sm mt-1">Monitoramento de viagens e produção por grua</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <button class="btn-qf border border-slate-600 text-slate-400 px-4 py-2 rounded-lg font-bold hover:bg-slate-700/50 transition-all text-sm" data-qf="D-1">D-1</button>
+            <button class="btn-qf border border-slate-600 text-slate-400 px-4 py-2 rounded-lg font-bold hover:bg-slate-700/50 transition-all text-sm" data-qf="D-2">D-2</button>
+            <button class="btn-qf border border-slate-600 text-slate-400 px-4 py-2 rounded-lg font-bold hover:bg-slate-700/50 transition-all text-sm" data-qf="D-7">D-7</button>
+            <div class="h-8 w-px bg-slate-700 mx-1"></div>
+            <input type="date" id="filterDataGrua" class="bg-slate-900 border border-slate-600 text-white px-3 py-2 rounded-lg text-sm focus:border-sky-500 outline-none">
+            <select id="filterMesGrua" class="bg-slate-900 border border-slate-600 text-white px-3 py-2 rounded-lg text-sm font-bold focus:border-sky-500 outline-none min-w-[150px]">
+                <option value="">Carregando meses...</option>
+            </select>
+            <button id="btnExportarExcelGrua" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 text-sm shadow-lg shadow-emerald-900/20">
+                <i class="fas fa-file-excel"></i> Exportar
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 shadow flex items-center justify-between">
+            <div>
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Gruas Ativas</p>
+                <h3 class="text-3xl font-black text-white" id="cardTotalGruas">0</h3>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-sky-900/30 flex items-center justify-center text-sky-400 text-xl border border-sky-500/20">
+                <i class="fas fa-truck-loading"></i>
+            </div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 shadow flex items-center justify-between">
+            <div>
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Total de Viagens</p>
+                <h3 class="text-3xl font-black text-emerald-400" id="cardTotalViagensGrua">0</h3>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-emerald-900/30 flex items-center justify-center text-emerald-400 text-xl border border-emerald-500/20">
+                <i class="fas fa-route"></i>
+            </div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 shadow flex items-center justify-between">
+            <div>
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Volume Total (m³)</p>
+                <h3 class="text-3xl font-black text-amber-400" id="cardVolumeTotalGrua">0,0</h3>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-amber-900/30 flex items-center justify-center text-amber-400 text-xl border border-amber-500/20">
+                <i class="fas fa-cube"></i>
+            </div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700 shadow flex items-center justify-between">
+            <div>
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Tempo Médio (Carreg.)</p>
+                <h3 class="text-3xl font-black text-purple-400" id="cardTempoMedioGrua">00:00</h3>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-purple-900/30 flex items-center justify-center text-purple-400 text-xl border border-purple-500/20">
+                <i class="fas fa-clock"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-slate-800 rounded-lg shadow-xl border border-slate-700 overflow-hidden flex-1 flex flex-col">
+        <div class="p-4 bg-slate-800/50 border-b border-slate-700 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-white"><i class="fas fa-table text-sky-400 mr-2"></i> Quadro Geral - Desempenho por Grua</h3>
+        </div>
+        <div class="overflow-x-auto flex-1 p-0">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-900/80 text-slate-300 border-b border-slate-700">
+                        <th class="px-6 py-4 text-xs uppercase font-black tracking-wider w-1/3">Grua</th>
+                        <th class="px-6 py-4 text-xs uppercase font-black tracking-wider text-center">Dias Operados</th>
+                        <th class="px-6 py-4 text-xs uppercase font-black tracking-wider text-center">Total Viagens</th>
+                        <th class="px-6 py-4 text-xs uppercase font-black tracking-wider text-center">Tempo Médio</th>
+                        <th class="px-6 py-4 text-xs uppercase font-black tracking-wider text-right">Volume Total (m³)</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyQuadroGruas" class="divide-y divide-slate-700/50">
+                    <tr><td colspan="5" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Carregando dados...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

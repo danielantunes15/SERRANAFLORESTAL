@@ -43,6 +43,7 @@ window.MAPA_MENUS = [
     { id: 'visao_geral', label: 'Visão Geral (Analítico)', setor: 'Monitoramento', icon: 'fas fa-chart-pie' },
     { id: 'operacional', label: 'Metas Operacionais', setor: 'Monitoramento', icon: 'fas fa-chart-line' },
     { id: 'desempenho_frota', label: 'Desempenho da Frota', setor: 'Monitoramento', icon: 'fas fa-truck-fast' },
+    { id: 'desempenho_grua', label: 'Desempenho de Gruas', setor: 'Monitoramento', icon: 'fas fa-truck-loading' },
     { id: 'jornadas', label: 'Monitoramento de Jornadas', setor: 'Monitoramento', icon: 'fas fa-user-clock' },
     { id: 'historico_producao', label: 'Histórico de Produção', setor: 'Monitoramento', icon: 'fas fa-database' },
     { id: 'historico_jornadas', label: 'Histórico de Jornadas', setor: 'Monitoramento', icon: 'fas fa-history' },
@@ -102,6 +103,7 @@ const ROTAS = {
     'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
     'operacional': 'modules/monitoramento/operacional/operacional.html',
     'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
+    'desempenho_grua': 'modules/monitoramento/desempenho_grua/desempenho_grua.html',
     'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', 
     'evolucao_fazendas': 'modules/gerencial/evolucao_fazendas/evolucao_fazendas.html',
     'visao_executiva': 'modules/gerencial/visao_executiva/visao_executiva.html', 
@@ -335,6 +337,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'visao_geral' && typeof window.carregarDadosDashboardAnalitico === 'function') window.carregarDadosDashboardAnalitico();
         if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
         if (pagina === 'desempenho_frota' && typeof window.initDesempenhoFrota === 'function') window.initDesempenhoFrota();
+        if (pagina === 'desempenho_grua' && typeof window.initDesempenhoGrua === 'function') window.initDesempenhoGrua();
         if (pagina === 'producao_frota' && typeof window.initProducaoFrota === 'function') window.initProducaoFrota();
         if (pagina === 'evolucao_fazendas' && typeof window.initEvolucaoFazendas === 'function') window.initEvolucaoFazendas();
         if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
