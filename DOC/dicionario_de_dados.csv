@@ -1,0 +1,544 @@
+Tabela,Coluna,Tipo de Dado,Tamanho Max,Aceita Nulo (Vazio)?,Valor Padrão
+almoxarifado,id,bigint,null,NO,null
+almoxarifado,created_at,timestamp with time zone,null,YES,now()
+almoxarifado,nome_produto,text,null,NO,null
+almoxarifado,categoria,text,null,YES,null
+almoxarifado,unidade_medida,text,null,YES,null
+almoxarifado,quantidade_estoque,numeric,null,YES,0
+almoxarifado,estoque_minimo,numeric,null,YES,0
+almoxarifado,valor_unitario,numeric,null,YES,0
+almoxarifado,filial_id,bigint,null,YES,1
+almoxarifado_compras,id,bigint,null,NO,null
+almoxarifado_compras,filial_id,integer,null,YES,null
+almoxarifado_compras,usuario_id,integer,null,YES,null
+almoxarifado_compras,material_nome,character varying,255,NO,null
+almoxarifado_compras,marca_sugerida,character varying,100,YES,null
+almoxarifado_compras,quantidade,numeric,null,NO,null
+almoxarifado_compras,justificativa,text,null,YES,null
+almoxarifado_compras,status,character varying,50,YES,'Pendente'::character varying
+almoxarifado_compras,data_solicitacao,timestamp with time zone,null,YES,now()
+almoxarifado_materiais,id,bigint,null,NO,null
+almoxarifado_materiais,filial_id,integer,null,YES,null
+almoxarifado_materiais,codigo,character varying,50,YES,null
+almoxarifado_materiais,nome,character varying,255,NO,null
+almoxarifado_materiais,marca,character varying,100,YES,null
+almoxarifado_materiais,unidade_medida,character varying,20,YES,'UN'::character varying
+almoxarifado_materiais,quantidade_estoque,numeric,null,YES,0
+almoxarifado_materiais,estoque_minimo,numeric,null,YES,0
+almoxarifado_materiais,status,character varying,50,YES,'Ativo'::character varying
+almoxarifado_movimentacoes,id,bigint,null,NO,null
+almoxarifado_movimentacoes,peca_id,bigint,null,YES,null
+almoxarifado_movimentacoes,tipo,text,null,NO,null
+almoxarifado_movimentacoes,quantidade,numeric,null,NO,null
+almoxarifado_movimentacoes,valor_unitario,numeric,null,NO,null
+almoxarifado_movimentacoes,nota_fiscal,text,null,YES,null
+almoxarifado_movimentacoes,fornecedor,text,null,YES,null
+almoxarifado_movimentacoes,cavalo,text,null,YES,null
+almoxarifado_movimentacoes,os_id,text,null,YES,null
+almoxarifado_movimentacoes,data_movimentacao,timestamp with time zone,null,YES,now()
+almoxarifado_movimentacoes,usuario_registro,text,null,YES,null
+almoxarifado_movimentacoes,filial_id,bigint,null,YES,null
+almoxarifado_movimentacoes,usuario,text,null,YES,null
+almoxarifado_movimentacoes,setor_destino,text,null,YES,null
+almoxarifado_pecas,id,bigint,null,NO,null
+almoxarifado_pecas,codigo,text,null,YES,null
+almoxarifado_pecas,nome,text,null,NO,null
+almoxarifado_pecas,quantidade,numeric,null,YES,0
+almoxarifado_pecas,estoque_minimo,numeric,null,YES,0
+almoxarifado_pecas,preco_medio,numeric,null,YES,0
+almoxarifado_pecas,created_at,timestamp with time zone,null,YES,now()
+almoxarifado_pecas,unidade,text,null,YES,'UN'::text
+almoxarifado_pecas,localizacao,character varying,100,YES,null
+almoxarifado_pecas,filial_id,bigint,null,YES,1
+almoxarifado_pneus,id,bigint,null,NO,null
+almoxarifado_pneus,num_fogo,character varying,50,NO,null
+almoxarifado_pneus,marca,character varying,50,YES,null
+almoxarifado_pneus,medida,character varying,50,YES,null
+almoxarifado_pneus,status,character varying,30,YES,'Estoque'::character varying
+almoxarifado_pneus,vida,integer,null,YES,0
+almoxarifado_pneus,cavalo_atual,character varying,20,YES,null
+almoxarifado_pneus,eixo,character varying,20,YES,null
+almoxarifado_pneus,posicao,character varying,20,YES,null
+almoxarifado_pneus,km_instalacao,integer,null,YES,0
+almoxarifado_pneus,custo_atual,numeric,null,YES,0
+almoxarifado_pneus,created_at,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+almoxarifado_pneus,filial_id,bigint,null,YES,1
+almoxarifado_pneus_mov,id,bigint,null,NO,null
+almoxarifado_pneus_mov,pneu_id,bigint,null,YES,null
+almoxarifado_pneus_mov,tipo,character varying,50,YES,null
+almoxarifado_pneus_mov,cavalo,character varying,20,YES,null
+almoxarifado_pneus_mov,km_frota,integer,null,YES,null
+almoxarifado_pneus_mov,data_mov,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+almoxarifado_pneus_mov,observacao,text,null,YES,null
+almoxarifado_pneus_mov,filial_id,bigint,null,YES,1
+almoxarifado_requisicoes,id,bigint,null,NO,null
+almoxarifado_requisicoes,filial_id,integer,null,YES,null
+almoxarifado_requisicoes,usuario_id,integer,null,YES,null
+almoxarifado_requisicoes,centro_custo_id,integer,null,YES,null
+almoxarifado_requisicoes,itens,text,null,NO,null
+almoxarifado_requisicoes,justificativa,text,null,YES,null
+almoxarifado_requisicoes,status,character varying,50,YES,'Pendente'::character varying
+almoxarifado_requisicoes,data_solicitacao,timestamp with time zone,null,YES,now()
+almoxarifado_requisicoes,data_atendimento,timestamp with time zone,null,YES,null
+almoxarifado_requisicoes,atendido_por,integer,null,YES,null
+almoxarifado_requisicoes,observacao_almoxarifado,text,null,YES,null
+atividades_processos,id,integer,null,NO,nextval('atividades_processos_id_seq'::regclass)
+atividades_processos,filial_id,character varying,50,NO,null
+atividades_processos,objeto_custo_id,integer,null,NO,null
+atividades_processos,codigo,character varying,50,NO,null
+atividades_processos,nome,character varying,255,NO,null
+atividades_processos,descricao,text,null,YES,null
+atividades_processos,status,character varying,20,YES,'Ativo'::character varying
+atividades_processos,criado_em,timestamp with time zone,null,YES,CURRENT_TIMESTAMP
+cargos,id,integer,null,NO,nextval('cargos_id_seq'::regclass)
+cargos,filial_id,integer,null,YES,null
+cargos,centro_custo_id,integer,null,YES,null
+cargos,nome,character varying,100,NO,null
+cargos,descricao,text,null,YES,null
+cargos,status,character varying,20,YES,'Ativo'::character varying
+cargos,criado_em,timestamp with time zone,null,YES,now()
+cargos,nivel_hierarquico,character varying,255,YES,99
+cargos,reporta_a_cargo_id,integer,null,YES,null
+cargos,nivel_acesso,character varying,255,YES,null
+cargos,setor_id,bigint,null,YES,null
+cargos,cargo_superior_id,bigint,null,YES,null
+centro_custo,id,integer,null,NO,nextval('centro_custo_id_seq'::regclass)
+centro_custo,filial_id,bigint,null,YES,null
+centro_custo,codigo,character varying,50,NO,null
+centro_custo,nome,character varying,255,NO,null
+centro_custo,descricao,text,null,YES,null
+centro_custo,status,character varying,20,YES,'Ativo'::character varying
+centro_custo,criado_em,timestamp with time zone,null,YES,CURRENT_TIMESTAMP
+config_gruas,id,bigint,null,NO,null
+config_gruas,frente,text,null,YES,null
+config_gruas,codigos,text,null,YES,null
+config_gruas,filial_id,text,null,YES,null
+config_gruas,tipo_frente,text,null,YES,'Outros'::text
+config_gruas,ordem,character varying,10,YES,'C1'::character varying
+conjuntos,id,bigint,null,NO,null
+conjuntos,caminhoes,jsonb,null,YES,'[]'::jsonb
+conjuntos,filial_id,bigint,null,YES,1
+controladores_trafego,id,uuid,null,NO,gen_random_uuid()
+controladores_trafego,nome,text,null,NO,null
+controladores_trafego,status,text,null,YES,'Ativo'::text
+controladores_trafego,filial_id,bigint,null,YES,null
+controladores_trafego,created_at,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+controle_jornada,id,bigint,null,NO,null
+controle_jornada,motorista_id,bigint,null,NO,null
+controle_jornada,motorista_nome,character varying,255,NO,null
+controle_jornada,placa_caminhao,character varying,20,YES,null
+controle_jornada,data_escala,date,null,NO,null
+controle_jornada,hora_inicio,timestamp with time zone,null,NO,null
+controle_jornada,hora_fim,timestamp with time zone,null,NO,null
+controle_jornada,total_horas,numeric,null,NO,null
+controle_jornada,tempo_formatado,character varying,50,NO,null
+controle_jornada,excedeu_limite,boolean,null,YES,false
+controle_jornada,registrado_em,timestamp with time zone,null,YES,now()
+controle_jornada,filial_id,bigint,null,YES,1
+dashboard_ocorrencias,id,uuid,null,NO,gen_random_uuid()
+dashboard_ocorrencias,tipo,character varying,100,NO,null
+dashboard_ocorrencias,descricao,text,null,NO,null
+dashboard_ocorrencias,status,character varying,50,YES,'Pendente'::character varying
+dashboard_ocorrencias,data_registro,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+dashboard_ocorrencias,filial_id,bigint,null,YES,1
+dashboard_status,id,uuid,null,NO,gen_random_uuid()
+dashboard_status,controlador,character varying,255,YES,null
+dashboard_status,turno,character varying,50,YES,null
+dashboard_status,data_atualizacao,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+dashboard_status,filial_id,bigint,null,YES,1
+dashboard_status,turno_atual,text,null,YES,'DIA'::text
+dashboard_status,turno_tipo,text,null,YES,'DIA'::text
+dm_operacional,id,bigint,null,NO,null
+dm_operacional,data_registro,date,null,NO,null
+dm_operacional,carros_rodaram,integer,null,NO,null
+dm_operacional,total_frota,integer,null,NO,null
+dm_operacional,criado_em,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+dm_operacional,filial_id,bigint,null,YES,1
+documentos_frota,id,bigint,null,NO,null
+documentos_frota,identificador,text,null,NO,null
+documentos_frota,tipo_documento,text,null,NO,null
+documentos_frota,url_arquivo,text,null,YES,null
+documentos_frota,nome_arquivo,text,null,YES,null
+documentos_frota,created_at,timestamp with time zone,null,YES,now()
+documentos_frota,filial_id,bigint,null,YES,1
+documentos_frota,arquivo_path,text,null,YES,null
+documentos_frota,arquivo_url,text,null,YES,null
+equipe_campo,id,integer,null,NO,nextval('equipe_campo_id_seq'::regclass)
+equipe_campo,nome,character varying,255,NO,null
+equipe_campo,funcao,character varying,100,YES,null
+equipe_campo,maquina_id,integer,null,YES,null
+equipe_campo,equipe,character varying,50,YES,null
+equipe_campo,turno,character varying,100,YES,'06:00 - 18:00'::character varying
+equipe_campo,data_ancora,date,null,YES,null
+equipe_campo,masterdrive,character varying,10,YES,'Sim'::character varying
+equipe_campo,destra,character varying,10,YES,'Sim'::character varying
+equipe_campo,created_at,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+equipe_campo,maquina_especifica,text,null,YES,null
+escala_campo,id,character varying,255,NO,null
+escala_campo,operador_id,integer,null,YES,null
+escala_campo,data,date,null,NO,null
+escala_campo,turno,character varying,100,YES,null
+escala_campo,frente,character varying,100,YES,null
+escala_campo,status,character varying,50,YES,'manual'::character varying
+escala_campo,created_at,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+escalas,id,text,null,NO,null
+escalas,motorista_id,bigint,null,YES,null
+escalas,data,date,null,YES,null
+escalas,turno,text,null,YES,null
+escalas,caminhao,text,null,YES,null
+escalas,status,text,null,YES,null
+escalas,filial_id,bigint,null,YES,1
+faturamento_diario,data_faturamento,date,null,NO,null
+faturamento_diario,valor,numeric,null,NO,null
+faturamento_diario,created_at,timestamp with time zone,null,YES,CURRENT_TIMESTAMP
+faturamento_diario,filial_id,bigint,null,YES,null
+filiais,id,bigint,null,NO,null
+filiais,nome,text,null,NO,null
+filiais,cnpj,text,null,YES,null
+filiais,cidade,text,null,YES,null
+filiais,status,text,null,YES,'Ativa'::text
+filiais,created_at,timestamp with time zone,null,YES,now()
+frentes_trabalho,id,uuid,null,NO,gen_random_uuid()
+frentes_trabalho,nome,character varying,255,NO,null
+frentes_trabalho,descricao,text,null,YES,null
+frentes_trabalho,status,character varying,50,YES,'Ativa'::character varying
+frentes_trabalho,criado_em,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+frentes_trabalho,filial_id,bigint,null,YES,1
+frotas_manutencao,id,bigint,null,NO,null
+frotas_manutencao,cavalo,character varying,20,NO,null
+frotas_manutencao,carreta1,character varying,20,YES,null
+frotas_manutencao,carreta2,character varying,20,YES,null
+frotas_manutencao,carreta3,character varying,20,YES,null
+frotas_manutencao,created_at,timestamp with time zone,null,NO,"timezone('utc'::text, now())"
+frotas_manutencao,go,character varying,50,YES,null
+frotas_manutencao,frota,character varying,10,YES,null
+frotas_manutencao,cor,character varying,50,YES,null
+frotas_manutencao,status,character varying,20,YES,'Ativo'::character varying
+frotas_manutencao,data_inicial,date,null,YES,'2026-04-01'::date
+frotas_manutencao,filial_id,bigint,null,YES,1
+frotas_manutencao,meta,integer,null,YES,null
+frotas_manutencao,categoria,text,null,YES,null
+frotas_manutencao,descricao,text,null,YES,null
+frotas_manutencao,numero_frota,text,null,YES,null
+frotas_pequenas,id,uuid,null,NO,uuid_generate_v4()
+frotas_pequenas,placa,text,null,NO,null
+frotas_pequenas,marca_modelo,text,null,YES,null
+frotas_pequenas,cor,text,null,YES,null
+frotas_pequenas,created_at,timestamp with time zone,null,YES,now()
+frotas_pequenas,filial_id,bigint,null,YES,1
+historico_eventos,id,bigint,null,NO,null
+historico_eventos,motorista,text,null,YES,null
+historico_eventos,filial_id,text,null,YES,null
+historico_eventos,created_at,timestamp with time zone,null,YES,now()
+historico_importacoes,id,bigint,null,NO,null
+historico_importacoes,dataBase,text,null,YES,null
+historico_importacoes,qtdViagens,integer,null,YES,null
+historico_importacoes,dataLancamento,text,null,YES,null
+historico_importacoes,filial_id,text,null,YES,null
+historico_jornadas,id,integer,null,NO,nextval('historico_jornadas_id_seq'::regclass)
+historico_jornadas,motorista,text,null,YES,null
+historico_jornadas,cpf,text,null,YES,null
+historico_jornadas,placa,text,null,YES,null
+historico_jornadas,inicio,text,null,YES,null
+historico_jornadas,fim,text,null,YES,null
+historico_jornadas,total_trabalho_horas,double precision,null,YES,null
+historico_jornadas,refeicao_horas,double precision,null,YES,null
+historico_jornadas,repouso_horas,double precision,null,YES,null
+historico_jornadas,direcao_horas,double precision,null,YES,null
+historico_jornadas,estourou_jornada,boolean,null,YES,null
+historico_jornadas,data_lancamento,timestamp without time zone,null,YES,now()
+historico_jornadas,horas_noturnas,double precision,null,YES,0
+historico_jornadas,horas_extras,double precision,null,YES,0
+historico_jornadas,auditado,boolean,null,YES,false
+historico_jornadas,observacao_auditoria,text,null,YES,null
+historico_jornadas,expurgado,boolean,null,YES,false
+historico_jornadas,eps,text,null,YES,'SERRANALOG - BA'::text
+historico_jornadas,unidade,text,null,YES,'BA'::text
+historico_jornadas,semana,text,null,YES,null
+historico_jornadas,filial_id,integer,null,YES,null
+historico_viagens,id,bigint,null,NO,null
+historico_viagens,movimento,text,null,NO,null
+historico_viagens,dataLancamento,text,null,YES,null
+historico_viagens,dataDaBaseExcel,text,null,YES,null
+historico_viagens,transportadora,text,null,YES,null
+historico_viagens,placa,text,null,YES,null
+historico_viagens,pesoLiquido,numeric,null,YES,null
+historico_viagens,volumeReal,numeric,null,YES,null
+historico_viagens,distanciaAsfalto,numeric,null,YES,null
+historico_viagens,distanciaTerra,numeric,null,YES,null
+historico_viagens,cicloHoras,numeric,null,YES,null
+historico_viagens,filaCampoHoras,numeric,null,YES,null
+historico_viagens,tempoCarregamentoHoras,numeric,null,YES,null
+historico_viagens,filaFabricaHoras,numeric,null,YES,null
+historico_viagens,grua,text,null,YES,null
+historico_viagens,frente,text,null,YES,null
+historico_viagens,created_at,timestamp with time zone,null,NO,"timezone('utc'::text, now())"
+historico_viagens,dtSaidaFabrica,text,null,YES,null
+historico_viagens,hrSaidaFabrica,text,null,YES,null
+historico_viagens,dtFimDescarFabrica,text,null,YES,null
+historico_viagens,hrFimDescarFabrica,text,null,YES,null
+historico_viagens,dtInicioCarregCampo,text,null,YES,null
+historico_viagens,hrInicioCarregCampo,text,null,YES,null
+historico_viagens,dtFimCarregCampo,text,null,YES,null
+historico_viagens,hrFimCarregCampo,text,null,YES,null
+historico_viagens,dtChegadaCampo,text,null,YES,null
+historico_viagens,hrChegadaCampo,text,null,YES,null
+historico_viagens,dtEntradaFabrica,text,null,YES,null
+historico_viagens,hrEntradaFabrica,text,null,YES,null
+historico_viagens,cicloCampoHoras,numeric,null,YES,null
+historico_viagens,dtSaidaCampo,text,null,YES,null
+historico_viagens,hrSaidaCampo,text,null,YES,null
+historico_viagens,dtInicioDescarFabrica,text,null,YES,null
+historico_viagens,hrInicioDescarFabrica,text,null,YES,null
+historico_viagens,filial_id,bigint,null,YES,null
+historico_viagens,rpv,numeric,null,YES,null
+historico_viagens,peso_na_entrada,numeric,null,YES,null
+historico_viagens,up,text,null,YES,null
+instrutores,id,bigint,null,NO,null
+instrutores,nome,text,null,NO,null
+instrutores,filial_id,bigint,null,YES,1
+jornadas,id,bigint,null,NO,null
+jornadas,motorista,text,null,YES,null
+jornadas,placa,text,null,YES,null
+jornadas,data_jornada,date,null,YES,null
+jornadas,inicio,timestamp with time zone,null,YES,null
+jornadas,fim,timestamp with time zone,null,YES,null
+jornadas,status,text,null,YES,null
+jornadas,created_at,timestamp with time zone,null,YES,now()
+locais_troca,id,uuid,null,NO,gen_random_uuid()
+locais_troca,nome,character varying,255,NO,null
+locais_troca,created_at,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+locais_troca,latitude,numeric,null,YES,null
+locais_troca,longitude,numeric,null,YES,null
+locais_troca,filial_id,bigint,null,YES,1
+logs_exclusao,id,bigint,null,NO,null
+logs_exclusao,usuario,text,null,YES,null
+logs_exclusao,acao,text,null,YES,null
+logs_exclusao,detalhes,text,null,YES,null
+logs_exclusao,data_hora,timestamp with time zone,null,YES,now()
+logs_exclusao,filial_id,bigint,null,YES,1
+logs_exclusao,severidade,text,null,YES,'Info'::text
+logs_exclusao,dados_anteriores,jsonb,null,YES,null
+logs_exclusao,dados_novos,jsonb,null,YES,null
+logs_exclusao,ip_address,text,null,YES,null
+logs_exclusao,registro_id,text,null,YES,null
+logs_exclusao,tabela_afetada,text,null,YES,null
+maquinas_campo,id,integer,null,NO,nextval('maquinas_campo_id_seq'::regclass)
+maquinas_campo,nome,character varying,255,NO,null
+maquinas_campo,tipo,character varying,100,YES,null
+maquinas_campo,status,character varying,50,YES,'Ativo'::character varying
+maquinas_campo,created_at,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+maquinas_campo,modelo,character varying,255,YES,null
+maquinas_campo,numero_frota,character varying,100,YES,null
+maquinas_campo,modelo_1,character varying,255,YES,null
+maquinas_campo,numero_frota_1,character varying,100,YES,null
+maquinas_campo,modelo_2,character varying,255,YES,null
+maquinas_campo,numero_frota_2,character varying,100,YES,null
+maquinas_campo,modelo_3,text,null,YES,null
+maquinas_campo,numero_frota_3,text,null,YES,null
+mecanicos,id,bigint,null,NO,null
+mecanicos,nome,character varying,100,NO,null
+mecanicos,especialidade,character varying,100,YES,null
+mecanicos,status,character varying,20,YES,'Ativo'::character varying
+mecanicos,created_at,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+mecanicos,filial_id,bigint,null,YES,1
+metas,id,bigint,null,NO,null
+metas,identificador,text,null,NO,null
+metas,valor,numeric,null,YES,null
+metas,created_at,timestamp with time zone,null,YES,now()
+metas_globais,id,integer,null,NO,null
+metas_globais,tamanho_frota,integer,null,YES,null
+metas_globais,v_prog,numeric,null,YES,null
+metas_globais,vol_prog,numeric,null,YES,null
+metas_globais,cx_prog,numeric,null,YES,null
+metas_globais,pbtc_prog,numeric,null,YES,null
+metas_globais,meta_ciclo,numeric,null,YES,null
+metas_globais,meta_fila_campo,numeric,null,YES,null
+metas_globais,meta_carga,numeric,null,YES,null
+metas_globais,meta_fila_fabrica,numeric,null,YES,null
+metas_globais,filial_id,text,null,YES,null
+metas_globais,transp_propria,character varying,255,YES,'SERRANALOG'::character varying
+metas_globais,pbtc,numeric,null,YES,null
+monitoramento_fazendas,id,integer,null,NO,nextval('monitoramento_fazendas_id_seq'::regclass)
+monitoramento_fazendas,nome,character varying,255,NO,null
+monitoramento_fazendas,criado_em,timestamp with time zone,null,YES,now()
+monitoramento_ups,id,integer,null,NO,nextval('monitoramento_ups_id_seq'::regclass)
+monitoramento_ups,codigo,character varying,100,NO,null
+monitoramento_ups,fazenda_id,integer,null,YES,null
+monitoramento_ups,distancia_asfalto,numeric,null,YES,0.00
+monitoramento_ups,distancia_terra,numeric,null,YES,0.00
+monitoramento_ups,dmt_medio,numeric,null,YES,0.00
+monitoramento_ups,criado_em,timestamp with time zone,null,YES,now()
+motoristas,id,bigint,null,NO,null
+motoristas,nome,text,null,NO,null
+motoristas,masterDrive,text,null,YES,'Sim'::text
+motoristas,destra,text,null,YES,'Sim'::text
+motoristas,cidade,text,null,YES,'Itabatã - BA'::text
+motoristas,equipe,text,null,NO,null
+motoristas,turno,text,null,NO,null
+motoristas,conjuntoId,bigint,null,YES,null
+motoristas,data_ancora,text,null,YES,null
+motoristas,venc_cargas_indivisiveis,date,null,YES,null
+motoristas,venc_cnh,date,null,YES,null
+motoristas,venc_aso,date,null,YES,null
+motoristas,venc_integracao,date,null,YES,null
+motoristas,cpf,character varying,20,YES,null
+motoristas,filial_id,bigint,null,YES,1
+objetos_custo,id,integer,null,NO,nextval('objetos_custo_id_seq'::regclass)
+objetos_custo,filial_id,character varying,50,NO,null
+objetos_custo,centro_custo_id,integer,null,NO,null
+objetos_custo,codigo,character varying,50,NO,null
+objetos_custo,nome,character varying,255,NO,null
+objetos_custo,tipo,character varying,100,YES,null
+objetos_custo,descricao,text,null,YES,null
+objetos_custo,status,character varying,20,YES,'Ativo'::character varying
+objetos_custo,criado_em,timestamp with time zone,null,YES,CURRENT_TIMESTAMP
+ordens_servico,id,bigint,null,NO,null
+ordens_servico,created_at,timestamp with time zone,null,YES,now()
+ordens_servico,placa,text,null,NO,null
+ordens_servico,go,text,null,YES,null
+ordens_servico,motorista,text,null,NO,null
+ordens_servico,data_abertura,timestamp with time zone,null,YES,null
+ordens_servico,hodometro,numeric,null,YES,null
+ordens_servico,prioridade,text,null,YES,null
+ordens_servico,tipo,text,null,YES,null
+ordens_servico,problema,text,null,YES,null
+ordens_servico,observacoes,text,null,YES,null
+ordens_servico,detalhes_pneu,text,null,YES,null
+ordens_servico,previsao,timestamp with time zone,null,YES,null
+ordens_servico,status,text,null,YES,null
+ordens_servico,mecanico_responsavel,text,null,YES,null
+ordens_servico,data_conclusao,timestamp with time zone,null,YES,null
+ordens_servico,aberto_por,text,null,YES,null
+ordens_servico,data_inicio_manutencao,timestamp with time zone,null,YES,null
+ordens_servico,previsao_entrega,timestamp with time zone,null,YES,null
+ordens_servico,mecanico,text,null,YES,null
+ordens_servico,filial_id,bigint,null,YES,1
+ordens_servico,localizacao_sos,text,null,YES,null
+ordens_servico,numero_os,bigint,null,YES,null
+ordens_servico_pequena,id,uuid,null,NO,uuid_generate_v4()
+ordens_servico_pequena,numero_os,integer,null,NO,nextval('ordens_servico_pequena_numero_os_seq'::regclass)
+ordens_servico_pequena,placa,text,null,YES,null
+ordens_servico_pequena,motorista,text,null,YES,null
+ordens_servico_pequena,data_abertura,timestamp with time zone,null,YES,null
+ordens_servico_pequena,data_conclusao,timestamp with time zone,null,YES,null
+ordens_servico_pequena,hodometro,bigint,null,YES,null
+ordens_servico_pequena,prioridade,text,null,YES,null
+ordens_servico_pequena,tipo_servico,text,null,YES,null
+ordens_servico_pequena,problema_relatado,text,null,YES,null
+ordens_servico_pequena,observacoes,text,null,YES,null
+ordens_servico_pequena,status,text,null,YES,'Aberta'::text
+ordens_servico_pequena,created_at,timestamp with time zone,null,YES,now()
+ordens_servico_pequena,filial_id,bigint,null,YES,1
+os_pecas_utilizadas,id,bigint,null,NO,null
+os_pecas_utilizadas,os_id,text,null,YES,null
+os_pecas_utilizadas,peca_id,bigint,null,YES,null
+os_pecas_utilizadas,quantidade,numeric,null,NO,null
+os_pecas_utilizadas,valor_unitario,numeric,null,YES,0
+os_pecas_utilizadas,status,text,null,YES,'Pendente'::text
+os_pecas_utilizadas,created_at,timestamp with time zone,null,YES,now()
+os_pecas_utilizadas,filial_id,bigint,null,YES,1
+os_pecas_utilizadas,compartimento,text,null,YES,null
+os_pecas_utilizadas,centro_custo,text,null,YES,null
+os_servicos_executados,id,bigint,null,NO,null
+os_servicos_executados,os_id,bigint,null,YES,null
+os_servicos_executados,mecanico_id,bigint,null,YES,null
+os_servicos_executados,descricao,text,null,NO,null
+os_servicos_executados,custo_estimado,numeric,null,YES,0
+os_servicos_executados,data_execucao,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+os_servicos_executados,tempo_gasto,character varying,50,YES,'00:00'::character varying
+os_servicos_executados,compartimento,character varying,100,YES,null
+os_servicos_executados,data_servico,date,null,YES,null
+os_servicos_executados,hora_inicio,time without time zone,null,YES,null
+os_servicos_executados,hora_fim,time without time zone,null,YES,null
+os_servicos_executados,filial_id,bigint,null,YES,1
+permissoes_perfis,perfil,text,null,NO,null
+permissoes_perfis,menus,jsonb,null,YES,null
+permissoes_perfis,filial_id,bigint,null,YES,1
+permissoes_perfis,id,integer,null,NO,nextval('permissoes_perfis_id_seq'::regclass)
+recados_anotacoes,id,bigint,null,NO,null
+recados_anotacoes,titulo,text,null,NO,null
+recados_anotacoes,descricao,text,null,NO,null
+recados_anotacoes,data_agendamento,timestamp without time zone,null,NO,null
+recados_anotacoes,status,text,null,YES,'pendente'::text
+recados_anotacoes,criado_em,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+recados_anotacoes,prioridade,character varying,20,YES,'media'::character varying
+recados_anotacoes,filial_id,bigint,null,YES,1
+registro_troca_turno,id,uuid,null,NO,gen_random_uuid()
+registro_troca_turno,data_referencia,date,null,NO,null
+registro_troca_turno,placa_cavalo,character varying,255,NO,null
+registro_troca_turno,motorista_programado,character varying,255,YES,null
+registro_troca_turno,local_troca_id,uuid,null,YES,null
+registro_troca_turno,horario_real,time without time zone,null,YES,null
+registro_troca_turno,created_at,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+registro_troca_turno,turno_previsto,character varying,50,YES,null
+registro_troca_turno,observacao,text,null,YES,null
+registro_troca_turno,filial_id,bigint,null,YES,1
+rh_atestados,id,uuid,null,NO,gen_random_uuid()
+rh_atestados,filial_id,bigint,null,YES,null
+rh_atestados,colaborador_id,uuid,null,YES,null
+rh_atestados,data_inicio,date,null,NO,null
+rh_atestados,dias_afastamento,integer,null,NO,null
+rh_atestados,data_retorno,date,null,YES,null
+rh_atestados,cid,text,null,YES,null
+rh_atestados,motivo,text,null,YES,null
+rh_atestados,observacoes,text,null,YES,null
+rh_atestados,created_at,timestamp with time zone,null,YES,now()
+rh_colaboradores,id,uuid,null,NO,gen_random_uuid()
+rh_colaboradores,filial_id,bigint,null,YES,null
+rh_colaboradores,nome,text,null,NO,null
+rh_colaboradores,cpf,text,null,YES,null
+rh_colaboradores,data_nascimento,date,null,YES,null
+rh_colaboradores,funcao,text,null,YES,null
+rh_colaboradores,telefone,text,null,YES,null
+rh_colaboradores,endereco,text,null,YES,null
+rh_colaboradores,created_at,timestamp with time zone,null,YES,now()
+rh_colaboradores,rg,text,null,YES,null
+rh_colaboradores,data_admissao,date,null,YES,null
+rh_colaboradores,cnh_numero,text,null,YES,null
+rh_colaboradores,cnh_categoria,text,null,YES,null
+rh_colaboradores,cnh_vencimento,date,null,YES,null
+rh_colaboradores,aso_vencimento,date,null,YES,null
+rh_colaboradores,toxicologico_vencimento,date,null,YES,null
+rh_colaboradores,curso_mopp_vencimento,date,null,YES,null
+rh_colaboradores,curso_nr11_vencimento,date,null,YES,null
+rh_colaboradores,curso_nr31_vencimento,date,null,YES,null
+rh_colaboradores,experiencia_texto,text,null,YES,null
+rh_colaboradores,observacoes,text,null,YES,null
+rh_colaboradores,status,text,null,YES,'Ativo'::text
+rh_colaboradores,cod_funcionario,integer,null,NO,nextval('rh_colaboradores_cod_funcionario_seq'::regclass)
+rh_colaboradores,cursos_vencimentos,jsonb,null,YES,'{}'::jsonb
+rh_colaboradores,plano_saude,character varying,20,YES,'Não'::character varying
+rh_cursos,id,uuid,null,NO,gen_random_uuid()
+rh_cursos,filial_id,bigint,null,YES,null
+rh_cursos,nome,text,null,NO,null
+rh_cursos,created_at,timestamp with time zone,null,YES,now()
+rh_sorteio_excecoes,id,bigint,null,NO,null
+rh_sorteio_excecoes,colaborador_id,text,null,NO,null
+rh_sorteio_excecoes,criado_em,timestamp with time zone,null,YES,now()
+setores,id,bigint,null,NO,null
+setores,filial_id,text,null,YES,null
+setores,nome,character varying,255,NO,null
+setores,descricao,text,null,YES,null
+setores,status,character varying,50,YES,'Ativo'::character varying
+setores,created_at,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+treinamentos,id,bigint,null,NO,null
+treinamentos,dados,jsonb,null,YES,null
+treinamentos,created_at,timestamp with time zone,null,YES,now()
+treinamentos,filial_id,bigint,null,YES,1
+turnos_operacionais,id,uuid,null,NO,gen_random_uuid()
+turnos_operacionais,nome,text,null,NO,null
+turnos_operacionais,tipo,text,null,YES,'DIA'::text
+turnos_operacionais,status,text,null,YES,'Ativo'::text
+turnos_operacionais,filial_id,bigint,null,YES,null
+turnos_operacionais,created_at,timestamp with time zone,null,YES,"timezone('utc'::text, now())"
+turnos_operacionais,hora_inicio,time without time zone,null,YES,null
+turnos_operacionais,hora_fim,time without time zone,null,YES,null
+usuarios,id,integer,null,NO,nextval('usuarios_id_seq'::regclass)
+usuarios,username,text,null,NO,null
+usuarios,senha_hash,text,null,NO,null
+usuarios,role,text,null,NO,null
+usuarios,primeiro_acesso,boolean,null,YES,true
+usuarios,filial_id,bigint,null,YES,null
+usuarios,cargo_id,bigint,null,YES,null
+usuarios,centro_custo_id,bigint,null,YES,null
