@@ -56,7 +56,6 @@ window.MAPA_MENUS = [
     // --- MÓDULO GLOBAL ---
     { id: 'gestao_filiais', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
     { id: 'auditoria_logs', label: 'Auditoria de Sistema', setor: 'Global', icon: 'fas fa-shield-alt' },
-    { id: 'chamados', label: 'Chamados Suporte', setor: 'Global', icon: 'fas fa-headset' },
 
     // --- MÓDULOS DE CONFIGURAÇÕES INDEPENDENTES ---
     { id: 'gestao_usuarios', label: 'Gestão de Usuários', setor: 'Configurações', icon: 'fas fa-users' },
@@ -99,7 +98,6 @@ const ROTAS = {
     // --- ROTAS MÓDULO GLOBAL ---
     'gestao_filiais': 'modules/global/gestao_filiais.html',
     'auditoria_logs': 'modules/global/auditoria_logs.html',
-    'chamados': 'modules/global/chamados.html',
     
     'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
     'operacional': 'modules/monitoramento/operacional/operacional.html',
@@ -282,7 +280,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
         if (pagina === 'gestao_filiais' && typeof window.renderizarGestaoFiliais === 'function') window.renderizarGestaoFiliais();
         if (pagina === 'auditoria_logs' && typeof window.renderizarAuditoriaLogs === 'function') window.renderizarAuditoriaLogs(); 
-        if (pagina === 'chamados' && typeof window.carregarTelaChamados === 'function') window.carregarTelaChamados(); 
         
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
         if (pagina === 'troca_turno' && typeof window.renderizarTrocaTurno === 'function') window.renderizarTrocaTurno();
