@@ -17,8 +17,6 @@ window.carregarPainelJornadas = async function() {
     try {
         console.log("[Jornadas] Iniciando busca no banco...");
         let dadosBrutos = [];
-        let start = 0;
-        const step = 1000;
         
         const dbClient = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
         
@@ -27,25 +25,26 @@ window.carregarPainelJornadas = async function() {
             return;
         }
 
-        while (true) {
-            let queryJornadas = dbClient
-                .from('historico_jornadas')
-                .select('*')
-                .order('id', { ascending: false })
-                .range(start, start + step - 1);
+        // BLOQUEIO DE CONSUMO: Limita a busca aos últimos 30 dias de histórico
+        const trintaDiasAtras = new Date();
+        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
 
-            // Injeta o Multi-Tenancy (Saas). Se der problema com filial_id, comente a linha abaixo.
-            queryJornadas = window.aplicarFiltroLocal(queryJornadas);
+        let queryJornadas = dbClient
+            .from('historico_jornadas')
+            .select('*')
+            .gte('inicio', trintaDiasAtras.toISOString())
+            .order('id', { ascending: false })
+            .limit(2000); 
 
-            const { data, error } = await queryJornadas;
+        // Injeta o Multi-Tenancy (Saas). Se der problema com filial_id, comente a linha abaixo.
+        queryJornadas = window.aplicarFiltroLocal(queryJornadas);
 
-            if (error) throw error;
-            if (!data || data.length === 0) break;
-            
-            dadosBrutos.push(...data);
-            
-            if (data.length < step) break; // Chegou no fim do banco
-            start += step;
+        const { data, error } = await queryJornadas;
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+            dadosBrutos = data;
         }
 
         console.log("[Jornadas] Total de registros encontrados no banco:", dadosBrutos.length);

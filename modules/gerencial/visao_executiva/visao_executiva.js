@@ -50,24 +50,23 @@ window.atualizarDadosExecutivos = async function() {
         }
 
         // =========================================================
-        // 2. BUSCAR TODO O HISTÓRICO DE VIAGENS (Contornando o limite de 1000)
+        // 2. BUSCAR O HISTÓRICO DE VIAGENS (Apenas do mês filtrado)
         // =========================================================
         let todasViagens = [];
-        let fromViagens = 0;
-        let fetchViagens = true;
-        
-        while (fetchViagens) {
+        if (mesFiltro) {
+            const anoMes = mesFiltro.split('-'); 
+            const ultimoDia = new Date(anoMes[0], anoMes[1], 0).getDate(); 
+            const dataInicio = `${mesFiltro}-01T00:00:00`;
+            const dataFim = `${mesFiltro}-${String(ultimoDia).padStart(2,'0')}T23:59:59`;
+
             const { data: vData, error: vErr } = await window.supabaseClient
                 .from('historico_viagens')
                 .select('filial_id, volumeReal, dataDaBaseExcel, created_at')
-                .range(fromViagens, fromViagens + 999);
-            
-            if (vErr || !vData || vData.length === 0) {
-                fetchViagens = false;
-            } else {
-                todasViagens = todasViagens.concat(vData);
-                fromViagens += 1000;
-                if (vData.length < 1000) fetchViagens = false;
+                .gte('created_at', dataInicio)
+                .lte('created_at', dataFim);
+                
+            if (!vErr && vData) {
+                todasViagens = vData;
             }
         }
 
