@@ -139,9 +139,16 @@ window.renderizarUsuarios = async function() {
             const lockedByBranch = !amISuperAdmin && (u.filial_id != window.currentUser.filial_id);
             const isLocked = isCurrent || lockedByBranch;
 
-            const statusBadge = u.primeiro_acesso 
-                ? `<span style="background: rgba(251, 146, 60, 0.1); color: var(--ccol-rust-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-rust-bright);">Pendente (1º Acesso)</span>`
-                : `<span style="background: rgba(61, 220, 132, 0.1); color: var(--ccol-green-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-green-bright);">Ativo</span>`;
+            const isAtivo = u.status !== 'Inativo';
+            
+            let statusBadge = '';
+            if (!isAtivo) {
+                statusBadge = `<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid #ef4444;">Inativo</span>`;
+            } else if (u.primeiro_acesso) {
+                statusBadge = `<span style="background: rgba(251, 146, 60, 0.1); color: var(--ccol-rust-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-rust-bright);">Pendente (1º Acesso)</span>`;
+            } else {
+                statusBadge = `<span style="background: rgba(61, 220, 132, 0.1); color: var(--ccol-green-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-green-bright);">Ativo</span>`;
+            }
             
             const filialNome = u.filial_id === null ? '<span style="color:#fde047; font-weight:bold;">Corporativo / Global</span>' : (u.filiais ? u.filiais.nome : `Filial ID: ${u.filial_id}`);
             
@@ -156,9 +163,14 @@ window.renderizarUsuarios = async function() {
                     <button disabled style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); padding: 5px 10px; border-radius: 4px; cursor: not-allowed; font-size: 0.75rem; margin-right: 5px;" title="Acesso bloqueado">🔒 Restrito</button>
                 `;
             } else {
+                const btnStatus = isAtivo 
+                    ? `<button onclick="window.alternarStatusUsuario(${u.id}, 'Inativo')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Inativar Usuário">🚫 Inativar</button>`
+                    : `<button onclick="window.alternarStatusUsuario(${u.id}, 'Ativo')" style="background: rgba(61, 220, 132, 0.1); border: 1px solid #3ddc84; color: #3ddc84; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Reativar Usuário">✅ Ativar</button>`;
+
                 botoesAcao = `
                     <button onclick="window.abrirModalEdicaoUsuario(${u.id})" style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; color: #3b82f6; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-right: 5px;" title="Editar informações ou aplicar promoção">✏️ Editar</button>
                     <button onclick="window.resetarSenhaUsuario(${u.id})" style="background: rgba(255,255,255,0.05); border: 1px solid #fde047; color: #fde047; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;" title="Voltar a senha para 12345">🔄 Resetar</button>
+                    ${btnStatus}
                     <button onclick="window.excluirUsuario(${u.id})" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Excluir Permanentemente">🗑️</button>
                 `;
             }
@@ -215,7 +227,8 @@ window.adicionarUsuario = async function() {
             primeiro_acesso: true,
             filial_id: filialSelecionada,
             cargo_id: cargoId,          
-            centro_custo_id: centroCustoId ? parseInt(centroCustoId) : null 
+            centro_custo_id: centroCustoId ? parseInt(centroCustoId) : null,
+            status: 'Ativo'
         };
 
         await db.addUsuario(novoUsuarioObj);
@@ -401,5 +414,29 @@ window.salvarEdicaoUsuario = async function() {
     } catch (e) {
         console.error("Erro ao salvar edição do usuário no Supabase:", e);
         alert('❌ Ocorreu um erro ao tentar salvar as modificações no banco de dados.');
+    }
+};
+
+window.alternarStatusUsuario = async function(id, novoStatus) {
+    const u = listaUsuarios.find(user => user.id === id);
+    if (!u || !window.verificarPermissaoAcao(u)) return;
+
+    const acaoTexto = novoStatus === 'Inativo' ? 'INATIVAR' : 'ATIVAR';
+    if(confirm(`Deseja realmente ${acaoTexto} o acesso do usuário ${u.username}?`)) {
+        try {
+            await db.updateUsuarioStatus(id, novoStatus);
+            
+            // ---------- AUDITORIA: INSERINDO LOG DE STATUS ----------
+            if (typeof window.registrarLogAuditoria === 'function') {
+                window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Segurança', `O status do usuário ${u.username} foi alterado para ${novoStatus}.`);
+            }
+            // -------------------------------------------------------
+
+            alert(`✅ Status do usuário alterado para ${novoStatus} com sucesso.`); 
+            window.renderizarUsuarios();
+        } catch(e) {
+            console.error("Erro ao alterar status do usuário:", e);
+            alert("❌ Ocorreu um erro ao tentar alterar o status no banco de dados.");
+        }
     }
 };

@@ -93,6 +93,9 @@ const db = {
     async deleteUsuario(id) {
         await supabaseClient.from('usuarios').delete().eq('id', id);
     },
+    async updateUsuarioStatus(id, status) {
+        await supabaseClient.from('usuarios').update({ status: status }).eq('id', id);
+    },
 
     // --- LOGS DE SEGURANÇA E AUDITORIA ---
     async getLogs() {

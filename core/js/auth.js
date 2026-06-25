@@ -105,11 +105,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!dbUser) {
                 alert("🔒 Acesso revogado: Sua conta foi excluída ou desativada pelo administrador.");
                 if (typeof window.registrarLogAuditoria === 'function') {
-                    await window.registrarLogAuditoria('Autenticação', 'Acesso Negado', `Tentativa de login reprovada (Conta Inativa): ${window.currentUser.username}`, 'Crítico');
+                    await window.registrarLogAuditoria('Autenticação', 'Acesso Negado', `Tentativa de login reprovada (Conta Inexistente): ${window.currentUser.username}`, 'Crítico');
                 }
                 localStorage.removeItem('ccol_user_session');
                 window.location.href = 'login.html';
                 return; 
+            }
+
+            if (dbUser.status === 'Inativo') {
+                alert("🔒 Acesso revogado: Este usuário encontra-se inativo no sistema.");
+                if (typeof window.registrarLogAuditoria === 'function') {
+                    await window.registrarLogAuditoria('Autenticação', 'Acesso Negado', `Tentativa de login reprovada (Conta Inativa): ${window.currentUser.username}`, 'Crítico');
+                }
+                localStorage.removeItem('ccol_user_session');
+                window.location.href = 'login.html';
+                return;
             }
 
             window.currentUser.role = dbUser.role;
