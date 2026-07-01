@@ -101,28 +101,29 @@ window.buscarCoordenadaNoMapaSOS = function() {
 };
 
 window.tratarCamposDinamicos = function() {
-    const tipo = document.getElementById('osTipo').value;
+    const tipoSelect = document.getElementById('osTipo');
+    const tipo = tipoSelect ? tipoSelect.value : '';
     const camposPneu = document.getElementById('camposPneu');
     const camposSOS = document.getElementById('camposSOS');
 
-    if (tipo === 'Borracharia (PNEU)') {
+    if (tipo && tipo.includes('Borracharia')) {
         camposPneu.style.display = 'block';
     } else {
         camposPneu.style.display = 'none';
-        document.getElementById('osPneuPosicao').value = '';
-        document.getElementById('osPneuServico').value = '';
-        document.getElementById('osPneuMotivo').value = '';
+        if(document.getElementById('osPneuPosicao')) document.getElementById('osPneuPosicao').value = '';
+        if(document.getElementById('osPneuServico')) document.getElementById('osPneuServico').value = '';
+        if(document.getElementById('osPneuMotivo')) document.getElementById('osPneuMotivo').value = '';
     }
 
-    if (tipo.startsWith('S.O.S')) {
+    if (tipo && tipo.startsWith('S.O.S')) {
         camposSOS.style.display = 'block';
         setTimeout(() => {
             inicializarMapaSOS();
         }, 300);
     } else {
         camposSOS.style.display = 'none';
-        document.getElementById('osLocalizacaoSOS').value = '';
-        document.getElementById('osReferenciaSOS').value = '';
+        if(document.getElementById('osLocalizacaoSOS')) document.getElementById('osLocalizacaoSOS').value = '';
+        if(document.getElementById('osReferenciaSOS')) document.getElementById('osReferenciaSOS').value = '';
         if (document.getElementById('inputCoordenadasBuscaSOS')) {
             document.getElementById('inputCoordenadasBuscaSOS').value = '';
         }
@@ -233,9 +234,48 @@ window.mudarTipoReferenciaOS = function() {
     }
 };
 
+window.carregarTiposOS = async function(categoriaSelecionada) {
+    const selectTipo = document.getElementById('osTipo');
+    if (!selectTipo) return;
+    
+    selectTipo.innerHTML = '<option value="">Carregando...</option>';
+    
+    try {
+        let classificacoes = [];
+        if (typeof db !== 'undefined' && typeof db.getClassificacoesOS === 'function') {
+            classificacoes = await db.getClassificacoesOS();
+        } else {
+            console.warn("db.getClassificacoesOS não encontrado. Verifique o banco.");
+        }
+        
+        let options = '<option value="">Selecione a Classificação do Serviço...</option>';
+        
+        classificacoes.forEach(c => {
+            if (c.categoria_veiculo === 'TODAS' || c.categoria_veiculo === categoriaSelecionada) {
+                let style = '';
+                if (c.nome.toUpperCase().includes('SINISTRO')) {
+                    style = 'background-color: #7f1d1d; color: white;';
+                }
+                options += `<option value="${c.nome}" style="${style}">${c.nome}</option>`;
+            }
+        });
+        
+        selectTipo.innerHTML = options;
+        tratarCamposDinamicos(); // re-checa caso S.O.S ou Borracharia mude
+    } catch (error) {
+        console.error("Erro ao carregar tipos de O.S:", error);
+        selectTipo.innerHTML = '<option value="">Erro ao carregar opções</option>';
+    }
+};
+
 window.carregarSelectCavalosOS = async function() {
     if (typeof window.mudarTipoReferenciaOS === 'function') {
         window.mudarTipoReferenciaOS();
+    }
+    
+    const osCategoriaFrota = document.getElementById('osCategoriaFrota');
+    if (osCategoriaFrota && typeof window.carregarTiposOS === 'function') {
+        await window.carregarTiposOS(osCategoriaFrota.value);
     }
 };
 
@@ -252,7 +292,7 @@ window.salvarNovaOS = async function() {
     const observacoes = document.getElementById('osObservacoes').value.trim();
 
     if (!placa || !data_abertura || !tipo) {
-        alert("Preencha ao menos a Placa (Cavalo ou GO), Data de Abertura e Tipo de Serviço.");
+        alert("Preencha ao menos a Placa (Cavalo ou GO), Data de Abertura e a Classificação (Tipo de Serviço).");
         return;
     }
 
@@ -266,7 +306,7 @@ window.salvarNovaOS = async function() {
 
     let statusInicial = 'Aguardando Oficina';
     if (modoEntrada === 'agendada') statusInicial = 'Agendada';
-    else if (tipo === 'Sinistro') statusInicial = 'Sinistrado';
+    else if (tipo.toUpperCase().includes('SINISTRO')) statusInicial = 'Sinistrado';
 
     if (tipoRef === 'go' && !motorista) {
         motorista = 'N/A (APENAS GO)'; 
@@ -341,10 +381,10 @@ window.salvarNovaOS = async function() {
     let pneuServico = '';
     let pneuMotivo = '';
     
-    if (tipo === 'Borracharia (PNEU)') {
-        pneuPosicao = document.getElementById('osPneuPosicao').value.trim();
-        pneuServico = document.getElementById('osPneuServico').value;
-        pneuMotivo = document.getElementById('osPneuMotivo').value.trim();
+    if (tipo.includes('Borracharia')) {
+        pneuPosicao = document.getElementById('osPneuPosicao') ? document.getElementById('osPneuPosicao').value.trim() : '';
+        pneuServico = document.getElementById('osPneuServico') ? document.getElementById('osPneuServico').value : '';
+        pneuMotivo = document.getElementById('osPneuMotivo') ? document.getElementById('osPneuMotivo').value.trim() : '';
         
         const textoPneu = `[PNEU] Posição: ${pneuPosicao || 'N/I'} | Serviço: ${pneuServico || 'N/I'} | Motivo: ${pneuMotivo || 'N/I'}`;
         problemaFinal = problemaFinal ? textoPneu + "\n" + problemaFinal : textoPneu;
@@ -386,7 +426,7 @@ window.salvarNovaOS = async function() {
         
         await carregarDadosOS();
         
-        if (tipo === 'Sinistro') alternarTelaOS('sinistro');
+        if (tipo.toUpperCase().includes('SINISTRO')) alternarTelaOS('sinistro');
         else if (modoEntrada === 'agendada') alternarTelaOS('historico');
         else alternarTelaOS('lista');
         

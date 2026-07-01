@@ -449,6 +449,31 @@ const db = {
     },
     async deleteAtestado(id) {
         await supabaseClient.from('rh_atestados').delete().eq('id', id);
+    },
+
+    // --- CLASSIFICAÇÕES DE O.S. (CADASTRO BÁSICO) ---
+    async getClassificacoesOS(incluirInativos = false) {
+        try {
+            let query = supabaseClient.from('os_classificacoes').select('*').order('nome', { ascending: true });
+            if (!incluirInativos) {
+                query = query.eq('status', 'Ativo');
+            }
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return data || [];
+        } catch(e) { console.error("Erro getClassificacoesOS:", e); return []; }
+    },
+    async addClassificacaoOS(obj) {
+        const { error } = await supabaseClient.from('os_classificacoes').insert([injetarFilial(obj)]);
+        if(error) throw error;
+    },
+    async updateClassificacaoOS(id, obj) {
+        const { error } = await supabaseClient.from('os_classificacoes').update(obj).eq('id', id);
+        if(error) throw error;
+    },
+    async deleteClassificacaoOS(id) {
+        const { error } = await supabaseClient.from('os_classificacoes').update({ status: 'Inativo' }).eq('id', id);
+        if(error) throw error;
     }
 };
 

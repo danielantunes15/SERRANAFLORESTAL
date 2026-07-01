@@ -20,6 +20,7 @@ window.MAPA_MENUS = [
     { id: 'painel_tv', label: 'Painel TV (Tempo Real)', setor: 'Manutenção', icon: 'fas fa-tv' },
     { id: 'servicos', label: 'Serviços (Mecânicos)', setor: 'Manutenção', icon: 'fas fa-toolbox' },
     { id: 'cadastro_frota', label: 'Cadastro Frota (O.S.)', setor: 'Manutenção', icon: 'fas fa-truck-moving' },
+    { id: 'cadastro_os_classificacoes', label: 'Cadastro Básico (Tipos)', setor: 'Manutenção', icon: 'fas fa-list' },
     
     // --- MÓDULO INDEPENDENTE: ALMOXARIFADO ---
     { id: 'almoxarifado', label: 'Gestão de Estoque', setor: 'Almoxarifado', icon: 'fas fa-boxes' },
@@ -82,6 +83,9 @@ const ROTAS = {
     'historico_os': 'modules/manutencao/historico_os/historico_os.html',
     'painel_tv': 'modules/manutencao/painel_tv/painel_tv.html',
     'servicos': 'modules/manutencao/servicos/servicos.html',
+    'cadastro_frota': 'modules/logistica/frota_conjuntos/cadastro_frota.html',
+    'cadastro_os_classificacoes': 'modules/manutencao/cadastros/classificacoes.html',
+    
     'treinamento': 'modules/ssma/treinamento/treinamento.html',
     'rh_painel': 'modules/rh/painel/rh_painel.html',
     'rh_colaboradores': 'modules/rh/colaboradores/colaboradores.html',
@@ -297,6 +301,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
         if (pagina === 'historico_os' && typeof window.initHistoricoOS === 'function') window.initHistoricoOS();
+        if (pagina === 'cadastro_os_classificacoes' && typeof window.renderizarCadastroClassificacoes === 'function') window.renderizarCadastroClassificacoes();
         
         if (pagina === 'painel_tv') {
             try { 

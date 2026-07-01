@@ -1,0 +1,87 @@
+window.renderizarCadastroClassificacoes = async function() {
+    const tbody = document.getElementById('tabelaClassificacoesOS');
+    if(!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>';
+    
+    try {
+        const dados = await db.getClassificacoesOS(true); 
+        
+        if (!dados || dados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Nenhuma classificação encontrada.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        dados.forEach(c => {
+            html += `
+                <tr>
+                    <td>#${c.id}</td>
+                    <td style="font-weight: bold; color: #fff;">${c.nome}</td>
+                    <td><span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">${c.categoria_veiculo}</span></td>
+                    <td><span style="color: ${c.status === 'Ativo' ? '#10b981' : '#ef4444'};">${c.status}</span></td>
+                    <td>
+                        <button class="btn-primary-blue" onclick='editarClassificacaoOS(${JSON.stringify(c)})' style="padding: 5px 10px; font-size: 0.8rem;"><i class="fas fa-edit"></i></button>
+                        <button class="btn-danger-outline" onclick="excluirClassificacaoOS(${c.id})" style="padding: 5px 10px; font-size: 0.8rem;"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    } catch (error) {
+        console.error(error);
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ef4444;">Erro ao carregar dados.</td></tr>';
+    }
+};
+
+window.abrirModalClassificacaoOS = function() {
+    document.getElementById('tituloModalClassificacaoOS').innerText = 'Novo Tipo de Serviço';
+    document.getElementById('classificacaoOSId').value = '';
+    document.getElementById('classificacaoOSNome').value = '';
+    document.getElementById('classificacaoOSCategoria').value = 'TODAS';
+    document.getElementById('modalClassificacaoOS').style.display = 'flex';
+};
+
+window.fecharModalClassificacaoOS = function() {
+    document.getElementById('modalClassificacaoOS').style.display = 'none';
+};
+
+window.editarClassificacaoOS = function(obj) {
+    document.getElementById('tituloModalClassificacaoOS').innerText = 'Editar Tipo de Serviço';
+    document.getElementById('classificacaoOSId').value = obj.id;
+    document.getElementById('classificacaoOSNome').value = obj.nome;
+    document.getElementById('classificacaoOSCategoria').value = obj.categoria_veiculo;
+    document.getElementById('modalClassificacaoOS').style.display = 'flex';
+};
+
+window.salvarClassificacaoOS = async function() {
+    const id = document.getElementById('classificacaoOSId').value;
+    const nome = document.getElementById('classificacaoOSNome').value.trim();
+    const categoria = document.getElementById('classificacaoOSCategoria').value;
+
+    if (!nome) return alert("Preencha o nome do serviço.");
+
+    try {
+        if (id) {
+            await db.updateClassificacaoOS(id, { nome, categoria_veiculo: categoria });
+        } else {
+            await db.addClassificacaoOS({ nome, categoria_veiculo: categoria, status: 'Ativo' });
+        }
+        fecharModalClassificacaoOS();
+        renderizarCadastroClassificacoes();
+        alert("Salvo com sucesso!");
+    } catch (e) {
+        alert("Erro ao salvar: " + e.message);
+    }
+};
+
+window.excluirClassificacaoOS = async function(id) {
+    if (confirm("Deseja inativar este tipo de serviço?")) {
+        try {
+            await db.deleteClassificacaoOS(id);
+            renderizarCadastroClassificacoes();
+        } catch (e) {
+            alert("Erro ao inativar.");
+        }
+    }
+};
