@@ -173,6 +173,8 @@ window.carregarMotoristasSelectOS = async function() {
 
 window.mudarTipoReferenciaOS = function() {
     const tipoRef = document.getElementById('osTipoReferencia').value;
+    const osCategoriaFrota = document.getElementById('osCategoriaFrota');
+    const categoriaSelecionada = osCategoriaFrota ? osCategoriaFrota.value.toUpperCase() : 'TRITREM';
     const selectPlaca = document.getElementById('osPlaca');
     const labelPlaca = document.getElementById('labelOsPlaca');
     const wrapperMotorista = document.getElementById('wrapperMotorista');
@@ -188,18 +190,19 @@ window.mudarTipoReferenciaOS = function() {
     }
 
     if (tipoRef === 'cavalo') {
-        labelPlaca.innerText = 'Selecione o Cavalo (Conjunto Completo)';
+        labelPlaca.innerText = 'Selecione o Veículo Principal (Cavalo / Placa Única)';
         if(wrapperMotorista) wrapperMotorista.style.display = 'block';
         if(wrapperHodometro) wrapperHodometro.style.display = 'block';
         
         frotasManutencao.forEach(f => {
-            if (f.cavalo && f.categoria === 'TRITREM') {
+            const catDb = (f.categoria || '').trim().toUpperCase();
+            if (f.cavalo && catDb === categoriaSelecionada) {
                 const texto = `${f.cavalo.trim().toUpperCase()} ${f.go ? ' - ' + f.go : ''}`;
                 selectPlaca.innerHTML += `<option value="${f.cavalo.trim().toUpperCase()}">${texto}</option>`;
             }
         });
     } else if (tipoRef === 'go') {
-        labelPlaca.innerText = 'Selecione apenas o GO (Sem Cavalo)';
+        labelPlaca.innerText = 'Selecione apenas o Implemento / GO';
         if(wrapperMotorista) wrapperMotorista.style.display = 'none';
         if(wrapperHodometro) wrapperHodometro.style.display = 'none';
         
@@ -210,7 +213,8 @@ window.mudarTipoReferenciaOS = function() {
         
         const gosUnicos = [];
         frotasManutencao.forEach(f => {
-            if (f.go && f.go.trim() !== '') {
+            const catDb = (f.categoria || '').trim().toUpperCase();
+            if (f.go && f.go.trim() !== '' && catDb === categoriaSelecionada) {
                 if (!gosUnicos.find(item => item.go.trim().toUpperCase() === f.go.trim().toUpperCase())) {
                     gosUnicos.push(f);
                 }
@@ -218,7 +222,7 @@ window.mudarTipoReferenciaOS = function() {
         });
 
         if (gosUnicos.length === 0) {
-            selectPlaca.innerHTML = '<option value="">Nenhum GO cadastrado...</option>';
+            selectPlaca.innerHTML = '<option value="">Nenhum GO cadastrado nesta categoria...</option>';
         } else {
             gosUnicos.forEach(f => {
                 let carretas = [f.carreta1, f.carreta2, f.carreta3].filter(c => c && c.trim() !== '').join(' / ');

@@ -87,75 +87,123 @@
     </div>
 </div>
 
-<div id="telaNovaOS" class="content-panel form-panel-dark" style="display: none;">
-    <div class="panel-header"><h3>  Abertura de Nova O.S. / Sinistro</h3></div>
-    <div class="form-grid">
-        <div class="form-group-dark">
-            <label>O.S. para Conjunto ou apenas GO?</label>
-            <select id="osTipoReferencia" class="dark-select" onchange="mudarTipoReferenciaOS()">
-                <option value="cavalo" selected>Conjunto Completo (Cavalo + Carretas)</option>
-                <option value="go">Apenas GO (Sem Cavalo)</option>
-            </select>
+<div id="telaNovaOS" class="content-panel" style="display: none; background: var(--bg-app); border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+    
+    <!-- Cabeçalho Moderno -->
+    <div class="panel-header" style="background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%); border-bottom: 2px solid var(--ccol-green-bright); padding: 25px;">
+        <div>
+            <h3 style="color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 10px; margin: 0;">
+                <i class="fas fa-clipboard-check" style="color: var(--ccol-green-bright);"></i> Abertura de Nova O.S.
+            </h3>
+            <p style="color: var(--text-secondary); margin: 8px 0 0 0; font-size: 0.95rem;">
+                Preencha os dados abaixo para registrar uma nova Ordem de Serviço, S.O.S ou Sinistro.
+            </p>
         </div>
-        <div class="form-group-dark">
-            <label id="labelOsPlaca">Selecione o Cavalo</label>
-            <select id="osPlaca" class="dark-select"></select>
+    </div>
+    
+    <div style="padding: 25px; display: flex; flex-direction: column; gap: 25px;">
+        
+        <!-- SEÇÃO 1: IDENTIFICAÇÃO DA FROTA -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 25px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);">
+            <h4 style="color: var(--ccol-blue-bright); margin-top: 0; margin-bottom: 20px; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-truck"></i> 1. Identificação do Veículo
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                <div class="form-group-dark">
+                    <label>Categoria do Veículo</label>
+                    <select id="osCategoriaFrota" class="dark-select" onchange="mudarTipoReferenciaOS()">
+                        <option value="TRITREM" selected>Tritrem</option>
+                        <option value="PRANCHA">Prancha</option>
+                        <option value="COMBOIO">Comboio</option>
+                        <option value="GRUA">Grua</option>
+                        <option value="CARRETA">Carreta</option>
+                        <option value="FROTA LEVE">Frota Leve</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Alvo da Manutenção</label>
+                    <select id="osTipoReferencia" class="dark-select" onchange="mudarTipoReferenciaOS()">
+                        <option value="cavalo" selected>Veículo Principal (Cavalo/Placa Única)</option>
+                        <option value="go">Apenas Implemento / GO</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label id="labelOsPlaca" style="color: #fff;">Selecione a Placa</label>
+                    <select id="osPlaca" class="dark-select" style="border-color: rgba(255,255,255,0.2);"></select>
+                </div>
+                <div class="form-group-dark" id="wrapperMotorista">
+                    <label>Motorista Solicitante / Envolvido</label>
+                    <select id="osMotorista" class="dark-select"></select>
+                </div>
+                <div class="form-group-dark" id="wrapperHodometro">
+                    <label>Hodômetro (Km Atual)</label>
+                    <input type="number" id="osHodometro" placeholder="Ex: 150500" style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); border-radius: 8px; color: #fff;">
+                </div>
+            </div>
         </div>
-        <div class="form-group-dark" id="wrapperMotorista">
-            <label>Motorista Solicitante / Envolvido</label>
-            <select id="osMotorista" class="dark-select"></select>
+
+        <!-- SEÇÃO 2: CLASSIFICAÇÃO DO SERVIÇO -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 25px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);">
+            <h4 style="color: #a855f7; margin-top: 0; margin-bottom: 20px; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-tags"></i> 2. Classificação e Prioridade
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                <div class="form-group-dark">
+                    <label style="color: #fff;">Classificação do Serviço</label>
+                    <select id="osTipo" class="dark-select" onchange="tratarCamposDinamicos()" style="border-color: rgba(255,255,255,0.2);">
+                        <option value="Manutenção Corretiva - P.A Serrana">  Manutenção Corretiva - P.A Serrana</option>
+                        <option value="Manutenção Corretiva - C.M.C Suzano">  Manutenção Corretiva - C.M.C Suzano</option>
+                        <option value="Manutenção Preventiva - P.A Serrana">  Manutenção Preventiva - P.A Serrana</option>
+                        <option value="Manutenção Preventiva - C.M.C Suzano">  Manutenção Preventiva - C.M.C Suzano</option>
+                        <option value="Revisão Trimestral - P.A Serrana">  Revisão Trimestral - P.A Serrana</option>
+                        <option value="Manutenção Externa">  Manutenção Externa</option>
+                        <option value="Manutenção Externa Volvo">  Manutenção Externa Volvo</option>
+                        <option value="Elétrica">  Elétrica</option>
+                        <option value="Lubrificação / Filtros">  Lubrificação / Filtros</option>
+                        <option value="Borracharia (PNEU)">  Borracharia (PNEU)</option>
+                        <option value="S.O.S (Socorro Serrana)">  S.O.S (Socorro Serrana)</option>
+                        <option value="S.O.S (Socorro Suzano)">  S.O.S (Socorro Suzano)</option>
+                        <option value="Inspeção Eletromecânica"> Inspeção Eletromecânica</option>
+                        <option value="Maxtrack">   Telemetria Maxtrack</option>
+                        <option value="Devolução - Carretas Suzano">   Devolução - Carretas Suzano</option>
+                        <option value="Conferência e Reaperto de Fueiros">   Conferência e Reaperto de Fueiros</option>
+                        <option value="ITR ( Inspeção Técnica de Rotina )">   ITR ( Inspeção Técnica de Rotina )</option>
+                        <option value="Sinistro" style="background-color: #7f1d1d; color: white;">  Sinistro (Acidente/Avaria Grave)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Prioridade da Manutenção</label>
+                    <select id="osPrioridade" class="dark-select">
+                        <option value="Baixa">  Baixa (Pode esperar rotina)</option>
+                        <option value="Normal" selected>  Normal (Manutenção regular)</option>
+                        <option value="Alta">  Alta (Risco de quebra/falha)</option>
+                        <option value="Urgente" style="color: #ef4444;">  Urgente (Veículo quebrado / S.O.S)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Modo de Entrada no Pátio</label>
+                    <select id="osModoEntrada" class="dark-select" onchange="mudarModoEntrada()">
+                        <option value="imediata">  Entrada Imediata (TV Agora)</option>
+                        <option value="agendada">  Agendar para o Futuro (Oculto da TV)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label id="labelDataAbertura">Data e Hora da Ocorrência</label>
+                    <input type="datetime-local" id="osDataAbertura" class="dark-select">
+                </div>
+            </div>
         </div>
-        <div class="form-group-dark">
-            <label>Modo de Entrada no Pátio</label>
-            <select id="osModoEntrada" class="dark-select" onchange="mudarModoEntrada()">
-                <option value="imediata">  Entrada Imediata (Aparece na TV agora)</option>
-                <option value="agendada">  Agendar para o Futuro (Não vai para a TV)</option>
-            </select>
-        </div>
-        <div class="form-group-dark">
-            <label id="labelDataAbertura">Data e Hora da Abertura / Ocorrência</label>
-            <input type="datetime-local" id="osDataAbertura" class="dark-select">
-        </div>
-        <div class="form-group-dark" id="wrapperHodometro">
-            <label>Hodômetro (Km Atual)</label>
-            <input type="number" id="osHodometro" placeholder="Ex: 150500">
-        </div>
-        <div class="form-group-dark">
-            <label>Prioridade da Manutenção</label>
-            <select id="osPrioridade" class="dark-select">
-                <option value="Baixa">  Baixa (Pode esperar rotina)</option>
-                <option value="Normal" selected>  Normal (Manutenção regular)</option>
-                <option value="Alta">  Alta (Risco de quebra/falha)</option>
-                <option value="Urgente">  Urgente (Veículo quebrado / S.O.S / Sinistro)</option>
-            </select>
-        </div>
-        <div class="form-group-dark">
-            <label>Classificação do Serviço</label>
-            <select id="osTipo" class="dark-select" onchange="tratarCamposDinamicos()">
-                <option value="Manutenção Corretiva - P.A Serrana">  Manutenção Corretiva - P.A Serrana</option>
-                <option value="Manutenção Corretiva - C.M.C Suzano">  Manutenção Corretiva - C.M.C Suzano</option>
-                <option value="Manutenção Preventiva - P.A Serrana">  Manutenção Preventiva - P.A Serrana</option>
-                <option value="Manutenção Preventiva - C.M.C Suzano">  Manutenção Preventiva - C.M.C Suzano</option>
-                <option value="Revisão Trimestral - P.A Serrana">  Revisão Trimestral - P.A Serrana</option>
-                <option value="Manutenção Externa">  Manutenção Externa</option>
-                <option value="Manutenção Externa Volvo">  Manutenção Externa Volvo</option>
-                <option value="Elétrica">  Elétrica</option>
-                <option value="Lubrificação / Filtros">  Lubrificação / Filtros</option>
-                <option value="Borracharia (PNEU)">  Borracharia (PNEU)</option>
-                <option value="S.O.S (Socorro Serrana)">  S.O.S (Socorro Serrana)</option>
-                <option value="S.O.S (Socorro Suzano)">  S.O.S (Socorro Suzano)</option>
-                <option value="Inspeção Eletromecânica"> Inspeção Eletromecânica</option>
-                <option value="Maxtrack">   Telemetria Maxtrack</option>
-                <option value="Devolução - Carretas Suzano">   Devolução - Carretas Suzano</option>
-                <option value="Conferência e Reaperto de Fueiros">   Conferência e Reaperto de Fueiros</option>
-                <option value="ITR ( Inspeção Técnica de Rotina )">   ITR ( Inspeção Técnica de Rotina )</option>
-                <option value="Sinistro" style="background-color: #7f1d1d; color: white;">  Sinistro (Acidente/Avaria Grave)</option>
-            </select>
-        </div>
-        <div id="camposPneu" style="display: none; grid-column: 1 / -1; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px dashed var(--ccol-blue-bright); margin-top: 10px;">
-            <h4 style="color: var(--ccol-blue-bright); margin-bottom: 10px; font-size: 0.9rem;">  Detalhes Específicos de Borracharia</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                <div class="form-group-dark"><label>Eixo / Posição</label><input type="text" id="osPneuPosicao" placeholder="Ex: 2º Eixo, Lado Esq. Ext."></div>
+
+        <!-- CONDICIONAL: BORRACHARIA -->
+        <div id="camposPneu" style="display: none; background: rgba(59, 130, 246, 0.05); padding: 25px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.3); box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);">
+            <h4 style="color: #60a5fa; margin-top: 0; margin-bottom: 15px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-life-ring"></i> Detalhes Específicos de Borracharia
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                <div class="form-group-dark">
+                    <label>Eixo / Posição</label>
+                    <input type="text" id="osPneuPosicao" placeholder="Ex: 2º Eixo, Lado Esq. Ext." style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); border-radius: 8px; color: #fff;">
+                </div>
                 <div class="form-group-dark">
                     <label>Serviço Necessário</label>
                     <select id="osPneuServico" class="dark-select">
@@ -167,47 +215,68 @@
                         <option value="Descarte (Sucata)">Descarte (Sucata)</option>
                     </select>
                 </div>
-                <div class="form-group-dark"><label>Motivo</label><input type="text" id="osPneuMotivo" placeholder="Ex: Estouro, Desgaste irregular..."></div>
+                <div class="form-group-dark">
+                    <label>Motivo</label>
+                    <input type="text" id="osPneuMotivo" placeholder="Ex: Estouro, Desgaste..." style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); border-radius: 8px; color: #fff;">
+                </div>
             </div>
         </div>
-        <div class="form-group-dark" style="grid-column: 1 / -1; margin-top: 10px;">
-            <label>Problema Relatado / Descrição do Sinistro</label>
-            <input type="text" id="osProblema" placeholder="Descreva o problema detalhadamente...">
-        </div>
-        <div class="form-group-dark" style="grid-column: 1 / -1;">
-            <label>Observações Adicionais / Peças Específicas Requisitadas</label>
-            <input type="text" id="osObservacoes" placeholder="Ex: Lâmpada de freio queimada, rolamento roncando...">
-        </div>
-        
-        <div id="camposSOS" style="display: none; grid-column: 1 / -1; background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 8px; border: 1px dashed #ef4444; margin-top: 5px;">
-            <h4 style="color: #ef4444; margin-bottom: 10px; font-size: 0.9rem;"><i class="fas fa-map-marker-alt"></i> Localização do S.O.S via Satélite (Obrigatório)</h4>
-            <p style="color: #fca5a5; font-size: 0.8rem; margin-bottom: 10px;">Navegue pelo mapa e <strong>clique no local exato</strong> onde o veículo se encontra para gerar as coordenadas de socorro, ou cole as coordenadas geradas pelo rastreador no campo abaixo.</p>
+
+        <!-- CONDICIONAL: S.O.S -->
+        <div id="camposSOS" style="display: none; background: rgba(239, 68, 68, 0.05); padding: 25px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.3); box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);">
+            <h4 style="color: #ef4444; margin-top: 0; margin-bottom: 10px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-map-marker-alt"></i> Localização do S.O.S via Satélite
+            </h4>
+            <p style="color: #fca5a5; font-size: 0.85rem; margin-bottom: 20px;">Navegue pelo mapa e <strong>clique no local exato</strong> onde o veículo se encontra, ou cole as coordenadas geradas pelo rastreador no campo abaixo.</p>
             
-            <div class="form-group-dark" style="margin-bottom: 15px;">
+            <div class="form-group-dark" style="margin-bottom: 20px;">
                 <label style="color: #fca5a5;">Colar Coordenadas do Rastreador (Opcional)</label>
                 <div style="display: flex; gap: 10px;">
-                    <input type="text" id="inputCoordenadasBuscaSOS" placeholder="Ex: -17.7804821, -39.6039536" class="search-input-dark" style="flex: 1; padding-left: 10px;">
-                    <button type="button" class="btn-primary-blue" onclick="buscarCoordenadaNoMapaSOS()" style="padding: 10px 20px; border-radius: 6px; white-space: nowrap;">📍 Buscar Local</button>
+                    <input type="text" id="inputCoordenadasBuscaSOS" placeholder="Ex: -17.7804821, -39.6039536" style="flex: 1; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid #ef4444; border-radius: 8px; color: #fff;">
+                    <button type="button" class="btn-primary-blue" onclick="buscarCoordenadaNoMapaSOS()" style="padding: 0 25px; border-radius: 8px; font-weight: bold; white-space: nowrap;">
+                        <i class="fas fa-search-location"></i> Buscar Local
+                    </button>
                 </div>
             </div>
 
-            <div id="mapaSOS" style="height: 550px; width: 100%; border-radius: 8px; border: 2px solid #ef4444; margin-bottom: 15px; z-index: 1;"></div>
+            <div id="mapaSOS" style="height: 450px; width: 100%; border-radius: 12px; border: 2px solid #ef4444; margin-bottom: 20px; z-index: 1; box-shadow: 0 5px 15px rgba(239,68,68,0.2);"></div>
             
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
                 <div class="form-group-dark">
-                    <label style="color: #ef4444;">Coordenadas / Link (Gerado ao clicar no mapa ou buscar)</label>
-                    <input type="text" id="osLocalizacaoSOS" placeholder="Clique no mapa acima ou busque..." readonly style="background: rgba(0,0,0,0.3); cursor: not-allowed;">
+                    <label style="color: #ef4444;">Coordenadas / Link Google Maps</label>
+                    <input type="text" id="osLocalizacaoSOS" placeholder="Clique no mapa acima ou busque..." readonly style="width: 100%; padding: 12px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-dim); border-radius: 8px; color: #9ca3af; cursor: not-allowed;">
                 </div>
                 <div class="form-group-dark">
-                    <label>Pontos de Referência (Opcional)</label>
-                    <input type="text" id="osReferenciaSOS" placeholder="Ex: Km 45, próximo a balança, após a ponte...">
+                    <label>Pontos de Referência Específicos</label>
+                    <input type="text" id="osReferenciaSOS" placeholder="Ex: Km 45, próximo a balança..." style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); border-radius: 8px; color: #fff;">
                 </div>
             </div>
         </div>
 
-        <div class="form-actions" style="grid-column: 1 / -1; margin-top: 15px;">
-            <button class="btn-primary-green btn-full" onclick="salvarNovaOS()">  Salvar e Enviar Ordem de Serviço</button>
+        <!-- SEÇÃO 3: DIAGNÓSTICO -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 25px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);">
+            <h4 style="color: var(--ccol-green-bright); margin-top: 0; margin-bottom: 20px; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-comment-dots"></i> 3. Diagnóstico e Observações
+            </h4>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                <div class="form-group-dark">
+                    <label style="color: #fff;">Problema Relatado / Descrição do Sinistro</label>
+                    <textarea id="osProblema" rows="4" placeholder="Descreva o problema com o máximo de detalhes possível..." style="width: 100%; padding: 15px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); border-radius: 8px; color: #fff; font-family: var(--font-family); resize: vertical;"></textarea>
+                </div>
+                <div class="form-group-dark">
+                    <label>Observações Adicionais / Peças Específicas Requisitadas</label>
+                    <textarea id="osObservacoes" rows="2" placeholder="Ex: Motorista solicitou verificar também o farol..." style="width: 100%; padding: 15px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-dim); border-radius: 8px; color: #fff; font-family: var(--font-family); resize: vertical;"></textarea>
+                </div>
+            </div>
         </div>
+
+        <!-- BOTÃO DE AÇÃO PRINCIPAL -->
+        <div style="margin-top: 10px;">
+            <button class="btn-primary-green" onclick="salvarNovaOS()" style="width: 100%; padding: 20px; font-size: 1.2rem; font-weight: 900; border-radius: 12px; display: flex; justify-content: center; gap: 10px; align-items: center; box-shadow: 0 10px 20px rgba(61, 220, 132, 0.2); text-transform: uppercase; transition: all 0.3s ease;">
+                <i class="fas fa-paper-plane" style="font-size: 1.4rem;"></i> Salvar e Abrir Ordem de Serviço
+            </button>
+        </div>
+
     </div>
 </div>
 
