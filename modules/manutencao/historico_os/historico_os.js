@@ -3,6 +3,26 @@
 let currentPageHistoricoOS = 1;
 const itemsPerPageHistoricoOS = 20;
 
+// FUNÇÃO NOVA: Descobre a categoria cruzando a placa da O.S com o cadastro da frota
+window.getCategoriaDaOS = function(os) {
+    // 1. Se a categoria já vier salva no banco de dados
+    if (os.categoria) return os.categoria.trim().toUpperCase();
+    
+    // 2. Se não vier, procura na lista de frotas através da placa
+    if (os.placa && typeof window.frotasManutencao !== 'undefined') {
+        const placaBusca = os.placa.trim().toUpperCase();
+        const frota = window.frotasManutencao.find(f => 
+            (f.cavalo && f.cavalo.trim().toUpperCase() === placaBusca) || 
+            (f.go && f.go.trim().toUpperCase() === placaBusca)
+        );
+        if (frota && frota.categoria) {
+            return frota.categoria.trim().toUpperCase();
+        }
+    }
+    
+    return 'NÃO DEFINIDA';
+};
+
 window.initHistoricoOS = async function() {
     if(typeof window.carregarDadosOS === 'function') {
         await window.carregarDadosOS();
@@ -20,6 +40,7 @@ window.renderizarTabelaHistoricoOS = function(resetPage = true) {
     if (!tbody) return;
 
     const num = document.getElementById('filtroHistOSNum')?.value.toLowerCase();
+    const categoria = document.getElementById('filtroHistCategoria')?.value;
     const placa = document.getElementById('filtroHistPlaca')?.value;
     const motorista = document.getElementById('filtroHistMotorista')?.value;
     const dataInicio = document.getElementById('filtroHistDataInicio')?.value;
@@ -30,6 +51,7 @@ window.renderizarTabelaHistoricoOS = function(resetPage = true) {
     let filtradas = window.ordensServico || [];
 
     if (num) filtradas = filtradas.filter(o => (o.numero_os && o.numero_os.toString() === num) || o.id.toString() === num);
+    if (categoria) filtradas = filtradas.filter(o => window.getCategoriaDaOS(o) === categoria.toUpperCase());
     if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
     if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
     
@@ -78,10 +100,12 @@ window.renderizarTabelaHistoricoOS = function(resetPage = true) {
         const dataConclusao = os.data_conclusao ? (window.formatarDataHoraBrasil ? window.formatarDataHoraBrasil(os.data_conclusao) : os.data_conclusao) : '-';
         
         const numeroExibicao = os.numero_os || os.id;
+        const categoriaExibicao = window.getCategoriaDaOS(os);
 
         return `
             <tr>
                 <td><strong>#${numeroExibicao}</strong></td>
+                <td><span style="background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 4px; font-size: 0.85rem;">${categoriaExibicao}</span></td>
                 <td>${dataAbertura}</td>
                 <td style="${os.status === 'Concluída' ? 'color: var(--ccol-green-bright);' : ''}">${dataConclusao}</td>
                 <td style="color: var(--ccol-blue-bright); font-weight: bold;">${os.placa || '-'}</td>
@@ -131,9 +155,18 @@ function renderizarControlesPaginacaoOS(totalPages) {
 }
 
 window.carregarFiltrosSelectHistoricoOS = function() {
+    const selectCategoria = document.getElementById('filtroHistCategoria');
     const selectPlaca = document.getElementById('filtroHistPlaca');
     const selectMotorista = document.getElementById('filtroHistMotorista');
     const selectMesAno = document.getElementById('filtroHistMesAno');
+
+    if (selectCategoria && window.ordensServico) {
+        let optionsCat = '<option value="">Todas as Categorias</option>';
+        // Extrai as categorias únicas baseando-se na nova função
+        const catUnicas = [...new Set(window.ordensServico.map(os => window.getCategoriaDaOS(os)))].filter(c => c && c !== 'NÃO DEFINIDA').sort();
+        catUnicas.forEach(c => optionsCat += `<option value="${c}">${c}</option>`);
+        selectCategoria.innerHTML = optionsCat;
+    }
 
     if (selectPlaca && window.ordensServico) {
         let optionsPlaca = '<option value="">Todas as Placas</option>';
@@ -190,6 +223,7 @@ window.setFiltroMesAtualOS = function() {
 
 window.exportarHistoricoOSExcel = function() {
     const num = document.getElementById('filtroHistOSNum')?.value.toLowerCase();
+    const categoria = document.getElementById('filtroHistCategoria')?.value;
     const placa = document.getElementById('filtroHistPlaca')?.value;
     const motorista = document.getElementById('filtroHistMotorista')?.value;
     const dataInicio = document.getElementById('filtroHistDataInicio')?.value;
@@ -200,6 +234,7 @@ window.exportarHistoricoOSExcel = function() {
     let filtradas = window.ordensServico || [];
     
     if (num) filtradas = filtradas.filter(o => o.id.toString() === num);
+    if (categoria) filtradas = filtradas.filter(o => window.getCategoriaDaOS(o) === categoria.toUpperCase());
     if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
     if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
     
@@ -234,7 +269,7 @@ window.exportarHistoricoOSExcel = function() {
     }
     
     let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-    csvContent += "Nº O.S.;Placa (Cavalo);Motorista;Tipo de Serviço;Status;Prioridade;Data Abertura;Data Conclusão;Tempo Aberta (Horas/Minutos)\n";
+    csvContent += "Nº O.S.;Categoria;Placa (Cavalo);Motorista;Tipo de Serviço;Status;Prioridade;Data Abertura;Data Conclusão;Tempo Aberta (Horas/Minutos)\n";
     
     filtradas.forEach(os => {
         const inicioStr = window.formatarDataHoraBrasil ? window.formatarDataHoraBrasil(os.data_abertura) : os.data_abertura;
@@ -256,8 +291,11 @@ window.exportarHistoricoOSExcel = function() {
             }
         }
         
+        const categoriaExibicao = window.getCategoriaDaOS(os);
+        
         const linha = [
             `"${os.id}"`,
+            `"${categoriaExibicao}"`,
             `"${os.placa || '-'}"`,
             `"${os.motorista || '-'}"`,
             `"${os.tipo || '-'}"`,
@@ -307,6 +345,7 @@ window.exportarHistoricoOSPDF = async function() {
     const doc = new jsPDF('landscape');
     
     const num = document.getElementById('filtroHistOSNum')?.value.toLowerCase();
+    const categoria = document.getElementById('filtroHistCategoria')?.value;
     const placa = document.getElementById('filtroHistPlaca')?.value;
     const motorista = document.getElementById('filtroHistMotorista')?.value;
     const dataInicio = document.getElementById('filtroHistDataInicio')?.value;
@@ -317,6 +356,7 @@ window.exportarHistoricoOSPDF = async function() {
     let filtradas = window.ordensServico || [];
     
     if (num) filtradas = filtradas.filter(o => o.id.toString() === num);
+    if (categoria) filtradas = filtradas.filter(o => window.getCategoriaDaOS(o) === categoria.toUpperCase());
     if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
     if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
     
@@ -376,6 +416,7 @@ window.exportarHistoricoOSPDF = async function() {
         }
         
         const tipoDesc = os.tipo || 'Não Informado';
+        const categoriaExibicao = window.getCategoriaDaOS(os);
         
         if (!temposPorTipo[tipoDesc]) {
             temposPorTipo[tipoDesc] = { count: 0, totalMs: 0 };
@@ -385,6 +426,7 @@ window.exportarHistoricoOSPDF = async function() {
         
         linhasTabela.push([
             `#${os.id}`,
+            categoriaExibicao,
             os.placa || '-',
             tipoDesc,
             os.status || '-',
@@ -461,7 +503,7 @@ function gerarDocumentoPDF(doc, logoDataUrl, linhasResumo, linhasTabela) {
     
     doc.autoTable({
         startY: doc.lastAutoTable.finalY + 15,
-        head: [['Nº O.S.', 'Cavalo', 'Tipo de Serviço', 'Status', 'Data Abertura', 'Data Conclusão', 'Tempo Total']],
+        head: [['Nº O.S.', 'Categoria', 'Cavalo', 'Tipo de Serviço', 'Status', 'Data Abertura', 'Data Conclusão', 'Tempo Total']],
         body: linhasTabela,
         theme: 'striped',
         headStyles: { fillColor: [15, 23, 42] },
