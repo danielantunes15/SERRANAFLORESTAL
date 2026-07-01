@@ -336,10 +336,15 @@ window.renderizarCardsTV = function() {
     if (!container) return;
     if (typeof ordensServico === 'undefined' || !ordensServico) return;
 
-    let frotasValidas = [];
+    // Obtém todas as frotas ativas
+    let frotasAtivas = [];
     if (typeof frotasManutencao !== 'undefined' && Array.isArray(frotasManutencao)) {
-        frotasValidas = frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM');
+        frotasAtivas = frotasManutencao.filter(f => f.status === 'Ativo');
     }
+
+    // Separa as frotas ativas em TRITREM e GRUA para exibir nos KPIs superiores
+    const frotasValidas = frotasAtivas.filter(f => f.categoria && f.categoria.toUpperCase() === 'TRITREM');
+    const frotasGruas = frotasAtivas.filter(f => f.categoria && f.categoria.toUpperCase() === 'GRUA');
 
     const agora = new Date();
     const hojeInicio = new Date(agora); hojeInicio.setHours(0,0,0,0);
@@ -363,6 +368,7 @@ window.renderizarCardsTV = function() {
     
     const totalOsHoje = osHoje.length;
     
+    // Cálculos para Taxa de Disponibilidade (mantendo lógica focada nos Tritrens ativos)
     let tempoTotalDispMs = frotasValidas.length * 24 * 60 * 60 * 1000;
     let tempoManutencaoMs = 0;
     
@@ -391,12 +397,23 @@ window.renderizarCardsTV = function() {
     if(tempoManutencaoMs > tempoTotalDispMs) tempoManutencaoMs = tempoTotalDispMs;
     const dmDia = tempoTotalDispMs > 0 ? (((tempoTotalDispMs - tempoManutencaoMs) / tempoTotalDispMs) * 100).toFixed(1) : 100;
 
+    // Contagem de Gruas para os Novos KPIs
+    let gruasManutencao = 0;
+    let gruasDisponiveis = 0;
+    frotasGruas.forEach(frota => {
+        const osAberta = ordensServico.find(o => o.placa === frota.cavalo && o.status !== 'Concluída' && o.status !== 'Agendada');
+        if (osAberta) { gruasManutencao++; } else { gruasDisponiveis++; }
+    });
+
+    // Atualização dos valores nos KPIs superiores da TV
     if(document.getElementById('tvKpiTotal')) document.getElementById('tvKpiTotal').innerText = totalOsHoje;
     if(document.getElementById('tvKpiAbertas')) document.getElementById('tvKpiAbertas').innerText = abertasHoje;
     if(document.getElementById('tvKpiFechadas')) document.getElementById('tvKpiFechadas').innerText = fechadasHoje;
     if(document.getElementById('tvKpiDM')) document.getElementById('tvKpiDM').innerText = dmDia + '%';
     if(document.getElementById('tvKpiDisponiveis')) document.getElementById('tvKpiDisponiveis').innerText = veiculosDisponiveis;
     if(document.getElementById('tvKpiEmManutencao')) document.getElementById('tvKpiEmManutencao').innerText = veiculosManutencao;
+    if(document.getElementById('tvKpiGruasDisponiveis')) document.getElementById('tvKpiGruasDisponiveis').innerText = gruasDisponiveis;
+    if(document.getElementById('tvKpiGruasManutencao')) document.getElementById('tvKpiGruasManutencao').innerText = gruasManutencao;
     
     const osAtivas = ordensServico.filter(o => {
         if (o.tipo === 'Sinistro') return false;
@@ -409,7 +426,7 @@ window.renderizarCardsTV = function() {
             if (diffMinutos <= 3) {
                 if (!window.osLiberadasAnunciadas.has(o.id)) {
                     window.osLiberadasAnunciadas.add(o.id);
-                    let frotaVinculada = frotasValidas.find(f => 
+                    let frotaVinculada = frotasAtivas.find(f => 
                         (f.cavalo && String(f.cavalo).trim().toUpperCase() === String(o.placa).trim().toUpperCase()) || 
                         (f.go && String(f.go).trim().toUpperCase() === String(o.placa).trim().toUpperCase())
                     );
@@ -504,6 +521,9 @@ window.renderizarCardsTV = function() {
             ) || {};
         }
 
+        // Verifica se a categoria do veículo é diferente de Tritrem (ex: Grua, Prancha...)
+        const isCategoriaDiferente = frotaVinculada.categoria && String(frotaVinculada.categoria).toUpperCase() !== 'TRITREM';
+
         let conjuntosBadge = '';
 
         if (frotaVinculada.numero_frota && String(frotaVinculada.numero_frota).trim() !== '') {
@@ -531,10 +551,17 @@ window.renderizarCardsTV = function() {
              avisoPrevisao = `<div style="background: rgba(255,255,255,0.05); color: #94a3b8; padding: 4px; text-align: center; border-radius: 4px; font-size: clamp(0.8rem, 1.4vh, 0.95rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">AGUARDANDO PREVISÃO</div>`;
         }
         
-        let textoStatus = os.status === 'Em Manutenção' ? '🔧 EM OFICINA' : '🕑 AGUARDANDO ATENDIMENTO';
+        // Cores base do status
+        let textoStatus = os.status === 'Em Manutenção' ? '🔧 MANUTENÇÃO' : '🕑 AGUARDANDO ATENDIMENTO';
         let bgStatus = os.status === 'Em Manutenção' ? '#1e3a8a' : '#1e293b'; 
         let borderStatus = os.status === 'Em Manutenção' ? '#3b82f6' : '#475569'; 
         let nomeDoMecanico = os.mecanico_responsavel || os.mecanico || 'NÃO ATRIBUÍDO';
+
+        // Lógica de Cor Amarela para Veículos de outras Categorias (Gruas, etc)
+        if (os.status !== 'Concluída' && isCategoriaDiferente) {
+            bgStatus = os.status === 'Em Manutenção' ? 'rgba(234, 179, 8, 0.25)' : 'rgba(234, 179, 8, 0.1)';
+            borderStatus = os.status === 'Em Manutenção' ? '#facc15' : '#ca8a04';
+        }
 
         if (os.status === 'Concluída') {
             textoStatus = '✅ VEÍCULO LIBERADO';
