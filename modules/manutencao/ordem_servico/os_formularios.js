@@ -152,34 +152,69 @@ window.mudarModoEntrada = function() {
 
 window.carregarMotoristasSelectOS = async function() {
     const select = document.getElementById('osMotorista');
-    if (!select) return;
-    try {
-        let query = supabaseClient.from('motoristas').select('nome').order('nome', { ascending: true });
-        if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
-        const { data, error } = await query;
-            
-        if (error) throw error;
+    const osCategoriaFrota = document.getElementById('osCategoriaFrota');
+    const categoriaSelecionada = osCategoriaFrota ? osCategoriaFrota.value.trim().toUpperCase() : '';
 
-        let options = '<option value="">Selecione o motorista...</option>';
-        if (data) {
-            data.forEach(m => {
-                options += `<option value="${m.nome}">${m.nome}</option>`;
-            });
+    if (!select) return;
+    
+    // Evita recarregar a lista se o usuário continuar na mesma categoria de veículo
+    if (select.dataset.categoriaCarregada === categoriaSelecionada && select.options.length > 1) {
+        return;
+    }
+
+    select.innerHTML = '<option value="">Carregando...</option>';
+    
+    try {
+        let options = '<option value="">Selecione...</option>';
+
+        // Condicional: Se for GRUA, busca os Operadores. Se for qualquer outra, busca os Motoristas
+        if (categoriaSelecionada === 'GRUA') {
+            const { data, error } = await supabaseClient
+                .from('equipe_campo')
+                .select('nome')
+                .eq('funcao', 'Operador de Máquina')
+                .order('nome', { ascending: true });
+                
+            if (error) throw error;
+            if (data) {
+                data.forEach(m => {
+                    options += `<option value="${m.nome}">${m.nome}</option>`;
+                });
+            }
+        } else {
+            let query = supabaseClient.from('motoristas').select('nome').order('nome', { ascending: true });
+            if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+            const { data, error } = await query;
+                
+            if (error) throw error;
+            if (data) {
+                data.forEach(m => {
+                    options += `<option value="${m.nome}">${m.nome}</option>`;
+                });
+            }
         }
+
         select.innerHTML = options;
+        select.dataset.categoriaCarregada = categoriaSelecionada; // Salva o estado para evitar loop desnecessário
     } catch (error) {
-        console.error("Erro ao carregar motoristas para OS:", error);
+        console.error("Erro ao carregar motoristas/operadores para OS:", error);
+        select.innerHTML = '<option value="">Erro ao carregar</option>';
     }
 };
 
 window.mudarTipoReferenciaOS = function() {
     const tipoRef = document.getElementById('osTipoReferencia').value;
     const osCategoriaFrota = document.getElementById('osCategoriaFrota');
-    const categoriaSelecionada = osCategoriaFrota ? osCategoriaFrota.value.toUpperCase() : 'TRITREM';
+    const categoriaSelecionada = osCategoriaFrota ? osCategoriaFrota.value.trim().toUpperCase() : 'TRITREM';
     const selectPlaca = document.getElementById('osPlaca');
     const labelPlaca = document.getElementById('labelOsPlaca');
     const wrapperMotorista = document.getElementById('wrapperMotorista');
     const wrapperHodometro = document.getElementById('wrapperHodometro');
+    
+    // Garante que a lista de motoristas/operadores esteja de acordo com a Categoria
+    if (typeof window.carregarMotoristasSelectOS === 'function') {
+        window.carregarMotoristasSelectOS();
+    }
     
     if (!selectPlaca) return;
     
@@ -250,8 +285,15 @@ window.carregarTiposOS = async function(categoriaSelecionada) {
         
         let options = '<option value="">Selecione a Classificação do Serviço...</option>';
         
+        // Formata a categoria selecionada (remove espaços e deixa tudo maiúsculo)
+        const catSel = (categoriaSelecionada || '').trim().toUpperCase();
+        
         classificacoes.forEach(c => {
-            if (c.categoria_veiculo === 'TODAS' || c.categoria_veiculo === categoriaSelecionada) {
+            // Formata a categoria vinda do banco de dados (remove espaços e deixa maiúsculo)
+            const catDb = (c.categoria_veiculo || 'TODAS').trim().toUpperCase();
+            
+            // Verifica se a categoria do banco é TODAS ou se é exatamente igual à selecionada
+            if (catDb === 'TODAS' || catDb === catSel) {
                 let style = '';
                 if (c.nome.toUpperCase().includes('SINISTRO')) {
                     style = 'background-color: #7f1d1d; color: white;';
