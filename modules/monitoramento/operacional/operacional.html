@@ -1,0 +1,273 @@
+<div class="max-w-[96rem] mx-auto px-6 py-8">
+    <div class="flex justify-between items-center mb-8 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm flex-wrap gap-4">
+        <div class="flex items-center gap-4 flex-wrap">
+            <div>
+                <h1 class="text-2xl font-extrabold text-white">Indicadores Operacionais</h1>
+                <p class="text-sm text-slate-400 font-medium">Painel Executivo: Realizado vs Meta Global</p>
+            </div>
+            <div id="indicadorAtualizacao" class="hidden flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-inner transition-all duration-500">
+                <i id="iconeAtualizacao" class="fas fa-sync fa-spin"></i>
+                <span id="textoAtualizacao">Verificando...</span>
+            </div>
+        </div>
+    </div>
+
+    <section class="animate-fade-in space-y-6">
+        <div class="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                <div class="bg-emerald-500/20 p-3 rounded-full border border-emerald-500/30 hidden sm:block">
+                    <i class="far fa-calendar-check text-emerald-400 text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Mês</p>
+                    <select id="filterMesOp" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-emerald-500 shadow-inner cursor-pointer w-full sm:w-auto">
+                        <option value="ALL">Todos os Meses</option>
+                    </select>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Dia Específico</p>
+                    <input type="date" id="opDatePicker" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-emerald-500 shadow-inner cursor-pointer w-full sm:w-auto">
+                </div>
+                
+                <div class="flex items-center gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-700/50 shadow-inner mt-2 sm:mt-0">
+                    <button data-op-qf="D-1" class="btn-op-qf border border-transparent text-xs font-bold text-slate-400 hover:text-emerald-300 hover:bg-slate-700/50 px-3 py-2 rounded transition-all">D-1</button>
+                    <button data-op-qf="D-2" class="btn-op-qf border border-transparent text-xs font-bold text-slate-400 hover:text-emerald-300 hover:bg-slate-700/50 px-3 py-2 rounded transition-all">D-2</button>
+                    <div class="w-px h-5 bg-slate-700 mx-1"></div>
+                    <button data-op-qf="D-7" class="btn-op-qf border border-transparent text-xs font-bold text-slate-400 hover:text-emerald-300 hover:bg-slate-700/50 px-3 py-2 rounded transition-all flex items-center gap-1">D-7</button>
+                    <button data-op-qf="D-30" class="btn-op-qf border border-transparent text-xs font-bold text-slate-400 hover:text-emerald-300 hover:bg-slate-700/50 px-3 py-2 rounded transition-all flex items-center gap-1">D-30</button>
+                    <button data-op-qf="SEM" class="btn-op-qf border border-transparent text-xs font-bold text-slate-400 hover:text-emerald-300 hover:bg-slate-700/50 px-3 py-2 rounded transition-all flex items-center gap-1">Semana</button>
+                    <button data-op-qf="ALL" class="btn-op-qf active border border-emerald-500/50 text-emerald-400 bg-emerald-900/30 text-xs font-bold px-3 py-2 rounded transition-all flex items-center gap-1">Todos</button>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-xs text-slate-500 font-mono" id="opStatusFetch">Carregando dados...</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-slate-800/60 backdrop-blur-sm p-6 rounded-2xl border border-blue-500/30 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 text-blue-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-route"></i></div>
+                <div>
+                    <h3 class="text-blue-400 font-bold tracking-widest text-[11px] uppercase mb-4 relative z-10">Meta de Viagens</h3>
+                    <div class="flex justify-between items-end mb-6 relative z-10">
+                        <div class="w-1/2 pr-2"><label class="text-[10px] text-slate-500 uppercase font-bold">Meta do Filtro</label><p id="disp_v_prog" class="text-2xl font-black text-slate-300 mt-1">0</p></div>
+                        <div class="w-1/2 pl-2 text-right border-l border-slate-700/50"><label class="text-[10px] text-slate-500 uppercase font-bold">Realizado</label><p id="disp_v_real" class="text-3xl font-black text-white mt-1">0</p></div>
+                    </div>
+                </div>
+                <div class="relative z-10">
+                    <div class="flex justify-between text-[11px] mb-2 font-bold uppercase tracking-wider"><span class="text-slate-400">Atingimento</span><span id="disp_v_perc" class="text-blue-400 text-sm">0%</span></div>
+                    <div class="w-full bg-slate-800 rounded-full h-2.5 shadow-inner"><div id="bar_v_perc" class="bg-blue-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/60 backdrop-blur-sm p-6 rounded-2xl border border-emerald-500/30 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 text-emerald-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-cubes"></i></div>
+                <div>
+                    <h3 class="text-emerald-400 font-bold tracking-widest text-[11px] uppercase mb-4 relative z-10">Volume Realizado (m³)</h3>
+                    <div class="flex justify-between items-end mb-6 relative z-10">
+                        <div class="w-1/2 pr-2"><label class="text-[10px] text-slate-500 uppercase font-bold">Meta do Filtro</label><p id="disp_vol_prog" class="text-2xl font-black text-slate-300 mt-1">0</p></div>
+                        <div class="w-1/2 pl-2 text-right border-l border-slate-700/50"><label class="text-[10px] text-slate-500 uppercase font-bold">Realizado</label><p id="disp_vol_real" class="text-3xl font-black text-white mt-1">0</p></div>
+                    </div>
+                </div>
+                <div class="relative z-10">
+                    <div class="flex justify-between text-[11px] mb-2 font-bold uppercase tracking-wider"><span class="text-slate-400">Atingimento</span><span id="disp_vol_perc" class="text-emerald-400 text-sm">0%</span></div>
+                    <div class="w-full bg-slate-800 rounded-full h-2.5 shadow-inner"><div id="bar_vol_perc" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/60 backdrop-blur-sm p-6 rounded-2xl border border-amber-500/30 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 text-amber-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-box-open"></i></div>
+                <div>
+                    <h3 class="text-amber-400 font-bold tracking-widest text-[11px] uppercase mb-4 relative z-10">Caixa de Carga Média (m³)</h3>
+                    <div class="flex justify-between items-end mb-6 relative z-10">
+                        <div class="w-1/2 pr-2"><label class="text-[10px] text-slate-500 uppercase font-bold">Meta Base</label><p id="disp_cx_prog" class="text-2xl font-black text-slate-300 mt-1">0</p></div>
+                        <div class="w-1/2 pl-2 text-right border-l border-slate-700/50"><label class="text-[10px] text-slate-500 uppercase font-bold">Realizada</label><p id="disp_cx_real" class="text-3xl font-black text-white mt-1">0</p></div>
+                    </div>
+                </div>
+                <div class="relative z-10"><div class="flex justify-between text-[11px] mb-2 font-bold uppercase tracking-wider"><span class="text-slate-400">Desempenho</span><span id="disp_cx_perc" class="text-amber-400 text-sm">0%</span></div><div class="w-full bg-slate-800 rounded-full h-2.5 shadow-inner"><div id="bar_cx_perc" class="bg-amber-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div></div></div>
+            </div>
+
+            <div class="bg-slate-800/60 backdrop-blur-sm p-6 rounded-2xl border border-rose-500/30 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 text-rose-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-truck-moving"></i></div>
+                <div>
+                    <h3 class="text-rose-400 font-bold tracking-widest text-[11px] uppercase mb-4 relative z-10">PBTC Médio Realizado</h3>
+                    <div class="flex justify-between items-end mb-6 relative z-10">
+                        <div class="w-1/2 pr-2"><label class="text-[10px] text-slate-500 uppercase font-bold">Meta Base</label><p id="disp_pbtc_prog" class="text-2xl font-black text-slate-300 mt-1">0</p></div>
+                        <div class="w-1/2 pl-2 text-right border-l border-slate-700/50"><label class="text-[10px] text-slate-500 uppercase font-bold">Realizado</label><p id="disp_pbtc_real" class="text-3xl font-black text-white mt-1">0</p></div>
+                    </div>
+                </div>
+                <div class="relative z-10"><div class="flex justify-between text-[11px] mb-2 font-bold uppercase tracking-wider"><span class="text-slate-400">Atingimento</span><span id="disp_pbtc_perc" class="text-rose-400 text-sm">0%</span></div><div class="w-full bg-slate-800 rounded-full h-2.5 shadow-inner"><div id="bar_pbtc_perc" class="bg-rose-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div></div></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 mt-6">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl p-5 border border-slate-700/50 flex flex-col w-full">
+                <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-chart-line text-emerald-400 mr-2 text-lg"></i> Evolução Diária de Carregamento
+                    </h3>
+                </div>
+                <div class="w-full relative h-[250px]">
+                    <canvas id="evolucaoCarregamentoChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl p-5 border border-slate-700/50 flex flex-col w-full">
+                <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-truck text-sky-400 mr-2 text-lg"></i> Evolução Diária de Transporte
+                    </h3>
+                </div>
+                <div class="w-full relative h-[250px]">
+                    <canvas id="evolucaoTransporteChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 mt-6">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl p-5 border border-slate-700/50 flex flex-col w-full">
+                <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-tools text-rose-400 mr-2 text-lg"></i> Evolução Diária de Manutenção
+                    </h3>
+                </div>
+                <div class="w-full relative h-[250px]">
+                    <canvas id="evolucaoManutencaoChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col">
+                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-trophy text-emerald-400 mr-2 text-lg"></i> Volume por Veículo (Serranalog)
+                    </h3>
+                    <button onclick="exportarTopVolume()" class="text-[11px] bg-slate-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg border border-slate-600 hover:border-emerald-500 transition-all flex items-center gap-2 font-bold shadow-md">
+                        <i class="fas fa-file-excel"></i> Exportar
+                    </button>
+                </div>
+                <div class="overflow-x-auto max-h-[350px] overflow-y-auto custom-scrollbar"><table class="min-w-full text-xs text-left"><thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-700 sticky top-0 z-10 shadow-md backdrop-blur-sm"><tr><th class="px-4 py-3 w-10 text-center">Pos</th><th class="px-4 py-3">Placa</th><th class="px-4 py-3">Transportadora</th><th class="px-4 py-3 text-center">Viagens</th><th class="px-4 py-3 text-right">Vol (m³)</th><th class="px-4 py-3 text-center">Meta ≥ 2/dia</th></tr></thead><tbody id="leaderboardBody" class="divide-y divide-slate-800/80 text-slate-300"></tbody></table></div>
+            </div>
+            
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col">
+                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-stopwatch text-sky-400 mr-2 text-lg"></i> Ciclo Médio por Veículo (Serranalog)
+                    </h3>
+                    <button onclick="exportarTopCiclo()" class="text-[11px] bg-slate-700 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg border border-slate-600 hover:border-sky-500 transition-all flex items-center gap-2 font-bold shadow-md">
+                        <i class="fas fa-file-excel"></i> Exportar
+                    </button>
+                </div>
+                <div class="overflow-x-auto max-h-[350px] overflow-y-auto custom-scrollbar"><table class="min-w-full text-xs text-left"><thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-700 sticky top-0 z-10 shadow-md backdrop-blur-sm"><tr><th class="px-4 py-3 w-10 text-center">Pos</th><th class="px-4 py-3">Placa</th><th class="px-4 py-3">Transportadora</th><th class="px-4 py-3 text-center">Viagens</th><th class="px-4 py-3 text-right">T. Médio</th></tr></thead><tbody id="leaderboardCicloBody" class="divide-y divide-slate-800/80 text-slate-300"></tbody></table></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col">
+                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-truck-crash text-rose-500 mr-2 text-lg"></i> Top 5 Caminhões (Mais OS)
+                    </h3>
+                </div>
+                <div class="overflow-x-auto max-h-[350px] overflow-y-auto custom-scrollbar">
+                    <table class="min-w-full text-xs text-left">
+                        <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-700 sticky top-0 z-10 shadow-md backdrop-blur-sm">
+                            <tr>
+                                <th class="px-4 py-3 w-10 text-center">Pos</th>
+                                <th class="px-4 py-3">Placa</th>
+                                <th class="px-4 py-3 text-right">Qtd. OS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardCaminhoesQuebram" class="divide-y divide-slate-800/80 text-slate-300">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col">
+                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-clipboard-list text-amber-500 mr-2 text-lg"></i> Ocorrências por Tipo
+                    </h3>
+                </div>
+                <div class="overflow-x-auto max-h-[350px] overflow-y-auto custom-scrollbar">
+                    <table class="min-w-full text-xs text-left">
+                        <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-700 sticky top-0 z-10 shadow-md backdrop-blur-sm">
+                            <tr>
+                                <th class="px-4 py-3">Tipo de Serviço</th>
+                                <th class="px-4 py-3 text-right">Quantidade</th>
+                                <th class="px-4 py-3 w-24">Representação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardTiposServico" class="divide-y divide-slate-800/80 text-slate-300">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6 mb-8">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col">
+                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-weight-hanging text-indigo-400 mr-2 text-lg"></i> Caixa Média por Placa
+                    </h3>
+                </div>
+                <div class="overflow-x-auto max-h-[350px] overflow-y-auto custom-scrollbar">
+                    <table class="min-w-full text-xs text-left">
+                        <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-700 sticky top-0 z-10 shadow-md backdrop-blur-sm">
+                            <tr>
+                                <th class="px-4 py-3">Placa</th>
+                                <th class="px-4 py-3 text-center">Viagens</th>
+                                <th class="px-4 py-3 text-right">Média (m³/viagem)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardCaixaMedia" class="divide-y divide-slate-800/80 text-slate-300">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col">
+                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-hourglass-half text-amber-400 mr-2 text-lg"></i> Gargalos: Tempos Médios
+                    </h3>
+                </div>
+                <div class="overflow-x-auto max-h-[350px] overflow-y-auto custom-scrollbar">
+                    <table class="min-w-full text-xs text-left">
+                        <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-700 sticky top-0 z-10 shadow-md backdrop-blur-sm">
+                            <tr>
+                                <th class="px-4 py-3">Etapa do Processo</th>
+                                <th class="px-4 py-3 text-center">Amostras</th>
+                                <th class="px-4 py-3 text-right">Tempo Médio</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardGargalos" class="divide-y divide-slate-800/80 text-slate-300">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col">
+                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-exclamation-triangle text-rose-400 mr-2 text-lg"></i> Alerta: Maiores Ciclos
+                    </h3>
+                </div>
+                <div class="overflow-x-auto max-h-[350px] overflow-y-auto custom-scrollbar">
+                    <table class="min-w-full text-xs text-left">
+                        <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-700 sticky top-0 z-10 shadow-md backdrop-blur-sm">
+                            <tr>
+                                <th class="px-4 py-3">Veículo</th>
+                                <th class="px-4 py-3">Data Base</th>
+                                <th class="px-4 py-3">Movimento</th>
+                                <th class="px-4 py-3 text-right">Tempo Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardPioresCiclos" class="divide-y divide-slate-800/80 text-slate-300">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>

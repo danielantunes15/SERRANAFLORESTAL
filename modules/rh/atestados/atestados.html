@@ -1,0 +1,86 @@
+<div class="action-bar">
+    <div class="filter-group">
+        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-notes-medical"></i> Registro de Atestados</h2>
+        <input type="text" id="buscaAtestado" class="search-input-dark" placeholder="Buscar por colaborador ou CID..." onkeyup="window.filtrarAtestados()">
+    </div>
+    <div class="button-group">
+        <button class="btn-primary-green" onclick="window.abrirModalAtestado()"><i class="fas fa-plus"></i> Lançar Atestado</button>
+    </div>
+</div>
+
+<div class="content-panel">
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Lançado em</th>
+                    <th>Colaborador</th>
+                    <th>CID / Motivo</th>
+                    <th>Período do Afastamento</th>
+                    <th>Retorno Previsto</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbAtestados">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modalAtestado" class="modal-overlay">
+    <div class="custom-modal" style="max-width: 650px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-file-medical"></i> Lançar Novo Atestado</h3>
+            <button class="close-modal" onclick="window.fecharModalAtestado()">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            <div class="form-grid-conjunto" style="grid-template-columns: 1fr 1fr;">
+                
+                <div class="form-group-dark" style="grid-column: 1 / -1;">
+                    <label>Colaborador *</label>
+                    <select id="atColaborador" class="dark-select">
+                        <option value="">Selecione um colaborador do RH...</option>
+                        </select>
+                </div>
+                
+                <div class="form-group-dark">
+                    <label>Data de Início do Atestado *</label>
+                    <input type="date" id="atDataInicio" onchange="window.calcularDataRetornoAtestado()">
+                </div>
+                
+                <div class="form-group-dark">
+                    <label>Quantidade de Dias *</label>
+                    <input type="number" id="atDias" min="1" placeholder="Ex: 3" onkeyup="window.calcularDataRetornoAtestado()" onchange="window.calcularDataRetornoAtestado()">
+                </div>
+                
+                <div class="form-group-dark" style="grid-column: 1 / -1; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: 1px solid var(--border-dim);">
+                    <label style="color: var(--ccol-blue-bright);">Data Prevista para Retorno ao Trabalho</label>
+                    <input type="date" id="atDataRetorno" readonly style="background: transparent; border: none; font-weight: bold; color: #fff; font-size: 1.1rem; pointer-events: none;">
+                    <small style="color: #94a3b8; display: block; margin-top: 5px;">* Calculado automaticamente somando os dias a partir da data inicial.</small>
+                </div>
+
+                <div class="form-group-dark">
+                    <label>CID (Opcional)</label>
+                    <input type="text" id="atCid" placeholder="Ex: J00, M54">
+                </div>
+                
+                <div class="form-group-dark">
+                    <label>Motivo / Resumo</label>
+                    <input type="text" id="atMotivo" placeholder="Ex: Conjuntivite, Dor lombar...">
+                </div>
+
+                <div class="form-group-dark" style="grid-column: 1 / -1;">
+                    <label>Observações / Anotações do RH</label>
+                    <textarea id="atObservacoes" rows="2" placeholder="Foi entregue no prazo? Há necessidade de agendar perícia do INSS?"></textarea>
+                </div>
+                
+            </div>
+        </div>
+        
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.fecharModalAtestado()">Cancelar</button>
+            <button class="btn-primary-green" onclick="window.salvarAtestado()">💾 Gravar Atestado</button>
+        </div>
+    </div>
+</div>

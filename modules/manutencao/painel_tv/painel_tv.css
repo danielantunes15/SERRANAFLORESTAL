@@ -1,0 +1,28 @@
+/* ==================== painel_tv.css ==================== */
+
+@keyframes piscarLiberado {
+    0% { box-shadow: 0 0 10px #10b981; border-color: #10b981; }
+    50% { box-shadow: 0 0 40px #34d399; border-color: #34d399; transform: scale(1.02); }
+    100% { box-shadow: 0 0 10px #10b981; border-color: #10b981; }
+}
+
+@keyframes piscarAlerta {
+    0% { box-shadow: 0 0 10px #ef4444; border-color: #ef4444; }
+    50% { box-shadow: 0 0 30px #f87171; border-color: #f87171; }
+    100% { box-shadow: 0 0 10px #ef4444; border-color: #ef4444; }
+}
+
+/* Modo Noturno */
+.modo-noturno { background: #020617 !important; }
+.modo-noturno h1 { color: #64748b !important; text-shadow: none !important; }
+.modo-noturno .kpi-box { background: rgba(0,0,0,0.6) !important; border-color: rgba(255,255,255,0.05) !important; }
+.modo-noturno #tvRelogio, .modo-noturno #tvData { text-shadow: none !important; opacity: 0.8; }
+
+/* Animações das Classes */
+.card-liberado {
+    animation: piscarLiberado 1.5s infinite;
+}
+
+.piscar-alerta {
+    animation: piscarAlerta 2s infinite;
+}

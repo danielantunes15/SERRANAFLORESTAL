@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>SISF - Serrana Florestal</title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <link rel="stylesheet" href="core/css/global.css">
+    <link rel="stylesheet" href="core/css/auth.css">
+    <link rel="stylesheet" href="modules/logistica/frota_conjuntos/conjuntos.css">
+    <link rel="stylesheet" href="modules/logistica/escala/escala.css">
+    <link rel="stylesheet" href="modules/monitoramento/painel/dashboard.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body class="dark-mode">
+
+    <script src="core/js/config_manutencao.js"></script>
+    
+    <div id="telaManutencao" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #0f172a; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #f8fafc; font-family: 'Inter', sans-serif;">
+        <img src="assets/logoverde.png" alt="Serrana Florestal" style="width: 180px; margin-bottom: 2rem;" onerror="this.style.display='none'">
+        <div style="position: relative;">
+            <i class="fas fa-cog fa-spin" style="font-size: 5rem; color: #10b981; margin-bottom: 1.5rem; position: absolute; opacity: 0.2; left: -20px; top: -10px;"></i>
+            <i class="fas fa-tools" style="font-size: 5rem; color: #10b981; margin-bottom: 1.5rem; position: relative; z-index: 2;"></i>
+        </div>
+        <h1 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem; color: #fff;">Sistema em Manutenção</h1>
+        <p style="font-size: 1.1rem; color: #94a3b8; max-width: 500px; line-height: 1.6; margin-bottom: 2rem;">
+            Estamos realizando melhorias e atualizações em nossos servidores para garantir uma melhor experiência e segurança dos dados.<br><br>
+            Por favor, aguarde. Voltaremos em breve!
+        </p>
+        <div style="display: flex; align-items: center; gap: 10px; background: rgba(16, 185, 129, 0.1); padding: 10px 20px; border-radius: 50px; border: 1px solid rgba(16, 185, 129, 0.2);">
+            <i class="fas fa-circle-notch fa-spin" style="color: #10b981; font-size: 1.2rem;"></i>
+            <span style="color: #10b981; font-weight: 600; font-size: 0.9rem;">Trabalhando nisso...</span>
+        </div>
+    </div>
+
+    <script>
+        if (typeof SISTEMA_EM_MANUTENCAO !== 'undefined' && SISTEMA_EM_MANUTENCAO) {
+            const style = document.createElement('style');
+            style.innerHTML = 'body > *:not(#telaManutencao):not(script) { display: none !important; }';
+            document.head.appendChild(style);
+            document.getElementById('telaManutencao').style.display = 'flex';
+        }
+    </script>
+    <div id="appLayout" class="app-layout" style="display: none;">
+        <header class="main-header">
+            <div class="header-left">
+                <div class="ccol-logo-modern">SISF</div>
+                <div class="header-titles">
+                    <h1>Serrana Florestal</h1>
+                    <p>Sistema Integrado Serrana Florestal</p>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <div class="logo-container">
+                    <img src="assets/logo.png" alt="Serrana Florestal Logo" class="company-logo-img">
+                </div>
+                <div class="quick-stats-header">
+                    <div class="q-stat" title="Motoristas Disponíveis / Sem Conjunto">🚗 <span id="statDisponiveis">0</span></div>
+                    <div class="q-stat" title="Total de Cavalos">🚚 <span id="statCavalos">0</span></div>
+                    <div class="q-stat" title="Motoristas Cadastrados">👥 <span id="statMotoristas">0</span></div>
+                </div>
+                
+                <div class="user-badge" style="background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 20px; border: 1px solid var(--border-dim); display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.2rem;">👤</span>
+                    <div style="display: flex; flex-direction: column; line-height: 1.2;">
+                        <strong id="loggedUserName" style="font-size: 0.8rem; color: var(--ccol-blue-bright);">USUARIO</strong>
+                        <span id="loggedUserRole" style="font-size: 0.65rem; color: var(--text-secondary);">Role</span>
+                    </div>
+                    <button onclick="fazerLogout()" style="background: none; border: none; color: #ef4444; font-size: 1.2rem; cursor: pointer; margin-left: 5px;" title="Sair do Sistema">🚪</button>
+                </div>
+            </div>
+        </header>
+
+        <div id="menu-container"></div>
+        <main id="conteudo-principal" class="main-content"></main>
+        
+        <footer class="main-footer">
+            <p>&copy; 2026 Serrana Florestal - Divisão SISF. Terminal v3.0 | <span id="statCaminhoes">0</span> Caminhões</p>
+        </footer>
+    </div>
+      
+    <div id="modalEdicaoMotorista" class="modal-overlay">
+        <div class="custom-modal">
+            <div class="modal-header">
+                <h3>✏️ Editar / Transferir Motorista</h3>
+                <button class="close-modal" onclick="fecharModalEdicao()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editMotoristaId">
+                <div class="form-group-dark">
+                    <label>Nome Completo</label>
+                    <input type="text" id="editMotoristaNome">
+                </div>
+                <div class="form-group-dark">
+                    <label>Transferir Conjunto</label>
+                    <select id="editMotoristaConjunto" class="dark-select">
+                        <option value="">Remover do Conjunto (Deixar Disponível)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Equipe (Dia / Noite / Folga)</label>
+                    <select id="editMotoristaEquipe" class="dark-select">
+                        <option value="-">Sem Equipe</option>
+                        <option value="A">A (Fixo Dia - Frota 1)</option>
+                        <option value="B">B (Fixo Dia - Frota 2)</option>
+                        <option value="C">C (🔄 FOLGUISTA DIA)</option>
+                        <option value="D">D (Fixo Noite - Frota 1)</option>
+                        <option value="E">E (Fixo Noite - Frota 2)</option>
+                        <option value="F">F (🔄 FOLGUISTA NOITE)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Turno Padrão</label>
+                    <select id="editMotoristaTurno" class="dark-select">
+                        <option value="-">Não Definido</option>
+                        <option value="06:00-18:00">06:00-18:00 (Dia)</option>
+                        <option value="18:00-06:00">18:00-06:00 (Noite)</option>
+                        <option value="Misto">Misto (Folguista)</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Data Inicial (Início do Ciclo)</label>
+                    <input type="date" id="editMotoristaDataAncora" class="dark-select">
+                </div>
+                <div class="form-group-dark">
+                    <label>Curso Master Drive?</label>
+                    <select id="editMotoristaMasterDrive" class="dark-select">
+                        <option value="Sim">Sim</option>
+                        <option value="Não">Não</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Curso Destra?</label>
+                    <select id="editMotoristaDestra" class="dark-select">
+                        <option value="Sim">Sim</option>
+                        <option value="Não">Não</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Cidade que Mora</label>
+                    <select id="editMotoristaCidade" class="dark-select">
+                        <option value="">Selecione a cidade...</option>
+                        <option value="Itabatã - BA">Itabatã - BA</option>
+                        <option value="Posto da Mata - BA">Posto da Mata - BA</option>
+                        <option value="Mucuri - BA">Mucuri - BA</option>
+                        <option value="Nova Viçosa - BA">Nova Viçosa - BA</option>
+                        <option value="Teixeira de Freitas - BA">Teixeira de Freitas - BA</option>
+                        <option value="Caravelas - BA">Caravelas - BA</option>
+                        <option value="Alcobaça - BA">Alcobaça - BA</option>
+                        <option value="Prado - BA">Prado - BA</option>
+                        <option value="Ibirapuã - BA">Ibirapuã - BA</option>
+                        <option value="Medeiros Neto - BA">Medeiros Neto - BA</option>
+                        <option value="Pedro Canário - ES">Pedro Canário - ES</option>
+                        <option value="Conceição da Barra - ES">Conceição da Barra - ES</option>
+                        <option value="Braço do Rio - ES">Braço do Rio - ES</option>
+                        <option value="Pinheiros - ES">Pinheiros - ES</option>
+                        <option value="Montanha - ES">Montanha - ES</option>
+                        <option value="Nanuque - MG">Nanuque - MG</option>
+                        <option value="Carlos Chagas - MG">Carlos Chagas - MG</option>
+                        <option value="Serra dos Aimorés - MG">Serra dos Aimorés - MG</option>
+                        <option value="Outra Cidade">Outra Cidade</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary-dark" onclick="fecharModalEdicao()">Cancelar</button>
+                <button class="btn-primary-green" onclick="salvarEdicaoMotorista()">💾 Salvar Modificações</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalEscalaManual" class="modal-overlay">
+        <div class="custom-modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>📅 Ajustar Ciclo Manual</h3>
+                <button class="close-modal" onclick="fecharModalManual()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="manualMotId">
+                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--border-dim); margin-bottom: 10px;">
+                    <p style="margin-bottom: 5px; color: var(--text-secondary); font-size: 0.85rem;">Motorista Selecionado:</p>
+                    <strong id="manualMotNome" style="font-size: 1.1rem; color: var(--ccol-blue-bright);"></strong>
+                    <p style="margin-top: 5px; color: var(--text-secondary); font-size: 0.85rem;">Equipe: <span id="manualMotEquipe" style="color: #fff; font-weight: bold;"></span></p>
+                </div>
+                
+                <div class="form-group-dark">
+                    <label>Data Inicial do Ciclo (Dia em que ele começou ou começa a sequência de 4 dias)</label>
+                    <input type="date" id="manualDataInicio" class="dark-select" onchange="window.atualizarPreviewManual()">
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px;">Preview de como o Ciclo ficará:</label>
+                    <div id="previewManualContainer" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px;"></div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary-dark" onclick="fecharModalManual()">Cancelar</button>
+                <button class="btn-primary-green" onclick="salvarEscalaManual()">💾 Salvar Ciclo</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalImpressaoDiaria" class="modal-overlay">
+        <div class="custom-modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>🖨️ Imprimir Escala Diária</h3>
+                <button class="close-modal" onclick="fecharModalImpressao()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group-dark">
+                    <label>Data da Escala</label>
+                    <input type="date" id="printData" class="dark-select">
+                </div>
+                <div class="form-group-dark">
+                    <label>Turno para Imprimir</label>
+                    <select id="printTurno" class="dark-select">
+                        <option value="Todos">Todos os Turnos (Dia e Noite)</option>
+                        <option value="Dia">Apenas Turno do Dia</option>
+                        <option value="Noite">Apenas Turno da Noite</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary-dark" onclick="fecharModalImpressao()">Cancelar</button>
+                <button class="btn-primary-green" onclick="gerarRelatorioImpressao()">📑 Gerar Relatório</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalMasterDrive" class="modal-overlay">
+        <div class="custom-modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>👨‍🏫 Gestão de Master Drives</h3>
+                <button class="close-modal" onclick="fecharModalMasterDrive()">&times;</button>
+            </div>
+            <div class="modal-body">
+                
+                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; color: var(--ccol-blue-bright);">Cadastrar Novo Master</h4>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="novoMasterNome" placeholder="Nome do Master Drive" class="dark-select">
+                        <button class="btn-primary-green" onclick="salvarMasterDrive()">Adicionar</button>
+                    </div>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; color: #a855f7;">Realocar Cronogramas Existentes</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">Transfira todos os treinamentos agendados de um Master para outro.</p>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="realocarDe" class="dark-select" style="flex: 1;"><option value="">De...</option></select>
+                        <span style="color: #fff; font-weight: bold;">➡️</span>
+                        <select id="realocarPara" class="dark-select" style="flex: 1;"><option value="">Para...</option></select>
+                        <button class="btn-primary-blue" onclick="realocarTreinamentosMaster()">Transferir</button>
+                    </div>
+                </div>
+
+                <h4 style="margin-bottom: 10px; color: #fff;">Lista de Master Drives Cadastrados</h4>
+                <div id="listaMasterDrivesCadastrados" style="max-height: 200px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 5px;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <script src="core/js/database.js"></script>
+    <script src="core/js/auth.js"></script> 
+    <script src="core/js/estado.js"></script>
+    <script src="core/js/menu.js"></script>
+    <script src="core/js/exportacao.js"></script>
+    <script src="core/js/app.js"></script> 
+
+    <script src="modules/global/gestao_filiais.js"></script>
+    <script src="modules/global/auditoria_logs.js"></script>
+
+    <script src="modules/configuracoes/gestao_usuarios.js"></script>
+    <script src="modules/configuracoes/gestao_acessos.js"></script>
+
+    <script src="modules/logistica/motoristas/motoristas.js"></script>
+    <script src="modules/logistica/frota_conjuntos/conjuntos.js"></script>
+    <script src="modules/logistica/frota_conjuntos/cadastro_frota.js"></script>
+    <script src="modules/logistica/documentos_frota/documentos_frota.js"></script>
+    <script src="modules/logistica/escala/escala.js"></script>
+    <script src="modules/logistica/troca_turno/troca_turno.js"></script>
+    
+    <script src="modules/campo/maquinas/maquinas.js"></script>
+    <script src="modules/campo/equipe/equipe.js"></script>
+    <script src="modules/campo/escala/escala.js"></script>
+    
+    <script src="modules/campo/alocacao/alocacao.js"></script>
+
+    <script src="modules/manutencao/ordem_servico/os_core.js"></script>
+    <script src="modules/manutencao/ordem_servico/os_tabelas.js"></script>
+    <script src="modules/manutencao/ordem_servico/os_formularios.js?v=9"></script>
+    <script src="modules/manutencao/ordem_servico/os_impressao.js"></script>
+    <script src="modules/manutencao/ordem_servico/os_painel.js"></script>
+    
+    <script src="modules/manutencao/historico_os/historico_os.js"></script>
+    <script src="modules/manutencao/painel_tv/painel_tv.js"></script> 
+    <script src="modules/manutencao/ordem_servico/os_apoio.js"></script>
+    <script src="modules/manutencao/servicos/servicos.js"></script>
+    <script src="modules/almoxarifado/almoxarifado.js"></script>
+    <script src="modules/almoxarifado/requisicao_materiais.js"></script>
+    
+    <script src="modules/ssma/recados/recados.js"></script>
+    <script src="modules/ssma/treinamento/treinamento.js"></script>
+
+    <script src="modules/rh/colaboradores/colaboradores.js"></script>
+    <script src="modules/rh/atestados/atestados.js"></script>
+    <script src="modules/rh/sorteio/sorteio.js"></script>
+    
+    <script src="modules/indicadores/indicadores.js"></script>
+    <script src="modules/indicadores/indicadores_serrana.js"></script> 
+    <script src="modules/indicadores/grafico_evolucao_dm.js"></script>
+    <script src="modules/indicadores/cadastro_indicadores.js"></script>
+    
+    <script src="modules/monitoramento/configuracoes/utils.js"></script>
+    <script src="modules/monitoramento/configuracoes/gruas.js"></script>
+    <script src="modules/monitoramento/configuracoes/metas.js"></script>
+    <script src="modules/monitoramento/configuracoes/banco_historico.js"></script>
+    <script src="modules/monitoramento/configuracoes/importacao.js"></script>
+    <script src="modules/monitoramento/configuracoes/main.js"></script>
+    <script src="modules/monitoramento/visao_geral/dashboard.js"></script>
+    <script src="modules/monitoramento/desempenho_frota/desempenho-frota.js"></script>
+    <script src="modules/monitoramento/desempenho_grua/desempenho_grua.js"></script> <script src="modules/monitoramento/operacional/operacional.js"></script>
+    <script src="modules/monitoramento/historico/historico.js"></script>
+    <script src="modules/monitoramento/historico_jornadas/historico-jornadas.js"></script>
+    <script src="modules/monitoramento/jornadas/jornadas_utils.js"></script>
+    <script src="modules/monitoramento/jornadas/jornadas_api.js"></script>
+    <script src="modules/monitoramento/jornadas/jornadas_auditoria.js"></script>
+    <script src="modules/monitoramento/jornadas/jornadas_exportacao.js"></script>
+    <script src="modules/monitoramento/jornadas/jornadas.js"></script>
+    <script src="modules/monitoramento/cadastro_up/cadastro_up.js"></script>
+    
+    <script src="modules/controladoria/centro_custo/centro_custo.js"></script>
+    <script src="modules/gerencial/producao_frota/producao-frota.js"></script>
+    <script src="modules/gerencial/visao_executiva/visao_executiva.js"></script>
+    <script src="modules/gerencial/evolucao_fazendas/evolucao_fazendas.js"></script>
+
+</body>
+</html>

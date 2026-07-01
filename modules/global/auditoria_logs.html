@@ -1,0 +1,112 @@
+<style>
+    .log-container { padding: 20px; font-family: 'Segoe UI', system-ui, sans-serif; animation: fadeIn 0.4s ease-in-out; }
+    .log-header { margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 15px; }
+    .log-header h2 { margin: 0; color: #fff; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; }
+    .log-header h2 i { color: #a855f7; }
+    
+    .btn-export { padding: 8px 15px; border-radius: 6px; font-weight: bold; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; color: #fff; font-size: 0.85rem; }
+    .btn-export-excel { background: #10b981; } .btn-export-excel:hover { background: #059669; }
+    .btn-export-pdf { background: #ef4444; } .btn-export-pdf:hover { background: #dc2626; }
+
+    .filter-bar { display: flex; gap: 15px; background: #1e293b; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; flex-wrap: wrap; align-items: flex-end; }
+    .filter-group { display: flex; flex-direction: column; flex: 1; min-width: 150px; }
+    .filter-group label { font-size: 0.85rem; color: #cbd5e1; margin-bottom: 5px; font-weight: 600; }
+    .filter-group input, .filter-group select { padding: 10px; border-radius: 6px; background: #0f172a; border: 1px solid #334155; color: #fff; outline: none; transition: 0.2s; font-family: inherit; }
+    .filter-group input:focus, .filter-group select:focus { border-color: #a855f7; box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2); }
+
+    .btn-search-logs { background: #a855f7; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; height: 40px; white-space: nowrap; }
+    .btn-search-logs:hover { background: #9333ea; }
+    .btn-search-logs:disabled { background: #475569; cursor: not-allowed; }
+
+    .dark-table-container { background: #1e293b; border-radius: 12px; overflow-x: auto; border: 1px solid #334155; max-height: 60vh; }
+    .dark-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .dark-table th { background-color: #0f172a; padding: 14px 20px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 10; }
+    .dark-table td { padding: 12px 20px; border-bottom: 1px solid #334155; color: #e2e8f0; font-size: 0.9rem; vertical-align: middle; }
+    .dark-table tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
+
+    .sev-info { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #3b82f6; }
+    .sev-alerta { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+    .sev-critico { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+
+    .btn-snapshot { background: #334155; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: 0.2s; }
+    .btn-snapshot:hover { background: #475569; }
+    .btn-undo { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; padding: 5px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: 0.2s; font-weight: bold; }
+    .btn-undo:hover { background: #10b981; color: #fff; }
+
+    /* Modal Snapshot */
+    .modal-snap-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 2000; align-items: center; justify-content: center; }
+    .modal-snap-content { background: #1e293b; width: 95%; max-width: 900px; border-radius: 12px; border: 1px solid #334155; padding: 20px; position: relative; max-height: 90vh; overflow-y: auto; }
+    .snap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
+    @media (max-width: 768px) { .snap-grid { grid-template-columns: 1fr; } }
+    .snap-box { background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155; }
+    .snap-box h4 { margin-top: 0; color: #cbd5e1; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+    .snap-pre { color: #34d399; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-wrap: break-word; }
+</style>
+
+<div class="log-container">
+    <div class="log-header">
+        <div>
+            <h2><i class="fas fa-shield-alt"></i> Auditoria e Segurança de Acessos</h2>
+            <p style="color: #94a3b8; margin-top: 5px;">Rastreamento avançado de logins, edições e exclusões com lixeira inteligente.</p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-export btn-export-excel" onclick="exportarAuditoriaExcel()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
+            <button class="btn-export btn-export-pdf" onclick="exportarAuditoriaPDF()"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
+        </div>
+    </div>
+
+    <div class="filter-bar">
+        <div class="filter-group"><label>Data Início</label><input type="date" id="filtroLogDataInicio"></div>
+        <div class="filter-group"><label>Data Fim</label><input type="date" id="filtroLogDataFim"></div>
+        <div class="filter-group"><label>Filial</label><select id="filtroLogFilial"><option value="">Todas</option></select></div>
+        <div class="filter-group">
+            <label>Nível de Alerta</label>
+            <select id="filtroLogSeveridade">
+                <option value="">Todos os Níveis</option>
+                <option value="Info">🟢 Informação (Logins)</option>
+                <option value="Alerta">🟡 Alertas (Edições)</option>
+                <option value="Crítico">🔴 Críticos (Exclusões)</option>
+            </select>
+        </div>
+        <div class="filter-group"><label>Usuário</label><input type="text" id="filtroLogUsuario" placeholder="Ex: joao" onkeydown="if(event.key==='Enter') buscarLogsAvancados()"></div>
+        <div class="filter-group"><label>Termo</label><input type="text" id="filtroLogDetalhe" placeholder="Pesquisar..." onkeydown="if(event.key==='Enter') buscarLogsAvancados()"></div>
+        <button class="btn-search-logs" id="btnBuscarLogs" onclick="buscarLogsAvancados()"><i class="fas fa-search"></i> Buscar</button>
+    </div>
+
+    <div class="dark-table-container">
+        <table class="dark-table" id="tabelaAuditoriaHtml">
+            <thead>
+                <tr>
+                    <th style="width: 160px;">Data e IP</th>
+                    <th style="width: 150px;">Filial</th>
+                    <th style="width: 150px;">Usuário</th>
+                    <th style="width: 120px;">Severidade</th>
+                    <th>Ação / Detalhes Técnicos</th>
+                    <th style="text-align: right; width: 140px;">Ferramentas</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaLogsBody">
+                <tr><td colspan="6" style="text-align: center; padding: 20px;">Carregando sistema de auditoria...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modalSnapshot" class="modal-snap-overlay">
+    <div class="modal-snap-content">
+        <span onclick="document.getElementById('modalSnapshot').style.display='none'" style="position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</span>
+        <h3 style="margin-top: 0; color: #fff;"><i class="fas fa-camera"></i> Snapshot (Antes e Depois)</h3>
+        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 0;">Visualize os dados exatos do banco de dados no momento da ação.</p>
+        
+        <div class="snap-grid">
+            <div class="snap-box">
+                <h4><i class="fas fa-history"></i> Dados Anteriores (Como era)</h4>
+                <pre class="snap-pre" id="snapAntes" style="color: #fbbf24;"></pre>
+            </div>
+            <div class="snap-box">
+                <h4><i class="fas fa-bolt"></i> Dados Novos (Como ficou)</h4>
+                <pre class="snap-pre" id="snapDepois" style="color: #38bdf8;"></pre>
+            </div>
+        </div>
+    </div>
+</div>

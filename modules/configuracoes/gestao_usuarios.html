@@ -1,0 +1,97 @@
+<div class="content-panel" style="padding: 25px; background: #1e293b; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); min-height: 80vh;">
+    <h2 style="color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+        <i class="fas fa-users" style="color: var(--ccol-blue-bright);"></i> Gestão de Usuários
+    </h2>
+    
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 20px; margin-top: 20px; margin-bottom: 25px;">
+        <h3 style="margin-top: 0; color: var(--ccol-blue-bright); font-size: 1.1rem; margin-bottom: 15px;">
+            <i class="fas fa-user-plus"></i> Cadastrar Novo Usuário
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; align-items: end;">
+            <div class="form-group-dark" style="margin-bottom: 0;">
+                <label style="font-size: 0.85rem; color: var(--text-secondary);">Nome de Acesso (Username)</label>
+                <input type="text" id="novoUsername" class="dark-select" placeholder="EX: JOAO.SILVA" autocomplete="off">
+            </div>
+            
+            <div class="form-group-dark" style="margin-bottom: 0;">
+                <label style="font-size: 0.85rem; color: var(--text-secondary);">Filial de Lotação</label>
+                <select id="novoUserFilial" class="dark-select" onchange="window.carregarCargosParaFilial(this.value)">
+                    <option value="" disabled selected>Carregando filiais...</option>
+                </select>
+            </div>
+            
+            <div class="form-group-dark" style="margin-bottom: 0;">
+                <label style="font-size: 0.85rem; color: var(--text-secondary);">Cargo / Função Corporativa</label>
+                <select id="novoUserCargo" class="dark-select">
+                    <option value="" disabled selected>-- Selecione a Filial Primeiro --</option>
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 0;">
+                <button class="btn-primary-green" onclick="window.adicionarUsuario()" style="height: 38px; width: 100%; font-weight: bold;">
+                    <i class="fas fa-save"></i> Criar e Integrar Usuário
+                </button>
+            </div>
+        </div>
+        
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 15px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px;">
+            <i class="fas fa-info-circle"></i> A senha padrão para novos usuários é <strong>12345</strong>. O sistema exigirá que eles criem uma nova senha segura no primeiro acesso.
+        </p>
+    </div>
+
+    <h3 style="margin-top: 0; color: #f8fafc; font-size: 1.1rem; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
+        📋 Usuários Cadastrados na Sua Filial
+    </h3>
+    
+    <table class="dark-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="text-align: left; background: rgba(255,255,255,0.02);">
+                <th style="padding: 12px;">Usuário</th>
+                <th>Cargo / Função</th>
+                <th>Filial Base</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="tabelaUsuarios">
+            </tbody>
+    </table>
+</div>
+
+<div id="modalEdicaoUsuario" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); align-items: center; justify-content: center; z-index: 9999;">
+    <div class="custom-modal" style="background: #1e293b; border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; width: 100%; max-width: 500px;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 15px;">
+            <h3 style="color: #f8fafc; margin: 0; font-size: 1.2rem; font-weight: 600;">
+                <i class="fas fa-user-edit" style="color: var(--ccol-blue-bright);"></i> Alterar Cadastro / Promoção
+            </h3>
+            <button onclick="window.fecharModalEdicaoUsuario()" style="background: none; border: none; color: #cbd5e1; font-size: 1.4rem; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="editUserId">
+            
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Nome de Acesso (Username)</label>
+                <input type="text" id="editUsername" class="dark-select" style="width: 100%;">
+            </div>
+            
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Filial de Atuação</label>
+                <select id="editUserFilial" class="dark-select" style="width: 100%;" onchange="window.carregarCargosParaFilialEdicao(this.value)">
+                    </select>
+            </div>
+            
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Cargo Atual / Nova Função</label>
+                <select id="editUserCargo" class="dark-select" style="width: 100%;">
+                    </select>
+            </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 20px;">
+            <button class="btn-secondary-dark" onclick="window.fecharModalEdicaoUsuario()">Cancelar</button>
+            <button class="btn-primary-green" onclick="window.salvarEdicaoUsuario()">
+                <i class="fas fa-check"></i> Atualizar Ficha
+            </button>
+        </div>
+    </div>
+</div>

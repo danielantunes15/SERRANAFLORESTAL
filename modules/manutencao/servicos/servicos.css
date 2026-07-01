@@ -1,0 +1,156 @@
+/* ==================== servicos.css ==================== */
+/* Design Otimizado para Tablets (Mecânicos) e Computadores */
+
+:root {
+    --primary-glow: rgba(99, 102, 241, 0.15);
+    --success-glow: rgba(16, 185, 129, 0.15);
+    --warning-glow: rgba(245, 158, 11, 0.15);
+    --danger-glow: rgba(239, 68, 68, 0.15);
+}
+
+/* Ajuste das Abas de Navegação - Scroll Horizontal Touch */
+.serv-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #1e293b;
+    padding-bottom: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.serv-tabs::-webkit-scrollbar { display: none; }
+
+.serv-tab-btn {
+    background: transparent; border: none; color: #94a3b8;
+    font-size: 1.05rem; font-weight: 700; cursor: pointer;
+    padding: 16px 20px; border-bottom: 4px solid transparent;
+    transition: all 0.2s ease-in-out; display: flex; align-items: center;
+    gap: 10px; flex: 1 0 auto; justify-content: center;
+    min-width: 160px; white-space: nowrap; border-radius: 8px 8px 0 0;
+}
+
+@media(min-width: 768px) {
+    .serv-tab-btn { flex: 1; justify-content: center; }
+}
+
+.serv-tab-btn:active { background: rgba(255, 255, 255, 0.1); }
+.serv-tab-btn.active { color: #818cf8; background: rgba(99, 102, 241, 0.08); border-bottom-color: #6366f1; }
+.serv-tab-btn.active-sos { color: #fb923c; background: rgba(249, 115, 22, 0.08); border-bottom-color: #f97316; }
+
+.serv-tab-btn .badge-count {
+    background: #334155; color: #f8fafc; font-size: 0.85rem;
+    padding: 3px 12px; border-radius: 20px; font-weight: 800;
+}
+.serv-tab-btn.active .badge-count { background: #6366f1; color: #fff; }
+.serv-tab-btn.active-sos .badge-count { background: #f97316; color: #fff; }
+
+/* Grid de Cards (Substitui as Tabelas no Tablet) */
+.grid-cards-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    padding-bottom: 20px;
+}
+@media(min-width: 768px) {
+    .grid-cards-container { grid-template-columns: repeat(2, 1fr); }
+}
+@media(min-width: 1200px) {
+    .grid-cards-container { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Estilo do Card Otimizado para Toque */
+.tablet-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    transition: transform 0.1s ease;
+}
+.tablet-card:active { transform: scale(0.98); }
+
+.card-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+.card-badge { padding: 4px 10px; border-radius: 6px; font-weight: 800; font-size: 0.85rem; color: #fff; }
+.card-placa { font-size: 1.6rem; font-weight: 900; color: var(--ccol-blue-bright); margin: 5px 0; }
+.card-info-text { color: #cbd5e1; font-size: 0.95rem; line-height: 1.4; margin-bottom: 5px; }
+.card-actions { margin-top: 15px; display: flex; gap: 10px; flex-direction: column; }
+
+@media(min-width: 768px) {
+    .card-actions.row-tablet { flex-direction: row; }
+    .card-actions.row-tablet button { flex: 1; }
+}
+
+/* Modals Responsivos - Otimizados para ocupar 100% da tela no tablet sem sobras */
+.modal-overlay-fullscreen {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 10px;
+}
+
+.custom-modal-responsive {
+    background: #0f172a; color: #fff; width: 100%; height: 100%; max-height: 100%;
+    display: flex; flex-direction: column; border-radius: 12px; border: 1px solid #334155;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden;
+}
+
+@media (min-width: 768px) {
+    .custom-modal-responsive { height: 96vh; }
+    .modal-pequeno { height: auto; max-height: 80vh; max-width: 600px; margin: auto; }
+}
+
+.modal-header-responsive {
+    background: #1e293b; padding: 15px 20px; border-bottom: 1px solid #334155;
+    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+}
+.modal-header-responsive h3 { margin: 0; font-size: 1.3rem; color: #818cf8; font-weight: 800; }
+.close-btn-responsive {
+    background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444;
+    width: 44px; height: 44px; border-radius: 8px; font-size: 1.5rem;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.close-btn-responsive:active { background: #ef4444; color: #fff; }
+
+.modal-body-scroll {
+    flex: 1; overflow-y: auto; padding: 15px; -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; gap: 15px;
+}
+
+/* Grid Inteligente de Apontamento - Lado a Lado em Tablets */
+.apontamento-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+@media(min-width: 768px) {
+    .apontamento-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+}
+
+.box-apontamento {
+    background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 15px;
+}
+
+.label-oficina { font-size: 0.9rem; color: #94a3b8; font-weight: 700; margin-bottom: 6px; display: block; }
+
+/* Inputs e Botões Gigantes para Dedos Sujos/Luvas */
+.input-otimizado {
+    width: 100%; padding: 16px; background: #0f172a; border: 2px solid #475569;
+    border-radius: 10px; color: #fff; font-size: 1.1rem; outline: none; margin-bottom: 15px;
+}
+.input-otimizado:focus { border-color: #6366f1; background: #1e293b; }
+
+select.input-otimizado {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat; background-position: right 16px center; background-size: 20px;
+}
+
+.btn-acao-grande {
+    width: 100%; min-height: 55px; font-size: 1.15rem; font-weight: 800;
+    border-radius: 10px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 10px; border: none; text-transform: uppercase;
+}
+.btn-acao-grande:active { transform: scale(0.97); opacity: 0.8; }
+
+/* Listas Internas (Peças e Serviços) mais compactas para não gerar rolagem */
+.lista-lancamentos { max-height: 180px; overflow-y: auto; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }

@@ -1,0 +1,322 @@
+<style>
+    /* Estilos do Layout Base */
+    .dash-pro-wrapper {
+        background-color: #070b14;
+        padding: 22px 30px; 
+        border-radius: 16px;
+        font-family: var(--font-family);
+        color: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        gap: 22px; 
+        min-height: calc(100vh - 80px);
+    }
+
+    /* CABEÇALHO CENTRALIZADO */
+    .dash-pro-header {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr; 
+        align-items: center;
+        border-bottom: 2px solid rgba(255,255,255,0.05);
+        padding-bottom: 18px; 
+    }
+
+    .header-left { display: flex; justify-content: flex-start; }
+    .header-center { text-align: center; }
+    .header-right { display: flex; justify-content: flex-end; }
+
+    .pro-title-box h2 { margin: 0; font-size: 2rem; font-weight: 900; letter-spacing: 1px; color: #fff; } 
+    .pro-title-box p { margin: 4px 0 0 0; font-size: 1.05rem; color: #94a3b8; font-weight: 600; letter-spacing: 2px; }
+    .pro-logo { height: 68px; object-fit: contain; } 
+
+    /* TOPO: 3 KPIs */
+    .dash-pro-kpis {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 22px;
+    }
+
+    .pro-kpi-card {
+        padding: 18px 12px; 
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 230px; 
+        text-align: center;
+    }
+
+    .kpi-title {
+        margin: 0 0 10px 0; 
+        font-size: 1.1rem; 
+        text-transform: uppercase; 
+        font-weight: 800;
+        height: 32px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        z-index: 2;
+        color: #ffffff !important; 
+    }
+
+    .kpi-content-wrapper {
+        position: relative; flex-grow: 1; width: 100%; min-height: 150px; 
+        display: flex; justify-content: center; align-items: center;
+    }
+
+    /* AJUSTE DE PROPORÇÃO GAUGE MAIOR */
+    .gauge-simple-container {
+        position: absolute; width: 220px; height: 110px; overflow: hidden; top: 0; 
+    }
+
+    .gauge-simple-arc {
+        position: absolute; width: 220px; height: 220px; border: 12px solid #1e293b; 
+        border-radius: 50%; box-sizing: border-box; border-bottom-color: transparent;
+        border-left-color: transparent; transform: rotate(-45deg);
+    }
+
+    .gauge-simple-fill {
+        position: absolute; width: 220px; height: 220px; border: 12px solid #38bdf8; 
+        border-radius: 50%; box-sizing: border-box; border-bottom-color: transparent;
+        border-left-color: transparent; 
+        transform: rotate(-225deg);
+        transition: transform 1s ease-out;
+    }
+
+    /* Estilos do Ponteiro */
+    .gauge-ponteiro {
+        position: absolute; bottom: 0; left: 50%; width: 4px; height: 90px;  
+        background: linear-gradient(to top, #ffffff, #94a3b8); transform-origin: bottom center;
+        transform: translateX(-50%) rotate(-90deg); transition: transform 1s ease-out;
+        z-index: 3; border-radius: 4px 4px 0 0; box-shadow: 2px 0 5px rgba(0,0,0,0.3);
+    }
+
+    .gauge-centro {
+        position: absolute; bottom: -8px; left: 50%; width: 18px; height: 18px; 
+        background-color: #38bdf8; border: 2px solid #1e293b; border-radius: 50%;
+        transform: translateX(-50%); z-index: 4;
+    }
+
+    .icon-bg { font-size: 7rem; opacity: 0.1; position: absolute; z-index: 1; } 
+
+    .kpi-data-front {
+        position: relative; z-index: 5; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; margin-top: 30px; 
+    }
+
+    .kpi-number { font-size: 3rem; font-weight: 900; line-height: 1; color: #ffffff !important; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } 
+    .kpi-subtitle { font-size: 0.85rem; color: #ffffff !important; margin-top: 5px; font-weight: bold; text-transform: uppercase; }
+
+    .text-blue { color: #38bdf8 !important; }
+    .text-red { color: #ef4444 !important; }
+    .text-green { color: #22c55e !important; }
+    .text-orange { color: #f59e0b !important; }
+
+    /* PARTE DE BAIXO */
+    .dash-bottom-split {
+        display: grid; grid-template-columns: 65% 35%; gap: 22px; align-items: stretch; flex-grow: 1; 
+    }
+
+    /* Layout Duplo nas Frentes */
+    .dash-left-frentes { display: flex; flex-direction: row; gap: 20px; height: 100%; width: 100%; }
+    .pro-list-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100%; }
+
+    /* LISTA VERTICAL FRENTES */
+    .list-body-vertical {
+        padding: 15px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+        gap: 15px; align-content: start; flex-grow: 1; overflow-y: auto; max-height: 480px; 
+    }
+
+    .frente-item-card {
+        display: flex; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.2); width: 100%;
+    }
+
+    /* CAIXA DE HORA DA FRENTE */
+    .frente-time-box {
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        padding: 12px; border-right: 1px dashed rgba(255,255,255,0.1); min-width: 150px; background: rgba(0,0,0,0.3); 
+    }
+
+    .frente-data { font-size: 1.05rem; font-weight: 800; color: #94a3b8; } 
+    .frente-turno { padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; text-transform: uppercase; margin-top: 5px; } 
+
+    .turno-dia-style { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #f59e0b; }
+    .turno-noite-style { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid #38bdf8; }
+
+    .frente-content-box { padding: 15px; flex-grow: 1; display: flex; flex-direction: column; justify-content: center; } 
+    .frente-nome-titulo { font-size: 1.15rem; color: #fff; margin: 0; text-transform: uppercase; display: flex; align-items: center; gap: 8px; } 
+
+    .dash-right-info { display: flex; flex-direction: column; height: 100%; }
+    .info-bars-container { display: flex; flex-direction: column; gap: 18px; height: 100%; flex-grow: 1; }
+
+    .info-bar-item {
+        background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+        padding: 0 20px; display: flex; justify-content: space-between; align-items: center;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3); border-left: 5px solid transparent; flex: 1; 
+    }
+
+    .bar-data { border-left-color: #10b981; }
+    .bar-turno { border-left-color: #f59e0b; }
+    .bar-controlador { border-left-color: #38bdf8; }
+
+    /* TITULOS DO PAINEL INFERIOR AGORA BRANCOS */
+    .info-bar-label { font-size: 1.1rem; color: #ffffff !important; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; gap: 10px; } 
+    .info-bar-value { font-size: 1.5rem; color: #ffffff !important; font-weight: 900; text-transform: uppercase; } 
+
+    /* FORÇANDO DATA E HORA A TEREM A MESMA FONTE, COR E TAMANHO */
+    #dash-data, #dash-hora {
+        font-size: 1.5rem !important; 
+        font-family: inherit !important;
+        color: #ffffff !important;
+        font-weight: 900 !important;
+        margin: 0 !important;
+        line-height: 1 !important;
+    }
+
+    /* Customização da barra de rolagem */
+    .lista-scroll::-webkit-scrollbar { width: 6px; }
+    .lista-scroll::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 4px; }
+
+    @media (max-width: 1400px) {
+        .dash-left-frentes { flex-direction: column; }
+    }
+    @media (max-width: 1200px) {
+        .dash-bottom-split { grid-template-columns: 1fr; }
+        .dash-pro-kpis { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* =========================================
+       FROTAS PARADAS (INDICADORES DIREITA)
+       ========================================= */
+    .item-frota-parada {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px; 
+        border-radius: 8px;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-left: 4px solid #ccc;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        width: 100%;
+        margin-bottom: 12px; 
+    }
+    .item-frota-parada.preventiva { border-left-color: #f59e0b; }
+    .item-frota-parada.corretiva { border-left-color: #ef4444; }
+    .item-frota-parada.borracharia { border-left-color: #38bdf8; }
+
+    .cavalo-info { display: flex; align-items: center; gap: 12px; } 
+    .identificacao-cavalo { font-weight: 800; font-size: 1.15rem; color: #fff; letter-spacing: 1px;} 
+
+    .badge-tipo {
+        font-size: 0.85rem; 
+        font-weight: 800;
+        padding: 5px 12px; 
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge-tipo.preventiva { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #f59e0b; }
+    .badge-tipo.corretiva { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid #ef4444; }
+    .badge-tipo.borracharia { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid #38bdf8; }
+</style>
+
+<div id="area-print-dash" class="dash-pro-wrapper fade-in">
+    <header class="dash-pro-header">
+        <div class="header-left">
+            <button id="btn-gerar-print" class="btn-pro-print" onclick="exportarDashboardPNG()">
+                <i class="fas fa-camera"></i> Salvar Imagem
+            </button>
+        </div>
+        <div class="header-center pro-title-box">
+            <h2>STATUS DA OPERAÇÃO LOGÍSTICA</h2>
+            <p>CCOL - CENTRO DE CONTROLE OPERACIONAL</p>
+        </div>
+        <div class="header-right">
+            <img src="assets/logo.png" alt="Serrana" class="pro-logo">
+        </div>
+    </header>
+
+    <section class="dash-pro-kpis">
+        <div class="pro-kpi-card glass-panel">
+            <h3 class="kpi-title">Frota em Operação</h3>
+            <div class="kpi-content-wrapper">
+                <div class="gauge-simple-container">
+                    <div class="gauge-simple-arc"></div>
+                    <div class="gauge-simple-fill" id="gauge-fill-frota"></div>
+                    <div class="gauge-ponteiro" id="gauge-ponteiro-frota"></div>
+                    <div class="gauge-centro"></div>
+                </div>
+                <div class="kpi-data-front">
+                    <span class="kpi-number" id="texto-frota-disponivel">0</span>
+                </div>
+            </div>
+            <div class="kpi-subtitle" style="margin-top: auto; font-size: 1rem; background: rgba(0,0,0,0.2); padding: 5px 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 5px;">
+                Total: <span id="texto-frota-total" style="color:#ffffff;">0</span>
+            </div>
+        </div>
+
+        <div class="pro-kpi-card glass-panel">
+            <h3 class="kpi-title">Em Manutenção</h3>
+            <div class="kpi-content-wrapper">
+                <i class="fas fa-tools icon-bg text-red"></i>
+                <div class="kpi-data-front">
+                    <span class="kpi-number" id="texto-manut-total">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="pro-kpi-card glass-panel">
+            <h3 class="kpi-title">Frentes Abertas</h3>
+            <div class="kpi-content-wrapper">
+                <i class="fas fa-map-marked-alt icon-bg text-green"></i>
+                <div class="kpi-data-front">
+                    <span class="kpi-number" id="kpi-frentes">0</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="dash-bottom-split">
+        
+        <div class="dash-left-frentes">
+            <div class="pro-list-panel glass-panel">
+                <div class="list-header" style="padding: 15px 20px;">
+                    <h3 style="color: #ffffff; font-size: 1.2rem; margin: 0;"><i class="fas fa-route"></i> Frentes de Trabalho</h3>
+                </div>
+                <div class="list-body-vertical lista-scroll" id="lista-frentes-tv">
+                    <div class="empty-state">Aguardando dados...</div>
+                </div>
+            </div>
+            
+            <div class="pro-list-panel glass-panel">
+                <div class="list-header" style="padding: 15px 20px;">
+                    <h3 style="color: #ffffff; font-size: 1.2rem; margin: 0;"><i class="fas fa-tools text-red"></i> Disponibilidade horária de equipamentos</h3>
+                </div>
+                <div class="list-body-vertical lista-scroll" id="frotas-paradas-list" style="display: block;">
+                    <div class="empty-state">Carregando dados...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dash-right-info">
+            <div class="info-bars-container">
+                <div class="info-bar-item bar-data">
+                    <span class="info-bar-label"><i class="fas fa-clock"></i> Data e Hora</span>
+                    <span class="info-bar-value">
+                        <span id="dash-data">--/--/----</span> - <span id="dash-hora">--:--:--</span>
+                    </span>
+                </div>
+                <div class="info-bar-item bar-turno" id="container-barra-turno">
+                    <span class="info-bar-label"><i id="dash-turno-icon" class="fas fa-sun"></i> Turno Atual</span>
+                    <span class="info-bar-value" id="dash-turno">TURNO --</span>
+                </div>
+                <div class="info-bar-item bar-controlador">
+                    <span class="info-bar-label"><i class="fas fa-user-shield"></i> Controlador</span>
+                    <span class="info-bar-value" id="dash-controlador-nome">AGUARDANDO...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

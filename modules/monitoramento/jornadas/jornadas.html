@@ -1,0 +1,236 @@
+<div class="max-w-[96rem] mx-auto px-6 py-8">
+    <div class="flex justify-between items-center mb-6 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm flex-wrap gap-4">
+        <div class="flex items-center gap-4 flex-wrap">
+            <div>
+                <h1 class="text-2xl font-extrabold text-white">Monitoramento de Jornadas</h1>
+                <p class="text-sm text-slate-400 font-medium">Controle de horas e estatísticas da Lei do Motorista</p>
+            </div>
+            <div id="indicadorAtualizacao" class="hidden flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-inner transition-all duration-500">
+                <i id="iconeAtualizacao" class="fas fa-sync fa-spin"></i>
+                <span id="textoAtualizacao">Verificando...</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <select id="exportStatusFilter" class="bg-slate-900 text-slate-200 text-sm font-bold rounded-lg border border-slate-600 px-3 py-2 cursor-pointer shadow-inner focus:border-sky-500 outline-none transition-colors">
+                <option value="ALL">Status: Todos</option>
+                <option value="INFRACAO">Apenas Infrações</option>
+                <option value="OK">Apenas OK</option>
+            </select>
+            <button id="btnExportarJornada" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-lg transition-colors text-sm flex items-center gap-2"><i class="fas fa-file-excel"></i> Exportar CSV</button>
+            <button id="btnExportarPDFJornada" class="bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-lg transition-colors text-sm flex items-center gap-2"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
+            <button id="btnAbrirModalRelatorioAuditoria" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-4 rounded-lg shadow-lg transition-colors text-sm flex items-center gap-2"><i class="fas fa-clipboard-check"></i> Relatório Auditorias</button>
+        </div>
+    </div>
+
+    <div class="flex items-center mb-6 bg-slate-800/40 p-3 rounded-2xl border border-slate-700/50 backdrop-blur-sm flex-wrap gap-4" id="jornadasFilters">
+        <div class="flex items-center gap-2 text-xs font-bold text-sky-400 uppercase"><i class="fas fa-bolt"></i> Atalhos:</div>
+        <div class="flex items-center gap-1 bg-slate-800/80 p-1 rounded-lg border border-slate-700/50">
+            <button data-qf="D-1" class="btn-qf-jor border border-transparent text-[10px] font-bold text-slate-400 hover:text-sky-300 px-3 py-1.5 rounded">D-1</button>
+            <button data-qf="D-2" class="btn-qf-jor border border-transparent text-[10px] font-bold text-slate-400 hover:text-sky-300 px-3 py-1.5 rounded">D-2</button>
+            <button data-qf="D-7" class="btn-qf-jor border border-transparent text-[10px] font-bold text-slate-400 hover:text-sky-300 px-3 py-1.5 rounded">D-7</button>
+            <button data-qf="D-30" class="btn-qf-jor border border-transparent text-[10px] font-bold text-slate-400 hover:text-sky-300 px-3 py-1.5 rounded">D-30</button>
+            <button data-qf="ALL" class="btn-qf-jor active bg-sky-900/50 text-sky-400 border border-sky-800/50 text-[10px] font-bold px-3 py-1.5 rounded">Todos</button>
+        </div>
+        
+        <div class="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase ml-2 border-l border-slate-700 pl-4"><i class="fas fa-calendar-alt"></i> Data Específica:</div>
+        <select id="filterDataSelect" class="bg-slate-900 text-white text-sm font-bold rounded-lg border border-slate-600 px-3 py-2 cursor-pointer shadow-inner focus:border-emerald-500 outline-none transition-colors">
+            <option value="ALL">TODAS AS DATAS</option>
+        </select>
+
+        <div class="ml-auto bg-slate-900 border border-slate-700 rounded-full px-4 py-1.5 text-xs font-mono text-sky-300"><i class="fas fa-database mr-1"></i> <span id="jorFilterStatus">Carregando...</span></div>
+    </div>
+
+    <section class="space-y-6">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-blue-500/30 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 text-blue-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-users"></i></div>
+                <div><p class="text-slate-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Motoristas Monitorados</p><p id="jorTotalMotoristas" class="text-4xl font-black text-white mt-1 relative z-10">0</p></div>
+            </div>
+            
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-emerald-500/30 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 text-emerald-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-steering-wheel"></i></div>
+                <div><p class="text-slate-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Média de Direção</p><p id="jorMediaDirecao" class="text-4xl font-black text-white mt-1 relative z-10">0h 00m</p></div>
+            </div>
+
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 border-l-4 border-l-rose-500 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 text-rose-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-siren-on"></i></div>
+                <div><p class="text-rose-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Infrações (>12h)</p><p id="jorQtdEstouros" class="text-4xl font-black text-rose-400 mt-1 relative z-10">0</p></div>
+            </div>
+            
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 border-l-4 border-l-sky-500 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 text-sky-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-eraser"></i></div>
+                <div><p class="text-sky-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Expurgadas</p><p id="jorQtdExpurgadas" class="text-4xl font-black text-sky-400 mt-1 relative z-10">0</p></div>
+            </div>
+            
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 border-l-4 border-l-emerald-500 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 text-emerald-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-check-double"></i></div>
+                <div><p class="text-emerald-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Auditadas</p><p id="jorQtdAuditados" class="text-4xl font-black text-emerald-400 mt-1 relative z-10">0</p></div>
+            </div>
+            
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 border-l-4 border-l-amber-500 flex flex-col justify-between relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 text-amber-500/10 text-8xl group-hover:scale-110 transition-transform"><i class="fas fa-exclamation-triangle"></i></div>
+                <div><p class="text-amber-400 text-[11px] font-bold uppercase tracking-widest relative z-10">Pendentes</p><p id="jorQtdPendentes" class="text-4xl font-black text-amber-500 mt-1 relative z-10 animate-pulse">0</p></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl p-5 border border-slate-700/50 col-span-1 flex flex-col items-center justify-center">
+                <h3 class="font-bold text-slate-200 border-b border-slate-700 w-full pb-3 mb-4 text-sm uppercase text-left"><i class="fas fa-chart-pie text-cyan-500 mr-2"></i> Status da Frota</h3>
+                <div class="w-full relative flex justify-center items-center h-[280px]">
+                    <canvas id="statusFrotaChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl p-5 border border-slate-700/50 col-span-2">
+                <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-3 mb-4 text-sm uppercase"><i class="fas fa-chart-bar text-emerald-500 mr-2"></i> Distribuição de Jornadas (Carga Horária)</h3>
+                <div class="w-full h-[280px]">
+                    <canvas id="faixaHorasChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 mt-6">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl p-5 border border-slate-700/50 flex flex-col w-full">
+                <div class="flex justify-between items-center mb-2 border-b border-slate-700/50 pb-3">
+                    <h3 class="font-bold text-white tracking-wide flex items-center text-[13px] uppercase">
+                        <i class="fas fa-chart-line text-rose-500 mr-2 text-lg"></i> Evolução Diária de Ocorrências (Infrações > 12h Não Expurgadas)
+                    </h3>
+                </div>
+                <div class="w-full relative h-[250px]">
+                    <canvas id="evolucaoOcorrenciasChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 mt-6">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-rose-500/50 flex flex-col w-full">
+                <div class="bg-rose-900/40 px-6 py-4 border-b border-rose-800 flex justify-between items-center">
+                    <h3 class="font-bold text-rose-400 tracking-wide text-[13px] uppercase">
+                        <i class="fas fa-exclamation-triangle text-rose-500 mr-2"></i> Infratores Recorrentes (>12h)
+                    </h3>
+                    <div class="text-xs text-rose-300 font-mono">Clique no motorista para auditar</div>
+                </div>
+                <div class="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
+                    <table class="min-w-full text-xs text-left">
+                        <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[10px] border-b border-slate-700 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-6 py-3">Motorista</th>
+                                <th class="px-6 py-3 text-center">Quantidade de Infrações (Ativas)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jorInfratoresRecorrentesBody" class="divide-y divide-slate-800/80 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-rose-500/50 flex flex-col h-full">
+                <div class="bg-rose-900/40 px-4 py-3 border-b border-rose-800 flex justify-between items-center"><h3 class="font-bold text-rose-400 text-[12px] uppercase"><i class="fas fa-siren-on mr-2"></i> Maiores Infrações</h3></div>
+                <div class="overflow-x-auto overflow-y-auto p-2 flex-1"><table class="min-w-full text-xs text-left"><tbody id="jorTopEstourosBody" class="divide-y divide-slate-800 text-slate-300"></tbody></table></div>
+            </div>
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-indigo-500/50 flex flex-col h-full">
+                <div class="bg-indigo-900/40 px-4 py-3 border-b border-indigo-800 flex justify-between items-center"><h3 class="font-bold text-indigo-400 text-[12px] uppercase"><i class="fas fa-moon mr-2"></i> Mais Horas Noturnas</h3></div>
+                <div class="overflow-x-auto overflow-y-auto p-2 flex-1"><table class="min-w-full text-xs text-left"><tbody id="jorTopNoturnasBody" class="divide-y divide-slate-800 text-slate-300"></tbody></table></div>
+            </div>
+            <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-amber-500/50 flex flex-col h-full">
+                <div class="bg-amber-900/40 px-4 py-3 border-b border-amber-800 flex justify-between items-center"><h3 class="font-bold text-amber-400 text-[12px] uppercase"><i class="fas fa-stopwatch mr-2"></i> Mais Horas Extras</h3></div>
+                <div class="overflow-x-auto overflow-y-auto p-2 flex-1"><table class="min-w-full text-xs text-left"><tbody id="jorTopExtrasBody" class="divide-y divide-slate-800 text-slate-300"></tbody></table></div>
+            </div>
+        </div>
+
+        <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col w-full mt-6">
+            <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center flex-wrap gap-4">
+                <h3 class="font-bold text-white tracking-wide text-[13px] uppercase"><i class="fas fa-list text-sky-400 mr-2"></i> Relatório Analítico de Jornada</h3>
+                
+                <div class="flex items-center gap-4 flex-wrap">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-filter text-sky-400"></i>
+                        <select id="filterAnaliticoMotorista" class="bg-slate-900 text-slate-200 text-xs font-bold rounded-lg border border-slate-600 px-3 py-1.5 cursor-pointer outline-none focus:border-sky-500 transition-colors w-48 sm:w-64">
+                            <option value="ALL">Todos os Motoristas</option>
+                        </select>
+                        <button id="btnLimparFiltroMotorista" class="hidden bg-slate-700 hover:bg-rose-600 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow" title="Limpar Filtro Motorista">
+                            <i class="fas fa-times mr-1"></i> Limpar
+                        </button>
+                    </div>
+                    <div class="text-xs text-slate-400 font-mono bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-full" id="jorDataReferencia">Base: Carregando...</div>
+                </div>
+            </div>
+            <div class="overflow-x-auto max-h-[500px] overflow-y-auto custom-scrollbar">
+                <table class="min-w-full text-xs text-left">
+                    <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[10px] border-b border-slate-700 sticky top-0 z-10">
+                        <tr>
+                            <th class="px-4 py-3">Motorista</th>
+                            <th class="px-4 py-3">EPS</th>
+                            <th class="px-4 py-3 text-center">Unidade</th>
+                            <th class="px-4 py-3 text-center">Semana</th>
+                            <th class="px-4 py-3">Data</th>
+                            <th class="px-4 py-3 text-center">Início</th>
+                            <th class="px-4 py-3 text-center">Fim</th>
+                            <th class="px-4 py-3 text-center text-indigo-300">H. Noturnas</th>
+                            <th class="px-4 py-3 text-center text-amber-300">H. Extras</th>
+                            <th class="px-4 py-3 text-center">T. Trabalho</th>
+                            <th class="px-4 py-3 text-center">Direção</th>
+                            <th class="px-4 py-3 text-center">Status / Auditoria</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jorTabelaAnaliticaBody" class="divide-y divide-slate-800/80 text-slate-300"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div id="modalExportacao" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+        <div class="bg-slate-800/80 px-5 py-4 border-b border-slate-700 flex justify-between items-center">
+            <h3 class="font-bold text-white text-lg flex items-center gap-2">
+                <i class="fas fa-file-excel text-emerald-500"></i> Opções de Exportação
+            </h3>
+            <button id="btnFecharModalExportacao" class="text-slate-400 hover:text-rose-500 transition-colors">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="p-5 overflow-y-auto max-h-[60vh] custom-scrollbar">
+            <p class="text-sm text-slate-300 mb-4">Selecione as colunas que deseja incluir no arquivo final:</p>
+            
+            <div class="mb-4 pb-3 border-b border-slate-700">
+                <label class="flex items-center gap-2 cursor-pointer text-slate-200 hover:text-white transition-colors">
+                    <input type="checkbox" id="chkSelecionarTodasColunas" checked class="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500/50 bg-slate-800">
+                    <span class="font-bold text-sm">Selecionar Todas as Colunas</span>
+                </label>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3" id="containerColunasExportacao">
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Motorista" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Motorista</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="EPS" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">EPS</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Placa" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Placa</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Unidade" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Unidade</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Semana" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Semana</span></label>
+                
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Data Início" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Data Início</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Hora Início" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Hora Início</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Data Fim" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Data Fim</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Hora Fim" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Hora Fim</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="H. Noturnas" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">H. Noturnas</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="H. Extras (Soma)" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">H. Extras</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="T. Trabalho (h)" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">T. Trabalho</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="T. Direção (h)" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">T. Direção</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Refeição (h)" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Refeição</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Repouso (h)" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Repouso</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Tempo Excedido" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">T. Excedido</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Status" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Status</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Auditado" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Auditado</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="Motivo Auditoria" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">Motivo Auditoria</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="EXPURGAR" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">EXPURGAR</span></label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white"><input type="checkbox" value="RESPONSÁVEL - SUZANO" checked class="chk-coluna w-4 h-4 rounded border-slate-600 text-emerald-500 bg-slate-800"><span class="text-sm">RESPONSÁVEL - SUZANO</span></label>
+            </div>
+        </div>
+        <div class="p-4 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
+            <button id="btnCancelarExportacao" class="px-4 py-2 rounded-lg font-bold text-sm text-slate-300 bg-slate-700 hover:bg-slate-600 transition-colors">Cancelar</button>
+            <button id="btnConfirmarExportacao" class="px-4 py-2 rounded-lg font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 transition-colors shadow-lg flex items-center gap-2">
+                <i class="fas fa-download"></i> Gerar Exportação
+            </button>
+        </div>
+    </div>
+</div>

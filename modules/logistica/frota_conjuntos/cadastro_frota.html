@@ -1,0 +1,251 @@
+<style>
+    .tab-header { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+    .tab-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-size: 1rem; cursor: pointer; padding: 10px 20px; border-radius: 8px; font-weight: 600; transition: all 0.3s ease; }
+    .tab-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .tab-btn.active { background: #1e293b; color: var(--ccol-blue-bright); border-color: var(--ccol-blue-bright); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    
+    .cat-section { margin-bottom: 30px; background: rgba(255,255,255,0.02); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.05); }
+    .cat-title { color: #f8fafc; font-size: 1.3rem; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+    
+    .hidden-field { display: none !important; }
+
+    /* Estilos do Painel de Resumo */
+    .resumo-frotas-container { display: flex; gap: 15px; margin-bottom: 25px; overflow-x: auto; padding-bottom: 5px; }
+    .card-resumo { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 15px; border-radius: 10px; flex: 1; min-width: 130px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+    .card-resumo .label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+    .card-resumo .valor { font-size: 1.8rem; font-weight: bold; color: #22c55e; }
+    .card-resumo.destaque { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); }
+    .card-resumo.destaque .valor { color: var(--ccol-blue-bright); }
+    
+    /* Card especifico para Reserva */
+    .card-resumo.reserva { background: rgba(245, 158, 11, 0.05); border-color: rgba(245, 158, 11, 0.3); }
+    .card-resumo.reserva .valor { color: #f59e0b; }
+    .card-resumo.reserva .label span { color: #f59e0b !important; }
+</style>
+
+<div class="tab-header">
+    <button class="tab-btn active" id="btnAbaLista" onclick="window.alternarAbaFrota('lista')"><i class="fas fa-layer-group"></i> Visão por Categorias</button>
+    <button class="tab-btn" id="btnAbaCadastro" onclick="window.alternarAbaFrota('cadastro')"><i class="fas fa-plus-circle"></i> Novo Cadastro</button>
+    <button class="btn-primary-green" onclick="exportarFrotaManutencaoExcel()" style="margin-left: auto; padding: 8px 15px;"><i class="fas fa-file-excel"></i> Exportar Frotas</button>
+</div>
+
+<div id="abaListaFrotas" style="animation: fadeIn 0.4s ease-in-out;">
+    
+    <div class="resumo-frotas-container" id="painelResumoFrotas">
+        <div class="card-resumo">
+            <div class="label">Tritrem <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
+            <div class="valor" id="resumoTritrem">0</div>
+        </div>
+        <div class="card-resumo reserva">
+            <div class="label">Tritrem <span style="font-size: 0.7rem;">(Reserva)</span></div>
+            <div class="valor" id="resumoTritremReserva">0</div>
+        </div>
+        <div class="card-resumo">
+            <div class="label">Prancha <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
+            <div class="valor" id="resumoPrancha">0</div>
+        </div>
+        <div class="card-resumo">
+            <div class="label">Comboio <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
+            <div class="valor" id="resumoComboio">0</div>
+        </div>
+        <div class="card-resumo">
+            <div class="label">Grua <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
+            <div class="valor" id="resumoGrua">0</div>
+        </div>
+        <div class="card-resumo">
+            <div class="label">Carreta <span style="font-size: 0.7rem; color: #64748b;">(Sem Cavalo)</span></div>
+            <div class="valor" id="resumoCarreta">0</div>
+        </div>
+        <div class="card-resumo">
+            <div class="label">Frota Leve <span style="font-size: 0.7rem; color: #64748b;">(Ativos)</span></div>
+            <div class="valor" id="resumoLeve">0</div>
+        </div>
+        <div class="card-resumo destaque">
+            <div class="label">Total Geral <span style="font-size: 0.7rem; color: rgba(59, 130, 246, 0.7);">(Ativos)</span></div>
+            <div class="valor" id="resumoTotal">0</div>
+        </div>
+    </div>
+
+    <div id="containerCategorias">
+        <p style="text-align: center; color: #94a3b8; padding: 20px;">Carregando painel de frotas...</p>
+    </div>
+</div>
+
+<div id="abaCadastroFrota" class="content-panel form-panel-dark hidden-field" style="animation: fadeIn 0.4s ease-in-out;">
+    <div class="panel-header">
+        <h3><i class="fas fa-truck-moving"></i> Preencher Novo Conjunto</h3>
+    </div>
+    <div style="padding: 15px 20px; font-size: 0.85rem; color: var(--text-secondary); background: rgba(0,0,0,0.1); border-bottom: 1px solid var(--border-dim); margin-bottom: 15px;">
+        Selecione a <b>Categoria</b> primeiro para que o formulário exiba os campos corretos (Ex: Gruas e Carretas avulsas não possuem Placa de Cavalo).
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; align-items: start; padding: 0 20px 20px 20px;">
+        <div class="form-group-dark">
+            <label>Categoria</label>
+            <select id="osFrotaCategoria" class="dark-select" onchange="window.mudouCategoria(this.value, 'osFrota')">
+                <option value="">Selecione a Categoria...</option>
+                <option value="TRITREM">TRITREM</option>
+                <option value="PRANCHA">PRANCHA</option>
+                <option value="COMBOIO">COMBOIO</option>
+                <option value="GRUA">GRUA</option>
+                <option value="CARRETA">CARRETA (Sem Cavalo)</option>
+                <option value="Frota Leve">Frota Leve</option>
+            </select>
+        </div>
+
+        <div class="form-group-dark" id="osFrotaDivNumeroFrota">
+            <label>Nº Frota</label>
+            <input type="text" id="osFrotaNumeroFrota" placeholder="Ex: F-01" style="text-transform: uppercase;">
+        </div>
+
+        <div class="form-group-dark" id="osFrotaDivCavalo">
+            <label>Placa do Cavalo/Veículo</label>
+            <input type="text" id="osFrotaCavalo" placeholder="Ex: ABC-1234" style="text-transform: uppercase;">
+        </div>
+        
+        <div class="form-group-dark" style="grid-column: 1 / -1;"> <label>Descrição (Marca/Modelo)</label>
+            <input type="text" id="osFrotaDescricao" placeholder="Ex: VOLVO FH 540" style="text-transform: uppercase;">
+        </div>
+        
+        <div class="form-group-dark">
+            <label>Status</label>
+            <select id="osFrotaStatus" class="dark-select">
+                <option value="Ativo">Ativo</option>
+                <option value="Inativo">Inativo</option>
+                <option value="Reserva">Reserva</option>
+            </select>
+        </div>
+        
+        <div class="form-group-dark"><label>Data Inicial (Entrada)</label><input type="date" id="osFrotaDataInicial" class="dark-select"></div>
+        
+        <div class="form-group-dark">
+            <label>Cor Predominante</label>
+            <select id="osFrotaCor" class="dark-select">
+                <option value="">Selecione...</option>
+                <option>Branco</option><option>Preto</option><option>Cinza</option>
+                <option>Azul</option><option>Verde</option><option>Vermelho</option>
+                <option>Amarelo</option><option>Marrom</option>
+            </select>
+        </div>
+
+        <div class="form-group-dark hidden-field" id="osFrotaDivGo"><label>Nº GO</label><input type="text" id="osFrotaGo" placeholder="Ex: GO-01" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark hidden-field" id="osFrotaDivMeta"><label>Meta de Viagens</label><input type="number" id="osFrotaMeta" placeholder="Ex: 10"></div>
+        <div class="form-group-dark hidden-field" id="osFrotaDivC1"><label>Carreta 1 (1º Comp.)</label><input type="text" id="osFrotaCarreta1" placeholder="Placa" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark hidden-field" id="osFrotaDivC2"><label>Carreta 2 (2º Comp.)</label><input type="text" id="osFrotaCarreta2" placeholder="Placa" style="text-transform: uppercase;"></div>
+        <div class="form-group-dark hidden-field" id="osFrotaDivC3"><label>Carreta 3 (3º Comp.)</label><input type="text" id="osFrotaCarreta3" placeholder="Placa" style="text-transform: uppercase;"></div>
+
+        <div class="form-actions" style="grid-column: 1 / -1; margin-top: 20px; display: flex; justify-content: flex-end;">
+            <button class="btn-primary-blue" onclick="salvarFrotaManutencao()" style="padding: 12px 30px; font-size: 1.05rem;"><i class="fas fa-save"></i> Gravar Conjunto de Frota</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalTransferenciaFrota" class="modal-overlay" style="display:none;">
+    <div class="custom-modal form-panel-dark">
+        <div class="modal-header">
+            <h3><i class="fas fa-exchange-alt"></i> Gerenciar Composições</h3>
+            <button class="close-modal" onclick="fecharModalTransferenciaFrota()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="transfFrotaOrigemId">
+            <p style="margin-bottom: 10px;">Origem: <strong id="transfFrotaOrigemText" style="color: var(--ccol-blue-bright); font-size: 1.2rem;"></strong></p>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px;">Você pode engatar/trocar estas carretas em outro Cavalo, ou escolher <b>DESENGATAR</b> para deixá-las avulsas (Sem Cavalo).</p>
+            <div class="form-group-dark">
+                <label>Selecione a Ação / Destino:</label>
+                <select id="selectFrotaDestino" class="dark-select"></select>
+            </div>
+        </div>
+        <div class="modal-footer" style="margin-top: 20px;">
+            <button class="btn-secondary-dark" onclick="fecharModalTransferenciaFrota()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="confirmarTransferenciaFrota()">Confirmar Operação</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalSubstituicaoFrota" class="modal-overlay" style="display:none;">
+    <div class="custom-modal form-panel-dark">
+        <div class="modal-header">
+            <h3><i class="fas fa-sync-alt"></i> Substituir Frota (Ativar Reserva)</h3>
+            <button class="close-modal" onclick="fecharModalSubstituicaoFrota()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="substFrotaReservaId">
+            <p style="margin-bottom: 10px;">Veículo Reserva: <strong id="substFrotaReservaText" style="color: #f59e0b; font-size: 1.2rem;"></strong></p>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px;">Escolha o veículo <b>ATIVO</b> que será substituído. O veículo ativo passará para "Reserva" mantendo suas próprias carretas, e este veículo assumirá o status "Ativo" exatamente com a composição que já possui.</p>
+            <div class="form-group-dark">
+                <label>Selecione o Veículo Ativo (Para virar Reserva):</label>
+                <select id="selectFrotaAtivaSubst" class="dark-select"></select>
+            </div>
+        </div>
+        <div class="modal-footer" style="margin-top: 20px;">
+            <button class="btn-secondary-dark" onclick="fecharModalSubstituicaoFrota()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="confirmarSubstituicaoFrota()">Confirmar Substituição</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalEditarFrota" class="modal-overlay" style="display:none;">
+    <div class="custom-modal form-panel-dark" style="max-width: 950px; width: 95%;">
+        <div class="modal-header">
+            <h3>✏️ Editar Conjunto</h3>
+            <button class="close-modal" onclick="fecharModalEditarFrota()">&times;</button>
+        </div>
+        <div class="modal-body" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; align-items: start; max-height: 75vh; overflow-y: auto;">
+            <input type="hidden" id="editFrotaId">
+            
+            <div class="form-group-dark">
+                <label>Categoria</label>
+                <select id="editFrotaCategoria" class="dark-select" onchange="window.mudouCategoria(this.value, 'editFrota')">
+                    <option value="">Selecione...</option>
+                    <option value="TRITREM">TRITREM</option>
+                    <option value="PRANCHA">PRANCHA</option>
+                    <option value="COMBOIO">COMBOIO</option>
+                    <option value="GRUA">GRUA</option>
+                    <option value="CARRETA">CARRETA (Sem Cavalo)</option>
+                    <option value="Frota Leve">Frota Leve</option>
+                </select>
+            </div>
+
+            <div class="form-group-dark" id="editFrotaDivNumeroFrota">
+                <label>Nº Frota</label>
+                <input type="text" id="editFrotaNumeroFrota" style="text-transform:uppercase;">
+            </div>
+
+            <div class="form-group-dark" id="editFrotaDivCavalo">
+                <label>Placa Cavalo</label>
+                <input type="text" id="editFrotaCavalo" style="text-transform:uppercase;">
+            </div>
+            
+            <div class="form-group-dark" style="grid-column: 1 / -1;"> <label>Descrição (Marca/Modelo)</label>
+                <input type="text" id="editFrotaDescricao" style="text-transform:uppercase;">
+            </div>
+            
+            <div class="form-group-dark">
+                <label>Status</label>
+                <select id="editFrotaStatus" class="dark-select">
+                    <option value="Ativo">Ativo</option>
+                    <option value="Inativo">Inativo</option>
+                    <option value="Reserva">Reserva</option>
+                </select>
+            </div>
+            
+            <div class="form-group-dark"><label>Data Inicial</label><input type="date" id="editFrotaDataInicial" class="dark-select"></div>
+            
+            <div class="form-group-dark">
+                <label>Cor</label>
+                <select id="editFrotaCor" class="dark-select"><option value="Branco">Branco</option><option value="Preto">Preto</option><option value="Cinza">Cinza</option><option value="Azul">Azul</option><option value="Verde">Verde</option><option value="Vermelho">Vermelho</option></select>
+            </div>
+            
+            <div class="form-group-dark hidden-field" id="editFrotaDivGo"><label>Nº GO</label><input type="text" id="editFrotaGo" style="text-transform:uppercase;"></div>
+            <div class="form-group-dark hidden-field" id="editFrotaDivMeta"><label>Meta de Viagens</label><input type="number" id="editFrotaMeta"></div>
+            <div class="form-group-dark hidden-field" id="editFrotaDivC1"><label>Carreta 1 (1º Comp.)</label><input type="text" id="editFrotaCarreta1" style="text-transform:uppercase;"></div>
+            <div class="form-group-dark hidden-field" id="editFrotaDivC2"><label>Carreta 2 (2º Comp.)</label><input type="text" id="editFrotaCarreta2" style="text-transform:uppercase;"></div>
+            <div class="form-group-dark hidden-field" id="editFrotaDivC3"><label>Carreta 3 (3º Comp.)</label><input type="text" id="editFrotaCarreta3" style="text-transform:uppercase;"></div>
+        </div>
+
+        <div class="modal-footer" style="margin-top: 20px; padding: 0 20px 20px 20px; display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn-secondary-dark" onclick="fecharModalEditarFrota()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="salvarEdicaoFrota()"><i class="fas fa-save"></i> Salvar Alterações</button>
+        </div>
+    </div>
+</div>

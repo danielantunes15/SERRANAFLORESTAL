@@ -1,0 +1,468 @@
+/* ================== MODO TV MODERNIZADO (SPINNERS E CARDS) ================== */
+@keyframes pulse-red-tv {
+    0% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5); }
+    50% { box-shadow: 0 0 35px rgba(239, 68, 68, 0.6); border-color: #ef4444; }
+    100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5); }
+}
+
+@keyframes spin-tv {
+    100% { transform: rotate(360deg); }
+}
+
+.tv-card-modern {
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    border: 2px solid #334155;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.tv-card-modern::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 5px;
+    background: var(--ccol-blue-bright);
+}
+
+.tv-card-atrasado {
+    animation: pulse-red-tv 1.5s infinite;
+}
+.tv-card-atrasado::before { background: #ef4444; }
+
+.tv-card-atencao::before { background: #f59e0b; }
+
+.spinner-blue {
+    width: 25px; height: 25px;
+    border: 4px solid rgba(96, 165, 250, 0.2);
+    border-top-color: var(--ccol-blue-bright);
+    border-radius: 50%;
+    animation: spin-tv 1s linear infinite;
+}
+
+.spinner-warning {
+    width: 25px; height: 25px;
+    border: 4px solid rgba(245, 158, 11, 0.2);
+    border-top-color: #f59e0b;
+    border-radius: 50%;
+    animation: spin-tv 0.8s linear infinite;
+}
+
+.spinner-red {
+    width: 25px; height: 25px;
+    border: 4px solid rgba(239, 68, 68, 0.2);
+    border-top-color: #ef4444;
+    border-radius: 50%;
+    animation: spin-tv 0.5s linear infinite;
+}
+
+/* =========================================
+   DASHBOARD DE INDICADORES
+   ========================================= */
+.indicadores-container { padding: 20px; display: flex; flex-direction: column; gap: 25px; }
+
+.indicadores-header {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #ffffff; padding: 20px; border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 15px;
+}
+
+.header-title h2 { margin: 0; color: #2c3e50; font-size: 1.5rem; }
+
+.header-controls { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+
+.real-time-info {
+    font-size: 1.1rem; font-weight: 600; color: #34495e;
+    display: flex; align-items: center; gap: 10px;
+    background: #f8f9fa; padding: 10px 15px; border-radius: 8px; border: 1px solid #e9ecef;
+}
+
+.badge-turno { padding: 4px 10px; border-radius: 20px; font-size: 0.9rem; color: white; }
+.badge-dia { background-color: #f39c12; }
+.badge-noite { background-color: #2c3e50; }
+
+.controlador-select { display: flex; flex-direction: column; }
+.controlador-select label { font-size: 0.85rem; color: #7f8c8d; font-weight: bold; margin-bottom: 5px; }
+.controlador-select select { padding: 8px 12px; border-radius: 6px; border: 1px solid #bdc3c7; background: #fff; font-weight: bold; color: #2c3e50; cursor: pointer; }
+
+.dashboard-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+
+.dashboard-cards .card {
+    background: #fff; padding: 25px 20px; border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center;
+    position: relative; overflow: hidden; transition: transform 0.2s;
+}
+
+.dashboard-cards .card:hover { transform: translateY(-5px); }
+
+.card-icon { font-size: 2rem; margin-bottom: 15px; opacity: 0.2; position: absolute; top: -10px; right: -10px; font-size: 6rem; }
+
+.card-frotas { border-bottom: 5px solid #2ecc71; color: #27ae60; }
+.card-manutencao { border-bottom: 5px solid #e74c3c; color: #c0392b; }
+.card-status { border-bottom: 5px solid #3498db; color: #2980b9; }
+
+.card h3 { margin: 0; font-size: 1.1rem; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
+
+.dado-destaque { font-size: 3rem; font-weight: 800; margin: 10px 0 0 0; }
+
+.status-bom { color: #2ecc71; font-size: 2.2rem !important; }
+.status-alerta { color: #e74c3c; font-size: 2rem !important; }
+
+.dashboard-forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+
+.form-section { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 15px; }
+
+.form-section h3 { margin: 0; color: #2c3e50; font-size: 1.2rem; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
+
+.form-section textarea {
+    width: 100%; height: 150px; padding: 15px; border-radius: 8px;
+    border: 1px solid #bdc3c7; resize: none; font-family: inherit;
+    font-size: 1rem; background: #fdfdfd;
+}
+
+.form-section textarea:focus { outline: none; border-color: #3498db; box-shadow: 0 0 5px rgba(52, 152, 219, 0.3); }
+
+.btn-salvar-dash { background: #3498db; color: #fff; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: background 0.3s; }
+
+.btn-salvar-dash:hover { background: #2980b9; }
+
+.btn-alerta { background: #e67e22; }
+.btn-alerta:hover { background: #d35400; }
+
+/* =========================================
+   DASHBOARD PREMIUM E TV (CCOL)
+   ========================================= */
+.dash-modern-container { padding: 25px; display: flex; flex-direction: column; gap: 30px; color: #e2e8f0; }
+
+.dash-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
+
+.dash-title h2 { margin: 0; font-size: 1.8rem; color: #fff; font-weight: 800; }
+.dash-title p { margin: 5px 0 0 0; color: #94a3b8; font-size: 0.9rem; }
+
+.dash-controls { display: flex; align-items: center; gap: 20px; background: rgba(30, 41, 59, 0.7); padding: 12px 20px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); }
+
+.dash-time-box { display: flex; align-items: center; gap: 12px; padding-right: 20px; border-right: 1px solid rgba(255,255,255,0.1); }
+
+.clock-icon { font-size: 1.8rem; color: #38bdf8; }
+
+.time-texts { display: flex; flex-direction: column; }
+#dash-relogio { font-size: 1.2rem; font-weight: bold; color: #fff; letter-spacing: 1px; }
+#dash-data { font-size: 0.8rem; color: #94a3b8; }
+
+.dash-controller-box { display: flex; flex-direction: column; }
+.dash-controller-box label { font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; margin-bottom: 4px; }
+
+.dash-turno-badge { padding: 8px 16px; border-radius: 30px; font-weight: bold; font-size: 0.9rem; }
+.badge-dia { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+.badge-noite { background: rgba(56, 189, 248, 0.2); color: #7dd3fc; border: 1px solid #38bdf8; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+
+.glass-panel {
+    background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); position: relative; overflow: hidden;
+}
+
+.kpi-card { display: flex; align-items: center; gap: 20px; }
+
+.kpi-icon { width: 60px; height: 60px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
+.icon-blue { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+.icon-red { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.icon-green { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+.icon-orange { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+
+.kpi-info h3 { margin: 0; font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi-info h1 { margin: 5px 0; font-size: 2.5rem; color: #fff; font-weight: 800; line-height: 1; }
+.kpi-info p { margin: 0; font-size: 0.75rem; color: #64748b; }
+
+.dash-tables-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+
+.dash-table { width: 100%; border-collapse: collapse; }
+.dash-table th, .dash-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.dash-table th { font-size: 0.8rem; text-transform: uppercase; color: #94a3b8; background: rgba(0,0,0,0.2); }
+.dash-table td { font-size: 0.95rem; color: #e2e8f0; }
+.dash-table tr:hover { background: rgba(255,255,255,0.02); }
+
+.btn-primary-small { background: #10b981; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+.btn-danger-small { background: #ef4444; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+
+/* =========================================
+   DASHBOARD TIPO PAINEL DE TV (CCOL)
+   ========================================= */
+.dash-tv-container {
+    background: #0f172a; padding: 30px; border-radius: 12px; color: #f8fafc;
+    min-height: calc(100vh - 100px); display: flex; flex-direction: column; gap: 30px; border: 1px solid #1e293b;
+}
+
+.dash-tv-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e293b; padding-bottom: 20px; }
+
+.dash-tv-title { display: flex; align-items: center; gap: 20px; }
+.dash-logo-small { height: 50px; }
+.dash-tv-title h2 { margin: 0; font-size: 2rem; color: #fff; font-weight: 800; letter-spacing: 1px;}
+.dash-tv-title p { margin: 5px 0 0 0; color: #94a3b8; font-size: 1.1rem; }
+
+.dash-tv-info { display: flex; gap: 40px; align-items: flex-end; }
+.dash-tv-controlador, .dash-tv-relogio { display: flex; flex-direction: column; text-align: right;}
+
+.label-pequena { font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px;}
+#dash-controlador-nome { font-size: 1.5rem; color: #38bdf8; font-weight: bold; }
+
+#dash-hora { font-size: 2.2rem; line-height: 1; color: #fff; font-family: monospace; }
+#dash-data { font-size: 1rem; color: #94a3b8; margin-bottom: 5px;}
+.badge-turno-tv { margin-top: 5px; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; border: 1px solid #334155; display: inline-block;}
+
+.kpi-tv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+
+.kpi-tv-card { background: #1e293b; border-radius: 12px; padding: 25px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+
+.border-blue { border-left: 5px solid #38bdf8; }
+.border-red { border-left: 5px solid #ef4444; }
+.border-green { border-left: 5px solid #22c55e; }
+.border-orange { border-left: 5px solid #f59e0b; }
+
+.kpi-tv-icon { font-size: 2.5rem; opacity: 0.8; }
+.border-blue .kpi-tv-icon { color: #38bdf8; }
+.border-red .kpi-tv-icon { color: #ef4444; }
+.border-green .kpi-tv-icon { color: #22c55e; }
+.border-orange .kpi-tv-icon { color: #f59e0b; }
+
+.kpi-tv-dados { display: flex; flex-direction: column; }
+.kpi-tv-label { font-size: 0.9rem; color: #cbd5e1; text-transform: uppercase; }
+.kpi-tv-valor { font-size: 2.8rem; color: #fff; line-height: 1.1; font-weight: 900; }
+
+.dash-tv-paineis { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; flex-grow: 1; }
+
+.painel-tv { background: rgba(30, 41, 59, 0.5); border: 1px solid #334155; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+
+.painel-tv-titulo { background: rgba(0,0,0,0.3); padding: 15px 25px; border-bottom: 1px solid #334155; }
+.painel-tv-titulo h3 { margin: 0; font-size: 1.3rem; color: #fff; }
+.titulo-alerta h3 { color: #fca5a5; }
+
+.painel-tv-conteudo { padding: 25px; display: flex; flex-direction: column; gap: 15px; }
+
+.tv-item { background: #1e293b; padding: 15px 20px; border-radius: 8px; border-left: 4px solid #38bdf8; font-size: 1.2rem; color: #e2e8f0; }
+.tv-item-alerta { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.tv-empty-state { color: #64748b; font-style: italic; font-size: 1.1rem; }
+
+/* Dashboard Modal & Flutuante */
+.dash-floating-actions { position: fixed; bottom: 30px; right: 30px; z-index: 100; }
+.btn-float {
+    background: #3b82f6; color: white; border: none; padding: 15px 25px; border-radius: 30px;
+    font-size: 1.1rem; font-weight: bold; cursor: pointer; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.5); transition: transform 0.2s;
+}
+.btn-float:hover { transform: scale(1.05); }
+
+.modal-largo { max-width: 800px; }
+.dash-divisor { border: 0; border-top: 1px solid #334155; margin: 25px 0; }
+.input-group-inline { display: flex; gap: 10px; margin-bottom: 15px; }
+.dark-input { background: #1e293b; border: 1px solid #334155; color: #fff; padding: 10px 15px; border-radius: 6px; flex-grow: 1; }
+.mini-lista { display: flex; flex-direction: column; gap: 8px; }
+.mini-item { display: flex; justify-content: space-between; background: #0f172a; padding: 10px; border-radius: 6px; border: 1px solid #334155; }
+.btn-remover-mini { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.2rem; }
+
+
+/* =========================================
+   DASHBOARD CCOL PRO (TV & PRINT)
+   ========================================= */
+.text-blue { color: #38bdf8 !important; }
+.text-red { color: #ef4444 !important; }
+.text-green { color: #22c55e !important; }
+.text-orange { color: #f59e0b !important; }
+
+.dash-pro-wrapper {
+    background-color: #070b14; 
+    padding: 30px 40px;
+    border-radius: 16px;
+    font-family: var(--font-family);
+    color: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    min-height: calc(100vh - 80px);
+}
+
+.dash-pro-header {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 2px solid rgba(255,255,255,0.05); padding-bottom: 20px;
+}
+.header-logo-title { display: flex; align-items: center; gap: 25px; }
+.pro-logo { height: 75px; object-fit: contain; }
+.pro-title-box h2 { margin: 0; font-size: 2.2rem; font-weight: 900; letter-spacing: 1px; color: #fff; }
+.pro-title-box p { margin: 4px 0 0 0; font-size: 1.1rem; color: #94a3b8; font-weight: 600; letter-spacing: 2px; }
+
+.header-actions { display: flex; align-items: center; gap: 35px; }
+
+.controlador-header-box { text-align: right; border-right: 2px solid rgba(255,255,255,0.1); padding-right: 35px; }
+.pro-label { font-size: 0.8rem; color: #94a3b8; font-weight: bold; letter-spacing: 1px; display: block; margin-bottom: 4px; }
+
+.btn-pro-print { background: #2563eb; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
+.btn-pro-print:hover { background: #1d4ed8; }
+
+.pro-clock-box { display: flex; flex-direction: column; text-align: right; }
+.pro-date { color: #64748b; font-weight: bold; font-size: 1rem; text-transform: uppercase; }
+.pro-time { font-size: 2.8rem; font-weight: 800; font-family: monospace; color: #fff; line-height: 1; margin: 2px 0; }
+.pro-badge { background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; font-size: 0.9rem; font-weight: bold; align-self: flex-end; color: #cbd5e1; }
+
+.dash-pro-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 25px; }
+.pro-kpi-card { padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-height: 280px; }
+.kpi-title { margin: 0 0 10px 0; font-size: 1.2rem; text-transform: uppercase; font-weight: 800; text-align: center; width: 100%;}
+.gauge-container { width: 100%; height: 160px; margin-bottom: -10px; }
+.kpi-value-box { text-align: center; }
+.kpi-number { font-size: 2.5rem; font-weight: 900; line-height: 1; display: block; color: #fff; }
+.kpi-label { font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;}
+
+.flex-center { justify-content: center; gap: 15px; }
+.huge-number-box { position: relative; display: flex; justify-content: center; align-items: center; width: 100%; height: 120px; }
+.icon-bg { position: absolute; font-size: 7rem; opacity: 0.1; }
+.huge-number { font-size: 5rem; font-weight: 900; position: relative; z-index: 2; line-height: 1; }
+
+.dash-pro-lists-single { display: grid; grid-template-columns: 1fr; gap: 25px; flex-grow: 1; }
+.pro-list-panel { display: flex; flex-direction: column; overflow: hidden; }
+.list-header { background: rgba(0,0,0,0.4); padding: 18px 25px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.list-header h3 { margin: 0; font-size: 1.3rem; color: #fff; display: flex; gap: 12px; align-items: center; }
+.list-body-horizontal { padding: 25px; display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 15px; overflow-y: auto; max-height: 350px; }
+
+.pro-list-item { background: rgba(255,255,255,0.02); padding: 16px 20px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); display: flex; gap: 15px; align-items: center; font-size: 1.15rem; color: #e2e8f0; }
+.item-text { flex-grow: 1; }
+.empty-state { color: #475569; font-style: italic; font-size: 1.2rem; grid-column: 1 / -1; text-align: center; margin-top: 15px;}
+
+/* =========================================
+   DETALHAMENTO FRENTES DE TRABALHO
+   ========================================= */
+.frentes-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+    margin-top: 20px;
+    margin-bottom: 25px;
+}
+
+.frente-panel {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-dim);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+.frente-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-bottom: 1px dashed var(--border-dim);
+    padding-bottom: 15px;
+    text-align: center;
+}
+
+.frente-header h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.3rem;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.frente-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.frente-data {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--text-secondary);
+    letter-spacing: 2px;
+}
+
+.frente-turno {
+    padding: 8px 20px;
+    border-radius: 30px;
+    font-weight: 900;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+}
+
+/* Cores Automáticas do Turno */
+.turno-dia-style {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid #f59e0b;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+}
+
+.turno-noite-style {
+    background: rgba(56, 189, 248, 0.15);
+    color: #7dd3fc;
+    border: 1px solid #38bdf8;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+}
+
+.frente-controle-area {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-dim);
+    border-radius: 8px;
+    padding: 20px;
+    flex-grow: 1;
+}
+
+/* =========================================
+   FROTAS PARADAS (INDICADORES)
+   ========================================= */
+.item-frota-parada {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-left: 5px solid #ccc;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    width: 100%;
+    margin-bottom: 10px;
+}
+.item-frota-parada.preventiva { border-left-color: #f59e0b; }
+.item-frota-parada.corretiva { border-left-color: #ef4444; }
+.item-frota-parada.borracharia { border-left-color: #38bdf8; }
+
+.cavalo-info { display: flex; align-items: center; gap: 15px; }
+.identificacao-cavalo { font-weight: 800; font-size: 1.25rem; color: #fff; letter-spacing: 1px;}
+
+.badge-tipo {
+    font-size: 0.85rem;
+    font-weight: 800;
+    padding: 6px 15px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.badge-tipo.preventiva { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid #f59e0b; }
+.badge-tipo.corretiva { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid #ef4444; }
+.badge-tipo.borracharia { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid #38bdf8; }
+
+@media (max-width: 900px) {
+    .frentes-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Substitua .total-indicador pela classe real que você está usando */
+.total-indicador {
+    margin-top: 20px; /* Aumente ou diminua esse valor conforme necessário */
+    display: block;   /* Garante que ele fique em uma linha isolada */
+    text-align: center; /* Opcional: centraliza o texto embaixo do quadro */
+}
