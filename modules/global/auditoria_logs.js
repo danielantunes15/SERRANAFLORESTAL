@@ -30,7 +30,6 @@ async function carregarFiltroFiliais() {
 }
 
 // ----------------- NOVA FUNÇÃO GLOBAL DE REGISTRO DE AUDITORIA -----------------
-// Agora com suporte a Severidade, IP, Snapshots e Tabela Afetada para a Lixeira.
 window.registrarLogAuditoria = async function(modulo, acao, detalhes, severidade = 'Info', dados_anteriores = null, dados_novos = null, tabela_afetada = null, registro_id = null, ip_address = null) {
     if (!window.supabaseClient) return;
     const usuarioLogado = window.currentUser ? window.currentUser.username : 'Sistema';
@@ -66,7 +65,11 @@ window.buscarLogsAvancados = async function() {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #a855f7;"><i class="fas fa-spinner fa-spin"></i> Pesquisando no banco de dados...</td></tr>';
 
     try {
-        let query = window.supabaseClient.from('logs_exclusao').select('*, filiais(nome)').order('data_hora', { ascending: false }).limit(1000);
+        // MELHORIA DE BANDA: Removido o '*' que puxava os JSONs gigantes. Limitado a 200 registros.
+        let query = window.supabaseClient.from('logs_exclusao')
+            .select('id, data_hora, usuario, acao, detalhes, severidade, ip_address, filial_id, tabela_afetada, registro_id, filiais(nome)')
+            .order('data_hora', { ascending: false })
+            .limit(200);
         
         const filialFiltro = document.getElementById('filtroLogFilial').value;
         if (window.currentUser && window.currentUser.role !== 'SuperAdmin' && window.currentUser.role !== 'Admin') {
@@ -121,13 +124,9 @@ function renderizarTabelaLogs(lista) {
         const filialNome = log.filiais && log.filiais.nome ? log.filiais.nome : (log.filial_id ? `Filial #${log.filial_id}` : 'Global');
 
         // Botões de Ferramentas: Snapshot e Desfazer
-        let ferramentas = '';
-        if (log.dados_anteriores || log.dados_novos) {
-            ferramentas += `<button class="btn-snapshot" title="Ver Snapshot Antes/Depois" onclick="verSnapshots(${log.id})"><i class="fas fa-eye"></i> Dados</button> `;
-        }
+        let ferramentas = `<button class="btn-snapshot" title="Ver Snapshot Antes/Depois" onclick="verSnapshots(${log.id})"><i class="fas fa-eye"></i> Dados</button> `;
         
-        // Se foi exclusão e salvou a tabela + dados originais, libera botão de Desfazer
-        if (sev === 'Crítico' && log.tabela_afetada && log.dados_anteriores) {
+        if (sev === 'Crítico' && log.tabela_afetada) {
             ferramentas += `<button class="btn-undo" title="Restaurar Informação (Lixeira)" onclick="desfazerAcao(${log.id})"><i class="fas fa-undo"></i> Restaurar</button>`;
         }
 
@@ -144,25 +143,53 @@ function renderizarTabelaLogs(lista) {
     }).join('');
 }
 
-window.verSnapshots = function(logId) {
+window.verSnapshots = async function(logId) {
     const log = todosLogsCarregados.find(l => l.id == logId);
     if (!log) return;
     
-    document.getElementById('snapAntes').innerText = log.dados_anteriores ? JSON.stringify(log.dados_anteriores, null, 2) : 'Nenhum dado anterior (Foi uma criação nova).';
-    document.getElementById('snapDepois').innerText = log.dados_novos ? JSON.stringify(log.dados_novos, null, 2) : 'Nenhum dado novo (Foi uma exclusão/deleção).';
-    
+    // Mostra o modal carregando
+    document.getElementById('snapAntes').innerText = 'Baixando dados do servidor...';
+    document.getElementById('snapDepois').innerText = 'Baixando dados do servidor...';
     document.getElementById('modalSnapshot').style.display = 'flex';
+
+    try {
+        // MELHORIA DE BANDA: Baixa os JSONs pesados APENAS quando o usuário clica neste botão.
+        const { data, error } = await window.supabaseClient.from('logs_exclusao')
+            .select('dados_anteriores, dados_novos')
+            .eq('id', logId)
+            .single();
+        
+        if (error) throw error;
+
+        document.getElementById('snapAntes').innerText = data.dados_anteriores ? JSON.stringify(data.dados_anteriores, null, 2) : 'Nenhum dado anterior (Foi uma criação nova).';
+        document.getElementById('snapDepois').innerText = data.dados_novos ? JSON.stringify(data.dados_novos, null, 2) : 'Nenhum dado novo (Foi uma exclusão/deleção).';
+    } catch (e) {
+        console.error(e);
+        document.getElementById('snapAntes').innerText = 'Erro ao consultar os dados.';
+        document.getElementById('snapDepois').innerText = 'Erro ao consultar os dados.';
+    }
 };
 
 window.desfazerAcao = async function(logId) {
     const log = todosLogsCarregados.find(l => l.id == logId);
-    if (!log || !log.tabela_afetada || !log.dados_anteriores) return;
+    if (!log || !log.tabela_afetada) return;
 
     if (!confirm(`⚠️ ATENÇÃO: Você está prestes a restaurar dados apagados na tabela [${log.tabela_afetada}].\nDeseja confirmar a restauração?`)) return;
 
     try {
-        // Tira o campo ID se for gerado automaticamente para evitar conflito (ajuste conforme seu banco, aqui enviaremos tudo)
-        const payload = { ...log.dados_anteriores };
+        // Busca o payload original diretamente do banco só na hora de restaurar
+        const { data: logCompleto, error: errBusca } = await window.supabaseClient.from('logs_exclusao')
+            .select('dados_anteriores')
+            .eq('id', logId)
+            .single();
+
+        if (errBusca) throw errBusca;
+        if (!logCompleto || !logCompleto.dados_anteriores) {
+            alert("❌ Não há dados anteriores registrados para restauração.");
+            return;
+        }
+
+        const payload = { ...logCompleto.dados_anteriores };
         
         const { error } = await window.supabaseClient.from(log.tabela_afetada).insert([payload]);
         if (error) throw error;

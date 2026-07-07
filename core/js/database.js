@@ -100,7 +100,11 @@ const db = {
     // --- LOGS DE SEGURANÇA E AUDITORIA ---
     async getLogs() {
         try {
-            const query = supabaseClient.from('logs_exclusao').select('*').order('data_hora', { ascending: false }).limit(50);
+            // MELHORIA DE BANDA: Removido o '*' (evita carregar JSONs pesados na Dashboard inicial)
+            const query = supabaseClient.from('logs_exclusao')
+                .select('id, data_hora, usuario, acao, detalhes, severidade, ip_address, filial_id')
+                .order('data_hora', { ascending: false })
+                .limit(50);
             const { data, error } = await aplicarFiltroFilial(query);
             if(error) throw error;
             return data || [];
@@ -110,7 +114,11 @@ const db = {
         try {
             const start = (page - 1) * limit;
             const end = start + limit - 1;
-            let query = supabaseClient.from('logs_exclusao').select('*, filiais(nome)', { count: 'exact' }).order('data_hora', { ascending: false }).range(start, end);
+            // MELHORIA DE BANDA: Removido o '*'
+            let query = supabaseClient.from('logs_exclusao')
+                .select('id, data_hora, usuario, acao, detalhes, severidade, ip_address, tabela_afetada, registro_id, filial_id, filiais(nome)', { count: 'exact' })
+                .order('data_hora', { ascending: false })
+                .range(start, end);
             
             const filialId = filtros.filialId || 'TODAS';
             if (window.currentUser && ['SuperAdmin', 'Admin'].includes(window.currentUser.role)) {
@@ -272,7 +280,7 @@ const db = {
         await supabaseClient.from('almoxarifado_pecas').delete().eq('id', id);
     },
     
-    // LIMITANDO A BUSCA DE HISTÓRICO PARA EVITAR TRAVAMENTOS (A MELHORIA)
+    // LIMITANDO A BUSCA DE HISTÓRICO PARA EVITAR TRAVAMENTOS
     async getMovimentacoesEstoque(limite = 150) {
         try {
             const query = supabaseClient.from('almoxarifado_movimentacoes')
@@ -297,16 +305,15 @@ const db = {
     
     // Processar Lote de Entrada (XML/PDF)
     async processarEntradaLote(itens, nf, fornecedor) {
+        // MELHORIA DE BANDA CRÍTICA: Busca todas as peças de uma vez SÓ, antes do Loop.
+        // Anteriormente, se a nota tivesse 50 itens, o sistema baixava a tabela inteira 50 vezes.
+        let queryCatalogo = supabaseClient.from('almoxarifado_pecas').select('*');
+        queryCatalogo = aplicarFiltroFilial(queryCatalogo);
+        let { data: pecasBusca } = await queryCatalogo;
+        if (!pecasBusca) pecasBusca = [];
+
         for (let item of itens) {
-            let query = supabaseClient.from('almoxarifado_pecas').select('*');
-            query = aplicarFiltroFilial(query);
-            
-            let { data: pecasBusca } = await query;
-            let pecaDB = null;
-            
-            if (pecasBusca && pecasBusca.length > 0) {
-                pecaDB = pecasBusca.find(p => p.codigo === item.codigo || p.nome.toUpperCase() === item.nome.toUpperCase());
-            }
+            let pecaDB = pecasBusca.find(p => p.codigo === item.codigo || p.nome.toUpperCase() === item.nome.toUpperCase());
 
             let pecaId;
             let valorUnitarioItem = parseFloat(item.valor_unitario) || 0;
@@ -321,6 +328,11 @@ const db = {
                     quantidade: novaQtd,
                     preco_medio: valorUnitarioItem > 0 ? valorUnitarioItem : pecaDB.preco_medio 
                 }).eq('id', pecaId);
+                
+                // Atualiza em memória caso haja outro item igual na mesma nota
+                pecaDB.quantidade = novaQtd;
+                if (valorUnitarioItem > 0) pecaDB.preco_medio = valorUnitarioItem;
+
             } else {
                 // Cria a nova peça
                 const novaPeca = injetarFilial({
@@ -341,6 +353,7 @@ const db = {
                 if (error) throw error;
                 if (insertData && insertData.length > 0) {
                     pecaId = insertData[0].id;
+                    pecasBusca.push(insertData[0]); // Adiciona à lista em memória
                 }
             }
 
