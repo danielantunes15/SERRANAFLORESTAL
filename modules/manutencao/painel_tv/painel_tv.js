@@ -248,14 +248,53 @@ window.iniciarRelogioTV = function() {
         }
     }, 15000); 
 
-    // INTERVALO 2: Busca novidades no banco quase instantaneamente (Roda a cada 4 segundos)
-    window.tvFetchInterval = setInterval(() => {
-        if(typeof carregarDadosOS === 'function') {
-            carregarDadosOS().then(() => {
+    // ==============================================================================
+    // INTERVALO 2: OTIMIZADO PARA REDUZIR CONSUMO DE BANDA DE 5GB (Roda a cada 30 segundos)
+    // ==============================================================================
+    window.tvFetchInterval = setInterval(async () => {
+        // Pausa se a guia não estiver visível (economiza 100% de dados se desligarem a tela à noite)
+        if (document.hidden) return; 
+
+        if (window.supabaseClient) {
+            try {
+                const hoje = new Date();
+                hoje.setHours(0,0,0,0);
+                const dataHojeStr = hoje.toISOString();
+                
+                // Busca APENAS O.S abertas OU as fechadas no dia de hoje (ignora o histórico pesado de meses)
+                // Busca APENAS as colunas vitais que a TV precisa mostrar para economizar bytes
+                let query = window.supabaseClient.from('ordens_servico')
+                    .select('id, numero_os, placa, tipo, status, prioridade, data_abertura, data_conclusao, previsao_entrega, previsao, mecanico_responsavel, mecanico, problema, motorista')
+                    .or(`status.neq.Concluída,data_conclusao.gte.${dataHojeStr}`);
+
+                if (typeof window.aplicarFiltroFilial === 'function') {
+                    query = window.aplicarFiltroFilial(query);
+                }
+
+                const { data, error } = await query;
+                
+                if (!error && data) {
+                    window.ordensServico = data; // Atualiza a variável global só com esse pacote leve
+                    if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
+                } else {
+                    throw error; // Força cair no catch para rodar o fallback em caso de erro
+                }
+            } catch(e) {
+                console.error("Erro na busca inteligente da TV:", e);
+                // Fallback de segurança para o método antigo
+                if(typeof carregarDadosOS === 'function') {
+                    await carregarDadosOS();
+                    if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
+                }
+            }
+        } else {
+            // Fallback se não achar o client do banco direto
+            if(typeof carregarDadosOS === 'function') {
+                await carregarDadosOS();
                 if (typeof renderizarCardsTV === 'function') renderizarCardsTV();
-            });
+            }
         }
-    }, 4000);
+    }, 30000); // 30000ms = 30 segundos (antes era 4000ms = 4 segundos)
 };
 
 window.toggleFullScreenTV = function() {
