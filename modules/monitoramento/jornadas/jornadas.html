@@ -32,12 +32,24 @@
             <button data-qf="ALL" class="btn-qf-jor active bg-sky-900/50 text-sky-400 border border-sky-800/50 text-[10px] font-bold px-3 py-1.5 rounded">Todos</button>
         </div>
         
-        <div class="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase ml-2 border-l border-slate-700 pl-4"><i class="fas fa-calendar-alt"></i> Data Específica:</div>
-        <select id="filterDataSelect" class="bg-slate-900 text-white text-sm font-bold rounded-lg border border-slate-600 px-3 py-2 cursor-pointer shadow-inner focus:border-emerald-500 outline-none transition-colors">
-            <option value="ALL">TODAS AS DATAS</option>
+        <div class="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase ml-2 border-l border-slate-700 pl-4"><i class="fas fa-calendar-week"></i> Período:</div>
+        <div class="flex items-center gap-2">
+            <input type="date" id="filterDataInicio" class="bg-slate-900 text-slate-200 text-sm font-bold rounded-lg border border-slate-600 px-2 py-1.5 cursor-pointer shadow-inner focus:border-amber-500 outline-none transition-colors">
+            <span class="text-slate-400 text-xs font-bold">até</span>
+            <input type="date" id="filterDataFim" class="bg-slate-900 text-slate-200 text-sm font-bold rounded-lg border border-slate-600 px-2 py-1.5 cursor-pointer shadow-inner focus:border-amber-500 outline-none transition-colors">
+        </div>
+
+        <div class="flex items-center gap-2 text-xs font-bold text-purple-400 uppercase ml-2 border-l border-slate-700 pl-4"><i class="fas fa-calendar"></i> Mês:</div>
+        <select id="filterMesSelect" class="bg-slate-900 text-white text-sm font-bold rounded-lg border border-slate-600 px-3 py-2 cursor-pointer shadow-inner focus:border-purple-500 outline-none transition-colors max-w-[150px]">
+            <option value="ALL">TODOS</option>
         </select>
 
-        <div class="ml-auto bg-slate-900 border border-slate-700 rounded-full px-4 py-1.5 text-xs font-mono text-sky-300"><i class="fas fa-database mr-1"></i> <span id="jorFilterStatus">Carregando...</span></div>
+        <div class="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase ml-2 border-l border-slate-700 pl-4"><i class="fas fa-calendar-alt"></i> Dia:</div>
+        <select id="filterDataSelect" class="bg-slate-900 text-white text-sm font-bold rounded-lg border border-slate-600 px-3 py-2 cursor-pointer shadow-inner focus:border-emerald-500 outline-none transition-colors max-w-[130px]">
+            <option value="ALL">TODOS</option>
+        </select>
+
+        <div class="ml-auto bg-slate-900 border border-slate-700 rounded-full px-4 py-1.5 text-xs font-mono text-sky-300 whitespace-nowrap"><i class="fas fa-database mr-1"></i> <span id="jorFilterStatus">Carregando...</span></div>
     </div>
 
     <section class="space-y-6">

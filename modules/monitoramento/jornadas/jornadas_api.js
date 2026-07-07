@@ -15,7 +15,7 @@ window.aplicarFiltroLocal = window.aplicarFiltroLocal || function(query) {
 
 window.carregarPainelJornadas = async function() {
     try {
-        console.log("[Jornadas] Iniciando busca no banco...");
+        console.log("[Jornadas] Iniciando busca total no banco de dados...");
         let dadosBrutos = [];
         
         const dbClient = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
@@ -25,29 +25,40 @@ window.carregarPainelJornadas = async function() {
             return;
         }
 
-        // BLOQUEIO DE CONSUMO: Limita a busca aos últimos 30 dias de histórico
-        const trintaDiasAtras = new Date();
-        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+        // Loop para contornar o limite do Supabase/PostgREST e pegar TODOS os >5000 registros
+        // Além disso, foi retirado o bloqueio de buscar apenas os últimos 30 dias.
+        let fetchMore = true;
+        let from = 0;
+        const step = 1000;
 
-        let queryJornadas = dbClient
-            .from('historico_jornadas')
-            .select('*')
-            .gte('inicio', trintaDiasAtras.toISOString())
-            .order('id', { ascending: false })
-            .limit(2000); 
+        while (fetchMore) {
+            let queryJornadas = dbClient
+                .from('historico_jornadas')
+                .select('*')
+                .order('id', { ascending: false })
+                .range(from, from + step - 1); 
 
-        // Injeta o Multi-Tenancy (Saas). Se der problema com filial_id, comente a linha abaixo.
-        queryJornadas = window.aplicarFiltroLocal(queryJornadas);
+            // Injeta o Multi-Tenancy (Saas). Se der problema com filial_id, comente a linha abaixo.
+            queryJornadas = window.aplicarFiltroLocal(queryJornadas);
 
-        const { data, error } = await queryJornadas;
+            const { data, error } = await queryJornadas;
 
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-            dadosBrutos = data;
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                dadosBrutos = dadosBrutos.concat(data);
+                from += step;
+                
+                // Se a busca retornou menos registros que o step, significa que acabaram os dados
+                if (data.length < step) {
+                    fetchMore = false; 
+                }
+            } else {
+                fetchMore = false;
+            }
         }
 
-        console.log("[Jornadas] Total de registros encontrados no banco:", dadosBrutos.length);
+        console.log(`[Jornadas] Total de registros encontrados e cacheados no banco: ${dadosBrutos.length}`);
 
         if (dadosBrutos.length > 0) {
             const dadosLimpos = [];
@@ -66,18 +77,22 @@ window.carregarPainelJornadas = async function() {
                 }
             });
 
-            // CORREÇÃO: Removido o filtro ".filter(d => d.total_trabalho_horas >= 8)" 
-            // Agora ele vai renderizar até mesmo dados com erro de horas do importador
             window.fullJornadasData = dadosLimpos;
             console.log("[Jornadas] Total liberado para a tela:", window.fullJornadasData.length);
         } else {
             window.fullJornadasData = [];
         }
 
-        if (typeof window.popularFiltroDatas === 'function') window.popularFiltroDatas();
+        // Chama a nova função que popula os select box de Filtro de Datas e Filtro de Meses
+        if (typeof window.popularFiltrosJornadas === 'function') {
+            window.popularFiltrosJornadas();
+        } else if (typeof window.popularFiltroDatas === 'function') {
+            window.popularFiltroDatas(); // Fallback caso ocorra algo
+        }
+
         if (typeof window.renderizarPainelJornadas === 'function') window.renderizarPainelJornadas();
 
     } catch (error) { 
-        console.error("[Jornadas] Falha na API:", error); 
+        console.error("[Jornadas] Falha na API ao carregar dados em massa:", error); 
     }
 };

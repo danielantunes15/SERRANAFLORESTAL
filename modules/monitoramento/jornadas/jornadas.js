@@ -33,20 +33,115 @@ window.centerTextPluginJornadas = {
     }
 };
 
+window.popularFiltrosJornadas = function() {
+    const filterDataSelect = document.getElementById('filterDataSelect');
+    const filterMesSelect = document.getElementById('filterMesSelect');
+    
+    if (!window.fullJornadasData) return;
+
+    const datasUnicas = new Set();
+    const mesesUnicos = new Set();
+    const regexDate = window.regexDate || /(\d{2}\/\d{2})(?:\/\d{4})?/;
+
+    window.fullJornadasData.forEach(d => {
+        const matchDate = d.inicio ? d.inicio.match(regexDate) : null;
+        if (matchDate) {
+            let dataParsedStr = matchDate[0];
+            if (dataParsedStr.length <= 5) dataParsedStr += '/' + new Date().getFullYear();
+            datasUnicas.add(dataParsedStr);
+
+            const partes = dataParsedStr.split('/');
+            if (partes.length === 3) {
+                mesesUnicos.add(`${partes[1]}/${partes[2]}`);
+            }
+        }
+    });
+
+    if (filterDataSelect) {
+        const currentValue = filterDataSelect.value;
+        filterDataSelect.innerHTML = '<option value="ALL">TODAS AS DATAS</option>';
+        Array.from(datasUnicas).sort((a, b) => {
+            const [da, ma, ya] = a.split('/');
+            const [db, mb, yb] = b.split('/');
+            return new Date(`${yb}-${mb}-${db}`) - new Date(`${ya}-${ma}-${da}`);
+        }).forEach(data => {
+            filterDataSelect.insertAdjacentHTML('beforeend', `<option value="${data}">${data}</option>`);
+        });
+        if(Array.from(datasUnicas).includes(currentValue)) filterDataSelect.value = currentValue;
+    }
+
+    if (filterMesSelect) {
+         const currentValue = filterMesSelect.value;
+         filterMesSelect.innerHTML = '<option value="ALL">TODOS OS MESES</option>';
+         Array.from(mesesUnicos).sort((a, b) => {
+            const [ma, ya] = a.split('/');
+            const [mb, yb] = b.split('/');
+            return new Date(`${yb}-${mb}-01`) - new Date(`${ya}-${ma}-01`);
+         }).forEach(mesAno => {
+            filterMesSelect.insertAdjacentHTML('beforeend', `<option value="${mesAno}">${mesAno}</option>`);
+         });
+         if(Array.from(mesesUnicos).includes(currentValue)) filterMesSelect.value = currentValue;
+    }
+};
+
 window.configurarFiltros = function() {
     const btnQFs = document.querySelectorAll('.btn-qf-jor');
+    const filterDtIni = document.getElementById('filterDataInicio');
+    const filterDtFim = document.getElementById('filterDataFim');
+    const filterMes = document.getElementById('filterMesSelect');
+    const filterSel = document.getElementById('filterDataSelect');
+
+    const resetOutrosFiltros = (excecao) => {
+        if (excecao !== 'QF') {
+            window.activeQuickFilterJor = 'ALL';
+            if(typeof window.atualizarBotoesFiltro === 'function') window.atualizarBotoesFiltro();
+        }
+        if (excecao !== 'RANGE') {
+            if (filterDtIni) filterDtIni.value = '';
+            if (filterDtFim) filterDtFim.value = '';
+        }
+        if (excecao !== 'MES') {
+            if (filterMes) filterMes.value = 'ALL';
+        }
+        if (excecao !== 'DIA') {
+            if (filterSel) filterSel.value = 'ALL';
+        }
+    };
+
     btnQFs.forEach(btn => {
         btn.addEventListener('click', (e) => {
             window.activeQuickFilterJor = e.currentTarget.getAttribute('data-qf');
             if(typeof window.atualizarBotoesFiltro === 'function') window.atualizarBotoesFiltro();
+            
             if (window.activeQuickFilterJor !== 'ALL') { 
-                const filterSel = document.getElementById('filterDataSelect');
-                if (filterSel) filterSel.value = 'ALL'; 
+                resetOutrosFiltros('QF');
             }
             window.currentStatusFilter = 'ALL'; 
             window.renderizarPainelJornadas();
         });
     });
+
+    const applyRange = () => {
+        resetOutrosFiltros('RANGE');
+        window.renderizarPainelJornadas();
+    };
+
+    if (filterDtIni) filterDtIni.addEventListener('change', applyRange);
+    if (filterDtFim) filterDtFim.addEventListener('change', applyRange);
+
+    if (filterMes) {
+        filterMes.addEventListener('change', () => {
+            resetOutrosFiltros('MES');
+            window.renderizarPainelJornadas();
+        });
+    }
+
+    if (filterSel) {
+        filterSel.addEventListener('change', () => {
+            resetOutrosFiltros('DIA');
+            window.renderizarPainelJornadas();
+        });
+    }
 };
 
 window.renderizarPainelJornadas = function() {
@@ -54,31 +149,55 @@ window.renderizarPainelJornadas = function() {
         console.log("[Jornadas] Iniciando renderização visual. Total global recebido:", window.fullJornadasData?.length);
 
         const filterEl = document.getElementById('filterDataSelect');
-        let dataEspec = 'ALL';
+        const filterMesEl = document.getElementById('filterMesSelect');
+        const filterDtIniEl = document.getElementById('filterDataInicio');
+        const filterDtFimEl = document.getElementById('filterDataFim');
+
+        let dataEspec = filterEl ? filterEl.value : 'ALL';
+        let mesEspec = filterMesEl ? filterMesEl.value : 'ALL';
         
-        if (!filterEl) {
-            console.warn("[Jornadas] Aviso: Elemento 'filterDataSelect' não encontrado. Exibindo todos.");
-        } else {
-            dataEspec = filterEl.value;
-        }
+        let dtIni = filterDtIniEl && filterDtIniEl.value ? new Date(filterDtIniEl.value + "T00:00:00") : null;
+        let dtFim = filterDtFimEl && filterDtFimEl.value ? new Date(filterDtFimEl.value + "T23:59:59") : null;
         
         let dados = window.fullJornadasData || [];
 
+        const regexDate = window.regexDate || /(\d{2}\/\d{2})(?:\/\d{4})?/;
+
         dados = dados.filter(d => {
             let dataParsedStr = '-';
-            const matchDate = d.inicio ? d.inicio.match(window.regexDate) : null;
+            let mesAnoStr = '-';
+            let dataComparacao = null;
+
+            const matchDate = d.inicio ? d.inicio.match(regexDate) : null;
+            
             if(matchDate) {
                 dataParsedStr = matchDate[0];
                 if (dataParsedStr.length <= 5) dataParsedStr += '/' + new Date().getFullYear();
+                
+                const partes = dataParsedStr.split('/');
+                if(partes.length === 3) {
+                    mesAnoStr = `${partes[1]}/${partes[2]}`;
+                    dataComparacao = new Date(`${partes[2]}-${partes[1]}-${partes[0]}T12:00:00`);
+                }
             }
 
+            // Filtro por Data Específica
             if (dataEspec !== 'ALL' && dataParsedStr !== dataEspec) return false;
 
+            // Filtro por Mês
+            if (mesEspec !== 'ALL' && mesAnoStr !== mesEspec) return false;
+
+            // Filtro por Range de Datas
+            if (dtIni && dataComparacao && dataComparacao < dtIni) return false;
+            if (dtFim && dataComparacao && dataComparacao > dtFim) return false;
+
+            // Filtro de Atalhos
             if (window.activeQuickFilterJor !== 'ALL') {
-                const dataParsed = window.extrairDataParaFiltro(d.inicio);
+                const dataParsed = window.extrairDataParaFiltro ? window.extrairDataParaFiltro(d.inicio) : dataComparacao;
                 if (dataParsed) {
-                    const hj = new Date(); hj.setHours(0, 0, 0, 0); dataParsed.setHours(0, 0, 0, 0);
-                    const diffDias = Math.round((hj - dataParsed) / 86400000);
+                    const hj = new Date(); hj.setHours(0, 0, 0, 0); 
+                    const dAux = new Date(dataParsed); dAux.setHours(0, 0, 0, 0);
+                    const diffDias = Math.round((hj - dAux) / 86400000);
                     
                     if (window.activeQuickFilterJor === 'D-1' && diffDias !== 1) return false;
                     if (window.activeQuickFilterJor === 'D-2' && diffDias !== 2) return false;
@@ -88,10 +207,10 @@ window.renderizarPainelJornadas = function() {
                     if (window.activeQuickFilterJor === 'SEM') {
                         const inicioSemana = new Date(hj);
                         inicioSemana.setDate(hj.getDate() - hj.getDay()); 
-                        if (dataParsed < inicioSemana || dataParsed > hj) return false;
+                        if (dAux < inicioSemana || dAux > hj) return false;
                     }
                     if (window.activeQuickFilterJor === 'MES') {
-                        if (dataParsed.getMonth() !== hj.getMonth() || dataParsed.getFullYear() !== hj.getFullYear()) return false;
+                        if (dAux.getMonth() !== hj.getMonth() || dAux.getFullYear() !== hj.getFullYear()) return false;
                     }
                 } else return false;
             }
@@ -141,7 +260,8 @@ window.renderizarPainelJornadas = function() {
         });
 
         dadosFiltrados.sort((a, b) => {
-            return window.obterDataHoraParaOrdenacao(b.inicio) - window.obterDataHoraParaOrdenacao(a.inicio);
+            return (window.obterDataHoraParaOrdenacao ? window.obterDataHoraParaOrdenacao(b.inicio) : new Date(b.inicio)) - 
+                   (window.obterDataHoraParaOrdenacao ? window.obterDataHoraParaOrdenacao(a.inicio) : new Date(a.inicio));
         });
 
         window.dadosFiltradosGlobal = dadosFiltrados;
@@ -215,7 +335,7 @@ window.renderizarPainelJornadas = function() {
                 tbodyEstouro.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-slate-500 text-xs">Sem infrações ativas.</td></tr>';
             } else {
                 topInfracoes.forEach(m => {
-                    tbodyEstouro.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-rose-500">${window.formatarHorasMinutos(m.horas)}</td></tr>`);
+                    tbodyEstouro.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-rose-500">${window.formatarHorasMinutos ? window.formatarHorasMinutos(m.horas) : m.horas}</td></tr>`);
                 });
             }
         }
@@ -228,7 +348,7 @@ window.renderizarPainelJornadas = function() {
             const topNoturnas = arrMot.filter(m => m.noturnas > 0).sort((a,b) => b.noturnas - a.noturnas).slice(0,5);
             if(topNoturnas.length === 0) tbodyNoturnas.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-slate-500 text-xs">Sem horas noturnas.</td></tr>';
             topNoturnas.forEach(m => {
-                tbodyNoturnas.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-indigo-400">${window.formatarHorasMinutos(m.noturnas)}</td></tr>`);
+                tbodyNoturnas.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-indigo-400">${window.formatarHorasMinutos ? window.formatarHorasMinutos(m.noturnas) : m.noturnas}</td></tr>`);
             });
         }
 
@@ -238,7 +358,7 @@ window.renderizarPainelJornadas = function() {
             const topExtras = arrMot.filter(m => m.extras > 0).sort((a,b) => b.extras - a.extras).slice(0,5);
             if(topExtras.length === 0) tbodyExtras.innerHTML = '<tr><td colspan="2" class="p-2 text-center text-slate-500 text-xs">Sem horas extras.</td></tr>';
             topExtras.forEach(m => {
-                tbodyExtras.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-amber-400">${window.formatarHorasMinutos(m.extras)}</td></tr>`);
+                tbodyExtras.insertAdjacentHTML('beforeend', `<tr><td class="px-3 py-2 text-slate-300 truncate max-w-[120px]">${m.nome}</td><td class="px-3 py-2 text-right font-black text-amber-400">${window.formatarHorasMinutos ? window.formatarHorasMinutos(m.extras) : m.extras}</td></tr>`);
             });
         }
 
@@ -246,11 +366,16 @@ window.renderizarPainelJornadas = function() {
         if(document.getElementById('jorTotalMotoristas')) document.getElementById('jorTotalMotoristas').textContent = arrMot.length;
         if(document.getElementById('jorQtdEstouros')) document.getElementById('jorQtdEstouros').textContent = qtdEstouros;
         if(document.getElementById('jorQtdExpurgadas')) document.getElementById('jorQtdExpurgadas').textContent = qtdExpurgadas;
-        if(document.getElementById('jorMediaDirecao')) document.getElementById('jorMediaDirecao').textContent = window.formatarHorasMinutos(qtdDirecao > 0 ? (totalMinutosDirecao / qtdDirecao) / 60 : 0);
+        if(document.getElementById('jorMediaDirecao')) document.getElementById('jorMediaDirecao').textContent = window.formatarHorasMinutos ? window.formatarHorasMinutos(qtdDirecao > 0 ? (totalMinutosDirecao / qtdDirecao) / 60 : 0) : 0;
         if(document.getElementById('jorQtdAuditados')) document.getElementById('jorQtdAuditados').textContent = totalAuditados;
         if(document.getElementById('jorQtdPendentes')) document.getElementById('jorQtdPendentes').textContent = totalPendentes;
 
-        let filterText = dataEspec !== 'ALL' ? dataEspec : window.activeQuickFilterJor;
+        let filterText = '';
+        if (dataEspec !== 'ALL') filterText += `Dia: ${dataEspec}`;
+        else if (mesEspec !== 'ALL') filterText += `Mês: ${mesEspec}`;
+        else if (dtIni || dtFim) filterText += `Período Personalizado`;
+        else filterText += window.activeQuickFilterJor;
+        
         if (window.currentStatusFilter !== 'ALL') filterText += ` | Status: ${window.currentStatusFilter}`;
         if(document.getElementById('jorDataReferencia')) document.getElementById('jorDataReferencia').textContent = `Filtro: ${filterText}`;
 
@@ -321,7 +446,7 @@ window.renderizarPainelJornadas = function() {
             const dailyInfractions = new Map();
             dados.forEach(d => {
                 let dataStr = '-';
-                const matchDate = d.inicio ? d.inicio.match(window.regexDate) : null;
+                const matchDate = d.inicio ? d.inicio.match(regexDate) : null;
                 if(matchDate) { dataStr = matchDate[0]; if (dataStr.length <= 5) dataStr += '/' + new Date().getFullYear(); }
                 if (dataStr !== '-') {
                     if (!dailyInfractions.has(dataStr)) dailyInfractions.set(dataStr, 0);
@@ -330,7 +455,7 @@ window.renderizarPainelJornadas = function() {
                 }
             });
 
-            const sortedDatesInfractions = Array.from(dailyInfractions.keys()).sort((a, b) => window.extrairDataParaFiltro(a) - window.extrairDataParaFiltro(b));
+            const sortedDatesInfractions = Array.from(dailyInfractions.keys()).sort((a, b) => (window.extrairDataParaFiltro ? window.extrairDataParaFiltro(a) : new Date(a.split('/').reverse().join('-'))) - (window.extrairDataParaFiltro ? window.extrairDataParaFiltro(b) : new Date(b.split('/').reverse().join('-'))));
             const displayDatesInf = sortedDatesInfractions.slice(-30);
             const displayCountsInf = displayDatesInf.map(dt => dailyInfractions.get(dt));
             const displayLabelsInf = displayDatesInf.map(dt => { const p = dt.split('/'); return `${p[0]}/${p[1]}`; });
@@ -363,6 +488,9 @@ window.atualizarTabelaAnalitica = function() {
 
         if(!window.dadosFiltradosGlobal) return;
 
+        const regexDate = window.regexDate || /(\d{2}\/\d{2})(?:\/\d{4})?/;
+        const regexTime = window.regexTime || /(\d{2}:\d{2})/;
+
         window.dadosFiltradosGlobal.forEach(linha => {
             const motNome = linha.motorista || 'Indefinido';
             if (window.currentAnaliticoFilter !== 'ALL' && motNome !== window.currentAnaliticoFilter) return;
@@ -373,14 +501,14 @@ window.atualizarTabelaAnalitica = function() {
 
             let dI = '-', hI = '-', dF = '-', hF = '-';
             if (linha.inicio) {
-                const mD = linha.inicio.match(window.regexDate); const mT = linha.inicio.match(window.regexTime);
+                const mD = linha.inicio.match(regexDate); const mT = linha.inicio.match(regexTime);
                 if (mD) { dI = mD[0]; if (dI.length <= 5) dI += '/' + new Date().getFullYear(); }
                 if (mT) hI = mT[0]; if (!mD && !mT) hI = linha.inicio;
             }
             if (linha.fim) {
-                const mDF = linha.fim.match(window.regexDate); const mTF = linha.fim.match(window.regexTime);
+                const mDF = linha.fim.match(regexDate); const mTF = linha.fim.match(regexTime);
                 if (mDF) { dF = mDF[0]; if (dF.length <= 5) dF += '/' + new Date().getFullYear(); } else dF = dI; 
-                if (mTF) hF = mTF[0]; else hF = linha.fim.replace(window.regexDate, '').replace('-', '').trim() || linha.fim;
+                if (mTF) hF = mTF[0]; else hF = linha.fim.replace(regexDate, '').replace('-', '').trim() || linha.fim;
             }
 
             const valEPS = linha.eps || 'SERRANALOG - BA';
@@ -400,7 +528,7 @@ window.atualizarTabelaAnalitica = function() {
                     badge = `<span class="border border-rose-500 text-rose-500 bg-rose-900/20 px-2 py-1 rounded text-[10px] uppercase font-bold">INFRAÇÃO</span>`;
                 }
 
-                const dataHoraDetalhe = `${dI} ${hI} até ${dF} ${hF} (Total: ${window.formatarHorasMinutos(horas)})`;
+                const dataHoraDetalhe = `${dI} ${hI} até ${dF} ${hF} (Total: ${window.formatarHorasMinutos ? window.formatarHorasMinutos(horas) : horas})`;
                 
                 if (linha.auditado || linha.expurgado) {
                     const obsSegura = linha.observacao_auditoria ? linha.observacao_auditoria.replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
@@ -423,10 +551,10 @@ window.atualizarTabelaAnalitica = function() {
                     <td class="px-4 py-3"><span class="text-[10px] text-slate-500 mr-2"><i class="far fa-calendar-alt"></i> ${dI}</span></td>
                     <td class="px-4 py-3 text-center text-slate-200 font-mono">${hI}</td>
                     <td class="px-4 py-3 text-center text-slate-200 font-mono">${hF}</td>
-                    <td class="px-4 py-3 text-center text-indigo-400 font-bold">${window.formatarHorasMinutos(linha.horas_noturnas)}</td>
-                    <td class="px-4 py-3 text-center text-amber-400 font-bold">${window.formatarHorasMinutos(linha.horas_extras)}</td>
-                    <td class="px-4 py-3 text-center ${corLinha}">${window.formatarHorasMinutos(horas)}</td>
-                    <td class="px-4 py-3 text-center text-slate-400">${window.formatarHorasMinutos(linha.direcao_horas || 0)}</td>
+                    <td class="px-4 py-3 text-center text-indigo-400 font-bold">${window.formatarHorasMinutos ? window.formatarHorasMinutos(linha.horas_noturnas) : linha.horas_noturnas}</td>
+                    <td class="px-4 py-3 text-center text-amber-400 font-bold">${window.formatarHorasMinutos ? window.formatarHorasMinutos(linha.horas_extras) : linha.horas_extras}</td>
+                    <td class="px-4 py-3 text-center ${corLinha}">${window.formatarHorasMinutos ? window.formatarHorasMinutos(horas) : horas}</td>
+                    <td class="px-4 py-3 text-center text-slate-400">${window.formatarHorasMinutos ? window.formatarHorasMinutos(linha.direcao_horas || 0) : (linha.direcao_horas || 0)}</td>
                     <td class="px-4 py-3"><div class="flex items-center justify-center gap-3 flex-wrap">${badge}${auditHtml}</div></td>
                 </tr>
             `);
@@ -453,9 +581,6 @@ window.filtrarMotoristaAnalitico = function(nome) {
     }
 };
 
-// =========================================================================
-// CORREÇÃO PARA SISTEMAS SPA: O Menu.js vai chamar essa função diretamente
-// =========================================================================
 window.initJornadas = function() {
     console.log("[Jornadas] Módulo iniciado instantaneamente via SPA.");
     
