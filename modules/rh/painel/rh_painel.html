@@ -1,0 +1,45 @@
+<div class="action-bar">
+    <div class="filter-group">
+        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-users"></i> Dashboard de Recursos Humanos</h2>
+        <input type="text" id="buscaPainelRH" class="search-input-dark" placeholder="Buscar na tabela abaixo..." onkeyup="window.filtrarTabelaPainelRH()">
+    </div>
+</div>
+
+<div class="config-grid" style="margin-bottom: 20px; padding: 0;">
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-blue-bright);">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem;">Total de Colaboradores (Ativos)</h4>
+        <div id="kpiTotalAtivos" style="font-size: 2.5rem; font-weight: 900; color: #fff;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-green-bright);">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem;">Ativos no Plano de Saúde</h4>
+        <div id="kpiPlanoSaude" style="font-size: 2.5rem; font-weight: 900; color: var(--ccol-green-bright);"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #8b5cf6;">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem;">Ativos no Sindicato</h4>
+        <div id="kpiSindicato" style="font-size: 2.5rem; font-weight: 900; color: #8b5cf6;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #ef4444;">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem;">ASO Vencido / Alerta</h4>
+        <div id="kpiAsoVencido" style="font-size: 2.5rem; font-weight: 900; color: #ef4444;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+</div>
+
+<div class="content-panel">
+    <div class="table-modern-wrapper" style="max-height: 500px; overflow-y: auto;">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Matrícula</th>
+                    <th>Nome do Colaborador</th>
+                    <th>Função</th>
+                    <th>Telefone</th>
+                    <th>Plano de Saúde</th>
+                    <th>Sindicato</th>
+                    <th>Status ASO</th>
+                </tr>
+            </thead>
+            <tbody id="tbPainelRH">
+            </tbody>
+        </table>
+    </div>
+</div>
