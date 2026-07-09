@@ -42,14 +42,14 @@ window.preencherDadosColaborador = function(idColaborador, idCampoFuncao, idCamp
     const campoNome = document.getElementById(idCampoNomeHidden);
     
     if(!idColaborador) {
-        if(campoFuncao) campoFuncao.value = '';
+        if(campoFuncao && campoFuncao.readOnly) campoFuncao.value = '';
         if(campoNome) campoNome.value = '';
         return;
     }
 
     const colab = window.listaColaboradoresRH.find(c => c.id == idColaborador);
     if(colab) {
-        if(campoFuncao) campoFuncao.value = colab.cargo || colab.funcao || 'Colaborador'; 
+        if(campoFuncao && campoFuncao.readOnly) campoFuncao.value = colab.cargo || colab.funcao || 'Colaborador'; 
         if(campoNome) campoNome.value = colab.nome;
     }
 };
@@ -90,12 +90,44 @@ window.carregarFrotasOcorrencia = function() {
     window.preencherDadosVeiculo('');
 };
 
+window.mudarTipoEnvolvido = function(id) {
+    const tipo = document.getElementById(`outro_tipo_${id}`).value;
+    const divColab = document.getElementById(`div_outro_colab_${id}`);
+    const divTerceiro = document.getElementById(`div_outro_terceiro_${id}`);
+    const inputFuncao = document.getElementById(`outro_funcao_${id}`);
+    
+    if (tipo === 'TERCEIRO') {
+        divColab.style.display = 'none';
+        divTerceiro.style.display = 'block';
+        inputFuncao.readOnly = false;
+        inputFuncao.value = '';
+        inputFuncao.placeholder = 'Ex: Motorista Terceirizado, Transportadora...';
+    } else {
+        divColab.style.display = 'block';
+        divTerceiro.style.display = 'none';
+        inputFuncao.readOnly = true;
+        inputFuncao.placeholder = '';
+        window.preencherDadosColaborador(document.getElementById(`outro_colab_${id}`).value, `outro_funcao_${id}`, `outro_nome_${id}`);
+    }
+};
+
 window.carregarFrotasOutro = function(id) {
     const selCat = document.getElementById(`outro_cat_${id}`);
+    const divPlacaInterna = document.getElementById(`div_outro_placa_interna_${id}`);
+    const divPlacaTerceiro = document.getElementById(`div_outro_placa_terceiro_${id}`);
     const selPlaca = document.getElementById(`outro_placa_${id}`);
-    if(!selCat || !selPlaca) return;
     
     const cat = selCat.value;
+    
+    if (cat === 'TERCEIRO') {
+        divPlacaInterna.style.display = 'none';
+        divPlacaTerceiro.style.display = 'block';
+        return;
+    } else {
+        divPlacaInterna.style.display = 'block';
+        divPlacaTerceiro.style.display = 'none';
+    }
+
     if(!cat) {
         selPlaca.innerHTML = '<option value="">Aguardando...</option>';
         return;
@@ -137,7 +169,7 @@ window.adicionarOutroEnvolvido = function() {
     
     const div = document.createElement('div');
     div.id = `envolvido_${id}`;
-    div.style.cssText = "display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 15px; padding: 15px; border: 1px dashed var(--border-dim); border-radius: 8px; background: rgba(255,255,255,0.02);";
+    div.style.cssText = "display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px; padding: 15px; border: 1px dashed var(--border-dim); border-radius: 8px; background: rgba(255,255,255,0.02);";
     
     let colabOptions = '<option value="">Selecione...</option>';
     window.listaColaboradoresRH.forEach(c => {
@@ -145,39 +177,68 @@ window.adicionarOutroEnvolvido = function() {
     });
 
     div.innerHTML = `
-        <div class="form-group-dark">
-            <label>Colaborador Envolvido</label>
-            <select id="outro_colab_${id}" class="dark-select" onchange="window.preencherDadosColaborador(this.value, 'outro_funcao_${id}', 'outro_nome_${id}')" required>
-                ${colabOptions}
-            </select>
-            <input type="hidden" id="outro_nome_${id}">
-        </div>
-        <div class="form-group-dark">
-            <label>Função</label>
-            <input type="text" id="outro_funcao_${id}" class="dark-select" readonly>
-        </div>
-        <div class="form-group-dark">
-            <label>Equipamento (Categoria)</label>
-            <select id="outro_cat_${id}" class="dark-select" onchange="window.carregarFrotasOutro(${id})">
-                <option value="">Sem Equipamento</option>
-                <option value="TRITREM">TRITREM</option>
-                <option value="PRANCHA">PRANCHA</option>
-                <option value="GRUA">GRUA</option>
-                <option value="COMBOIO">COMBOIO</option>
-                <option value="CARRETA">CARRETA</option>
-                <option value="FROTA LEVE">FROTA LEVE</option>
-            </select>
-        </div>
-        <div class="form-group-dark">
-            <label>Equipamento (Placa)</label>
-            <select id="outro_placa_${id}" class="dark-select">
-                <option value="">Aguardando...</option>
-            </select>
-        </div>
-        <div style="display: flex; align-items: flex-end; justify-content: flex-end;">
-            <button type="button" class="btn-secondary-dark" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1);" onclick="document.getElementById('envolvido_${id}').remove()">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: rgba(239, 68, 68, 0.1); padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                <input type="checkbox" id="outro_responsavel_${id}" style="transform: scale(1.3); accent-color: #ef4444;">
+                <strong style="color: #ef4444;">Este é o causador / principal responsável da ocorrência</strong>
+            </label>
+            <button type="button" class="btn-secondary-dark" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); padding: 5px 10px;" onclick="document.getElementById('envolvido_${id}').remove()">
                 <i class="fas fa-trash"></i> Remover
             </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
+            <div class="form-group-dark">
+                <label>Tipo de Envolvido</label>
+                <select id="outro_tipo_${id}" class="dark-select" onchange="window.mudarTipoEnvolvido(${id})">
+                    <option value="COLABORADOR">Colaborador Interno (RH)</option>
+                    <option value="TERCEIRO">Empresa Terceira / Externo</option>
+                </select>
+            </div>
+
+            <div class="form-group-dark" id="div_outro_colab_${id}">
+                <label>Colaborador Envolvido</label>
+                <select id="outro_colab_${id}" class="dark-select" onchange="window.preencherDadosColaborador(this.value, 'outro_funcao_${id}', 'outro_nome_${id}')">
+                    ${colabOptions}
+                </select>
+                <input type="hidden" id="outro_nome_${id}">
+            </div>
+
+            <div class="form-group-dark" id="div_outro_terceiro_${id}" style="display: none;">
+                <label>Nome / Empresa Terceira</label>
+                <input type="text" id="outro_terceiro_nome_${id}" class="dark-select" placeholder="Ex: Transportadora XYZ">
+            </div>
+
+            <div class="form-group-dark">
+                <label>Função / Cargo</label>
+                <input type="text" id="outro_funcao_${id}" class="dark-select" readonly>
+            </div>
+
+            <div class="form-group-dark">
+                <label>Equipamento (Categoria)</label>
+                <select id="outro_cat_${id}" class="dark-select" onchange="window.carregarFrotasOutro(${id})">
+                    <option value="">Sem Equipamento / Não se aplica</option>
+                    <option value="TRITREM">TRITREM</option>
+                    <option value="PRANCHA">PRANCHA</option>
+                    <option value="GRUA">GRUA</option>
+                    <option value="COMBOIO">COMBOIO</option>
+                    <option value="CARRETA">CARRETA</option>
+                    <option value="FROTA LEVE">FROTA LEVE</option>
+                    <option value="TERCEIRO">VEÍCULO DE TERCEIRO</option>
+                </select>
+            </div>
+
+            <div class="form-group-dark" id="div_outro_placa_interna_${id}">
+                <label>Equipamento (Placa)</label>
+                <select id="outro_placa_${id}" class="dark-select">
+                    <option value="">Aguardando...</option>
+                </select>
+            </div>
+            
+            <div class="form-group-dark" id="div_outro_placa_terceiro_${id}" style="display: none;">
+                <label>Placa do Terceiro</label>
+                <input type="text" id="outro_placa_terceiro_input_${id}" class="dark-select" placeholder="Ex: ABC-1234">
+            </div>
         </div>
     `;
     container.appendChild(div);
@@ -219,21 +280,41 @@ window.buscarDataOS = async function(numeroOsDigitado, idCampoDestino) {
 window.salvarOcorrencia = async function(event) {
     event.preventDefault();
 
-    // Capturar a lista de outros envolvidos
+    // Capturar a lista dinâmica de envolvidos e suas marcações
     const outrosEnvolvidos = [];
     const container = document.getElementById('lista_outros_envolvidos');
+    
     if(container) {
         const divs = container.querySelectorAll('[id^="envolvido_"]');
         divs.forEach(div => {
             const id = div.id.replace('envolvido_', '');
-            const idColab = document.getElementById(`outro_colab_${id}`).value;
-            const nome = document.getElementById(`outro_nome_${id}`).value;
+            const isResponsavel = document.getElementById(`outro_responsavel_${id}`).checked;
+            const tipo = document.getElementById(`outro_tipo_${id}`).value;
+            
+            let nome = '';
+            let idColab = null;
+            if (tipo === 'TERCEIRO') {
+                nome = document.getElementById(`outro_terceiro_nome_${id}`).value;
+            } else {
+                idColab = document.getElementById(`outro_colab_${id}`).value;
+                nome = document.getElementById(`outro_nome_${id}`).value;
+            }
+            
             const funcao = document.getElementById(`outro_funcao_${id}`).value;
+            
             const categoria = document.getElementById(`outro_cat_${id}`).value;
-            const placa = document.getElementById(`outro_placa_${id}`).value;
+            let placa = '';
+            
+            if (categoria === 'TERCEIRO') {
+                placa = document.getElementById(`outro_placa_terceiro_input_${id}`).value;
+            } else {
+                placa = document.getElementById(`outro_placa_${id}`).value;
+            }
 
             if(nome) {
                 outrosEnvolvidos.push({
+                    is_responsavel: isResponsavel,
+                    tipo_envolvido: tipo,
                     colaborador_id: idColab,
                     nome: nome,
                     funcao: funcao,
@@ -263,7 +344,7 @@ window.salvarOcorrencia = async function(event) {
         parecer_gestor: document.getElementById('parecer_gestor').value,
         gestor_imediato: document.getElementById('gestor_imediato').value,
         gerente: document.getElementById('gerente').value,
-        outros_envolvidos: outrosEnvolvidos // A nova coluna JSON para buscas precisas no futuro
+        outros_envolvidos: outrosEnvolvidos // JSONB resolve a escalabilidade
     };
 
     try {
@@ -280,7 +361,7 @@ window.salvarOcorrencia = async function(event) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 title: 'Ocorrência Registada!',
-                text: 'A ocorrência foi salva. Deseja imprimir o formulário agora?',
+                text: 'A ocorrência foi salva com sucesso. Deseja imprimir o formulário agora?',
                 icon: 'success',
                 showCancelButton: true,
                 confirmButtonColor: '#10b981',
@@ -307,7 +388,7 @@ window.salvarOcorrencia = async function(event) {
     } catch (error) {
         console.error("Erro ao guardar a ocorrência:", error);
         if (typeof Swal !== 'undefined') {
-            Swal.fire('Erro', 'Ocorreu um erro ao guardar a ocorrência. Lembre-se de verificar se a coluna "outros_envolvidos" existe no banco.', 'error');
+            Swal.fire('Erro', 'Ocorreu um erro ao guardar a ocorrência. Lembre-se de verificar a estrutura do banco (coluna outros_envolvidos JSONB).', 'error');
         } else {
             alert("Erro ao guardar a ocorrência. Verifique o console (F12) para mais detalhes.");
         }

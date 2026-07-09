@@ -7,7 +7,7 @@
     <form id="formOcorrencia" onsubmit="window.salvarOcorrencia(event)">
         
         <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
-            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Responsável Principal</legend>
+            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Responsável / Envolvido Principal (Colaborador)</legend>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
                     <label for="nome_envolvido_select">Nome do Envolvido</label>
@@ -32,7 +32,7 @@
         </fieldset>
 
         <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
-            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Equipamento Principal (Causador)</legend>
+            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Equipamento Principal Envolvido</legend>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
                     <label for="categoria_frota">Categoria da Frota</label>
@@ -67,10 +67,10 @@
         </fieldset>
 
         <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
-            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Outros Envolvidos (Colaboradores e Equipamentos)</legend>
+            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Outros Envolvidos (Colaboradores / Terceiros / Equipamentos Extras)</legend>
             <div id="lista_outros_envolvidos"></div>
             <button type="button" class="btn-secondary-dark" onclick="window.adicionarOutroEnvolvido()" style="margin-top: 10px; background: rgba(255,255,255,0.05); border: 1px dashed var(--border-dim); color: var(--ccol-blue-bright); padding: 10px 15px; border-radius: 8px; width: 100%; text-align: center; cursor: pointer; transition: all 0.3s;">
-                <i class="fas fa-plus"></i> Adicionar Outro Colaborador / Equipamento Envolvido
+                <i class="fas fa-plus"></i> Adicionar Outro Envolvido na Ocorrência
             </button>
         </fieldset>
 
