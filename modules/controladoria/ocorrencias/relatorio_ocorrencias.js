@@ -12,7 +12,7 @@ window.initRelatorioOcorrencias = async function() {
 
 window.carregarDadosRelatorio = async function() {
     const tbody = document.getElementById('tbodyRelatorioOcorrencias');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Carregando...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Carregando dados do servidor...</td></tr>';
 
     try {
         let query = supabaseClient.from('ocorrencias').select('*').order('data_ocorrido', { ascending: false });
@@ -24,35 +24,50 @@ window.carregarDadosRelatorio = async function() {
         if (error) throw error;
         
         window.dadosOcorrenciasRelatorio = data || [];
-        window.limparFiltrosRelatorio(false); // limpa os inputs e força renderização
+        
+        // Mantém os selects como estão e força o primeiro filtro
+        window.filtrarEAtualizarDashboard(); 
     } catch (error) {
         console.error("Erro ao carregar relatório:", error);
         if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#ef4444;">Erro ao carregar dados.</td></tr>';
     }
 };
 
-window.limparFiltrosRelatorio = function(reload = true) {
+window.limparFiltrosRelatorio = function() {
     document.getElementById('filtroMesRel').value = '';
+    // Deixa o ano atual
+    const anoAtual = new Date().getFullYear().toString();
+    const selectAno = document.getElementById('filtroAnoRel');
+    if(selectAno) selectAno.value = anoAtual;
+    
     document.getElementById('filtroStatusRel').value = 'Todos';
     document.getElementById('filtroBuscaRel').value = '';
     window.filtrarEAtualizarDashboard();
 };
 
 window.filtrarEAtualizarDashboard = function() {
-    const mesFiltro = document.getElementById('filtroMesRel').value; // YYYY-MM
+    const mesFiltro = document.getElementById('filtroMesRel').value; 
+    const anoFiltro = document.getElementById('filtroAnoRel').value;
     const statusFiltro = document.getElementById('filtroStatusRel').value;
     const busca = document.getElementById('filtroBuscaRel').value.toLowerCase();
 
     window.dadosFiltradosRelatorio = window.dadosOcorrenciasRelatorio.filter(o => {
-        // Filtro Mês
-        if (mesFiltro && o.data_ocorrido) {
-            if (!o.data_ocorrido.startsWith(mesFiltro)) return false;
+        
+        // Filtro Data (YYYY-MM-DD)
+        if (o.data_ocorrido) {
+            const partes = o.data_ocorrido.split('-'); // [0] = YYYY, [1] = MM, [2] = DD
+            if (anoFiltro && partes[0] !== anoFiltro) return false;
+            if (mesFiltro && partes[1] !== mesFiltro) return false;
+        } else if (anoFiltro || mesFiltro) {
+            return false; // Se tiver filtro e a ocorrencia nao tiver data, esconde
         }
+
         // Filtro Status
         if (statusFiltro !== 'Todos') {
             const st = o.status || 'Aberta';
             if (st !== statusFiltro) return false;
         }
+        
         // Filtro Busca
         if (busca) {
             const idStr = String(o.id).padStart(4, '0');
@@ -78,7 +93,7 @@ window.determinarCausador = function(oco) {
         if (causadorOutro) {
             if (causadorOutro.tipo_envolvido === 'TERCEIRO') {
                 isExterno = true;
-                causadorReal = 'Outros'; // REGRA DE NEGÓCIO APLICADA
+                causadorReal = 'Outros (Terceiros)'; // REGRA: Agrupar Terceiros
             } else {
                 causadorReal = causadorOutro.nome;
             }
@@ -91,23 +106,23 @@ window.atualizarKPIsRelatorio = function() {
     const dados = window.dadosFiltradosRelatorio;
     const total = dados.length;
     let avarias = 0;
-    let pendentes = 0;
+    let comPrejuizo = 0; // Novo KPI
     let prejuizoTotal = 0;
 
     dados.forEach(o => {
         const t = (o.tipo_ocorrencia || '').toLowerCase();
         if (t.includes('avaria') || t.includes('colisão') || t.includes('tombamento')) avarias++;
         
-        const st = o.status || 'Aberta';
-        if (st !== 'Concluída') pendentes++;
-
         const valor = parseFloat(o.valor_prejuizo);
-        if (!isNaN(valor)) prejuizoTotal += valor;
+        if (!isNaN(valor) && valor > 0) {
+            prejuizoTotal += valor;
+            comPrejuizo++;
+        }
     });
 
     document.getElementById('kpiTotalOcorrencias').innerText = total;
     document.getElementById('kpiTotalAvarias').innerText = avarias;
-    document.getElementById('kpiTotalPendentes').innerText = pendentes;
+    document.getElementById('kpiComPrejuizo').innerText = comPrejuizo;
     document.getElementById('kpiPrejuizoTotal').innerText = prejuizoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
@@ -197,7 +212,7 @@ window.renderizarGraficosRelatorio = function() {
         const c = window.determinarCausador(o);
         causadoresCount[c.nome] = (causadoresCount[c.nome] || 0) + 1;
         
-        if (c.isExterno || c.nome === 'Outros') externosCount++;
+        if (c.isExterno || c.nome.includes('Outros')) externosCount++;
         else internosCount++;
     });
 
@@ -209,7 +224,7 @@ window.renderizarGraficosRelatorio = function() {
         xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#94a3b8' } },
         yAxis: { type: 'category', data: causadoresSorted.map(c => c.name).reverse(), axisLabel: { color: '#f8fafc', width: 120, overflow: 'truncate' } },
         series: [{ type: 'bar', data: causadoresSorted.map(c => {
-            return { value: c.value, itemStyle: { color: c.name === 'Outros' ? '#a855f7' : '#10b981' } };
+            return { value: c.value, itemStyle: { color: c.name.includes('Outros') ? '#a855f7' : '#10b981' } };
         }).reverse() }]
     });
 
@@ -218,8 +233,8 @@ window.renderizarGraficosRelatorio = function() {
     chartOrigem.setOption({
         tooltip: { trigger: 'item' },
         series: [{ type: 'pie', radius: '80%', label: { show: false }, data: [
-            { name: 'Internos', value: internosCount, itemStyle: { color: '#10b981' } },
-            { name: 'Terceiros/Outros', value: externosCount, itemStyle: { color: '#a855f7' } }
+            { name: 'Internos (Nossos Colab.)', value: internosCount, itemStyle: { color: '#10b981' } },
+            { name: 'Terceiros / Outros', value: externosCount, itemStyle: { color: '#a855f7' } }
         ]}]
     });
 

@@ -1,3 +1,12 @@
+<style>
+    /* Correção para o fundo branco nos inputs de data/mês/hora */
+    input[type="date"].dark-select,
+    input[type="month"].dark-select,
+    input[type="time"].dark-select {
+        color-scheme: dark;
+    }
+</style>
+
 <div class="content-panel" style="padding: 20px; background: var(--bg-panel); border-radius: 8px; border: 1px solid var(--border-dim); min-height: 80vh;">
     
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
@@ -96,6 +105,36 @@
                 <div class="form-group-dark" style="grid-column: span 2;">
                     <label for="local_projeto">Local / Projeto</label>
                     <input type="text" id="local_projeto" class="dark-select" required>
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
+            <legend style="padding: 0 10px; font-weight: bold; color: #f59e0b; font-size: 1.1rem;">Classificação e Prejuízos</legend>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div class="form-group-dark">
+                    <label for="tipo_ocorrencia">Tipo de Ocorrência / Avaria</label>
+                    <select id="tipo_ocorrencia" class="dark-select" required>
+                        <option value="Colisão">Colisão / Acidente</option>
+                        <option value="Tombamento">Tombamento</option>
+                        <option value="Avaria Mecânica">Avaria Mecânica</option>
+                        <option value="Avaria Elétrica">Avaria Elétrica</option>
+                        <option value="Mau Uso">Mau Uso do Equipamento</option>
+                        <option value="Ambiental">Incidente Ambiental</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label for="status">Status Inicial</label>
+                    <select id="status" class="dark-select" required>
+                        <option value="Aberta">Aberta (Tratativa)</option>
+                        <option value="Em Análise">Em Análise (Sindicância)</option>
+                        <option value="Concluída">Concluída</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label for="valor_prejuizo">Valor Estimado do Prejuízo (R$)</label>
+                    <input type="number" step="0.01" id="valor_prejuizo" class="dark-select" placeholder="0.00 (Deixar em branco se não houver)">
                 </div>
             </div>
         </fieldset>

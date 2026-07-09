@@ -344,7 +344,12 @@ window.salvarOcorrencia = async function(event) {
         parecer_gestor: document.getElementById('parecer_gestor').value,
         gestor_imediato: document.getElementById('gestor_imediato').value,
         gerente: document.getElementById('gerente').value,
-        outros_envolvidos: outrosEnvolvidos // JSONB resolve a escalabilidade
+        
+        // Novos campos integrados para o Relatório de Avarias
+        tipo_ocorrencia: document.getElementById('tipo_ocorrencia') ? document.getElementById('tipo_ocorrencia').value : 'Outros',
+        status: document.getElementById('status') ? document.getElementById('status').value : 'Aberta',
+        valor_prejuizo: document.getElementById('valor_prejuizo') ? (parseFloat(document.getElementById('valor_prejuizo').value) || 0) : 0,
+        outros_envolvidos: outrosEnvolvidos // JSONB resolve a escalabilidade e rankings de terceiros
     };
 
     try {
