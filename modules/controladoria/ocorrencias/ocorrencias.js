@@ -413,3 +413,11 @@ window.limparFormOcorrencia = function() {
         window.carregarFrotasOcorrencia(); 
     }
 };
+
+window.imprimirFolhaEmBranco = function() {
+    if (typeof window.imprimirFolhaOcorrencia === 'function') {
+        window.imprimirFolhaOcorrencia({ isBlank: true });
+    } else {
+        alert("Função de impressão não encontrada.");
+    }
+};
