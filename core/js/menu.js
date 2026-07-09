@@ -34,7 +34,8 @@ window.MAPA_MENUS = [
     { id: 'rh_sorteio', label: 'Sorteio de Colaboradores', setor: 'RH', icon: 'fas fa-random' },
     
     { id: 'centro_custo', label: 'Gestão de Custos', setor: 'Controladoria', icon: 'fas fa-sitemap' },
-    { id: 'ocorrencias', label: 'Ocorrências', setor: 'Controladoria', icon: 'fas fa-exclamation-triangle' },
+    { id: 'ocorrencias', label: 'Registrar Ocorrência', setor: 'Controladoria', icon: 'fas fa-exclamation-triangle' },
+    { id: 'historico_ocorrencias', label: 'Histórico de Ocorrências', setor: 'Controladoria', icon: 'fas fa-history' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
     { id: 'indicadores', label: 'Indicadores - Cliente', setor: 'Indicadores', icon: 'fas fa-chart-area' },
@@ -94,6 +95,7 @@ const ROTAS = {
     'rh_sorteio': 'modules/rh/sorteio/sorteio.html',
     'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', 
     'ocorrencias': 'modules/controladoria/ocorrencias/ocorrencias.html',
+    'historico_ocorrencias': 'modules/controladoria/ocorrencias/historico_ocorrencias.html',
     'recados': 'modules/ssma/recados/recados.html',
     'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/indicadores.html',
@@ -125,7 +127,7 @@ const ROTAS = {
     'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html'
 };
 
-const VERSAO_SISTEMA = "1.0.13";
+const VERSAO_SISTEMA = "1.0.14";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -276,9 +278,9 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         mainContent.innerHTML = pageCache[pagina];
 
+        // Inicializadores
         if (pagina === 'gestao_filiais' && typeof window.renderizarGestaoFiliais === 'function') window.renderizarGestaoFiliais();
         if (pagina === 'auditoria_logs' && typeof window.renderizarAuditoriaLogs === 'function') window.renderizarAuditoriaLogs(); 
-        
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
         if (pagina === 'troca_turno' && typeof window.renderizarTrocaTurno === 'function') window.renderizarTrocaTurno();
         if (pagina === 'alocacao' && typeof window.renderizarAlocacao === 'function') window.renderizarAlocacao();
@@ -286,12 +288,10 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'caminhoes' && typeof window.renderizarConjuntos === 'function') window.renderizarConjuntos();
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
         if (pagina === 'requisicao_materiais' && typeof window.renderizarRequisicoes === 'function') window.renderizarRequisicoes();
-        
         if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
         if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();
         if (pagina === 'campo_equipe' && typeof window.renderizarEquipeCampo === 'function') window.renderizarEquipeCampo();
         if (pagina === 'campo_maquinas' && typeof window.renderizarMaquinasCampo === 'function') window.renderizarMaquinasCampo();
-
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
         if (pagina === 'historico_os' && typeof window.initHistoricoOS === 'function') window.initHistoricoOS();
         if (pagina === 'cadastro_os_classificacoes' && typeof window.renderizarCadastroClassificacoes === 'function') window.renderizarCadastroClassificacoes();
@@ -311,6 +311,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         if (pagina === 'centro_custo' && typeof window.initControladoria === 'function') window.initControladoria();
         if (pagina === 'ocorrencias' && typeof window.initOcorrencias === 'function') window.initOcorrencias();
+        if (pagina === 'historico_ocorrencias' && typeof window.initHistoricoOcorrencias === 'function') window.initHistoricoOcorrencias();
         
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
@@ -343,7 +344,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();
         if (pagina === 'configuracoes_gerencial' && typeof window.inicializarConfiguracoesGerencial === 'function') window.inicializarConfiguracoesGerencial();
         if (pagina === 'cadastro_up' && typeof window.initCadastroUP === 'function') window.initCadastroUP();
-
         if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
         if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
 

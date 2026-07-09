@@ -1,7 +1,7 @@
 <div class="content-panel" style="padding: 20px; background: var(--bg-panel); border-radius: 8px; border: 1px solid var(--border-dim); min-height: 80vh;">
     
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
-        <h2 style="color: #f8fafc; margin: 0;"><i class="fas fa-exclamation-triangle" style="color: #ef4444; margin-right: 10px;"></i> Registro de Ocorrências</h2>
+        <h2 style="color: #f8fafc; margin: 0;"><i class="fas fa-exclamation-triangle" style="color: #ef4444; margin-right: 10px;"></i> Registo de Ocorrências</h2>
     </div>
 
     <form id="formOcorrencia" onsubmit="window.salvarOcorrencia(event)">
@@ -32,6 +32,10 @@
             <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Dados do Ocorrido</legend>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
+                    <label for="numero_os">Nº O.S.</label>
+                    <input type="text" id="numero_os" class="dark-select" placeholder="Ex: 12345">
+                </div>
+                <div class="form-group-dark">
                     <label for="data_ocorrido">Data</label>
                     <input type="date" id="data_ocorrido" class="dark-select" required>
                 </div>
@@ -43,7 +47,7 @@
                     <label for="local_projeto">Local / Projeto</label>
                     <input type="text" id="local_projeto" class="dark-select" required>
                 </div>
-                <div class="form-group-dark" style="grid-column: span 2;">
+                <div class="form-group-dark">
                     <label for="nome_envolvido">Nome do Envolvido</label>
                     <input type="text" id="nome_envolvido" class="dark-select" required>
                 </div>
@@ -71,7 +75,7 @@
             </div>
 
             <div class="form-group-dark" style="margin-bottom: 15px;">
-                <label for="prevencao_falha">O que você poderia ter feito e não fez para evitar essa ocorrência?</label>
+                <label for="prevencao_falha">O que poderia ter sido feito para evitar essa ocorrência?</label>
                 <textarea id="prevencao_falha" class="dark-select" rows="3" required></textarea>
             </div>
 
@@ -97,7 +101,7 @@
 
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
             <button type="button" class="btn-secondary-dark" onclick="window.limparFormOcorrencia()">Limpar</button>
-            <button type="submit" class="btn-primary-green"><i class="fas fa-save"></i> Salvar Ocorrência</button>
+            <button type="submit" class="btn-primary-green"><i class="fas fa-save"></i> Guardar Ocorrência</button>
         </div>
     </form>
 </div>
