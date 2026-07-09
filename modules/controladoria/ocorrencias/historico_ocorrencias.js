@@ -43,7 +43,6 @@ window.renderizarTabelaOcorrencias = function() {
 
     let html = '';
     window.listaOcorrenciasGlobais.forEach(oco => {
-        // Formatar Data (DD/MM/YYYY)
         let dataFmt = oco.data_ocorrido;
         if (dataFmt) {
             const [ano, mes, dia] = dataFmt.split('-');
@@ -64,6 +63,7 @@ window.renderizarTabelaOcorrencias = function() {
                 <td>
                     <button onclick="abrirModalHistoricoOcorrencia(${oco.id}, 'visualizar')" class="btn-icon-only" style="color: #60a5fa;" title="Visualizar"><i class="fas fa-eye"></i></button>
                     <button onclick="abrirModalHistoricoOcorrencia(${oco.id}, 'editar')" class="btn-icon-only" style="color: #f59e0b;" title="Editar"><i class="fas fa-edit"></i></button>
+                    <button onclick="imprimirOcorrenciaDireto(${oco.id})" class="btn-icon-only" style="color: #10b981;" title="Imprimir Formulário"><i class="fas fa-print"></i></button>
                     <button onclick="excluirOcorrencia(${oco.id})" class="btn-icon-only" style="color: #ef4444;" title="Excluir"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
@@ -73,11 +73,27 @@ window.renderizarTabelaOcorrencias = function() {
     tbody.innerHTML = html;
 };
 
+// Dispara a impressão direto da tabela
+window.imprimirOcorrenciaDireto = function(id) {
+    const oco = window.listaOcorrenciasGlobais.find(o => o.id === id);
+    if (oco && typeof window.imprimirFolhaOcorrencia === 'function') {
+        window.imprimirFolhaOcorrencia(oco);
+    }
+};
+
+// Dispara a impressão de dentro do Modal, pegando os dados carregados nele
+window.imprimirOcorrenciaDoModal = function() {
+    const id = parseInt(document.getElementById('hist_id').value);
+    const oco = window.listaOcorrenciasGlobais.find(o => o.id === id);
+    if (oco && typeof window.imprimirFolhaOcorrencia === 'function') {
+        window.imprimirFolhaOcorrencia(oco);
+    }
+};
+
 window.abrirModalHistoricoOcorrencia = function(id, modo) {
     const oco = window.listaOcorrenciasGlobais.find(o => o.id === id);
     if (!oco) return;
 
-    // Preencher campos
     document.getElementById('hist_id').value = oco.id;
     document.getElementById('hist_numero_frota').value = oco.numero_frota || '';
     document.getElementById('hist_placa').value = oco.placa || '';
@@ -97,7 +113,6 @@ window.abrirModalHistoricoOcorrencia = function(id, modo) {
     document.getElementById('hist_gestor_imediato').value = oco.gestor_imediato || '';
     document.getElementById('hist_gerente').value = oco.gerente || '';
 
-    // Lógica do modo (visualizar vs editar)
     const inputs = document.querySelectorAll('#modalHistoricoOcorrencia input, #modalHistoricoOcorrencia textarea');
     const btnSalvar = document.getElementById('btnSalvarEdicaoOcorrencia');
 
