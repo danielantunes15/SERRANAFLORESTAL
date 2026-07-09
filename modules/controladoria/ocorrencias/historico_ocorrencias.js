@@ -52,10 +52,11 @@ window.renderizarTabelaOcorrencias = function() {
         }
 
         const idFormatado = `#${String(oco.id).padStart(4, '0')}`;
+        const osBadge = oco.numero_os ? `<span style="background: #3b82f6; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 8px;">OS #${oco.numero_os}</span>` : '';
 
         html += `
             <tr>
-                <td style="font-weight: bold; color: var(--ccol-blue-bright);">${idFormatado}</td>
+                <td style="font-weight: bold; color: var(--ccol-blue-bright);">${idFormatado} ${osBadge}</td>
                 <td>${dataFmt}</td>
                 <td>${oco.placa || '-'}</td>
                 <td>${oco.nome_envolvido || '-'}</td>
@@ -112,6 +113,14 @@ window.abrirModalHistoricoOcorrencia = function(id, modo) {
     document.getElementById('hist_parecer_gestor').value = oco.parecer_gestor || '';
     document.getElementById('hist_gestor_imediato').value = oco.gestor_imediato || '';
     document.getElementById('hist_gerente').value = oco.gerente || '';
+
+    // Controlo de exibição do botão de visualizar O.S.
+    const btnVerOS = document.getElementById('btnVerOSHist');
+    if (oco.numero_os && btnVerOS) {
+        btnVerOS.style.display = 'block';
+    } else if (btnVerOS) {
+        btnVerOS.style.display = 'none';
+    }
 
     const inputs = document.querySelectorAll('#modalHistoricoOcorrencia input, #modalHistoricoOcorrencia textarea');
     const btnSalvar = document.getElementById('btnSalvarEdicaoOcorrencia');
@@ -181,5 +190,18 @@ window.excluirOcorrencia = async function(id) {
     } catch (error) {
         console.error("Erro ao excluir:", error);
         alert("Falha ao tentar excluir a ocorrência.");
+    }
+};
+
+window.visualizarOSVinculada = function() {
+    const numero_os = document.getElementById('hist_numero_os').value;
+    if (numero_os) {
+        // Tenta acionar a função global de abrir modal da OS (se existir no seu OS painel)
+        if (typeof window.abrirModalOsCompleta === 'function') {
+            fecharModalHistoricoOcorrencia();
+            window.abrirModalOsCompleta(numero_os);
+        } else {
+            alert(`Ocorrência vinculada à O.S. #${numero_os}.\nPara ver mais detalhes, acesse o painel de Gestão de Ordens de Serviço.`);
+        }
     }
 };

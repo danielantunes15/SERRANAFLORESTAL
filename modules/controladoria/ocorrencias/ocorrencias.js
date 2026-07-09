@@ -3,8 +3,96 @@
 // Ficheiro: modules/controladoria/ocorrencias/ocorrencias.js
 // =========================================================================
 
-window.initOcorrencias = function() {
+window.listaFrotasOcorrencia = [];
+
+window.initOcorrencias = async function() {
     console.log("Módulo de Ocorrências Inicializado com sucesso.");
+    await window.carregarFrotasOcorrencia();
+    await window.carregarOSAbertasOcorrencia();
+};
+
+window.carregarFrotasOcorrencia = async function() {
+    try {
+        const selPlaca = document.getElementById('placa');
+        const selCategoria = document.getElementById('categoria_frota');
+        if (!selPlaca) return;
+
+        const categoriaSelecionada = selCategoria ? selCategoria.value : 'TRITREM';
+
+        // Busca na tabela de frotas_manutencao filtrando pela categoria
+        let query = supabaseClient.from('frotas_manutencao')
+            .select('cavalo, numero_frota, modelo, categoria')
+            .eq('categoria', categoriaSelecionada)
+            .order('cavalo');
+            
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        window.listaFrotasOcorrencia = data || [];
+        
+        selPlaca.innerHTML = '<option value="">Selecione a Placa...</option>';
+        window.listaFrotasOcorrencia.forEach(f => {
+            if (f.cavalo && f.cavalo.trim() !== '') {
+                selPlaca.innerHTML += `<option value="${f.cavalo}">${f.cavalo}</option>`;
+            }
+        });
+        
+        // Limpa os campos atrelados caso tenha trocado a categoria
+        window.preencherDadosVeiculo('');
+        
+    } catch (error) {
+        console.error("Erro ao carregar frotas para ocorrências:", error);
+    }
+};
+
+window.preencherDadosVeiculo = function(placaSelecionada) {
+    const inputFrota = document.getElementById('numero_frota');
+    const inputModelo = document.getElementById('modelo');
+    
+    if (!placaSelecionada) {
+        inputFrota.value = '';
+        inputModelo.value = '';
+        return;
+    }
+
+    // Procura na lista a placa que bate com o cavalo selecionado
+    const veiculo = window.listaFrotasOcorrencia.find(f => f.cavalo === placaSelecionada);
+    if (veiculo) {
+        inputFrota.value = veiculo.numero_frota || '';
+        inputModelo.value = veiculo.modelo || '';
+    } else {
+        inputFrota.value = '';
+        inputModelo.value = '';
+    }
+};
+
+window.carregarOSAbertasOcorrencia = async function() {
+    try {
+        const selOS = document.getElementById('numero_os');
+        if (!selOS) return;
+
+        // Tabela ordens_servico, corrigido o campo para 'problema'
+        const { data, error } = await supabaseClient.from('ordens_servico')
+            .select('id, numero_os, placa, problema, status')
+            .in('status', ['Aguardando Oficina', 'Agendada', 'Em Manutenção', 'Aguardando Peças', 'Sinistrado'])
+            .order('id', { ascending: false });
+            
+        if (error) throw error;
+        
+        selOS.innerHTML = '<option value="">Sem vínculo (Opcional)</option>';
+        (data || []).forEach(os => {
+            const numExibicao = os.numero_os || os.id;
+            const osIdFormatado = String(numExibicao).padStart(5, '0');
+            const osPlaca = os.placa ? `(Placa: ${os.placa})` : '';
+            selOS.innerHTML += `<option value="${numExibicao}">OS #${osIdFormatado} - ${os.status} ${osPlaca}</option>`;
+        });
+    } catch (error) {
+        console.error("Erro ao carregar OS abertas para ocorrências:", error);
+    }
 };
 
 window.salvarOcorrencia = async function(event) {
@@ -33,16 +121,15 @@ window.salvarOcorrencia = async function(event) {
     try {
         const payload = window.injetarFilial ? window.injetarFilial(dadosOcorrencia) : dadosOcorrencia;
         
-        // O .select() garante que o banco devolva a linha que acabou de criar, incluindo o ID (Protocolo)
+        // O .select() garante que o banco devolva a linha que acabou de criar, incluindo o ID
         const { data, error } = await supabaseClient.from('ocorrencias').insert([payload]).select();
         if (error) throw error;
 
         let ocorrenciaSalva = payload;
         if (data && data.length > 0) {
-            ocorrenciaSalva = data[0]; // Pega os dados com o ID gerado
+            ocorrenciaSalva = data[0]; 
         }
 
-        // Pergunta se o utilizador deseja imprimir a folha da ocorrência usando a função do novo arquivo
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 title: 'Ocorrência Registada!',
@@ -88,5 +175,8 @@ window.limparFormOcorrencia = function() {
         if (campoEmpresa) {
             campoEmpresa.value = "SERRANALOG FLORESTAL";
         }
+        
+        // Recarrega as frotas baseado no combo que resetou (volta pro padrão TRITREM)
+        window.carregarFrotasOcorrencia(); 
     }
 };

@@ -39,8 +39,8 @@
             <fieldset style="border: 1px solid var(--border-dim); padding: 15px; margin-bottom: 15px; border-radius: 8px; background: rgba(0,0,0,0.1);">
                 <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 0.95rem;">Identificação do Veículo</legend>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
-                    <div class="form-group-dark"><label>Número da Frota</label><input type="text" id="hist_numero_frota" class="dark-select"></div>
                     <div class="form-group-dark"><label>Placa</label><input type="text" id="hist_placa" class="dark-select"></div>
+                    <div class="form-group-dark"><label>Número da Frota</label><input type="text" id="hist_numero_frota" class="dark-select"></div>
                     <div class="form-group-dark"><label>Modelo</label><input type="text" id="hist_modelo" class="dark-select"></div>
                     <div class="form-group-dark"><label>Empresa</label><input type="text" id="hist_empresa" class="dark-select"></div>
                 </div>
@@ -49,7 +49,13 @@
             <fieldset style="border: 1px solid var(--border-dim); padding: 15px; margin-bottom: 15px; border-radius: 8px; background: rgba(0,0,0,0.1);">
                 <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 0.95rem;">Dados do Ocorrido</legend>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
-                    <div class="form-group-dark"><label>Nº O.S.</label><input type="text" id="hist_numero_os" class="dark-select"></div>
+                    <div class="form-group-dark" style="position: relative;">
+                        <label>Nº O.S.</label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="hist_numero_os" class="dark-select" style="flex: 1;">
+                            <button id="btnVerOSHist" type="button" class="btn-primary-blue" onclick="window.visualizarOSVinculada()" style="display: none; padding: 0 12px; font-size: 0.9rem;" title="Visualizar Ordem de Serviço"><i class="fas fa-external-link-alt"></i></button>
+                        </div>
+                    </div>
                     <div class="form-group-dark"><label>Data</label><input type="date" id="hist_data_ocorrido" class="dark-select"></div>
                     <div class="form-group-dark"><label>Hora</label><input type="time" id="hist_hora_ocorrido" class="dark-select"></div>
                     <div class="form-group-dark" style="grid-column: span 2;"><label>Local / Projeto</label><input type="text" id="hist_local_projeto" class="dark-select"></div>

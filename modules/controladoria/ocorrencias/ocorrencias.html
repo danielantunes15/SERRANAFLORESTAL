@@ -10,20 +10,33 @@
             <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Identificação do Veículo</legend>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
+                    <label for="categoria_frota">Categoria da Frota</label>
+                    <select id="categoria_frota" class="dark-select" onchange="window.carregarFrotasOcorrencia()">
+                        <option value="TRITREM">TRITREM</option>
+                        <option value="PRANCHA">PRANCHA</option>
+                        <option value="GRUA">GRUA</option>
+                        <option value="COMBOIO">COMBOIO</option>
+                        <option value="CARRETA">CARRETA</option>
+                        <option value="FROTA LEVE">FROTA LEVE</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
+                    <label for="placa">Placa (Veículo)</label>
+                    <select id="placa" class="dark-select" required onchange="window.preencherDadosVeiculo(this.value)">
+                        <option value="">Aguardando categoria...</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
                     <label for="numero_frota">Número da Frota</label>
-                    <input type="text" id="numero_frota" class="dark-select" required>
+                    <input type="text" id="numero_frota" class="dark-select" readonly style="opacity: 0.7; cursor: not-allowed;" placeholder="Preenchimento automático">
                 </div>
                 <div class="form-group-dark">
-                    <label for="placa">Placa</label>
-                    <input type="text" id="placa" class="dark-select" required>
-                </div>
-                <div class="form-group-dark">
-                    <label for="modelo">Modelo</label>
-                    <input type="text" id="modelo" class="dark-select" required>
+                    <label for="modelo">Modelo / Descrição</label>
+                    <input type="text" id="modelo" class="dark-select" readonly style="opacity: 0.7; cursor: not-allowed;" placeholder="Preenchimento automático">
                 </div>
                 <div class="form-group-dark">
                     <label for="empresa">Empresa</label>
-                    <input type="text" id="empresa" class="dark-select" value="SERRANALOG FLORESTAL" readonly style="opacity: 0.7;">
+                    <input type="text" id="empresa" class="dark-select" value="SERRANALOG FLORESTAL" readonly style="opacity: 0.7; cursor: not-allowed;">
                 </div>
             </div>
         </fieldset>
@@ -32,8 +45,10 @@
             <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Dados do Ocorrido</legend>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
-                    <label for="numero_os">Nº O.S.</label>
-                    <input type="text" id="numero_os" class="dark-select" placeholder="Ex: 12345">
+                    <label for="numero_os">Vincular a uma O.S. Aberta</label>
+                    <select id="numero_os" class="dark-select">
+                        <option value="">Sem vínculo (Opcional)</option>
+                    </select>
                 </div>
                 <div class="form-group-dark">
                     <label for="data_ocorrido">Data</label>
