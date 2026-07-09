@@ -32,7 +32,7 @@
                 </div>
                 <div class="form-group-dark">
                     <label for="modelo">Modelo / Descrição</label>
-                    <input type="text" id="modelo" class="dark-select" readonly style="opacity: 0.7; cursor: not-allowed;" placeholder="Preenchimento automático">
+                    <input type="text" id="modelo" class="dark-select" placeholder="Ex: Scania R450">
                 </div>
                 <div class="form-group-dark">
                     <label for="empresa">Empresa</label>
@@ -45,17 +45,19 @@
             <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Dados do Ocorrido</legend>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
-                    <label for="numero_os">Vincular a uma O.S. Aberta</label>
-                    <select id="numero_os" class="dark-select">
-                        <option value="">Sem vínculo (Opcional)</option>
-                    </select>
+                    <label for="numero_os">Nº O.S. Vinculada (Opcional)</label>
+                    <input type="text" id="numero_os" class="dark-select" placeholder="Ex: 1234" onblur="window.buscarDataOS(this.value, 'data_abertura_os')">
                 </div>
                 <div class="form-group-dark">
-                    <label for="data_ocorrido">Data</label>
+                    <label for="data_abertura_os">Data Abertura da O.S.</label>
+                    <input type="date" id="data_abertura_os" class="dark-select" readonly style="opacity: 0.7; cursor: not-allowed;" title="Preenchimento automático após inserir a O.S.">
+                </div>
+                <div class="form-group-dark">
+                    <label for="data_ocorrido">Data do Ocorrido</label>
                     <input type="date" id="data_ocorrido" class="dark-select" required>
                 </div>
                 <div class="form-group-dark">
-                    <label for="hora_ocorrido">Hora</label>
+                    <label for="hora_ocorrido">Hora do Ocorrido</label>
                     <input type="time" id="hora_ocorrido" class="dark-select" required>
                 </div>
                 <div class="form-group-dark" style="grid-column: span 2;">

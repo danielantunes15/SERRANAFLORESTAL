@@ -52,12 +52,14 @@
                     <div class="form-group-dark" style="position: relative;">
                         <label>Nº O.S.</label>
                         <div style="display: flex; gap: 5px;">
-                            <input type="text" id="hist_numero_os" class="dark-select" style="flex: 1;">
+                            <input type="text" id="hist_numero_os" class="dark-select" style="flex: 1;" placeholder="Ex: 1234" onblur="window.buscarDataOS(this.value, 'hist_data_abertura_os')">
                             <button id="btnVerOSHist" type="button" class="btn-primary-blue" onclick="window.visualizarOSVinculada()" style="display: none; padding: 0 12px; font-size: 0.9rem;" title="Visualizar Ordem de Serviço"><i class="fas fa-external-link-alt"></i></button>
                         </div>
                     </div>
-                    <div class="form-group-dark"><label>Data</label><input type="date" id="hist_data_ocorrido" class="dark-select"></div>
-                    <div class="form-group-dark"><label>Hora</label><input type="time" id="hist_hora_ocorrido" class="dark-select"></div>
+                    <div class="form-group-dark"><label>Data Abert. O.S.</label><input type="date" id="hist_data_abertura_os" class="dark-select" readonly style="opacity: 0.7; cursor: not-allowed;" title="Busca automática do banco de dados"></div>
+                    
+                    <div class="form-group-dark"><label>Data Ocorrido</label><input type="date" id="hist_data_ocorrido" class="dark-select"></div>
+                    <div class="form-group-dark"><label>Hora Ocorrido</label><input type="time" id="hist_hora_ocorrido" class="dark-select"></div>
                     <div class="form-group-dark" style="grid-column: span 2;"><label>Local / Projeto</label><input type="text" id="hist_local_projeto" class="dark-select"></div>
                     <div class="form-group-dark" style="grid-column: span 2;"><label>Nome do Envolvido</label><input type="text" id="hist_nome_envolvido" class="dark-select"></div>
                     <div class="form-group-dark"><label>Função</label><input type="text" id="hist_funcao" class="dark-select"></div>

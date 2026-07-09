@@ -74,7 +74,6 @@ window.renderizarTabelaOcorrencias = function() {
     tbody.innerHTML = html;
 };
 
-// Dispara a impressão direto da tabela
 window.imprimirOcorrenciaDireto = function(id) {
     const oco = window.listaOcorrenciasGlobais.find(o => o.id === id);
     if (oco && typeof window.imprimirFolhaOcorrencia === 'function') {
@@ -82,7 +81,6 @@ window.imprimirOcorrenciaDireto = function(id) {
     }
 };
 
-// Dispara a impressão de dentro do Modal, pegando os dados carregados nele
 window.imprimirOcorrenciaDoModal = function() {
     const id = parseInt(document.getElementById('hist_id').value);
     const oco = window.listaOcorrenciasGlobais.find(o => o.id === id);
@@ -101,6 +99,7 @@ window.abrirModalHistoricoOcorrencia = function(id, modo) {
     document.getElementById('hist_modelo').value = oco.modelo || '';
     document.getElementById('hist_empresa').value = oco.empresa || '';
     document.getElementById('hist_numero_os').value = oco.numero_os || '';
+    document.getElementById('hist_data_abertura_os').value = oco.data_abertura_os || '';
     document.getElementById('hist_data_ocorrido').value = oco.data_ocorrido || '';
     document.getElementById('hist_hora_ocorrido').value = oco.hora_ocorrido || '';
     document.getElementById('hist_local_projeto').value = oco.local_projeto || '';
@@ -114,7 +113,6 @@ window.abrirModalHistoricoOcorrencia = function(id, modo) {
     document.getElementById('hist_gestor_imediato').value = oco.gestor_imediato || '';
     document.getElementById('hist_gerente').value = oco.gerente || '';
 
-    // Controlo de exibição do botão de visualizar O.S.
     const btnVerOS = document.getElementById('btnVerOSHist');
     if (oco.numero_os && btnVerOS) {
         btnVerOS.style.display = 'block';
@@ -131,7 +129,12 @@ window.abrirModalHistoricoOcorrencia = function(id, modo) {
         btnSalvar.style.display = 'none';
     } else {
         document.getElementById('modalHistoricoOcorrenciaTitle').innerText = `Editar Ocorrência #${String(oco.id).padStart(4, '0')}`;
-        inputs.forEach(i => i.disabled = false);
+        // Para garantir que a data da O.S continue inalterável mesmo no modo de edição:
+        inputs.forEach(i => {
+            if(i.id !== 'hist_data_abertura_os') {
+                i.disabled = false;
+            }
+        });
         btnSalvar.style.display = 'block';
     }
 
@@ -151,6 +154,7 @@ window.salvarEdicaoOcorrencia = async function() {
         modelo: document.getElementById('hist_modelo').value,
         empresa: document.getElementById('hist_empresa').value,
         numero_os: document.getElementById('hist_numero_os').value,
+        data_abertura_os: document.getElementById('hist_data_abertura_os').value || null,
         data_ocorrido: document.getElementById('hist_data_ocorrido').value,
         hora_ocorrido: document.getElementById('hist_hora_ocorrido').value,
         local_projeto: document.getElementById('hist_local_projeto').value,
@@ -196,7 +200,6 @@ window.excluirOcorrencia = async function(id) {
 window.visualizarOSVinculada = function() {
     const numero_os = document.getElementById('hist_numero_os').value;
     if (numero_os) {
-        // Tenta acionar a função global de abrir modal da OS (se existir no seu OS painel)
         if (typeof window.abrirModalOsCompleta === 'function') {
             fecharModalHistoricoOcorrencia();
             window.abrirModalOsCompleta(numero_os);

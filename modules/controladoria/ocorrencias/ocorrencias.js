@@ -8,7 +8,6 @@ window.listaFrotasOcorrencia = [];
 window.initOcorrencias = async function() {
     console.log("Módulo de Ocorrências Inicializado com sucesso.");
     await window.carregarFrotasOcorrencia();
-    await window.carregarOSAbertasOcorrencia();
 };
 
 window.carregarFrotasOcorrencia = async function() {
@@ -19,9 +18,8 @@ window.carregarFrotasOcorrencia = async function() {
 
         const categoriaSelecionada = selCategoria ? selCategoria.value : 'TRITREM';
 
-        // Busca na tabela de frotas_manutencao filtrando pela categoria
         let query = supabaseClient.from('frotas_manutencao')
-            .select('cavalo, numero_frota, modelo, categoria')
+            .select('cavalo, numero_frota, categoria')
             .eq('categoria', categoriaSelecionada)
             .order('cavalo');
             
@@ -54,44 +52,55 @@ window.preencherDadosVeiculo = function(placaSelecionada) {
     const inputModelo = document.getElementById('modelo');
     
     if (!placaSelecionada) {
-        inputFrota.value = '';
-        inputModelo.value = '';
+        if(inputFrota) inputFrota.value = '';
+        if(inputModelo) inputModelo.value = '';
         return;
     }
 
-    // Procura na lista a placa que bate com o cavalo selecionado
     const veiculo = window.listaFrotasOcorrencia.find(f => f.cavalo === placaSelecionada);
     if (veiculo) {
-        inputFrota.value = veiculo.numero_frota || '';
-        inputModelo.value = veiculo.modelo || '';
+        if(inputFrota) inputFrota.value = veiculo.numero_frota || '';
+        if(inputModelo) inputModelo.value = ''; 
     } else {
-        inputFrota.value = '';
-        inputModelo.value = '';
+        if(inputFrota) inputFrota.value = '';
+        if(inputModelo) inputModelo.value = '';
     }
 };
 
-window.carregarOSAbertasOcorrencia = async function() {
-    try {
-        const selOS = document.getElementById('numero_os');
-        if (!selOS) return;
+// --- NOVA FUNÇÃO PARA BUSCAR A DATA DA O.S AUTOMATICAMENTE ---
+window.buscarDataOS = async function(numeroOsDigitado, idCampoDestino) {
+    const campoDestino = document.getElementById(idCampoDestino);
+    if (!campoDestino) return;
 
-        // Tabela ordens_servico, corrigido o campo para 'problema'
+    if (!numeroOsDigitado || numeroOsDigitado.trim() === '') {
+        campoDestino.value = '';
+        return;
+    }
+
+    try {
+        // Tenta buscar no banco ordens_servico onde numero_os bate com o que foi digitado
         const { data, error } = await supabaseClient.from('ordens_servico')
-            .select('id, numero_os, placa, problema, status')
-            .in('status', ['Aguardando Oficina', 'Agendada', 'Em Manutenção', 'Aguardando Peças', 'Sinistrado'])
-            .order('id', { ascending: false });
-            
+            .select('data_abertura, numero_os')
+            .or(`numero_os.eq.${numeroOsDigitado},id.eq.${numeroOsDigitado}`)
+            .limit(1);
+
         if (error) throw error;
-        
-        selOS.innerHTML = '<option value="">Sem vínculo (Opcional)</option>';
-        (data || []).forEach(os => {
-            const numExibicao = os.numero_os || os.id;
-            const osIdFormatado = String(numExibicao).padStart(5, '0');
-            const osPlaca = os.placa ? `(Placa: ${os.placa})` : '';
-            selOS.innerHTML += `<option value="${numExibicao}">OS #${osIdFormatado} - ${os.status} ${osPlaca}</option>`;
-        });
-    } catch (error) {
-        console.error("Erro ao carregar OS abertas para ocorrências:", error);
+
+        if (data && data.length > 0) {
+            let dataCompleta = data[0].data_abertura;
+            if (dataCompleta) {
+                // Separa a data da hora se houver (formato ISO 'YYYY-MM-DDTHH:MM')
+                campoDestino.value = dataCompleta.split('T')[0];
+            } else {
+                campoDestino.value = '';
+            }
+        } else {
+            // Se a OS não existir no banco
+            campoDestino.value = '';
+        }
+    } catch (err) {
+        console.error("Erro ao tentar buscar a data da OS:", err);
+        campoDestino.value = '';
     }
 };
 
@@ -104,6 +113,7 @@ window.salvarOcorrencia = async function(event) {
         modelo: document.getElementById('modelo').value,
         empresa: document.getElementById('empresa').value,
         numero_os: document.getElementById('numero_os').value,
+        data_abertura_os: document.getElementById('data_abertura_os').value || null,
         data_ocorrido: document.getElementById('data_ocorrido').value,
         hora_ocorrido: document.getElementById('hora_ocorrido').value,
         local_projeto: document.getElementById('local_projeto').value,
@@ -121,7 +131,6 @@ window.salvarOcorrencia = async function(event) {
     try {
         const payload = window.injetarFilial ? window.injetarFilial(dadosOcorrencia) : dadosOcorrencia;
         
-        // O .select() garante que o banco devolva a linha que acabou de criar, incluindo o ID
         const { data, error } = await supabaseClient.from('ocorrencias').insert([payload]).select();
         if (error) throw error;
 
@@ -176,7 +185,6 @@ window.limparFormOcorrencia = function() {
             campoEmpresa.value = "SERRANALOG FLORESTAL";
         }
         
-        // Recarrega as frotas baseado no combo que resetou (volta pro padrão TRITREM)
         window.carregarFrotasOcorrencia(); 
     }
 };
