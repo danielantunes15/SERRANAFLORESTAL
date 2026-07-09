@@ -1,0 +1,103 @@
+<div class="content-panel" style="padding: 20px; background: var(--bg-panel); border-radius: 8px; border: 1px solid var(--border-dim); min-height: 80vh;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+        <h2 style="color: #f8fafc; margin: 0;"><i class="fas fa-exclamation-triangle" style="color: #ef4444; margin-right: 10px;"></i> Registro de Ocorrências</h2>
+    </div>
+
+    <form id="formOcorrencia" onsubmit="window.salvarOcorrencia(event)">
+        
+        <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
+            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Identificação do Veículo</legend>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div class="form-group-dark">
+                    <label for="numero_frota">Número da Frota</label>
+                    <input type="text" id="numero_frota" class="dark-select" required>
+                </div>
+                <div class="form-group-dark">
+                    <label for="placa">Placa</label>
+                    <input type="text" id="placa" class="dark-select" required>
+                </div>
+                <div class="form-group-dark">
+                    <label for="modelo">Modelo</label>
+                    <input type="text" id="modelo" class="dark-select" required>
+                </div>
+                <div class="form-group-dark">
+                    <label for="empresa">Empresa</label>
+                    <input type="text" id="empresa" class="dark-select" value="SERRANALOG FLORESTAL" readonly style="opacity: 0.7;">
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
+            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Dados do Ocorrido</legend>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div class="form-group-dark">
+                    <label for="data_ocorrido">Data</label>
+                    <input type="date" id="data_ocorrido" class="dark-select" required>
+                </div>
+                <div class="form-group-dark">
+                    <label for="hora_ocorrido">Hora</label>
+                    <input type="time" id="hora_ocorrido" class="dark-select" required>
+                </div>
+                <div class="form-group-dark" style="grid-column: span 2;">
+                    <label for="local_projeto">Local / Projeto</label>
+                    <input type="text" id="local_projeto" class="dark-select" required>
+                </div>
+                <div class="form-group-dark" style="grid-column: span 2;">
+                    <label for="nome_envolvido">Nome do Envolvido</label>
+                    <input type="text" id="nome_envolvido" class="dark-select" required>
+                </div>
+                <div class="form-group-dark">
+                    <label for="funcao">Função</label>
+                    <input type="text" id="funcao" class="dark-select" required>
+                </div>
+                <div class="form-group-dark">
+                    <label for="tempo_empresa">Tempo de Empresa</label>
+                    <input type="text" id="tempo_empresa" class="dark-select" placeholder="Ex: 2 anos e 3 meses">
+                </div>
+                <div class="form-group-dark">
+                    <label for="escala">Escala</label>
+                    <input type="text" id="escala" class="dark-select" placeholder="Ex: 5x2, 6x1...">
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
+            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Relato dos Fatos</legend>
+            
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label for="descricao_fatos">Descrição dos Fatos</label>
+                <textarea id="descricao_fatos" class="dark-select" rows="4" placeholder="Descreva detalhadamente como tudo ocorreu..." required></textarea>
+            </div>
+
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label for="prevencao_falha">O que você poderia ter feito e não fez para evitar essa ocorrência?</label>
+                <textarea id="prevencao_falha" class="dark-select" rows="3" required></textarea>
+            </div>
+
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label for="parecer_gestor">Parecer do Gestor</label>
+                <textarea id="parecer_gestor" class="dark-select" rows="3"></textarea>
+            </div>
+        </fieldset>
+
+        <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
+            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Aprovações</legend>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                <div class="form-group-dark">
+                    <label for="gestor_imediato">Nome do Gestor Imediato</label>
+                    <input type="text" id="gestor_imediato" class="dark-select">
+                </div>
+                <div class="form-group-dark">
+                    <label for="gerente">Nome do Gerente</label>
+                    <input type="text" id="gerente" class="dark-select">
+                </div>
+            </div>
+        </fieldset>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button type="button" class="btn-secondary-dark" onclick="window.limparFormOcorrencia()">Limpar</button>
+            <button type="submit" class="btn-primary-green"><i class="fas fa-save"></i> Salvar Ocorrência</button>
+        </div>
+    </form>
+</div>

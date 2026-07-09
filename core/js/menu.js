@@ -34,6 +34,7 @@ window.MAPA_MENUS = [
     { id: 'rh_sorteio', label: 'Sorteio de Colaboradores', setor: 'RH', icon: 'fas fa-random' },
     
     { id: 'centro_custo', label: 'Gestão de Custos', setor: 'Controladoria', icon: 'fas fa-sitemap' },
+    { id: 'ocorrencias', label: 'Ocorrências', setor: 'Controladoria', icon: 'fas fa-exclamation-triangle' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
     { id: 'indicadores', label: 'Indicadores - Cliente', setor: 'Indicadores', icon: 'fas fa-chart-area' },
@@ -92,6 +93,7 @@ const ROTAS = {
     'rh_atestados': 'modules/rh/atestados/atestados.html',
     'rh_sorteio': 'modules/rh/sorteio/sorteio.html',
     'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', 
+    'ocorrencias': 'modules/controladoria/ocorrencias/ocorrencias.html',
     'recados': 'modules/ssma/recados/recados.html',
     'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/indicadores.html',
@@ -123,7 +125,7 @@ const ROTAS = {
     'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html'
 };
 
-const VERSAO_SISTEMA = "1.0.12";
+const VERSAO_SISTEMA = "1.0.13";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -159,7 +161,6 @@ window.renderizarMenu = async function() {
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
-        // --- MODIFICAÇÃO AQUI: Controladoria agora aparece em filiais normais ---
         if (isSessaoCentral) {
             if (setor !== 'Global' && setor !== 'Controladoria' && setor !== 'Configurações') return;
         } else {
@@ -286,7 +287,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
         if (pagina === 'requisicao_materiais' && typeof window.renderizarRequisicoes === 'function') window.renderizarRequisicoes();
         
-        // CHAMADAS DE RENDERIZAÇÃO DO MÓDULO CAMPO
         if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
         if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();
         if (pagina === 'campo_equipe' && typeof window.renderizarEquipeCampo === 'function') window.renderizarEquipeCampo();
@@ -310,6 +310,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'rh_sorteio' && typeof window.initRHSorteio === 'function') window.initRHSorteio();
         
         if (pagina === 'centro_custo' && typeof window.initControladoria === 'function') window.initControladoria();
+        if (pagina === 'ocorrencias' && typeof window.initOcorrencias === 'function') window.initOcorrencias();
+        
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
