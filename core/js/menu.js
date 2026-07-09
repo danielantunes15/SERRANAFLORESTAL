@@ -159,11 +159,11 @@ window.renderizarMenu = async function() {
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
+        // --- MODIFICAÇÃO AQUI: Controladoria agora aparece em filiais normais ---
         if (isSessaoCentral) {
             if (setor !== 'Global' && setor !== 'Controladoria' && setor !== 'Configurações') return;
-            if (setor === 'Controladoria' && userRole !== 'SuperAdmin') return;
         } else {
-            if (setor === 'Global' || setor === 'Controladoria') return;
+            if (setor === 'Global') return;
         }
 
         const menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
@@ -240,13 +240,6 @@ window.fecharDropdown = function(dropdownElement) {
 
 window.navegarPara = async function(pagina, elementoClicado) {
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
-
-    if (pagina === 'centro_custo') {
-        const isCentral = (currentUser && (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL'));
-        if (!isCentral && userRole !== 'SuperAdmin') {
-            alert('Acesso restrito à Matriz e Gestão Corporativa.'); return;
-        }
-    }
 
     if (elementoClicado) {
         document.querySelectorAll('.nav-item, .dropdown-item').forEach(el => el.classList.remove('active'));
