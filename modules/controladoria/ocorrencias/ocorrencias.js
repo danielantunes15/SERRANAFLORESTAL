@@ -18,8 +18,9 @@ window.carregarFrotasOcorrencia = async function() {
 
         const categoriaSelecionada = selCategoria ? selCategoria.value : 'TRITREM';
 
+        // Atualizado para buscar a coluna 'descricao' em vez de 'modelo'
         let query = supabaseClient.from('frotas_manutencao')
-            .select('cavalo, numero_frota, categoria')
+            .select('cavalo, numero_frota, descricao, categoria')
             .eq('categoria', categoriaSelecionada)
             .order('cavalo');
             
@@ -60,7 +61,8 @@ window.preencherDadosVeiculo = function(placaSelecionada) {
     const veiculo = window.listaFrotasOcorrencia.find(f => f.cavalo === placaSelecionada);
     if (veiculo) {
         if(inputFrota) inputFrota.value = veiculo.numero_frota || '';
-        if(inputModelo) inputModelo.value = ''; 
+        // Preenche o campo modelo (na tela) com a 'descricao' vinda do banco
+        if(inputModelo) inputModelo.value = veiculo.descricao || ''; 
     } else {
         if(inputFrota) inputFrota.value = '';
         if(inputModelo) inputModelo.value = '';
