@@ -36,6 +36,7 @@ window.MAPA_MENUS = [
     { id: 'centro_custo', label: 'Gestão de Custos', setor: 'Controladoria', icon: 'fas fa-sitemap' },
     { id: 'ocorrencias', label: 'Registrar Ocorrência', setor: 'Controladoria', icon: 'fas fa-exclamation-triangle' },
     { id: 'historico_ocorrencias', label: 'Histórico de Ocorrências', setor: 'Controladoria', icon: 'fas fa-history' },
+    { id: 'relatorio_ocorrencias', label: 'Relatório de Avarias', setor: 'Controladoria', icon: 'fas fa-chart-bar' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
     { id: 'indicadores', label: 'Indicadores - Cliente', setor: 'Indicadores', icon: 'fas fa-chart-area' },
@@ -75,7 +76,6 @@ const ROTAS = {
     'cadastro_frota': 'modules/logistica/frota_conjuntos/cadastro_frota.html',
     'documentos_frota': 'modules/logistica/documentos_frota/documentos_frota.html',
     
-    // --- ROTAS DO MÓDULO CAMPO ---
     'campo_escala': 'modules/campo/escala/escala.html',
     'alocacao_campo': 'modules/campo/alocacao/alocacao.html',
     'campo_equipe': 'modules/campo/equipe/equipe.html',
@@ -93,16 +93,18 @@ const ROTAS = {
     'rh_colaboradores': 'modules/rh/colaboradores/colaboradores.html',
     'rh_atestados': 'modules/rh/atestados/atestados.html',
     'rh_sorteio': 'modules/rh/sorteio/sorteio.html',
+    
     'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', 
     'ocorrencias': 'modules/controladoria/ocorrencias/ocorrencias.html',
     'historico_ocorrencias': 'modules/controladoria/ocorrencias/historico_ocorrencias.html',
+    'relatorio_ocorrencias': 'modules/controladoria/ocorrencias/relatorio_ocorrencias.html',
+    
     'recados': 'modules/ssma/recados/recados.html',
     'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/indicadores.html',
     'indicadores_serrana': 'modules/indicadores/indicadores_serrana.html',
     'cadastro_indicadores': 'modules/indicadores/cadastro_indicadores.html',
     
-    // --- ROTAS MÓDULO GLOBAL ---
     'gestao_filiais': 'modules/global/gestao_filiais.html',
     'auditoria_logs': 'modules/global/auditoria_logs.html',
     
@@ -122,12 +124,11 @@ const ROTAS = {
     'gestao_usuarios': 'modules/configuracoes/gestao_usuarios.html',
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
     
-    // --- ROTAS DO ALMOXARIFADO ---
     'almoxarifado': 'modules/almoxarifado/almoxarifado.html',
     'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html'
 };
 
-const VERSAO_SISTEMA = "1.0.14";
+const VERSAO_SISTEMA = "1.0.15";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -312,6 +313,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'centro_custo' && typeof window.initControladoria === 'function') window.initControladoria();
         if (pagina === 'ocorrencias' && typeof window.initOcorrencias === 'function') window.initOcorrencias();
         if (pagina === 'historico_ocorrencias' && typeof window.initHistoricoOcorrencias === 'function') window.initHistoricoOcorrencias();
+        if (pagina === 'relatorio_ocorrencias' && typeof window.initRelatorioOcorrencias === 'function') window.initRelatorioOcorrencias();
         
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
