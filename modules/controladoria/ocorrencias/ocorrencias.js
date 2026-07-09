@@ -4,48 +4,110 @@
 // =========================================================================
 
 window.listaFrotasOcorrencia = [];
+window.todasFrotasCache = [];
+window.listaColaboradoresRH = [];
+window.outrosEnvolvidosCount = 0;
 
 window.initOcorrencias = async function() {
     console.log("Módulo de Ocorrências Inicializado com sucesso.");
-    await window.carregarFrotasOcorrencia();
+    await window.carregarColaboradoresRH();
+    await window.carregarTodasFrotas();
+    window.carregarFrotasOcorrencia();
 };
 
-window.carregarFrotasOcorrencia = async function() {
+window.carregarColaboradoresRH = async function() {
     try {
-        const selPlaca = document.getElementById('placa');
-        const selCategoria = document.getElementById('categoria_frota');
-        if (!selPlaca) return;
+        if (window.db && window.db.getColaboradores) {
+            window.listaColaboradoresRH = await window.db.getColaboradores();
+        } else {
+            const { data, error } = await supabaseClient.from('rh_colaboradores').select('*').order('nome');
+            if(error) throw error;
+            window.listaColaboradoresRH = data || [];
+        }
+        
+        const select = document.getElementById('nome_envolvido_select');
+        if (select) {
+            select.innerHTML = '<option value="">Selecione o Responsável Principal...</option>';
+            window.listaColaboradoresRH.forEach(c => {
+                select.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
+            });
+        }
+    } catch (error) {
+        console.error("Erro ao carregar colaboradores RH:", error);
+    }
+};
 
-        const categoriaSelecionada = selCategoria ? selCategoria.value : 'TRITREM';
+window.preencherDadosColaborador = function(idColaborador, idCampoFuncao, idCampoNomeHidden) {
+    const campoFuncao = document.getElementById(idCampoFuncao);
+    const campoNome = document.getElementById(idCampoNomeHidden);
+    
+    if(!idColaborador) {
+        if(campoFuncao) campoFuncao.value = '';
+        if(campoNome) campoNome.value = '';
+        return;
+    }
 
-        // Atualizado para buscar a coluna 'descricao' em vez de 'modelo'
+    const colab = window.listaColaboradoresRH.find(c => c.id == idColaborador);
+    if(colab) {
+        if(campoFuncao) campoFuncao.value = colab.cargo || colab.funcao || 'Colaborador'; 
+        if(campoNome) campoNome.value = colab.nome;
+    }
+};
+
+window.carregarTodasFrotas = async function() {
+    try {
         let query = supabaseClient.from('frotas_manutencao')
             .select('cavalo, numero_frota, descricao, categoria')
-            .eq('categoria', categoriaSelecionada)
             .order('cavalo');
             
         if (typeof window.aplicarFiltroFilial === 'function') {
             query = window.aplicarFiltroFilial(query);
         }
-
+        
         const { data, error } = await query;
-        if (error) throw error;
-        
-        window.listaFrotasOcorrencia = data || [];
-        
-        selPlaca.innerHTML = '<option value="">Selecione a Placa...</option>';
-        window.listaFrotasOcorrencia.forEach(f => {
-            if (f.cavalo && f.cavalo.trim() !== '') {
-                selPlaca.innerHTML += `<option value="${f.cavalo}">${f.cavalo}</option>`;
-            }
-        });
-        
-        // Limpa os campos atrelados caso tenha trocado a categoria
-        window.preencherDadosVeiculo('');
-        
+        if(error) throw error;
+        window.todasFrotasCache = data || [];
     } catch (error) {
-        console.error("Erro ao carregar frotas para ocorrências:", error);
+        console.error("Erro ao carregar todas as frotas:", error);
     }
+};
+
+window.carregarFrotasOcorrencia = function() {
+    const selPlaca = document.getElementById('placa');
+    const selCategoria = document.getElementById('categoria_frota');
+    if (!selPlaca) return;
+
+    const categoriaSelecionada = selCategoria ? selCategoria.value : 'TRITREM';
+    window.listaFrotasOcorrencia = window.todasFrotasCache.filter(f => f.categoria === categoriaSelecionada);
+    
+    selPlaca.innerHTML = '<option value="">Selecione a Placa...</option>';
+    window.listaFrotasOcorrencia.forEach(f => {
+        if (f.cavalo && f.cavalo.trim() !== '') {
+            selPlaca.innerHTML += `<option value="${f.cavalo}">${f.cavalo}</option>`;
+        }
+    });
+    
+    window.preencherDadosVeiculo('');
+};
+
+window.carregarFrotasOutro = function(id) {
+    const selCat = document.getElementById(`outro_cat_${id}`);
+    const selPlaca = document.getElementById(`outro_placa_${id}`);
+    if(!selCat || !selPlaca) return;
+    
+    const cat = selCat.value;
+    if(!cat) {
+        selPlaca.innerHTML = '<option value="">Aguardando...</option>';
+        return;
+    }
+
+    const filtradas = window.todasFrotasCache.filter(f => f.categoria === cat);
+    selPlaca.innerHTML = '<option value="">Selecione a Placa...</option>';
+    filtradas.forEach(f => {
+        if (f.cavalo && f.cavalo.trim() !== '') {
+            selPlaca.innerHTML += `<option value="${f.cavalo}">${f.cavalo}</option>`;
+        }
+    });
 };
 
 window.preencherDadosVeiculo = function(placaSelecionada) {
@@ -61,7 +123,6 @@ window.preencherDadosVeiculo = function(placaSelecionada) {
     const veiculo = window.listaFrotasOcorrencia.find(f => f.cavalo === placaSelecionada);
     if (veiculo) {
         if(inputFrota) inputFrota.value = veiculo.numero_frota || '';
-        // Preenche o campo modelo (na tela) com a 'descricao' vinda do banco
         if(inputModelo) inputModelo.value = veiculo.descricao || ''; 
     } else {
         if(inputFrota) inputFrota.value = '';
@@ -69,7 +130,59 @@ window.preencherDadosVeiculo = function(placaSelecionada) {
     }
 };
 
-// --- NOVA FUNÇÃO PARA BUSCAR A DATA DA O.S AUTOMATICAMENTE ---
+window.adicionarOutroEnvolvido = function() {
+    window.outrosEnvolvidosCount++;
+    const id = window.outrosEnvolvidosCount;
+    const container = document.getElementById('lista_outros_envolvidos');
+    
+    const div = document.createElement('div');
+    div.id = `envolvido_${id}`;
+    div.style.cssText = "display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 15px; padding: 15px; border: 1px dashed var(--border-dim); border-radius: 8px; background: rgba(255,255,255,0.02);";
+    
+    let colabOptions = '<option value="">Selecione...</option>';
+    window.listaColaboradoresRH.forEach(c => {
+        colabOptions += `<option value="${c.id}">${c.nome}</option>`;
+    });
+
+    div.innerHTML = `
+        <div class="form-group-dark">
+            <label>Colaborador Envolvido</label>
+            <select id="outro_colab_${id}" class="dark-select" onchange="window.preencherDadosColaborador(this.value, 'outro_funcao_${id}', 'outro_nome_${id}')" required>
+                ${colabOptions}
+            </select>
+            <input type="hidden" id="outro_nome_${id}">
+        </div>
+        <div class="form-group-dark">
+            <label>Função</label>
+            <input type="text" id="outro_funcao_${id}" class="dark-select" readonly>
+        </div>
+        <div class="form-group-dark">
+            <label>Equipamento (Categoria)</label>
+            <select id="outro_cat_${id}" class="dark-select" onchange="window.carregarFrotasOutro(${id})">
+                <option value="">Sem Equipamento</option>
+                <option value="TRITREM">TRITREM</option>
+                <option value="PRANCHA">PRANCHA</option>
+                <option value="GRUA">GRUA</option>
+                <option value="COMBOIO">COMBOIO</option>
+                <option value="CARRETA">CARRETA</option>
+                <option value="FROTA LEVE">FROTA LEVE</option>
+            </select>
+        </div>
+        <div class="form-group-dark">
+            <label>Equipamento (Placa)</label>
+            <select id="outro_placa_${id}" class="dark-select">
+                <option value="">Aguardando...</option>
+            </select>
+        </div>
+        <div style="display: flex; align-items: flex-end; justify-content: flex-end;">
+            <button type="button" class="btn-secondary-dark" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1);" onclick="document.getElementById('envolvido_${id}').remove()">
+                <i class="fas fa-trash"></i> Remover
+            </button>
+        </div>
+    `;
+    container.appendChild(div);
+};
+
 window.buscarDataOS = async function(numeroOsDigitado, idCampoDestino) {
     const campoDestino = document.getElementById(idCampoDestino);
     if (!campoDestino) return;
@@ -80,7 +193,6 @@ window.buscarDataOS = async function(numeroOsDigitado, idCampoDestino) {
     }
 
     try {
-        // Tenta buscar no banco ordens_servico onde numero_os bate com o que foi digitado
         const { data, error } = await supabaseClient.from('ordens_servico')
             .select('data_abertura, numero_os')
             .or(`numero_os.eq.${numeroOsDigitado},id.eq.${numeroOsDigitado}`)
@@ -91,13 +203,11 @@ window.buscarDataOS = async function(numeroOsDigitado, idCampoDestino) {
         if (data && data.length > 0) {
             let dataCompleta = data[0].data_abertura;
             if (dataCompleta) {
-                // Separa a data da hora se houver (formato ISO 'YYYY-MM-DDTHH:MM')
                 campoDestino.value = dataCompleta.split('T')[0];
             } else {
                 campoDestino.value = '';
             }
         } else {
-            // Se a OS não existir no banco
             campoDestino.value = '';
         }
     } catch (err) {
@@ -108,6 +218,31 @@ window.buscarDataOS = async function(numeroOsDigitado, idCampoDestino) {
 
 window.salvarOcorrencia = async function(event) {
     event.preventDefault();
+
+    // Capturar a lista de outros envolvidos
+    const outrosEnvolvidos = [];
+    const container = document.getElementById('lista_outros_envolvidos');
+    if(container) {
+        const divs = container.querySelectorAll('[id^="envolvido_"]');
+        divs.forEach(div => {
+            const id = div.id.replace('envolvido_', '');
+            const idColab = document.getElementById(`outro_colab_${id}`).value;
+            const nome = document.getElementById(`outro_nome_${id}`).value;
+            const funcao = document.getElementById(`outro_funcao_${id}`).value;
+            const categoria = document.getElementById(`outro_cat_${id}`).value;
+            const placa = document.getElementById(`outro_placa_${id}`).value;
+
+            if(nome) {
+                outrosEnvolvidos.push({
+                    colaborador_id: idColab,
+                    nome: nome,
+                    funcao: funcao,
+                    equipamento_categoria: categoria,
+                    equipamento_placa: placa
+                });
+            }
+        });
+    }
 
     const dadosOcorrencia = {
         numero_frota: document.getElementById('numero_frota').value,
@@ -127,7 +262,8 @@ window.salvarOcorrencia = async function(event) {
         prevencao_falha: document.getElementById('prevencao_falha').value,
         parecer_gestor: document.getElementById('parecer_gestor').value,
         gestor_imediato: document.getElementById('gestor_imediato').value,
-        gerente: document.getElementById('gerente').value
+        gerente: document.getElementById('gerente').value,
+        outros_envolvidos: outrosEnvolvidos // A nova coluna JSON para buscas precisas no futuro
     };
 
     try {
@@ -171,9 +307,9 @@ window.salvarOcorrencia = async function(event) {
     } catch (error) {
         console.error("Erro ao guardar a ocorrência:", error);
         if (typeof Swal !== 'undefined') {
-            Swal.fire('Erro', 'Ocorreu um erro ao guardar a ocorrência.', 'error');
+            Swal.fire('Erro', 'Ocorreu um erro ao guardar a ocorrência. Lembre-se de verificar se a coluna "outros_envolvidos" existe no banco.', 'error');
         } else {
-            alert("Erro ao guardar a ocorrência. Verifique a consola (F12) para mais detalhes.");
+            alert("Erro ao guardar a ocorrência. Verifique o console (F12) para mais detalhes.");
         }
     }
 };
@@ -182,10 +318,16 @@ window.limparFormOcorrencia = function() {
     const form = document.getElementById('formOcorrencia');
     if (form) {
         form.reset();
+        
         const campoEmpresa = document.getElementById('empresa');
-        if (campoEmpresa) {
-            campoEmpresa.value = "SERRANALOG FLORESTAL";
-        }
+        if (campoEmpresa) campoEmpresa.value = "SERRANALOG FLORESTAL";
+        
+        const container = document.getElementById('lista_outros_envolvidos');
+        if (container) container.innerHTML = '';
+        window.outrosEnvolvidosCount = 0;
+        
+        const selectRH = document.getElementById('nome_envolvido_select');
+        if (selectRH) selectRH.value = '';
         
         window.carregarFrotasOcorrencia(); 
     }

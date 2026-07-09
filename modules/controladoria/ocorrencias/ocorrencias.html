@@ -7,7 +7,32 @@
     <form id="formOcorrencia" onsubmit="window.salvarOcorrencia(event)">
         
         <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
-            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Identificação do Veículo</legend>
+            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Responsável Principal</legend>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div class="form-group-dark">
+                    <label for="nome_envolvido_select">Nome do Envolvido</label>
+                    <select id="nome_envolvido_select" class="dark-select" required onchange="window.preencherDadosColaborador(this.value, 'funcao', 'nome_envolvido')">
+                        <option value="">Carregando colaboradores...</option>
+                    </select>
+                    <input type="hidden" id="nome_envolvido" required>
+                </div>
+                <div class="form-group-dark">
+                    <label for="funcao">Função</label>
+                    <input type="text" id="funcao" class="dark-select" readonly required>
+                </div>
+                <div class="form-group-dark">
+                    <label for="tempo_empresa">Tempo de Empresa</label>
+                    <input type="text" id="tempo_empresa" class="dark-select" placeholder="Ex: 2 anos e 3 meses">
+                </div>
+                <div class="form-group-dark">
+                    <label for="escala">Escala</label>
+                    <input type="text" id="escala" class="dark-select" placeholder="Ex: 5x2, 6x1...">
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
+            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Equipamento Principal (Causador)</legend>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
                     <label for="categoria_frota">Categoria da Frota</label>
@@ -42,6 +67,14 @@
         </fieldset>
 
         <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
+            <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Outros Envolvidos (Colaboradores e Equipamentos)</legend>
+            <div id="lista_outros_envolvidos"></div>
+            <button type="button" class="btn-secondary-dark" onclick="window.adicionarOutroEnvolvido()" style="margin-top: 10px; background: rgba(255,255,255,0.05); border: 1px dashed var(--border-dim); color: var(--ccol-blue-bright); padding: 10px 15px; border-radius: 8px; width: 100%; text-align: center; cursor: pointer; transition: all 0.3s;">
+                <i class="fas fa-plus"></i> Adicionar Outro Colaborador / Equipamento Envolvido
+            </button>
+        </fieldset>
+
+        <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
             <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Dados do Ocorrido</legend>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
@@ -63,22 +96,6 @@
                 <div class="form-group-dark" style="grid-column: span 2;">
                     <label for="local_projeto">Local / Projeto</label>
                     <input type="text" id="local_projeto" class="dark-select" required>
-                </div>
-                <div class="form-group-dark">
-                    <label for="nome_envolvido">Nome do Envolvido</label>
-                    <input type="text" id="nome_envolvido" class="dark-select" required>
-                </div>
-                <div class="form-group-dark">
-                    <label for="funcao">Função</label>
-                    <input type="text" id="funcao" class="dark-select" required>
-                </div>
-                <div class="form-group-dark">
-                    <label for="tempo_empresa">Tempo de Empresa</label>
-                    <input type="text" id="tempo_empresa" class="dark-select" placeholder="Ex: 2 anos e 3 meses">
-                </div>
-                <div class="form-group-dark">
-                    <label for="escala">Escala</label>
-                    <input type="text" id="escala" class="dark-select" placeholder="Ex: 5x2, 6x1...">
                 </div>
             </div>
         </fieldset>
