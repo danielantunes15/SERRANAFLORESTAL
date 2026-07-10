@@ -1,6 +1,17 @@
 window.listaColaboradoresDb = [];
 window.listaCursosAtivos = [];
 
+// Definição dos campos básicos obrigatórios para considerar um cadastro "Completo"
+window.camposBaseObrigatorios = [
+    { key: 'cpf', id: 'colCpf' },
+    { key: 'rg', id: 'colRg' },
+    { key: 'data_nascimento', id: 'colDataNascimento' },
+    { key: 'data_admissao', id: 'colDataAdmissao' },
+    { key: 'funcao', id: 'colFuncao' },
+    { key: 'telefone', id: 'colTelefone' },
+    { key: 'endereco', id: 'colEndereco' }
+];
+
 window.initRHColaboradores = async function() {
     // Mostra a listagem e esconde a ficha no início
     document.getElementById('viewListagemColaboradores').style.display = 'block';
@@ -8,6 +19,30 @@ window.initRHColaboradores = async function() {
     
     await window.carregarCursosGlobais();
     await window.carregarColaboradoresLista();
+};
+
+// ==================== VERIFICAÇÃO DE PENDÊNCIAS ====================
+window.verificarPendenciasCadastro = function(colaborador) {
+    let camposFaltando = [];
+    window.camposBaseObrigatorios.forEach(campo => {
+        if (!colaborador[campo.key] || String(colaborador[campo.key]).trim() === '') {
+            camposFaltando.push(campo);
+        }
+    });
+    return camposFaltando;
+};
+
+window.limparValidacaoVisualFicha = function() {
+    document.getElementById('alertaCamposPendentes').style.display = 'none';
+    window.camposBaseObrigatorios.forEach(campo => {
+        const el = document.getElementById(campo.id);
+        if (el) {
+            el.classList.remove('campo-pendente');
+            if (el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL') {
+                el.previousElementSibling.classList.remove('label-pendente');
+            }
+        }
+    });
 };
 
 // ==================== LISTAGEM E PESQUISA ====================
@@ -40,6 +75,13 @@ window.renderizarTabelaColaboradores = function(lista) {
         else if(c.status === 'Férias' || c.status === 'Afastado') corStatus = '#f59e0b';
 
         const matriculaFormatada = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'S/ Matrícula';
+        
+        // Verifica se há informações faltando no cadastro
+        const pendencias = window.verificarPendenciasCadastro(c);
+        let badgeAlerta = '';
+        if (pendencias.length > 0 && c.status !== 'Inativo' && c.status !== 'Desligado') {
+            badgeAlerta = `<span title="Cadastro Desatualizado (${pendencias.length} informações pendentes)" style="color: #ef4444; margin-right: 12px; font-size: 1.1rem; cursor: help;"><i class="fas fa-exclamation-triangle"></i></span>`;
+        }
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -48,7 +90,10 @@ window.renderizarTabelaColaboradores = function(lista) {
             <td><span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-dim); font-size: 0.85rem;">${c.funcao || 'Não informada'}</span></td>
             <td><span style="color: ${corStatus}; font-weight: bold; font-size: 0.9rem;">${c.status || 'Ativo'}</span></td>
             <td>
-                <button class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem;" onclick="window.abrirFichaCompleta('${c.id}')"><i class="fas fa-edit"></i> Editar Ficha</button>
+                <div style="display: flex; align-items: center; justify-content: center;">
+                    ${badgeAlerta}
+                    <button class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem;" onclick="window.abrirFichaCompleta('${c.id}')"><i class="fas fa-edit"></i> Editar Ficha</button>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);
@@ -94,6 +139,8 @@ window.abrirFichaCompleta = function(id = null) {
     document.getElementById('viewListagemColaboradores').style.display = 'none';
     document.getElementById('viewFichaColaborador').style.display = 'block';
     
+    window.limparValidacaoVisualFicha();
+    
     if (id) {
         // MODO EDIÇÃO
         const c = window.listaColaboradoresDb.find(x => x.id === id);
@@ -102,7 +149,6 @@ window.abrirFichaCompleta = function(id = null) {
         document.getElementById('tituloFicha').innerText = c.nome;
         document.getElementById('subtituloFicha').innerText = 'Edição de Ficha Cadastral';
         document.getElementById('btnExcluirFicha').style.display = 'flex';
-
         document.getElementById('colaboradorId').value = c.id;
         document.getElementById('colCodFuncionarioDisplay').innerText = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'N/A';
         
@@ -130,6 +176,22 @@ window.abrirFichaCompleta = function(id = null) {
         document.getElementById('colObservacoes').value = c.observacoes || '';
 
         window.montarCamposCursosDinamicosFull(c.cursos_vencimentos || {});
+        
+        // Destacar campos pendentes se houver
+        const pendencias = window.verificarPendenciasCadastro(c);
+        if (pendencias.length > 0) {
+            document.getElementById('alertaCamposPendentes').style.display = 'flex';
+            pendencias.forEach(p => {
+                const el = document.getElementById(p.id);
+                if (el) {
+                    el.classList.add('campo-pendente');
+                    if (el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL') {
+                        el.previousElementSibling.classList.add('label-pendente');
+                    }
+                }
+            });
+        }
+
     } else {
         // MODO NOVO CADASTRO
         document.getElementById('tituloFicha').innerText = 'Novo Cadastro';
@@ -155,6 +217,7 @@ window.abrirFichaCompleta = function(id = null) {
 
 window.salvarColaboradorFicha = async function() {
     const id = document.getElementById('colaboradorId').value;
+    
     const getValue = (elId) => document.getElementById(elId).value;
     const getDateValue = (elId) => { const val = document.getElementById(elId).value; return val ? val : null; };
 
@@ -192,7 +255,6 @@ window.salvarColaboradorFicha = async function() {
     };
 
     if (!id) dados.cod_funcionario = window.calcularProximaMatriculaFull();
-
     if (!dados.nome) return alert('O Nome Completo é obrigatório para salvar a ficha.');
 
     try {
@@ -205,6 +267,7 @@ window.salvarColaboradorFicha = async function() {
             if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Criação', `Novo colaborador: ${dados.nome}`, 'Info');
             alert('Novo colaborador cadastrado com sucesso!');
         }
+        
         await window.carregarColaboradoresLista();
         window.voltarParaListagem(); // Retorna à lista automaticamente
     } catch (e) {
@@ -216,12 +279,13 @@ window.salvarColaboradorFicha = async function() {
 window.excluirColaboradorAtual = async function() {
     const id = document.getElementById('colaboradorId').value;
     if (!id) return;
-
+    
     if (confirm('AÇÃO IRREVERSÍVEL!\nTem certeza que deseja EXCLUIR PERMANENTEMENTE o cadastro deste colaborador?')) {
         try {
             const nome = document.getElementById('colNome').value;
             await db.deleteColaborador(id);
             if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Exclusão', `Colaborador removido: ${nome}`, 'Crítico');
+            
             alert('Cadastro excluído com sucesso.');
             await window.carregarColaboradoresLista();
             window.voltarParaListagem();
@@ -259,6 +323,7 @@ window.carregarCursosGlobais = async function() {
     try {
         let query = window.supabaseClient.from('rh_cursos').select('*').order('nome', { ascending: true });
         if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+        
         const { data, error } = await query;
         if (error) throw error;
         window.listaCursosAtivos = data || [];
@@ -280,10 +345,12 @@ window.renderizarListaCursosGlobais = function() {
     const container = document.getElementById('listaCursosGlobais');
     if (!container) return;
     container.innerHTML = '';
+
     if (window.listaCursosAtivos.length === 0) {
         container.innerHTML = `<p style="color: var(--text-secondary); text-align:center; padding:15px; font-size:0.85rem;">Lista de cursos vazia.</p>`;
         return;
     }
+
     window.listaCursosAtivos.forEach(curso => {
         container.innerHTML += `
             <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:6px; border:1px solid var(--border-dim);">
@@ -297,9 +364,11 @@ window.renderizarListaCursosGlobais = function() {
 window.salvarNovoCursoGlobal = async function() {
     const nome = document.getElementById('novoCursoNome').value.trim();
     if (!nome) return alert('Digite o nome do curso.');
+    
     try {
         let dados = { nome: nome };
         if (typeof window.injetarFilial === 'function') dados = window.injetarFilial(dados);
+        
         await window.supabaseClient.from('rh_cursos').insert([dados]);
         document.getElementById('novoCursoNome').value = '';
         await window.carregarCursosGlobais();

@@ -1,3 +1,26 @@
+<style>
+    .campo-pendente {
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
+    }
+    .label-pendente {
+        color: #ef4444 !important;
+    }
+    .alerta-pendencia {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #ef4444;
+        padding: 12px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: none; /* Escondido por padrão */
+        align-items: center;
+        gap: 15px;
+        font-weight: 600;
+        animation: terminalFadeIn 0.3s ease-out;
+    }
+</style>
+
 <div id="viewListagemColaboradores" style="animation: terminalFadeIn 0.3s ease-out;">
     <div class="action-bar" style="display: flex; flex-wrap: wrap; gap: 15px;">
         <div class="filter-group" style="flex: 1; display: flex; gap: 10px; min-width: 300px;">
@@ -25,7 +48,8 @@
                     </tr>
                 </thead>
                 <tbody id="tbListaColaboradores">
-                    </tbody>
+                    <!-- Preenchido via JS -->
+                </tbody>
             </table>
         </div>
     </div>
@@ -42,6 +66,14 @@
 
     <div class="content-panel" style="padding: 30px;">
         <input type="hidden" id="colaboradorId">
+        
+        <div id="alertaCamposPendentes" class="alerta-pendencia">
+            <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem;"></i>
+            <div>
+                <span style="display: block; font-size: 1.1rem; margin-bottom: 3px;">Cadastro Desatualizado</span>
+                <span style="font-size: 0.85rem; color: #f87171; font-weight: normal;">Este colaborador possui informações cadastrais básicas pendentes. Por favor, preencha os campos destacados em vermelho abaixo.</span>
+            </div>
+        </div>
         
         <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--border-dim); padding-bottom: 15px; margin-bottom: 30px;">
             <div>
@@ -60,9 +92,9 @@
                 <label>Status do Colaborador</label>
                 <select id="colStatus" class="dark-select">
                     <option value="Ativo">🟢 Ativo</option>
-                    <option value="Inativo">⚫ Inativo / Desligado</option>
+                    <option value="Inativo">🔴 Inativo / Desligado</option>
                     <option value="Férias">🟡 De Férias</option>
-                    <option value="Afastado">🔴 Afastado (INSS/Saúde)</option>
+                    <option value="Afastado">🟠 Afastado (INSS/Saúde)</option>
                 </select>
             </div>
             <div class="form-group-dark"><label>Data de Admissão</label><input type="date" id="colDataAdmissao"></div>
@@ -112,13 +144,15 @@
         </div>
         
         <div id="containerCursosDinamicos" class="form-grid-conjunto" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; width: 100%; padding: 15px; background: rgba(0,0,0,0.1); border-radius: 8px; border: 1px dashed var(--border-dim);">
-            </div>
+            <!-- Renderizado via JS -->
+        </div>
 
         <h4 style="color: #94a3b8; border-bottom: 1px solid var(--border-dim); padding-bottom: 8px; margin-bottom: 15px;"><i class="fas fa-comment-dots"></i> Informações Adicionais</h4>
         <div class="form-group-dark" style="margin-bottom: 20px;">
             <label>Observações Gerais / Fardamento</label>
             <textarea id="colObservacoes" rows="4" placeholder="Anotações extras, tamanho de uniforme, contato de emergência..."></textarea>
         </div>
+
     </div>
 </div>
 
@@ -136,6 +170,7 @@
                     <button class="btn-primary-green" onclick="window.salvarNovoCursoGlobal()"><i class="fas fa-plus"></i> Incluir</button>
                 </div>
             </div>
+
             <h5 style="color:#fff; margin-bottom:10px; font-weight:600;">Lista de Cursos Ativos:</h5>
             <div id="listaCursosGlobais" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px;"></div>
         </div>
