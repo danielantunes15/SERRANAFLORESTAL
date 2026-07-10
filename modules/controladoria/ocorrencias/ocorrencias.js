@@ -142,20 +142,23 @@ window.mudarTipoEnvolvido = function(id) {
     const tipo = document.getElementById(`outro_tipo_${id}`).value;
     const divColab = document.getElementById(`div_outro_colab_${id}`);
     const divTerceiro = document.getElementById(`div_outro_terceiro_${id}`);
+    const divTempo = document.getElementById(`div_outro_tempo_${id}`);
     const inputFuncao = document.getElementById(`outro_funcao_${id}`);
     
     if (tipo === 'TERCEIRO') {
         divColab.style.display = 'none';
         divTerceiro.style.display = 'block';
+        if (divTempo) divTempo.style.display = 'none';
         inputFuncao.readOnly = false;
         inputFuncao.value = '';
         inputFuncao.placeholder = 'Ex: Motorista Terceirizado, Transportadora...';
     } else {
         divColab.style.display = 'block';
         divTerceiro.style.display = 'none';
+        if (divTempo) divTempo.style.display = 'block';
         inputFuncao.readOnly = true;
         inputFuncao.placeholder = '';
-        window.preencherDadosColaborador(document.getElementById(`outro_colab_${id}`).value, `outro_funcao_${id}`, `outro_nome_${id}`);
+        window.preencherDadosColaborador(document.getElementById(`outro_colab_${id}`).value, `outro_funcao_${id}`, `outro_nome_${id}`, `outro_tempo_${id}`);
     }
 };
 
@@ -246,7 +249,7 @@ window.adicionarOutroEnvolvido = function() {
 
             <div class="form-group-dark" id="div_outro_colab_${id}">
                 <label>Colaborador Envolvido</label>
-                <select id="outro_colab_${id}" class="dark-select" onchange="window.preencherDadosColaborador(this.value, 'outro_funcao_${id}', 'outro_nome_${id}')">
+                <select id="outro_colab_${id}" class="dark-select" onchange="window.preencherDadosColaborador(this.value, 'outro_funcao_${id}', 'outro_nome_${id}', 'outro_tempo_${id}')">
                     ${colabOptions}
                 </select>
                 <input type="hidden" id="outro_nome_${id}">
@@ -260,6 +263,11 @@ window.adicionarOutroEnvolvido = function() {
             <div class="form-group-dark">
                 <label>Função / Cargo</label>
                 <input type="text" id="outro_funcao_${id}" class="dark-select" readonly>
+            </div>
+
+            <div class="form-group-dark" id="div_outro_tempo_${id}">
+                <label>Tempo de Empresa</label>
+                <input type="text" id="outro_tempo_${id}" class="dark-select" readonly style="opacity: 0.7; cursor: not-allowed;" placeholder="Preenchimento automático">
             </div>
 
             <div class="form-group-dark">
@@ -349,6 +357,7 @@ window.salvarOcorrencia = async function(event) {
             }
             
             const funcao = document.getElementById(`outro_funcao_${id}`).value;
+            const tempoEmpresa = tipo === 'COLABORADOR' ? (document.getElementById(`outro_tempo_${id}`) ? document.getElementById(`outro_tempo_${id}`).value : '') : '';
             
             const categoria = document.getElementById(`outro_cat_${id}`).value;
             let placa = '';
@@ -366,6 +375,7 @@ window.salvarOcorrencia = async function(event) {
                     colaborador_id: idColab,
                     nome: nome,
                     funcao: funcao,
+                    tempo_empresa: tempoEmpresa,
                     equipamento_categoria: categoria,
                     equipamento_placa: placa
                 });
