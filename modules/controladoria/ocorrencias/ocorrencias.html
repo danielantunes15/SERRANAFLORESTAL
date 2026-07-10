@@ -20,7 +20,7 @@
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
                     <label for="nome_envolvido_select">Nome do Envolvido</label>
-                    <select id="nome_envolvido_select" class="dark-select" required onchange="window.preencherDadosColaborador(this.value, 'funcao', 'nome_envolvido')">
+                    <select id="nome_envolvido_select" class="dark-select" required onchange="window.preencherDadosColaborador(this.value, 'funcao', 'nome_envolvido', 'tempo_empresa')">
                         <option value="">Carregando colaboradores...</option>
                     </select>
                     <input type="hidden" id="nome_envolvido" required>
@@ -31,7 +31,7 @@
                 </div>
                 <div class="form-group-dark">
                     <label for="tempo_empresa">Tempo de Empresa</label>
-                    <input type="text" id="tempo_empresa" class="dark-select" placeholder="Ex: 2 anos e 3 meses">
+                    <input type="text" id="tempo_empresa" class="dark-select" readonly style="opacity: 0.7; cursor: not-allowed;" placeholder="Preenchimento automático">
                 </div>
                 <div class="form-group-dark">
                     <label for="escala">Escala</label>

@@ -37,13 +37,57 @@ window.carregarColaboradoresRH = async function() {
     }
 };
 
-window.preencherDadosColaborador = function(idColaborador, idCampoFuncao, idCampoNomeHidden) {
+window.calcularTempoEmpresa = function(dataAdmissaoStr) {
+    if (!dataAdmissaoStr) return "Sem informação";
+    
+    // Suporta o formato YYYY-MM-DD vindo do Supabase
+    const dataApenas = dataAdmissaoStr.split('T')[0];
+    const partes = dataApenas.split('-');
+    
+    if (partes.length !== 3) return "Formato inválido";
+    
+    // Cria a data no fuso local para evitar perda de dias
+    const admissao = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+    const hoje = new Date();
+    
+    // Reseta as horas para calcular corretamente os dias
+    admissao.setHours(0, 0, 0, 0);
+    hoje.setHours(0, 0, 0, 0);
+    
+    if (admissao > hoje) return "Sem informação";
+    
+    let anos = hoje.getFullYear() - admissao.getFullYear();
+    let meses = hoje.getMonth() - admissao.getMonth();
+    let dias = hoje.getDate() - admissao.getDate();
+
+    if (dias < 0) {
+        meses--;
+        // Pegar quantos dias tem o mês anterior
+        const ultimoDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0).getDate();
+        dias += ultimoDiaMesAnterior;
+    }
+    if (meses < 0) {
+        anos--;
+        meses += 12;
+    }
+
+    let resultado = [];
+    if (anos > 0) resultado.push(anos + (anos === 1 ? " ano" : " anos"));
+    if (meses > 0) resultado.push(meses + (meses === 1 ? " mês" : " meses"));
+    if (dias > 0) resultado.push(dias + (dias === 1 ? " dia" : " dias"));
+
+    return resultado.length > 0 ? resultado.join(', ') : "Menos de 1 dia";
+};
+
+window.preencherDadosColaborador = function(idColaborador, idCampoFuncao, idCampoNomeHidden, idCampoTempoEmpresa) {
     const campoFuncao = document.getElementById(idCampoFuncao);
     const campoNome = document.getElementById(idCampoNomeHidden);
+    const campoTempo = idCampoTempoEmpresa ? document.getElementById(idCampoTempoEmpresa) : null;
     
     if(!idColaborador) {
         if(campoFuncao && campoFuncao.readOnly) campoFuncao.value = '';
         if(campoNome) campoNome.value = '';
+        if(campoTempo) campoTempo.value = '';
         return;
     }
 
@@ -51,6 +95,10 @@ window.preencherDadosColaborador = function(idColaborador, idCampoFuncao, idCamp
     if(colab) {
         if(campoFuncao && campoFuncao.readOnly) campoFuncao.value = colab.cargo || colab.funcao || 'Colaborador'; 
         if(campoNome) campoNome.value = colab.nome;
+        
+        if(campoTempo) {
+            campoTempo.value = window.calcularTempoEmpresa(colab.data_admissao);
+        }
     }
 };
 
