@@ -6,7 +6,6 @@
         color-scheme: dark;
     }
 </style>
-
 <div class="content-panel" style="padding: 20px; background: var(--bg-panel); border-radius: 8px; border: 1px solid var(--border-dim); min-height: 80vh;">
     
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
@@ -28,6 +27,12 @@
                 <div class="form-group-dark">
                     <label for="funcao">Função</label>
                     <input type="text" id="funcao" class="dark-select" readonly required>
+                </div>
+                <div class="form-group-dark">
+                    <label for="setor">Setor / Departamento</label>
+                    <select id="setor" class="dark-select" required>
+                        <option value="">Carregando setores...</option>
+                    </select>
                 </div>
                 <div class="form-group-dark">
                     <label for="tempo_empresa">Tempo de Empresa</label>
@@ -146,12 +151,10 @@
                 <label for="descricao_fatos">Descrição dos Fatos</label>
                 <textarea id="descricao_fatos" class="dark-select" rows="4" placeholder="Descreva detalhadamente como tudo ocorreu..." required></textarea>
             </div>
-
             <div class="form-group-dark" style="margin-bottom: 15px;">
                 <label for="prevencao_falha">O que poderia ter sido feito para evitar essa ocorrência?</label>
                 <textarea id="prevencao_falha" class="dark-select" rows="3" required></textarea>
             </div>
-
             <div class="form-group-dark" style="margin-bottom: 15px;">
                 <label for="parecer_gestor">Parecer do Gestor</label>
                 <textarea id="parecer_gestor" class="dark-select" rows="3"></textarea>

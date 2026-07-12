@@ -6,13 +6,55 @@
 window.listaFrotasOcorrencia = [];
 window.todasFrotasCache = [];
 window.listaColaboradoresRH = [];
+window.listaSetoresOcorrencia = [];
 window.outrosEnvolvidosCount = 0;
 
 window.initOcorrencias = async function() {
     console.log("Módulo de Ocorrências Inicializado com sucesso.");
     await window.carregarColaboradoresRH();
+    await window.carregarSetoresOcorrencia();
     await window.carregarTodasFrotas();
     window.carregarFrotasOcorrencia();
+};
+
+window.carregarSetoresOcorrencia = async function() {
+    try {
+        let query = supabaseClient.from('setores').select('*').eq('status', 'Ativo').order('nome');
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        }
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        window.listaSetoresOcorrencia = data || [];
+        
+        const select = document.getElementById('setor');
+        if (select) {
+            select.innerHTML = '<option value="">Selecione o Setor...</option>';
+            
+            // Fallback: se não houver setores cadastrados, fornece opções básicas
+            if (window.listaSetoresOcorrencia.length === 0) {
+                 select.innerHTML += `
+                    <option value="Logística">Logística</option>
+                    <option value="Manutenção">Manutenção</option>
+                    <option value="Campo / Operação">Campo / Operação</option>
+                    <option value="Administrativo">Administrativo</option>
+                    <option value="SSMA">SSMA</option>
+                 `;
+            } else {
+                window.listaSetoresOcorrencia.forEach(s => {
+                    select.innerHTML += `<option value="${s.nome}">${s.nome}</option>`;
+                });
+            }
+            // Adicionando a opção 'Outras empresas' no select principal por segurança
+            select.innerHTML += '<option value="Outras empresas">Outras empresas</option>';
+        }
+    } catch (error) {
+        console.error("Erro ao carregar setores:", error);
+        const select = document.getElementById('setor');
+        if(select) select.innerHTML = '<option value="">Erro ao carregar. Digite no relato.</option>';
+    }
 };
 
 window.carregarColaboradoresRH = async function() {
@@ -66,6 +108,7 @@ window.calcularTempoEmpresa = function(dataAdmissaoStr) {
         const ultimoDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0).getDate();
         dias += ultimoDiaMesAnterior;
     }
+
     if (meses < 0) {
         anos--;
         meses += 12;
@@ -126,6 +169,7 @@ window.carregarFrotasOcorrencia = function() {
     if (!selPlaca) return;
 
     const categoriaSelecionada = selCategoria ? selCategoria.value : 'TRITREM';
+
     window.listaFrotasOcorrencia = window.todasFrotasCache.filter(f => f.categoria === categoriaSelecionada);
     
     selPlaca.innerHTML = '<option value="">Selecione a Placa...</option>';
@@ -144,6 +188,7 @@ window.mudarTipoEnvolvido = function(id) {
     const divTerceiro = document.getElementById(`div_outro_terceiro_${id}`);
     const divTempo = document.getElementById(`div_outro_tempo_${id}`);
     const inputFuncao = document.getElementById(`outro_funcao_${id}`);
+    const selectSetor = document.getElementById(`outro_setor_${id}`); // Novo campo de Setor
     
     if (tipo === 'TERCEIRO') {
         divColab.style.display = 'none';
@@ -152,12 +197,25 @@ window.mudarTipoEnvolvido = function(id) {
         inputFuncao.readOnly = false;
         inputFuncao.value = '';
         inputFuncao.placeholder = 'Ex: Motorista Terceirizado, Transportadora...';
+        
+        if (selectSetor) {
+            selectSetor.value = 'Outras empresas';
+            selectSetor.style.pointerEvents = 'none'; // Trava a seleção para o usuário não mudar sem querer
+            selectSetor.style.opacity = '0.7';
+        }
     } else {
         divColab.style.display = 'block';
         divTerceiro.style.display = 'none';
         if (divTempo) divTempo.style.display = 'block';
         inputFuncao.readOnly = true;
         inputFuncao.placeholder = '';
+        
+        if (selectSetor) {
+            selectSetor.value = '';
+            selectSetor.style.pointerEvents = 'auto'; // Destrava a seleção normal
+            selectSetor.style.opacity = '1';
+        }
+        
         window.preencherDadosColaborador(document.getElementById(`outro_colab_${id}`).value, `outro_funcao_${id}`, `outro_nome_${id}`, `outro_tempo_${id}`);
     }
 };
@@ -227,6 +285,23 @@ window.adicionarOutroEnvolvido = function() {
         colabOptions += `<option value="${c.id}">${c.nome}</option>`;
     });
 
+    // Gerar as opções do Setor da mesma forma que o select principal
+    let setorOptions = '<option value="">Selecione o Setor...</option>';
+    if (window.listaSetoresOcorrencia.length === 0) {
+         setorOptions += `
+            <option value="Logística">Logística</option>
+            <option value="Manutenção">Manutenção</option>
+            <option value="Campo / Operação">Campo / Operação</option>
+            <option value="Administrativo">Administrativo</option>
+            <option value="SSMA">SSMA</option>
+         `;
+    } else {
+        window.listaSetoresOcorrencia.forEach(s => {
+            setorOptions += `<option value="${s.nome}">${s.nome}</option>`;
+        });
+    }
+    setorOptions += '<option value="Outras empresas">Outras empresas</option>';
+
     div.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
             <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: rgba(239, 68, 68, 0.1); padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3);">
@@ -237,7 +312,6 @@ window.adicionarOutroEnvolvido = function() {
                 <i class="fas fa-trash"></i> Remover
             </button>
         </div>
-
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px;">
             <div class="form-group-dark">
                 <label>Tipo de Envolvido</label>
@@ -246,7 +320,6 @@ window.adicionarOutroEnvolvido = function() {
                     <option value="TERCEIRO">Empresa Terceira / Externo</option>
                 </select>
             </div>
-
             <div class="form-group-dark" id="div_outro_colab_${id}">
                 <label>Colaborador Envolvido</label>
                 <select id="outro_colab_${id}" class="dark-select" onchange="window.preencherDadosColaborador(this.value, 'outro_funcao_${id}', 'outro_nome_${id}', 'outro_tempo_${id}')">
@@ -254,22 +327,24 @@ window.adicionarOutroEnvolvido = function() {
                 </select>
                 <input type="hidden" id="outro_nome_${id}">
             </div>
-
             <div class="form-group-dark" id="div_outro_terceiro_${id}" style="display: none;">
                 <label>Nome / Empresa Terceira</label>
                 <input type="text" id="outro_terceiro_nome_${id}" class="dark-select" placeholder="Ex: Transportadora XYZ">
             </div>
-
             <div class="form-group-dark">
                 <label>Função / Cargo</label>
                 <input type="text" id="outro_funcao_${id}" class="dark-select" readonly>
             </div>
-
+            <div class="form-group-dark">
+                <label>Setor / Departamento</label>
+                <select id="outro_setor_${id}" class="dark-select">
+                    ${setorOptions}
+                </select>
+            </div>
             <div class="form-group-dark" id="div_outro_tempo_${id}">
                 <label>Tempo de Empresa</label>
                 <input type="text" id="outro_tempo_${id}" class="dark-select" readonly style="opacity: 0.7; cursor: not-allowed;" placeholder="Preenchimento automático">
             </div>
-
             <div class="form-group-dark">
                 <label>Equipamento (Categoria)</label>
                 <select id="outro_cat_${id}" class="dark-select" onchange="window.carregarFrotasOutro(${id})">
@@ -283,14 +358,12 @@ window.adicionarOutroEnvolvido = function() {
                     <option value="TERCEIRO">VEÍCULO DE TERCEIRO</option>
                 </select>
             </div>
-
             <div class="form-group-dark" id="div_outro_placa_interna_${id}">
                 <label>Equipamento (Placa)</label>
                 <select id="outro_placa_${id}" class="dark-select">
                     <option value="">Aguardando...</option>
                 </select>
             </div>
-            
             <div class="form-group-dark" id="div_outro_placa_terceiro_${id}" style="display: none;">
                 <label>Placa do Terceiro</label>
                 <input type="text" id="outro_placa_terceiro_input_${id}" class="dark-select" placeholder="Ex: ABC-1234">
@@ -349,6 +422,7 @@ window.salvarOcorrencia = async function(event) {
             
             let nome = '';
             let idColab = null;
+
             if (tipo === 'TERCEIRO') {
                 nome = document.getElementById(`outro_terceiro_nome_${id}`).value;
             } else {
@@ -357,6 +431,7 @@ window.salvarOcorrencia = async function(event) {
             }
             
             const funcao = document.getElementById(`outro_funcao_${id}`).value;
+            const setor = document.getElementById(`outro_setor_${id}`) ? document.getElementById(`outro_setor_${id}`).value : '';
             const tempoEmpresa = tipo === 'COLABORADOR' ? (document.getElementById(`outro_tempo_${id}`) ? document.getElementById(`outro_tempo_${id}`).value : '') : '';
             
             const categoria = document.getElementById(`outro_cat_${id}`).value;
@@ -375,6 +450,7 @@ window.salvarOcorrencia = async function(event) {
                     colaborador_id: idColab,
                     nome: nome,
                     funcao: funcao,
+                    setor: setor,
                     tempo_empresa: tempoEmpresa,
                     equipamento_categoria: categoria,
                     equipamento_placa: placa
@@ -395,6 +471,7 @@ window.salvarOcorrencia = async function(event) {
         local_projeto: document.getElementById('local_projeto').value,
         nome_envolvido: document.getElementById('nome_envolvido').value,
         funcao: document.getElementById('funcao').value,
+        setor: document.getElementById('setor') ? document.getElementById('setor').value : null,
         tempo_empresa: document.getElementById('tempo_empresa').value,
         escala: document.getElementById('escala').value,
         descricao_fatos: document.getElementById('descricao_fatos').value,
@@ -407,6 +484,7 @@ window.salvarOcorrencia = async function(event) {
         tipo_ocorrencia: document.getElementById('tipo_ocorrencia') ? document.getElementById('tipo_ocorrencia').value : 'Outros',
         status: document.getElementById('status') ? document.getElementById('status').value : 'Aberta',
         valor_prejuizo: document.getElementById('valor_prejuizo') ? (parseFloat(document.getElementById('valor_prejuizo').value) || 0) : 0,
+
         outros_envolvidos: outrosEnvolvidos // JSONB resolve a escalabilidade e rankings de terceiros
     };
 
@@ -414,6 +492,7 @@ window.salvarOcorrencia = async function(event) {
         const payload = window.injetarFilial ? window.injetarFilial(dadosOcorrencia) : dadosOcorrencia;
         
         const { data, error } = await supabaseClient.from('ocorrencias').insert([payload]).select();
+
         if (error) throw error;
 
         let ocorrenciaSalva = payload;
@@ -472,6 +551,8 @@ window.limparFormOcorrencia = function() {
         
         const selectRH = document.getElementById('nome_envolvido_select');
         if (selectRH) selectRH.value = '';
+        
+        if (document.getElementById('setor')) document.getElementById('setor').value = '';
         
         window.carregarFrotasOcorrencia(); 
     }
