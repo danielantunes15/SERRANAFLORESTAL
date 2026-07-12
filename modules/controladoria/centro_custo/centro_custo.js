@@ -39,12 +39,13 @@ window.initControladoria = async function() {
             if (list && list.length > 0) { list.forEach(f => { window.mapaFiliais[f.id] = f.nome; }); }
         }
     } catch (e) { console.error("Erro ao carregar lista de filiais:", e); }
-
+    
     await carregarCentrosCusto();
     await carregarObjetosCusto();
     await carregarAtividades();
     await carregarSetores();
     await carregarCargos();
+    await carregarResponsaveis(); // <--- NOVA CHAMADA
 };
 
 window.switchTabControladoria = function(tabId, btnElement) {
@@ -58,6 +59,7 @@ window.switchTabControladoria = function(tabId, btnElement) {
     if (tabId === 'tab-obj') carregarOpcoesCentroCusto();
     if (tabId === 'tab-ativ') carregarOpcoesObjetoCustoAtiv();
     if (tabId === 'tab-cargos') atualizarFiltrosCargo();
+    if (tabId === 'tab-responsaveis') carregarResponsaveis();
 };
 
 // =====================================================================
@@ -67,15 +69,12 @@ window.carregarCentrosCusto = async function() {
     const tbody = document.getElementById('tbodyCentrosCusto');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>';
-
     try {
         let query = supabaseClient.from('centro_custo').select('*').order('codigo', { ascending: true });
         const { data, error } = await query;
         if (error) throw error;
-
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8;">Nenhum Centro de Custo cadastrado.</td></tr>';
 
-        // AGRUPAMENTO POR FILIAL
         const filiaisMap = new Map();
         filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
         
@@ -93,7 +92,6 @@ window.carregarCentrosCusto = async function() {
         let html = '';
         filiaisMap.forEach((group, fKey) => {
             if (group.items.length === 0) return;
-
             html += `
                 <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
                     <td colspan="6" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
@@ -101,7 +99,6 @@ window.carregarCentrosCusto = async function() {
                     </td>
                 </tr>
             `;
-
             group.items.forEach(cc => {
                 const badgeClass = cc.status === 'Ativo' ? 'background: rgba(34,197,94,0.2); color: #4ade80;' : 'background: rgba(239,68,68,0.2); color: #f87171;';
                 const filialNome = fKey === 'CENTRAL' ? '<span style="color:#fde047">Matriz Corporativa</span>' : group.nome;
@@ -129,7 +126,7 @@ window.abrirModalCentroCusto = function(cc = null) {
     document.getElementById('modalCentroCusto').style.display = 'flex';
     carregarOpcoesFilialGenerico('ccFilialId').then(() => {
         if (cc && cc.id) {
-            document.getElementById('modalCentroCustoTitle').innerText = '✏️ Editar Centro de Custo';
+            document.getElementById('modalCentroCustoTitle').innerText = '  Editar Centro de Custo';
             document.getElementById('ccId').value = cc.id;
             document.getElementById('ccFilialId').value = cc.filial_id === null ? 'CENTRAL' : cc.filial_id;
             document.getElementById('ccCodigo').value = cc.codigo;
@@ -137,7 +134,7 @@ window.abrirModalCentroCusto = function(cc = null) {
             document.getElementById('ccDescricao').value = cc.descricao || '';
             document.getElementById('ccStatus').value = cc.status || 'Ativo';
         } else {
-            document.getElementById('modalCentroCustoTitle').innerText = '🏢 Novo Centro de Custo';
+            document.getElementById('modalCentroCustoTitle').innerText = '  Novo Centro de Custo';
             document.getElementById('ccId').value = '';
             document.getElementById('ccFilialId').value = 'CENTRAL';
             document.getElementById('ccCodigo').value = '';
@@ -160,7 +157,6 @@ window.salvarCentroCusto = async function() {
         status: document.getElementById('ccStatus').value
     };
     if (!payload.codigo || !payload.nome) return alert("Preencha Código e Nome.");
-
     try {
         if (id) await supabaseClient.from('centro_custo').update(payload).eq('id', id);
         else await supabaseClient.from('centro_custo').insert([payload]);
@@ -190,7 +186,6 @@ window.carregarOpcoesCentroCusto = async function() {
     } else {
         query = query.is('filial_id', null);
     }
-
     const { data } = await query;
     if (!data || data.length === 0) return select.innerHTML = '<option value="">Nenhum Centro Ativo nesta Filial</option>';
     select.innerHTML = '<option value="">Selecione...</option>' + data.map(cc => {
@@ -209,7 +204,6 @@ window.carregarObjetosCusto = async function() {
         const { data } = await query;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8;">Nenhum Objeto de Custo.</td></tr>';
         
-        // AGRUPAMENTO POR FILIAL
         const filiaisMap = new Map();
         filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
         
@@ -227,7 +221,6 @@ window.carregarObjetosCusto = async function() {
         let html = '';
         filiaisMap.forEach((group, fKey) => {
             if (group.items.length === 0) return;
-
             html += `
                 <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
                     <td colspan="7" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
@@ -235,7 +228,6 @@ window.carregarObjetosCusto = async function() {
                     </td>
                 </tr>
             `;
-
             group.items.forEach(obj => {
                 let bClass = obj.status === 'Ativo' ? 'color: #4ade80;' : 'color: #fbbf24;';
                 const ccDisplay = obj.centro_custo ? `[${obj.centro_custo.codigo}] ${obj.centro_custo.nome}` : 'Desconhecido';
@@ -331,12 +323,11 @@ window.carregarOpcoesObjetoCustoAtiv = async function() {
     } else {
         query = query.is('filial_id', null);
     }
-
     const { data } = await query;
     if (!data || data.length === 0) return select.innerHTML = '<option value="">Nenhum Objeto Ativo nesta Filial</option>';
     select.innerHTML = '<option value="">Selecione...</option>' + data.map(obj => {
         const fPrefix = obj.filial_id === null ? 'Matriz' : (window.mapaFiliais[obj.filial_id] || `Filial`);
-        return `<option value="${obj.id}">[${fPrefix}] [${obj.centro_custo ? obj.centro_custo.nome : 'Sem CC'}] ➔ ${obj.nome}</option>`;
+        return `<option value="${obj.id}">[${fPrefix}] [${obj.centro_custo ? obj.centro_custo.nome : 'Sem CC'}] - ${obj.nome}</option>`;
     }).join('');
 };
 
@@ -350,7 +341,6 @@ window.carregarAtividades = async function() {
         const { data } = await query;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8;">Nenhuma Atividade.</td></tr>';
         
-        // AGRUPAMENTO POR FILIAL
         const filiaisMap = new Map();
         filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
         
@@ -368,7 +358,6 @@ window.carregarAtividades = async function() {
         let html = '';
         filiaisMap.forEach((group, fKey) => {
             if (group.items.length === 0) return;
-
             html += `
                 <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
                     <td colspan="7" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
@@ -376,7 +365,6 @@ window.carregarAtividades = async function() {
                     </td>
                 </tr>
             `;
-
             group.items.forEach(ativ => {
                 let bClass = ativ.status === 'Ativo' ? 'color: #4ade80;' : 'color: #f87171;';
                 const objDisplay = ativ.objetos_custo ? `[${ativ.objetos_custo.codigo}] ${ativ.objetos_custo.nome}` : 'Desconhecido';
@@ -455,22 +443,20 @@ window.excluirAtividade = async function(id) {
     await carregarAtividades();
 };
 
-// =====================================================================
-// REGIAO: ORGANOGRAMA CORPORATIVO E CARGOS
-// =====================================================================
 
+// =====================================================================
+// REGIAO: ORGANOGRAMA CORPORATIVO E CARGOS E SETORES
+// =====================================================================
 window.carregarSetores = async function() {
     const tbody = document.getElementById('tbodySetores');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>';
-
     try {
         let query = supabaseClient.from('setores').select('*').order('nome');
         const { data, error } = await query;
         if (error) throw error;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8;">Nenhum Setor cadastrado.</td></tr>';
 
-        // AGRUPAMENTO POR FILIAL
         const filiaisMap = new Map();
         filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
         
@@ -488,7 +474,6 @@ window.carregarSetores = async function() {
         let html = '';
         filiaisMap.forEach((group, fKey) => {
             if (group.items.length === 0) return;
-
             html += `
                 <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
                     <td colspan="5" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
@@ -496,7 +481,6 @@ window.carregarSetores = async function() {
                     </td>
                 </tr>
             `;
-
             group.items.forEach(setor => {
                 const bClass = setor.status === 'Ativo' ? 'color: #4ade80;' : 'color: #f87171;';
                 const filialNome = fKey === 'CENTRAL' ? '<span style="color:#fde047">Matriz Corporativa</span>' : group.nome;
@@ -523,14 +507,14 @@ window.abrirModalSetor = function(setor = null) {
     document.getElementById('modalSetor').style.display = 'flex';
     carregarOpcoesFilialGenerico('setorFilialId').then(() => {
         if (setor && setor.id) {
-            document.getElementById('modalSetorTitle').innerText = '✏️ Editar Setor';
+            document.getElementById('modalSetorTitle').innerText = '  Editar Setor';
             document.getElementById('setorId').value = setor.id;
             document.getElementById('setorNome').value = setor.nome;
             document.getElementById('setorDescricao').value = setor.descricao || '';
             document.getElementById('setorStatus').value = setor.status || 'Ativo';
             document.getElementById('setorFilialId').value = setor.filial_id === null ? 'CENTRAL' : setor.filial_id;
         } else {
-            document.getElementById('modalSetorTitle').innerText = '🏢 Novo Setor Corporativo';
+            document.getElementById('modalSetorTitle').innerText = '  Novo Setor Corporativo';
             document.getElementById('setorId').value = '';
             document.getElementById('setorNome').value = '';
             document.getElementById('setorDescricao').value = '';
@@ -551,7 +535,6 @@ window.salvarSetor = async function() {
         status: document.getElementById('setorStatus').value
     };
     if (!payload.nome) return alert("Preencha o Nome do Setor.");
-
     try {
         if (id) await supabaseClient.from('setores').update(payload).eq('id', id);
         else await supabaseClient.from('setores').insert([payload]);
@@ -577,7 +560,6 @@ window.carregarOpcoesCargoSuperior = async function() {
     const filialId = document.getElementById('cargoFilialId').value;
     const cargoAtualId = document.getElementById('cargoId').value;
     if (!select) return;
-
     let query = supabaseClient.from('cargos').select('id, nome, filial_id').eq('status', 'Ativo');
     
     if (filialId !== 'CENTRAL' && filialId !== '') {
@@ -585,7 +567,6 @@ window.carregarOpcoesCargoSuperior = async function() {
     } else {
         query = query.is('filial_id', null);
     }
-
     const { data } = await query;
     if (!data || data.length === 0) {
         select.innerHTML = '<option value="">Nenhum Cargo Ativo</option>';
@@ -604,11 +585,9 @@ window.carregarOpcoesSetorParaCargo = async function() {
     const select = document.getElementById('cargoSetorId');
     const filialId = document.getElementById('cargoFilialId').value;
     if (!select) return;
-
     let query = supabaseClient.from('setores').select('id, nome, filial_id').eq('status', 'Ativo');
     if (filialId !== 'CENTRAL' && filialId !== '') { query = query.or(`filial_id.eq.${parseInt(filialId)},filial_id.is.null`); } 
     else { query = query.is('filial_id', null); }
-
     const { data } = await query;
     if (!data || data.length === 0) return select.innerHTML = '<option value="">Nenhum Setor Ativo nesta Filial</option>';
     
@@ -626,7 +605,6 @@ window.carregarOpcoesCentroCustoParaCargo = async function() {
     let query = supabaseClient.from('centro_custo').select('id, codigo, nome, filial_id').eq('status', 'Ativo');
     if (filialId !== 'CENTRAL' && filialId !== '') { query = query.or(`filial_id.eq.${parseInt(filialId)},filial_id.is.null`); } 
     else { query = query.is('filial_id', null); }
-
     const { data } = await query;
     if (!data || data.length === 0) return select.innerHTML = '<option value="">Nenhum CC Ativo nesta Filial</option>';
     
@@ -636,31 +614,24 @@ window.carregarOpcoesCentroCustoParaCargo = async function() {
     }).join('');
 };
 
-// =====================================================================
-// RENDERIZAÇÃO HIERÁRQUICA E SEPARADA POR FILIAIS (NOVA IMPLEMENTAÇÃO)
-// =====================================================================
 window.carregarCargos = async function() {
     const tbody = document.getElementById('tbodyCargos');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>';
-
     try {
         let query = supabaseClient.from('cargos').select('*, setores(nome), centro_custo(nome)').order('nivel_hierarquico');
         const { data, error } = await query;
         if (error) throw error;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8;">Nenhum Cargo cadastrado.</td></tr>';
 
-        // 1. Criar o Mapa das Filiais garantindo a ordem: Matriz -> Filial 1 -> Filial N
         const filiaisMap = new Map();
         filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', cargos: [] });
         
-        // Pega as chaves numéricas do window.mapaFiliais, ordena de forma crescente e insere no Map
         const filiaisIds = Object.keys(window.mapaFiliais || {}).map(Number).sort((a, b) => a - b);
         filiaisIds.forEach(id => {
             filiaisMap.set(id, { nome: window.mapaFiliais[id], cargos: [] });
         });
 
-        // 2. Distribuir os cargos recebidos nas suas respectivas filiais
         data.forEach(cargo => {
             const fKey = cargo.filial_id === null ? 'CENTRAL' : cargo.filial_id;
             if (!filiaisMap.has(fKey)) {
@@ -669,36 +640,28 @@ window.carregarCargos = async function() {
             filiaisMap.get(fKey).cargos.push(cargo);
         });
 
-        // Função local inteligente para construir a árvore (quem reporta para quem)
         function buildHierarchy(cargosGroup) {
             const groupIds = new Set(cargosGroup.map(c => c.id));
             let result = [];
             
-            // "Cabeças" da empresa/filial (quem não tem superior cadastrado nesta filial)
             const roots = cargosGroup.filter(c => !c.cargo_superior_id || !groupIds.has(c.cargo_superior_id));
             
-            // Ordem Alfabética dos cabeças
             roots.sort((a, b) => a.nome.localeCompare(b.nome));
 
             function traverse(node, level) {
                 node.treeLevel = level;
                 result.push(node);
                 const children = cargosGroup.filter(c => c.cargo_superior_id === node.id);
-                children.sort((a, b) => a.nome.localeCompare(b.nome)); // Subordinados em ordem alfabética
+                children.sort((a, b) => a.nome.localeCompare(b.nome));
                 children.forEach(child => traverse(child, level + 1));
             }
-
             roots.forEach(root => traverse(root, 0));
             return result;
         }
 
         let html = '';
-
-        // 3. Montar o HTML iterando no Mapa de Filiais (a iteração respeita a ordem de inserção)
         filiaisMap.forEach((group, fKey) => {
-            if (group.cargos.length === 0) return; // Se a filial não tem cargo, pula para não sujar a tela
-
-            // Faixa separadora estilizada para o nome da Filial
+            if (group.cargos.length === 0) return;
             html += `
                 <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
                     <td colspan="7" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
@@ -707,23 +670,20 @@ window.carregarCargos = async function() {
                 </tr>
             `;
 
-            // Constroi a hierarquia e gera a renderização de linhas
             const hierarchicalCargos = buildHierarchy(group.cargos);
 
             hierarchicalCargos.forEach(cargo => {
                 const isRoot = cargo.treeLevel === 0;
-                const indent = cargo.treeLevel * 25; // 25 pixels de recuo para cada nível
-                const prefix = isRoot ? '' : `<span style="color: #64748b; margin-right: 6px; font-size: 0.8rem;">↳</span>`;
+                const indent = cargo.treeLevel * 25;
+                const prefix = isRoot ? '' : `<span style="color: #64748b; margin-right: 6px; font-size: 0.8rem;"> </span>`;
                 
                 const bClass = cargo.status === 'Ativo' ? 'color: #4ade80;' : 'color: #f87171;';
                 const setorNome = cargo.setores ? cargo.setores.nome : 'N/A';
                 const ccNome = cargo.centro_custo ? cargo.centro_custo.nome : 'Global/Nenhum';
                 const filialNome = fKey === 'CENTRAL' ? '<span style="color:#fde047">Matriz Corporativa</span>' : group.nome;
                 
-                // Conversão segura do JSON para não quebrar o HTML
                 const cargoJsonSeguro = JSON.stringify(cargo).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
                 
-                // Estilo difere se é "cabeça" (mais destacado) ou subordinado (mais neutro)
                 const nomeWeight = isRoot ? '700' : '500';
                 const nomeColor = isRoot ? '#fde047' : '#f59e0b';
                 const bgRow = isRoot ? 'rgba(255,255,255,0.02)' : 'transparent';
@@ -745,7 +705,6 @@ window.carregarCargos = async function() {
                     </tr>`;
             });
         });
-
         tbody.innerHTML = html;
     } catch (e) { 
         console.error(e); 
@@ -757,7 +716,7 @@ window.abrirModalCargo = function(cargo = null) {
     document.getElementById('modalCargo').style.display = 'flex';
     carregarOpcoesFilialGenerico('cargoFilialId').then(() => {
         if (cargo && cargo.id) {
-            document.getElementById('modalCargoTitle').innerText = '✏️ Editar Cargo';
+            document.getElementById('modalCargoTitle').innerText = '  Editar Cargo';
             document.getElementById('cargoId').value = cargo.id; 
             document.getElementById('cargoFilialId').value = cargo.filial_id === null ? 'CENTRAL' : cargo.filial_id;
             
@@ -770,7 +729,7 @@ window.abrirModalCargo = function(cargo = null) {
                 document.getElementById('cargoSuperiorId').value = cargo.cargo_superior_id || '';
             });
         } else {
-            document.getElementById('modalCargoTitle').innerText = '👔 Novo Cargo / Posição';
+            document.getElementById('modalCargoTitle').innerText = '  Novo Cargo / Posição';
             document.getElementById('cargoId').value = '';
             document.getElementById('cargoFilialId').value = 'CENTRAL';
             
@@ -792,7 +751,6 @@ window.salvarCargo = async function() {
     const id = document.getElementById('cargoId').value;
     const superiorVal = document.getElementById('cargoSuperiorId').value;
     const nomeCargo = document.getElementById('cargoNome').value.trim();
-
     const payload = {
         filial_id: obterFilialDb('cargoFilialId'),
         nome: nomeCargo,
@@ -803,11 +761,9 @@ window.salvarCargo = async function() {
         cargo_superior_id: superiorVal ? parseInt(superiorVal) : null,
         status: document.getElementById('cargoStatus').value
     };
-
     if (!payload.nome || isNaN(payload.setor_id) || isNaN(payload.centro_custo_id)) {
-        return alert("⚠️ Preencha o Nome, Setor e Centro de Custo corretamente.");
+        return alert("  Preencha o Nome, Setor e Centro de Custo corretamente.");
     }
-
     try {
         let dbError;
         if (id) {
@@ -817,16 +773,14 @@ window.salvarCargo = async function() {
             const { error } = await supabaseClient.from('cargos').insert([payload]);
             dbError = error;
         }
-
         if (dbError) throw dbError;
-
         fecharModalCargo();
         await carregarCargos();
         
     } catch (e) {
         console.error("ERRO SUPABASE COMPLETO:", e);
         const msg = e.message || e.details || (e.error && e.error.message) || JSON.stringify(e);
-        alert(`❌ Falha no Banco de Dados ao salvar Cargo:\n\n${msg}\n\n⚠️ VOCÊ EXECUTOU O CÓDIGO SQL NO SUPABASE? O banco está rejeitando a gravação.`);
+        alert(`  Falha no Banco de Dados ao salvar Cargo:\n\n${msg}\n\n  VOCÊ EXECUTOU O CÓDIGO SQL NO SUPABASE? O banco está rejeitando a gravação.`);
     }
 };
 
@@ -834,4 +788,152 @@ window.excluirCargo = async function(id) {
     if (!confirm("Excluir este Cargo? O acesso dos usuários pode ser comprometido.")) return;
     await supabaseClient.from('cargos').delete().eq('id', id);
     await carregarCargos();
+};
+
+
+// =====================================================================
+// RESPONSÁVEIS POR SETOR
+// =====================================================================
+window.carregarOpcoesSetorParaResponsavel = async function() {
+    const select = document.getElementById('respSetorId');
+    const filialId = document.getElementById('respFilialId').value;
+    if (!select) return;
+    let query = supabaseClient.from('setores').select('id, nome, filial_id').eq('status', 'Ativo');
+    if (filialId !== 'CENTRAL' && filialId !== '') { query = query.or(`filial_id.eq.${parseInt(filialId)},filial_id.is.null`); } 
+    else { query = query.is('filial_id', null); }
+    const { data } = await query;
+    if (!data || data.length === 0) return select.innerHTML = '<option value="">Nenhum Setor Ativo nesta Filial</option>';
+    
+    select.innerHTML = '<option value="">Selecione o Setor...</option>' + data.map(s => {
+        const fPrefix = s.filial_id === null ? 'Matriz' : (window.mapaFiliais[s.filial_id] || `Filial`);
+        return `<option value="${s.id}">[${fPrefix}] - ${s.nome}</option>`;
+    }).join('');
+};
+
+window.carregarResponsaveis = async function() {
+    const tbody = document.getElementById('tbodyResponsaveis');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>';
+    try {
+        let query = supabaseClient.from('responsaveis_setor').select('*, setores(nome)').order('nome_responsavel');
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8;">Nenhum Responsável cadastrado.</td></tr>';
+        
+        // AGRUPAMENTO POR FILIAL
+        const filiaisMap = new Map();
+        filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
+        
+        const filiaisIds = Object.keys(window.mapaFiliais || {}).map(Number).sort((a, b) => a - b);
+        filiaisIds.forEach(id => {
+            filiaisMap.set(id, { nome: window.mapaFiliais[id], items: [] });
+        });
+        
+        data.forEach(resp => {
+            const fKey = resp.filial_id === null ? 'CENTRAL' : resp.filial_id;
+            if (!filiaisMap.has(fKey)) filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, items: [] });
+            filiaisMap.get(fKey).items.push(resp);
+        });
+        
+        let html = '';
+        filiaisMap.forEach((group, fKey) => {
+            if (group.items.length === 0) return;
+            html += `
+                <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
+                    <td colspan="6" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
+                        <i class="fas fa-building" style="margin-right: 8px;"></i> ${group.nome}
+                    </td>
+                </tr>
+            `;
+            group.items.forEach(resp => {
+                const bClass = resp.status === 'Ativo' ? 'color: #4ade80;' : 'color: #f87171;';
+                const filialNome = fKey === 'CENTRAL' ? '<span style="color:#fde047">Matriz Corporativa</span>' : group.nome;
+                const setorNome = resp.setores ? resp.setores.nome : 'Desconhecido';
+                const respJsonSeguro = JSON.stringify(resp).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+                
+                html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: transparent;">
+                        <td style="padding: 12px; font-weight: bold; color: #f8fafc; padding-left: 25px;">${resp.nome_responsavel}</td>
+                        <td style="padding: 12px; color: #cbd5e1;">${resp.cargo}</td>
+                        <td style="padding: 12px; color: #94a3b8;">${setorNome}</td>
+                        <td style="padding: 12px; color: #f8fafc;">${filialNome}</td>
+                        <td style="padding: 12px;"><span style="${bClass}">${resp.status}</span></td>
+                        <td style="padding: 12px; text-align: center;">
+                            <button onclick="abrirModalResponsavel(${respJsonSeguro})" style="background: none; border: none; color: #fbbf24; cursor: pointer; margin-right: 10px;" title="Editar"><i class="fas fa-edit"></i></button>
+                            <button onclick="excluirResponsavel(${resp.id})" style="background: none; border: none; color: #ef4444; cursor: pointer;" title="Excluir"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        });
+        tbody.innerHTML = html;
+    } catch (e) { 
+        console.error(e); 
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ef4444;">Erro ao carregar responsáveis.</td></tr>'; 
+    }
+};
+
+window.abrirModalResponsavel = function(resp = null) {
+    document.getElementById('modalResponsavel').style.display = 'flex';
+    carregarOpcoesFilialGenerico('respFilialId').then(() => {
+        if (resp && resp.id) {
+            document.getElementById('modalResponsavelTitle').innerText = '  Editar Responsável';
+            document.getElementById('respId').value = resp.id;
+            document.getElementById('respFilialId').value = resp.filial_id === null ? 'CENTRAL' : resp.filial_id;
+            
+            carregarOpcoesSetorParaResponsavel().then(() => {
+                document.getElementById('respNome').value = resp.nome_responsavel;
+                document.getElementById('respCargo').value = resp.cargo;
+                document.getElementById('respSetorId').value = resp.setor_id;
+                document.getElementById('respStatus').value = resp.status || 'Ativo';
+            });
+        } else {
+            document.getElementById('modalResponsavelTitle').innerText = '  Novo Responsável por Setor';
+            document.getElementById('respId').value = '';
+            document.getElementById('respFilialId').value = 'CENTRAL';
+            
+            carregarOpcoesSetorParaResponsavel().then(() => {
+                document.getElementById('respNome').value = '';
+                document.getElementById('respCargo').value = '';
+                document.getElementById('respSetorId').value = '';
+                document.getElementById('respStatus').value = 'Ativo';
+            });
+        }
+    });
+};
+
+window.fecharModalResponsavel = () => document.getElementById('modalResponsavel').style.display = 'none';
+
+window.salvarResponsavel = async function() {
+    const id = document.getElementById('respId').value;
+    const nome = document.getElementById('respNome').value.trim();
+    const cargo = document.getElementById('respCargo').value;
+    const setor_id = parseInt(document.getElementById('respSetorId').value);
+    
+    if (!nome || !cargo || isNaN(setor_id)) {
+        return alert("Preencha o Nome, Cargo e Selecione o Setor Corretamente.");
+    }
+    
+    const payload = {
+        filial_id: obterFilialDb('respFilialId'),
+        nome_responsavel: nome,
+        cargo: cargo,
+        setor_id: setor_id,
+        status: document.getElementById('respStatus').value
+    };
+    
+    try {
+        if (id) await supabaseClient.from('responsaveis_setor').update(payload).eq('id', id);
+        else await supabaseClient.from('responsaveis_setor').insert([payload]);
+        fecharModalResponsavel();
+        await carregarResponsaveis();
+    } catch (e) { 
+        console.error(e);
+        alert("Erro ao salvar o Responsável. Verifique o console."); 
+    }
+};
+
+window.excluirResponsavel = async function(id) {
+    if (!confirm("Tem certeza que deseja excluir este Responsável?")) return;
+    await supabaseClient.from('responsaveis_setor').delete().eq('id', id);
+    await carregarResponsaveis();
 };

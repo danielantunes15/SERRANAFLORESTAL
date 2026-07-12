@@ -27,7 +27,6 @@ window.MAPA_MENUS = [
     { id: 'requisicao_materiais', label: 'Requisição de Materiais', setor: 'Almoxarifado', icon: 'fas fa-shopping-basket' },
     
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
-
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
     { id: 'rh_colaboradores', label: 'Cadastro de Colaboradores', setor: 'RH', icon: 'fas fa-id-badge' },
     { id: 'rh_atestados', label: 'Atestados (Saúde)', setor: 'RH', icon: 'fas fa-notes-medical' },
@@ -67,6 +66,7 @@ window.MAPA_MENUS = [
 ];
 
 const pageCache = {};
+
 const ROTAS = {
     'escala': 'modules/logistica/escala/escala.html',
     'troca_turno': 'modules/logistica/troca_turno/troca_turno.html',
@@ -128,7 +128,10 @@ const ROTAS = {
     'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html'
 };
 
-const VERSAO_SISTEMA = "1.0.15";
+// =========================================================================================
+// MUDANÇA DE VERSÃO: FORÇA O NAVEGADOR A LIMPAR O CACHE E BAIXAR OS ARQUIVOS NOVOS
+// =========================================================================================
+const VERSAO_SISTEMA = "1.0.16"; 
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -146,7 +149,6 @@ window.renderizarMenu = async function() {
     const cargoKey = (currentUser && currentUser.cargo_id) ? currentUser.cargo_id.toString() : null;
 
     let meusMenus = [];
-
     if (cargoKey && permissoesAtuais[cargoKey]) {
         meusMenus = permissoesAtuais[cargoKey];
     } else if (permissoesAtuais[userRole]) {
@@ -161,6 +163,7 @@ window.renderizarMenu = async function() {
     const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
 
     let navHtml = '<nav class="main-nav">';
+
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
@@ -187,6 +190,7 @@ window.renderizarMenu = async function() {
                     </button>`;
                 }
             });
+
             navHtml += `</div></div>`;
         }
     });
@@ -211,7 +215,7 @@ window.renderizarMenu = async function() {
             }
         });
     }, 2000); 
-}
+};
 
 window.getIconSetor = function(setor) {
     const icones = {
@@ -229,18 +233,18 @@ window.getIconSetor = function(setor) {
         'Configurações': 'fas fa-cog'
     };
     return icones[setor] || 'fas fa-folder';
-}
+};
 
 window.toggleDropdown = function(event) {
     const btn = event.currentTarget; 
     const menu = btn.nextElementSibling;
     if (menu) menu.classList.toggle('show');
-}
+};
 
 window.fecharDropdown = function(dropdownElement) {
     const menu = dropdownElement.querySelector('.dropdown-menu');
     if (menu) menu.classList.remove('show');
-}
+};
 
 window.navegarPara = async function(pagina, elementoClicado) {
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
@@ -281,7 +285,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
         // Inicializadores
         if (pagina === 'gestao_filiais' && typeof window.renderizarGestaoFiliais === 'function') window.renderizarGestaoFiliais();
-        if (pagina === 'auditoria_logs' && typeof window.renderizarAuditoriaLogs === 'function') window.renderizarAuditoriaLogs(); 
+        if (pagina === 'auditoria_logs' && typeof window.renderizarAuditoriaLogs === 'function') window.renderizarAuditoriaLogs();
+        
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
         if (pagina === 'troca_turno' && typeof window.renderizarTrocaTurno === 'function') window.renderizarTrocaTurno();
         if (pagina === 'alocacao' && typeof window.renderizarAlocacao === 'function') window.renderizarAlocacao();
@@ -346,6 +351,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();
         if (pagina === 'configuracoes_gerencial' && typeof window.inicializarConfiguracoesGerencial === 'function') window.inicializarConfiguracoesGerencial();
         if (pagina === 'cadastro_up' && typeof window.initCadastroUP === 'function') window.initCadastroUP();
+
         if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
         if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
 

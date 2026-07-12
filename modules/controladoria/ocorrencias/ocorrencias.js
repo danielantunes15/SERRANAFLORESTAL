@@ -14,7 +14,39 @@ window.initOcorrencias = async function() {
     await window.carregarColaboradoresRH();
     await window.carregarSetoresOcorrencia();
     await window.carregarTodasFrotas();
+    await window.carregarGestoresOcorrencia(); // <-- NOVA INTEGRAÇÃO!
     window.carregarFrotasOcorrencia();
+};
+
+window.carregarGestoresOcorrencia = async function() {
+    try {
+        let query = supabaseClient.from('responsaveis_setor').select('*').eq('status', 'Ativo').order('nome_responsavel');
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        const selGestor = document.getElementById('gestor_imediato');
+        const selGerente = document.getElementById('gerente');
+        
+        if (selGestor) selGestor.innerHTML = '<option value="">Selecione o Gestor...</option>';
+        if (selGerente) selGerente.innerHTML = '<option value="">Selecione o Gerente...</option>';
+        
+        (data || []).forEach(resp => {
+            // Usa o NOME no valor para garantir compatibilidade com as telas de relatórios
+            const optionHtml = `<option value="${resp.nome_responsavel}">${resp.nome_responsavel} - ${resp.cargo}</option>`;
+            
+            if (selGestor) selGestor.innerHTML += optionHtml;
+            
+            const cargoStr = (resp.cargo || '').toLowerCase();
+            if (cargoStr.includes('gerent') || cargoStr.includes('gerênci') || cargoStr.includes('diretor')) {
+                if (selGerente) selGerente.innerHTML += optionHtml;
+            }
+        });
+    } catch (e) {
+        console.error("Erro ao carregar responsáveis/gestores:", e);
+    }
 };
 
 window.carregarSetoresOcorrencia = async function() {
@@ -33,14 +65,14 @@ window.carregarSetoresOcorrencia = async function() {
         if (select) {
             select.innerHTML = '<option value="">Selecione o Setor...</option>';
             
-            if (window.listaSetoresOcorrencia.length === 0) {
-                 select.innerHTML += `
+            if (window.listaSetoresOcorrencia.length === 0) { 
+                select.innerHTML += `
                     <option value="Logística">Logística</option>
                     <option value="Manutenção">Manutenção</option>
                     <option value="Campo / Operação">Campo / Operação</option>
                     <option value="Administrativo">Administrativo</option>
                     <option value="SSMA">SSMA</option>
-                 `;
+                `;
             } else {
                 window.listaSetoresOcorrencia.forEach(s => {
                     select.innerHTML += `<option value="${s.nome}">${s.nome}</option>`;
@@ -160,13 +192,14 @@ window.carregarTodasFrotas = async function() {
 window.carregarFrotasOcorrencia = function() {
     const selPlaca = document.getElementById('placa');
     const selCategoria = document.getElementById('categoria_frota');
+
     if (!selPlaca) return;
 
     const categoriaSelecionada = selCategoria ? selCategoria.value : 'TRITREM';
-
     window.listaFrotasOcorrencia = window.todasFrotasCache.filter(f => f.categoria === categoriaSelecionada);
     
     selPlaca.innerHTML = '<option value="">Selecione a Placa...</option>';
+
     window.listaFrotasOcorrencia.forEach(f => {
         if (f.cavalo && f.cavalo.trim() !== '') {
             selPlaca.innerHTML += `<option value="${f.cavalo}">${f.cavalo}</option>`;
@@ -238,6 +271,7 @@ window.carregarFrotasOutro = function(id) {
 
     const filtradas = window.todasFrotasCache.filter(f => f.categoria === cat);
     selPlaca.innerHTML = '<option value="">Selecione a Placa...</option>';
+
     filtradas.forEach(f => {
         if (f.cavalo && f.cavalo.trim() !== '') {
             selPlaca.innerHTML += `<option value="${f.cavalo}">${f.cavalo}</option>`;
@@ -280,14 +314,14 @@ window.adicionarOutroEnvolvido = function() {
     });
 
     let setorOptions = '<option value="">Selecione o Setor...</option>';
-    if (window.listaSetoresOcorrencia.length === 0) {
-         setorOptions += `
+    if (window.listaSetoresOcorrencia.length === 0) { 
+        setorOptions += `
             <option value="Logística">Logística</option>
             <option value="Manutenção">Manutenção</option>
             <option value="Campo / Operação">Campo / Operação</option>
             <option value="Administrativo">Administrativo</option>
             <option value="SSMA">SSMA</option>
-         `;
+        `;
     } else {
         window.listaSetoresOcorrencia.forEach(s => {
             setorOptions += `<option value="${s.nome}">${s.nome}</option>`;
@@ -482,10 +516,9 @@ window.salvarOcorrencia = async function(event) {
         
         // 1. Salva a ocorrência principal na tabela `ocorrencias`
         const { data, error } = await supabaseClient.from('ocorrencias').insert([payload]).select();
-
         if (error) throw error;
 
-        let ocorrenciaSalva = data[0]; 
+        let ocorrenciaSalva = data[0];
 
         // 2. Salva a lista relacional na tabela `ocorrencia_outros_envolvidos` separadamente
         if (outrosEnvolvidos.length > 0) {

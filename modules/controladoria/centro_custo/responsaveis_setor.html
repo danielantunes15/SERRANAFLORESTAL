@@ -1,0 +1,42 @@
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Cadastrar Responsável por Setor</h3>
+                </div>
+                <div class="card-body">
+                    <form id="formResponsavelSetor">
+                        <div class="row">
+                            <div class="col-md-4 form-group">
+                                <label for="nomeResponsavel">Nome do Responsável</label>
+                                <input type="text" class="form-control" id="nomeResponsavel" required>
+                            </div>
+                            <div class="col-md-4 form-group">
+                                <label for="cargoResponsavel">Cargo</label>
+                                <!-- Sugestão: usar um select ou input, mas a palavra 'Gerente' deve estar clara para o filtro -->
+                                <select class="form-control" id="cargoResponsavel" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="Coordenador">Coordenador</option>
+                                    <option value="Supervisor">Supervisor</option>
+                                    <option value="Gerente">Gerente</option>
+                                    <option value="Gerente Geral">Gerente Geral</option>
+                                    <option value="Diretor">Diretor</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 form-group">
+                                <label for="setorCorporativo">Setor Corporativo</label>
+                                <select class="form-control" id="setorCorporativo" required>
+                                    <option value="">Carregando setores...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3">Salvar Responsável</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Inclua a referência ao JS aqui ou no seu router global -->
+<script src="modules/controladoria/centro_custo/responsaveis_setor.js"></script>
