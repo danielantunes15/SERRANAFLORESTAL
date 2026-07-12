@@ -12,14 +12,18 @@ window.initRelatorioOcorrencias = async function() {
 
 window.carregarDadosRelatorio = async function() {
     const tbody = document.getElementById('tbodyRelatorioOcorrencias');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Carregando dados do servidor...</td></tr>';
-
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Carregando dados do servidor...</td></tr>';
+    
     try {
-        let query = supabaseClient.from('ocorrencias').select('*').order('data_ocorrido', { ascending: false });
+        // Agora busca a tabela principal junto com os terceiros cadastrados
+        let query = supabaseClient.from('ocorrencias')
+                                  .select('*, ocorrencia_outros_envolvidos(*)')
+                                  .order('data_ocorrido', { ascending: false });
+        
         if (typeof window.aplicarFiltroFilial === 'function') {
             query = window.aplicarFiltroFilial(query);
         }
-
+        
         const { data, error } = await query;
         if (error) throw error;
         
@@ -29,12 +33,13 @@ window.carregarDadosRelatorio = async function() {
         window.filtrarEAtualizarDashboard(); 
     } catch (error) {
         console.error("Erro ao carregar relatório:", error);
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#ef4444;">Erro ao carregar dados.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#ef4444;">Erro ao carregar dados.</td></tr>';
     }
 };
 
 window.limparFiltrosRelatorio = function() {
     document.getElementById('filtroMesRel').value = '';
+    
     // Deixa o ano atual
     const anoAtual = new Date().getFullYear().toString();
     const selectAno = document.getElementById('filtroAnoRel');
@@ -42,6 +47,7 @@ window.limparFiltrosRelatorio = function() {
     
     document.getElementById('filtroStatusRel').value = 'Todos';
     document.getElementById('filtroBuscaRel').value = '';
+    
     window.filtrarEAtualizarDashboard();
 };
 
@@ -75,38 +81,53 @@ window.filtrarEAtualizarDashboard = function() {
             const envolvido = (o.nome_envolvido || '').toLowerCase();
             if (!idStr.includes(busca) && !placa.includes(busca) && !envolvido.includes(busca)) return false;
         }
+
         return true;
     });
-
+    
     window.atualizarKPIsRelatorio();
     window.renderizarTabelaRelatorio();
     window.renderizarGraficosRelatorio();
 };
 
+// =========================================================
+// LÓGICA DE DETECÇÃO DO CAUSADOR (Principal ou Terceiros)
+// =========================================================
 window.determinarCausador = function(oco) {
     let causadorReal = oco.nome_envolvido || 'Não Identificado';
+    let setorReal = oco.setor || '-';
     let isExterno = false;
 
-    // Procura nos "outros_envolvidos" se tem algum marcado como causador (is_responsavel: true)
-    if (oco.outros_envolvidos && Array.isArray(oco.outros_envolvidos)) {
-        const causadorOutro = oco.outros_envolvidos.find(e => e.is_responsavel === true);
+    // 1. O envolvido principal na página de registro foi marcado como causador?
+    if (oco.is_responsavel === true) {
+        return { nome: causadorReal, setor: setorReal, isExterno: false };
+    }
+
+    // 2. Se não, verifica a lista da tabela de 'outros_envolvidos'
+    if (oco.ocorrencia_outros_envolvidos && Array.isArray(oco.ocorrencia_outros_envolvidos)) {
+        const causadorOutro = oco.ocorrencia_outros_envolvidos.find(e => e.is_responsavel === true);
         if (causadorOutro) {
+            setorReal = causadorOutro.setor || '-';
             if (causadorOutro.tipo_envolvido === 'TERCEIRO') {
                 isExterno = true;
-                causadorReal = 'Outros (Terceiros)'; // REGRA: Agrupar Terceiros
+                causadorReal = causadorOutro.nome || 'Outros (Terceiros)';
+                setorReal = 'Outras empresas';
             } else {
                 causadorReal = causadorOutro.nome;
             }
         }
     }
-    return { nome: causadorReal, isExterno: isExterno };
+
+    // Se ninguém foi marcado como causador, assume que o envolvido principal (o relator) é o dono do evento.
+    return { nome: causadorReal, setor: setorReal, isExterno: isExterno };
 };
 
 window.atualizarKPIsRelatorio = function() {
     const dados = window.dadosFiltradosRelatorio;
+    
     const total = dados.length;
     let avarias = 0;
-    let comPrejuizo = 0; // Novo KPI
+    let comPrejuizo = 0; 
     let prejuizoTotal = 0;
 
     dados.forEach(o => {
@@ -131,7 +152,7 @@ window.renderizarTabelaRelatorio = function() {
     if (!tbody) return;
 
     if (window.dadosFiltradosRelatorio.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px; color:#94a3b8;">Nenhum registo encontrado para os filtros selecionados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 20px; color:#94a3b8;">Nenhum registo encontrado para os filtros selecionados.</td></tr>';
         return;
     }
 
@@ -159,11 +180,13 @@ window.renderizarTabelaRelatorio = function() {
                 <td>${o.tipo_ocorrencia || 'Outros'}</td>
                 <td>${o.placa || '-'} <br><span style="font-size:0.7rem; color:#94a3b8;">${o.numero_frota || ''}</span></td>
                 <td style="font-weight:bold; color: ${causador.isExterno ? '#a855f7' : '#e2e8f0'};">${causador.nome}</td>
+                <td><span style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-dim); padding: 4px 8px; border-radius: 4px;">${causador.setor}</span></td>
                 <td style="color:#ef4444;">${valorFmt}</td>
                 <td><span style="background: rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 4px; color:${stColor}; font-size:0.8rem; font-weight:bold; border: 1px solid ${stColor};">${st}</span></td>
             </tr>
         `;
     });
+
     tbody.innerHTML = html;
 };
 
@@ -197,6 +220,7 @@ window.renderizarGraficosRelatorio = function() {
         tiposCount[t] = (tiposCount[t] || 0) + 1;
     });
     const pieTipos = Object.keys(tiposCount).map(k => ({ name: k, value: tiposCount[k] }));
+
     const chartTipos = echarts.init(document.getElementById('chartTipos'));
     chartTipos.setOption({
         tooltip: { trigger: 'item' },
@@ -217,6 +241,7 @@ window.renderizarGraficosRelatorio = function() {
     });
 
     const causadoresSorted = Object.keys(causadoresCount).map(k => ({ name: k, value: causadoresCount[k] })).sort((a,b) => b.value - a.value).slice(0, 10);
+
     const chartCausadores = echarts.init(document.getElementById('chartCausadores'));
     chartCausadores.setOption({
         tooltip: { trigger: 'axis' },
@@ -245,6 +270,7 @@ window.renderizarGraficosRelatorio = function() {
         statusCount[s] = (statusCount[s] || 0) + 1;
     });
     const pieStatus = Object.keys(statusCount).map(k => ({ name: k, value: statusCount[k], itemStyle: { color: k === 'Aberta' ? '#ef4444' : (k === 'Em Análise' ? '#f59e0b' : '#10b981') } }));
+
     const chartStatus = echarts.init(document.getElementById('chartStatus'));
     chartStatus.setOption({
         tooltip: { trigger: 'item' },
