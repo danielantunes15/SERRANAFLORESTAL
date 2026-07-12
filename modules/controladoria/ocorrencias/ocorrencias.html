@@ -16,6 +16,14 @@
         
         <fieldset style="border: 1px solid var(--border-dim); padding: 20px; margin-bottom: 25px; border-radius: 8px; background: rgba(0,0,0,0.1);">
             <legend style="padding: 0 10px; font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">Responsável / Envolvido Principal (Colaborador)</legend>
+            
+            <div style="display: flex; justify-content: flex-start; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px; margin-bottom: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: rgba(239, 68, 68, 0.1); padding: 8px 15px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                    <input type="checkbox" id="is_responsavel_principal" style="transform: scale(1.3); accent-color: #ef4444;">
+                    <strong style="color: #ef4444;">Este é o causador / principal responsável da ocorrência</strong>
+                </label>
+            </div>
+
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                 <div class="form-group-dark">
                     <label for="nome_envolvido_select">Nome do Envolvido</label>

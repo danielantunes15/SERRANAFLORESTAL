@@ -33,7 +33,6 @@ window.carregarSetoresOcorrencia = async function() {
         if (select) {
             select.innerHTML = '<option value="">Selecione o Setor...</option>';
             
-            // Fallback: se não houver setores cadastrados, fornece opções básicas
             if (window.listaSetoresOcorrencia.length === 0) {
                  select.innerHTML += `
                     <option value="Logística">Logística</option>
@@ -47,7 +46,6 @@ window.carregarSetoresOcorrencia = async function() {
                     select.innerHTML += `<option value="${s.nome}">${s.nome}</option>`;
                 });
             }
-            // Adicionando a opção 'Outras empresas' no select principal por segurança
             select.innerHTML += '<option value="Outras empresas">Outras empresas</option>';
         }
     } catch (error) {
@@ -82,17 +80,14 @@ window.carregarColaboradoresRH = async function() {
 window.calcularTempoEmpresa = function(dataAdmissaoStr) {
     if (!dataAdmissaoStr) return "Sem informação";
     
-    // Suporta o formato YYYY-MM-DD vindo do Supabase
     const dataApenas = dataAdmissaoStr.split('T')[0];
     const partes = dataApenas.split('-');
     
     if (partes.length !== 3) return "Formato inválido";
     
-    // Cria a data no fuso local para evitar perda de dias
     const admissao = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
     const hoje = new Date();
     
-    // Reseta as horas para calcular corretamente os dias
     admissao.setHours(0, 0, 0, 0);
     hoje.setHours(0, 0, 0, 0);
     
@@ -104,7 +99,6 @@ window.calcularTempoEmpresa = function(dataAdmissaoStr) {
 
     if (dias < 0) {
         meses--;
-        // Pegar quantos dias tem o mês anterior
         const ultimoDiaMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0).getDate();
         dias += ultimoDiaMesAnterior;
     }
@@ -188,7 +182,7 @@ window.mudarTipoEnvolvido = function(id) {
     const divTerceiro = document.getElementById(`div_outro_terceiro_${id}`);
     const divTempo = document.getElementById(`div_outro_tempo_${id}`);
     const inputFuncao = document.getElementById(`outro_funcao_${id}`);
-    const selectSetor = document.getElementById(`outro_setor_${id}`); // Novo campo de Setor
+    const selectSetor = document.getElementById(`outro_setor_${id}`);
     
     if (tipo === 'TERCEIRO') {
         divColab.style.display = 'none';
@@ -200,7 +194,7 @@ window.mudarTipoEnvolvido = function(id) {
         
         if (selectSetor) {
             selectSetor.value = 'Outras empresas';
-            selectSetor.style.pointerEvents = 'none'; // Trava a seleção para o usuário não mudar sem querer
+            selectSetor.style.pointerEvents = 'none';
             selectSetor.style.opacity = '0.7';
         }
     } else {
@@ -212,7 +206,7 @@ window.mudarTipoEnvolvido = function(id) {
         
         if (selectSetor) {
             selectSetor.value = '';
-            selectSetor.style.pointerEvents = 'auto'; // Destrava a seleção normal
+            selectSetor.style.pointerEvents = 'auto';
             selectSetor.style.opacity = '1';
         }
         
@@ -285,7 +279,6 @@ window.adicionarOutroEnvolvido = function() {
         colabOptions += `<option value="${c.id}">${c.nome}</option>`;
     });
 
-    // Gerar as opções do Setor da mesma forma que o select principal
     let setorOptions = '<option value="">Selecione o Setor...</option>';
     if (window.listaSetoresOcorrencia.length === 0) {
          setorOptions += `
@@ -409,7 +402,6 @@ window.buscarDataOS = async function(numeroOsDigitado, idCampoDestino) {
 window.salvarOcorrencia = async function(event) {
     event.preventDefault();
 
-    // Capturar a lista dinâmica de envolvidos e suas marcações
     const outrosEnvolvidos = [];
     const container = document.getElementById('lista_outros_envolvidos');
     
@@ -460,6 +452,7 @@ window.salvarOcorrencia = async function(event) {
     }
 
     const dadosOcorrencia = {
+        is_responsavel: document.getElementById('is_responsavel_principal') ? document.getElementById('is_responsavel_principal').checked : false,
         numero_frota: document.getElementById('numero_frota').value,
         placa: document.getElementById('placa').value,
         modelo: document.getElementById('modelo').value,
@@ -479,26 +472,44 @@ window.salvarOcorrencia = async function(event) {
         parecer_gestor: document.getElementById('parecer_gestor').value,
         gestor_imediato: document.getElementById('gestor_imediato').value,
         gerente: document.getElementById('gerente').value,
-        
-        // Novos campos integrados para o Relatório de Avarias
         tipo_ocorrencia: document.getElementById('tipo_ocorrencia') ? document.getElementById('tipo_ocorrencia').value : 'Outros',
         status: document.getElementById('status') ? document.getElementById('status').value : 'Aberta',
-        valor_prejuizo: document.getElementById('valor_prejuizo') ? (parseFloat(document.getElementById('valor_prejuizo').value) || 0) : 0,
-
-        outros_envolvidos: outrosEnvolvidos // JSONB resolve a escalabilidade e rankings de terceiros
+        valor_prejuizo: document.getElementById('valor_prejuizo') ? (parseFloat(document.getElementById('valor_prejuizo').value) || 0) : 0
     };
 
     try {
         const payload = window.injetarFilial ? window.injetarFilial(dadosOcorrencia) : dadosOcorrencia;
         
+        // 1. Salva a ocorrência principal na tabela `ocorrencias`
         const { data, error } = await supabaseClient.from('ocorrencias').insert([payload]).select();
 
         if (error) throw error;
 
-        let ocorrenciaSalva = payload;
-        if (data && data.length > 0) {
-            ocorrenciaSalva = data[0]; 
+        let ocorrenciaSalva = data[0]; 
+
+        // 2. Salva a lista relacional na tabela `ocorrencia_outros_envolvidos` separadamente
+        if (outrosEnvolvidos.length > 0) {
+            const payloadOutros = outrosEnvolvidos.map(env => {
+                return {
+                    ocorrencia_id: ocorrenciaSalva.id,
+                    is_responsavel: env.is_responsavel,
+                    tipo_envolvido: env.tipo_envolvido,
+                    colaborador_id: env.colaborador_id,
+                    nome: env.nome,
+                    funcao: env.funcao,
+                    setor: env.setor,
+                    tempo_empresa: env.tempo_empresa,
+                    equipamento_categoria: env.equipamento_categoria,
+                    equipamento_placa: env.equipamento_placa
+                };
+            });
+
+            const { error: errorOutros } = await supabaseClient.from('ocorrencia_outros_envolvidos').insert(payloadOutros);
+            if (errorOutros) throw errorOutros;
         }
+
+        // Anexa os dados na memória apenas para que a tela de impressão continue sendo gerada com os terceiros
+        ocorrenciaSalva.outros_envolvidos = outrosEnvolvidos;
 
         if (typeof Swal !== 'undefined') {
             Swal.fire({
@@ -530,7 +541,7 @@ window.salvarOcorrencia = async function(event) {
     } catch (error) {
         console.error("Erro ao guardar a ocorrência:", error);
         if (typeof Swal !== 'undefined') {
-            Swal.fire('Erro', 'Ocorreu um erro ao guardar a ocorrência. Lembre-se de verificar a estrutura do banco (coluna outros_envolvidos JSONB).', 'error');
+            Swal.fire('Erro', 'Ocorreu um erro ao guardar a ocorrência. Lembre-se de rodar o código no SQL Editor.', 'error');
         } else {
             alert("Erro ao guardar a ocorrência. Verifique o console (F12) para mais detalhes.");
         }
@@ -541,6 +552,9 @@ window.limparFormOcorrencia = function() {
     const form = document.getElementById('formOcorrencia');
     if (form) {
         form.reset();
+        
+        const chkResponsavel = document.getElementById('is_responsavel_principal');
+        if (chkResponsavel) chkResponsavel.checked = false;
         
         const campoEmpresa = document.getElementById('empresa');
         if (campoEmpresa) campoEmpresa.value = "SERRANALOG FLORESTAL";
