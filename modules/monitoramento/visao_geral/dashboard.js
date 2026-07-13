@@ -1,7 +1,6 @@
 // ==========================================
 // js/dashboard.js - LÓGICA DO DASHBOARD
 // ==========================================
-
 Chart.register(ChartDataLabels);
 Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
@@ -13,11 +12,11 @@ let configGruasObj = [];
 
 let activeQuickFilter = 'ALL';
 let chartCiclo = null, chartTransp = null;
-
 let osParaMeta = [];
 let frotasParaMeta = [];
 
 let filterTransportadora, filterData, filterMes, filterDataInicio, filterDataFim, btnQFs;
+let chkKeysCache = null; // Cache para impedir travamento nas filtragens
 
 function corrigirDataSupabaseLocal(dateStr) {
     if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return null;
@@ -65,7 +64,7 @@ window.carregarDadosDashboardAnalitico = async function() {
             });
         });
     }
-};
+}
 
 function normalizarCiclos(dataArr) {
     const pMap = new Map();
@@ -74,7 +73,6 @@ function normalizarCiclos(dataArr) {
         if (d.cicloHorasOriginal === undefined) {
             d.cicloHorasOriginal = d.cicloHoras;
         }
-
         if (d.cicloHorasOriginal > 0 && d.cicloHorasOriginal <= 12) { 
             const pl = d.placa || 'N/A';
             if (!pMap.has(pl)) pMap.set(pl, { ciclos: 0, count: 0 });
@@ -111,7 +109,6 @@ function setupDashboardFilters() {
         if(filterDataFim) filterDataFim.value = '';
         loadDashboardData(); 
     });
-
     if(filterMes) filterMes.addEventListener('change', () => { 
         setQuickFilterUI('ALL'); 
         if(filterData) filterData.value = 'ALL';
@@ -119,14 +116,12 @@ function setupDashboardFilters() {
         if(filterDataFim) filterDataFim.value = '';
         loadDashboardData(); 
     });
-
     if(filterDataInicio) filterDataInicio.addEventListener('change', () => {
         setQuickFilterUI('ALL');
         if(filterMes) filterMes.value = 'ALL';
         if(filterData) filterData.value = 'ALL';
         loadDashboardData();
     });
-
     if(filterDataFim) filterDataFim.addEventListener('change', () => {
         setQuickFilterUI('ALL');
         if(filterMes) filterMes.value = 'ALL';
@@ -187,7 +182,6 @@ function parseDateTime(dateVal, timeVal) {
         } else { baseDate = new Date(str); }
     }
     if (!baseDate || isNaN(baseDate.getTime())) return null;
-
     let hours = 0, minutes = 0, seconds = 0;
     if (typeof timeVal === 'number') {
         let fraction = timeVal % 1; 
@@ -263,6 +257,7 @@ const centerTextPlugin = {
         ctx.font = "bold 28px 'Inter', sans-serif";
         ctx.textBaseline = "middle";
         ctx.fillStyle = "#38bdf8"; 
+
         const text = total.toLocaleString('pt-PT');
         const textX = centerX - (ctx.measureText(text).width / 2);
         ctx.fillText(text, textX, centerY - 8);
@@ -274,7 +269,7 @@ const centerTextPlugin = {
         ctx.fillText(subText, subTextX, centerY + 16);
         ctx.save();
     }
-};
+}
 
 async function loadDashboardDataInit() {
     try {
@@ -283,8 +278,7 @@ async function loadDashboardDataInit() {
             .select('*')
             .neq('status', 'Agendada')
             .order('data_abertura', { ascending: false })
-            .limit(5000); 
-
+            .limit(5000);
         if (osResp.data) osParaMeta = osResp.data;
 
         let frotasResp = await window.supabaseClient.from('frotas_manutencao').select('*').limit(2000);
@@ -293,7 +287,6 @@ async function loadDashboardDataInit() {
         }
         
         if (frotasResp.data) frotasParaMeta = frotasResp.data;
-
     } catch (e) { console.error("Erro ao puxar dados da manutenção:", e); }
 
     try {
@@ -319,23 +312,54 @@ async function loadDashboardDataInit() {
         console.error("Erro ao puxar gruas cadastradas:", e);
     }
 
-    let queryVia = window.supabaseClient
-        .from('historico_viagens')
-        .select('*') 
-        .order('id', { ascending: false })
-        .limit(8000); 
-    
-    if (typeof window.aplicarFiltroFilial === 'function') {
-        queryVia = window.aplicarFiltroFilial(queryVia);
+    // =========================================================
+    // LOOP INTELIGENTE - PUXA TODAS AS 14.000+ VIAGENS SEM PARAR
+    // =========================================================
+    let allData = [];
+    let from = 0;
+    const step = 1000; // Limite padrão seguro do Supabase
+    let fetchMore = true;
+
+    const statusLabel = document.getElementById('dbStatusLabel');
+    if (statusLabel) {
+        statusLabel.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Sincronizando Base de Dados...`;
     }
 
-    const { data, error } = await queryVia;
-        
-    if (error) {
-        console.error("Erro Crítico ao buscar viagens no Supabase:", error);
+    while (fetchMore) {
+        let queryVia = window.supabaseClient
+            .from('historico_viagens')
+            .select('*')
+            .order('id', { ascending: false })
+            .range(from, from + step - 1);
+
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            queryVia = window.aplicarFiltroFilial(queryVia);
+        }
+
+        const { data, error } = await queryVia;
+
+        if (error) {
+            console.error("Erro Crítico ao buscar viagens no Supabase:", error);
+            fetchMore = false;
+            break;
+        }
+
+        if (data && data.length > 0) {
+            allData = allData.concat(data);
+            from += data.length; // Avança baseado exatamente na quantidade de respostas do banco
+
+            if (statusLabel) {
+                statusLabel.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Baixando: ${allData.length} viagens`;
+            }
+
+            // Se o banco devolveu menos itens do que pedimos, significa que chegou no fim da tabela
+            if (data.length < step) {
+                fetchMore = false;
+            }
+        } else {
+            fetchMore = false;
+        }
     }
-    
-    let allData = data || [];
 
     if(allData.length > 0) {
         fullHistoricoData = allData;
@@ -350,57 +374,53 @@ function calcStats(dataArr) {
     if(!dataArr || dataArr.length === 0) {
         return { volTotal: 0, medVol: 0, medCiclo: 0, prod: 0, medFilaCpo: 0, medCarreg: 0, medFilaFab: 0, medAsfalto: 0, medTerra: 0 };
     }
-
     const viagens = dataArr.length;
     const vol = dataArr.reduce((s,d) => s + (parseFloat(String(d.volumeReal).replace(',','.'))||0), 0);
     const medVol = viagens > 0 ? vol / viagens : 0;
-
     const validCiclos = dataArr.filter(d => d.cicloHoras > 0);
     const somaCiclos = validCiclos.reduce((s,d) => s + d.cicloHoras, 0);
     const medCiclo = validCiclos.length > 0 ? somaCiclos / validCiclos.length : 0;
-
     const prod = somaCiclos > 0 ? vol / somaCiclos : 0;
-
     const validFilaCpo = dataArr.filter(d => d.filaCampoHoras > 0);
     const medFilaCpo = validFilaCpo.length > 0 ? validFilaCpo.reduce((s,d) => s + d.filaCampoHoras, 0) / validFilaCpo.length : 0;
-
     const validCarreg = dataArr.filter(d => d.tempoCarregamentoHoras > 0);
     const medCarreg = validCarreg.length > 0 ? validCarreg.reduce((s,d) => s + d.tempoCarregamentoHoras, 0) / validCarreg.length : 0;
-
     const validFilaFab = dataArr.filter(d => d.filaFabricaHoras > 0);
     const medFilaFab = validFilaFab.length > 0 ? validFilaFab.reduce((s,d) => s + d.filaFabricaHoras, 0) / validFilaFab.length : 0;
-
     const medAsfalto = viagens > 0 ? dataArr.reduce((s, d) => s + (d.distanciaAsfalto || 0), 0) / viagens : 0;
     const medTerra = viagens > 0 ? dataArr.reduce((s, d) => s + (d.distanciaTerra || 0), 0) / viagens : 0;
-
     return { volTotal: vol, medVol, medCiclo, prod, medFilaCpo, medCarreg, medFilaFab, medAsfalto, medTerra };
 }
 
+// =========================================================
+// OTIMIZAÇÃO ANTI-TRAVAMENTO
+// =========================================================
 function checkLoaderDynamic(d, loaderArray) {
     if (!loaderArray || loaderArray.length === 0) return false;
-    let colunasPrioritarias = [];
-    let outrasColunas = [];
-
-    for (let key in d) {
-        let keyUpper = key.toUpperCase();
-        let val = d[key];
-        if (val && typeof val === 'string') {
-            let vClean = val.trim().toUpperCase().replace(/\s+/g, '');
-            if (!vClean || vClean === '-' || vClean === 'N/A' || vClean === '0') continue;
-
+    
+    // Calcula o Cache das chaves para não varrer o objeto 14.000 vezes e travar a tela
+    if (chkKeysCache === null) {
+        chkKeysCache = [];
+        for (let key in d) {
+            let keyUpper = key.toUpperCase();
             if (keyUpper.includes('GRUA') || keyUpper.includes('CARREG') || keyUpper.includes('EQUIP') || keyUpper.includes('FRENTE')) {
-                colunasPrioritarias.push(vClean);
-            } else {
-                outrasColunas.push(vClean);
+                chkKeysCache.push(key);
             }
+        }
+        if (chkKeysCache.length === 0) {
+            chkKeysCache = ['grua', 'equipamento_carregamento', 'frente', 'loader']; // Fallback seguro
         }
     }
 
-    let valoresParaChecar = colunasPrioritarias.length > 0 ? colunasPrioritarias : outrasColunas;
-
-    for (let v of valoresParaChecar) {
-        for (let code of loaderArray) {
-            if (v === code || v.includes(code)) return true;
+    for (let i = 0; i < chkKeysCache.length; i++) {
+        let val = d[chkKeysCache[i]];
+        if (val && typeof val === 'string') {
+            let vClean = val.trim().toUpperCase().replace(/\s+/g, '');
+            if (vClean && vClean !== '-' && vClean !== 'N/A' && vClean !== '0') {
+                for (let j = 0; j < loaderArray.length; j++) {
+                    if (vClean === loaderArray[j] || vClean.includes(loaderArray[j])) return true;
+                }
+            }
         }
     }
     return false;
@@ -414,7 +434,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
 
     let cenariosPropria = [];
     let cenariosOutros = [];
-
     const colorVariants = [
         { text: 'text-indigo-400', bg: 'bg-indigo-900/10' },
         { text: 'text-amber-400', bg: 'bg-amber-900/10' },
@@ -439,7 +458,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
             const ob = b.ordem || 'ZZZ';
             return oa.localeCompare(ob);
         });
-
         gruasSorted.forEach((item, index) => {
             const nome = (item.frente || `Frente ${index+1}`).toUpperCase();
             const tipo = item.tipo_frente || 'Outros';
@@ -488,7 +506,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
     }
 
     let dadosASN = dadosFiltrados.filter(d => !isTransportadoraPropria(d) && isASN(d));
-
     let cenarioASN = {
         nome: 'TRANSP. ASN',
         tipo: 'ASN',
@@ -500,13 +517,12 @@ function renderizarTabelaComparativo(dadosFiltrados) {
     };
 
     let cenarios = [...cenariosPropria, cenarioASN, ...cenariosOutros];
-
+    
     let todasViagensValidas = [];
     cenarios.forEach(c => {
         todasViagensValidas = todasViagensValidas.concat(c.dados);
     });
     todasViagensValidas = [...new Set(todasViagensValidas)];
-
     const stGlobal = calcStats(todasViagensValidas);
 
     let thHtml = `<tr><th class="px-6 py-4 text-slate-300">Indicador de Performance</th>`;
@@ -562,7 +578,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
 
 function loadDashboardData() {
     const storedData = fullHistoricoData;
-
     if(!storedData.length) {
         if(document.getElementById('dbStatusLabel')) document.getElementById('dbStatusLabel').innerText = "Sem dados no banco";
         renderizarTabelaComparativo([]); 
@@ -600,11 +615,12 @@ function loadDashboardData() {
                 }
             }
         });
-        const allMeses = Array.from(mesesSet).sort((a,b) => { 
-             const pA = a.split('/'); const pB = b.split('/'); 
-             return new Date(pA[1], pA[0]-1, 1) - new Date(pB[1], pB[0]-1, 1);
+        const allMeses = Array.from(mesesSet).sort((a,b) => {
+              const pA = a.split('/'); const pB = b.split('/');
+              return new Date(pA[1], pA[0]-1, 1) - new Date(pB[1], pB[0]-1, 1);
         });
         const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        
         filterMes.innerHTML = '<option value="ALL">TODOS OS MESES</option>';
         
         let optionExists = false;
@@ -654,9 +670,9 @@ function loadDashboardData() {
         }
         else if (activeM !== 'ALL') {
             const p = d.dataDaBaseExcel.split('/');
-            if(p.length >= 3) { 
-                 let y = p[2]; if(y.length === 2) y = "20"+y; 
-                 mData = (`${p[1]}/${y}` === activeM);
+            if(p.length >= 3) {
+                  let y = p[2]; if(y.length === 2) y = "20"+y;
+                  mData = (`${p[1]}/${y}` === activeM);
             } else { mData = false; }
         } 
         else if (activeQuickFilter !== 'ALL') {
@@ -724,7 +740,7 @@ function loadDashboardData() {
             }
         });
     }
-
+    
     let transpPropriaConfig = 'SERRANALOG';
     if (metasGlobaisObj && metasGlobaisObj.transp_propria) {
         transpPropriaConfig = metasGlobaisObj.transp_propria.toUpperCase();
@@ -820,7 +836,7 @@ function loadDashboardData() {
 
             if (totalMsDisponivelVeiculo > 0) {
                 let msManutVeiculo = 0;
-                let placaFrota = frota.placa || frota.cavalo; 
+                let placaFrota = frota.placa || frota.cavalo;
                 
                 const todasOSCavalo = osParaMeta.filter(o => {
                     if (o.placa !== placaFrota) return false;
@@ -846,7 +862,6 @@ function loadDashboardData() {
 
                 let dispVeiculoMs = totalMsDisponivelVeiculo - msManutVeiculo;
                 if (dispVeiculoMs < 0) dispVeiculoMs = 0;
-
                 totalDispNoPeriodoMs += dispVeiculoMs;
 
                 let metaDiariaVeiculo = 2;
@@ -863,10 +878,10 @@ function loadDashboardData() {
         });
 
         mediaAtivosReal = Math.round(totalDispNoPeriodoMs / msTotalPeriodo);
-
+        
         let configTPropria = transpPropriaConfig ? transpPropriaConfig : 'SERRANALOG';
         if (activeT === 'ALL' || activeT.toUpperCase().includes(configTPropria)) {
-            metaViagensCalculada = Math.round(totalMetaCalculadaExata); 
+            metaViagensCalculada = Math.round(totalMetaCalculadaExata);
             
             elMetaTexto.innerHTML = `Disp: <b class="text-emerald-400">${mediaAtivosReal}</b> carros (DM) | Meta Total: <b class="text-sky-400">${metaViagensCalculada}</b> viag.`;
             elMetaTexto.classList.remove('hidden');
@@ -880,16 +895,18 @@ function loadDashboardData() {
                     if(elTotalViagens) elTotalViagens.className = "text-3xl font-extrabold text-rose-500 m-0 transition-all";
                     if(elIconeMeta) elIconeMeta.innerHTML = '<i class="fas fa-exclamation-circle text-rose-500 text-xl drop-shadow-md" title="Abaixo da Meta"></i>';
                 }
-            } else { 
-                if(elIconeMeta) elIconeMeta.innerHTML = ''; 
+            } else {
+                if(elIconeMeta) elIconeMeta.innerHTML = '';
                 if(elTotalViagens) elTotalViagens.className = "text-3xl font-extrabold text-white m-0 transition-all";
             }
-        } else { 
-            elMetaTexto.classList.add('hidden'); 
-            if(elIconeMeta) elIconeMeta.innerHTML = ''; 
+
+        } else {
+            elMetaTexto.classList.add('hidden');
+            if(elIconeMeta) elIconeMeta.innerHTML = '';
             let elTotalViagens = document.getElementById('totalViagens');
             if(elTotalViagens) elTotalViagens.className = "text-3xl font-extrabold text-white m-0 transition-all";
         }
+
     } else {
         if(elMetaTexto) elMetaTexto.classList.add('hidden');
         if(elIconeMeta) elIconeMeta.innerHTML = '';
@@ -919,8 +936,8 @@ function loadDashboardData() {
     const elRpv = document.getElementById('mediaRPV');
     if (elRpv) {
         let rpvStr = mediaRPV > 0 ? mediaRPV.toLocaleString('pt-PT', {maximumFractionDigits: 2}) : "0";
-        const pSub = elRpv.parentElement.nextElementSibling; 
-
+        const pSub = elRpv.parentElement.nextElementSibling;
+        
         if (mediaRPV > 0) {
             if (slaAtendido) {
                 elRpv.className = "text-3xl font-extrabold text-emerald-400 m-0 transition-all drop-shadow-md";
@@ -949,7 +966,7 @@ function loadDashboardData() {
 
     let pbtcCor = "text-white";
     let pbtcIcone = "";
-
+    
     if (mediaPBTC > 0) {
         if (mediaPBTC < reqPbtc) { 
             pbtcCor = "text-rose-500"; 
@@ -971,6 +988,7 @@ function loadDashboardData() {
 
     const totalVolumeReal = cardsData.reduce((sum, r) => sum + (parseFloat(String(r.volumeReal).replace(',','.')) || 0), 0);
     const mediaVolume = totalViagens > 0 ? totalVolumeReal / totalViagens : 0;
+
     const mediaAsfalto = totalViagens > 0 ? cardsData.reduce((sum, r) => sum + (r.distanciaAsfalto||0), 0) / totalViagens : 0;
     const mediaTerra = totalViagens > 0 ? cardsData.reduce((sum, r) => sum + (r.distanciaTerra||0), 0) / totalViagens : 0;
     const mediaDistTotal = mediaAsfalto + mediaTerra;
@@ -993,11 +1011,11 @@ function loadDashboardData() {
     let metaCaixaFinal = (metasGlobaisObj && metasGlobaisObj.cx_prog) ? parseFloat(metasGlobaisObj.cx_prog) : 48;
     
     let metaVolumeCalculada = 0;
-    if (metasGlobaisObj && metasGlobaisObj.vol_prog > 0) { 
+    if (metasGlobaisObj && metasGlobaisObj.vol_prog > 0) {
         metaVolumeCalculada = metasGlobaisObj.vol_prog * diasConsideradosCalc; 
-    } else if (metaViagensCalculada > 0) { 
+    } else if (metaViagensCalculada > 0) {
         metaVolumeCalculada = metaViagensCalculada * metaCaixaFinal; 
-    } else { 
+    } else {
         metaVolumeCalculada = (50 * 2 * diasConsideradosCalc) * metaCaixaFinal; 
     }
 
