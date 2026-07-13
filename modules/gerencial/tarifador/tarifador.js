@@ -37,7 +37,7 @@ window.previewTarifador = function(event) {
             }
             
             window.tarifadorPreviewData = dadosProcessados;
-            alert(`Planilha lida com sucesso! ${dadosProcessados.length} tarifas encontradas. Clique em 'Salvar Tabela' para enviar ao banco de dados.`);
+            alert(`Planilha lida com sucesso! ${dadosProcessados.length} tarifas encontradas. Preencha o Nome e o Preço de Carregamento e clique em 'Salvar Tabela'.`);
             
         } catch (error) {
             console.error('Erro ao ler arquivo:', error);
@@ -88,7 +88,7 @@ window.processarDadosExcel = function(json) {
 // 2. SALVAR NO BANCO DE DADOS SUPABASE
 window.importarTarifador = async function() {
     if (!window.tarifadorPreviewData || window.tarifadorPreviewData.length === 0) {
-        alert('Nenhum arquivo carregado ou dados inválidos.');
+        alert('Nenhum arquivo de Excel carregado ou dados inválidos.');
         return;
     }
     
@@ -98,6 +98,10 @@ window.importarTarifador = async function() {
         document.getElementById('tarifadorNome').focus();
         return;
     }
+
+    // Pega o valor do preço de carregamento
+    const precoInput = parseFloat(document.getElementById('tarifadorPrecoCarregamento').value.replace(',', '.'));
+    const precoFinal = isNaN(precoInput) ? 0 : precoInput;
 
     const btnSalvar = event.currentTarget || document.querySelector('button[onclick="window.importarTarifador()"]');
     const textoOriginal = btnSalvar.innerHTML;
@@ -113,6 +117,7 @@ window.importarTarifador = async function() {
         // Segundo: Inserir o novo tarifador (O JSONB é perfeito para arrays gigantes)
         const novoRegistro = {
             nome: nome,
+            preco_carregamento: precoFinal,
             ativo: true,
             dados: window.tarifadorPreviewData
         };
@@ -130,6 +135,7 @@ window.importarTarifador = async function() {
         document.getElementById('tarifadorFile').value = '';
         document.getElementById('tarifadorFileName').textContent = 'Clique para selecionar o arquivo Excel';
         document.getElementById('tarifadorNome').value = '';
+        document.getElementById('tarifadorPrecoCarregamento').value = '';
         
         window.initTarifador(); // Recarrega a lista e o cache
         
@@ -147,12 +153,12 @@ window.carregarListaTarifadores = async function() {
     const tbody = document.getElementById('tbodyTarifadores');
     if(!tbody) return;
     
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i>Buscando dados no servidor...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center p-6 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i>Buscando dados no servidor...</td></tr>`;
     
     try {
         let query = window.supabaseClient
             .from('tarifadores')
-            .select('id, nome, data_importacao, ativo, dados')
+            .select('id, nome, preco_carregamento, data_importacao, ativo, dados')
             .order('data_importacao', { ascending: false });
             
         if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
@@ -163,7 +169,7 @@ window.carregarListaTarifadores = async function() {
         tbody.innerHTML = '';
         
         if (!tabelas || tabelas.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-slate-500">Nenhuma tabela cadastrada no sistema.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center p-6 text-slate-500">Nenhuma tabela cadastrada no sistema.</td></tr>`;
             return;
         }
 
@@ -173,6 +179,7 @@ window.carregarListaTarifadores = async function() {
             
             const dataFormatada = new Date(t.data_importacao).toLocaleDateString('pt-BR');
             const numRegistros = Array.isArray(t.dados) ? t.dados.length : 0;
+            const precoFormatado = t.preco_carregamento ? parseFloat(t.preco_carregamento).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
             
             const statusHtml = t.ativo 
                 ? `<span class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-1 rounded-full border border-emerald-500/30 font-bold"><i class="fas fa-check-circle"></i> ATIVA</span>`
@@ -185,6 +192,7 @@ window.carregarListaTarifadores = async function() {
             tr.innerHTML = `
                 <td class="px-6 py-4 font-bold text-white">${t.nome}</td>
                 <td class="px-6 py-4 text-slate-400 text-xs">${dataFormatada}</td>
+                <td class="px-6 py-4 text-right text-emerald-400 font-mono font-bold">${precoFormatado}</td>
                 <td class="px-6 py-4 text-center text-slate-300 font-mono">${numRegistros}</td>
                 <td class="px-6 py-4 text-center">${statusHtml}</td>
                 <td class="px-6 py-4 text-right">
@@ -197,7 +205,7 @@ window.carregarListaTarifadores = async function() {
 
     } catch (err) {
         console.error("Erro ao carregar lista de tarifadores:", err);
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center p-6 text-rose-500 font-bold">Erro ao buscar tabelas do banco de dados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center p-6 text-rose-500 font-bold">Erro ao buscar tabelas do banco de dados.</td></tr>`;
     }
 };
 
@@ -232,7 +240,7 @@ window.excluirTarifador = async function(id) {
 // 6. CACHE E CONSULTA IMEDIATA
 window.carregarTarifadorAtivoCache = async function() {
     try {
-        let query = window.supabaseClient.from('tarifadores').select('nome, dados').eq('ativo', true).limit(1);
+        let query = window.supabaseClient.from('tarifadores').select('nome, preco_carregamento, dados').eq('ativo', true).limit(1);
         if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
         
         const { data, error } = await query;
