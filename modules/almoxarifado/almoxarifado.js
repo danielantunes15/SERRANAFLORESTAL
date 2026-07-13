@@ -560,28 +560,36 @@ window.processarArquivoNF = async function(event) {
                 fullText += pageText + " ";
             }
 
-            // Remove pipe chars if present as separators to clean up matching
-            const cleanText = fullText.replace(/\|/g, ' ');
+            // Remove caracteres especiais como " | " que sujam a leitura
+            const cleanText = fullText.replace(/\|/g, ' ').replace(/\s+/g, ' ');
 
-            // 1. Extrair Fornecedor (Geralmente no topo do DANFE antes da palavra DANFE)
-            const fornecedorMatch = cleanText.match(/^(.+?)\s+DANFE/i);
-            if (fornecedorMatch) {
-                document.getElementById('movFornecedor').value = fornecedorMatch[1].trim();
+            // 1. Extrair Fornecedor (Múltiplas tentativas de captura)
+            let fornecedor = "Fornecedor Desconhecido";
+            const fornecedorMatch1 = cleanText.match(/Recebemos de\s+(.+?)\s+os produtos/i);
+            const fornecedorMatch2 = cleanText.match(/^(.+?)\s+DANFE/i);
+            
+            if (fornecedorMatch1) {
+                fornecedor = fornecedorMatch1[1].trim();
+            } else if (fornecedorMatch2) {
+                fornecedor = fornecedorMatch2[1].trim();
             }
+            document.getElementById('movFornecedor').value = fornecedor;
 
             // 2. Extrair Número da NF
-            const nfMatch = cleanText.match(/N[º°o]?\s*([\d\.]+)/i);
+            const nfMatch = cleanText.match(/N[º°o]?\s*([\d\.\s]{4,20})/i);
             if (nfMatch) {
-                // Remove os pontos (ex: 000.006.033 -> 000006033)
-                document.getElementById('movNF').value = nfMatch[1].replace(/\./g, '');
+                // Remove os pontos e espaços em branco (ex: 000.006.033 -> 000006033)
+                let numeroNF = nfMatch[1].replace(/[\.\s]/g, '');
+                // Se puxar coisas a mais, pega só os primeiros 9 digitos
+                if (numeroNF.length > 9) numeroNF = numeroNF.substring(0, 9);
+                document.getElementById('movNF').value = numeroNF;
             } else {
                 document.getElementById('movNF').value = "PDF Importado";
             }
 
             // 3. Extrair Itens da Nota
-            // Regex calibrada para não "comer" o texto do documento inteiro caso haja falha no OCR.
-            // Limita a descrição a no máximo 150 caracteres para garantir que não vai pular pro próximo NCM
-            const regexItens = /(\d{4,10})\s+(.{1,150}?)\s+(\d{8})\s+(\d{3,4})\s+(\d{4})\s+([A-Z]{2,3})\s+([\d,\.]+)\s+([\d,\.]+)/gi;
+            // ATENÇÃO: Adicionado limitador {1,150}? para a descrição não engolir a nota toda!
+            const regexItens = /(\d{4,12})\s+(.{1,150}?)\s+(\d{8})\s+(\d{3,4})\s+(\d{4})\s+([A-Z]{2,3})\s+([\d,\.]+)\s+([\d,\.]+)/gi;
             let match;
             let index = 0;
 
