@@ -7,6 +7,7 @@ window.listaFrotasOcorrencia = [];
 window.todasFrotasCache = [];
 window.listaColaboradoresRH = [];
 window.listaSetoresOcorrencia = [];
+window.listaGestoresOcorrencia = []; // Armazena a lista de responsáveis para o Auto-Fill
 window.outrosEnvolvidosCount = 0;
 
 window.initOcorrencias = async function() {
@@ -14,18 +15,21 @@ window.initOcorrencias = async function() {
     await window.carregarColaboradoresRH();
     await window.carregarSetoresOcorrencia();
     await window.carregarTodasFrotas();
-    await window.carregarGestoresOcorrencia(); // <-- NOVA INTEGRAÇÃO!
+    await window.carregarGestoresOcorrencia();
     window.carregarFrotasOcorrencia();
 };
 
 window.carregarGestoresOcorrencia = async function() {
     try {
-        let query = supabaseClient.from('responsaveis_setor').select('*').eq('status', 'Ativo').order('nome_responsavel');
+        // Usa o 'setores(nome)' para conseguir cruzar o gestor com o setor selecionado no form
+        let query = supabaseClient.from('responsaveis_setor').select('*, setores(nome)').eq('status', 'Ativo').order('nome_responsavel');
         if (typeof window.aplicarFiltroFilial === 'function') {
             query = window.aplicarFiltroFilial(query);
         }
         const { data, error } = await query;
         if (error) throw error;
+        
+        window.listaGestoresOcorrencia = data || [];
         
         const selGestor = document.getElementById('gestor_imediato');
         const selGerente = document.getElementById('gerente');
@@ -33,8 +37,10 @@ window.carregarGestoresOcorrencia = async function() {
         if (selGestor) selGestor.innerHTML = '<option value="">Selecione o Gestor...</option>';
         if (selGerente) selGerente.innerHTML = '<option value="">Selecione o Gerente...</option>';
         
-        (data || []).forEach(resp => {
-            // Usa o NOME no valor para garantir compatibilidade com as telas de relatórios
+        let qtdGerentes = 0;
+        let ultimoGerente = '';
+
+        window.listaGestoresOcorrencia.forEach(resp => {
             const optionHtml = `<option value="${resp.nome_responsavel}">${resp.nome_responsavel} - ${resp.cargo}</option>`;
             
             if (selGestor) selGestor.innerHTML += optionHtml;
@@ -42,10 +48,37 @@ window.carregarGestoresOcorrencia = async function() {
             const cargoStr = (resp.cargo || '').toLowerCase();
             if (cargoStr.includes('gerent') || cargoStr.includes('gerênci') || cargoStr.includes('diretor')) {
                 if (selGerente) selGerente.innerHTML += optionHtml;
+                qtdGerentes++;
+                ultimoGerente = resp.nome_responsavel;
             }
         });
+
+        // AUTO-SELECT DO GERENTE: Se houver apenas 1 gerente, já deixa selecionado
+        if (qtdGerentes === 1 && selGerente) {
+            selGerente.value = ultimoGerente;
+        }
+
     } catch (e) {
         console.error("Erro ao carregar responsáveis/gestores:", e);
+    }
+};
+
+// AUTO-SELECT DO GESTOR BASEADO NO SETOR
+window.autoPreencherGestores = function() {
+    const setorSelecionado = document.getElementById('setor').value;
+    const selGestor = document.getElementById('gestor_imediato');
+    
+    if (!setorSelecionado || !selGestor || !window.listaGestoresOcorrencia) return;
+
+    // Procura na lista de gestores se existe alguém vinculado a este mesmo setor
+    const gestorEncontrado = window.listaGestoresOcorrencia.find(resp => 
+        resp.setores && resp.setores.nome === setorSelecionado
+    );
+
+    if (gestorEncontrado) {
+        selGestor.value = gestorEncontrado.nome_responsavel;
+    } else {
+        selGestor.value = ''; // Limpa se o setor não tiver um gestor cadastrado
     }
 };
 
@@ -142,8 +175,8 @@ window.calcularTempoEmpresa = function(dataAdmissaoStr) {
 
     let resultado = [];
     if (anos > 0) resultado.push(anos + (anos === 1 ? " ano" : " anos"));
-    if (meses > 0) resultado.push(meses + (meses === 1 ? " mês" : " meses"));
-    if (dias > 0) resultado.push(dias + (dias === 1 ? " dia" : " dias"));
+    if (meses > 0) push(meses + (meses === 1 ? " mês" : " meses"));
+    if (dias > 0) push(dias + (dias === 1 ? " dia" : " dias"));
 
     return resultado.length > 0 ? resultado.join(', ') : "Menos de 1 dia";
 };
