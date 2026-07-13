@@ -126,6 +126,7 @@
                 <i class="fas fa-clipboard-check"></i> Requisições Pendentes
                 <span id="badgeReqPendente" style="display:none; background:#ef4444; color:#fff; border-radius:10px; padding:3px 7px; font-size:0.75rem; font-weight:bold; line-height:1;">0</span>
             </button>
+            <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('notas', this)"><i class="fas fa-file-invoice-dollar"></i> Notas Fiscais</button>
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('movimentacoes', this)"><i class="fas fa-exchange-alt"></i> Histórico & Auditoria</button>
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('pneus', this)"><i class="fas fa-tire"></i> Gestão de Pneus</button>
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('relatorios', this)"><i class="fas fa-chart-pie"></i> Painel de Relatórios</button>
@@ -170,6 +171,23 @@
                 </tr>
             </thead>
             <tbody id="tabelaRequisicoesBody"></tbody>
+        </table>
+    </div>
+
+    <div id="abaNotas" class="almo-table-container" style="display: none;">
+        <table class="almo-table">
+            <thead>
+                <tr>
+                    <th>Data de Entrada</th>
+                    <th>Nº da Nota Fiscal</th>
+                    <th>Fornecedor</th>
+                    <th>Qtd. de Peças</th>
+                    <th>Valor Total (R$)</th>
+                    <th>Responsável</th>
+                    <th style="text-align: right;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaNotasBody"></tbody>
         </table>
     </div>
 
@@ -450,5 +468,37 @@
             <div class="almo-form-group"><label>Observação / Motivo</label><input type="text" id="acaoObs" required></div>
             <button type="submit" class="btn-modern btn-primary" style="width: 100%; justify-content: center;"><i class="fas fa-check"></i> Confirmar Ação</button>
         </form>
+    </div>
+</div>
+
+<div id="modalDetalhesNota" class="almo-modal">
+    <div class="almo-modal-content" style="max-width: 800px;">
+        <span class="almo-close" onclick="fecharModalAlmox('modalDetalhesNota')">&times;</span>
+        <h3 style="margin-bottom: 5px;"><i class="fas fa-file-invoice-dollar" style="color: #60a5fa;"></i> Detalhes da Nota Fiscal</h3>
+        
+        <div style="display: flex; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #334155;">
+            <div>
+                <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 5px; font-weight: bold; text-transform: uppercase;">Fornecedor</p>
+                <strong id="detalheNotaFornecedor" style="font-size: 1.1rem; color: #f8fafc;">---</strong>
+            </div>
+            <div style="text-align: right;">
+                <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 5px; font-weight: bold; text-transform: uppercase;">Nº da Nota</p>
+                <strong id="detalheNotaNF" style="font-size: 1.1rem; color: #38bdf8;">---</strong>
+            </div>
+        </div>
+
+        <div class="almo-table-container" style="max-height: 350px; overflow-y: auto;">
+            <table class="almo-table">
+                <thead style="position: sticky; top: 0; z-index: 10;">
+                    <tr>
+                        <th>Peça</th>
+                        <th>Qtd. Entrada</th>
+                        <th>Custo Unit. (R$)</th>
+                        <th>Subtotal (R$)</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaDetalhesNotaBody"></tbody>
+            </table>
+        </div>
     </div>
 </div>

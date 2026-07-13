@@ -32,6 +32,7 @@ async function carregarDadosAlmoxarifado() {
         classificarCurvaABC(pecasEstoque);
         atualizarTabelaPecas(pecasEstoque);
         atualizarTabelaMovimentacoes(movimentacoesEstoque);
+        atualizarTabelaNotas(movimentacoesEstoque);
         atualizarTabelaPneus(pneusEstoque);
         atualizarTabelaRequisicoes(requisicoesEstoque);
         
@@ -129,6 +130,85 @@ function atualizarTabelaRequisicoes(listaReqs) {
         `;
         tbody.appendChild(tr);
     });
+}
+
+
+function atualizarTabelaNotas(listaMovimentacoes) {
+    const tbody = document.getElementById('tabelaNotasBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    // Filtrar apenas entradas e agrupar por NF + Fornecedor
+    const entradas = listaMovimentacoes.filter(m => m.tipo === 'entrada' && m.nota_fiscal && m.nota_fiscal !== '-');
+    if(entradas.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma nota fiscal registrada.</td></tr>'; 
+        return; 
+    }
+
+    const gruposNotas = {};
+    entradas.forEach(mov => {
+        const chave = `${mov.nota_fiscal}_${mov.fornecedor}`;
+        if (!gruposNotas[chave]) {
+            gruposNotas[chave] = {
+                data: mov.data_movimentacao,
+                nota_fiscal: mov.nota_fiscal,
+                fornecedor: mov.fornecedor || 'Desconhecido',
+                usuario: mov.usuario || 'Sistema',
+                qtd_itens: 0,
+                valor_total: 0,
+                itens: []
+            };
+        }
+        gruposNotas[chave].qtd_itens += 1;
+        gruposNotas[chave].valor_total += (parseFloat(mov.quantidade) * parseFloat(mov.valor_unitario || 0));
+        gruposNotas[chave].itens.push(mov);
+    });
+
+    const listaAgrupada = Object.values(gruposNotas).sort((a, b) => new Date(b.data) - new Date(a.data));
+
+    listaAgrupada.forEach(nota => {
+        const dataFormatada = new Date(nota.data).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="color: #94a3b8; font-size: 0.85rem;">${dataFormatada}</td>
+            <td style="font-family: monospace; color: #38bdf8; font-weight: bold; font-size: 1.1rem;">${nota.nota_fiscal}</td>
+            <td><strong style="color: #f8fafc;">${nota.fornecedor}</strong></td>
+            <td style="text-align: center; font-weight: bold; color: #cbd5e1;">${nota.qtd_itens}</td>
+            <td style="font-weight: 500; color: #34d399;">R$ ${nota.valor_total.toFixed(2).replace('.', ',')}</td>
+            <td style="color: #94a3b8; font-size: 0.85rem;"><i class="fas fa-user"></i> ${nota.usuario}</td>
+            <td style="text-align: right;">
+                <button type="button" class="btn-action-sm btn-info" onclick='abrirDetalhesNota(${JSON.stringify(nota).replace(/'/g, "&apos;")})'>
+                    <i class="fas fa-eye"></i> Ver Peças
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+window.abrirDetalhesNota = function(nota) {
+    document.getElementById('detalheNotaFornecedor').innerText = nota.fornecedor;
+    document.getElementById('detalheNotaNF').innerText = nota.nota_fiscal;
+    
+    const tbody = document.getElementById('tabelaDetalhesNotaBody');
+    tbody.innerHTML = '';
+    
+    nota.itens.forEach(mov => {
+        const pecaRef = pecasEstoque.find(p => String(p.id) === String(mov.peca_id));
+        const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
+        const subtotal = parseFloat(mov.quantidade) * parseFloat(mov.valor_unitario || 0);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-weight: 500; color: #f8fafc;">${nomePeca}</td>
+            <td style="font-weight: bold; color: #60a5fa;">${mov.quantidade}</td>
+            <td style="color: #cbd5e1;">R$ ${parseFloat(mov.valor_unitario||0).toFixed(2).replace('.', ',')}</td>
+            <td style="font-weight: bold; color: #34d399;">R$ ${subtotal.toFixed(2).replace('.', ',')}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('modalDetalhesNota').style.display = 'flex';
 }
 
 function atualizarTabelaMovimentacoes(listaMovimentacoes) {
@@ -270,7 +350,8 @@ function gerarRelatoriosAvancados() {
 window.filtrarAlmoxarifado = function() {
     const termo = document.getElementById('almoSearchInput').value.toLowerCase();
     if (abaAtualAlmox === 'estoque') atualizarTabelaPecas(pecasEstoque.filter(p => (p.nome||'').toLowerCase().includes(termo) || (p.codigo||'').toLowerCase().includes(termo)));
-    else if (abaAtualAlmox === 'movimentacoes') atualizarTabelaMovimentacoes(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.cavalo||'').toLowerCase().includes(termo) || (m.setor_destino||'').toLowerCase().includes(termo)));
+    else if (abaAtualAlmox === 'notas') atualizarTabelaNotas(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo)));
+    else if (abaAtualAlmox === 'movimentacoes') atualizarTabelaMovimentacoes(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo) || (m.cavalo||'').toLowerCase().includes(termo) || (m.setor_destino||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'pneus') atualizarTabelaPneus(pneusEstoque.filter(p => (p.num_fogo||'').toLowerCase().includes(termo) || (p.cavalo_atual||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'requisicoes') atualizarTabelaRequisicoes(requisicoesEstoque.filter(r => (r.placa||'').toLowerCase().includes(termo) || (r.mecanico_responsavel||'').toLowerCase().includes(termo) || (r.centro_custo||'').toLowerCase().includes(termo)));
 }
@@ -279,7 +360,7 @@ window.mudarAbaAlmoxarifado = function(abaId, btn) {
     abaAtualAlmox = abaId;
     document.querySelectorAll('.almo-tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    ['estoque','requisicoes','movimentacoes','pneus','relatorios'].forEach(id => document.getElementById('aba'+id.charAt(0).toUpperCase() + id.slice(1)).style.display = (id === abaId ? 'block' : 'none'));
+    ['estoque','requisicoes','notas','movimentacoes','pneus','relatorios'].forEach(id => document.getElementById('aba'+id.charAt(0).toUpperCase() + id.slice(1)).style.display = (id === abaId ? 'block' : 'none'));
     filtrarAlmoxarifado();
 }
 
