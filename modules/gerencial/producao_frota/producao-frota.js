@@ -14,6 +14,7 @@ var dadosAgrupadosAtual = [];
 var dadosFiltradosAtual = [];
 var agrupamentoDiarioGlobal = {}; 
 var tarifadorAtivoGlobal = null;
+var gruasPropriasCache = new Set(); // Guarda as gruas que são da Serrana (tipo_frente = 'Propria')
 
 var chartVolumesObj = null;
 var chartReceitasObj = null;
@@ -100,9 +101,25 @@ async function buscarTodosDadosSupabase() {
         return;
     }
 
-    if(tStatus) tStatus.innerText = "Baixando histórico de viagens...";
-    
     try {
+        // 1. PRIMEIRO: BUSCAR AS GRUAS QUE SÃO "PROPRIAS"
+        if(tStatus) tStatus.innerText = "Baixando configurações de Gruas...";
+        const { data: gruasData } = await client.from('config_gruas').select('codigos, tipo_frente');
+        
+        gruasPropriasCache = new Set();
+        if (gruasData) {
+            gruasData.forEach(g => {
+                if (g.tipo_frente && g.tipo_frente.trim().toUpperCase() === 'PROPRIA' && g.codigos) {
+                    // Trata caso existam várias gruas separadas por vírgula no cadastro
+                    g.codigos.split(',').forEach(c => {
+                        gruasPropriasCache.add(c.trim().toUpperCase());
+                    });
+                }
+            });
+        }
+
+        // 2. SEGUNDO: BUSCAR HISTÓRICO DE VIAGENS
+        if(tStatus) tStatus.innerText = "Baixando histórico de viagens...";
         dadosHistoricoGlobal = [];
         
         let from = 0;
@@ -210,15 +227,23 @@ function processarFiltrosEExibir() {
         let timeInicio = strInicio ? new Date(strInicio.split('-')[0], parseInt(strInicio.split('-')[1]) - 1, strInicio.split('-')[2]).getTime() : 0;
         let timeFim = strFim ? new Date(strFim.split('-')[0], parseInt(strFim.split('-')[1]) - 1, strFim.split('-')[2], 23, 59, 59).getTime() : Infinity;
 
-        // Limpeza dos filtros de transportadora
+        // Limpeza dos filtros
         dadosFiltradosAtual = dadosHistoricoGlobal.filter(registro => {
             const tr = registro.transportadora ? registro.transportadora.trim().toUpperCase() : 'N/A';
             const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
+            
+            const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
+            const isNossaGrua = gruasPropriasCache.has(gruaReg);
 
+            // REGRA 1: Se não é a nossa transportadora E TAMBÉM não é a nossa Grua, esconde da tela
+            if (!isSerrana && !isNossaGrua) return false;
+
+            // Filtros do Dropdown
             if (filtroTransp === 'SOMENTE_SERRANA' && !isSerrana) return false;
             if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) return false;
             if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) return false;
 
+            // Filtros de Data
             if (registro.dataDaBaseExcel) {
                 const trTime = converterDataString(registro.dataDaBaseExcel).getTime();
                 if (trTime < timeInicio || trTime > timeFim) return false;
@@ -242,6 +267,9 @@ function processarFiltrosEExibir() {
             const tr = registro.transportadora ? registro.transportadora.toUpperCase() : 'N/A';
             const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
             
+            const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
+            const isNossaGrua = gruasPropriasCache.has(gruaReg);
+            
             const v = parseFloat(String(registro.volumeReal).replace(',','.')) || 0;
             const asfalto = parseFloat(String(registro.distanciaAsfalto).replace(',','.')) || 0;
             const terra = parseFloat(String(registro.distanciaTerra).replace(',','.')) || 0;
@@ -249,7 +277,9 @@ function processarFiltrosEExibir() {
             // Lógica de cálculo financeiro
             let tarifaTransporte = isSerrana ? calcularTarifaTransporte(asfalto, terra) : 0;
             let recTransporte = isSerrana ? (v * tarifaTransporte) : 0;
-            let recCarregamento = v * precoCarregamento;
+            
+            // REGRA 2: Carregamento só gera receita se a grua for nossa (Propria)
+            let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
 
             // Acumuladores Globais
             if (isSerrana) {
@@ -257,11 +287,14 @@ function processarFiltrosEExibir() {
                 tTranspVol += v;
                 tTranspRec += recTransporte;
             }
-            tCarregViagens += 1;
-            tCarregVol += v;
-            tCarregRec += recCarregamento;
+            
+            if (isNossaGrua) {
+                tCarregViagens += 1;
+                tCarregVol += v;
+                tCarregRec += recCarregamento;
+            }
 
-            // Acumulador Tabela (Agora separado por Placa + Distâncias para mostrar a tarifa corretamente)
+            // Acumulador Tabela 
             const chaveTabela = `${pl}_${asfalto}_${terra}`;
 
             if (!agrupamentoTabela[chaveTabela]) {
@@ -269,6 +302,7 @@ function processarFiltrosEExibir() {
                     placa: pl, 
                     transp: tr, 
                     isSerrana: isSerrana, 
+                    isNossaGrua: isNossaGrua,
                     asfalto: asfalto, 
                     terra: terra, 
                     tarifa: tarifaTransporte,
@@ -291,14 +325,16 @@ function processarFiltrosEExibir() {
                     agrupamentoDiario[d].volTransp += v;
                     agrupamentoDiario[d].recTransp += recTransporte;
                 }
-                agrupamentoDiario[d].volCarreg += v;
-                agrupamentoDiario[d].recCarreg += recCarregamento;
+                if (isNossaGrua) {
+                    agrupamentoDiario[d].volCarreg += v;
+                    agrupamentoDiario[d].recCarreg += recCarregamento;
+                }
             }
         });
 
         dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => {
-            if (a.placa === b.placa) return b.viagens - a.viagens; // Se mesma placa, agrupa mais viagens primeiro
-            return a.placa.localeCompare(b.placa); // Ordem alfabética nas placas
+            if (a.placa === b.placa) return b.viagens - a.viagens; 
+            return a.placa.localeCompare(b.placa); 
         });
         agrupamentoDiarioGlobal = agrupamentoDiario;
 
@@ -350,7 +386,7 @@ function desenharGraficos(agrupamento) {
                     labels: labels,
                     datasets: [
                         { label: 'Vol. Transportado (Serrana)', data: volTranspArr, backgroundColor: '#38bdf8', borderRadius: 4 },
-                        { label: 'Vol. Carregado (Total)', data: volCarregArr, backgroundColor: '#10b981', borderRadius: 4 }
+                        { label: 'Vol. Carregado (Nossas Gruas)', data: volCarregArr, backgroundColor: '#10b981', borderRadius: 4 }
                     ]
                 },
                 options: getBasicChartOptions('Volume (m³)', false)
@@ -367,7 +403,7 @@ function desenharGraficos(agrupamento) {
                     labels: labels,
                     datasets: [
                         { label: 'Rec. Transporte (Serrana)', data: recTranspArr, borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#38bdf8', fill: true, tension: 0.3 },
-                        { label: 'Rec. Carregamento (Geral)', data: recCarregArr, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#10b981', fill: true, tension: 0.3 }
+                        { label: 'Rec. Carregamento (Nossas Gruas)', data: recCarregArr, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#10b981', fill: true, tension: 0.3 }
                     ]
                 },
                 options: getBasicChartOptions('Receita (R$)', true)
@@ -398,7 +434,7 @@ function getBasicChartOptions(titleY, isMoney = false) {
             x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { weight: 'bold' } } },
             y: { display: true, title: { display: true, text: titleY, color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
         }
-    };
+    }
 }
 
 function renderizarTabela(dados) {
@@ -462,13 +498,16 @@ function exportarParaExcel() {
         const tr = r.transportadora ? r.transportadora.toUpperCase() : 'N/A';
         const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
         
+        const gruaReg = r.grua ? r.grua.trim().toUpperCase() : '';
+        const isNossaGrua = gruasPropriasCache.has(gruaReg);
+        
         let asfalto = parseFloat(String(r.distanciaAsfalto).replace(',','.')) || 0;
         let terra = parseFloat(String(r.distanciaTerra).replace(',','.')) || 0;
         let v = parseFloat(String(r.volumeReal).replace(',','.')) || 0;
         
         let tarifaTransp = isSerrana ? calcularTarifaTransporte(asfalto, terra) : 0;
         let recTransp = isSerrana ? (v * tarifaTransp) : 0;
-        let recCarreg = v * precoCarregamento;
+        let recCarreg = isNossaGrua ? (v * precoCarregamento) : 0;
 
         const ch = `${r.dataDaBaseExcel}_${r.placa}_${asfalto}_${terra}`;
 
