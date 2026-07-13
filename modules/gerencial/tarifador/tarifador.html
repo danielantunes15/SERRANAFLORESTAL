@@ -1,0 +1,77 @@
+<div class="max-w-[96rem] mx-auto px-6 py-8">
+    <div class="flex justify-between items-center mb-8 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
+        <div>
+            <h1 class="text-2xl font-extrabold text-white"><i class="fas fa-calculator text-emerald-400 mr-3"></i> Tarifador</h1>
+            <p class="text-sm text-slate-400 font-medium">Importe a tabela de tarifas e consulte os valores por distância de Asfalto e Terra</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Bloco 1: Calculadora de Tarifa -->
+        <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl p-5 border border-slate-700/50 shadow-lg">
+            <h3 class="font-bold text-white mb-4 border-b border-slate-700/50 pb-2"><i class="fas fa-search text-sky-400 mr-2"></i> Consultar Tarifa</h3>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="flex flex-col">
+                    <label class="text-xs font-bold text-slate-400 uppercase mb-1">Asfalto (km)</label>
+                    <input type="number" id="consultaAsfalto" step="0.01" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-sky-500">
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-xs font-bold text-slate-400 uppercase mb-1">Terra (km)</label>
+                    <input type="number" id="consultaTerra" step="0.01" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-sky-500">
+                </div>
+            </div>
+            <button onclick="window.consultarTarifa()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-3 rounded-lg transition-all mb-4">
+                Calcular Valor
+            </button>
+            <div id="resultadoTarifa" class="hidden p-4 rounded-lg bg-slate-900 border border-slate-700 text-center">
+                <p class="text-slate-400 text-sm mb-1">Valor da Tarifa:</p>
+                <p class="text-3xl font-black text-emerald-400 font-mono" id="valorTarifa">R$ 0,00</p>
+                <p class="text-xs text-slate-500 mt-2" id="msgTarifa"></p>
+            </div>
+        </div>
+
+        <!-- Bloco 2: Importação via Excel -->
+        <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl p-5 border border-slate-700/50 shadow-lg">
+            <h3 class="font-bold text-white mb-4 border-b border-slate-700/50 pb-2"><i class="fas fa-upload text-emerald-400 mr-2"></i> Importar Nova Tabela Excel</h3>
+            
+            <div class="flex flex-col mb-4">
+                <label class="text-xs font-bold text-slate-400 uppercase mb-1">Nome da Tabela</label>
+                <input type="text" id="tarifadorNome" placeholder="Ex: Tabela Maio/2026" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-emerald-500">
+            </div>
+
+            <div class="border-2 border-dashed border-slate-600 rounded-xl p-6 text-center hover:border-emerald-500 transition-colors cursor-pointer" onclick="document.getElementById('tarifadorFile').click()">
+                <i class="fas fa-file-excel text-4xl text-slate-400 mb-3"></i>
+                <p class="text-slate-300 font-bold" id="tarifadorFileName">Clique para selecionar o arquivo Excel</p>
+                <p class="text-xs text-slate-500 mt-1">Formato: Col A (Asfalto), Linha 1 (Terra)</p>
+            </div>
+            <input type="file" id="tarifadorFile" accept=".xlsx, .xls" class="hidden" onchange="window.previewTarifador(event)">
+
+            <button onclick="window.importarTarifador()" class="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-lg transition-all shadow-md">
+                Salvar Tabela
+            </button>
+        </div>
+    </div>
+
+    <!-- Bloco 3: Listagem de Tabelas Salvas -->
+    <div class="mt-8 bg-slate-800/60 backdrop-blur-sm rounded-xl border border-slate-700/50 overflow-hidden">
+        <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+            <h3 class="font-bold text-white uppercase"><i class="fas fa-list text-indigo-400 mr-2"></i> Tabelas Salvas</h3>
+        </div>
+        <div class="overflow-x-auto max-h-[400px] overflow-y-auto custom-scrollbar">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-xs sticky top-0">
+                    <tr>
+                        <th class="px-6 py-3">Nome da Tabela</th>
+                        <th class="px-6 py-3">Data Importação</th>
+                        <th class="px-6 py-3 text-center">Registros</th>
+                        <th class="px-6 py-3 text-center">Status</th>
+                        <th class="px-6 py-3 text-right">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyTarifadores" class="divide-y divide-slate-800/80 text-slate-300">
+                    <!-- Preenchido via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

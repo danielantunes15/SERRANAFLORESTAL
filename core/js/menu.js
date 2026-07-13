@@ -55,6 +55,7 @@ window.MAPA_MENUS = [
     { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Gerencial', icon: 'fas fa-money-bill-wave' },
     { id: 'evolucao_fazendas', label: 'Evolução das Fazendas', setor: 'Gerencial', icon: 'fas fa-seedling' },
     { id: 'visao_executiva', label: 'Visão Executiva (Global)', setor: 'Gerencial', icon: 'fas fa-globe-americas' },
+    { id: 'tarifador', label: 'Tarifador', setor: 'Gerencial', icon: 'fas fa-calculator' },
     
     // --- MÓDULO GLOBAL ---
     { id: 'gestao_filiais', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
@@ -115,6 +116,8 @@ const ROTAS = {
     'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', 
     'evolucao_fazendas': 'modules/gerencial/evolucao_fazendas/evolucao_fazendas.html',
     'visao_executiva': 'modules/gerencial/visao_executiva/visao_executiva.html', 
+    'tarifador': 'modules/gerencial/tarifador/tarifador.html',
+    
     'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
     'historico_producao': 'modules/monitoramento/historico/historico.html',
     'historico_jornadas': 'modules/monitoramento/historico_jornadas/historico_jornadas.html',
@@ -131,7 +134,7 @@ const ROTAS = {
 // =========================================================================================
 // MUDANÇA DE VERSÃO: FORÇA O NAVEGADOR A LIMPAR O CACHE E BAIXAR OS ARQUIVOS NOVOS
 // =========================================================================================
-const VERSAO_SISTEMA = "1.0.16"; 
+const VERSAO_SISTEMA = "1.0.17"; 
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -157,6 +160,11 @@ window.renderizarMenu = async function() {
 
     if (userKey && permissoesAtuais[userKey] && !permissoesAtuais[userKey].includes('__RESET__')) {
         meusMenus = permissoesAtuais[userKey];
+    }
+    
+    // Garante que o menu do tarifador apareça caso não tenha sido configurado ainda no banco de dados para os Admins
+    if (userRole === 'Admin' || userRole === 'SuperAdmin') {
+        if (!meusMenus.includes('tarifador')) meusMenus.push('tarifador');
     }
     
     const isAdmin = userRole === 'Admin' || userRole === 'SuperAdmin';
@@ -346,6 +354,10 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'producao_frota' && typeof window.initProducaoFrota === 'function') window.initProducaoFrota();
         if (pagina === 'evolucao_fazendas' && typeof window.initEvolucaoFazendas === 'function') window.initEvolucaoFazendas();
         if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
+        
+        // Chamada de inicialização do Módulo Tarifador
+        if (pagina === 'tarifador' && typeof window.initTarifador === 'function') window.initTarifador();
+
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();
         if (pagina === 'historico_producao' && typeof window.initHistoricoProducao === 'function') window.initHistoricoProducao();
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();
