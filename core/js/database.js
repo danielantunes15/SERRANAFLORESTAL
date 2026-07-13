@@ -366,6 +366,7 @@ const db = {
                     valor_unitario: valorUnitarioItem,
                     nota_fiscal: nf,
                     fornecedor: fornecedor,
+                    usuario: item.usuario || (window.currentUser ? window.currentUser.username : 'Sistema'),
                     data_movimentacao: new Date().toISOString()
                 });
                 await supabaseClient.from('almoxarifado_movimentacoes').insert([mov]);
