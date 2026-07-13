@@ -1,210 +1,236 @@
-// =========================================================================
-// Módulo: Controladoria -> Histórico de Ocorrências
-// Ficheiro: modules/controladoria/ocorrencias/historico_ocorrencias.js
-// =========================================================================
-
-window.listaOcorrenciasGlobais = [];
+// ==================== MÓDULO: HISTÓRICO DE OCORRÊNCIAS ====================
+window.ocorrenciasCache = [];
 
 window.initHistoricoOcorrencias = async function() {
     await window.carregarHistoricoOcorrencias();
-};
+}
 
 window.carregarHistoricoOcorrencias = async function() {
     const tbody = document.getElementById('tbodyHistoricoOcorrencias');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">Carregando dados...</td></tr>';
-    
+
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Buscando ocorrências no banco de dados...</td></tr>';
+
     try {
-        let query = supabaseClient.from('ocorrencias').select('*').order('id', { ascending: false });
-        if (typeof window.aplicarFiltroFilial === 'function') {
-            query = window.aplicarFiltroFilial(query);
-        }
+        // Busca na tabela real de ocorrências ordenando pelo ID
+        let query = window.supabaseClient.from('ocorrencias').select('*').order('id', { ascending: false });
+        query = window.aplicarFiltroFilial(query); 
 
         const { data, error } = await query;
         if (error) throw error;
-        
-        window.listaOcorrenciasGlobais = data || [];
-        window.renderizarTabelaOcorrencias();
 
-    } catch (error) {
-        console.error("Erro ao carregar histórico:", error);
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #ef4444;">Erro ao carregar dados de ocorrências.</td></tr>';
+        window.ocorrenciasCache = data || [];
+        window.popularFiltrosOcorrencias();
+        window.renderizarHistoricoOcorrencias();
+    } catch (e) {
+        console.error("Erro ao carregar ocorrências", e);
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #ef4444;">Ocorreu um erro ao carregar os dados.</td></tr>';
     }
-};
+}
 
-window.renderizarTabelaOcorrencias = function() {
+window.popularFiltrosOcorrencias = function() {
+    const selectSetor = document.getElementById('filtroSetor');
+    const selectEnvolvido = document.getElementById('filtroEnvolvido');
+    const selectPlaca = document.getElementById('filtroPlaca');
+
+    if (!selectSetor || !selectEnvolvido || !selectPlaca) return;
+
+    let setores = new Set();
+    let envolvidos = new Set();
+    let placas = new Set();
+
+    window.ocorrenciasCache.forEach(o => {
+        if (o.setor) setores.add(o.setor);
+        if (o.nome_envolvido) envolvidos.add(o.nome_envolvido);
+        if (o.placa) placas.add(o.placa.toUpperCase());
+    });
+
+    const valSetor = selectSetor.value;
+    const valEnv = selectEnvolvido.value;
+    const valPlaca = selectPlaca.value;
+
+    let htmlSetor = '<option value="">Todos os Setores</option>';
+    Array.from(setores).sort().forEach(s => htmlSetor += `<option value="${s}">${s}</option>`);
+    selectSetor.innerHTML = htmlSetor;
+    selectSetor.value = valSetor;
+
+    let htmlEnv = '<option value="">Todos os Envolvidos</option>';
+    Array.from(envolvidos).sort().forEach(r => htmlEnv += `<option value="${r}">${r}</option>`);
+    selectEnvolvido.innerHTML = htmlEnv;
+    selectEnvolvido.value = valEnv;
+
+    let htmlPlaca = '<option value="">Todas as Placas</option>';
+    Array.from(placas).sort().forEach(p => htmlPlaca += `<option value="${p}">${p}</option>`);
+    selectPlaca.innerHTML = htmlPlaca;
+    selectPlaca.value = valPlaca;
+}
+
+window.renderizarHistoricoOcorrencias = function() {
     const tbody = document.getElementById('tbodyHistoricoOcorrencias');
     if (!tbody) return;
 
-    if (window.listaOcorrenciasGlobais.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #94a3b8; padding: 20px;">Nenhuma ocorrência encontrada.</td></tr>';
+    const fSetor = document.getElementById('filtroSetor').value;
+    const fEnv = document.getElementById('filtroEnvolvido').value;
+    const fPlaca = document.getElementById('filtroPlaca').value;
+    const fData = document.getElementById('filtroData').value;
+
+    let filtrados = window.ocorrenciasCache.filter(o => {
+        let match = true;
+        if (fSetor && o.setor !== fSetor) match = false;
+        if (fEnv && o.nome_envolvido !== fEnv) match = false;
+        if (fPlaca && (o.placa || '').toUpperCase() !== fPlaca) match = false;
+        if (fData && o.data_ocorrido !== fData) match = false;
+        return match;
+    });
+
+    if (filtrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #94a3b8;">Nenhuma ocorrência encontrada.</td></tr>';
         return;
     }
 
     let html = '';
-    window.listaOcorrenciasGlobais.forEach(oco => {
-        let dataFmt = oco.data_ocorrido;
-        if (dataFmt) {
-            const [ano, mes, dia] = dataFmt.split('-');
-            dataFmt = `${dia}/${mes}/${ano}`;
+    filtrados.forEach(o => {
+        const dataFormatada = o.data_ocorrido ? o.data_ocorrido.split('-').reverse().join('/') : '-';
+        
+        let badgeStatus = '';
+        if (o.status === 'Resolvida') {
+            badgeStatus = '<span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid rgba(16, 185, 129, 0.3);">Resolvida</span>';
+        } else if (o.status === 'Em Andamento') {
+            badgeStatus = '<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid rgba(245, 158, 11, 0.3);">Andamento</span>';
         } else {
-            dataFmt = '-';
+            // CORREÇÃO: Uso de crases para garantir o template literal correto sem quebrar o JavaScript
+            badgeStatus = `<span style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid rgba(239, 68, 68, 0.3);">${o.status || 'Aberta'}</span>`;
         }
 
-        const idFormatado = `#${String(oco.id).padStart(4, '0')}`;
-        const osBadge = oco.numero_os ? `<span style="background: #3b82f6; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 8px;">OS #${oco.numero_os}</span>` : '';
+        // Botões de ação na Horizontal (lado a lado)
+        const acoesHtml = `
+            <div style="display: flex; gap: 8px; justify-content: center;">
+                <button class="btn-action-sm btn-edit" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid #3b82f6; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s;" onclick="abrirModalEdicaoOcorrencia(${o.id})" title="Editar"><i class="fas fa-pen"></i></button>
+                <button class="btn-action-sm btn-delete" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s;" onclick="excluirOcorrencia(${o.id})" title="Excluir"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
 
         html += `
-            <tr>
-                <td style="font-weight: bold; color: var(--ccol-blue-bright);">${idFormatado} ${osBadge}</td>
-                <td>${dataFmt}</td>
-                <td>${oco.placa || '-'}</td>
-                <td>${oco.nome_envolvido || '-'}</td>
-                <td>${oco.gestor_imediato || '-'}</td>
-                <td>
-                    <button onclick="abrirModalHistoricoOcorrencia(${oco.id}, 'visualizar')" class="btn-icon-only" style="color: #60a5fa;" title="Visualizar"><i class="fas fa-eye"></i></button>
-                    <button onclick="abrirModalHistoricoOcorrencia(${oco.id}, 'editar')" class="btn-icon-only" style="color: #f59e0b;" title="Editar"><i class="fas fa-edit"></i></button>
-                    <button onclick="imprimirOcorrenciaDireto(${oco.id})" class="btn-icon-only" style="color: #10b981;" title="Imprimir Formulário"><i class="fas fa-print"></i></button>
-                    <button onclick="excluirOcorrencia(${oco.id})" class="btn-icon-only" style="color: #ef4444;" title="Excluir"><i class="fas fa-trash"></i></button>
-                </td>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.3s ease;">
+                <td style="color: #94a3b8; font-weight: bold;">${dataFormatada}</td>
+                <td style="color: #94a3b8;">${o.hora_ocorrido || '-'}</td>
+                <td style="font-weight: 600; color: #e2e8f0;">${o.setor || '-'}</td>
+                <td style="font-weight: 600;">${o.nome_envolvido || '-'}</td>
+                <td style="font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.05rem;">${o.placa || '-'}</td>
+                <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="${o.descricao_fatos || ''}">${o.descricao_fatos || '-'}</td>
+                <td style="text-align: center;">${badgeStatus}</td>
+                <td>${acoesHtml}</td>
             </tr>
         `;
     });
 
     tbody.innerHTML = html;
-};
+}
 
-window.imprimirOcorrenciaDireto = function(id) {
-    const oco = window.listaOcorrenciasGlobais.find(o => o.id === id);
-    if (oco && typeof window.imprimirFolhaOcorrencia === 'function') {
-        window.imprimirFolhaOcorrencia(oco);
+window.abrirModalEdicaoOcorrencia = function(id) {
+    const o = window.ocorrenciasCache.find(x => x.id === id);
+    if (!o) return;
+
+    // Popula todos os campos mapeados do banco
+    document.getElementById('edit_id').value = o.id;
+    document.getElementById('edit_numero_frota').value = o.numero_frota || '';
+    document.getElementById('edit_placa').value = o.placa || '';
+    document.getElementById('edit_modelo').value = o.modelo || '';
+    document.getElementById('edit_empresa').value = o.empresa || '';
+    document.getElementById('edit_numero_os').value = o.numero_os || '';
+    document.getElementById('edit_data_ocorrido').value = o.data_ocorrido || '';
+    document.getElementById('edit_hora_ocorrido').value = o.hora_ocorrido || '';
+    document.getElementById('edit_local_projeto').value = o.local_projeto || '';
+    document.getElementById('edit_nome_envolvido').value = o.nome_envolvido || '';
+    document.getElementById('edit_funcao').value = o.funcao || '';
+    document.getElementById('edit_tempo_empresa').value = o.tempo_empresa || '';
+    document.getElementById('edit_escala').value = o.escala || '';
+    document.getElementById('edit_descricao_fatos').value = o.descricao_fatos || '';
+    document.getElementById('edit_prevencao_falha').value = o.prevencao_falha || '';
+    document.getElementById('edit_parecer_gestor').value = o.parecer_gestor || '';
+    document.getElementById('edit_gestor_imediato').value = o.gestor_imediato || '';
+    document.getElementById('edit_gerente').value = o.gerente || '';
+    document.getElementById('edit_data_abertura_os').value = o.data_abertura_os || '';
+    document.getElementById('edit_setor').value = o.setor || '';
+    document.getElementById('edit_tipo_ocorrencia').value = o.tipo_ocorrencia || '';
+    
+    // Assegura o Status
+    const statusSelect = document.getElementById('edit_status');
+    if(!Array.from(statusSelect.options).some(opt => opt.value === o.status)) {
+        if(o.status) statusSelect.innerHTML += `<option value="${o.status}">${o.status}</option>`;
     }
-};
+    statusSelect.value = o.status || 'Aberta';
 
-window.imprimirOcorrenciaDoModal = function() {
-    const id = parseInt(document.getElementById('hist_id').value);
-    const oco = window.listaOcorrenciasGlobais.find(o => o.id === id);
-    if (oco && typeof window.imprimirFolhaOcorrencia === 'function') {
-        window.imprimirFolhaOcorrencia(oco);
-    }
-};
+    document.getElementById('edit_valor_prejuizo').value = o.valor_prejuizo || '';
+    document.getElementById('edit_is_responsavel').value = o.is_responsavel ? "true" : "false";
 
-window.abrirModalHistoricoOcorrencia = function(id, modo) {
-    const oco = window.listaOcorrenciasGlobais.find(o => o.id === id);
-    if (!oco) return;
+    // Abre o Modal centralizado
+    document.getElementById('modalEditarOcorrencia').style.display = 'flex';
+}
 
-    document.getElementById('hist_id').value = oco.id;
-    document.getElementById('hist_numero_frota').value = oco.numero_frota || '';
-    document.getElementById('hist_placa').value = oco.placa || '';
-    document.getElementById('hist_modelo').value = oco.modelo || '';
-    document.getElementById('hist_empresa').value = oco.empresa || '';
-    document.getElementById('hist_numero_os').value = oco.numero_os || '';
-    document.getElementById('hist_data_abertura_os').value = oco.data_abertura_os || '';
-    document.getElementById('hist_data_ocorrido').value = oco.data_ocorrido || '';
-    document.getElementById('hist_hora_ocorrido').value = oco.hora_ocorrido || '';
-    document.getElementById('hist_local_projeto').value = oco.local_projeto || '';
-    document.getElementById('hist_nome_envolvido').value = oco.nome_envolvido || '';
-    document.getElementById('hist_funcao').value = oco.funcao || '';
-    document.getElementById('hist_tempo_empresa').value = oco.tempo_empresa || '';
-    document.getElementById('hist_escala').value = oco.escala || '';
-    document.getElementById('hist_descricao_fatos').value = oco.descricao_fatos || '';
-    document.getElementById('hist_prevencao_falha').value = oco.prevencao_falha || '';
-    document.getElementById('hist_parecer_gestor').value = oco.parecer_gestor || '';
-    document.getElementById('hist_gestor_imediato').value = oco.gestor_imediato || '';
-    document.getElementById('hist_gerente').value = oco.gerente || '';
-
-    const btnVerOS = document.getElementById('btnVerOSHist');
-    if (oco.numero_os && btnVerOS) {
-        btnVerOS.style.display = 'block';
-    } else if (btnVerOS) {
-        btnVerOS.style.display = 'none';
-    }
-
-    const inputs = document.querySelectorAll('#modalHistoricoOcorrencia input, #modalHistoricoOcorrencia textarea');
-    const btnSalvar = document.getElementById('btnSalvarEdicaoOcorrencia');
-
-    if (modo === 'visualizar') {
-        document.getElementById('modalHistoricoOcorrenciaTitle').innerText = `Detalhes da Ocorrência #${String(oco.id).padStart(4, '0')}`;
-        inputs.forEach(i => i.disabled = true);
-        btnSalvar.style.display = 'none';
-    } else {
-        document.getElementById('modalHistoricoOcorrenciaTitle').innerText = `Editar Ocorrência #${String(oco.id).padStart(4, '0')}`;
-        // Para garantir que a data da O.S continue inalterável mesmo no modo de edição:
-        inputs.forEach(i => {
-            if(i.id !== 'hist_data_abertura_os') {
-                i.disabled = false;
-            }
-        });
-        btnSalvar.style.display = 'block';
-    }
-
-    document.getElementById('modalHistoricoOcorrencia').style.display = 'flex';
-};
-
-window.fecharModalHistoricoOcorrencia = function() {
-    document.getElementById('modalHistoricoOcorrencia').style.display = 'none';
-};
+window.fecharModalEdicaoOcorrencia = function() {
+    document.getElementById('modalEditarOcorrencia').style.display = 'none';
+}
 
 window.salvarEdicaoOcorrencia = async function() {
-    const id = document.getElementById('hist_id').value;
+    const id = document.getElementById('edit_id').value;
     
+    // Captura os dados exatos como a tabela do banco requer
     const payload = {
-        numero_frota: document.getElementById('hist_numero_frota').value,
-        placa: document.getElementById('hist_placa').value,
-        modelo: document.getElementById('hist_modelo').value,
-        empresa: document.getElementById('hist_empresa').value,
-        numero_os: document.getElementById('hist_numero_os').value,
-        data_abertura_os: document.getElementById('hist_data_abertura_os').value || null,
-        data_ocorrido: document.getElementById('hist_data_ocorrido').value,
-        hora_ocorrido: document.getElementById('hist_hora_ocorrido').value,
-        local_projeto: document.getElementById('hist_local_projeto').value,
-        nome_envolvido: document.getElementById('hist_nome_envolvido').value,
-        funcao: document.getElementById('hist_funcao').value,
-        tempo_empresa: document.getElementById('hist_tempo_empresa').value,
-        escala: document.getElementById('hist_escala').value,
-        descricao_fatos: document.getElementById('hist_descricao_fatos').value,
-        prevencao_falha: document.getElementById('hist_prevencao_falha').value,
-        parecer_gestor: document.getElementById('hist_parecer_gestor').value,
-        gestor_imediato: document.getElementById('hist_gestor_imediato').value,
-        gerente: document.getElementById('hist_gerente').value
+        numero_frota: document.getElementById('edit_numero_frota').value,
+        placa: document.getElementById('edit_placa').value.toUpperCase(),
+        modelo: document.getElementById('edit_modelo').value,
+        empresa: document.getElementById('edit_empresa').value,
+        numero_os: document.getElementById('edit_numero_os').value,
+        data_ocorrido: document.getElementById('edit_data_ocorrido').value,
+        hora_ocorrido: document.getElementById('edit_hora_ocorrido').value,
+        local_projeto: document.getElementById('edit_local_projeto').value,
+        nome_envolvido: document.getElementById('edit_nome_envolvido').value,
+        funcao: document.getElementById('edit_funcao').value,
+        tempo_empresa: document.getElementById('edit_tempo_empresa').value,
+        escala: document.getElementById('edit_escala').value,
+        descricao_fatos: document.getElementById('edit_descricao_fatos').value,
+        prevencao_falha: document.getElementById('edit_prevencao_falha').value,
+        parecer_gestor: document.getElementById('edit_parecer_gestor').value,
+        gestor_imediato: document.getElementById('edit_gestor_imediato').value,
+        gerente: document.getElementById('edit_gerente').value,
+        data_abertura_os: document.getElementById('edit_data_abertura_os').value || null, // data pode ser null se vazia
+        setor: document.getElementById('edit_setor').value,
+        tipo_ocorrencia: document.getElementById('edit_tipo_ocorrencia').value,
+        status: document.getElementById('edit_status').value,
+        valor_prejuizo: document.getElementById('edit_valor_prejuizo').value ? parseFloat(document.getElementById('edit_valor_prejuizo').value) : null,
+        is_responsavel: document.getElementById('edit_is_responsavel').value === "true"
     };
 
+    if(!payload.data_ocorrido || !payload.placa || !payload.nome_envolvido || !payload.descricao_fatos) {
+        alert("Preencha os campos obrigatórios (Data, Placa, Nome e Descrição).");
+        return;
+    }
+
     try {
-        const { error } = await supabaseClient.from('ocorrencias').update(payload).eq('id', id);
+        const { error } = await window.supabaseClient.from('ocorrencias').update(payload).eq('id', id);
         if (error) throw error;
 
-        alert("Ocorrência atualizada com sucesso!");
-        fecharModalHistoricoOcorrencia();
-        await carregarHistoricoOcorrencias();
-    } catch (error) {
-        console.error("Erro ao atualizar ocorrência:", error);
-        alert("Erro ao atualizar os dados.");
+        alert('Ocorrência atualizada com sucesso!');
+        window.fecharModalEdicaoOcorrencia();
+        await window.carregarHistoricoOcorrencias();
+    } catch (e) {
+        alert('Erro ao atualizar ocorrência. Verifique a conexão com o banco.');
+        console.error(e);
     }
-};
+}
 
 window.excluirOcorrencia = async function(id) {
-    if (!confirm("Atenção! Deseja realmente excluir esta ocorrência de forma permanente?")) return;
+    if (!confirm("Tem certeza que deseja excluir permanentemente esta ocorrência?")) return;
 
     try {
-        const { error } = await supabaseClient.from('ocorrencias').delete().eq('id', id);
+        const { error } = await window.supabaseClient.from('ocorrencias').delete().eq('id', id);
         if (error) throw error;
 
-        alert("Ocorrência excluída com sucesso.");
-        await carregarHistoricoOcorrencias();
-    } catch (error) {
-        console.error("Erro ao excluir:", error);
-        alert("Falha ao tentar excluir a ocorrência.");
+        alert('Ocorrência excluída com sucesso!');
+        await window.carregarHistoricoOcorrencias();
+    } catch (e) {
+        alert('Erro ao excluir ocorrência.');
+        console.error(e);
     }
-};
-
-window.visualizarOSVinculada = function() {
-    const numero_os = document.getElementById('hist_numero_os').value;
-    if (numero_os) {
-        if (typeof window.abrirModalOsCompleta === 'function') {
-            fecharModalHistoricoOcorrencia();
-            window.abrirModalOsCompleta(numero_os);
-        } else {
-            alert(`Ocorrência vinculada à O.S. #${numero_os}.\nPara ver mais detalhes, acesse o painel de Gestão de Ordens de Serviço.`);
-        }
-    }
-};
+}
