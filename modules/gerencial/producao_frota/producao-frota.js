@@ -243,12 +243,13 @@ function processarFiltrosEExibir() {
             const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
             
             const v = parseFloat(String(registro.volumeReal).replace(',','.')) || 0;
+            const asfalto = parseFloat(String(registro.distanciaAsfalto).replace(',','.')) || 0;
+            const terra = parseFloat(String(registro.distanciaTerra).replace(',','.')) || 0;
             
             // Lógica de cálculo financeiro
-            let tarifaTransporte = isSerrana ? calcularTarifaTransporte(registro.distanciaAsfalto, registro.distanciaTerra) : 0;
-            
+            let tarifaTransporte = isSerrana ? calcularTarifaTransporte(asfalto, terra) : 0;
             let recTransporte = isSerrana ? (v * tarifaTransporte) : 0;
-            let recCarregamento = v * precoCarregamento; // Carregamento é para TODOS que passarem no filtro
+            let recCarregamento = v * precoCarregamento;
 
             // Acumuladores Globais
             if (isSerrana) {
@@ -260,20 +261,32 @@ function processarFiltrosEExibir() {
             tCarregVol += v;
             tCarregRec += recCarregamento;
 
-            // Acumulador Tabela por Placa
-            if (!agrupamentoTabela[pl]) agrupamentoTabela[pl] = { placa: pl, transp: tr, isSerrana: isSerrana, viagens: 0, volume: 0, recTransp: 0, recCarreg: 0 };
+            // Acumulador Tabela (Agora separado por Placa + Distâncias para mostrar a tarifa corretamente)
+            const chaveTabela = `${pl}_${asfalto}_${terra}`;
+
+            if (!agrupamentoTabela[chaveTabela]) {
+                agrupamentoTabela[chaveTabela] = { 
+                    placa: pl, 
+                    transp: tr, 
+                    isSerrana: isSerrana, 
+                    asfalto: asfalto, 
+                    terra: terra, 
+                    tarifa: tarifaTransporte,
+                    viagens: 0, 
+                    volume: 0, 
+                    recTransp: 0, 
+                    recCarreg: 0 
+                };
+            }
             
-            agrupamentoTabela[pl].viagens += 1;
-            agrupamentoTabela[pl].volume += v;
-            agrupamentoTabela[pl].recTransp += recTransporte;
-            agrupamentoTabela[pl].recCarreg += recCarregamento;
+            agrupamentoTabela[chaveTabela].viagens += 1;
+            agrupamentoTabela[chaveTabela].volume += v;
+            agrupamentoTabela[chaveTabela].recTransp += recTransporte;
+            agrupamentoTabela[chaveTabela].recCarreg += recCarregamento;
 
             // Acumulador Diário para os Gráficos
             if (d) {
-                if (!agrupamentoDiario[d]) agrupamentoDiario[d] = { 
-                    volTransp: 0, recTransp: 0, 
-                    volCarreg: 0, recCarreg: 0 
-                };
+                if (!agrupamentoDiario[d]) agrupamentoDiario[d] = { volTransp: 0, recTransp: 0, volCarreg: 0, recCarreg: 0 };
                 if (isSerrana) {
                     agrupamentoDiario[d].volTransp += v;
                     agrupamentoDiario[d].recTransp += recTransporte;
@@ -283,7 +296,10 @@ function processarFiltrosEExibir() {
             }
         });
 
-        dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => b.viagens - a.viagens);
+        dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => {
+            if (a.placa === b.placa) return b.viagens - a.viagens; // Se mesma placa, agrupa mais viagens primeiro
+            return a.placa.localeCompare(b.placa); // Ordem alfabética nas placas
+        });
         agrupamentoDiarioGlobal = agrupamentoDiario;
 
         // Atualização dos Cards Superiores
@@ -301,7 +317,7 @@ function processarFiltrosEExibir() {
         desenharGraficos(agrupamentoDiarioGlobal);
         renderizarTabela(dadosAgrupadosAtual);
 
-        if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} placas analisadas`;
+        if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} rotas analisadas`;
         
     } catch (errInterface) {
         console.error("[PRODUCAO] Erro Crítico na montagem da tela:", errInterface);
@@ -393,24 +409,28 @@ function renderizarTabela(dados) {
         tbody.innerHTML = '';
         
         if (dados.length === 0) { 
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500">Nenhum dado encontrado para os filtros selecionados.</td></tr>`; 
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center p-8 text-slate-500">Nenhum dado encontrado para os filtros selecionados.</td></tr>`; 
             return; 
         }
 
         dados.forEach(l => {
             const totalGerado = l.recTransp + l.recCarreg;
             
-            // Destacar o nome se for Serrana
             const isSerranaBadge = l.isSerrana 
                 ? `<span class="bg-sky-500/10 text-sky-400 font-bold px-2 py-0.5 rounded text-[10px]">${l.transp}</span>` 
-                : `<span class="text-slate-400">${l.transp}</span>`;
+                : `<span class="text-slate-400 text-xs">${l.transp}</span>`;
+                
+            const tarifaStr = l.isSerrana && l.tarifa > 0 ? l.tarifa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
 
             const tr = document.createElement('tr');
             tr.className = "hover:bg-slate-700/30 transition-colors";
             
             tr.innerHTML = `
                 <td class="px-6 py-3 font-bold text-white"><span class="bg-slate-900 px-2 py-1 rounded border border-slate-700 font-mono tracking-widest">${l.placa}</span></td>
-                <td class="px-6 py-3 text-xs uppercase">${isSerranaBadge}</td>
+                <td class="px-6 py-3 uppercase">${isSerranaBadge}</td>
+                <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.asfalto} km</td>
+                <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.terra} km</td>
+                <td class="px-6 py-3 text-center text-sky-400 font-mono font-bold">${tarifaStr}</td>
                 <td class="px-6 py-3 text-center text-slate-300 font-black">${l.viagens}</td>
                 <td class="px-6 py-3 text-right text-slate-300 font-mono font-bold">${l.volume.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                 <td class="px-6 py-3 text-right text-sky-400 font-mono">${l.recTransp.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
@@ -441,16 +461,30 @@ function exportarParaExcel() {
     dadosFiltradosAtual.forEach(r => {
         const tr = r.transportadora ? r.transportadora.toUpperCase() : 'N/A';
         const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
-        const ch = `${r.dataDaBaseExcel}_${r.placa}`;
         
         let asfalto = parseFloat(String(r.distanciaAsfalto).replace(',','.')) || 0;
         let terra = parseFloat(String(r.distanciaTerra).replace(',','.')) || 0;
         let v = parseFloat(String(r.volumeReal).replace(',','.')) || 0;
         
-        let recTransp = isSerrana ? (v * calcularTarifaTransporte(asfalto, terra)) : 0;
+        let tarifaTransp = isSerrana ? calcularTarifaTransporte(asfalto, terra) : 0;
+        let recTransp = isSerrana ? (v * tarifaTransp) : 0;
         let recCarreg = v * precoCarregamento;
 
-        if(!obj[ch]) obj[ch] = { Data: r.dataDaBaseExcel, Placa: r.placa, Transp: tr, Viagens: 0, Vol: 0, RecTransp: 0, RecCarreg: 0 };
+        const ch = `${r.dataDaBaseExcel}_${r.placa}_${asfalto}_${terra}`;
+
+        if(!obj[ch]) obj[ch] = { 
+            Data: r.dataDaBaseExcel, 
+            Placa: r.placa, 
+            Transp: tr, 
+            Asfalto: asfalto, 
+            Terra: terra, 
+            Tarifa: tarifaTransp,
+            Viagens: 0, 
+            Vol: 0, 
+            RecTransp: 0, 
+            RecCarreg: 0 
+        };
+        
         obj[ch].Viagens += 1;
         obj[ch].Vol += v;
         obj[ch].RecTransp += recTransp;
@@ -461,6 +495,9 @@ function exportarParaExcel() {
         "Data": i.Data, 
         "Placa": i.Placa, 
         "Transportadora": i.Transp, 
+        "Dist. Asfalto (km)": i.Asfalto,
+        "Dist. Terra (km)": i.Terra,
+        "Tarifa Base (R$)": parseFloat(i.Tarifa.toFixed(4)),
         "Viagens": i.Viagens, 
         "Volume Total (m³)": parseFloat(i.Vol.toFixed(2)), 
         "Receita Transporte (R$)": parseFloat(i.RecTransp.toFixed(2)),
@@ -469,7 +506,7 @@ function exportarParaExcel() {
     }));
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelArr), "Detalhamento");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelArr), "Detalhamento de Rotas");
     XLSX.writeFile(wb, `${fileBase}.xlsx`);
 }
 
