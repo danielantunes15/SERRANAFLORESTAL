@@ -11,10 +11,13 @@ if(typeof Chart !== 'undefined') {
 
 var dadosHistoricoGlobal = [];
 var dadosAgrupadosAtual = [];
+var dadosFrentesAtual = [];
 var dadosFiltradosAtual = [];
 var agrupamentoDiarioGlobal = {}; 
 var tarifadorAtivoGlobal = null;
-var gruasPropriasCache = new Set(); // Guarda as gruas que são da Serrana (tipo_frente = 'Propria')
+
+// Agora usamos um Map para guardar as propriedades detalhadas das gruas
+var gruasPropriasCache = new Map(); 
 
 var chartVolumesObj = null;
 var chartReceitasObj = null;
@@ -102,17 +105,20 @@ async function buscarTodosDadosSupabase() {
     }
 
     try {
-        // 1. PRIMEIRO: BUSCAR AS GRUAS QUE SÃO "PROPRIAS"
+        // 1. PRIMEIRO: BUSCAR AS GRUAS E SUAS FRENTES / ORDEM
         if(tStatus) tStatus.innerText = "Baixando configurações de Gruas...";
-        const { data: gruasData } = await client.from('config_gruas').select('codigos, tipo_frente');
+        const { data: gruasData } = await client.from('config_gruas').select('codigos, tipo_frente, ordem, frente');
         
-        gruasPropriasCache = new Set();
+        gruasPropriasCache = new Map();
         if (gruasData) {
             gruasData.forEach(g => {
                 if (g.tipo_frente && g.tipo_frente.trim().toUpperCase() === 'PROPRIA' && g.codigos) {
-                    // Trata caso existam várias gruas separadas por vírgula no cadastro
                     g.codigos.split(',').forEach(c => {
-                        gruasPropriasCache.add(c.trim().toUpperCase());
+                        gruasPropriasCache.set(c.trim().toUpperCase(), {
+                            ordem: g.ordem || 'CX',
+                            frente: g.frente || 'FRENTE DESCONHECIDA',
+                            tipo_frente: g.tipo_frente
+                        });
                     });
                 }
             });
@@ -162,9 +168,9 @@ function popularDropdownTransportadoras(dados) {
              }
         });
         
-        let opsHtml = '<option value="">TODAS AS TRANSPORTADORAS (Geral)</option>';
-        opsHtml += '<option value="SOMENTE_SERRANA">📦 APENAS PRÓPRIAS (Serrana)</option>';
-        opsHtml += '<option value="SOMENTE_TERCEIROS">🤝 APENAS TERCEIROS</option>';
+        let opsHtml = '<option value="">TODAS AS TRANSPORTADORAS E FRENTES</option>';
+        opsHtml += '<option value="SOMENTE_SERRANA">📦 APENAS NOSSOS CAMINHÕES (Serrana)</option>';
+        opsHtml += '<option value="SOMENTE_TERCEIROS">🤝 APENAS CAMINHÕES TERCEIROS</option>';
         
         Array.from(transpSet).sort().forEach(t => {
             opsHtml += `<option value="${t}">${t}</option>`;
@@ -256,6 +262,7 @@ function processarFiltrosEExibir() {
         });
 
         const agrupamentoTabela = {};
+        const agrupamentoFrente = {};
         const agrupamentoDiario = {};
         
         let tTranspViagens = 0, tTranspVol = 0, tTranspRec = 0;
@@ -272,7 +279,8 @@ function processarFiltrosEExibir() {
             const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
             
             const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
-            const isNossaGrua = gruasPropriasCache.has(gruaReg);
+            const infoGrua = gruasPropriasCache.get(gruaReg);
+            const isNossaGrua = !!infoGrua;
             
             const v = parseFloat(String(registro.volumeReal).replace(',','.')) || 0;
             const asfalto = parseFloat(String(registro.distanciaAsfalto).replace(',','.')) || 0;
@@ -284,6 +292,7 @@ function processarFiltrosEExibir() {
             
             // REGRA 2: Carregamento só gera receita se a grua for nossa (Propria)
             let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
+            let totalReceitaItem = recTransporte + recCarregamento;
 
             // Acumuladores Globais
             if (isSerrana) {
@@ -298,7 +307,36 @@ function processarFiltrosEExibir() {
                 tCarregRec += recCarregamento;
             }
 
-            // Acumulador Tabela 
+            // === 1. ACUMULADOR POR FRENTE (CATEGORIA) ===
+            let nomeCategoria = "DESCONHECIDO";
+            if (isSerrana && isNossaGrua) {
+                let ordem = infoGrua.ordem || 'CX';
+                let frenteNome = infoGrua.frente || 'FRENTE DESCONHECIDA';
+                nomeCategoria = `${ordem}: SERRANA - ${frenteNome}`.toUpperCase();
+            } else if (!isSerrana && isNossaGrua) {
+                let nomeTr = tr.split(' ')[0]; // Pega primeira palavra da transportadora
+                nomeCategoria = `${nomeTr}: TRANSP. ${tr}`.toUpperCase();
+            } else if (isSerrana && !isNossaGrua) {
+                nomeCategoria = `OUTRAS FRENTES: NOSSOS CAMINHÕES`.toUpperCase();
+            }
+
+            const chaveFrente = `${nomeCategoria}_${asfalto}_${terra}`;
+            if (!agrupamentoFrente[chaveFrente]) {
+                agrupamentoFrente[chaveFrente] = {
+                    categoria: nomeCategoria,
+                    asfalto: asfalto,
+                    terra: terra,
+                    tarifa: tarifaTransporte,
+                    viagens: 0,
+                    volume: 0,
+                    receita: 0
+                };
+            }
+            agrupamentoFrente[chaveFrente].viagens += 1;
+            agrupamentoFrente[chaveFrente].volume += v;
+            agrupamentoFrente[chaveFrente].receita += totalReceitaItem;
+
+            // === 2. ACUMULADOR TABELA PLACA ===
             const chaveTabela = `${pl}_${asfalto}_${terra}`;
 
             if (!agrupamentoTabela[chaveTabela]) {
@@ -316,13 +354,12 @@ function processarFiltrosEExibir() {
                     recCarreg: 0 
                 };
             }
-            
             agrupamentoTabela[chaveTabela].viagens += 1;
             agrupamentoTabela[chaveTabela].volume += v;
             agrupamentoTabela[chaveTabela].recTransp += recTransporte;
             agrupamentoTabela[chaveTabela].recCarreg += recCarregamento;
 
-            // Acumulador Diário para os Gráficos
+            // === 3. ACUMULADOR DIÁRIO GRÁFICOS ===
             if (d) {
                 if (!agrupamentoDiario[d]) agrupamentoDiario[d] = { volTransp: 0, recTransp: 0, volCarreg: 0, recCarreg: 0 };
                 if (isSerrana) {
@@ -340,6 +377,9 @@ function processarFiltrosEExibir() {
             if (a.placa === b.placa) return b.viagens - a.viagens; 
             return a.placa.localeCompare(b.placa); 
         });
+
+        dadosFrentesAtual = Object.values(agrupamentoFrente).sort((a, b) => b.volume - a.volume);
+
         agrupamentoDiarioGlobal = agrupamentoDiario;
 
         // Atualização dos Cards Superiores
@@ -355,6 +395,7 @@ function processarFiltrosEExibir() {
         document.getElementById('valTotalReceita').innerText = totalConsolidado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
         desenharGraficos(agrupamentoDiarioGlobal);
+        renderizarTabelaFrentes(dadosFrentesAtual);
         renderizarTabela(dadosAgrupadosAtual);
 
         if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} rotas analisadas`;
@@ -441,6 +482,46 @@ function getBasicChartOptions(titleY, isMoney = false) {
     }
 }
 
+function renderizarTabelaFrentes(dados) {
+    try {
+        const tbody = document.getElementById('tbodyFrentes');
+        if(!tbody) return;
+        
+        tbody.innerHTML = '';
+        
+        if (dados.length === 0) { 
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center p-8 text-slate-500">Nenhum dado encontrado para os filtros selecionados.</td></tr>`; 
+            return; 
+        }
+
+        dados.forEach(l => {
+            const cx = l.viagens > 0 ? (l.volume / l.viagens) : 0;
+            const tarifaStr = l.tarifa > 0 ? l.tarifa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
+            
+            let badgeClass = 'bg-slate-500/10 text-slate-400 border-slate-700/50';
+            if (l.categoria.includes('SERRANA -')) badgeClass = 'bg-sky-500/10 text-sky-400 border-sky-500/30';
+            else if (l.categoria.includes('OUTRAS FRENTES')) badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+            else if (l.categoria.includes('TRANSP.')) badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-700/30 transition-colors";
+            
+            tr.innerHTML = `
+                <td class="px-6 py-3 font-bold text-white"><span class="${badgeClass} px-2 py-1 rounded text-xs border uppercase">${l.categoria}</span></td>
+                <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.asfalto} km</td>
+                <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.terra} km</td>
+                <td class="px-6 py-3 text-center text-sky-400 font-mono font-bold">${tarifaStr}</td>
+                <td class="px-6 py-3 text-center text-slate-300 font-black">${l.viagens}</td>
+                <td class="px-6 py-3 text-right text-slate-300 font-mono font-bold">${l.volume.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                <td class="px-6 py-3 text-right text-amber-400 font-mono font-bold">${cx.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                <td class="px-6 py-3 text-right text-purple-400 font-mono font-black">${l.receita.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch(e) { console.error("[PRODUCAO] Erro ao renderizar tabela de frentes:", e); }
+}
+
 function renderizarTabela(dados) {
     try {
         const tbody = document.getElementById('tbodyProducaoFrota');
@@ -495,11 +576,31 @@ function exportarParaExcel() {
     const dtFim = document.getElementById('dataFim') ? document.getElementById('dataFim').value : '';
     const fileBase = `Placas_Operacao_Financeira_${dtInicio}_a_${dtFim}`;
     
+    const wb = XLSX.utils.book_new();
+
+    // ==========================================
+    // 1. ABA DE FRENTES (RESUMO)
+    // ==========================================
+    const excelFrentesArr = dadosFrentesAtual.map(i => ({
+        "Frente / Categoria": i.categoria,
+        "Dist. Asfalto (km)": i.asfalto,
+        "Dist. Terra (km)": i.terra,
+        "Tarifa Transporte (R$)": parseFloat(i.tarifa.toFixed(4)),
+        "Viagens": i.viagens,
+        "Volume Total (m³)": parseFloat(i.volume.toFixed(2)),
+        "Caixa Média (m³)": parseFloat((i.viagens > 0 ? i.volume/i.viagens : 0).toFixed(2)),
+        "Receita Total (R$)": parseFloat(i.receita.toFixed(2))
+    }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelFrentesArr), "Resumo por Frente");
+
+    // ==========================================
+    // 2. ABA DETALHADA POR PLACA E ROTA
+    // ==========================================
     const obj = {};
     let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
 
     dadosFiltradosAtual.forEach(r => {
-        const dataViagem = r.dtFimDescarFabrica || r.dataDaBaseExcel; // Puxando prioritariamente dtFimDescarFabrica
+        const dataViagem = r.dtFimDescarFabrica || r.dataDaBaseExcel;
         const tr = r.transportadora ? r.transportadora.toUpperCase() : 'N/A';
         const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
         
@@ -549,7 +650,6 @@ function exportarParaExcel() {
         "Receita Total (R$)": parseFloat((i.RecTransp + i.RecCarreg).toFixed(2))
     }));
 
-    const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelArr), "Detalhamento de Rotas");
     XLSX.writeFile(wb, `${fileBase}.xlsx`);
 }
