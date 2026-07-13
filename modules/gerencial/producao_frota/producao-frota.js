@@ -243,9 +243,11 @@ function processarFiltrosEExibir() {
             if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) return false;
             if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) return false;
 
-            // Filtros de Data
-            if (registro.dataDaBaseExcel) {
-                const trTime = converterDataString(registro.dataDaBaseExcel).getTime();
+            // Filtros de Data - PUXANDO PELA dtFimDescarFabrica prioritariamente
+            const dataViagem = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
+            
+            if (dataViagem) {
+                const trTime = converterDataString(dataViagem).getTime();
                 if (trTime < timeInicio || trTime > timeFim) return false;
             } else {
                 return false; 
@@ -262,7 +264,9 @@ function processarFiltrosEExibir() {
         let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
 
         dadosFiltradosAtual.forEach(registro => {
-            const d = registro.dataDaBaseExcel;
+            // Data Oficial da Viagem baseada no Descarregamento
+            const d = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
+            
             const pl = registro.placa ? registro.placa.trim().toUpperCase() : 'N/A';
             const tr = registro.transportadora ? registro.transportadora.toUpperCase() : 'N/A';
             const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
@@ -495,6 +499,7 @@ function exportarParaExcel() {
     let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
 
     dadosFiltradosAtual.forEach(r => {
+        const dataViagem = r.dtFimDescarFabrica || r.dataDaBaseExcel; // Puxando prioritariamente dtFimDescarFabrica
         const tr = r.transportadora ? r.transportadora.toUpperCase() : 'N/A';
         const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
         
@@ -509,10 +514,10 @@ function exportarParaExcel() {
         let recTransp = isSerrana ? (v * tarifaTransp) : 0;
         let recCarreg = isNossaGrua ? (v * precoCarregamento) : 0;
 
-        const ch = `${r.dataDaBaseExcel}_${r.placa}_${asfalto}_${terra}`;
+        const ch = `${dataViagem}_${r.placa}_${asfalto}_${terra}`;
 
         if(!obj[ch]) obj[ch] = { 
-            Data: r.dataDaBaseExcel, 
+            Data: dataViagem, 
             Placa: r.placa, 
             Transp: tr, 
             Asfalto: asfalto, 
