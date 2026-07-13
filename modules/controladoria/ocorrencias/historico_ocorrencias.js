@@ -98,13 +98,13 @@ window.renderizarHistoricoOcorrencias = function() {
         } else if (o.status === 'Em Andamento') {
             badgeStatus = '<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid rgba(245, 158, 11, 0.3);">Andamento</span>';
         } else {
-            // CORREÇÃO: Uso de crases para garantir o template literal correto sem quebrar o JavaScript
             badgeStatus = `<span style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid rgba(239, 68, 68, 0.3);">${o.status || 'Aberta'}</span>`;
         }
 
-        // Botões de ação na Horizontal (lado a lado)
+        // Botões de ação na Horizontal (lado a lado) - Adicionado o Botão de Imprimir
         const acoesHtml = `
             <div style="display: flex; gap: 8px; justify-content: center;">
+                <button class="btn-action-sm btn-print" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s;" onclick="imprimirOcorrencia(${o.id})" title="Imprimir"><i class="fas fa-print"></i></button>
                 <button class="btn-action-sm btn-edit" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid #3b82f6; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s;" onclick="abrirModalEdicaoOcorrencia(${o.id})" title="Editar"><i class="fas fa-pen"></i></button>
                 <button class="btn-action-sm btn-delete" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s;" onclick="excluirOcorrencia(${o.id})" title="Excluir"><i class="fas fa-trash"></i></button>
             </div>
@@ -125,6 +125,21 @@ window.renderizarHistoricoOcorrencias = function() {
     });
 
     tbody.innerHTML = html;
+}
+
+window.imprimirOcorrencia = function(id) {
+    const o = window.ocorrenciasCache.find(x => x.id === id);
+    if (!o) {
+        alert("Ocorrência não encontrada.");
+        return;
+    }
+    
+    // Chama a função global que está em ocorrencias_impressao.js
+    if (typeof window.imprimirFolhaOcorrencia === 'function') {
+        window.imprimirFolhaOcorrencia(o);
+    } else {
+        alert("O módulo de impressão não foi carregado corretamente.");
+    }
 }
 
 window.abrirModalEdicaoOcorrencia = function(id) {
