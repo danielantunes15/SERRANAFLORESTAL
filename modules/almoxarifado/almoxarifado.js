@@ -489,8 +489,11 @@ window.processarArquivoNF = async function(event) {
     const file = event.target.files[0];
     if (!file) return;
     document.getElementById('movNF').value = "Lendo arquivo...";
-    itensLoteAtual = []; 
+    itensLoteAtual = [];
 
+    // ==========================================
+    // 1. LEITURA PERFEITA VIA XML (RECOMENDADO)
+    // ==========================================
     if (file.name.toLowerCase().endsWith('.xml')) {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -498,21 +501,125 @@ window.processarArquivoNF = async function(event) {
                 const xmlDoc = new DOMParser().parseFromString(e.target.result, "text/xml");
                 document.getElementById('movNF').value = xmlDoc.getElementsByTagName('nNF')[0]?.textContent || '';
                 document.getElementById('movFornecedor').value = xmlDoc.getElementsByTagName('emit')[0]?.getElementsByTagName('xNome')[0]?.textContent || '';
-
+                
                 const itensXML = xmlDoc.getElementsByTagName('det');
                 for (let i = 0; i < itensXML.length; i++) {
                     const prod = itensXML[i].getElementsByTagName('prod')[0];
+                    const imposto = itensXML[i].getElementsByTagName('imposto')[0];
                     if(!prod) continue;
+
+                    // Dados Básicos
+                    const qtd = parseFloat(prod.getElementsByTagName('qCom')[0]?.textContent || '0');
+                    const vUnCom = parseFloat(prod.getElementsByTagName('vUnCom')[0]?.textContent || '0');
+                    const vProd = parseFloat(prod.getElementsByTagName('vProd')[0]?.textContent || '0');
+
+                    // Captura de Impostos e Custos (Se existirem na nota)
+                    const vFrete = parseFloat(prod.getElementsByTagName('vFrete')[0]?.textContent || '0');
+                    const vDesc = parseFloat(prod.getElementsByTagName('vDesc')[0]?.textContent || '0');
+                    const vIPI = parseFloat(imposto?.getElementsByTagName('vIPI')[0]?.textContent || '0');
+                    const vST = parseFloat(imposto?.getElementsByTagName('vICMSST')[0]?.textContent || '0');
+
+                    // Cálculo do Custo Real (Rateio direto no item)
+                    const custoTotalItem = vProd + vIPI + vST + vFrete - vDesc;
+                    const custoUnitarioReal = qtd > 0 ? (custoTotalItem / qtd) : vUnCom;
+
                     itensLoteAtual.push({
-                        id_local: Date.now() + i, codigo: prod.getElementsByTagName('cProd')[0]?.textContent || '',
-                        nome: prod.getElementsByTagName('xProd')[0]?.textContent || 'Desconhecido', unidade: prod.getElementsByTagName('uCom')[0]?.textContent || 'UN',
-                        quantidade: parseFloat(prod.getElementsByTagName('qCom')[0]?.textContent || '0').toFixed(2), valor_unitario: parseFloat(prod.getElementsByTagName('vUnCom')[0]?.textContent || '0').toFixed(2), estoque_minimo: 2
+                        id_local: Date.now() + i,
+                        codigo: prod.getElementsByTagName('cProd')[0]?.textContent || '',
+                        nome: prod.getElementsByTagName('xProd')[0]?.textContent || 'Desconhecido',
+                        unidade: prod.getElementsByTagName('uCom')[0]?.textContent || 'UN',
+                        quantidade: qtd.toFixed(2),
+                        valor_unitario: custoUnitarioReal.toFixed(2), // Preço já com impostos
+                        estoque_minimo: 2
                     });
                 }
-                renderizarItensLoteNF(); alert(`Leitura Concluída!`);
-            } catch (err) { alert("Erro ao ler XML."); document.getElementById('movNF').value = ""; }
-        }; reader.readAsText(file);
-    } else { alert("No momento o leitor suporta apenas arquivos .XML da NF-e."); }
+                renderizarItensLoteNF(); 
+                alert(`Leitura Concluída! Custo real calculado com sucesso.`);
+            } catch (err) { 
+                alert("Erro ao processar a estrutura do XML."); 
+                document.getElementById('movNF').value = ""; 
+            }
+        }; 
+        reader.readAsText(file);
+    
+    // ==========================================
+    // 2. LEITURA DE CONTINGÊNCIA VIA PDF
+    // ==========================================
+    } else if (file.name.toLowerCase().endsWith('.pdf')) {
+        try {
+            // Utiliza o pdf.js já linkado no seu index.html
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await window.pdfjsLib.getDocument({data: arrayBuffer}).promise;
+            let fullText = "";
+
+            // Extrai o texto de todas as páginas
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(" ");
+                fullText += pageText + " ";
+            }
+
+            // Remove pipe chars if present as separators to clean up matching
+            const cleanText = fullText.replace(/\|/g, ' ');
+
+            // 1. Extrair Fornecedor (Geralmente no topo do DANFE antes da palavra DANFE)
+            const fornecedorMatch = cleanText.match(/^(.+?)\s+DANFE/i);
+            if (fornecedorMatch) {
+                document.getElementById('movFornecedor').value = fornecedorMatch[1].trim();
+            }
+
+            // 2. Extrair Número da NF
+            const nfMatch = cleanText.match(/N[º°o]?\s*([\d\.]+)/i);
+            if (nfMatch) {
+                // Remove os pontos (ex: 000.006.033 -> 000006033)
+                document.getElementById('movNF').value = nfMatch[1].replace(/\./g, '');
+            } else {
+                document.getElementById('movNF').value = "PDF Importado";
+            }
+
+            // 3. Extrair Itens da Nota
+            // Regex calibrada para não "comer" o texto do documento inteiro caso haja falha no OCR.
+            // Limita a descrição a no máximo 150 caracteres para garantir que não vai pular pro próximo NCM
+            const regexItens = /(\d{4,10})\s+(.{1,150}?)\s+(\d{8})\s+(\d{3,4})\s+(\d{4})\s+([A-Z]{2,3})\s+([\d,\.]+)\s+([\d,\.]+)/gi;
+            let match;
+            let index = 0;
+
+            while ((match = regexItens.exec(cleanText)) !== null) {
+                const codigo = match[1];
+                const nome = match[2].trim();
+                const unidade = match[6];
+                
+                // Converte padrão brasileiro (1.099,00) para numérico (1099.00)
+                const qtdStr = match[7].replace(/\./g, '').replace(',', '.');
+                const valorUnitStr = match[8].replace(/\./g, '').replace(',', '.');
+
+                itensLoteAtual.push({
+                    id_local: Date.now() + index,
+                    codigo: codigo,
+                    nome: nome,
+                    unidade: unidade,
+                    quantidade: parseFloat(qtdStr).toFixed(2),
+                    valor_unitario: parseFloat(valorUnitStr).toFixed(2), // No PDF é difícil atrelar o IPI exato da linha
+                    estoque_minimo: 2
+                });
+                index++;
+            }
+
+            if (itensLoteAtual.length > 0) {
+                renderizarItensLoteNF();
+                alert(`PDF lido com sucesso! Fornecedor, NF e itens extraídos. \nAtenção: A leitura de PDF não calcula impostos com a precisão do XML.`);
+            } else {
+                alert("Não foi possível identificar os produtos neste layout de PDF. Solicite o XML ao fornecedor.");
+            }
+
+        } catch (err) {
+            console.error("Erro na leitura do PDF:", err);
+            alert("Erro ao processar o PDF. O arquivo pode estar corrompido ou ser uma imagem escaneada.");
+        }
+    } else { 
+        alert("Formato não suportado. Por favor, envie um arquivo .XML (Recomendado) ou .PDF."); 
+    }
 }
 window.renderizarItensLoteNF = function() {
     const tbody = document.getElementById('tabelaLoteNFBody');
