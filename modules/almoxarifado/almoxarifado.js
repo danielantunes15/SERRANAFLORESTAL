@@ -159,7 +159,7 @@ function atualizarTabelaRequisicoes(listaReqs) {
     if(listaReqs.length === 0) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma requisição pendente.</td></tr>'; return; }
 
     listaReqs.forEach(req => {
-        const dataFormatada = req.created_at ? new Date(req.created_at).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
+        const dataFormatada = req.created_at ? new Date(req.created_at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
         const pecaRef = pecasEstoque.find(p => String(p.id) === String(req.peca_id));
         const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
         const usuarioReq = req.mecanico_responsavel || 'Usuário';
@@ -203,7 +203,7 @@ function atualizarTabelaNotas(listaMovimentacoes) {
     if (!tbody) return;
     tbody.innerHTML = '';
     
-    // Filtrar apenas entradas e agrupar por NF + Fornecedor
+    // Filtrar apenas entradas e ignorar registros em branco
     const entradas = listaMovimentacoes.filter(m => m.tipo === 'entrada' && m.nota_fiscal && m.nota_fiscal !== '-');
     if(entradas.length === 0) { 
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma nota fiscal registrada.</td></tr>'; 
@@ -212,10 +212,23 @@ function atualizarTabelaNotas(listaMovimentacoes) {
 
     const gruposNotas = {};
     entradas.forEach(mov => {
-        const chave = `${mov.nota_fiscal}_${mov.fornecedor}`;
+        // Separação em Minutos (Para NF) e em Segundos/ID (Para entrada manual)
+        const dataMinuto = new Date(mov.data_movimentacao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const dataSegundos = new Date(mov.data_movimentacao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        
+        let chave = '';
+        if (mov.nota_fiscal === 'Entrada Manual Sist.') {
+            // Garante que CADA entrada manual gerada seja uma linha individual
+            chave = `manual_${mov.id || dataSegundos}`;
+        } else {
+            // NFs importadas via arquivo são agrupadas pelo mesmo lote (minuto a minuto)
+            chave = `${mov.nota_fiscal}_${mov.fornecedor}_${mov.usuario}_${dataMinuto}`;
+        }
+        
         if (!gruposNotas[chave]) {
             gruposNotas[chave] = {
                 data: mov.data_movimentacao,
+                data_formatada: mov.nota_fiscal === 'Entrada Manual Sist.' ? dataSegundos : dataMinuto,
                 nota_fiscal: mov.nota_fiscal,
                 fornecedor: mov.fornecedor || 'Desconhecido',
                 usuario: mov.usuario || 'Sistema',
@@ -232,10 +245,9 @@ function atualizarTabelaNotas(listaMovimentacoes) {
     const listaAgrupada = Object.values(gruposNotas).sort((a, b) => new Date(b.data) - new Date(a.data));
 
     listaAgrupada.forEach(nota => {
-        const dataFormatada = new Date(nota.data).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="color: #94a3b8; font-size: 0.85rem;">${dataFormatada}</td>
+            <td style="color: #94a3b8; font-size: 0.85rem;"><i class="fas fa-clock"></i> ${nota.data_formatada}</td>
             <td style="font-family: monospace; color: #38bdf8; font-weight: bold; font-size: 1.1rem;">${nota.nota_fiscal}</td>
             <td><strong style="color: #f8fafc;">${nota.fornecedor}</strong></td>
             <td style="text-align: center; font-weight: bold; color: #cbd5e1;">${nota.qtd_itens}</td>
@@ -254,6 +266,9 @@ function atualizarTabelaNotas(listaMovimentacoes) {
 window.abrirDetalhesNota = function(nota) {
     document.getElementById('detalheNotaFornecedor').innerText = nota.fornecedor;
     document.getElementById('detalheNotaNF').innerText = nota.nota_fiscal;
+    
+    if (document.getElementById('detalheNotaUsuario')) document.getElementById('detalheNotaUsuario').innerHTML = `<i class="fas fa-user"></i> ${nota.usuario}`;
+    if (document.getElementById('detalheNotaData')) document.getElementById('detalheNotaData').innerHTML = `<i class="fas fa-clock"></i> ${nota.data_formatada}`;
     
     const tbody = document.getElementById('tabelaDetalhesNotaBody');
     tbody.innerHTML = '';
@@ -288,7 +303,7 @@ function atualizarTabelaMovimentacoes(listaMovimentacoes) {
         else if (mov.tipo === 'saida') tipoHtml = `<span class="badge badge-out"><i class="fas fa-arrow-up"></i> Saída</span>`;
         else tipoHtml = `<span class="badge" style="background: rgba(100,116,139,0.5); color:#cbd5e1;"><i class="fas fa-balance-scale"></i> Ajuste</span>`;
         
-        const dataFormatada = new Date(mov.data_movimentacao).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const dataFormatada = new Date(mov.data_movimentacao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const pecaRef = pecasEstoque.find(p => String(p.id) === String(mov.peca_id));
         const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
         const responsavel = mov.usuario || 'Sistema';
@@ -377,7 +392,7 @@ function atualizarKPIsAlmoxarifado() {
 
     pneusEstoque.forEach(pneu => valorTotal += parseFloat(pneu.custo_atual || 0));
 
-    document.getElementById('kpiTotalItens').innerText = listaGrupos.length; // Quantidade de Produtos Agrupados
+    document.getElementById('kpiTotalItens').innerText = listaGrupos.length; 
     document.getElementById('kpiEstoqueMinimo').innerText = itensBaixos;
     document.getElementById('kpiValorTotal').innerText = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorTotal);
     document.getElementById('kpiPneusResumo').innerText = `${pneusEstoque.filter(p => p.status === 'Rodando').length} / ${pneusEstoque.filter(p => p.status === 'Estoque').length}`;
@@ -439,8 +454,8 @@ function gerarRelatoriosAvancados() {
 window.filtrarAlmoxarifado = function() {
     const termo = document.getElementById('almoSearchInput').value.toLowerCase();
     if (abaAtualAlmox === 'estoque') atualizarTabelaPecas(pecasEstoque.filter(p => (p.nome||'').toLowerCase().includes(termo) || (p.codigo||'').toLowerCase().includes(termo)));
-    else if (abaAtualAlmox === 'notas') atualizarTabelaNotas(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo)));
-    else if (abaAtualAlmox === 'movimentacoes') atualizarTabelaMovimentacoes(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo) || (m.cavalo||'').toLowerCase().includes(termo) || (m.setor_destino||'').toLowerCase().includes(termo)));
+    else if (abaAtualAlmox === 'notas') atualizarTabelaNotas(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo) || (m.usuario||'').toLowerCase().includes(termo)));
+    else if (abaAtualAlmox === 'movimentacoes') atualizarTabelaMovimentacoes(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo) || (m.cavalo||'').toLowerCase().includes(termo) || (m.setor_destino||'').toLowerCase().includes(termo) || (m.usuario||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'pneus') atualizarTabelaPneus(pneusEstoque.filter(p => (p.num_fogo||'').toLowerCase().includes(termo) || (p.cavalo_atual||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'requisicoes') atualizarTabelaRequisicoes(requisicoesEstoque.filter(r => (r.placa||'').toLowerCase().includes(termo) || (r.mecanico_responsavel||'').toLowerCase().includes(termo) || (r.centro_custo||'').toLowerCase().includes(termo)));
 }
@@ -477,7 +492,6 @@ window.toggleTipoSaida = function() {
     }
 }
 
-// ================= LÓGICA DE APROVAÇÃO INTELIGENTE =================
 window.aprovarRequisicao = async function(reqId) {
     const req = requisicoesEstoque.find(r => r.id == reqId);
     if(!req) { alert("Requisição não encontrada no sistema."); return; }
@@ -584,7 +598,6 @@ window.prepararModalMovimentacao = function(tipo) {
 function preencherSelectPecas(idElemento) {
     const select = document.getElementById(idElemento);
     select.innerHTML = '<option value="">-- Selecione um lote/peça --</option>';
-    // Lista todos os Lotes disponíveis para ser bem transparente na saída.
     pecasEstoque.forEach(p => {
         let txtValidade = p.data_validade ? ` | Val: ${p.data_validade.split('-').reverse().join('/')}` : '';
         let nomeExib = `${p.codigo ? '['+p.codigo+'] ' : ''}${p.nome} (Qtd: ${p.quantidade} ${p.unidade||'UN'}${txtValidade})`;
@@ -666,7 +679,6 @@ window.processarArquivoNF = async function(event) {
     document.getElementById('movNF').value = "Lendo arquivo...";
     itensLoteAtual = [];
 
-    // 1. LEITURA PERFEITA VIA XML
     if (file.name.toLowerCase().endsWith('.xml')) {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -712,7 +724,6 @@ window.processarArquivoNF = async function(event) {
         };
         reader.readAsText(file);
 
-    // 2. LEITURA DE CONTINGÊNCIA VIA PDF
     } else if (file.name.toLowerCase().endsWith('.pdf')) {
         try {
             const arrayBuffer = await file.arrayBuffer();
@@ -833,11 +844,9 @@ window.salvarPeca = async function(e) {
 
     try {
         if (id) {
-            // É edição de lote existente, altera o que ele tem
             pecaInput.id = id;
             await db.upsertPeca(pecaInput);
         } else {
-            // NOVO LANÇAMENTO MANUAL (sempre gera um registro próprio se o código E valor forem diferentes)
             const pecaExistenteIgual = pecasEstoque.find(p => 
                 p.codigo && pecaInput.codigo &&
                 p.codigo.toUpperCase() === pecaInput.codigo.toUpperCase() && 
@@ -845,22 +854,42 @@ window.salvarPeca = async function(e) {
             );
 
             if (pecaExistenteIgual) {
-                // SOMA NO MESMO LOTE pois tem MESMO preço e MESMO código
                 pecaExistenteIgual.quantidade = parseFloat(pecaExistenteIgual.quantidade) + pecaInput.quantidade;
                 if (pecaInput.data_validade) pecaExistenteIgual.data_validade = pecaInput.data_validade; 
                 await db.upsertPeca(pecaExistenteIgual);
+                
+                // GRAVAR O HISTÓRICO DA ENTRADA MANUAL QUANDO SOMA AO LOTE
+                if (pecaInput.quantidade > 0) {
+                    const mov = typeof window.injetarFilial === 'function' ? window.injetarFilial({
+                        peca_id: pecaExistenteIgual.id, 
+                        tipo: 'entrada', 
+                        quantidade: pecaInput.quantidade, 
+                        valor_unitario: pecaInput.preco_medio,
+                        nota_fiscal: 'Entrada Manual Sist.', 
+                        fornecedor: 'Desconhecido',
+                        usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
+                        data_movimentacao: new Date().toISOString()
+                    }) : {};
+                    await window.supabaseClient.from('almoxarifado_movimentacoes').insert([mov]);
+                }
+
                 alert(`Peça lançada! O item já existia com o MESMO código e valor, portanto a quantidade foi somada ao Lote existente.`);
             } else {
-                // LANÇA SEPARADO pois o código/preço são novos
                 const pInjetada = typeof window.injetarFilial === 'function' ? window.injetarFilial(pecaInput) : pecaInput;
                 const { data, error } = await window.supabaseClient.from('almoxarifado_pecas').insert([pInjetada]).select();
                 if(error) throw error;
                 
-                // Gera a auditoria de entrada para confiabilidade
+                // GRAVAR O HISTÓRICO QUANDO CRIA UM LOTE NOVO (CÓDIGO/PREÇO DIFERENTES)
                 if (data && data.length > 0 && pecaInput.quantidade > 0) {
                     const mov = typeof window.injetarFilial === 'function' ? window.injetarFilial({
-                        peca_id: data[0].id, tipo: 'entrada', quantidade: pecaInput.quantidade, valor_unitario: pecaInput.preco_medio,
-                        nota_fiscal: 'Entrada Manual Sist.', usuario: window.currentUser ? window.currentUser.username : 'Sistema', data_movimentacao: new Date().toISOString()
+                        peca_id: data[0].id, 
+                        tipo: 'entrada', 
+                        quantidade: pecaInput.quantidade, 
+                        valor_unitario: pecaInput.preco_medio,
+                        nota_fiscal: 'Entrada Manual Sist.', 
+                        fornecedor: 'Desconhecido',
+                        usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
+                        data_movimentacao: new Date().toISOString()
                     }) : {};
                     await window.supabaseClient.from('almoxarifado_movimentacoes').insert([mov]);
                 }

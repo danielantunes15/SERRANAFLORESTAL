@@ -169,12 +169,12 @@
         <table class="almo-table">
             <thead>
                 <tr>
-                    <th>Data de Entrada</th>
+                    <th>Data de Lançamento</th>
                     <th>Nº da Nota Fiscal</th>
                     <th>Fornecedor</th>
                     <th>Qtd. de Peças</th>
                     <th>Valor Total (R$)</th>
-                    <th>Responsável</th>
+                    <th>Usuário / Lançado por</th>
                     <th style="text-align: right;">Ações</th>
                 </tr>
             </thead>
@@ -462,10 +462,15 @@
         <span class="almo-close" onclick="fecharModalAlmox('modalDetalhesNota')">&times;</span>
         <h3 style="margin-bottom: 5px;"><i class="fas fa-file-invoice-dollar" style="color: #60a5fa;"></i> Detalhes da Nota Fiscal</h3>
         
-        <div style="display: flex; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #334155;">
+        <div style="display: flex; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #334155; flex-wrap: wrap; gap: 15px;">
             <div>
                 <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 5px; font-weight: bold; text-transform: uppercase;">Fornecedor</p>
                 <strong id="detalheNotaFornecedor" style="font-size: 1.1rem; color: #f8fafc;">---</strong>
+            </div>
+            <div style="text-align: center;">
+                <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 5px; font-weight: bold; text-transform: uppercase;">Lançamento</p>
+                <strong id="detalheNotaUsuario" style="font-size: 1rem; color: #cbd5e1;"><i class="fas fa-user"></i> ---</strong><br>
+                <span id="detalheNotaData" style="font-size: 0.85rem; color: #94a3b8;"><i class="fas fa-clock"></i> ---</span>
             </div>
             <div style="text-align: right;">
                 <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 5px; font-weight: bold; text-transform: uppercase;">Nº da Nota</p>
