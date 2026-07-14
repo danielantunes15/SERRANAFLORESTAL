@@ -309,17 +309,30 @@ const db = {
         if (!pecasBusca) pecasBusca = [];
 
         for (let item of itens) {
-            let pecaDB = pecasBusca.find(p => p.codigo === item.codigo || p.nome.toUpperCase() === item.nome.toUpperCase());
-            let pecaId;
             let valorUnitarioItem = parseFloat(item.valor_unitario) || 0;
             let qtdItem = parseFloat(item.quantidade) || 0;
             let validadeItem = item.data_validade ? item.data_validade : null;
 
+            // Busca primeiramente pelo Código E que tenha exatamento o mesmo PREÇO
+            let pecaDB = pecasBusca.find(p => 
+                p.codigo && item.codigo && p.codigo.toUpperCase() === item.codigo.toUpperCase() && 
+                parseFloat(p.preco_medio || 0).toFixed(2) === valorUnitarioItem.toFixed(2)
+            );
+            
+            // Se falhou o código (nota s/ código, etc), tenta buscar o Nome E que tenha o mesmo PREÇO
+            if (!pecaDB) {
+                pecaDB = pecasBusca.find(p => 
+                    p.nome.toUpperCase() === item.nome.toUpperCase() && 
+                    parseFloat(p.preco_medio || 0).toFixed(2) === valorUnitarioItem.toFixed(2)
+                );
+            }
+
+            let pecaId;
             if (pecaDB) {
+                // SOMA se o código existir e tiver o mesmo valor de compra
                 pecaId = pecaDB.id;
                 const novaQtd = parseFloat(pecaDB.quantidade || 0) + qtdItem;
                 
-                // Atualiza a peça existente
                 await supabaseClient.from('almoxarifado_pecas').update({
                     quantidade: novaQtd,
                     preco_medio: valorUnitarioItem > 0 ? valorUnitarioItem : pecaDB.preco_medio,
@@ -331,7 +344,7 @@ const db = {
                 if (valorUnitarioItem > 0) pecaDB.preco_medio = valorUnitarioItem;
                 if (validadeItem) pecaDB.data_validade = validadeItem;
             } else {
-                // Cria a nova peça
+                // CRIA SEPARADO se for código novo OU for o mesmo código, porém com preço diferente
                 const novaPeca = injetarFilial({
                     codigo: item.codigo || '',
                     nome: item.nome || 'Produto Desconhecido',

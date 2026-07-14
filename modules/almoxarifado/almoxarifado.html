@@ -260,55 +260,60 @@
         </div>
     </div>
 </div>
+
 <div id="modalPeca" class="almo-modal">
-    <div class="almo-modal-content" style="max-width: 600px;">
+    <div class="almo-modal-content" style="max-width: 700px;">
         <span class="almo-close" onclick="fecharModalAlmox('modalPeca')">&times;</span>
         <h3 id="modalPecaTitulo">Cadastrar Nova Peça</h3>
         <form id="formPeca" onsubmit="salvarPeca(event)">
             <input type="hidden" id="pecaId">
-            <div style="display: flex; gap: 15px;">
-                <div class="almo-form-group" style="flex: 1;">
+            
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px;">
+                <div class="almo-form-group" style="margin-bottom: 0;">
                     <label>Código / SKU / CA</label>
                     <input type="text" id="pecaCodigo" placeholder="Ex: FILTRO-001" required>
                 </div>
-                <div class="almo-form-group" style="flex: 2;">
+                <div class="almo-form-group" style="margin-bottom: 0;">
                     <label>Descrição Detalhada</label>
                     <input type="text" id="pecaNome" placeholder="Ex: Filtro de Ar Primário" required>
                 </div>
             </div>
             
-            <div style="display: flex; gap: 15px;">
-                <div class="almo-form-group" style="flex: 1;">
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-top: 15px;">
+                <div class="almo-form-group" style="margin-bottom: 0;">
                     <label>Unidade</label>
                     <input type="text" id="pecaUnidade" placeholder="UN, LT, KG, CX" value="UN" required>
                 </div>
-                <div class="almo-form-group" style="flex: 2;">
+                <div class="almo-form-group" style="margin-bottom: 0;">
                     <label>Localização (Corredor/Prateleira)</label>
                     <input type="text" id="pecaLocalizacao" placeholder="Ex: Corredor A - Prat 03">
                 </div>
             </div>
-            <div style="display: flex; gap: 15px;">
-                <div class="almo-form-group" style="flex: 1;">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; margin-bottom: 20px;">
+                <div class="almo-form-group" style="margin-bottom: 0;">
                     <label>Estoque Atual</label>
                     <input type="number" step="0.01" id="pecaQtd" value="0" required>
                 </div>
-                <div class="almo-form-group" style="flex: 1;">
+                <div class="almo-form-group" style="margin-bottom: 0;">
                     <label>Alerta Mínimo</label>
                     <input type="number" step="0.01" id="pecaEstoqueMin" value="2" required>
                 </div>
-                <div class="almo-form-group" style="flex: 1;">
+                <div class="almo-form-group" style="margin-bottom: 0;">
                     <label>Preço Médio (R$)</label>
                     <input type="number" step="0.01" id="pecaPreco" placeholder="0.00" required>
                 </div>
-                <div class="almo-form-group" style="flex: 1;">
+                <div class="almo-form-group" style="margin-bottom: 0;">
                     <label>Data de Validade</label>
                     <input type="date" id="pecaValidade">
                 </div>
             </div>
+            
             <button type="submit" class="btn-modern btn-success" style="width: 100%; justify-content: center; padding: 12px;"><i class="fas fa-save"></i> Gravar Peça</button>
         </form>
     </div>
 </div>
+
 <div id="modalMovimentacao" class="almo-modal">
     <div class="almo-modal-content">
         <span class="almo-close" onclick="fecharModalAlmox('modalMovimentacao')">&times;</span>
@@ -404,6 +409,7 @@
         </form>
     </div>
 </div>
+
 <div id="modalPneu" class="almo-modal">
     <div class="almo-modal-content" style="max-width: 600px;">
         <span class="almo-close" onclick="fecharModalAlmox('modalPneu')">&times;</span>
@@ -426,6 +432,7 @@
         </form>
     </div>
 </div>
+
 <div id="modalAcaoPneu" class="almo-modal">
     <div class="almo-modal-content" style="max-width: 500px;">
         <span class="almo-close" onclick="fecharModalAlmox('modalAcaoPneu')">&times;</span>
@@ -448,6 +455,7 @@
         </form>
     </div>
 </div>
+
 <div id="modalDetalhesNota" class="almo-modal">
     <div class="almo-modal-content" style="max-width: 800px;">
         <span class="almo-close" onclick="fecharModalAlmox('modalDetalhesNota')">&times;</span>

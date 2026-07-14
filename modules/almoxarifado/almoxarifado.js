@@ -770,7 +770,8 @@ window.editarPeca = function(peca) {
 
 window.salvarPeca = async function(e) {
     e.preventDefault();
-    const peca = {
+    
+    const pecaInput = {
         codigo: document.getElementById('pecaCodigo').value.trim(),
         nome: document.getElementById('pecaNome').value.trim(),
         unidade: document.getElementById('pecaUnidade').value.trim().toUpperCase(),
@@ -780,14 +781,45 @@ window.salvarPeca = async function(e) {
         preco_medio: parseFloat(document.getElementById('pecaPreco').value),
         data_validade: document.getElementById('pecaValidade').value || null
     };
+    
     const id = document.getElementById('pecaId').value;
-    if (id) peca.id = id;
+    const btnSubmit = e.target.querySelector('button[type="submit"]');
+    if(btnSubmit) { btnSubmit.disabled = true; btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...'; }
 
     try {
-        await db.upsertPeca(peca);
+        if (id) {
+            // Se tem ID, é edição, apenas salva
+            pecaInput.id = id;
+            await db.upsertPeca(pecaInput);
+        } else {
+            // Nova peça, busca no banco se já existe CÓDIGO igual E PREÇO igual
+            const pecaExistente = pecasEstoque.find(p => 
+                p.codigo && 
+                p.codigo.toUpperCase() === pecaInput.codigo.toUpperCase() && 
+                parseFloat(p.preco_medio || 0).toFixed(2) === pecaInput.preco_medio.toFixed(2)
+            );
+
+            if (pecaExistente && pecaInput.codigo !== "") {
+                // Se existe com mesmo preço, apenas SOMA as quantidades
+                pecaExistente.quantidade = parseFloat(pecaExistente.quantidade) + pecaInput.quantidade;
+                if (pecaInput.data_validade) pecaExistente.data_validade = pecaInput.data_validade; // Sobrescreve validade se fornecida
+                
+                await db.upsertPeca(pecaExistente);
+                alert(`O Código/SKU/CA já existia com o mesmo valor! A quantidade (${pecaInput.quantidade}) foi somada ao estoque existente.`);
+            } else {
+                // Se for preço diferente ou código novo, cria item separado
+                await db.upsertPeca(pecaInput);
+            }
+        }
+
         fecharModalAlmox('modalPeca');
         await carregarDadosAlmoxarifado();
-    } catch (err) { alert("Erro"); }
+    } catch (err) { 
+        console.error(err);
+        alert("Erro ao gravar peça."); 
+    } finally {
+        if(btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = '<i class="fas fa-save"></i> Gravar Peça'; }
+    }
 }
 
 window.deletarPeca = async function(id) {
