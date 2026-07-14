@@ -24,7 +24,6 @@ window.MAPA_MENUS = [
     
     // --- MÓDULO INDEPENDENTE: ALMOXARIFADO ---
     { id: 'almoxarifado', label: 'Gestão de Estoque', setor: 'Almoxarifado', icon: 'fas fa-boxes' },
-    { id: 'requisicao_materiais', label: 'Requisição de Materiais', setor: 'Almoxarifado', icon: 'fas fa-shopping-basket' },
     
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
@@ -127,8 +126,7 @@ const ROTAS = {
     'gestao_usuarios': 'modules/configuracoes/gestao_usuarios.html',
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
     
-    'almoxarifado': 'modules/almoxarifado/almoxarifado.html',
-    'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html'
+    'almoxarifado': 'modules/almoxarifado/almoxarifado.html'
 };
 
 // =========================================================================================
@@ -301,7 +299,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'motoristas' && typeof window.renderizarMotoristas === 'function') window.renderizarMotoristas();
         if (pagina === 'caminhoes' && typeof window.renderizarConjuntos === 'function') window.renderizarConjuntos();
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
-        if (pagina === 'requisicao_materiais' && typeof window.renderizarRequisicoes === 'function') window.renderizarRequisicoes();
         if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
         if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();
         if (pagina === 'campo_equipe' && typeof window.renderizarEquipeCampo === 'function') window.renderizarEquipeCampo();
