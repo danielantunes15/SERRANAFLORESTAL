@@ -28,7 +28,6 @@ async function carregarDadosAlmoxarifado() {
             requisicoesEstoque = reqs || [];
         }
 
-        classificarCurvaABC(pecasEstoque);
         atualizarTabelaPecas(pecasEstoque);
         atualizarTabelaMovimentacoes(movimentacoesEstoque);
         atualizarTabelaNotas(movimentacoesEstoque);
@@ -40,57 +39,117 @@ async function carregarDadosAlmoxarifado() {
     } catch (e) { console.error("Erro ao carregar almoxarifado", e); }
 }
 
-function classificarCurvaABC(lista) {
-    let valorTotalEstoque = 0;
-    lista.forEach(p => { p.valor_total = p.quantidade * p.preco_medio; valorTotalEstoque += p.valor_total; });
-    lista.sort((a, b) => b.valor_total - a.valor_total);
-
-    let somaAcumulada = 0;
-    lista.forEach(p => {
-        somaAcumulada += p.valor_total;
-        let percentual = (somaAcumulada / (valorTotalEstoque || 1)) * 100;
-        if (percentual <= 80) p.curva = 'A';
-        else if (percentual <= 95) p.curva = 'B';
-        else p.curva = 'C';
-    });
-}
-
 function atualizarTabelaPecas(listaPecas) {
     const tbody = document.getElementById('tabelaPecasBody');
     if (!tbody) return;
     tbody.innerHTML = '';
     if(listaPecas.length === 0) { tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma peça encontrada.</td></tr>'; return; }
 
+    const grupos = {};
+    let valorTotalGlobal = 0;
+
+    // Fase 1: Agrupar Itens com mesmo Código ou Nome
     listaPecas.forEach(peca => {
-        const estaBaixo = peca.quantidade <= peca.estoque_minimo;
-        const statusHtml = estaBaixo ? `<span class="badge badge-alert"><i class="fas fa-exclamation-circle"></i> Baixo</span>` : `<span class="badge badge-ok"><i class="fas fa-check"></i> Normal</span>`;
+        const chave = (peca.codigo && peca.codigo.trim() !== '') ? peca.codigo.trim().toUpperCase() : peca.nome.trim().toUpperCase();
+        if (!grupos[chave]) {
+            grupos[chave] = {
+                chave: chave, nome: peca.nome, codigo: peca.codigo, unidade: peca.unidade,
+                localizacao: peca.localizacao, estoque_minimo: peca.estoque_minimo,
+                quantidade_total: 0, valor_total: 0, itens: [], validades: []
+            };
+        }
+        let qtd = parseFloat(peca.quantidade);
+        let val = qtd * parseFloat(peca.preco_medio || 0);
         
-        let dataValidadeFormatada = '-';
-        if(peca.data_validade) {
-            const [ano, mes, dia] = peca.data_validade.split('-');
-            dataValidadeFormatada = `${dia}/${mes}/${ano}`;
+        grupos[chave].quantidade_total += qtd;
+        grupos[chave].valor_total += val;
+        valorTotalGlobal += val;
+        grupos[chave].itens.push(peca);
+        
+        if (peca.data_validade) grupos[chave].validades.push(peca.data_validade);
+    });
+
+    // Fase 2: Calcular Curva ABC do Grupo e Ordenar por Valor Total Imobilizado
+    const listaGrupos = Object.values(grupos).sort((a,b) => b.valor_total - a.valor_total);
+    let somaAcumulada = 0;
+    let indexGrupo = 0;
+
+    listaGrupos.forEach(grupo => {
+        indexGrupo++;
+        somaAcumulada += grupo.valor_total;
+        let perc = (somaAcumulada / (valorTotalGlobal || 1)) * 100;
+        grupo.curva = perc <= 80 ? 'A' : (perc <= 95 ? 'B' : 'C');
+
+        const estaBaixo = grupo.quantidade_total <= grupo.estoque_minimo;
+        const statusHtml = estaBaixo ? `<span class="badge badge-alert"><i class="fas fa-exclamation-circle"></i> Baixo</span>` : `<span class="badge badge-ok"><i class="fas fa-check"></i> Normal</span>`;
+        const precoMedio = grupo.quantidade_total > 0 ? (grupo.valor_total / grupo.quantidade_total) : 0;
+        
+        // Exibir a validade mais próxima a vencer no grupo principal
+        let validadeDestaque = '-';
+        if (grupo.validades.length > 0) {
+            const validadesOrdenadas = grupo.validades.sort((a,b) => new Date(a) - new Date(b));
+            const [ano, mes, dia] = validadesOrdenadas[0].split('-');
+            validadeDestaque = `${dia}/${mes}/${ano}`;
         }
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td style="font-family: monospace; color: #94a3b8;">${peca.codigo || '-'}</td>
-            <td><strong style="color: #f8fafc;">${peca.nome}</strong></td>
-            <td style="color: #cbd5e1; font-weight: bold;">${peca.unidade || 'UN'}</td>
-            <td><span class="badge badge-abc-${peca.curva}">${peca.curva}</span></td>
-            <td style="color: #94a3b8;"><i class="fas fa-map-marker-alt" style="font-size:0.8rem;"></i> ${peca.localizacao || '-'}</td>
-            <td style="color: #94a3b8;">${dataValidadeFormatada}</td>
-            <td style="font-size: 1.1rem; font-weight: bold; ${estaBaixo ? 'color: #f87171;' : 'color: #34d399;'}">${peca.quantidade}</td>
-            <td style="color: #94a3b8;">${peca.estoque_minimo}</td>
-            <td style="font-weight: 500; color: #f8fafc;">R$ ${parseFloat(peca.preco_medio).toFixed(2).replace('.', ',')}</td>
+        // ROW 1: SOMA DO PRODUTO (Agrupado)
+        const trGroup = document.createElement('tr');
+        trGroup.style.backgroundColor = 'rgba(255,255,255,0.02)';
+        trGroup.innerHTML = `
+            <td style="font-family: monospace; color: #60a5fa; font-weight:bold;">${grupo.codigo || '-'}</td>
+            <td>
+                <strong style="color: #f8fafc;">${grupo.nome}</strong> 
+                ${grupo.itens.length > 1 ? `<span style="font-size:0.7rem; color:#94a3b8; background:#334155; padding:2px 6px; border-radius:10px; margin-left:5px; cursor:pointer;" onclick="toggleLotes('lotes_${indexGrupo}')"><i class="fas fa-layer-group"></i> ${grupo.itens.length} Lotes</span>` : ''}
+            </td>
+            <td style="color: #cbd5e1; font-weight: bold;">${grupo.unidade || 'UN'}</td>
+            <td><span class="badge badge-abc-${grupo.curva}">${grupo.curva}</span></td>
+            <td style="color: #94a3b8;"><i class="fas fa-map-marker-alt" style="font-size:0.8rem;"></i> ${grupo.localizacao || '-'}</td>
+            <td style="color: #94a3b8;">${validadeDestaque}</td>
+            <td style="font-size: 1.1rem; font-weight: bold; ${estaBaixo ? 'color: #f87171;' : 'color: #34d399;'}">${grupo.quantidade_total.toFixed(2)}</td>
+            <td style="color: #94a3b8;">${grupo.estoque_minimo}</td>
+            <td style="font-weight: 500; color: #f8fafc;">R$ ${precoMedio.toFixed(2).replace('.', ',')}</td>
             <td>${statusHtml}</td>
             <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
-                <button type="button" title="Imprimir Etiqueta" class="btn-action-sm" style="background:#8b5cf6;" onclick='imprimirQRCode(${JSON.stringify(peca)})'><i class="fas fa-qrcode"></i></button>
-                <button type="button" title="Editar" class="btn-action-sm btn-edit" onclick='editarPeca(${JSON.stringify(peca)})'><i class="fas fa-pen"></i></button>
-                <button type="button" title="Excluir" class="btn-action-sm btn-delete" onclick='deletarPeca(${peca.id})'><i class="fas fa-trash"></i></button>
+                ${grupo.itens.length > 1 ? `<button type="button" title="Ver Lotes" class="btn-action-sm btn-info" onclick="toggleLotes('lotes_${indexGrupo}')"><i class="fas fa-list"></i></button>` : ''}
+                <button type="button" title="Imprimir Etiqueta" class="btn-action-sm" style="background:#8b5cf6;" onclick='imprimirQRCode(${JSON.stringify(grupo.itens[0])})'><i class="fas fa-qrcode"></i></button>
+                ${grupo.itens.length === 1 ? `<button type="button" title="Editar" class="btn-action-sm btn-edit" onclick='editarPeca(${JSON.stringify(grupo.itens[0])})'><i class="fas fa-pen"></i></button> <button type="button" title="Excluir" class="btn-action-sm btn-delete" onclick='deletarPeca(${grupo.itens[0].id})'><i class="fas fa-trash"></i></button>` : ''}
             </td>
         `;
-        tbody.appendChild(tr);
+        tbody.appendChild(trGroup);
+
+        // ROWS FILHAS: Lotes individuais (Ficam ocultos se houver mais de um)
+        if (grupo.itens.length > 1) {
+            grupo.itens.forEach((lote, idxLote) => {
+                let dataVal = '-';
+                if(lote.data_validade) { const [a, m, d] = lote.data_validade.split('-'); dataVal = `${d}/${m}/${a}`; }
+                
+                const trLote = document.createElement('tr');
+                trLote.className = `lotes_${indexGrupo}`;
+                trLote.style.display = 'none'; // Começa escondido
+                trLote.style.backgroundColor = 'rgba(0,0,0,0.2)';
+                trLote.innerHTML = `
+                    <td colspan="4" style="text-align: right; color: #64748b; font-size:0.85rem;"><i class="fas fa-level-up-alt" style="transform: rotate(90deg);"></i> Lote ${idxLote + 1}</td>
+                    <td style="color: #94a3b8; font-size:0.85rem;">${lote.localizacao || '-'}</td>
+                    <td style="color: #cbd5e1; font-size:0.85rem;">${dataVal}</td>
+                    <td style="color: #34d399; font-weight:bold; font-size:0.95rem;">${lote.quantidade}</td>
+                    <td></td>
+                    <td style="color: #cbd5e1; font-size:0.85rem;">R$ ${parseFloat(lote.preco_medio||0).toFixed(2).replace('.',',')}</td>
+                    <td></td>
+                    <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
+                        <button type="button" title="Editar Lote" class="btn-action-sm btn-edit" onclick='editarPeca(${JSON.stringify(lote)})'><i class="fas fa-pen"></i></button>
+                        <button type="button" title="Excluir Lote" class="btn-action-sm btn-delete" onclick='deletarPeca(${lote.id})'><i class="fas fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(trLote);
+            });
+        }
     });
+}
+
+// Expande ou esconde as linhas filhas (Lotes)
+window.toggleLotes = function(className) {
+    const rows = document.querySelectorAll('.' + className);
+    rows.forEach(row => { row.style.display = row.style.display === 'none' ? 'table-row' : 'none'; });
 }
 
 function atualizarTabelaRequisicoes(listaReqs) {
@@ -287,17 +346,38 @@ function atualizarTabelaPneus(lista) {
 
 function atualizarKPIsAlmoxarifado() {
     let valorTotal = 0, itensBaixos = 0;
-    let abcData = {A: {qtd:0, val:0}, B: {qtd:0, val:0}, C: {qtd:0, val:0}};
-
+    
+    const grupos = {};
     pecasEstoque.forEach(p => {
-        valorTotal += p.valor_total;
-        if (p.quantidade <= p.estoque_minimo) itensBaixos++;
-        if(p.curva) { abcData[p.curva].qtd++; abcData[p.curva].val += p.valor_total; }
+        const chave = (p.codigo && p.codigo.trim() !== '') ? p.codigo.trim().toUpperCase() : p.nome.trim().toUpperCase();
+        if (!grupos[chave]) grupos[chave] = { valor_total: 0, quantidade: 0, minimo: p.estoque_minimo };
+        grupos[chave].valor_total += (p.quantidade * parseFloat(p.preco_medio || 0));
+        grupos[chave].quantidade += parseFloat(p.quantidade);
+    });
+
+    let abcData = {A: {qtd:0, val:0}, B: {qtd:0, val:0}, C: {qtd:0, val:0}};
+    let listaGrupos = Object.values(grupos);
+    let valorTotalEstoque = 0;
+    
+    listaGrupos.forEach(g => valorTotalEstoque += g.valor_total);
+    listaGrupos.sort((a, b) => b.valor_total - a.valor_total);
+
+    let somaAcumulada = 0;
+    listaGrupos.forEach(g => {
+        somaAcumulada += g.valor_total;
+        let percentual = (somaAcumulada / (valorTotalEstoque || 1)) * 100;
+        let curva = percentual <= 80 ? 'A' : (percentual <= 95 ? 'B' : 'C');
+        
+        abcData[curva].qtd++;
+        abcData[curva].val += g.valor_total;
+        
+        if (g.quantidade <= g.minimo) itensBaixos++;
+        valorTotal += g.valor_total;
     });
 
     pneusEstoque.forEach(pneu => valorTotal += parseFloat(pneu.custo_atual || 0));
 
-    document.getElementById('kpiTotalItens').innerText = pecasEstoque.length;
+    document.getElementById('kpiTotalItens').innerText = listaGrupos.length; // Quantidade de Produtos Agrupados
     document.getElementById('kpiEstoqueMinimo').innerText = itensBaixos;
     document.getElementById('kpiValorTotal').innerText = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorTotal);
     document.getElementById('kpiPneusResumo').innerText = `${pneusEstoque.filter(p => p.status === 'Rodando').length} / ${pneusEstoque.filter(p => p.status === 'Estoque').length}`;
@@ -312,9 +392,9 @@ function atualizarKPIsAlmoxarifado() {
     const listaABC = document.getElementById('listaCurvaABC');
     if(listaABC) {
         listaABC.innerHTML = `
-            <li style="margin-bottom:12px; display:flex; align-items:center; gap:10px;"><span class="badge badge-abc-A" style="width:35px;justify-content:center;">A</span> <span><b>${abcData.A.qtd} itens</b> = <strong style="color:#fca5a5;">R$ ${abcData.A.val.toFixed(2).replace('.',',')}</strong></span></li>
-            <li style="margin-bottom:12px; display:flex; align-items:center; gap:10px;"><span class="badge badge-abc-B" style="width:35px;justify-content:center;">B</span> <span><b>${abcData.B.qtd} itens</b> = <strong style="color:#fcd34d;">R$ ${abcData.B.val.toFixed(2).replace('.',',')}</strong></span></li>
-            <li style="display:flex; align-items:center; gap:10px;"><span class="badge badge-abc-C" style="width:35px;justify-content:center;">C</span> <span><b>${abcData.C.qtd} itens</b> = <strong style="color:#6ee7b7;">R$ ${abcData.C.val.toFixed(2).replace('.',',')}</strong></span></li>
+            <li style="margin-bottom:12px; display:flex; align-items:center; gap:10px;"><span class="badge badge-abc-A" style="width:35px;justify-content:center;">A</span> <span><b>${abcData.A.qtd} produtos</b> = <strong style="color:#fca5a5;">R$ ${abcData.A.val.toFixed(2).replace('.',',')}</strong></span></li>
+            <li style="margin-bottom:12px; display:flex; align-items:center; gap:10px;"><span class="badge badge-abc-B" style="width:35px;justify-content:center;">B</span> <span><b>${abcData.B.qtd} produtos</b> = <strong style="color:#fcd34d;">R$ ${abcData.B.val.toFixed(2).replace('.',',')}</strong></span></li>
+            <li style="display:flex; align-items:center; gap:10px;"><span class="badge badge-abc-C" style="width:35px;justify-content:center;">C</span> <span><b>${abcData.C.qtd} produtos</b> = <strong style="color:#6ee7b7;">R$ ${abcData.C.val.toFixed(2).replace('.',',')}</strong></span></li>
         `;
     }
 }
@@ -409,7 +489,6 @@ window.aprovarRequisicao = async function(reqId) {
     try {
         await window.supabaseClient.from('os_pecas_utilizadas').update({ status: 'Aprovado' }).eq('id', reqId);
         
-        // Define para onde o custo vai (Frota ou Centro de Custo) dependendo de onde a solicitação veio
         let novaMovimentacao = {
             peca_id: req.peca_id, 
             tipo: 'saida', 
@@ -439,7 +518,6 @@ window.recusarRequisicao = async function(reqId) {
     try { await window.supabaseClient.from('os_pecas_utilizadas').update({ status: 'Recusado' }).eq('id', reqId); await carregarDadosAlmoxarifado(); } 
     catch(e) { alert("Erro ao recusar."); }
 }
-// ===================================================================
 
 window.prepararModalMovimentacao = function(tipo) {
     document.getElementById('formMovimentacao').reset();
@@ -505,9 +583,17 @@ window.prepararModalMovimentacao = function(tipo) {
 
 function preencherSelectPecas(idElemento) {
     const select = document.getElementById(idElemento);
-    select.innerHTML = '<option value="">-- Selecione uma peça --</option>';
-    pecasEstoque.forEach(p => select.innerHTML += `<option value="${p.id}">${p.codigo ? p.codigo+' - ' : ''}${p.nome} (Qtd: ${p.quantidade} ${p.unidade||'UN'})</option>`);
-    if(idElemento === 'movPecaId') select.onchange = function() { const p = pecasEstoque.find(x => x.id == this.value); if(p) document.getElementById('movValor').value = p.preco_medio; };
+    select.innerHTML = '<option value="">-- Selecione um lote/peça --</option>';
+    // Lista todos os Lotes disponíveis para ser bem transparente na saída.
+    pecasEstoque.forEach(p => {
+        let txtValidade = p.data_validade ? ` | Val: ${p.data_validade.split('-').reverse().join('/')}` : '';
+        let nomeExib = `${p.codigo ? '['+p.codigo+'] ' : ''}${p.nome} (Qtd: ${p.quantidade} ${p.unidade||'UN'}${txtValidade})`;
+        select.innerHTML += `<option value="${p.id}">${nomeExib}</option>`;
+    });
+    if(idElemento === 'movPecaId') select.onchange = function() { 
+        const p = pecasEstoque.find(x => x.id == this.value); 
+        if(p) document.getElementById('movValor').value = p.preco_medio; 
+    };
 }
 
 window.carregarEstoqueAtualAjuste = function() {
@@ -527,13 +613,13 @@ window.salvarMovimentacao = async function(e) {
             const nf = document.getElementById('movNF').value, fornecedor = document.getElementById('movFornecedor').value;
             const itensComAuditoria = itensLoteAtual.map(i => ({...i, usuario: window.currentUser ? window.currentUser.username : 'Sistema'}));
             await db.processarEntradaLote(itensComAuditoria, nf, fornecedor);
-            alert("Entrada registrada!");
+            alert("Entrada registrada com sucesso!");
             
         } else if (tipo === 'saida') {
             const peca_id = document.getElementById('movPecaId').value;
             const qtd = parseFloat(document.getElementById('movQuantidade').value);
             const peca = pecasEstoque.find(p => p.id == peca_id);
-            if (!peca || qtd > peca.quantidade) { alert(`Estoque insuficiente! Você tem: ${peca ? peca.quantidade : 0}.`); throw new Error("Estoque baixo"); }
+            if (!peca || qtd > peca.quantidade) { alert(`Estoque insuficiente! Lote escolhido tem: ${peca ? peca.quantidade : 0}.`); throw new Error("Estoque baixo"); }
 
             const tipoSaidaDestino = document.getElementById('movTipoSaida').value;
             let cavaloVal = null, setorVal = null, osVal = null;
@@ -580,9 +666,7 @@ window.processarArquivoNF = async function(event) {
     document.getElementById('movNF').value = "Lendo arquivo...";
     itensLoteAtual = [];
 
-    // ==========================================
-    // 1. LEITURA PERFEITA VIA XML (RECOMENDADO)
-    // ==========================================
+    // 1. LEITURA PERFEITA VIA XML
     if (file.name.toLowerCase().endsWith('.xml')) {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -598,18 +682,15 @@ window.processarArquivoNF = async function(event) {
                     const imposto = itensXML[i].getElementsByTagName('imposto')[0];
                     if(!prod) continue;
 
-                    // Dados Básicos
                     const qtd = parseFloat(prod.getElementsByTagName('qCom')[0]?.textContent || '0');
                     const vUnCom = parseFloat(prod.getElementsByTagName('vUnCom')[0]?.textContent || '0');
                     const vProd = parseFloat(prod.getElementsByTagName('vProd')[0]?.textContent || '0');
 
-                    // Captura de Impostos e Custos (Se existirem na nota)
                     const vFrete = parseFloat(prod.getElementsByTagName('vFrete')[0]?.textContent || '0');
                     const vDesc = parseFloat(prod.getElementsByTagName('vDesc')[0]?.textContent || '0');
                     const vIPI = parseFloat(imposto?.getElementsByTagName('vIPI')[0]?.textContent || '0');
                     const vST = parseFloat(imposto?.getElementsByTagName('vICMSST')[0]?.textContent || '0');
 
-                    // Cálculo do Custo Real (Rateio direto no item)
                     const custoTotalItem = vProd + vIPI + vST + vFrete - vDesc;
                     const custoUnitarioReal = qtd > 0 ? (custoTotalItem / qtd) : vUnCom;
 
@@ -619,7 +700,7 @@ window.processarArquivoNF = async function(event) {
                         nome: prod.getElementsByTagName('xProd')[0]?.textContent || 'Desconhecido',
                         unidade: prod.getElementsByTagName('uCom')[0]?.textContent || 'UN',
                         quantidade: qtd.toFixed(2),
-                        valor_unitario: custoUnitarioReal.toFixed(2), // Preço com impostos
+                        valor_unitario: custoUnitarioReal.toFixed(2),
                         data_validade: '',
                         estoque_minimo: 2
                     });
@@ -627,24 +708,17 @@ window.processarArquivoNF = async function(event) {
                 
                 renderizarItensLoteNF();
                 alert(`Leitura Concluída! Custo real calculado com sucesso.`);
-            } catch (err) { 
-                alert("Erro ao processar a estrutura do XML."); 
-                document.getElementById('movNF').value = ""; 
-            }
+            } catch (err) { alert("Erro ao processar a estrutura do XML."); document.getElementById('movNF').value = ""; }
         };
         reader.readAsText(file);
 
-    // ==========================================
     // 2. LEITURA DE CONTINGÊNCIA VIA PDF
-    // ==========================================
     } else if (file.name.toLowerCase().endsWith('.pdf')) {
         try {
-            // Utiliza o pdf.js já linkado no seu index.html
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await window.pdfjsLib.getDocument({data: arrayBuffer}).promise;
             
             let fullText = "";
-            // Extrai o texto de todas as páginas
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
@@ -652,76 +726,47 @@ window.processarArquivoNF = async function(event) {
                 fullText += pageText + " ";
             }
 
-            // Remove caracteres especiais como " | " que sujam a leitura
             const cleanText = fullText.replace(/\|/g, ' ').replace(/\s+/g, ' ');
 
-            // 1. Extrair Fornecedor (Múltiplas tentativas de captura)
             let fornecedor = "Fornecedor Desconhecido";
             const fornecedorMatch1 = cleanText.match(/Recebemos de\s+(.+?)\s+os produtos/i);
             const fornecedorMatch2 = cleanText.match(/^(.+?)\s+DANFE/i);
             
-            if (fornecedorMatch1) {
-                fornecedor = fornecedorMatch1[1].trim();
-            } else if (fornecedorMatch2) {
-                fornecedor = fornecedorMatch2[1].trim();
-            }
+            if (fornecedorMatch1) fornecedor = fornecedorMatch1[1].trim();
+            else if (fornecedorMatch2) fornecedor = fornecedorMatch2[1].trim();
             document.getElementById('movFornecedor').value = fornecedor;
 
-            // 2. Extrair Número da NF
             const nfMatch = cleanText.match(/N[ºo]?\s*([\d\.\s]{4,20})/i);
             if (nfMatch) {
-                // Remove os pontos e espaços em branco (ex: 000.006.033 -> 000006033)
                 let numeroNF = nfMatch[1].replace(/[\.\s]/g, '');
-                // Se puxar coisas a mais, pega só os primeiros 9 digitos
                 if (numeroNF.length > 9) numeroNF = numeroNF.substring(0, 9);
                 document.getElementById('movNF').value = numeroNF;
-            } else {
-                document.getElementById('movNF').value = "PDF Importado";
-            }
+            } else { document.getElementById('movNF').value = "PDF Importado"; }
 
-            // 3. Extrair Itens da Nota
-            // ATENÇÃO: Adicionado limitador {1,150}? para a descrição não engolir a nota toda!
             const regexItens = /(\d{4,12})\s+(.{1,150}?)\s+(\d{8})\s+(\d{3,4})\s+(\d{4})\s+([A-Z]{2,3})\s+([\d,\.]+)\s+([\d,\.]+)/gi;
             
-            let match;
-            let index = 0;
+            let match; let index = 0;
             while ((match = regexItens.exec(cleanText)) !== null) {
-                const codigo = match[1];
-                const nome = match[2].trim();
-                const unidade = match[6];
+                const codigo = match[1]; const nome = match[2].trim(); const unidade = match[6];
                 
-                // Converte padrão brasileiro (1.099,00) para numérico (1099.00)
                 const qtdStr = match[7].replace(/\./g, '').replace(',', '.');
                 const valorUnitStr = match[8].replace(/\./g, '').replace(',', '.');
 
                 itensLoteAtual.push({
                     id_local: Date.now() + index,
-                    codigo: codigo,
-                    nome: nome,
-                    unidade: unidade,
+                    codigo: codigo, nome: nome, unidade: unidade,
                     quantidade: parseFloat(qtdStr).toFixed(2),
-                    valor_unitario: parseFloat(valorUnitStr).toFixed(2), // No PDF é difícil atrelar o IPI exato da linha
-                    data_validade: '',
-                    estoque_minimo: 2
+                    valor_unitario: parseFloat(valorUnitStr).toFixed(2),
+                    data_validade: '', estoque_minimo: 2
                 });
                 index++;
             }
 
-            if (itensLoteAtual.length > 0) {
-                renderizarItensLoteNF();
-                alert(`PDF lido com sucesso! Fornecedor, NF e itens extraídos. \nAtenção: A leitura de PDF não calcula impostos com a precisão do XML.`);
-            } else {
-                alert("Não foi possível identificar os produtos neste layout de PDF. Solicite o XML ao fornecedor.");
-            }
+            if (itensLoteAtual.length > 0) { renderizarItensLoteNF(); alert(`PDF lido com sucesso!`); } 
+            else { alert("Não foi possível identificar os produtos neste layout de PDF. Solicite o XML."); }
 
-        } catch (err) {
-            console.error("Erro na leitura do PDF:", err);
-            alert("Erro ao processar o PDF. O arquivo pode estar corrompido ou ser uma imagem escaneada.");
-        }
-
-    } else { 
-        alert("Formato não suportado. Por favor, envie um arquivo .XML (Recomendado) ou .PDF."); 
-    }
+        } catch (err) { console.error("Erro na leitura do PDF:", err); alert("Erro ao processar o PDF."); }
+    } else { alert("Formato não suportado. Por favor, envie um arquivo .XML ou .PDF."); }
 }
 
 window.renderizarItensLoteNF = function() {
@@ -764,7 +809,7 @@ window.editarPeca = function(peca) {
     document.getElementById('pecaEstoqueMin').value = peca.estoque_minimo;
     document.getElementById('pecaPreco').value = peca.preco_medio;
     document.getElementById('pecaValidade').value = peca.data_validade || '';
-    document.getElementById('modalPecaTitulo').innerText = 'Editar Peça';
+    document.getElementById('modalPecaTitulo').innerText = 'Editar Peça / Lote';
     document.getElementById('modalPeca').style.display = 'flex';
 }
 
@@ -788,38 +833,42 @@ window.salvarPeca = async function(e) {
 
     try {
         if (id) {
-            // Se tem ID, é edição, apenas salva
+            // É edição de lote existente, altera o que ele tem
             pecaInput.id = id;
             await db.upsertPeca(pecaInput);
         } else {
-            // Nova peça, busca no banco se já existe CÓDIGO igual E PREÇO igual
-            const pecaExistente = pecasEstoque.find(p => 
-                p.codigo && 
+            // NOVO LANÇAMENTO MANUAL (sempre gera um registro próprio se o código E valor forem diferentes)
+            const pecaExistenteIgual = pecasEstoque.find(p => 
+                p.codigo && pecaInput.codigo &&
                 p.codigo.toUpperCase() === pecaInput.codigo.toUpperCase() && 
                 parseFloat(p.preco_medio || 0).toFixed(2) === pecaInput.preco_medio.toFixed(2)
             );
 
-            if (pecaExistente && pecaInput.codigo !== "") {
-                // Se existe com mesmo preço, apenas SOMA as quantidades
-                pecaExistente.quantidade = parseFloat(pecaExistente.quantidade) + pecaInput.quantidade;
-                if (pecaInput.data_validade) pecaExistente.data_validade = pecaInput.data_validade; // Sobrescreve validade se fornecida
-                
-                await db.upsertPeca(pecaExistente);
-                alert(`O Código/SKU/CA já existia com o mesmo valor! A quantidade (${pecaInput.quantidade}) foi somada ao estoque existente.`);
+            if (pecaExistenteIgual) {
+                // SOMA NO MESMO LOTE pois tem MESMO preço e MESMO código
+                pecaExistenteIgual.quantidade = parseFloat(pecaExistenteIgual.quantidade) + pecaInput.quantidade;
+                if (pecaInput.data_validade) pecaExistenteIgual.data_validade = pecaInput.data_validade; 
+                await db.upsertPeca(pecaExistenteIgual);
+                alert(`Peça lançada! O item já existia com o MESMO código e valor, portanto a quantidade foi somada ao Lote existente.`);
             } else {
-                // Se for preço diferente ou código novo, cria item separado
-                await db.upsertPeca(pecaInput);
+                // LANÇA SEPARADO pois o código/preço são novos
+                const pInjetada = typeof window.injetarFilial === 'function' ? window.injetarFilial(pecaInput) : pecaInput;
+                const { data, error } = await window.supabaseClient.from('almoxarifado_pecas').insert([pInjetada]).select();
+                if(error) throw error;
+                
+                // Gera a auditoria de entrada para confiabilidade
+                if (data && data.length > 0 && pecaInput.quantidade > 0) {
+                    const mov = typeof window.injetarFilial === 'function' ? window.injetarFilial({
+                        peca_id: data[0].id, tipo: 'entrada', quantidade: pecaInput.quantidade, valor_unitario: pecaInput.preco_medio,
+                        nota_fiscal: 'Entrada Manual Sist.', usuario: window.currentUser ? window.currentUser.username : 'Sistema', data_movimentacao: new Date().toISOString()
+                    }) : {};
+                    await window.supabaseClient.from('almoxarifado_movimentacoes').insert([mov]);
+                }
             }
         }
-
-        fecharModalAlmox('modalPeca');
-        await carregarDadosAlmoxarifado();
-    } catch (err) { 
-        console.error(err);
-        alert("Erro ao gravar peça."); 
-    } finally {
-        if(btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = '<i class="fas fa-save"></i> Gravar Peça'; }
-    }
+        fecharModalAlmox('modalPeca'); await carregarDadosAlmoxarifado();
+    } catch (err) { console.error(err); alert("Erro ao gravar peça."); } 
+    finally { if(btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = '<i class="fas fa-save"></i> Gravar Peça'; } }
 }
 
 window.deletarPeca = async function(id) {
@@ -853,12 +902,7 @@ window.salvarPneu = async function(e) {
     if(id) pneu.id = id;
     if (typeof window.injetarFilial === 'function') pneu = window.injetarFilial(pneu);
 
-    try {
-        await window.supabaseClient.from('almoxarifado_pneus').upsert(pneu);
-        fecharModalAlmox('modalPneu');
-        await carregarDadosAlmoxarifado();
-        alert("Sucesso!");
-    } catch(err) { alert("Erro"); }
+    try { await window.supabaseClient.from('almoxarifado_pneus').upsert(pneu); fecharModalAlmox('modalPneu'); await carregarDadosAlmoxarifado(); alert("Sucesso!"); } catch(err) { alert("Erro"); }
 }
 
 window.abrirAcaoPneu = function(pneu) {
@@ -872,36 +916,20 @@ window.mudarFormAcaoPneu = function() {
     const acao = document.getElementById('acaoPneuTipo').value;
     document.getElementById('divAcaoInstalar').style.display = acao === 'instalar' ? 'block' : 'none';
     document.getElementById('divAcaoCusto').style.display = acao === 'recapagem' ? 'block' : 'none';
-    ['acaoCavalo','acaoKm','acaoEixo','acaoPosicao'].forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.required = (acao === 'instalar');
-    });
+    ['acaoCavalo','acaoKm','acaoEixo','acaoPosicao'].forEach(id => { const el = document.getElementById(id); if(el) el.required = (acao === 'instalar'); });
 }
 window.executarAcaoPneu = async function(e) {
     e.preventDefault();
     const pneuId = document.getElementById('acaoPneuId').value, acao = document.getElementById('acaoPneuTipo').value;
     let updPneu = {}, hist = { pneu_id: pneuId, tipo: acao, observacao: document.getElementById('acaoObs').value };
     
-    if(acao === 'instalar') {
-        updPneu = { status: 'Rodando', cavalo_atual: document.getElementById('acaoCavalo').value.toUpperCase(), eixo: document.getElementById('acaoEixo').value, posicao: document.getElementById('acaoPosicao').value, km_instalacao: parseInt(document.getElementById('acaoKm').value) };
-        hist.cavalo = updPneu.cavalo_atual; hist.km_frota = updPneu.km_instalacao;
-    } else if(acao === 'retirar') {
-        updPneu = { status: 'Estoque', cavalo_atual: null, eixo: null, posicao: null };
-    } else if(acao === 'recapagem') {
-        updPneu = { status: 'Recapagem', cavalo_atual: null, eixo: null, posicao: null };
-        const pneuVelho = pneusEstoque.find(p => p.id == pneuId);
-        if(parseFloat(document.getElementById('acaoCustoExtra').value) > 0) updPneu.custo_atual = parseFloat(pneuVelho.custo_atual || 0) + parseFloat(document.getElementById('acaoCustoExtra').value);
-    } else if(acao === 'sucata') {
-        updPneu = { status: 'Sucata', cavalo_atual: null, eixo: null, posicao: null };
-    }
+    if(acao === 'instalar') { updPneu = { status: 'Rodando', cavalo_atual: document.getElementById('acaoCavalo').value.toUpperCase(), eixo: document.getElementById('acaoEixo').value, posicao: document.getElementById('acaoPosicao').value, km_instalacao: parseInt(document.getElementById('acaoKm').value) }; hist.cavalo = updPneu.cavalo_atual; hist.km_frota = updPneu.km_instalacao; }
+    else if(acao === 'retirar') { updPneu = { status: 'Estoque', cavalo_atual: null, eixo: null, posicao: null }; }
+    else if(acao === 'recapagem') { updPneu = { status: 'Recapagem', cavalo_atual: null, eixo: null, posicao: null }; const pneuVelho = pneusEstoque.find(p => p.id == pneuId); if(parseFloat(document.getElementById('acaoCustoExtra').value) > 0) updPneu.custo_atual = parseFloat(pneuVelho.custo_atual || 0) + parseFloat(document.getElementById('acaoCustoExtra').value); }
+    else if(acao === 'sucata') { updPneu = { status: 'Sucata', cavalo_atual: null, eixo: null, posicao: null }; }
 
     if (typeof window.injetarFilial === 'function') hist = window.injetarFilial(hist);
-
-    try {
-        await window.supabaseClient.from('almoxarifado_pneus').update(updPneu).eq('id', pneuId);
-        await window.supabaseClient.from('almoxarifado_pneus_mov').insert(hist);
-        fecharModalAlmox('modalAcaoPneu'); await carregarDadosAlmoxarifado(); alert("Sucesso!");
-    } catch(err) { alert("Erro"); }
+    try { await window.supabaseClient.from('almoxarifado_pneus').update(updPneu).eq('id', pneuId); await window.supabaseClient.from('almoxarifado_pneus_mov').insert(hist); fecharModalAlmox('modalAcaoPneu'); await carregarDadosAlmoxarifado(); alert("Sucesso!"); } catch(err) { alert("Erro"); }
 }
 
 window.fecharModalAlmox = function(id) { document.getElementById(id).style.display = 'none'; }

@@ -99,7 +99,6 @@ const db = {
     // --- LOGS DE SEGURANÇA E AUDITORIA ---
     async getLogs() {
         try {
-            // MELHORIA DE BANDA: Removido o '*' (evita carregar JSONs pesados na Dashboard inicial)
             const query = supabaseClient.from('logs_exclusao')
                 .select('id, data_hora, usuario, acao, detalhes, severidade, ip_address, filial_id')
                 .order('data_hora', { ascending: false })
@@ -113,7 +112,6 @@ const db = {
         try {
             const start = (page - 1) * limit;
             const end = start + limit - 1;
-            // MELHORIA DE BANDA: Removido o '*'
             let query = supabaseClient.from('logs_exclusao')
                 .select('id, data_hora, usuario, acao, detalhes, severidade, ip_address, tabela_afetada, registro_id, filial_id, filiais(nome)', { count: 'exact' })
                 .order('data_hora', { ascending: false })
@@ -278,7 +276,6 @@ const db = {
         await supabaseClient.from('almoxarifado_pecas').delete().eq('id', id);
     },
     
-    // LIMITANDO A BUSCA DE HISTÓRICO PARA EVITAR TRAVAMENTOS
     async getMovimentacoesEstoque(limite = 150) {
         try {
             const query = supabaseClient.from('almoxarifado_movimentacoes')
@@ -301,8 +298,6 @@ const db = {
     
     // Processar Lote de Entrada (XML/PDF)
     async processarEntradaLote(itens, nf, fornecedor) {
-        // MELHORIA DE BANDA CRÍTICA: Busca todas as peças de uma vez SÓ, antes do Loop.
-        // Anteriormente, se a nota tivesse 50 itens, o sistema baixava a tabela inteira 50 vezes.
         let queryCatalogo = supabaseClient.from('almoxarifado_pecas').select('*');
         queryCatalogo = aplicarFiltroFilial(queryCatalogo);
         let { data: pecasBusca } = await queryCatalogo;
@@ -313,13 +308,13 @@ const db = {
             let qtdItem = parseFloat(item.quantidade) || 0;
             let validadeItem = item.data_validade ? item.data_validade : null;
 
-            // Busca primeiramente pelo Código E que tenha exatamento o mesmo PREÇO
+            // Busca pelo Código E que tenha exatamento o mesmo PREÇO
             let pecaDB = pecasBusca.find(p => 
                 p.codigo && item.codigo && p.codigo.toUpperCase() === item.codigo.toUpperCase() && 
                 parseFloat(p.preco_medio || 0).toFixed(2) === valorUnitarioItem.toFixed(2)
             );
             
-            // Se falhou o código (nota s/ código, etc), tenta buscar o Nome E que tenha o mesmo PREÇO
+            // Se não encontrou pelo código, busca pelo Nome E que tenha o mesmo PREÇO
             if (!pecaDB) {
                 pecaDB = pecasBusca.find(p => 
                     p.nome.toUpperCase() === item.nome.toUpperCase() && 
@@ -329,7 +324,7 @@ const db = {
 
             let pecaId;
             if (pecaDB) {
-                // SOMA se o código existir e tiver o mesmo valor de compra
+                // SOMA se o código existir e tiver o mesmo valor
                 pecaId = pecaDB.id;
                 const novaQtd = parseFloat(pecaDB.quantidade || 0) + qtdItem;
                 
@@ -339,12 +334,11 @@ const db = {
                     data_validade: validadeItem ? validadeItem : pecaDB.data_validade
                 }).eq('id', pecaId);
                 
-                // Atualiza em memória caso haja outro item igual na mesma nota
                 pecaDB.quantidade = novaQtd;
                 if (valorUnitarioItem > 0) pecaDB.preco_medio = valorUnitarioItem;
                 if (validadeItem) pecaDB.data_validade = validadeItem;
             } else {
-                // CRIA SEPARADO se for código novo OU for o mesmo código, porém com preço diferente
+                // CRIA SEPARADO se for código novo OU for o mesmo código, porém com preço diferente (Novo Lote)
                 const novaPeca = injetarFilial({
                     codigo: item.codigo || '',
                     nome: item.nome || 'Produto Desconhecido',
@@ -364,7 +358,7 @@ const db = {
                 if (error) throw error;
                 if (insertData && insertData.length > 0) {
                     pecaId = insertData[0].id;
-                    pecasBusca.push(insertData[0]); // Adiciona à lista em memória
+                    pecasBusca.push(insertData[0]);
                 }
             }
 
