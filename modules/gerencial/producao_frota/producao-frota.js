@@ -216,6 +216,39 @@ function calcularTarifaTransporte(asfalto, terra) {
     return maisProximo ? maisProximo.tarifa : 0;
 }
 
+function atualizarPaineisReceita(f5, f6) {
+    const formatarDinheiro = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const formatarNumero = (valor) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    
+    // Cálculos Frente 5
+    const f5TranspRS = f5.volTransp * f5.tarifaT;
+    const f5CarrRS = f5.volCarreg * f5.tarifaC;
+    
+    document.getElementById('f5_transporte_rs').innerText = formatarDinheiro(f5TranspRS);
+    document.getElementById('f5_carregamento_rs').innerText = formatarDinheiro(f5CarrRS);
+    document.getElementById('f5_receita_total').innerText = formatarDinheiro(f5TranspRS + f5CarrRS);
+    document.getElementById('f5_vol_transportado').innerText = formatarNumero(f5.volTransp);
+    document.getElementById('f5_vol_carregado').innerText = formatarNumero(f5.volCarreg);
+    document.getElementById('f5_qtd_viagens').innerText = f5.viagens;
+    document.getElementById('f5_distancias').innerText = `${formatarNumero(f5.asfalto)} km / ${formatarNumero(f5.terra)} km`;
+    document.getElementById('f5_tarifa_transporte').innerText = formatarNumero(f5.tarifaT);
+    document.getElementById('f5_tarifa_carregamento').innerText = formatarNumero(f5.tarifaC);
+
+    // Cálculos Frente 6
+    const f6TranspRS = f6.volTransp * f6.tarifaT;
+    const f6CarrRS = f6.volCarreg * f6.tarifaC;
+
+    document.getElementById('f6_transporte_rs').innerText = formatarDinheiro(f6TranspRS);
+    document.getElementById('f6_carregamento_rs').innerText = formatarDinheiro(f6CarrRS);
+    document.getElementById('f6_receita_total').innerText = formatarDinheiro(f6TranspRS + f6CarrRS);
+    document.getElementById('f6_vol_transportado').innerText = formatarNumero(f6.volTransp);
+    document.getElementById('f6_vol_carregado').innerText = formatarNumero(f6.volCarreg);
+    document.getElementById('f6_qtd_viagens').innerText = f6.viagens;
+    document.getElementById('f6_distancias').innerText = `${formatarNumero(f6.asfalto)} km / ${formatarNumero(f6.terra)} km`;
+    document.getElementById('f6_tarifa_transporte').innerText = formatarNumero(f6.tarifaT);
+    document.getElementById('f6_tarifa_carregamento').innerText = formatarNumero(f6.tarifaC);
+}
+
 function processarFiltrosEExibir() {
     try {
         const tStatus = document.getElementById('tabelaStatus');
@@ -262,13 +295,16 @@ function processarFiltrosEExibir() {
         });
 
         const agrupamentoTabela = {};
-        const agrupamentoFrente = {};
+        const agrupamentoFrente = {}; // Mantido apenas para a exportação de Excel
         const agrupamentoDiario = {};
         
         let tTranspViagens = 0, tTranspVol = 0, tTranspRec = 0;
         let tCarregViagens = 0, tCarregVol = 0, tCarregRec = 0;
 
         let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
+
+        let f5 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0 };
+        let f6 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0 };
 
         dadosFiltradosAtual.forEach(registro => {
             // Data Oficial da Viagem baseada no Descarregamento
@@ -307,7 +343,36 @@ function processarFiltrosEExibir() {
                 tCarregRec += recCarregamento;
             }
 
-            // === 1. ACUMULADOR POR FRENTE (CATEGORIA) ===
+            // Identificação de Frentes Específicas 5 e 6
+            let nomeFrente = infoGrua ? infoGrua.frente.toUpperCase() : (registro.frente ? String(registro.frente).toUpperCase() : '');
+            
+            if (nomeFrente.includes('5')) {
+                if (isSerrana) {
+                    f5.volTransp += v;
+                    f5.viagens += 1;
+                    f5.asfalto = asfalto;
+                    f5.terra = terra;
+                    f5.tarifaT = tarifaTransporte;
+                }
+                if (isNossaGrua) {
+                    f5.volCarreg += v;
+                    f5.tarifaC = precoCarregamento;
+                }
+            } else if (nomeFrente.includes('6')) {
+                if (isSerrana) {
+                    f6.volTransp += v;
+                    f6.viagens += 1;
+                    f6.asfalto = asfalto;
+                    f6.terra = terra;
+                    f6.tarifaT = tarifaTransporte;
+                }
+                if (isNossaGrua) {
+                    f6.volCarreg += v;
+                    f6.tarifaC = precoCarregamento;
+                }
+            }
+
+            // === ACUMULADOR OBRIGATÓRIO (PARA EXPORTAÇÃO EXCEL APENAS) ===
             let nomeCategoria = "DESCONHECIDO";
             if (isSerrana && isNossaGrua) {
                 let ordem = infoGrua.ordem || 'CX';
@@ -395,7 +460,7 @@ function processarFiltrosEExibir() {
         document.getElementById('valTotalReceita').innerText = totalConsolidado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
         desenharGraficos(agrupamentoDiarioGlobal);
-        renderizarTabelaFrentes(dadosFrentesAtual);
+        atualizarPaineisReceita(f5, f6); 
         renderizarTabela(dadosAgrupadosAtual);
 
         if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} rotas analisadas`;
@@ -480,46 +545,6 @@ function getBasicChartOptions(titleY, isMoney = false) {
             y: { display: true, title: { display: true, text: titleY, color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
         }
     }
-}
-
-function renderizarTabelaFrentes(dados) {
-    try {
-        const tbody = document.getElementById('tbodyFrentes');
-        if(!tbody) return;
-        
-        tbody.innerHTML = '';
-        
-        if (dados.length === 0) { 
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center p-8 text-slate-500">Nenhum dado encontrado para os filtros selecionados.</td></tr>`; 
-            return; 
-        }
-
-        dados.forEach(l => {
-            const cx = l.viagens > 0 ? (l.volume / l.viagens) : 0;
-            const tarifaStr = l.tarifa > 0 ? l.tarifa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
-            
-            let badgeClass = 'bg-slate-500/10 text-slate-400 border-slate-700/50';
-            if (l.categoria.includes('SERRANA -')) badgeClass = 'bg-sky-500/10 text-sky-400 border-sky-500/30';
-            else if (l.categoria.includes('OUTRAS FRENTES')) badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-            else if (l.categoria.includes('TRANSP.')) badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-slate-700/30 transition-colors";
-            
-            tr.innerHTML = `
-                <td class="px-6 py-3 font-bold text-white"><span class="${badgeClass} px-2 py-1 rounded text-xs border uppercase">${l.categoria}</span></td>
-                <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.asfalto} km</td>
-                <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.terra} km</td>
-                <td class="px-6 py-3 text-center text-sky-400 font-mono font-bold">${tarifaStr}</td>
-                <td class="px-6 py-3 text-center text-slate-300 font-black">${l.viagens}</td>
-                <td class="px-6 py-3 text-right text-slate-300 font-mono font-bold">${l.volume.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-                <td class="px-6 py-3 text-right text-amber-400 font-mono font-bold">${cx.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-                <td class="px-6 py-3 text-right text-purple-400 font-mono font-black">${l.receita.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-    } catch(e) { console.error("[PRODUCAO] Erro ao renderizar tabela de frentes:", e); }
 }
 
 function renderizarTabela(dados) {
