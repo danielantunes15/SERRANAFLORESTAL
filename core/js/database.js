@@ -2,8 +2,7 @@
 const supabaseUrl = 'https://eufqcuyzfvomnoaplhgj.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1ZnFjdXl6ZnZvbW5vYXBsaGdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzOTA2NzMsImV4cCI6MjA5ODk2NjY3M30.VyJkfzTIru5GS0bkQowWHUGoglBGipTRcXGDCTH8jxk';
 const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-window.supabaseClient = supabaseClient; 
+window.supabaseClient = supabaseClient;
 
 // ================= LÓGICA SAAS (MULTI-FILIAL) =================
 function aplicarFiltroFilial(query) {
@@ -141,7 +140,6 @@ const db = {
                 }
                 if (chaves !== '') query = query.or(chaves);
             }
-
             if (filtros.usuario && filtros.usuario !== 'TODOS') query = query.eq('usuario', filtros.usuario);
             if (filtros.dataInicio) query = query.gte('data_hora', `${filtros.dataInicio}T00:00:00`);
             if (filtros.dataFim) query = query.lte('data_hora', `${filtros.dataFim}T23:59:59`);
@@ -286,14 +284,12 @@ const db = {
             const query = supabaseClient.from('almoxarifado_movimentacoes')
                 .select('*')
                 .order('data_movimentacao', { ascending: false })
-                .limit(limite); 
-
-            const { data, error } = await aplicarFiltroFilial(query);
+                .limit(limite);
+             const { data, error } = await aplicarFiltroFilial(query);
             if(error) throw error;
             return data || [];
         } catch(e) { console.error("Erro getMovimentacoesEstoque:", e); return []; }
     },
-
     async addMovimentacao(movimentacao) {
         await supabaseClient.from('almoxarifado_movimentacoes').insert([injetarFilial(movimentacao)]);
         const { data: peca } = await supabaseClient.from('almoxarifado_pecas').select('quantidade').eq('id', movimentacao.peca_id).single();
@@ -314,10 +310,10 @@ const db = {
 
         for (let item of itens) {
             let pecaDB = pecasBusca.find(p => p.codigo === item.codigo || p.nome.toUpperCase() === item.nome.toUpperCase());
-
             let pecaId;
             let valorUnitarioItem = parseFloat(item.valor_unitario) || 0;
             let qtdItem = parseFloat(item.quantidade) || 0;
+            let validadeItem = item.data_validade ? item.data_validade : null;
 
             if (pecaDB) {
                 pecaId = pecaDB.id;
@@ -326,13 +322,14 @@ const db = {
                 // Atualiza a peça existente
                 await supabaseClient.from('almoxarifado_pecas').update({
                     quantidade: novaQtd,
-                    preco_medio: valorUnitarioItem > 0 ? valorUnitarioItem : pecaDB.preco_medio 
+                    preco_medio: valorUnitarioItem > 0 ? valorUnitarioItem : pecaDB.preco_medio,
+                    data_validade: validadeItem ? validadeItem : pecaDB.data_validade
                 }).eq('id', pecaId);
                 
                 // Atualiza em memória caso haja outro item igual na mesma nota
                 pecaDB.quantidade = novaQtd;
                 if (valorUnitarioItem > 0) pecaDB.preco_medio = valorUnitarioItem;
-
+                if (validadeItem) pecaDB.data_validade = validadeItem;
             } else {
                 // Cria a nova peça
                 const novaPeca = injetarFilial({
@@ -342,7 +339,8 @@ const db = {
                     quantidade: qtdItem,
                     preco_medio: valorUnitarioItem,
                     estoque_minimo: item.estoque_minimo || 2,
-                    localizacao: 'Entrada NF'
+                    localizacao: 'Entrada NF',
+                    data_validade: validadeItem
                 });
                 
                 const { data: insertData, error } = await supabaseClient

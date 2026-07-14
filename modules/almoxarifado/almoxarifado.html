@@ -2,7 +2,6 @@
     /* ================= DESIGN MODERNO ALMOXARIFADO ================= */
     .almo-container { font-family: 'Segoe UI', system-ui, sans-serif; color: #e2e8f0; animation: fadeIn 0.4s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
     .almo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 15px; border-bottom: 1px solid #334155; flex-wrap: wrap; gap: 15px; }
     .almo-header h2 { margin: 0; color: #ffffff; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; font-weight: bold; }
     .almo-header h2 i { color: #3b82f6; }
@@ -19,7 +18,6 @@
     .btn-action-sm { padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; transition: 0.2s; color: white; }
     .btn-edit { background: #64748b; } .btn-edit:hover { background: #475569; }
     .btn-delete { background: #ef4444; } .btn-delete:hover { background: #dc2626; }
-
     .almo-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px; }
     .almo-kpi-card { background: #1e293b; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); border: 1px solid #334155; transition: transform 0.2s; }
     .almo-kpi-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
@@ -30,7 +28,6 @@
     .icon-purple { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
     .almo-kpi-info h3 { margin: 0; font-size: 1.8rem; color: #f8fafc; font-weight: 700; line-height: 1.2; }
     .almo-kpi-info p { margin: 0; color: #94a3b8; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-
     .almo-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; background: #1e293b; padding: 10px 20px; border-radius: 10px; border: 1px solid #334155; }
     .almo-tabs { display: flex; gap: 20px; overflow-x: auto; white-space: nowrap; }
     .almo-tab-btn { background: none; border: none; padding: 10px 5px; font-size: 1rem; font-weight: 600; color: #94a3b8; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; position: relative; }
@@ -41,7 +38,6 @@
     .almo-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; }
     .almo-search input { width: 100%; padding: 10px 10px 10px 35px; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 8px; outline: none; transition: 0.2s; font-family: inherit; }
     .almo-search input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
-
     .almo-table-container { background: #1e293b; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); overflow-x: auto; border: 1px solid #334155; }
     .almo-table { width: 100%; border-collapse: collapse; text-align: left; }
     .almo-table th { background-color: #0f172a; padding: 14px 20px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #334155; white-space: nowrap; }
@@ -57,7 +53,6 @@
     .badge-abc-A { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
     .badge-abc-B { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid #f59e0b; }
     .badge-abc-C { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; }
-
     /* Modal Styles */
     .almo-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
     .almo-modal-content { background: #1e293b; color: #e2e8f0; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); padding: 30px; position: relative; border: 1px solid #334155; }
@@ -75,7 +70,6 @@
     .grid-relatorios { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     @media(max-width: 768px) { .grid-relatorios { grid-template-columns: 1fr; } }
 </style>
-
 <div class="almo-container">
     <div class="almo-header">
         <h2><i class="fas fa-cubes"></i> Almoxarifado Inteligente & Pneus</h2>
@@ -87,7 +81,6 @@
             <button class="btn-modern btn-dark" onclick="prepararModalMovimentacao('ajuste')"><i class="fas fa-balance-scale"></i> Ajuste Balanço</button>
         </div>
     </div>
-
     <div class="almo-kpi-grid">
         <div class="almo-kpi-card">
             <div class="almo-kpi-icon icon-blue"><i class="fas fa-boxes"></i></div>
@@ -118,7 +111,6 @@
             </div>
         </div>
     </div>
-
     <div class="almo-controls">
         <div class="almo-tabs">
             <button class="almo-tab-btn active" onclick="mudarAbaAlmoxarifado('estoque', this)"><i class="fas fa-box-open"></i> Estoque Atual</button>
@@ -136,16 +128,16 @@
             <input type="text" id="almoSearchInput" onkeyup="filtrarAlmoxarifado()" placeholder="Pesquisar em qualquer aba...">
         </div>
     </div>
-
     <div id="abaEstoque" class="almo-table-container">
         <table class="almo-table">
             <thead>
                 <tr>
-                    <th>Código/SKU</th>
+                    <th>Código/SKU/CA</th>
                     <th>Descrição do Item</th>
                     <th>Unid.</th>
                     <th>Curva</th>
                     <th>Localização</th>
+                    <th>Validade</th>
                     <th>Qtd. Atual</th>
                     <th>Mínimo</th>
                     <th>Preço Médio</th>
@@ -156,7 +148,6 @@
             <tbody id="tabelaPecasBody"></tbody>
         </table>
     </div>
-
     <div id="abaRequisicoes" class="almo-table-container" style="display: none;">
         <table class="almo-table">
             <thead>
@@ -173,7 +164,6 @@
             <tbody id="tabelaRequisicoesBody"></tbody>
         </table>
     </div>
-
     <div id="abaNotas" class="almo-table-container" style="display: none;">
         <table class="almo-table">
             <thead>
@@ -190,7 +180,6 @@
             <tbody id="tabelaNotasBody"></tbody>
         </table>
     </div>
-
     <div id="abaMovimentacoes" class="almo-table-container" style="display: none;">
         <table class="almo-table">
             <thead>
@@ -208,7 +197,6 @@
             <tbody id="tabelaMovimentacoesBody"></tbody>
         </table>
     </div>
-
     <div id="abaPneus" class="almo-table-container" style="display: none;">
         <table class="almo-table">
             <thead>
@@ -226,7 +214,6 @@
             <tbody id="tabelaPneusBody"></tbody>
         </table>
     </div>
-
     <div id="abaRelatorios" style="display: none;">
         <div style="background: #0f172a; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; display: flex; justify-content: space-around; align-items: center;">
             <div style="text-align: center;">
@@ -242,7 +229,6 @@
                 <h2 style="color: #f8fafc; margin: 0;" id="relMesSaida">R$ 0,00</h2>
             </div>
         </div>
-
         <div class="grid-relatorios">
             <div class="almo-table-container">
                 <div style="padding: 15px; background: #0f172a; border-bottom: 1px solid #334155;">
@@ -253,7 +239,6 @@
                     <tbody id="tabelaCustoFrota"></tbody>
                 </table>
             </div>
-
             <div class="almo-table-container">
                 <div style="padding: 15px; background: #0f172a; border-bottom: 1px solid #334155;">
                     <h3 style="margin:0; color:#fff; font-size: 1.1rem;"><i class="fas fa-building"></i> Custos por Setor / Centro de Custo</h3>
@@ -263,7 +248,6 @@
                     <tbody id="tabelaCustoSetor"></tbody>
                 </table>
             </div>
-
             <div class="almo-table-container" style="grid-column: 1 / -1;">
                 <div style="padding: 15px; background: #0f172a; border-bottom: 1px solid #334155;">
                     <h3 style="margin:0; color:#fff; font-size: 1.1rem;"><i class="fas fa-sort-amount-down"></i> Resumo Curva ABC (Capital Imobilizado)</h3>
@@ -276,7 +260,6 @@
         </div>
     </div>
 </div>
-
 <div id="modalPeca" class="almo-modal">
     <div class="almo-modal-content" style="max-width: 600px;">
         <span class="almo-close" onclick="fecharModalAlmox('modalPeca')">&times;</span>
@@ -285,7 +268,7 @@
             <input type="hidden" id="pecaId">
             <div style="display: flex; gap: 15px;">
                 <div class="almo-form-group" style="flex: 1;">
-                    <label>Código / SKU</label>
+                    <label>Código / SKU / CA</label>
                     <input type="text" id="pecaCodigo" placeholder="Ex: FILTRO-001" required>
                 </div>
                 <div class="almo-form-group" style="flex: 2;">
@@ -304,7 +287,6 @@
                     <input type="text" id="pecaLocalizacao" placeholder="Ex: Corredor A - Prat 03">
                 </div>
             </div>
-
             <div style="display: flex; gap: 15px;">
                 <div class="almo-form-group" style="flex: 1;">
                     <label>Estoque Atual</label>
@@ -318,12 +300,15 @@
                     <label>Preço Médio (R$)</label>
                     <input type="number" step="0.01" id="pecaPreco" placeholder="0.00" required>
                 </div>
+                <div class="almo-form-group" style="flex: 1;">
+                    <label>Data de Validade</label>
+                    <input type="date" id="pecaValidade">
+                </div>
             </div>
             <button type="submit" class="btn-modern btn-success" style="width: 100%; justify-content: center; padding: 12px;"><i class="fas fa-save"></i> Gravar Peça</button>
         </form>
     </div>
 </div>
-
 <div id="modalMovimentacao" class="almo-modal">
     <div class="almo-modal-content">
         <span class="almo-close" onclick="fecharModalAlmox('modalMovimentacao')">&times;</span>
@@ -351,14 +336,13 @@
                 <div class="almo-table-container" style="max-height: 250px; overflow-y: auto; margin-bottom:10px;">
                     <table class="almo-table" style="font-size: 0.85rem;">
                         <thead style="position: sticky; top: 0; z-index: 10;">
-                            <tr><th>Código</th><th>Descrição</th><th>UN</th><th>Qtd</th><th>V.Unit</th><th>Ação</th></tr>
+                            <tr><th>Código/CA</th><th>Descrição</th><th>UN</th><th>Qtd</th><th>V.Unit</th><th>Validade</th><th>Ação</th></tr>
                         </thead>
                         <tbody id="tabelaLoteNFBody"></tbody>
                     </table>
                 </div>
                 <button type="button" class="btn-modern btn-edit" onclick="adicionarLinhaLoteNF()"><i class="fas fa-plus"></i> Add Manual</button>
             </div>
-
             <div id="divSaidaOS" style="display: none;">
                 <div class="almo-form-group">
                     <label>Para onde vai este material?</label>
@@ -378,7 +362,6 @@
                         <input type="text" id="movCavalo" placeholder="Aguardando O.S..." readonly>
                     </div>
                 </div>
-
                 <div id="camposSetorSaida" style="display: none; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
                     <div class="almo-form-group">
                         <label>Centro de Custo / Setor</label>
@@ -387,7 +370,6 @@
                         </select>
                     </div>
                 </div>
-
                 <div class="almo-form-group">
                     <label>Peça / Material</label>
                     <select id="movPecaId"></select>
@@ -398,7 +380,6 @@
                     <div class="almo-form-group" style="flex: 1;"><label>Valor Médio (R$)</label><input type="number" step="0.01" id="movValor" readonly style="background: #334155;"></div>
                 </div>
             </div>
-
             <div id="divAjusteEstoque" style="display: none;">
                 <div class="almo-form-group">
                     <label>Selecione a Peça para Ajuste</label>
@@ -419,12 +400,10 @@
                     <input type="text" id="ajusteMotivo" placeholder="Ex: Inventário Mensal, Peça Quebrada..." required>
                 </div>
             </div>
-
             <button type="submit" id="btnConfirmaMov" class="btn-modern btn-primary" style="width: 100%; justify-content: center; margin-top: 15px; padding: 12px;"><i class="fas fa-check"></i> Salvar Movimentação</button>
         </form>
     </div>
 </div>
-
 <div id="modalPneu" class="almo-modal">
     <div class="almo-modal-content" style="max-width: 600px;">
         <span class="almo-close" onclick="fecharModalAlmox('modalPneu')">&times;</span>
@@ -447,7 +426,6 @@
         </form>
     </div>
 </div>
-
 <div id="modalAcaoPneu" class="almo-modal">
     <div class="almo-modal-content" style="max-width: 500px;">
         <span class="almo-close" onclick="fecharModalAlmox('modalAcaoPneu')">&times;</span>
@@ -470,7 +448,6 @@
         </form>
     </div>
 </div>
-
 <div id="modalDetalhesNota" class="almo-modal">
     <div class="almo-modal-content" style="max-width: 800px;">
         <span class="almo-close" onclick="fecharModalAlmox('modalDetalhesNota')">&times;</span>
@@ -486,7 +463,6 @@
                 <strong id="detalheNotaNF" style="font-size: 1.1rem; color: #38bdf8;">---</strong>
             </div>
         </div>
-
         <div class="almo-table-container" style="max-height: 350px; overflow-y: auto;">
             <table class="almo-table">
                 <thead style="position: sticky; top: 0; z-index: 10;">

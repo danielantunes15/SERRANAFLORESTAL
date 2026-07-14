@@ -1,16 +1,15 @@
 // ==================== js/almoxarifado.js ====================
-
 let pecasEstoque = [];
 let movimentacoesEstoque = [];
 let pneusEstoque = [];
-let requisicoesEstoque = []; 
-let abaAtualAlmox = 'estoque'; 
+let requisicoesEstoque = [];
 
+let abaAtualAlmox = 'estoque';
 let itensLoteAtual = [];
 
 window.renderizarAlmoxarifado = async function() {
     await carregarDadosAlmoxarifado();
-};
+}
 
 async function carregarDadosAlmoxarifado() {
     try {
@@ -45,6 +44,7 @@ function classificarCurvaABC(lista) {
     let valorTotalEstoque = 0;
     lista.forEach(p => { p.valor_total = p.quantidade * p.preco_medio; valorTotalEstoque += p.valor_total; });
     lista.sort((a, b) => b.valor_total - a.valor_total);
+
     let somaAcumulada = 0;
     lista.forEach(p => {
         somaAcumulada += p.valor_total;
@@ -59,11 +59,18 @@ function atualizarTabelaPecas(listaPecas) {
     const tbody = document.getElementById('tabelaPecasBody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    if(listaPecas.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma peça encontrada.</td></tr>'; return; }
+    if(listaPecas.length === 0) { tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma peça encontrada.</td></tr>'; return; }
 
     listaPecas.forEach(peca => {
         const estaBaixo = peca.quantidade <= peca.estoque_minimo;
         const statusHtml = estaBaixo ? `<span class="badge badge-alert"><i class="fas fa-exclamation-circle"></i> Baixo</span>` : `<span class="badge badge-ok"><i class="fas fa-check"></i> Normal</span>`;
+        
+        let dataValidadeFormatada = '-';
+        if(peca.data_validade) {
+            const [ano, mes, dia] = peca.data_validade.split('-');
+            dataValidadeFormatada = `${dia}/${mes}/${ano}`;
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="font-family: monospace; color: #94a3b8;">${peca.codigo || '-'}</td>
@@ -71,6 +78,7 @@ function atualizarTabelaPecas(listaPecas) {
             <td style="color: #cbd5e1; font-weight: bold;">${peca.unidade || 'UN'}</td>
             <td><span class="badge badge-abc-${peca.curva}">${peca.curva}</span></td>
             <td style="color: #94a3b8;"><i class="fas fa-map-marker-alt" style="font-size:0.8rem;"></i> ${peca.localizacao || '-'}</td>
+            <td style="color: #94a3b8;">${dataValidadeFormatada}</td>
             <td style="font-size: 1.1rem; font-weight: bold; ${estaBaixo ? 'color: #f87171;' : 'color: #34d399;'}">${peca.quantidade}</td>
             <td style="color: #94a3b8;">${peca.estoque_minimo}</td>
             <td style="font-weight: 500; color: #f8fafc;">R$ ${parseFloat(peca.preco_medio).toFixed(2).replace('.', ',')}</td>
@@ -96,14 +104,13 @@ function atualizarTabelaRequisicoes(listaReqs) {
         const pecaRef = pecasEstoque.find(p => String(p.id) === String(req.peca_id));
         const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
         const usuarioReq = req.mecanico_responsavel || 'Usuário';
-        const stat = req.status || 'Pendente'; 
+        const stat = req.status || 'Pendente';
         
         let tituloOrigem = req.centro_custo 
             ? `<strong style="color:#a855f7; font-size:1.05rem;">RM #${req.id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-building"></i> ${req.centro_custo}</span>` 
             : `<strong style="color:#60a5fa; font-size:1.05rem;">O.S #${req.os_id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-truck"></i> ${req.placa || 'Frota'}</span>`;
 
         let statusBadge = '', btnAcao = '';
-
         if (stat === 'Pendente') {
             statusBadge = '<span class="badge" style="background:#f59e0b; color:#fff;"><i class="fas fa-clock"></i> Aguardando</span>';
             btnAcao = `
@@ -131,7 +138,6 @@ function atualizarTabelaRequisicoes(listaReqs) {
         tbody.appendChild(tr);
     });
 }
-
 
 function atualizarTabelaNotas(listaMovimentacoes) {
     const tbody = document.getElementById('tabelaNotasBody');
@@ -260,6 +266,7 @@ function atualizarTabelaPneus(lista) {
     lista.forEach(p => {
         let statusCor = p.status === 'Estoque' ? '#34d399' : (p.status === 'Rodando' ? '#60a5fa' : (p.status === 'Sucata' ? '#f87171' : '#fcd34d'));
         let localTxt = p.status === 'Rodando' ? `Frota: <b style="color:#f8fafc;">${p.cavalo_atual}</b>` : '<span style="color:#94a3b8;">No Almoxarifado</span>';
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="font-weight:bold; color:#fff; font-size:1.1rem;">${p.num_fogo}</td>
@@ -287,6 +294,7 @@ function atualizarKPIsAlmoxarifado() {
         if (p.quantidade <= p.estoque_minimo) itensBaixos++;
         if(p.curva) { abcData[p.curva].qtd++; abcData[p.curva].val += p.valor_total; }
     });
+
     pneusEstoque.forEach(pneu => valorTotal += parseFloat(pneu.custo_atual || 0));
 
     document.getElementById('kpiTotalItens').innerText = pecasEstoque.length;
@@ -323,6 +331,7 @@ function gerarRelatoriosAvancados() {
         if (m.tipo === 'entrada' && noMesAtual) totalEntradasMes += val;
         if (m.tipo === 'saida') {
             if (noMesAtual) totalSaidasMes += val;
+
             if (m.setor_destino) { if(!custosSetor[m.setor_destino]) custosSetor[m.setor_destino] = 0; custosSetor[m.setor_destino] += val; } 
             else if (m.cavalo) { if(!custosFrota[m.cavalo]) custosFrota[m.cavalo] = 0; custosFrota[m.cavalo] += val; } 
             else { if(!custosSetor["Oficina Geral"]) custosSetor["Oficina Geral"] = 0; custosSetor["Oficina Geral"] += val; }
@@ -375,7 +384,7 @@ window.carregarCentrosCustoAlmox = async function() {
         if (data && data.length > 0) { selectCC.innerHTML = '<option value="" disabled selected>-- Selecione o Centro de Custo --</option>' + data.map(cc => `<option value="${cc.nome}">[${cc.codigo}] ${cc.nome}</option>`).join(''); } 
         else { selectCC.innerHTML = '<option value="" disabled>Nenhum Centro Cadastrado nesta Filial</option>'; }
     } catch (e) { selectCC.innerHTML = '<option value="" disabled>Erro ao carregar</option>'; }
-};
+}
 
 window.toggleTipoSaida = function() {
     const tipo = document.getElementById('movTipoSaida').value;
@@ -392,7 +401,6 @@ window.toggleTipoSaida = function() {
 window.aprovarRequisicao = async function(reqId) {
     const req = requisicoesEstoque.find(r => r.id == reqId);
     if(!req) { alert("Requisição não encontrada no sistema."); return; }
-
     const peca = pecasEstoque.find(p => p.id == req.peca_id);
     if (!peca || peca.quantidade < req.quantidade) { alert(`Estoque insuficiente! Você possui apenas ${peca ? peca.quantidade : 0} unidade(s).`); return; }
     
@@ -421,7 +429,7 @@ window.aprovarRequisicao = async function(reqId) {
         }
 
         await db.addMovimentacao(novaMovimentacao);
-        alert("Requisição Aprovada com sucesso! Custo direcionado."); 
+        alert("Requisição Aprovada com sucesso! Custo direcionado.");
         await carregarDadosAlmoxarifado();
     } catch (e) { alert("Erro ao aprovar requisição. Tente novamente."); console.error(e); }
 }
@@ -454,7 +462,6 @@ window.prepararModalMovimentacao = function(tipo) {
         document.getElementById('divEntradaNF').style.display = 'block';
         itensLoteAtual = []; renderizarItensLoteNF();
         document.getElementById('movNF').required = true; document.getElementById('movFornecedor').required = true;
-
     } else if(tipo === 'saida') {
         titulo.innerHTML = '<i class="fas fa-arrow-up" style="color: #fbbf24;"></i> Registrar Saída do Estoque';
         btnSubmit.className = 'btn-modern btn-warning';
@@ -484,7 +491,6 @@ window.prepararModalMovimentacao = function(tipo) {
                 } catch (e) { cavaloInput.value = "ERRO AO BUSCAR"; }
             };
         }
-
     } else if(tipo === 'ajuste') {
         titulo.innerHTML = '<i class="fas fa-balance-scale" style="color: #94a3b8;"></i> Ajuste de Balanço Físico';
         btnSubmit.className = 'btn-modern btn-dark';
@@ -493,6 +499,7 @@ window.prepararModalMovimentacao = function(tipo) {
         document.getElementById('ajustePecaId').required = true; document.getElementById('ajusteQtdReal').required = true; document.getElementById('ajusteMotivo').required = true;
         preencherSelectPecas('ajustePecaId'); document.getElementById('ajusteQtdAtual').value = '';
     }
+
     document.getElementById('modalMovimentacao').style.display = 'flex';
 }
 
@@ -551,7 +558,7 @@ window.salvarMovimentacao = async function(e) {
             const peca = pecasEstoque.find(p => p.id == peca_id);
             const diferenca = qtdReal - peca.quantidade;
             if(diferenca === 0) { alert("Quantidade física igual ao sistema."); throw new Error("Sem diferenca"); }
-
+            
             await db.addMovimentacao({
                 peca_id: peca_id, tipo: 'ajuste', quantidade: diferenca, valor_unitario: peca.preco_medio,
                 nota_fiscal: 'Ajuste Físico', observacao: document.getElementById('ajusteMotivo').value,
@@ -561,7 +568,7 @@ window.salvarMovimentacao = async function(e) {
             alert("Estoque ajustado!");
         }
 
-        fecharModalAlmox('modalMovimentacao'); await carregarDadosAlmoxarifado(); 
+        fecharModalAlmox('modalMovimentacao'); await carregarDadosAlmoxarifado();
     } catch (error) { console.error(error); } 
     finally { if(btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = '<i class="fas fa-check"></i> Salvar Lançamento'; } }
 }
@@ -569,6 +576,7 @@ window.salvarMovimentacao = async function(e) {
 window.processarArquivoNF = async function(event) {
     const file = event.target.files[0];
     if (!file) return;
+
     document.getElementById('movNF').value = "Lendo arquivo...";
     itensLoteAtual = [];
 
@@ -580,6 +588,7 @@ window.processarArquivoNF = async function(event) {
         reader.onload = function(e) {
             try {
                 const xmlDoc = new DOMParser().parseFromString(e.target.result, "text/xml");
+                
                 document.getElementById('movNF').value = xmlDoc.getElementsByTagName('nNF')[0]?.textContent || '';
                 document.getElementById('movFornecedor').value = xmlDoc.getElementsByTagName('emit')[0]?.getElementsByTagName('xNome')[0]?.textContent || '';
                 
@@ -610,19 +619,21 @@ window.processarArquivoNF = async function(event) {
                         nome: prod.getElementsByTagName('xProd')[0]?.textContent || 'Desconhecido',
                         unidade: prod.getElementsByTagName('uCom')[0]?.textContent || 'UN',
                         quantidade: qtd.toFixed(2),
-                        valor_unitario: custoUnitarioReal.toFixed(2), // Preço já com impostos
+                        valor_unitario: custoUnitarioReal.toFixed(2), // Preço com impostos
+                        data_validade: '',
                         estoque_minimo: 2
                     });
                 }
-                renderizarItensLoteNF(); 
+                
+                renderizarItensLoteNF();
                 alert(`Leitura Concluída! Custo real calculado com sucesso.`);
             } catch (err) { 
                 alert("Erro ao processar a estrutura do XML."); 
                 document.getElementById('movNF').value = ""; 
             }
-        }; 
+        };
         reader.readAsText(file);
-    
+
     // ==========================================
     // 2. LEITURA DE CONTINGÊNCIA VIA PDF
     // ==========================================
@@ -631,8 +642,8 @@ window.processarArquivoNF = async function(event) {
             // Utiliza o pdf.js já linkado no seu index.html
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await window.pdfjsLib.getDocument({data: arrayBuffer}).promise;
+            
             let fullText = "";
-
             // Extrai o texto de todas as páginas
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
@@ -657,7 +668,7 @@ window.processarArquivoNF = async function(event) {
             document.getElementById('movFornecedor').value = fornecedor;
 
             // 2. Extrair Número da NF
-            const nfMatch = cleanText.match(/N[º°o]?\s*([\d\.\s]{4,20})/i);
+            const nfMatch = cleanText.match(/N[ºo]?\s*([\d\.\s]{4,20})/i);
             if (nfMatch) {
                 // Remove os pontos e espaços em branco (ex: 000.006.033 -> 000006033)
                 let numeroNF = nfMatch[1].replace(/[\.\s]/g, '');
@@ -671,9 +682,9 @@ window.processarArquivoNF = async function(event) {
             // 3. Extrair Itens da Nota
             // ATENÇÃO: Adicionado limitador {1,150}? para a descrição não engolir a nota toda!
             const regexItens = /(\d{4,12})\s+(.{1,150}?)\s+(\d{8})\s+(\d{3,4})\s+(\d{4})\s+([A-Z]{2,3})\s+([\d,\.]+)\s+([\d,\.]+)/gi;
+            
             let match;
             let index = 0;
-
             while ((match = regexItens.exec(cleanText)) !== null) {
                 const codigo = match[1];
                 const nome = match[2].trim();
@@ -690,6 +701,7 @@ window.processarArquivoNF = async function(event) {
                     unidade: unidade,
                     quantidade: parseFloat(qtdStr).toFixed(2),
                     valor_unitario: parseFloat(valorUnitStr).toFixed(2), // No PDF é difícil atrelar o IPI exato da linha
+                    data_validade: '',
                     estoque_minimo: 2
                 });
                 index++;
@@ -706,16 +718,18 @@ window.processarArquivoNF = async function(event) {
             console.error("Erro na leitura do PDF:", err);
             alert("Erro ao processar o PDF. O arquivo pode estar corrompido ou ser uma imagem escaneada.");
         }
+
     } else { 
         alert("Formato não suportado. Por favor, envie um arquivo .XML (Recomendado) ou .PDF."); 
     }
 }
+
 window.renderizarItensLoteNF = function() {
     const tbody = document.getElementById('tabelaLoteNFBody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    if(itensLoteAtual.length === 0) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 15px; color: #94a3b8;">Nenhum item na nota.</td></tr>'; return; }
-
+    if(itensLoteAtual.length === 0) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 15px; color: #94a3b8;">Nenhum item na nota.</td></tr>'; return; }
+    
     itensLoteAtual.forEach((item, index) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -724,22 +738,146 @@ window.renderizarItensLoteNF = function() {
             <td><input type="text" class="input-table-sm" style="text-align: center;" value="${item.unidade || 'UN'}" onchange="itensLoteAtual[${index}].unidade=this.value"></td>
             <td><input type="number" step="0.01" class="input-table-sm" value="${item.quantidade}" onchange="itensLoteAtual[${index}].quantidade=this.value" required></td>
             <td><input type="number" step="0.01" class="input-table-sm" value="${item.valor_unitario}" onchange="itensLoteAtual[${index}].valor_unitario=this.value" required></td>
+            <td><input type="date" class="input-table-sm" value="${item.data_validade || ''}" onchange="itensLoteAtual[${index}].data_validade=this.value"></td>
             <td style="text-align: center;"><button type="button" class="btn-action-sm btn-delete" onclick="itensLoteAtual.splice(${index},1); renderizarItensLoteNF()"><i class="fas fa-trash"></i></button></td>
         `; tbody.appendChild(tr);
     });
 }
-window.adicionarLinhaLoteNF = function() { itensLoteAtual.push({ id_local: Date.now(), codigo: '', nome: '', unidade: 'UN', quantidade: 1, valor_unitario: 0, estoque_minimo: 2 }); renderizarItensLoteNF(); }
 
-window.abrirModalPeca = function() { document.getElementById('formPeca').reset(); document.getElementById('pecaId').value = ''; document.getElementById('modalPecaTitulo').innerText = 'Nova Peça'; document.getElementById('modalPeca').style.display = 'flex'; }
-window.editarPeca = function(peca) { document.getElementById('pecaId').value = peca.id; document.getElementById('pecaCodigo').value = peca.codigo; document.getElementById('pecaNome').value = peca.nome; document.getElementById('pecaUnidade').value = peca.unidade || 'UN'; document.getElementById('pecaLocalizacao').value = peca.localizacao || ''; document.getElementById('pecaQtd').value = peca.quantidade; document.getElementById('pecaEstoqueMin').value = peca.estoque_minimo; document.getElementById('pecaPreco').value = peca.preco_medio; document.getElementById('modalPecaTitulo').innerText = 'Editar Peça'; document.getElementById('modalPeca').style.display = 'flex'; }
-window.salvarPeca = async function(e) { e.preventDefault(); const peca = { codigo: document.getElementById('pecaCodigo').value.trim(), nome: document.getElementById('pecaNome').value.trim(), unidade: document.getElementById('pecaUnidade').value.trim().toUpperCase(), localizacao: document.getElementById('pecaLocalizacao').value.trim(), quantidade: parseFloat(document.getElementById('pecaQtd').value), estoque_minimo: parseFloat(document.getElementById('pecaEstoqueMin').value), preco_medio: parseFloat(document.getElementById('pecaPreco').value) }; const id = document.getElementById('pecaId').value; if (id) peca.id = id; try { await db.upsertPeca(peca); fecharModalAlmox('modalPeca'); await carregarDadosAlmoxarifado(); } catch (err) { alert("Erro"); } }
-window.deletarPeca = async function(id) { if (confirm("Excluir esta peça pode afetar o histórico. Continuar?")) { await db.deletePeca(id); await carregarDadosAlmoxarifado(); } }
+window.adicionarLinhaLoteNF = function() { itensLoteAtual.push({ id_local: Date.now(), codigo: '', nome: '', unidade: 'UN', quantidade: 1, valor_unitario: 0, data_validade: '', estoque_minimo: 2 }); renderizarItensLoteNF(); }
+
+window.abrirModalPeca = function() {
+    document.getElementById('formPeca').reset();
+    document.getElementById('pecaId').value = '';
+    document.getElementById('pecaValidade').value = '';
+    document.getElementById('modalPecaTitulo').innerText = 'Nova Peça';
+    document.getElementById('modalPeca').style.display = 'flex';
+}
+
+window.editarPeca = function(peca) {
+    document.getElementById('pecaId').value = peca.id;
+    document.getElementById('pecaCodigo').value = peca.codigo;
+    document.getElementById('pecaNome').value = peca.nome;
+    document.getElementById('pecaUnidade').value = peca.unidade || 'UN';
+    document.getElementById('pecaLocalizacao').value = peca.localizacao || '';
+    document.getElementById('pecaQtd').value = peca.quantidade;
+    document.getElementById('pecaEstoqueMin').value = peca.estoque_minimo;
+    document.getElementById('pecaPreco').value = peca.preco_medio;
+    document.getElementById('pecaValidade').value = peca.data_validade || '';
+    document.getElementById('modalPecaTitulo').innerText = 'Editar Peça';
+    document.getElementById('modalPeca').style.display = 'flex';
+}
+
+window.salvarPeca = async function(e) {
+    e.preventDefault();
+    const peca = {
+        codigo: document.getElementById('pecaCodigo').value.trim(),
+        nome: document.getElementById('pecaNome').value.trim(),
+        unidade: document.getElementById('pecaUnidade').value.trim().toUpperCase(),
+        localizacao: document.getElementById('pecaLocalizacao').value.trim(),
+        quantidade: parseFloat(document.getElementById('pecaQtd').value),
+        estoque_minimo: parseFloat(document.getElementById('pecaEstoqueMin').value),
+        preco_medio: parseFloat(document.getElementById('pecaPreco').value),
+        data_validade: document.getElementById('pecaValidade').value || null
+    };
+    const id = document.getElementById('pecaId').value;
+    if (id) peca.id = id;
+
+    try {
+        await db.upsertPeca(peca);
+        fecharModalAlmox('modalPeca');
+        await carregarDadosAlmoxarifado();
+    } catch (err) { alert("Erro"); }
+}
+
+window.deletarPeca = async function(id) {
+    if (confirm("Excluir esta peça pode afetar o histórico. Continuar?")) {
+        await db.deletePeca(id);
+        await carregarDadosAlmoxarifado();
+    }
+}
 
 window.abrirModalPneu = function() { document.getElementById('formPneu').reset(); document.getElementById('pneuId').value = ''; document.getElementById('modalPneu').style.display = 'flex'; }
-window.editarPneu = function(pneu) { document.getElementById('pneuId').value = pneu.id; document.getElementById('pnFogo').value = pneu.num_fogo; document.getElementById('pnMarca').value = pneu.marca; document.getElementById('pnMedida').value = pneu.medida; document.getElementById('pnVida').value = pneu.vida; document.getElementById('pnCusto').value = pneu.custo_atual; document.getElementById('modalPneu').style.display = 'flex'; }
-window.salvarPneu = async function(e) { e.preventDefault(); let pneu = { num_fogo: document.getElementById('pnFogo').value.trim(), marca: document.getElementById('pnMarca').value.trim(), medida: document.getElementById('pnMedida').value.trim(), vida: parseInt(document.getElementById('pnVida').value), custo_atual: parseFloat(document.getElementById('pnCusto').value) || 0, status: 'Estoque' }; const id = document.getElementById('pneuId').value; if(id) pneu.id = id; if (typeof window.injetarFilial === 'function') pneu = window.injetarFilial(pneu); try { await window.supabaseClient.from('almoxarifado_pneus').upsert(pneu); fecharModalAlmox('modalPneu'); await carregarDadosAlmoxarifado(); alert("Sucesso!"); } catch(err) { alert("Erro"); } }
-window.abrirAcaoPneu = function(pneu) { document.getElementById('formAcaoPneu').reset(); document.getElementById('acaoPneuId').value = pneu.id; document.getElementById('acaoPneuFogo').innerText = pneu.num_fogo; mudarFormAcaoPneu(); document.getElementById('modalAcaoPneu').style.display = 'flex'; }
-window.mudarFormAcaoPneu = function() { const acao = document.getElementById('acaoPneuTipo').value; document.getElementById('divAcaoInstalar').style.display = acao === 'instalar' ? 'block' : 'none'; document.getElementById('divAcaoCusto').style.display = acao === 'recapagem' ? 'block' : 'none'; ['acaoCavalo','acaoKm','acaoEixo','acaoPosicao'].forEach(id => { const el = document.getElementById(id); if(el) el.required = (acao === 'instalar'); }); }
-window.executarAcaoPneu = async function(e) { e.preventDefault(); const pneuId = document.getElementById('acaoPneuId').value, acao = document.getElementById('acaoPneuTipo').value; let updPneu = {}, hist = { pneu_id: pneuId, tipo: acao, observacao: document.getElementById('acaoObs').value }; if(acao === 'instalar') { updPneu = { status: 'Rodando', cavalo_atual: document.getElementById('acaoCavalo').value.toUpperCase(), eixo: document.getElementById('acaoEixo').value, posicao: document.getElementById('acaoPosicao').value, km_instalacao: parseInt(document.getElementById('acaoKm').value) }; hist.cavalo = updPneu.cavalo_atual; hist.km_frota = updPneu.km_instalacao; } else if(acao === 'retirar') { updPneu = { status: 'Estoque', cavalo_atual: null, eixo: null, posicao: null }; } else if(acao === 'recapagem') { updPneu = { status: 'Recapagem', cavalo_atual: null, eixo: null, posicao: null }; const pneuVelho = pneusEstoque.find(p => p.id == pneuId); if(parseFloat(document.getElementById('acaoCustoExtra').value) > 0) updPneu.custo_atual = parseFloat(pneuVelho.custo_atual || 0) + parseFloat(document.getElementById('acaoCustoExtra').value); } else if(acao === 'sucata') { updPneu = { status: 'Sucata', cavalo_atual: null, eixo: null, posicao: null }; } if (typeof window.injetarFilial === 'function') hist = window.injetarFilial(hist); try { await window.supabaseClient.from('almoxarifado_pneus').update(updPneu).eq('id', pneuId); await window.supabaseClient.from('almoxarifado_pneus_mov').insert(hist); fecharModalAlmox('modalAcaoPneu'); await carregarDadosAlmoxarifado(); alert("Sucesso!"); } catch(err) { alert("Erro"); } }
+window.editarPneu = function(pneu) {
+    document.getElementById('pneuId').value = pneu.id;
+    document.getElementById('pnFogo').value = pneu.num_fogo;
+    document.getElementById('pnMarca').value = pneu.marca;
+    document.getElementById('pnMedida').value = pneu.medida;
+    document.getElementById('pnVida').value = pneu.vida;
+    document.getElementById('pnCusto').value = pneu.custo_atual;
+    document.getElementById('modalPneu').style.display = 'flex';
+}
+window.salvarPneu = async function(e) {
+    e.preventDefault();
+    let pneu = {
+        num_fogo: document.getElementById('pnFogo').value.trim(),
+        marca: document.getElementById('pnMarca').value.trim(),
+        medida: document.getElementById('pnMedida').value.trim(),
+        vida: parseInt(document.getElementById('pnVida').value),
+        custo_atual: parseFloat(document.getElementById('pnCusto').value) || 0,
+        status: 'Estoque'
+    };
+    const id = document.getElementById('pneuId').value;
+    if(id) pneu.id = id;
+    if (typeof window.injetarFilial === 'function') pneu = window.injetarFilial(pneu);
+
+    try {
+        await window.supabaseClient.from('almoxarifado_pneus').upsert(pneu);
+        fecharModalAlmox('modalPneu');
+        await carregarDadosAlmoxarifado();
+        alert("Sucesso!");
+    } catch(err) { alert("Erro"); }
+}
+
+window.abrirAcaoPneu = function(pneu) {
+    document.getElementById('formAcaoPneu').reset();
+    document.getElementById('acaoPneuId').value = pneu.id;
+    document.getElementById('acaoPneuFogo').innerText = pneu.num_fogo;
+    mudarFormAcaoPneu();
+    document.getElementById('modalAcaoPneu').style.display = 'flex';
+}
+window.mudarFormAcaoPneu = function() {
+    const acao = document.getElementById('acaoPneuTipo').value;
+    document.getElementById('divAcaoInstalar').style.display = acao === 'instalar' ? 'block' : 'none';
+    document.getElementById('divAcaoCusto').style.display = acao === 'recapagem' ? 'block' : 'none';
+    ['acaoCavalo','acaoKm','acaoEixo','acaoPosicao'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.required = (acao === 'instalar');
+    });
+}
+window.executarAcaoPneu = async function(e) {
+    e.preventDefault();
+    const pneuId = document.getElementById('acaoPneuId').value, acao = document.getElementById('acaoPneuTipo').value;
+    let updPneu = {}, hist = { pneu_id: pneuId, tipo: acao, observacao: document.getElementById('acaoObs').value };
+    
+    if(acao === 'instalar') {
+        updPneu = { status: 'Rodando', cavalo_atual: document.getElementById('acaoCavalo').value.toUpperCase(), eixo: document.getElementById('acaoEixo').value, posicao: document.getElementById('acaoPosicao').value, km_instalacao: parseInt(document.getElementById('acaoKm').value) };
+        hist.cavalo = updPneu.cavalo_atual; hist.km_frota = updPneu.km_instalacao;
+    } else if(acao === 'retirar') {
+        updPneu = { status: 'Estoque', cavalo_atual: null, eixo: null, posicao: null };
+    } else if(acao === 'recapagem') {
+        updPneu = { status: 'Recapagem', cavalo_atual: null, eixo: null, posicao: null };
+        const pneuVelho = pneusEstoque.find(p => p.id == pneuId);
+        if(parseFloat(document.getElementById('acaoCustoExtra').value) > 0) updPneu.custo_atual = parseFloat(pneuVelho.custo_atual || 0) + parseFloat(document.getElementById('acaoCustoExtra').value);
+    } else if(acao === 'sucata') {
+        updPneu = { status: 'Sucata', cavalo_atual: null, eixo: null, posicao: null };
+    }
+
+    if (typeof window.injetarFilial === 'function') hist = window.injetarFilial(hist);
+
+    try {
+        await window.supabaseClient.from('almoxarifado_pneus').update(updPneu).eq('id', pneuId);
+        await window.supabaseClient.from('almoxarifado_pneus_mov').insert(hist);
+        fecharModalAlmox('modalAcaoPneu'); await carregarDadosAlmoxarifado(); alert("Sucesso!");
+    } catch(err) { alert("Erro"); }
+}
+
 window.fecharModalAlmox = function(id) { document.getElementById(id).style.display = 'none'; }
-window.imprimirQRCode = function(peca) { if (!peca.codigo) { alert("Sem código!"); return; } const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(peca.codigo)}`; const win = window.open('', '_blank', 'width=400,height=500'); win.document.write(`<html><head><title>Etiqueta QR Code - ${peca.codigo}</title><style>body { font-family: sans-serif; text-align: center; } .etiqueta { border: 2px dashed #000; padding: 20px; display: inline-block; width: 250px; border-radius: 8px; } .titulo { font-size: 16px; font-weight: bold; margin-bottom: 15px; } .codigo { font-size: 22px; margin: 10px 0; font-family: monospace; font-weight: bold; } </style></head><body><div class="etiqueta"><div class="titulo">${peca.nome}</div><img src="${qrUrl}" alt="QR Code" style="border: 1px solid #ccc; padding: 5px; border-radius: 5px;"><div class="codigo">${peca.codigo}</div><div class="local">📍 Local: ${peca.localizacao || 'S/N'}</div></div><script>setTimeout(() => { window.print(); window.close(); }, 500);</script></body></html>`); win.document.close(); }
+
+window.imprimirQRCode = function(peca) {
+    if (!peca.codigo) { alert("Sem código!"); return; }
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(peca.codigo)}`;
+    const win = window.open('', '_blank', 'width=400,height=500');
+    win.document.write(`<html><head><title>Etiqueta QR Code - ${peca.codigo}</title><style>body { font-family: sans-serif; text-align: center; } .etiqueta { border: 2px dashed #000; padding: 20px; display: inline-block; width: 250px; border-radius: 8px; } .titulo { font-size: 16px; font-weight: bold; margin-bottom: 15px; } .codigo { font-size: 22px; margin: 10px 0; font-family: monospace; font-weight: bold; } </style></head><body><div class="etiqueta"><div class="titulo">${peca.nome}</div><img src="${qrUrl}" alt="QR Code" style="border: 1px solid #ccc; padding: 5px; border-radius: 5px;"><div class="codigo">${peca.codigo}</div><div class="local">📍 Local: ${peca.localizacao || 'S/N'}</div></div><script>setTimeout(() => { window.print(); window.close(); }, 500);</script></body></html>`);
+    win.document.close();
+}
