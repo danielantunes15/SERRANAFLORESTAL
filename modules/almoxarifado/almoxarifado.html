@@ -135,6 +135,7 @@
                 <tr>
                     <th>Código/SKU/CA</th>
                     <th>Descrição do Item</th>
+                    <th>Categoria</th>
                     <th>Unid.</th>
                     <th>Curva</th>
                     <th>Localização</th>
@@ -280,14 +281,18 @@
                 </div>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 15px;">
+            <div style="display: grid; grid-template-columns: 1fr 1.5fr 1.5fr; gap: 15px; margin-bottom: 15px;">
                 <div class="almo-form-group" style="margin-bottom: 0;">
                     <label>Unidade</label>
-                    <input type="text" id="pecaUnidade" placeholder="UN, LT, KG, CX" value="UN" required>
+                    <select id="pecaUnidade" required></select>
                 </div>
                 <div class="almo-form-group" style="margin-bottom: 0;">
-                    <label>Localização (Corredor/Prateleira)</label>
-                    <input type="text" id="pecaLocalizacao" placeholder="Ex: Corredor A - Prat 03">
+                    <label>Categoria</label>
+                    <select id="pecaCategoria"></select>
+                </div>
+                <div class="almo-form-group" style="margin-bottom: 0;">
+                    <label>Localização</label>
+                    <select id="pecaLocalizacao"></select>
                 </div>
             </div>
             

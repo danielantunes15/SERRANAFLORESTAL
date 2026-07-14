@@ -24,6 +24,7 @@ window.MAPA_MENUS = [
     
     // --- MÓDULO INDEPENDENTE: ALMOXARIFADO ---
     { id: 'almoxarifado', label: 'Gestão de Estoque', setor: 'Almoxarifado', icon: 'fas fa-boxes' },
+    { id: 'almoxarifado_cadastros', label: 'Cadastros Almoxarifado', setor: 'Almoxarifado', icon: 'fas fa-list-alt' },
     
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
@@ -85,7 +86,6 @@ const ROTAS = {
     'historico_os': 'modules/manutencao/historico_os/historico_os.html',
     'painel_tv': 'modules/manutencao/painel_tv/painel_tv.html',
     'servicos': 'modules/manutencao/servicos/servicos.html',
-    'cadastro_frota': 'modules/logistica/frota_conjuntos/cadastro_frota.html',
     'cadastro_os_classificacoes': 'modules/manutencao/cadastros/classificacoes.html',
     
     'treinamento': 'modules/ssma/treinamento/treinamento.html',
@@ -126,13 +126,14 @@ const ROTAS = {
     'gestao_usuarios': 'modules/configuracoes/gestao_usuarios.html',
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
     
-    'almoxarifado': 'modules/almoxarifado/almoxarifado.html'
+    'almoxarifado': 'modules/almoxarifado/almoxarifado.html',
+    'almoxarifado_cadastros': 'modules/almoxarifado/almoxarifado_cadastros.html'
 };
 
 // =========================================================================================
 // MUDANÇA DE VERSÃO: FORÇA O NAVEGADOR A LIMPAR O CACHE E BAIXAR OS ARQUIVOS NOVOS
 // =========================================================================================
-const VERSAO_SISTEMA = "1.0.17"; 
+const VERSAO_SISTEMA = "1.0.18"; 
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -298,7 +299,10 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'alocacao' && typeof window.renderizarAlocacao === 'function') window.renderizarAlocacao();
         if (pagina === 'motoristas' && typeof window.renderizarMotoristas === 'function') window.renderizarMotoristas();
         if (pagina === 'caminhoes' && typeof window.renderizarConjuntos === 'function') window.renderizarConjuntos();
+        
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
+        if (pagina === 'almoxarifado_cadastros' && typeof window.renderizarCadastrosAlmox === 'function') window.renderizarCadastrosAlmox();
+
         if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
         if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();
         if (pagina === 'campo_equipe' && typeof window.renderizarEquipeCampo === 'function') window.renderizarEquipeCampo();

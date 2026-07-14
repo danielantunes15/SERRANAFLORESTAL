@@ -39,11 +39,37 @@ async function carregarDadosAlmoxarifado() {
     } catch (e) { console.error("Erro ao carregar almoxarifado", e); }
 }
 
+async function preencherSelectsCadastrosBasicos() {
+    if(!window.supabaseClient) return;
+    try {
+        let query = window.supabaseClient.from('almoxarifado_cadastros').select('*');
+        if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+        const {data} = await query;
+        
+        const unidades = data ? data.filter(d => d.tipo === 'UNIDADE') : [];
+        const locais = data ? data.filter(d => d.tipo === 'LOCALIZACAO') : [];
+        const categorias = data ? data.filter(d => d.tipo === 'CATEGORIA') : [];
+        
+        const preencher = (id, lista) => {
+            const sel = document.getElementById(id);
+            if(!sel) return;
+            sel.innerHTML = '<option value="">-- Selecione --</option>';
+            lista.forEach(i => sel.innerHTML += `<option value="${i.descricao}">${i.descricao}</option>`);
+        };
+        
+        preencher('pecaUnidade', unidades);
+        preencher('pecaLocalizacao', locais);
+        preencher('pecaCategoria', categorias);
+    } catch (e) {
+        console.error("Erro ao buscar cadastros básicos", e);
+    }
+}
+
 function atualizarTabelaPecas(listaPecas) {
     const tbody = document.getElementById('tabelaPecasBody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    if(listaPecas.length === 0) { tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma peça encontrada.</td></tr>'; return; }
+    if(listaPecas.length === 0) { tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma peça encontrada.</td></tr>'; return; }
 
     const grupos = {};
     let valorTotalGlobal = 0;
@@ -54,7 +80,7 @@ function atualizarTabelaPecas(listaPecas) {
         if (!grupos[chave]) {
             grupos[chave] = {
                 chave: chave, nome: peca.nome, codigo: peca.codigo, unidade: peca.unidade,
-                localizacao: peca.localizacao, estoque_minimo: peca.estoque_minimo,
+                categoria: peca.categoria, localizacao: peca.localizacao, estoque_minimo: peca.estoque_minimo,
                 quantidade_total: 0, valor_total: 0, itens: [], validades: []
             };
         }
@@ -101,6 +127,7 @@ function atualizarTabelaPecas(listaPecas) {
                 <strong style="color: #f8fafc;">${grupo.nome}</strong> 
                 ${grupo.itens.length > 1 ? `<span style="font-size:0.7rem; color:#94a3b8; background:#334155; padding:2px 6px; border-radius:10px; margin-left:5px; cursor:pointer;" onclick="toggleLotes('lotes_${indexGrupo}')"><i class="fas fa-layer-group"></i> ${grupo.itens.length} Lotes</span>` : ''}
             </td>
+            <td><span style="color:#cbd5e1; font-size:0.85rem; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; border: 1px solid #334155;">${grupo.categoria || '-'}</span></td>
             <td style="color: #cbd5e1; font-weight: bold;">${grupo.unidade || 'UN'}</td>
             <td><span class="badge badge-abc-${grupo.curva}">${grupo.curva}</span></td>
             <td style="color: #94a3b8;"><i class="fas fa-map-marker-alt" style="font-size:0.8rem;"></i> ${grupo.localizacao || '-'}</td>
@@ -128,7 +155,7 @@ function atualizarTabelaPecas(listaPecas) {
                 trLote.style.display = 'none'; // Começa escondido
                 trLote.style.backgroundColor = 'rgba(0,0,0,0.2)';
                 trLote.innerHTML = `
-                    <td colspan="4" style="text-align: right; color: #64748b; font-size:0.85rem;"><i class="fas fa-level-up-alt" style="transform: rotate(90deg);"></i> Lote ${idxLote + 1}</td>
+                    <td colspan="5" style="text-align: right; color: #64748b; font-size:0.85rem;"><i class="fas fa-level-up-alt" style="transform: rotate(90deg);"></i> Lote ${idxLote + 1}</td>
                     <td style="color: #94a3b8; font-size:0.85rem;">${lote.localizacao || '-'}</td>
                     <td style="color: #cbd5e1; font-size:0.85rem;">${dataVal}</td>
                     <td style="color: #34d399; font-weight:bold; font-size:0.95rem;">${lote.quantidade}</td>
@@ -146,7 +173,6 @@ function atualizarTabelaPecas(listaPecas) {
     });
 }
 
-// Expande ou esconde as linhas filhas (Lotes)
 window.toggleLotes = function(className) {
     const rows = document.querySelectorAll('.' + className);
     rows.forEach(row => { row.style.display = row.style.display === 'none' ? 'table-row' : 'none'; });
@@ -203,7 +229,6 @@ function atualizarTabelaNotas(listaMovimentacoes) {
     if (!tbody) return;
     tbody.innerHTML = '';
     
-    // Filtrar apenas entradas e ignorar registros em branco
     const entradas = listaMovimentacoes.filter(m => m.tipo === 'entrada' && m.nota_fiscal && m.nota_fiscal !== '-');
     if(entradas.length === 0) { 
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma nota fiscal registrada.</td></tr>'; 
@@ -212,16 +237,13 @@ function atualizarTabelaNotas(listaMovimentacoes) {
 
     const gruposNotas = {};
     entradas.forEach(mov => {
-        // Separação em Minutos (Para NF) e em Segundos/ID (Para entrada manual)
         const dataMinuto = new Date(mov.data_movimentacao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
         const dataSegundos = new Date(mov.data_movimentacao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
         
         let chave = '';
         if (mov.nota_fiscal === 'Entrada Manual Sist.') {
-            // Garante que CADA entrada manual gerada seja uma linha individual
             chave = `manual_${mov.id || dataSegundos}`;
         } else {
-            // NFs importadas via arquivo são agrupadas pelo mesmo lote (minuto a minuto)
             chave = `${mov.nota_fiscal}_${mov.fornecedor}_${mov.usuario}_${dataMinuto}`;
         }
         
@@ -453,7 +475,7 @@ function gerarRelatoriosAvancados() {
 
 window.filtrarAlmoxarifado = function() {
     const termo = document.getElementById('almoSearchInput').value.toLowerCase();
-    if (abaAtualAlmox === 'estoque') atualizarTabelaPecas(pecasEstoque.filter(p => (p.nome||'').toLowerCase().includes(termo) || (p.codigo||'').toLowerCase().includes(termo)));
+    if (abaAtualAlmox === 'estoque') atualizarTabelaPecas(pecasEstoque.filter(p => (p.nome||'').toLowerCase().includes(termo) || (p.codigo||'').toLowerCase().includes(termo) || (p.categoria||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'notas') atualizarTabelaNotas(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo) || (m.usuario||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'movimentacoes') atualizarTabelaMovimentacoes(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo) || (m.cavalo||'').toLowerCase().includes(termo) || (m.setor_destino||'').toLowerCase().includes(termo) || (m.usuario||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'pneus') atualizarTabelaPneus(pneusEstoque.filter(p => (p.num_fogo||'').toLowerCase().includes(termo) || (p.cavalo_atual||'').toLowerCase().includes(termo)));
@@ -464,7 +486,10 @@ window.mudarAbaAlmoxarifado = function(abaId, btn) {
     abaAtualAlmox = abaId;
     document.querySelectorAll('.almo-tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    ['estoque','requisicoes','notas','movimentacoes','pneus','relatorios'].forEach(id => document.getElementById('aba'+id.charAt(0).toUpperCase() + id.slice(1)).style.display = (id === abaId ? 'block' : 'none'));
+    ['estoque','requisicoes','notas','movimentacoes','pneus','relatorios'].forEach(id => {
+        const element = document.getElementById('aba'+id.charAt(0).toUpperCase() + id.slice(1));
+        if(element) element.style.display = (id === abaId ? 'block' : 'none');
+    });
     filtrarAlmoxarifado();
 }
 
@@ -802,24 +827,31 @@ window.renderizarItensLoteNF = function() {
 
 window.adicionarLinhaLoteNF = function() { itensLoteAtual.push({ id_local: Date.now(), codigo: '', nome: '', unidade: 'UN', quantidade: 1, valor_unitario: 0, data_validade: '', estoque_minimo: 2 }); renderizarItensLoteNF(); }
 
-window.abrirModalPeca = function() {
+window.abrirModalPeca = async function() {
     document.getElementById('formPeca').reset();
     document.getElementById('pecaId').value = '';
     document.getElementById('pecaValidade').value = '';
     document.getElementById('modalPecaTitulo').innerText = 'Nova Peça';
+    
+    await preencherSelectsCadastrosBasicos();
+    
     document.getElementById('modalPeca').style.display = 'flex';
 }
 
-window.editarPeca = function(peca) {
+window.editarPeca = async function(peca) {
+    await preencherSelectsCadastrosBasicos();
+    
     document.getElementById('pecaId').value = peca.id;
     document.getElementById('pecaCodigo').value = peca.codigo;
     document.getElementById('pecaNome').value = peca.nome;
     document.getElementById('pecaUnidade').value = peca.unidade || 'UN';
+    document.getElementById('pecaCategoria').value = peca.categoria || '';
     document.getElementById('pecaLocalizacao').value = peca.localizacao || '';
     document.getElementById('pecaQtd').value = peca.quantidade;
     document.getElementById('pecaEstoqueMin').value = peca.estoque_minimo;
     document.getElementById('pecaPreco').value = peca.preco_medio;
     document.getElementById('pecaValidade').value = peca.data_validade || '';
+    
     document.getElementById('modalPecaTitulo').innerText = 'Editar Peça / Lote';
     document.getElementById('modalPeca').style.display = 'flex';
 }
@@ -831,6 +863,7 @@ window.salvarPeca = async function(e) {
         codigo: document.getElementById('pecaCodigo').value.trim(),
         nome: document.getElementById('pecaNome').value.trim(),
         unidade: document.getElementById('pecaUnidade').value.trim().toUpperCase(),
+        categoria: document.getElementById('pecaCategoria').value.trim().toUpperCase(),
         localizacao: document.getElementById('pecaLocalizacao').value.trim(),
         quantidade: parseFloat(document.getElementById('pecaQtd').value),
         estoque_minimo: parseFloat(document.getElementById('pecaEstoqueMin').value),
@@ -858,7 +891,6 @@ window.salvarPeca = async function(e) {
                 if (pecaInput.data_validade) pecaExistenteIgual.data_validade = pecaInput.data_validade; 
                 await db.upsertPeca(pecaExistenteIgual);
                 
-                // GRAVAR O HISTÓRICO DA ENTRADA MANUAL QUANDO SOMA AO LOTE
                 if (pecaInput.quantidade > 0) {
                     const mov = typeof window.injetarFilial === 'function' ? window.injetarFilial({
                         peca_id: pecaExistenteIgual.id, 
@@ -879,7 +911,6 @@ window.salvarPeca = async function(e) {
                 const { data, error } = await window.supabaseClient.from('almoxarifado_pecas').insert([pInjetada]).select();
                 if(error) throw error;
                 
-                // GRAVAR O HISTÓRICO QUANDO CRIA UM LOTE NOVO (CÓDIGO/PREÇO DIFERENTES)
                 if (data && data.length > 0 && pecaInput.quantidade > 0) {
                     const mov = typeof window.injetarFilial === 'function' ? window.injetarFilial({
                         peca_id: data[0].id, 

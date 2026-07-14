@@ -1,0 +1,76 @@
+<style>
+    .cad-almo-container { font-family: 'Segoe UI', system-ui, sans-serif; color: #e2e8f0; animation: fadeIn 0.4s ease-in-out; }
+    .cad-almo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 15px; border-bottom: 1px solid #334155; }
+    .cad-almo-header h2 { margin: 0; color: #ffffff; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+    
+    .cad-almo-box { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); margin-bottom: 20px; }
+    
+    .form-row { display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; }
+    .form-group-cad { flex: 1; min-width: 200px; }
+    .form-group-cad label { display: block; font-weight: 600; margin-bottom: 6px; color: #cbd5e1; font-size: 0.9rem; }
+    .form-group-cad input, .form-group-cad select { width: 100%; padding: 10px 12px; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 8px; outline: none; transition: 0.2s; }
+    .form-group-cad input:focus, .form-group-cad select:focus { border-color: #3b82f6; }
+    
+    .btn-cad { padding: 10px 18px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; background: #10b981; color: white; height: 42px; display: flex; align-items: center; gap: 8px; }
+    .btn-cad:hover { background: #059669; }
+
+    .almo-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .almo-table th { background-color: #0f172a; padding: 14px 20px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; border-bottom: 1px solid #334155; }
+    .almo-table td { padding: 14px 20px; border-bottom: 1px solid #334155; vertical-align: middle; color: #e2e8f0; }
+    .btn-action-sm { padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; transition: 0.2s; color: white; background: #ef4444; }
+    .btn-action-sm:hover { background: #dc2626; }
+</style>
+
+<div class="cad-almo-container">
+    <div class="cad-almo-header">
+        <h2><i class="fas fa-list-alt" style="color: #60a5fa;"></i> Cadastros Básicos - Almoxarifado</h2>
+    </div>
+
+    <div class="cad-almo-box">
+        <h3 style="margin-top:0; color:#38bdf8; margin-bottom:15px;">Novo Cadastro</h3>
+        <form onsubmit="salvarNovoCadastroAlmox(event)">
+            <div class="form-row">
+                <div class="form-group-cad">
+                    <label>Tipo de Cadastro</label>
+                    <select id="novoCadastroTipo" required>
+                        <option value="CATEGORIA">Categoria de Peças</option>
+                        <option value="UNIDADE">Unidade de Medida</option>
+                        <option value="LOCALIZACAO">Localização (Prateleiras)</option>
+                    </select>
+                </div>
+                <div class="form-group-cad" style="flex: 2;">
+                    <label>Descrição</label>
+                    <input type="text" id="novoCadastroDesc" placeholder="Ex: E.P.I EQUIPAMENTO, CX, Prateleira A..." required>
+                </div>
+                <div>
+                    <button type="submit" class="btn-cad" id="btnSalvarCadAlmox"><i class="fas fa-plus"></i> Adicionar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="cad-almo-box" style="padding: 0; overflow: hidden;">
+        <div style="padding: 15px; background: #0f172a; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin:0; font-size:1.1rem;">Registros Salvos (Da sua Filial)</h3>
+            <select id="filtroTipoCadastro" onchange="atualizarTabelaCadastrosAlmox()" style="background: #1e293b; border: 1px solid #334155; color: #fff; padding: 5px 10px; border-radius: 6px; outline: none;">
+                <option value="TODOS">Todos os Tipos</option>
+                <option value="CATEGORIA">Somente Categorias</option>
+                <option value="UNIDADE">Somente Unidades</option>
+                <option value="LOCALIZACAO">Somente Localizações</option>
+            </select>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="almo-table">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Descrição do Cadastro</th>
+                        <th>Data de Criação</th>
+                        <th style="text-align: right;">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaCadastrosAlmoxBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
