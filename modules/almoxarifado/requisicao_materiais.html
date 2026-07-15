@@ -15,8 +15,19 @@
     .req-form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: #cbd5e1; font-size: 0.9rem; }
     .req-form-group select, .req-form-group input { width: 100%; padding: 10px 12px; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 8px; outline: none; transition: 0.2s; font-size: 1rem; }
     .req-form-group select:focus, .req-form-group input:focus { border-color: #3b82f6; }
-    .req-form-group select:disabled, .req-form-group input:disabled { background: #334155; cursor: not-allowed; }
+    .req-form-group select:disabled, .req-form-group input:disabled { background: #334155; cursor: not-allowed; color: #94a3b8; }
     
+    /* Autocomplete Inteligente (Design Moderno) */
+    .autocomplete-wrapper { position: relative; }
+    .autocomplete-results { position: absolute; top: 100%; left: 0; width: 100%; background: #0f172a; border: 1px solid #3b82f6; border-radius: 8px; max-height: 280px; overflow-y: auto; z-index: 9999; display: none; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.6); margin-top: 5px; }
+    .autocomplete-results::-webkit-scrollbar { width: 8px; }
+    .autocomplete-results::-webkit-scrollbar-thumb { background-color: #3b82f6; border-radius: 4px; }
+    .autocomplete-item { padding: 12px 15px; cursor: pointer; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; color: #f8fafc; transition: 0.2s; }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover { background: #1e293b; }
+    .autocomplete-item.disabled { color: #ef4444; cursor: not-allowed; background: rgba(15, 23, 42, 0.8); opacity: 0.6; }
+    .autocomplete-item.disabled:hover { background: rgba(15, 23, 42, 0.8); }
+
     .btn-req { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem; display: flex; justify-content: center; align-items: center; gap: 8px; }
     .btn-add { background: #3b82f6; color: white; margin-top: 10px; } .btn-add:hover { background: #2563eb; }
     .btn-submit { background: #10b981; color: white; margin-top: 20px; font-size: 1.1rem; } .btn-submit:hover { background: #059669; }
@@ -53,18 +64,20 @@
                 </select>
             </div>
             
-            <div class="req-form-group">
-                <label>Filtrar Categoria</label>
-                <select id="reqCategoria" onchange="filtrarPecasRequisicao()">
-                    <option value="TODOS">Todas as Categorias</option>
-                </select>
-            </div>
-            
-            <div class="req-form-group">
-                <label>Selecione a Peça / Produto</label>
-                <select id="reqPeca" onchange="atualizarEstoqueDisponivelRequisicao()">
-                    <option value="">Selecione uma categoria primeiro...</option>
-                </select>
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 15px;">
+                <div class="req-form-group" style="margin-bottom: 0;">
+                    <label>Filtrar Categoria</label>
+                    <select id="reqCategoria" onchange="filtrarPecasRequisicao()">
+                        <option value="TODOS">Todas as Categorias</option>
+                    </select>
+                </div>
+                
+                <div class="req-form-group autocomplete-wrapper" style="margin-bottom: 0;">
+                    <label>Pesquisar Peça / Produto</label>
+                    <input type="text" id="reqBuscaPeca" placeholder="🔍 Digite o nome ou código..." autocomplete="off" onkeyup="filtrarPecasRequisicao()" onfocus="filtrarPecasRequisicao()">
+                    <input type="hidden" id="reqPecaId">
+                    <div id="reqListaResultados" class="autocomplete-results"></div>
+                </div>
             </div>
             
             <div style="display: flex; gap: 15px; align-items: flex-end;">
@@ -74,7 +87,7 @@
                 </div>
                 <div class="req-form-group" style="flex: 1; margin-bottom: 0;">
                     <label>Disp. no Estoque</label>
-                    <input type="text" id="reqEstoqueDisponivel" readonly style="color: #34d399; font-weight: bold; text-align: center;">
+                    <input type="text" id="reqEstoqueDisponivel" readonly placeholder="Aguardando Seleção" style="color: #34d399; font-weight: bold; text-align: center; background: #0f172a;">
                 </div>
             </div>
             

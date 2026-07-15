@@ -2,6 +2,15 @@ let listaColaboradoresReq = [];
 let listaPecasReq = [];
 let carrinhoRequisicao = [];
 
+// Esconde o Autocomplete Inteligente se clicar fora dele
+document.addEventListener('click', function(e) {
+    const wrapper = document.querySelector('.autocomplete-wrapper');
+    const lista = document.getElementById('reqListaResultados');
+    if (wrapper && lista && !wrapper.contains(e.target)) {
+        lista.style.display = 'none';
+    }
+});
+
 window.renderizarRequisicaoMateriais = async function() {
     await carregarDadosIniciaisRequisicao();
 }
@@ -37,7 +46,6 @@ async function carregarDadosIniciaisRequisicao() {
             });
         }
 
-        filtrarPecasRequisicao();
         atualizarTabelaCarrinho();
         
     } catch (e) {
@@ -45,44 +53,85 @@ async function carregarDadosIniciaisRequisicao() {
     }
 }
 
+// ====================== MÁGICA DO AUTOCOMPLETE E PESQUISA ======================
 window.filtrarPecasRequisicao = function() {
     const selCat = document.getElementById('reqCategoria').value;
-    const selPeca = document.getElementById('reqPeca');
+    const inputBusca = document.getElementById('reqBuscaPeca').value.toLowerCase().trim();
+    const listaResultados = document.getElementById('reqListaResultados');
     
-    let pecasFiltradas = listaPecasReq;
-    if (selCat !== 'TODOS') {
-        pecasFiltradas = listaPecasReq.filter(p => p.categoria === selCat);
+    // Se o usuário limpar o campo, deselecionamos o ID oculto e limpamos o "Estoque Disponível"
+    if (inputBusca === '') {
+        document.getElementById('reqPecaId').value = '';
+        document.getElementById('reqEstoqueDisponivel').value = '';
     }
 
-    selPeca.innerHTML = '<option value="">-- Selecione um Produto --</option>';
-    pecasFiltradas.forEach(p => {
-        selPeca.innerHTML += `<option value="${p.id}">[${p.codigo || 'S/C'}] ${p.nome}</option>`;
-    });
+    let pecasFiltradas = listaPecasReq;
     
-    document.getElementById('reqEstoqueDisponivel').value = '';
-    document.getElementById('reqQuantidade').value = 1;
+    if (selCat !== 'TODOS') {
+        pecasFiltradas = pecasFiltradas.filter(p => p.categoria === selCat);
+    }
+
+    if (inputBusca !== '') {
+        pecasFiltradas = pecasFiltradas.filter(p => 
+            (p.nome && p.nome.toLowerCase().includes(inputBusca)) || 
+            (p.codigo && p.codigo.toLowerCase().includes(inputBusca))
+        );
+    }
+
+    // Renderiza a lista flutuante
+    listaResultados.innerHTML = '';
+    
+    if (pecasFiltradas.length === 0) {
+        listaResultados.innerHTML = '<div style="padding: 15px; color:#ef4444; text-align:center;">Nenhum produto encontrado.</div>';
+    } else {
+        // Ordena os itens para que os COM ESTOQUE apareçam primeiro
+        pecasFiltradas.sort((a, b) => b.quantidade - a.quantidade);
+
+        pecasFiltradas.forEach(p => {
+            const isSemEstoque = p.quantidade <= 0;
+            const className = isSemEstoque ? 'autocomplete-item disabled' : 'autocomplete-item';
+            
+            const div = document.createElement('div');
+            div.className = className;
+            div.innerHTML = `
+                <div>
+                    <strong style="color: #60a5fa;">[${p.codigo || 'S/C'}]</strong> ${p.nome}
+                </div>
+                <div style="font-size: 0.85rem; font-weight: bold; padding-left: 15px; text-align: right;">
+                    ${p.quantidade} ${p.unidade || 'UN'}<br>
+                    ${isSemEstoque ? '<span style="color:#ef4444;">Esgotado</span>' : '<span style="color:#34d399;">Em Estoque</span>'}
+                </div>
+            `;
+            
+            // Só permite clicar se tiver estoque
+            if (!isSemEstoque) {
+                div.onclick = function() {
+                    selecionarPecaNaBusca(p);
+                };
+            }
+            
+            listaResultados.appendChild(div);
+        });
+    }
+    
+    listaResultados.style.display = 'block';
 }
 
-window.atualizarEstoqueDisponivelRequisicao = function() {
-    const pecaId = document.getElementById('reqPeca').value;
-    if (!pecaId) {
-        document.getElementById('reqEstoqueDisponivel').value = '';
-        return;
-    }
-    const peca = listaPecasReq.find(p => p.id == pecaId);
-    if (peca) {
-        document.getElementById('reqEstoqueDisponivel').value = `${peca.quantidade} ${peca.unidade || 'UN'}`;
-    }
+window.selecionarPecaNaBusca = function(peca) {
+    document.getElementById('reqPecaId').value = peca.id;
+    document.getElementById('reqBuscaPeca').value = `[${peca.codigo || 'S/C'}] ${peca.nome}`;
+    document.getElementById('reqEstoqueDisponivel').value = `${peca.quantidade} ${peca.unidade || 'UN'}`;
+    document.getElementById('reqListaResultados').style.display = 'none';
 }
 
 window.adicionarPecaCarrinho = function() {
     const colabName = document.getElementById('reqColaborador').value;
-    const pecaId = document.getElementById('reqPeca').value;
+    const pecaId = document.getElementById('reqPecaId').value;
     const qtdStr = document.getElementById('reqQuantidade').value;
     const qtd = parseFloat(qtdStr);
 
     if (!colabName) { alert("Selecione um Colaborador primeiro."); return; }
-    if (!pecaId) { alert("Selecione uma Peça/Produto."); return; }
+    if (!pecaId) { alert("Por favor, busque e clique em uma Peça/Produto da lista."); return; }
     if (isNaN(qtd) || qtd <= 0) { alert("Informe uma quantidade válida."); return; }
 
     const peca = listaPecasReq.find(p => p.id == pecaId);
@@ -97,7 +146,7 @@ window.adicionarPecaCarrinho = function() {
     if (indexExistente >= 0) {
         carrinhoRequisicao[indexExistente].quantidade += qtd;
         if(carrinhoRequisicao[indexExistente].quantidade > peca.quantidade) {
-            alert("A soma desse item no seu carrinho ultrapassa o limite de estoque.");
+            alert("A soma desse item no seu carrinho ultrapassa o limite de estoque disponível físico.");
             carrinhoRequisicao[indexExistente].quantidade -= qtd; // reverte
             return;
         }
@@ -112,8 +161,10 @@ window.adicionarPecaCarrinho = function() {
         });
     }
 
+    // Reseta inputs após adicionar
     document.getElementById('reqQuantidade').value = 1;
-    document.getElementById('reqPeca').value = '';
+    document.getElementById('reqPecaId').value = '';
+    document.getElementById('reqBuscaPeca').value = '';
     document.getElementById('reqEstoqueDisponivel').value = '';
     
     atualizarTabelaCarrinho();
