@@ -37,7 +37,7 @@
         <h2><i class="fas fa-chart-pie" style="color: #60a5fa;"></i> Dashboard e Relatórios do Almoxarifado</h2>
     </div>
 
-    <!-- Barra de Filtros -->
+    <!-- Barra de Filtros de Movimentação -->
     <div class="almo-filters">
         <div class="filter-group">
             <label>Data Início</label>
@@ -67,8 +67,23 @@
                 <option value="">Todos os Setores</option>
             </select>
         </div>
-        <button class="btn-filtrar" onclick="aplicarFiltrosRelatorio()"><i class="fas fa-filter"></i> Filtrar</button>
+        <button class="btn-filtrar" onclick="aplicarFiltrosRelatorio()"><i class="fas fa-filter"></i> Filtrar Mov.</button>
         <button class="btn-limpar" onclick="limparFiltrosRelatorio()"><i class="fas fa-eraser"></i> Limpar</button>
+    </div>
+
+    <!-- PAINEL DE EXPORTAÇÃO DE ESTOQUE -->
+    <div class="almo-filters" style="background: #0f172a; border-left: 4px solid #10b981;">
+        <div style="width: 100%; margin-bottom: 10px;">
+            <h3 style="margin: 0; color: #10b981; font-size: 1.1rem;"><i class="fas fa-file-pdf"></i> Exportar Posição de Estoque Atual</h3>
+            <p style="color: #94a3b8; font-size: 0.85rem; margin: 5px 0 0 0;">Gere um relatório formal A4 para verificação do inventário e sugestões de compra.</p>
+        </div>
+        <div class="filter-group" style="flex: 2;">
+            <label>Filtrar Categoria para Exportação</label>
+            <select id="filtroCategoriaExport">
+                <option value="">Todas as Categorias</option>
+            </select>
+        </div>
+        <button class="btn-filtrar" style="background: #10b981; width: auto;" onclick="exportarEstoquePDF()"><i class="fas fa-print"></i> Gerar Relatório A4</button>
     </div>
 
     <!-- KPIs de Indicadores -->

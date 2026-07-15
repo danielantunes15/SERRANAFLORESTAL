@@ -1,7 +1,9 @@
-// Variáveis globais para armazenar os dados brutos e facilitar o filtro
-let relatorioTodasMovimentacoes = [];
-let relatorioPecasCache = [];
-let mapaColabSetorGlobal = {}; // Armazena a relação "Nome do Colaborador" -> "Nome do Setor"
+// ==================== almoxarifado_relatorios.js ====================
+
+// Variáveis exportadas globalmente para garantir a comunicação entre arquivos divididos
+window.relatorioTodasMovimentacoes = [];
+window.relatorioPecasCache = [];
+window.mapaColabSetorGlobal = {}; 
 
 window.renderizarAlmoxRelatorios = async function() {
     await carregarDadosBasicosRelatorio();
@@ -9,7 +11,6 @@ window.renderizarAlmoxRelatorios = async function() {
     aplicarFiltrosRelatorio();
 }
 
-// Define as datas iniciais como o mês atual (do dia 1 até hoje)
 function definirFiltroMesAtual() {
     const hoje = new Date();
     const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
@@ -18,36 +19,25 @@ function definirFiltroMesAtual() {
     document.getElementById('filtroDataFim').value = hoje.toISOString().split('T')[0];
 }
 
-// Função inteligente para classificar o destino da movimentação
 function determinarSetorDestino(m) {
-    // Pegar solicitante padrão e forçar maiúsculo para evitar erro de digitação
     let solicitante = (m.colaborador_nome || m.usuario || '').trim().toUpperCase();
     
-    // 1. Verifica se o solicitante padrão tem setor atrelado no RH
-    if (solicitante && mapaColabSetorGlobal[solicitante]) {
-        return mapaColabSetorGlobal[solicitante];
+    if (solicitante && window.mapaColabSetorGlobal[solicitante]) {
+        return window.mapaColabSetorGlobal[solicitante];
     }
     
-    // 2. Verifica se o sistema salvou no setor_destino o formato "Colaborador: NOME"
     if (m.setor_destino && m.setor_destino.toLowerCase().includes('colaborador:')) {
-        // Extrai apenas o nome tirando a palavra "Colaborador:"
         let nomeExtraido = m.setor_destino.replace(/colaborador:\s*/i, '').trim().toUpperCase();
-        
-        // Tenta achar esse nome extraído no RH
-        if (mapaColabSetorGlobal[nomeExtraido]) {
-            return mapaColabSetorGlobal[nomeExtraido]; 
+        if (window.mapaColabSetorGlobal[nomeExtraido]) {
+            return window.mapaColabSetorGlobal[nomeExtraido]; 
         }
-        
-        // Se a pessoa não tiver setor no RH
         return "Sem Setor Correspondente";
     }
 
-    // 3. Verifica se a saída foi para um equipamento/frota
     if (m.cavalo) {
         return m.cavalo;
     }
     
-    // 4. Retorna o setor_destino se existir algo válido lá, senão cai no padrão
     if (m.setor_destino) {
         if (m.setor_destino.toLowerCase().trim() === "colaborador") return "Sem Setor Correspondente";
         return m.setor_destino;
@@ -58,57 +48,60 @@ function determinarSetorDestino(m) {
 
 async function carregarDadosBasicosRelatorio() {
     try {
-        // 1. Buscar todas as peças para cruzar Categoria e Nome
-        let queryPecas = window.supabaseClient.from('almoxarifado_pecas').select('id, nome, categoria');
+        let queryPecas = window.supabaseClient.from('almoxarifado_pecas').select('id, codigo, nome, categoria, quantidade, estoque_minimo, unidade');
         if (typeof window.aplicarFiltroFilial === 'function') queryPecas = window.aplicarFiltroFilial(queryPecas);
         const { data: pecas } = await queryPecas;
-        relatorioPecasCache = pecas || [];
+        window.relatorioPecasCache = pecas || [];
 
-        // 2. Popula o Select de Categorias
-        const categoriasUnicas = [...new Set(relatorioPecasCache.map(p => p.categoria).filter(Boolean))].sort();
+        const categoriasUnicas = [...new Set(window.relatorioPecasCache.map(p => p.categoria).filter(Boolean))].sort();
+        
         const selCategoria = document.getElementById('filtroCategoria');
-        selCategoria.innerHTML = '<option value="">Todas as Categorias</option>' + 
-            categoriasUnicas.map(c => `<option value="${c}">${c}</option>`).join('');
+        if(selCategoria) {
+            selCategoria.innerHTML = '<option value="">Todas as Categorias</option>' + 
+                categoriasUnicas.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
 
-        // 3. Buscar Setores (id e nome) para mapear
+        const selCategoriaExport = document.getElementById('filtroCategoriaExport');
+        if(selCategoriaExport) {
+            selCategoriaExport.innerHTML = '<option value="">Todas as Categorias</option>' + 
+                categoriasUnicas.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
         const { data: setores } = await window.supabaseClient.from('setores').select('id, nome');
         const mapaSetores = {};
         if (setores) {
-            // Usa String() para evitar problemas de tipagem (bigint vs string)
             setores.forEach(s => mapaSetores[String(s.id)] = s.nome);
         }
 
-        // 4. Buscar Colaboradores e cruzar com os Setores
         let queryColab = window.supabaseClient.from('rh_colaboradores').select('nome, setor_id');
         if (typeof window.aplicarFiltroFilial === 'function') queryColab = window.aplicarFiltroFilial(queryColab);
         const { data: colabs } = await queryColab;
         
-        mapaColabSetorGlobal = {};
+        window.mapaColabSetorGlobal = {};
         if (colabs) {
             colabs.forEach(c => {
                 if (c.setor_id && c.nome) {
                     const nomeDoSetor = mapaSetores[String(c.setor_id)];
                     if (nomeDoSetor) {
-                        // Salva o nome do colaborador em Maiúsculo para cruzar dados sem erro
-                        mapaColabSetorGlobal[c.nome.trim().toUpperCase()] = nomeDoSetor;
+                        window.mapaColabSetorGlobal[c.nome.trim().toUpperCase()] = nomeDoSetor;
                     }
                 }
             });
         }
 
-        // 5. Buscar Movimentações do Almoxarifado
-        relatorioTodasMovimentacoes = await db.getMovimentacoesEstoque();
+        window.relatorioTodasMovimentacoes = await db.getMovimentacoesEstoque();
 
-        // 6. Popula o Select de Setores/Destinos aplicando a inteligência
         const setoresUnicos = new Set();
-        relatorioTodasMovimentacoes.forEach(m => {
+        window.relatorioTodasMovimentacoes.forEach(m => {
             const destinoReal = determinarSetorDestino(m);
             if (destinoReal) setoresUnicos.add(destinoReal);
         });
 
         const selSetor = document.getElementById('filtroSetor');
-        selSetor.innerHTML = '<option value="">Todos os Setores</option>' + 
-            [...setoresUnicos].sort().map(s => `<option value="${s}">${s}</option>`).join('');
+        if(selSetor) {
+            selSetor.innerHTML = '<option value="">Todos os Setores</option>' + 
+                [...setoresUnicos].sort().map(s => `<option value="${s}">${s}</option>`).join('');
+        }
 
     } catch(e) {
         console.error("Erro ao carregar dados base do relatório.", e);
@@ -130,27 +123,17 @@ window.aplicarFiltrosRelatorio = function() {
     const fCategoria = document.getElementById('filtroCategoria').value;
     const fSetor = document.getElementById('filtroSetor').value;
 
-    let dadosFiltrados = relatorioTodasMovimentacoes.filter(m => {
+    let dadosFiltrados = window.relatorioTodasMovimentacoes.filter(m => {
         const dataMov = m.data_movimentacao.split('T')[0];
-        
-        // Usa a nossa função para achar o destino correto
         const destino = determinarSetorDestino(m);
         
-        // Cruzar com a peça para descobrir a categoria
-        const pecaRef = relatorioPecasCache.find(p => p.id == m.peca_id) || {};
+        const pecaRef = window.relatorioPecasCache.find(p => p.id == m.peca_id) || {};
         const categoriaPeca = pecaRef.categoria || 'Sem Categoria';
 
-        // Filtro Data
         if (fInicio && dataMov < fInicio) return false;
         if (fFim && dataMov > fFim) return false;
-        
-        // Filtro Tipo
         if (fTipo && m.tipo !== fTipo) return false;
-        
-        // Filtro Setor
         if (fSetor && destino !== fSetor) return false;
-
-        // Filtro Categoria
         if (fCategoria && categoriaPeca !== fCategoria) return false;
 
         return true;
@@ -171,31 +154,25 @@ function atualizarDashboardVisual(movimentacoes) {
 
     movimentacoes.forEach(m => {
         const valTotal = (parseFloat(m.quantidade) * parseFloat(m.valor_unitario || 0));
-        const pecaRef = relatorioPecasCache.find(p => p.id == m.peca_id) || {};
+        const pecaRef = window.relatorioPecasCache.find(p => p.id == m.peca_id) || {};
         const nomePeca = pecaRef.nome || `Peça ID: ${m.peca_id}`;
         const categoriaPeca = pecaRef.categoria || 'Outros';
         const solicitante = m.usuario || m.colaborador_nome || 'Sistema';
         
-        // Usa a nossa função para achar o destino correto
         const destino = determinarSetorDestino(m);
 
-        // Atualizar KPIs
         qtdItens += parseFloat(m.quantidade);
         if (m.tipo === 'entrada') {
             valorEntradas += valTotal;
         } else if (m.tipo === 'saida') {
             valorSaidas += valTotal;
-            
-            // Agrupar Setores (Somente Saídas representam custo real distribuído)
             if(!custosSetor[destino]) custosSetor[destino] = 0;
             custosSetor[destino] += valTotal;
 
-            // Agrupar Categorias
             if(!custosCategoria[categoriaPeca]) custosCategoria[categoriaPeca] = 0;
             custosCategoria[categoriaPeca] += valTotal;
         }
 
-        // Renderizar Linha na Tabela Detalhada
         const dataFormatada = new Date(m.data_movimentacao).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
         const tipoHTML = m.tipo === 'entrada' 
             ? '<span style="background:rgba(96,165,250,0.2); color:#60a5fa; padding:4px 8px; border-radius:4px; font-weight:bold;">Entrada</span>' 
@@ -219,14 +196,12 @@ function atualizarDashboardVisual(movimentacoes) {
         tbodyGeral.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#94a3b8;">Nenhum registro encontrado para os filtros aplicados.</td></tr>';
     }
 
-    // Atualizar KPIs Visuais
     const formatMoeda = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
     document.getElementById('kpiValorEntradas').innerText = formatMoeda(valorEntradas);
     document.getElementById('kpiValorSaidas').innerText = formatMoeda(valorSaidas);
     document.getElementById('kpiQtdItens').innerText = qtdItens;
     document.getElementById('kpiTotalRegistros').innerText = movimentacoes.length;
 
-    // Função auxiliar para tabelas de top
     const preencheTopTabela = (id, objDados) => {
         const tbody = document.getElementById(id);
         if(!tbody) return;
