@@ -5,6 +5,12 @@
     .req-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 15px; }
     .req-header h2 { margin: 0; color: #ffffff; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; font-weight: bold; }
     
+    /* Abas de Navegação */
+    .req-tabs { display: flex; gap: 15px; border-bottom: 2px solid #334155; margin-bottom: 5px; }
+    .req-tab-btn { background: none; border: none; padding: 10px 20px; font-size: 1.05rem; font-weight: 600; color: #94a3b8; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; margin-bottom: -2px; }
+    .req-tab-btn:hover { color: #60a5fa; }
+    .req-tab-btn.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+
     .req-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     @media(max-width: 900px) { .req-grid { grid-template-columns: 1fr; } }
     
@@ -17,7 +23,9 @@
     .req-form-group select:focus, .req-form-group input:focus { border-color: #3b82f6; }
     .req-form-group select:disabled, .req-form-group input:disabled { background: #334155; cursor: not-allowed; color: #94a3b8; }
     
-    /* Autocomplete Inteligente (Design Moderno) */
+    option:disabled { color: #ef4444; font-style: italic; background: #1e293b; }
+
+    /* Autocomplete Inteligente */
     .autocomplete-wrapper { position: relative; }
     .autocomplete-results { position: absolute; top: 100%; left: 0; width: 100%; background: #0f172a; border: 1px solid #3b82f6; border-radius: 8px; max-height: 280px; overflow-y: auto; z-index: 9999; display: none; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.6); margin-top: 5px; }
     .autocomplete-results::-webkit-scrollbar { width: 8px; }
@@ -26,24 +34,30 @@
     .autocomplete-item:last-child { border-bottom: none; }
     .autocomplete-item:hover { background: #1e293b; }
     .autocomplete-item.disabled { color: #ef4444; cursor: not-allowed; background: rgba(15, 23, 42, 0.8); opacity: 0.6; }
-    .autocomplete-item.disabled:hover { background: rgba(15, 23, 42, 0.8); }
 
     .btn-req { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-size: 1rem; display: flex; justify-content: center; align-items: center; gap: 8px; }
     .btn-add { background: #3b82f6; color: white; margin-top: 10px; } .btn-add:hover { background: #2563eb; }
     .btn-submit { background: #10b981; color: white; margin-top: 20px; font-size: 1.1rem; } .btn-submit:hover { background: #059669; }
     .btn-remove { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; transition: 0.2s; } .btn-remove:hover { color: #dc2626; transform: scale(1.1); }
+    .btn-view { background: #6366f1; color: white; padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85rem; } .btn-view:hover { background: #4f46e5; }
     
     .req-table { width: 100%; border-collapse: collapse; text-align: left; }
     .req-table th { background-color: #0f172a; padding: 12px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; border-bottom: 1px solid #334155; }
-    .req-table td { padding: 12px; border-bottom: 1px solid #334155; color: #f8fafc; font-size: 0.95rem; }
+    .req-table td { padding: 12px; border-bottom: 1px solid #334155; color: #f8fafc; font-size: 0.95rem; vertical-align: middle; }
     .req-table tr:last-child td { border-bottom: none; }
+    .req-table tbody tr:hover { background-color: rgba(255, 255, 255, 0.02); }
     
     .empty-cart { text-align: center; padding: 30px; color: #64748b; font-style: italic; }
     .empty-cart i { font-size: 3rem; margin-bottom: 10px; opacity: 0.5; }
 
-    /* Modal de Confirmação */
+    .badge-status { padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; }
+
+    /* Modais */
     .almo-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); z-index: 9999; align-items: center; justify-content: center; }
-    .almo-modal-content { background: #1e293b; color: #e2e8f0; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); padding: 40px; border: 1px solid #334155; text-align: center; animation: popIn 0.3s ease-out; }
+    .almo-modal-content { background: #1e293b; color: #e2e8f0; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); padding: 40px; border: 1px solid #334155; text-align: center; animation: popIn 0.3s ease-out; position: relative; max-height: 90vh; overflow-y: auto; }
+    .almo-modal-content.left-align { text-align: left; padding: 30px; }
+    .almo-close { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; color: #94a3b8; cursor: pointer; transition: 0.2s; }
+    .almo-close:hover { color: #fff; }
     @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 </style>
 
@@ -52,7 +66,14 @@
         <h2><i class="fas fa-hand-holding-medical" style="color: #60a5fa;"></i> Requisitar Material do Almoxarifado</h2>
     </div>
 
-    <div class="req-grid">
+    <!-- Navegação em Abas -->
+    <div class="req-tabs">
+        <button class="req-tab-btn active" id="tabNovaReq" onclick="alternarAbaReq('nova')"><i class="fas fa-plus-circle"></i> Nova Solicitação</button>
+        <button class="req-tab-btn" id="tabHistorico" onclick="alternarAbaReq('historico')"><i class="fas fa-history"></i> Meu Histórico</button>
+    </div>
+
+    <!-- ABA: NOVA REQUISIÇÃO -->
+    <div id="abaNovaReq" class="req-grid">
         <!-- SELEÇÃO DE PRODUTOS -->
         <div class="req-box">
             <h3><i class="fas fa-search"></i> 1. Seleção de Material</h3>
@@ -127,6 +148,31 @@
             </button>
         </div>
     </div>
+
+    <!-- ABA: HISTÓRICO -->
+    <div id="abaHistorico" class="req-box" style="display: none;">
+        <h3 style="color: #10b981; border-bottom: none;"><i class="fas fa-list-alt"></i> Suas Solicitações Anteriores</h3>
+        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px;">Acompanhe o status dos pedidos enviados ao Almoxarifado.</p>
+        
+        <div style="overflow-x: auto; background: #0f172a; border-radius: 8px; border: 1px solid #334155;">
+            <table class="req-table">
+                <thead>
+                    <tr>
+                        <th>Nº Pedido</th>
+                        <th>Data / Hora</th>
+                        <th>Colaborador Destino</th>
+                        <th style="text-align: center;">Itens</th>
+                        <th>Status Geral</th>
+                        <th style="text-align: right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyHistoricoReq">
+                    <tr><td colspan="6" class="empty-cart">Carregando histórico...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 
 <!-- MODAL DE SUCESSO -->
@@ -136,10 +182,32 @@
         <h2 style="color: #f8fafc; font-size: 1.8rem; margin-bottom: 10px;">Solicitação Enviada!</h2>
         <p style="color: #94a3b8; font-size: 1.05rem; margin-bottom: 25px; line-height: 1.5;">
             O Almoxarifado já recebeu seu pedido.<br>
-            Aguarde a aprovação e separação do material.
+            Acompanhe o status na aba "Meu Histórico".
         </p>
-        <button class="btn-req btn-submit" onclick="document.getElementById('modalConfirmacaoReq').style.display='none'" style="margin: 0;">
-            OK, Entendi
+        <button class="btn-req btn-submit" onclick="document.getElementById('modalConfirmacaoReq').style.display='none'; alternarAbaReq('historico');" style="margin: 0;">
+            Ver Meu Histórico
         </button>
+    </div>
+</div>
+
+<!-- MODAL VER DETALHES DO PEDIDO (HISTÓRICO) -->
+<div id="modalDetalhesPedidoReq" class="almo-modal">
+    <div class="almo-modal-content left-align" style="max-width: 700px; width: 100%;">
+        <span class="almo-close" onclick="document.getElementById('modalDetalhesPedidoReq').style.display='none'">&times;</span>
+        <h3 style="color: #38bdf8; margin-bottom: 5px;"><i class="fas fa-box-open"></i> Detalhes do Pedido <span id="detalhePedNumero" style="color: #fff;"></span></h3>
+        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px;">Destino: <strong id="detalhePedColab" style="color: #e2e8f0;"></strong></p>
+        
+        <div style="max-height: 400px; overflow-y: auto; background: #0f172a; border-radius: 8px; border: 1px solid #334155;">
+            <table class="req-table">
+                <thead>
+                    <tr>
+                        <th>Produto Solicitado</th>
+                        <th style="text-align: center;">Qtd</th>
+                        <th>Status do Item</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyDetalhesPedidoReq"></tbody>
+            </table>
+        </div>
     </div>
 </div>
