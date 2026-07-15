@@ -45,7 +45,8 @@ function injetarModalAprovacaoEntregas() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-// Configura os dois Canvas
+// ==================== LÓGICA DAS ASSINATURAS (PASSOS E CANVAS) ====================
+
 function initSignaturePadEntregas() {
     canvasColab = document.getElementById('canvasAssinaturaColab');
     canvasEntregador = document.getElementById('canvasAssinaturaEntregador');
@@ -106,16 +107,34 @@ function configurarEventosCanvas(canvas, ctx, tipo) {
     canvas.addEventListener("touchend", pararDesenho);
 }
 
-window.limparAssinaturaEntregas = function() {
+window.limparAssinaturaColab = function() {
     if(ctxColab && canvasColab) {
         ctxColab.clearRect(0, 0, canvasColab.width, canvasColab.height);
         hasColabSig = false;
     }
+}
+
+window.limparAssinaturaEntregador = function() {
     if(ctxEntregador && canvasEntregador) {
         ctxEntregador.clearRect(0, 0, canvasEntregador.width, canvasEntregador.height);
         hasEntregadorSig = false;
     }
 }
+
+window.irParaPassoEntregador = function() {
+    if (!hasColabSig) {
+        if(!confirm("O colaborador ainda não assinou. Tem certeza que deseja pular esta assinatura?")) return;
+    }
+    document.getElementById('passoAssinaturaColab').style.display = 'none';
+    document.getElementById('passoAssinaturaEntregador').style.display = 'block';
+}
+
+window.voltarParaPassoColab = function() {
+    document.getElementById('passoAssinaturaEntregador').style.display = 'none';
+    document.getElementById('passoAssinaturaColab').style.display = 'block';
+}
+
+// ==================== FIM LÓGICA ASSINATURAS ====================
 
 async function carregarDadosEntregas() {
     try {
@@ -339,8 +358,18 @@ window.confirmarAvaliacaoGrupoEntregas = async function() {
         
         if (aprovouAlgo && grupoAvaliacaoAtualEntregas[0].source_table === 'almoxarifado_requisicoes') {
             itensPendentesParaAssinaturaEntregas = itensAprovadosParaTermo;
+            
+            // Reseta a visualização dos passos para iniciar pelo Colaborador
+            document.getElementById('passoAssinaturaColab').style.display = 'block';
+            document.getElementById('passoAssinaturaEntregador').style.display = 'none';
             document.getElementById('modalAssinaturaEntregas').style.display = 'flex';
-            setTimeout(() => { if(!canvasColab) initSignaturePadEntregas(); limparAssinaturaEntregas(); }, 200);
+            
+            setTimeout(() => { 
+                if(!canvasColab || !canvasEntregador) initSignaturePadEntregas(); 
+                limparAssinaturaColab();
+                limparAssinaturaEntregador();
+            }, 200);
+            
         } else {
             alert("Avaliação processada e materiais liberados com sucesso!");
             await carregarDadosEntregas();
@@ -419,7 +448,7 @@ window.finalizarEntregaAssinadaEntregas = async function() {
         console.error(e); 
         alert("Erro ao salvar assinatura. Verifique o console."); 
     } finally { 
-        btn.innerHTML = '<i class="fas fa-check"></i> Confirmar Entrega'; 
+        btn.innerHTML = '<i class="fas fa-check"></i> Finalizar Entrega'; 
         btn.disabled = false; 
     }
 }
@@ -478,7 +507,6 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
         linhasTabela += `<tr><td style="text-align:center;">${item.quantidade}</td><td style="text-align:center;">${peca.unidade || 'UN'}</td><td>${peca.codigo || 'S/N'}</td><td>${peca.nome}</td><td style="text-align:center;">${dataAtual}</td></tr>`;
     });
 
-    // CAIXA DE IMAGEM CORRIGIDA PARA NÃO QUEBRAR O LAYOUT
     let imgColab = assinaturaColabUrl ? `<img src="${assinaturaColabUrl}" style="max-height: 85px; max-width: 100%; object-fit: contain;">` : '';
     let imgEnt = assinaturaEntregadorUrl ? `<img src="${assinaturaEntregadorUrl}" style="max-height: 85px; max-width: 100%; object-fit: contain;">` : '';
 
@@ -495,7 +523,6 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
             .table-info th, .table-info td { border: 1px solid #000; padding: 12px; text-align: left; } 
             .table-info th { background-color: #f0f0f0; } 
             
-            /* Correção do Layout das Assinaturas */
             .signature-container { display: flex; justify-content: space-between; margin-top: 60px; } 
             .signature-box { text-align: center; width: 45%; } 
             .img-wrapper { height: 90px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 5px;}

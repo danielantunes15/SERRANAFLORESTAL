@@ -62,30 +62,42 @@
     </div>
 </div>
 
-<!-- MODAL ASSINATURA DUPLA -->
+<!-- MODAL ASSINATURA DUPLA (COM PASSOS PARA CELULAR/TABLET) -->
 <div id="modalAssinaturaEntregas" class="almo-modal">
-    <div class="almo-modal-content" style="max-width: 850px; text-align: center;">
+    <div class="almo-modal-content" style="max-width: 600px; text-align: center;">
         <span class="almo-close" onclick="fecharModalEntregas('modalAssinaturaEntregas')">&times;</span>
         <h3 style="color: #38bdf8; margin-top:0;"><i class="fas fa-signature"></i> Assinaturas de Retirada/Entrega</h3>
-        <p style="color: #94a3b8; margin-bottom: 20px;">Colete a assinatura de quem está recebendo e de quem está entregando.</p>
         
-        <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; justify-content: center;">
-            <!-- Assinatura Colaborador -->
-            <div style="flex: 1; min-width: 300px; background: #fff; border-radius: 8px; padding: 15px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1);">
+        <!-- PASSO 1: COLABORADOR -->
+        <div id="passoAssinaturaColab">
+            <p style="color: #94a3b8; margin-bottom: 20px;">Passo 1 de 2: Assinatura de quem está <strong style="color: #fbbf24;">RECEBENDO</strong>.</p>
+            
+            <div style="background: #fff; border-radius: 8px; padding: 15px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); margin-bottom: 20px;">
                 <p style="color: #475569; font-weight: bold; margin: 0 0 10px 0;">Assinatura do Colaborador (Recebedor)</p>
-                <canvas id="canvasAssinaturaColab" width="400" height="150" style="border: 2px dashed #cbd5e1; cursor: crosshair; touch-action: none; width: 100%; border-radius: 6px;"></canvas>
+                <canvas id="canvasAssinaturaColab" width="500" height="200" style="border: 2px dashed #cbd5e1; cursor: crosshair; touch-action: none; width: 100%; border-radius: 6px;"></canvas>
             </div>
             
-            <!-- Assinatura Entregador -->
-            <div style="flex: 1; min-width: 300px; background: #fff; border-radius: 8px; padding: 15px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1);">
-                <p style="color: #475569; font-weight: bold; margin: 0 0 10px 0;">Assinatura do Almoxarife (Entregador)</p>
-                <canvas id="canvasAssinaturaEntregador" width="400" height="150" style="border: 2px dashed #cbd5e1; cursor: crosshair; touch-action: none; width: 100%; border-radius: 6px;"></canvas>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button type="button" class="btn-modern btn-warning" onclick="limparAssinaturaColab()"><i class="fas fa-eraser"></i> Limpar</button>
+                <button type="button" class="btn-modern btn-primary" onclick="irParaPassoEntregador()">Próximo Passo <i class="fas fa-arrow-right"></i></button>
             </div>
         </div>
 
-        <div style="display: flex; gap: 15px; justify-content: center;">
-            <button type="button" class="btn-modern btn-warning" onclick="limparAssinaturaEntregas()"><i class="fas fa-eraser"></i> Limpar Quadros</button>
-            <button type="button" class="btn-modern btn-success" id="btnSalvarAssinaturaEntregas" onclick="finalizarEntregaAssinadaEntregas()"><i class="fas fa-check"></i> Confirmar Entrega</button>
+        <!-- PASSO 2: ENTREGADOR -->
+        <div id="passoAssinaturaEntregador" style="display: none;">
+            <p style="color: #94a3b8; margin-bottom: 20px;">Passo 2 de 2: Assinatura de quem está <strong style="color: #34d399;">ENTREGANDO</strong>.</p>
+            
+            <div style="background: #fff; border-radius: 8px; padding: 15px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                <p style="color: #475569; font-weight: bold; margin: 0 0 10px 0;">Assinatura do Almoxarife (Entregador)</p>
+                <canvas id="canvasAssinaturaEntregador" width="500" height="200" style="border: 2px dashed #cbd5e1; cursor: crosshair; touch-action: none; width: 100%; border-radius: 6px;"></canvas>
+            </div>
+
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button type="button" class="btn-modern btn-dark" onclick="voltarParaPassoColab()"><i class="fas fa-arrow-left"></i> Voltar</button>
+                <button type="button" class="btn-modern btn-warning" onclick="limparAssinaturaEntregador()"><i class="fas fa-eraser"></i> Limpar</button>
+                <button type="button" class="btn-modern btn-success" id="btnSalvarAssinaturaEntregas" onclick="finalizarEntregaAssinadaEntregas()"><i class="fas fa-check"></i> Finalizar Entrega</button>
+            </div>
         </div>
+
     </div>
 </div>
