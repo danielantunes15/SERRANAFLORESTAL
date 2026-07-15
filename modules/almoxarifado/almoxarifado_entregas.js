@@ -3,8 +3,11 @@
 let pecasEstoqueEntregas = [];
 let requisicoesEstoqueEntregas = [];
 let grupoAvaliacaoAtualEntregas = [];
-let canvasAssinaturaEntregas, ctxAssinaturaEntregas, desenhandoEntregas = false;
 let itensPendentesParaAssinaturaEntregas = [];
+
+// Variáveis para as duas assinaturas
+let canvasColab, ctxColab, isDrawingColab = false, hasColabSig = false;
+let canvasEntregador, ctxEntregador, isDrawingEntregador = false, hasEntregadorSig = false;
 
 window.renderizarAlmoxarifadoEntregas = async function() {
     injetarModalAprovacaoEntregas();
@@ -42,39 +45,75 @@ function injetarModalAprovacaoEntregas() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
+// Configura os dois Canvas
 function initSignaturePadEntregas() {
-    canvasAssinaturaEntregas = document.getElementById('canvasAssinaturaEntregas');
-    if(!canvasAssinaturaEntregas) return;
-    ctxAssinaturaEntregas = canvasAssinaturaEntregas.getContext('2d');
-    ctxAssinaturaEntregas.lineWidth = 3;
-    ctxAssinaturaEntregas.lineCap = 'round';
-    ctxAssinaturaEntregas.strokeStyle = '#000';
+    canvasColab = document.getElementById('canvasAssinaturaColab');
+    canvasEntregador = document.getElementById('canvasAssinaturaEntregador');
+    
+    if(!canvasColab || !canvasEntregador) return;
+    
+    ctxColab = canvasColab.getContext('2d');
+    ctxEntregador = canvasEntregador.getContext('2d');
+    
+    configurarEventosCanvas(canvasColab, ctxColab, 'colab');
+    configurarEventosCanvas(canvasEntregador, ctxEntregador, 'entregador');
+}
+
+function configurarEventosCanvas(canvas, ctx, tipo) {
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#000';
 
     const getPos = (e) => {
-        const rect = canvasAssinaturaEntregas.getBoundingClientRect();
+        const rect = canvas.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        const scaleX = canvasAssinaturaEntregas.width / rect.width;
-        const scaleY = canvasAssinaturaEntregas.height / rect.height;
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
         return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
     };
 
-    const iniciarDesenho = (e) => { e.preventDefault(); desenhandoEntregas = true; const pos = getPos(e); ctxAssinaturaEntregas.beginPath(); ctxAssinaturaEntregas.moveTo(pos.x, pos.y); };
-    const desenhar = (e) => { if (!desenhandoEntregas) return; e.preventDefault(); const pos = getPos(e); ctxAssinaturaEntregas.lineTo(pos.x, pos.y); ctxAssinaturaEntregas.stroke(); };
-    const pararDesenho = () => { desenhandoEntregas = false; ctxAssinaturaEntregas.closePath(); };
+    const iniciarDesenho = (e) => { 
+        e.preventDefault(); 
+        if(tipo === 'colab') { isDrawingColab = true; hasColabSig = true; }
+        if(tipo === 'entregador') { isDrawingEntregador = true; hasEntregadorSig = true; }
+        const pos = getPos(e); 
+        ctx.beginPath(); 
+        ctx.moveTo(pos.x, pos.y); 
+    };
+    
+    const desenhar = (e) => { 
+        e.preventDefault(); 
+        const isDrawing = tipo === 'colab' ? isDrawingColab : isDrawingEntregador;
+        if (!isDrawing) return;
+        const pos = getPos(e); 
+        ctx.lineTo(pos.x, pos.y); 
+        ctx.stroke(); 
+    };
+    
+    const pararDesenho = () => { 
+        if(tipo === 'colab') isDrawingColab = false;
+        if(tipo === 'entregador') isDrawingEntregador = false;
+        ctx.closePath(); 
+    };
 
-    canvasAssinaturaEntregas.addEventListener("mousedown", iniciarDesenho);
-    canvasAssinaturaEntregas.addEventListener("mousemove", desenhar);
-    canvasAssinaturaEntregas.addEventListener("mouseup", pararDesenho);
-    canvasAssinaturaEntregas.addEventListener("mouseout", pararDesenho);
-    canvasAssinaturaEntregas.addEventListener("touchstart", iniciarDesenho, { passive: false });
-    canvasAssinaturaEntregas.addEventListener("touchmove", desenhar, { passive: false });
-    canvasAssinaturaEntregas.addEventListener("touchend", pararDesenho);
+    canvas.addEventListener("mousedown", iniciarDesenho);
+    canvas.addEventListener("mousemove", desenhar);
+    canvas.addEventListener("mouseup", pararDesenho);
+    canvas.addEventListener("mouseout", pararDesenho);
+    canvas.addEventListener("touchstart", iniciarDesenho, { passive: false });
+    canvas.addEventListener("touchmove", desenhar, { passive: false });
+    canvas.addEventListener("touchend", pararDesenho);
 }
 
 window.limparAssinaturaEntregas = function() {
-    if(ctxAssinaturaEntregas && canvasAssinaturaEntregas) {
-        ctxAssinaturaEntregas.clearRect(0, 0, canvasAssinaturaEntregas.width, canvasAssinaturaEntregas.height);
+    if(ctxColab && canvasColab) {
+        ctxColab.clearRect(0, 0, canvasColab.width, canvasColab.height);
+        hasColabSig = false;
+    }
+    if(ctxEntregador && canvasEntregador) {
+        ctxEntregador.clearRect(0, 0, canvasEntregador.width, canvasEntregador.height);
+        hasEntregadorSig = false;
     }
 }
 
@@ -301,7 +340,7 @@ window.confirmarAvaliacaoGrupoEntregas = async function() {
         if (aprovouAlgo && grupoAvaliacaoAtualEntregas[0].source_table === 'almoxarifado_requisicoes') {
             itensPendentesParaAssinaturaEntregas = itensAprovadosParaTermo;
             document.getElementById('modalAssinaturaEntregas').style.display = 'flex';
-            setTimeout(() => { if(!canvasAssinaturaEntregas) initSignaturePadEntregas(); limparAssinaturaEntregas(); }, 200);
+            setTimeout(() => { if(!canvasColab) initSignaturePadEntregas(); limparAssinaturaEntregas(); }, 200);
         } else {
             alert("Avaliação processada e materiais liberados com sucesso!");
             await carregarDadosEntregas();
@@ -311,7 +350,7 @@ window.confirmarAvaliacaoGrupoEntregas = async function() {
     finally { btn.innerHTML = '<i class="fas fa-arrow-right"></i> Prosseguir para Assinatura'; btn.disabled = false; }
 }
 
-// Função auxiliar: Converte Base64 para Blob para salvar no Supabase Storage
+// Função auxiliar para converter Base64 em Blob para o Upload
 function base64ParaBlob(base64, mimeType) {
     const byteCharacters = atob(base64.split(',')[1]);
     const byteNumbers = new Array(byteCharacters.length);
@@ -328,43 +367,47 @@ window.finalizarEntregaAssinadaEntregas = async function() {
     btn.disabled = true;
 
     try {
-        const assinaturaBase64 = canvasAssinaturaEntregas.toDataURL('image/png');
         const idsParaAtualizar = itensPendentesParaAssinaturaEntregas.map(item => item.id);
         
         if (idsParaAtualizar.length > 0) {
-            // 1. Converter Base64 para Blob (Arquivo PNG)
-            const blobAssinatura = base64ParaBlob(assinaturaBase64, 'image/png');
-            
-            // 2. Criar um nome único para o arquivo
-            const nomeArquivo = `assinatura_req_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
+            let colabUrl = null;
+            let entregadorUrl = null;
 
-            // 3. Fazer o Upload para o Supabase Storage
-            const { data: uploadData, error: uploadError } = await window.supabaseClient.storage
-                .from('assinaturas')
-                .upload(nomeArquivo, blobAssinatura, {
-                    contentType: 'image/png',
-                    upsert: false
-                });
+            // Upload Assinatura Colaborador
+            if (hasColabSig) {
+                const blobColab = base64ParaBlob(canvasColab.toDataURL('image/png'), 'image/png');
+                const nomeArqColab = `sig_colab_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
+                const { error: err1 } = await window.supabaseClient.storage.from('assinaturas').upload(nomeArqColab, blobColab, { contentType: 'image/png' });
+                if (!err1) {
+                    colabUrl = window.supabaseClient.storage.from('assinaturas').getPublicUrl(nomeArqColab).data.publicUrl;
+                }
+            }
 
-            if (uploadError) throw uploadError;
+            // Upload Assinatura Entregador
+            if (hasEntregadorSig) {
+                const blobEnt = base64ParaBlob(canvasEntregador.toDataURL('image/png'), 'image/png');
+                const nomeArqEnt = `sig_ent_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
+                const { error: err2 } = await window.supabaseClient.storage.from('assinaturas').upload(nomeArqEnt, blobEnt, { contentType: 'image/png' });
+                if (!err2) {
+                    entregadorUrl = window.supabaseClient.storage.from('assinaturas').getPublicUrl(nomeArqEnt).data.publicUrl;
+                }
+            }
 
-            // 4. Pegar a URL pública da imagem que acabou de ser salva
-            const { data: urlData } = window.supabaseClient.storage
-                .from('assinaturas')
-                .getPublicUrl(nomeArquivo);
-                
-            const assinaturaUrl = urlData.publicUrl;
+            // Prepara a atualização do banco de dados
+            let updatePayload = { data_assinatura: new Date().toISOString() };
+            if (colabUrl) updatePayload.assinatura_url = colabUrl;
+            if (entregadorUrl) updatePayload.assinatura_entregador_url = entregadorUrl;
 
-            // 5. Salvar APENAS a URL no banco de dados
+            // Salva os links das imagens no banco de dados para os itens da requisição
             const { error: dbError } = await window.supabaseClient.from('almoxarifado_requisicoes')
-                .update({ assinatura_url: assinaturaUrl, data_assinatura: new Date().toISOString() })
+                .update(updatePayload)
                 .in('id', idsParaAtualizar);
 
             if (dbError) throw dbError;
             
             fecharModalEntregas('modalAssinaturaEntregas');
-            if (confirm("Assinatura salva com sucesso! Deseja imprimir o Termo de Entrega agora?")) { 
-                imprimirTermoEntregaGrupoEntregas(itensPendentesParaAssinaturaEntregas, assinaturaUrl); 
+            if (confirm("Assinaturas salvas com sucesso! Deseja imprimir o Termo de Entrega agora?")) { 
+                imprimirTermoEntregaGrupoEntregas(itensPendentesParaAssinaturaEntregas, colabUrl, entregadorUrl); 
             }
         } else {
             fecharModalEntregas('modalAssinaturaEntregas');
@@ -415,14 +458,15 @@ window.reimprimirTermoGrupoEntregas = function(dataReq, sourceTable, identificad
         (r.colaborador_nome === identificador || String(r.os_id) === identificador || r.centro_custo === identificador) &&
         r.status === 'Aprovado'
     );
-    // Recupera a assinaturaUrl dos itens se ela existir (normalmente todos do grupo têm a mesma)
-    const assinaturaRecuperada = itensGrupo.length > 0 ? itensGrupo[0].assinatura_url : null;
     
-    if(itensGrupo.length > 0) imprimirTermoEntregaGrupoEntregas(itensGrupo, assinaturaRecuperada);
+    const urlColab = itensGrupo.length > 0 ? itensGrupo[0].assinatura_url : null;
+    const urlEntregador = itensGrupo.length > 0 ? itensGrupo[0].assinatura_entregador_url : null;
+    
+    if(itensGrupo.length > 0) imprimirTermoEntregaGrupoEntregas(itensGrupo, urlColab, urlEntregador);
     else alert("Nenhum item aprovado encontrado para impressão.");
 }
 
-window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaUrl = null) {
+window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabUrl = null, assinaturaEntregadorUrl = null) {
     if(!itensGrupo || itensGrupo.length === 0) return;
     const reqBase = itensGrupo[0]; 
     const win = window.open('', '_blank', 'width=850,height=600');
@@ -434,10 +478,73 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaUrl = 
         linhasTabela += `<tr><td style="text-align:center;">${item.quantidade}</td><td style="text-align:center;">${peca.unidade || 'UN'}</td><td>${peca.codigo || 'S/N'}</td><td>${peca.nome}</td><td style="text-align:center;">${dataAtual}</td></tr>`;
     });
 
-    let assinaturaHtml = assinaturaUrl ? `<img src="${assinaturaUrl}" style="max-height: 80px; max-width: 100%; border-bottom: 1px solid #000; margin-bottom: 5px;">` : `<div class="signature-line"></div>`;
+    // CAIXA DE IMAGEM CORRIGIDA PARA NÃO QUEBRAR O LAYOUT
+    let imgColab = assinaturaColabUrl ? `<img src="${assinaturaColabUrl}" style="max-height: 85px; max-width: 100%; object-fit: contain;">` : '';
+    let imgEnt = assinaturaEntregadorUrl ? `<img src="${assinaturaEntregadorUrl}" style="max-height: 85px; max-width: 100%; object-fit: contain;">` : '';
 
-    win.document.write(`<html><head><title>Termo de Entrega - ${reqBase.colaborador_nome}</title><style>body { font-family: 'Arial', sans-serif; margin: 40px; color: #000; } .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; } .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; } .content { font-size: 14px; line-height: 1.6; text-align: justify; margin-bottom: 30px; } .table-info { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; } .table-info th, .table-info td { border: 1px solid #000; padding: 12px; text-align: left; } .table-info th { background-color: #f0f0f0; } .signature-container { display: flex; justify-content: space-between; margin-top: 80px; } .signature-box { text-align: center; width: 45%; } .signature-line { width: 100%; border-top: 1px solid #000; margin-bottom: 10px; }</style></head><body><div class="header"><h1>TERMO DE RESPONSABILIDADE E ENTREGA DE EPI / MATERIAIS</h1><p>Serrana Florestal - Gestão de Almoxarifado</p></div><div class="content"><p>Eu, <strong>${reqBase.colaborador_nome}</strong>, declaro para os devidos fins legais que recebi da empresa Serrana Florestal, o(s) equipamento(s)/material(is) abaixo discriminado(s), de forma gratuita, em perfeito estado de conservação e funcionamento.</p><p>Comprometo-me a utilizá-lo(s) estritamente para a finalidade a que se destina(m) em minhas atividades laborais, responsabilizando-me por sua guarda, correta utilização e conservação. Estou ciente de que, em caso de dano por mau uso ou extravio, deverei comunicar imediatamente a liderança. Em caso de desligamento da empresa, me comprometo a devolver os materiais não descartáveis.</p><table class="table-info"><thead><tr><th style="width: 10%; text-align:center;">Qtd.</th><th style="width: 10%; text-align:center;">Unid.</th><th style="width: 20%;">Código/CA</th><th style="width: 45%;">Descrição do Produto</th><th style="width: 15%; text-align:center;">Data Entrega</th></tr></thead><tbody>${linhasTabela}</tbody></table></div><div class="signature-container"><div class="signature-box">${assinaturaHtml}<strong>${reqBase.colaborador_nome}</strong><br>Assinatura do Colaborador</div><div class="signature-box"><div class="signature-line"></div><strong>${reqBase.usuario_solicitante || 'Almoxarifado'}</strong><br>Responsável pela Entrega</div></div><script>setTimeout(() => { window.print(); window.close(); }, 500);</script></body></html>`);
+    win.document.write(`
+    <html>
+    <head>
+        <title>Termo de Entrega - ${reqBase.colaborador_nome}</title>
+        <style>
+            body { font-family: 'Arial', sans-serif; margin: 40px; color: #000; } 
+            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; } 
+            .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; } 
+            .content { font-size: 14px; line-height: 1.6; text-align: justify; margin-bottom: 30px; } 
+            .table-info { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; } 
+            .table-info th, .table-info td { border: 1px solid #000; padding: 12px; text-align: left; } 
+            .table-info th { background-color: #f0f0f0; } 
+            
+            /* Correção do Layout das Assinaturas */
+            .signature-container { display: flex; justify-content: space-between; margin-top: 60px; } 
+            .signature-box { text-align: center; width: 45%; } 
+            .img-wrapper { height: 90px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 5px;}
+            .signature-line { width: 100%; border-top: 1px solid #000; margin-bottom: 5px; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>TERMO DE RESPONSABILIDADE E ENTREGA DE EPI / MATERIAIS</h1>
+            <p>Serrana Florestal - Gestão de Almoxarifado</p>
+        </div>
+        <div class="content">
+            <p>Eu, <strong>${reqBase.colaborador_nome}</strong>, declaro para os devidos fins legais que recebi da empresa Serrana Florestal, o(s) equipamento(s)/material(is) abaixo discriminado(s), de forma gratuita, em perfeito estado de conservação e funcionamento.</p>
+            <p>Comprometo-me a utilizá-lo(s) estritamente para a finalidade a que se destina(m) em minhas atividades laborais, responsabilizando-me por sua guarda, correta utilização e conservação. Estou ciente de que, em caso de dano por mau uso ou extravio, deverei comunicar imediatamente a liderança. Em caso de desligamento da empresa, me comprometo a devolver os materiais não descartáveis.</p>
+            <table class="table-info">
+                <thead>
+                    <tr>
+                        <th style="width: 10%; text-align:center;">Qtd.</th>
+                        <th style="width: 10%; text-align:center;">Unid.</th>
+                        <th style="width: 20%;">Código/CA</th><th style="width: 45%;">Descrição do Produto</th>
+                        <th style="width: 15%; text-align:center;">Data Entrega</th>
+                    </tr>
+                </thead>
+                <tbody>${linhasTabela}</tbody>
+            </table>
+        </div>
+        <div class="signature-container">
+            
+            <div class="signature-box">
+                <div class="img-wrapper">${imgColab}</div>
+                <div class="signature-line"></div>
+                <strong>${reqBase.colaborador_nome}</strong><br>
+                Assinatura do Colaborador
+            </div>
+            
+            <div class="signature-box">
+                <div class="img-wrapper">${imgEnt}</div>
+                <div class="signature-line"></div>
+                <strong>${reqBase.usuario_solicitante || 'Almoxarifado'}</strong><br>
+                Responsável pela Entrega
+            </div>
+
+        </div>
+        <script>setTimeout(() => { window.print(); window.close(); }, 500);</script>
+    </body>
+    </html>`);
     win.document.close();
 }
 
-window.fecharModalEntregas = function(id) { document.getElementById(id).style.display = 'none'; }
+window.fecharModalEntregas = function(id) { 
+    document.getElementById(id).style.display = 'none'; 
+}
