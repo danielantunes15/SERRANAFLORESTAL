@@ -103,6 +103,13 @@
                     </div>
 
                     <div>
+                        <label class="label-oficina">Categoria da Peça</label>
+                        <select id="filtroCategoriaPeca" class="input-otimizado" style="margin-bottom: 8px; padding: 12px;" onchange="mecanicoFiltrarPecas()">
+                            <option value="">Todas as Categorias</option>
+                        </select>
+                    </div>
+
+                    <div>
                         <label class="label-oficina">Pesquisar e Selecionar Peça</label>
                         <input type="text" id="pesquisaPeca" class="input-otimizado" style="margin-bottom: 8px; padding: 12px;" placeholder="Digite o nome..." onkeyup="mecanicoFiltrarPecas()">
                         <select id="aponPeca" class="input-otimizado" style="padding: 12px;"></select>

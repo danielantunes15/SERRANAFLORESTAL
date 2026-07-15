@@ -26,7 +26,8 @@ window.renderizarTelaServicos = async function() {
         const osEmExecucao = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção').map(os => os.id);
         
         if (osEmExecucao.length > 0) {
-            let queryReq = window.supabaseClient.from('os_pecas_utilizadas').select(`*`).in('os_id', osEmExecucao).order('id', { ascending: false });
+            // Alterado para usar a tabela almoxarifado_requisicoes
+            let queryReq = window.supabaseClient.from('almoxarifado_requisicoes').select(`*`).in('os_id', osEmExecucao).order('id', { ascending: false });
             if (typeof window.aplicarFiltroFilial === 'function') queryReq = window.aplicarFiltroFilial(queryReq);
             const { data: reqData } = await queryReq;
             mOS_Requisicoes = reqData || [];
@@ -161,7 +162,7 @@ function mecanicoRenderizarTabelas() {
             return `
             <div class="tablet-card" style="background: ${bgCor}; border-color: ${borderCor}; padding: 12px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
-                    <strong style="color:#fff;">O.S. #${r.os_id}</strong>
+                    <strong style="color:#fff;">O.S. #${r.os_id || 'N/A'}</strong>
                     <span style="background:${borderCor}; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">${r.status || 'Pendente'}</span>
                 </div>
                 <div style="color:var(--ccol-blue-bright); font-size:1.1rem; font-weight:bold; margin-bottom:5px;">${pecaNome}</div>
@@ -341,21 +342,34 @@ window.mecanicoAddPeca = async function() {
     const pecaIdVal = document.getElementById('aponPeca').value;
     const comp = document.getElementById('aponCompartimentoPeca').value;
     const qtd = parseFloat(document.getElementById('aponQtdPeca').value);
+    const mecanicoAtual = mecanicoPegarUsuario();
 
     if (!pecaIdVal || qtd <= 0) return alert("Selecione a peça e quantidade.");
     const pecaId = isNaN(pecaIdVal) ? pecaIdVal : Number(pecaIdVal);
     const pecaDb = mOS_PecasCache.find(p => p.id == pecaId);
 
-    let insertPeca = { os_id: mOS_Atual, peca_id: pecaId, quantidade: qtd, valor_unitario: pecaDb ? (pecaDb.preco_medio || 0) : 0, compartimento: comp, status: 'Pendente' };
+    // Alterado para bater com os campos exatos da sua tabela almoxarifado_requisicoes
+    let insertPeca = { 
+        os_id: mOS_Atual, 
+        peca_id: pecaId, 
+        quantidade: qtd, 
+        valor_unitario: pecaDb ? (pecaDb.preco_medio || 0) : 0, 
+        compartimento: comp, 
+        status: 'Pendente',
+        colaborador_nome: mecanicoAtual,
+        usuario_solicitante: mecanicoAtual
+    };
+    
     if (typeof window.injetarFilial === 'function') insertPeca = window.injetarFilial(insertPeca);
 
-    let res = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
+    let res = await window.supabaseClient.from('almoxarifado_requisicoes').insert([insertPeca]);
+    
     if(res.error && res.error.message && res.error.message.includes('column')) {
         delete insertPeca.valor_unitario;
-        res = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
+        res = await window.supabaseClient.from('almoxarifado_requisicoes').insert([insertPeca]);
     }
 
-    if(res.error) return alert("Erro ao requisitar peça.");
+    if(res.error) return alert("Erro ao requisitar peça. Mensagem do BD: " + res.error.message);
 
     document.getElementById('aponQtdPeca').value = '1';
     renderizarTelaServicos();
@@ -364,7 +378,15 @@ window.mecanicoAddPeca = async function() {
 
 window.mecanicoFiltrarPecas = function() {
     const termo = document.getElementById('pesquisaPeca').value.toLowerCase();
-    const filtradas = mOS_PecasCache.filter(p => p.nome.toLowerCase().includes(termo) || (p.codigo && p.codigo.toLowerCase().includes(termo)));
+    const selectCat = document.getElementById('filtroCategoriaPeca');
+    const categoriaSel = selectCat ? selectCat.value : '';
+
+    const filtradas = mOS_PecasCache.filter(p => {
+        const matchTermo = p.nome.toLowerCase().includes(termo) || (p.codigo && p.codigo.toLowerCase().includes(termo));
+        const matchCat = categoriaSel === "" || p.categoria === categoriaSel;
+        return matchTermo && matchCat;
+    });
+
     document.getElementById('aponPeca').innerHTML = '<option value="">Selecione...</option>' + 
         filtradas.map(x => `<option value="${x.id}">${x.nome} (${x.quantidade} ${x.unidade||'UN'})</option>`).join('');
 };
@@ -378,7 +400,8 @@ async function mecanicoAtualizarTabelasModal() {
         </div>
     `).join('') : '<p style="padding:15px; text-align:center; color:#94a3b8;">Nenhum serviço lançado.</p>';
 
-    const { data: p } = await window.supabaseClient.from('os_pecas_utilizadas').select(`*`).eq('os_id', mOS_Atual);
+    // Alterado para buscar os lançamentos da tabela certa
+    const { data: p } = await window.supabaseClient.from('almoxarifado_requisicoes').select(`*`).eq('os_id', mOS_Atual);
     document.getElementById('tabelaPecasLancadas').innerHTML = (p && p.length > 0) ? p.map(item => {
         const pecaObj = mOS_PecasCache.find(x => x.id == item.peca_id);
         const pNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
@@ -395,6 +418,15 @@ async function mecanicoCarregarPecas() {
     if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
     const { data } = await query;
     mOS_PecasCache = data || [];
+    
+    const selectCat = document.getElementById('filtroCategoriaPeca');
+    if (selectCat) {
+        const categorias = [...new Set(mOS_PecasCache.map(p => p.categoria).filter(Boolean))].sort();
+        selectCat.innerHTML = '<option value="">Todas as Categorias</option>' + 
+            categorias.map(c => `<option value="${c}">${c}</option>`).join('');
+        selectCat.value = '';
+    }
+
     document.getElementById('pesquisaPeca').value = ''; 
     mecanicoFiltrarPecas(); 
 }
