@@ -272,24 +272,27 @@ function atualizarTabelaRequisicoes(listaReqs) {
         let listaQtdHtml = '';
         let todosAprovados = true;
         let todosRecusados = true;
+        let todosDevolvidos = true;
 
         grupo.itens.forEach(req => {
             const pecaRef = pecasEstoque.find(p => String(p.id) === String(req.peca_id));
             const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
             const stat = req.status || 'Pendente';
             
-            let corItem = stat === 'Aprovado' ? '#34d399' : (stat === 'Recusado' ? '#ef4444' : '#cbd5e1');
+            let corItem = stat === 'Aprovado' ? '#34d399' : (stat === 'Recusado' ? '#ef4444' : (stat === 'Devolvido' ? '#94a3b8' : '#cbd5e1'));
 
             listaPecasHtml += `<div style="padding: 3px 0; color: ${corItem}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;" title="${nomePeca}">• ${nomePeca}</div>`;
             listaQtdHtml += `<div style="padding: 3px 0; color: ${corItem}; font-weight: bold;">${req.quantidade}</div>`;
             
             if(stat !== 'Aprovado') todosAprovados = false;
             if(stat !== 'Recusado') todosRecusados = false;
+            if(stat !== 'Devolvido') todosDevolvidos = false;
         });
 
         let stat = grupo.status;
         if(todosAprovados) stat = 'Aprovado';
         else if(todosRecusados) stat = 'Recusado';
+        else if(todosDevolvidos) stat = 'Devolvido';
 
         let statusBadge = '', btnAcao = '';
         if (stat === 'Pendente') {
@@ -300,9 +303,14 @@ function atualizarTabelaRequisicoes(listaReqs) {
         } else if (stat === 'Aprovado') {
             statusBadge = '<span class="badge" style="background:#10b981; color:#fff;"><i class="fas fa-check"></i> Liberada</span>';
             btnAcao = `
-                ${grupo.origem === 'almoxarifado_requisicoes' ? `<button class="btn-action-sm" style="background:#8b5cf6;" title="Reimprimir Termo" onclick="reimprimirTermoGrupo('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome}')"><i class="fas fa-print"></i></button>` : ''}
-                <span style="color:#94a3b8; font-size:0.8rem; display:block; margin-top:5px;">Processada</span>
+                <div style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;">
+                    ${grupo.origem === 'almoxarifado_requisicoes' ? `<button class="btn-action-sm" style="background:#8b5cf6;" title="Reimprimir Termo" onclick="reimprimirTermoGrupo('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome}')"><i class="fas fa-print"></i></button>` : ''}
+                    <button class="btn-action-sm" style="background:#f59e0b; color:#fff;" title="Cancelar Pedido e Devolver ao Estoque" onclick="estornarRequisicaoGrupo('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome || grupo.os_id || grupo.centro_custo}')"><i class="fas fa-undo"></i> Estornar</button>
+                </div>
             `;
+        } else if (stat === 'Devolvido') {
+            statusBadge = '<span class="badge" style="background:#64748b; color:#fff;"><i class="fas fa-undo"></i> Estornada</span>';
+            btnAcao = '<span style="color:#94a3b8; font-size:0.8rem;">Itens Devolvidos</span>';
         } else {
             statusBadge = '<span class="badge" style="background:#ef4444; color:#fff;"><i class="fas fa-times"></i> Recusada</span>';
             btnAcao = '<span style="color:#94a3b8; font-size:0.8rem;">Recusada</span>';
@@ -322,7 +330,7 @@ function atualizarTabelaRequisicoes(listaReqs) {
     });
 }
 
-// ======================= NOVO FLUXO DE APROVAÇÃO (MODAL) ======================= //
+// ======================= NOVO FLUXO DE APROVAÇÃO E DEVOLUÇÃO ======================= //
 
 window.abrirModalAprovacaoGrupo = function(dataReq, sourceTable, identificador) {
     grupoAvaliacaoAtual = requisicoesEstoque.filter(r => 
@@ -446,6 +454,47 @@ window.confirmarAvaliacaoGrupo = async function() {
     } finally {
         btn.innerHTML = '<i class="fas fa-save"></i> Confirmar Avaliação';
         btn.disabled = false;
+    }
+}
+
+window.estornarRequisicaoGrupo = async function(dataReq, sourceTable, identificador) {
+    const itensGrupo = requisicoesEstoque.filter(r => 
+        r.created_at === dataReq && r.source_table === sourceTable && 
+        (r.colaborador_nome === identificador || String(r.os_id) === identificador || r.centro_custo === identificador) &&
+        r.status === 'Aprovado'
+    );
+
+    if(itensGrupo.length === 0) { alert("Nenhum item aprovado neste pedido para estornar."); return; }
+    
+    if(!confirm(`Deseja CANCELAR este pedido e DEVOLVER todos os itens ao estoque?`)) return;
+
+    try {
+        for(let req of itensGrupo) {
+            const peca = pecasEstoque.find(p => String(p.id) === String(req.peca_id));
+            
+            // 1. Atualizar status da requisição para Devolvido
+            const table = sourceTable === 'almoxarifado_requisicoes' ? 'almoxarifado_requisicoes' : 'os_pecas_utilizadas';
+            await window.supabaseClient.from(table).update({ status: 'Devolvido' }).eq('id', req.id);
+            
+            // 2. Registrar entrada no estoque (estorno)
+            let novaMovimentacao = {
+                peca_id: req.peca_id, 
+                tipo: 'entrada',
+                quantidade: req.quantidade, 
+                valor_unitario: req.valor_unitario || (peca ? peca.preco_medio : 0),
+                nota_fiscal: 'Estorno/Devolução',
+                fornecedor: 'Devolução Interna',
+                usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
+                data_movimentacao: new Date().toISOString()
+            };
+
+            await db.addMovimentacao(novaMovimentacao);
+        }
+        alert("Pedido estornado e itens devolvidos ao estoque com sucesso!");
+        await carregarDadosAlmoxarifado();
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao estornar pedido.");
     }
 }
 
