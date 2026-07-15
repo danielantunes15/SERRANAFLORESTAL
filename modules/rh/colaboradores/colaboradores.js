@@ -535,6 +535,7 @@ window.gerarHtmlFichaEPI = async function(colaboradores) {
         const resPecas = await window.supabaseClient.from('almoxarifado_pecas').select('id, codigo, nome, categoria, unidade');
         if (resPecas.data) pecas = resPecas.data;
 
+        // Ao buscar as requisições, ele já traz automaticamente a assinatura_url
         const resReqs = await window.supabaseClient.from('almoxarifado_requisicoes').select('*').eq('status', 'Aprovado');
         if (resReqs.data) reqs = resReqs.data;
     }
@@ -578,7 +579,7 @@ window.gerarHtmlFichaEPI = async function(colaboradores) {
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 15%">Data Entrega</th>
+                        <th style="width: 15%; text-align:center;">Data Entrega</th>
                         <th style="width: 15%">C.A. / Cód.</th>
                         <th style="width: 35%">Descrição do Produto</th>
                         <th style="width: 10%; text-align:center;">Qtd</th>
@@ -593,13 +594,19 @@ window.gerarHtmlFichaEPI = async function(colaboradores) {
             itensColab.forEach(req => {
                 let peca = pecas.find(p => p.id == req.peca_id);
                 let dataFormatada = new Date(req.created_at).toLocaleDateString('pt-BR');
+                
+                // NOVA LÓGICA: Injeta a assinatura na linha do item
+                let imgAssinaturaNaTabela = req.assinatura_url 
+                    ? `<img src="${req.assinatura_url}" style="max-height: 45px; max-width: 100%; object-fit: contain; vertical-align: middle;">` 
+                    : `<span style="color: #999; font-size: 10px;">Sem assinatura no sistema</span>`;
+
                 html += `
                     <tr>
-                        <td>${dataFormatada}</td>
-                        <td>${peca ? (peca.codigo || '-') : '-'}</td>
-                        <td>${peca ? peca.nome : 'Item Excluído'}</td>
-                        <td style="text-align:center;">${req.quantidade} ${peca ? (peca.unidade||'UN') : ''}</td>
-                        <td></td>
+                        <td style="text-align:center; vertical-align: middle;">${dataFormatada}</td>
+                        <td style="vertical-align: middle;">${peca ? (peca.codigo || '-') : '-'}</td>
+                        <td style="vertical-align: middle;">${peca ? peca.nome : 'Item Excluído'}</td>
+                        <td style="text-align:center; vertical-align: middle;">${req.quantidade} ${peca ? (peca.unidade||'UN') : ''}</td>
+                        <td style="text-align:center; vertical-align: middle; height: 50px;">${imgAssinaturaNaTabela}</td>
                     </tr>
                 `;
             });
