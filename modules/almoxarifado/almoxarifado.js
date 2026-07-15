@@ -8,6 +8,10 @@ let abaAtualAlmox = 'estoque';
 let itensLoteAtual = [];
 let grupoAvaliacaoAtual = []; // Guarda os itens do modal de aprovação
 
+// --- VARIÁVEIS ASSINATURA DIGITAL ---
+let canvasAssinatura, ctxAssinatura, desenhando = false;
+let itensPendentesParaAssinatura = [];
+
 window.renderizarAlmoxarifado = async function() {
     injetarModalAprovacao(); // Injeta o modal moderno via JS
     await carregarDadosAlmoxarifado();
@@ -20,7 +24,7 @@ function injetarModalAprovacao() {
     <div id="modalAprovacaoReq" class="almo-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); z-index:10000; align-items:center; justify-content:center;">
         <div class="almo-modal-content" style="background:#1e293b; color:#e2e8f0; width:100%; max-width:800px; max-height:90vh; overflow-y:auto; border-radius:16px; padding:30px; border:1px solid #334155; position:relative; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
             <span class="almo-close" onclick="fecharModalAlmox('modalAprovacaoReq')" style="position:absolute; top:20px; right:20px; font-size:1.5rem; cursor:pointer; color:#94a3b8;">&times;</span>
-            <h3 style="color:#38bdf8; margin-top:0; font-size:1.5rem; display:flex; align-items:center; gap:10px;"><i class="fas fa-clipboard-check"></i> Avaliar Requisição <span id="modalApOrigem" style="font-size:1rem; color:#94a3b8; font-weight:normal;"></span></h3>
+            <h3 style="color:#38bdf8; margin-top:0; font-size:1.5rem; display:flex; align-items:center; gap:10px;"><i class="fas fa-clipboard-check"></i> Avaliar e Registrar Entrega <span id="modalApOrigem" style="font-size:1rem; color:#94a3b8; font-weight:normal;"></span></h3>
             <p style="color:#94a3b8; font-size:1rem; margin-bottom:20px;">Destino / Solicitante: <strong id="modalApDestino" style="color:#f8fafc; font-size:1.1rem;"></strong></p>
             
             <div class="almo-table-container" style="background:#0f172a; border-radius:8px; border:1px solid #334155; overflow:hidden;">
@@ -38,11 +42,68 @@ function injetarModalAprovacao() {
             </div>
             <div style="margin-top:25px; display:flex; gap:15px; justify-content:flex-end;">
                 <button class="btn-modern btn-dark" onclick="fecharModalAlmox('modalAprovacaoReq')" style="padding:10px 20px;">Cancelar</button>
-                <button class="btn-modern btn-primary" id="btnConfirmarAvaliacao" onclick="confirmarAvaliacaoGrupo()" style="padding:10px 20px;"><i class="fas fa-save"></i> Confirmar Avaliação</button>
+                <button class="btn-modern btn-primary" id="btnConfirmarAvaliacao" onclick="confirmarAvaliacaoGrupo()" style="padding:10px 20px;"><i class="fas fa-arrow-right"></i> Prosseguir para Assinatura</button>
             </div>
         </div>
     </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// INICIALIZA O PAD DE ASSINATURA
+function initSignaturePad() {
+    canvasAssinatura = document.getElementById('canvasAssinatura');
+    if(!canvasAssinatura) return;
+    ctxAssinatura = canvasAssinatura.getContext('2d');
+    ctxAssinatura.lineWidth = 3;
+    ctxAssinatura.lineCap = 'round';
+    ctxAssinatura.strokeStyle = '#000';
+
+    const getPos = (e) => {
+        const rect = canvasAssinatura.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const scaleX = canvasAssinatura.width / rect.width;
+        const scaleY = canvasAssinatura.height / rect.height;
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    };
+
+    const iniciarDesenho = (e) => {
+        e.preventDefault();
+        desenhando = true;
+        const pos = getPos(e);
+        ctxAssinatura.beginPath();
+        ctxAssinatura.moveTo(pos.x, pos.y);
+    };
+
+    const desenhar = (e) => {
+        if (!desenhando) return;
+        e.preventDefault();
+        const pos = getPos(e);
+        ctxAssinatura.lineTo(pos.x, pos.y);
+        ctxAssinatura.stroke();
+    };
+
+    const pararDesenho = () => {
+        desenhando = false;
+        ctxAssinatura.closePath();
+    };
+
+    canvasAssinatura.addEventListener("mousedown", iniciarDesenho);
+    canvasAssinatura.addEventListener("mousemove", desenhar);
+    canvasAssinatura.addEventListener("mouseup", pararDesenho);
+    canvasAssinatura.addEventListener("mouseout", pararDesenho);
+    canvasAssinatura.addEventListener("touchstart", iniciarDesenho, { passive: false });
+    canvasAssinatura.addEventListener("touchmove", desenhar, { passive: false });
+    canvasAssinatura.addEventListener("touchend", pararDesenho);
+}
+
+window.limparAssinatura = function() {
+    if(ctxAssinatura && canvasAssinatura) {
+        ctxAssinatura.clearRect(0, 0, canvasAssinatura.width, canvasAssinatura.height);
+    }
 }
 
 async function carregarDadosAlmoxarifado() {
@@ -298,10 +359,10 @@ function atualizarTabelaRequisicoes(listaReqs) {
         if (stat === 'Pendente') {
             statusBadge = '<span class="badge" style="background:#f59e0b; color:#fff;"><i class="fas fa-clock"></i> Aguardando</span>';
             btnAcao = `
-                <button class="btn-action-sm btn-info" style="background:#38bdf8; padding:8px 12px; font-weight:bold;" title="Avaliar Pedido" onclick="abrirModalAprovacaoGrupo('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome || grupo.os_id || grupo.centro_custo}')"><i class="fas fa-tasks"></i> Avaliar</button>
+                <button class="btn-action-sm btn-info" style="background:#38bdf8; padding:8px 12px; font-weight:bold;" title="Avaliar e Entregar" onclick="abrirModalAprovacaoGrupo('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome || grupo.os_id || grupo.centro_custo}')"><i class="fas fa-boxes"></i> Separar & Entregar</button>
             `;
         } else if (stat === 'Aprovado') {
-            statusBadge = '<span class="badge" style="background:#10b981; color:#fff;"><i class="fas fa-check"></i> Liberada</span>';
+            statusBadge = '<span class="badge" style="background:#10b981; color:#fff;"><i class="fas fa-check"></i> Entregue</span>';
             btnAcao = `
                 <div style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;">
                     ${grupo.origem === 'almoxarifado_requisicoes' ? `<button class="btn-action-sm" style="background:#8b5cf6;" title="Reimprimir Termo" onclick="reimprimirTermoGrupo('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome}')"><i class="fas fa-print"></i></button>` : ''}
@@ -330,7 +391,7 @@ function atualizarTabelaRequisicoes(listaReqs) {
     });
 }
 
-// ======================= NOVO FLUXO DE APROVAÇÃO E DEVOLUÇÃO ======================= //
+// ======================= NOVO FLUXO DE APROVAÇÃO, ASSINATURA E DEVOLUÇÃO ======================= //
 
 window.abrirModalAprovacaoGrupo = function(dataReq, sourceTable, identificador) {
     grupoAvaliacaoAtual = requisicoesEstoque.filter(r => 
@@ -358,7 +419,7 @@ window.abrirModalAprovacaoGrupo = function(dataReq, sourceTable, identificador) 
 
         let htmlSelect = `
             <select id="decisao_${index}" class="input-table-sm" style="background:${selectBg}; padding:8px; border-radius:6px; color:#fff; border:1px solid ${selectColor}; width:100%; outline:none; font-weight:bold;">
-                ${faltaEstoque ? '' : '<option value="Aprovado" style="background:#0f172a; color:#fff;">✅ Aprovar Item</option>'}
+                ${faltaEstoque ? '' : '<option value="Aprovado" style="background:#0f172a; color:#fff;">✅ Aprovar e Entregar</option>'}
                 <option value="Recusado" ${faltaEstoque ? 'selected' : ''} style="background:#0f172a; color:#fff;">❌ Recusar Item</option>
                 <option value="Pendente" ${!faltaEstoque ? 'selected' : ''} style="background:#0f172a; color:#fff;">⏳ Deixar Pendente</option>
             </select>
@@ -437,22 +498,70 @@ window.confirmarAvaliacaoGrupo = async function() {
 
         fecharModalAlmox('modalAprovacaoReq');
         
+        // Se aprovou pedidos do tipo colaborador, aciona a etapa de assinatura
         if (aprovouAlgo && grupoAvaliacaoAtual[0].source_table === 'almoxarifado_requisicoes') {
-            if (confirm(`Deseja imprimir o Termo de Entrega para os itens APROVADOS de ${grupoAvaliacaoAtual[0].colaborador_nome}?`)) {
-                imprimirTermoEntregaGrupo(itensAprovadosParaTermo);
-            } else {
-                alert("Avaliação processada com sucesso!");
-            }
+            itensPendentesParaAssinatura = itensAprovadosParaTermo;
+            document.getElementById('modalAssinatura').style.display = 'flex';
+            setTimeout(() => {
+                if(!canvasAssinatura) initSignaturePad();
+                limparAssinatura();
+            }, 200);
         } else {
-            alert("Avaliação processada com sucesso!");
+            alert("Avaliação processada e materiais liberados com sucesso!");
+            await carregarDadosAlmoxarifado();
         }
 
-        await carregarDadosAlmoxarifado();
     } catch (e) {
         console.error(e);
         alert("Erro ao salvar avaliação. Tente novamente.");
     } finally {
-        btn.innerHTML = '<i class="fas fa-save"></i> Confirmar Avaliação';
+        btn.innerHTML = '<i class="fas fa-arrow-right"></i> Prosseguir para Assinatura';
+        btn.disabled = false;
+    }
+}
+
+window.finalizarEntregaAssinada = async function() {
+    const btn = document.getElementById('btnSalvarAssinatura');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando no Banco...';
+    btn.disabled = true;
+
+    try {
+        // Captura a imagem do Canvas em formato Base64
+        const assinaturaBase64 = canvasAssinatura.toDataURL();
+        
+        // Isola os IDs dos itens que estão sendo entregues agora
+        const idsParaAtualizar = itensPendentesParaAssinatura.map(item => item.id);
+        
+        // -------------------------------------------------------------------
+        // Dispara a atualização (UPDATE) para o Supabase
+        // -------------------------------------------------------------------
+        if (idsParaAtualizar.length > 0) {
+            const { error } = await window.supabaseClient
+                .from('almoxarifado_requisicoes')
+                .update({ 
+                    assinatura_base64: assinaturaBase64,
+                    data_assinatura: new Date().toISOString()
+                })
+                .in('id', idsParaAtualizar);
+
+            if (error) throw error;
+        }
+        
+        fecharModalAlmox('modalAssinatura');
+        
+        // Pergunta se deseja imprimir o termo, agora que já está salvo
+        if (confirm("Assinatura salva no banco com sucesso! Deseja imprimir o Termo de Entrega contendo a assinatura digital?")) {
+            imprimirTermoEntregaGrupo(itensPendentesParaAssinatura, assinaturaBase64);
+        }
+        
+        // Recarrega as tabelas para limpar os itens pendentes da tela
+        await carregarDadosAlmoxarifado();
+        
+    } catch(e) {
+        console.error("Falha ao salvar a assinatura no Supabase:", e);
+        alert("Erro ao salvar assinatura no banco de dados. Verifique a conexão.");
+    } finally {
+        btn.innerHTML = '<i class="fas fa-check"></i> Confirmar Entrega';
         btn.disabled = false;
     }
 }
@@ -511,7 +620,7 @@ window.reimprimirTermoGrupo = function(dataReq, sourceTable, identificador) {
     }
 }
 
-window.imprimirTermoEntregaGrupo = function(itensGrupo) {
+window.imprimirTermoEntregaGrupo = function(itensGrupo, assinaturaBase64 = null) {
     if(!itensGrupo || itensGrupo.length === 0) return;
     const reqBase = itensGrupo[0]; 
     
@@ -531,6 +640,10 @@ window.imprimirTermoEntregaGrupo = function(itensGrupo) {
             </tr>
         `;
     });
+
+    let assinaturaHtml = assinaturaBase64 
+        ? `<img src="${assinaturaBase64}" style="max-height: 80px; max-width: 100%; border-bottom: 1px solid #000; margin-bottom: 5px;">` 
+        : `<div class="signature-line"></div>`;
 
     win.document.write(`
         <html>
@@ -578,7 +691,7 @@ window.imprimirTermoEntregaGrupo = function(itensGrupo) {
             
             <div class="signature-container">
                 <div class="signature-box">
-                    <div class="signature-line"></div>
+                    ${assinaturaHtml}
                     <strong>${reqBase.colaborador_nome}</strong><br>
                     Assinatura do Colaborador
                 </div>
