@@ -202,12 +202,10 @@ function atualizarTabelaRequisicoes(listaReqs) {
         let tituloOrigem = '';
         let usuarioReq = '';
 
-        // Formatação diferente dependendo de onde veio a requisição
         if(req.source_table === 'almoxarifado_requisicoes') {
             tituloOrigem = `<strong style="color:#fbbf24; font-size:1.05rem;">Req. Mat #${req.id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-id-badge"></i> Para: ${req.colaborador_nome}</span>`;
             usuarioReq = `<span style="color:#94a3b8; font-size:0.75rem;">Solicitado por:</span><br><strong style="color:#e2e8f0;">${req.usuario_solicitante}</strong>`;
         } else {
-            // Veio de O.S.
             tituloOrigem = req.centro_custo 
                 ? `<strong style="color:#a855f7; font-size:1.05rem;">RM-Int #${req.id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-building"></i> ${req.centro_custo}</span>` 
                 : `<strong style="color:#60a5fa; font-size:1.05rem;">O.S #${req.os_id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-truck"></i> ${req.placa || 'Frota'}</span>`;
@@ -487,11 +485,7 @@ window.aprovarRequisicao = async function(reqId, sourceTable) {
             await window.supabaseClient.from('os_pecas_utilizadas').update({ status: 'Aprovado' }).eq('id', reqId);
         }
         
-        // 2. Diminui a quantidade da Peça no banco de dados (BAIXA FÍSICA)
-        peca.quantidade = parseFloat(peca.quantidade) - parseFloat(req.quantidade);
-        await db.upsertPeca(peca);
-        
-        // 3. Grava no Histórico de Movimentações para Gerar Relatório de Custo
+        // 2. Grava no Histórico de Movimentações (A lógica interna de addMovimentacao JÁ DIMINUI O ESTOQUE)
         let novaMovimentacao = {
             peca_id: req.peca_id, 
             tipo: 'saida', 
