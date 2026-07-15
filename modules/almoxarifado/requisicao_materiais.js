@@ -263,6 +263,24 @@ async function carregarHistoricoRequisicoes() {
     try {
         let query = window.supabaseClient.from('almoxarifado_requisicoes').select('*').order('created_at', { ascending: false }).limit(300);
         if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+        
+        // --- INÍCIO DA MELHORIA: FILTRO POR PERFIL/ACESSO ---
+        const usernameAtual = window.currentUser ? window.currentUser.username : 'Sistema';
+        const menusUsuario = window.currentUser && window.currentUser.menus ? window.currentUser.menus : [];
+        const perfilUsuario = window.currentUser ? window.currentUser.perfil : '';
+        
+        // Valida se o usuário logado tem acesso à gestão de estoque (ou é admin/almoxarifado)
+        const temAcessoEstoque = menusUsuario.includes('Gestão de Estoque') || 
+                                 menusUsuario.includes('Almoxarifado') || 
+                                 perfilUsuario === 'Administrador' ||
+                                 perfilUsuario === 'Almoxarifado';
+
+        // Se NÃO tem acesso ao almoxarifado, filtra para ver APENAS as próprias requisições
+        if (!temAcessoEstoque && window.currentUser) {
+            query = query.eq('usuario_solicitante', usernameAtual);
+        }
+        // --- FIM DA MELHORIA ---
+
         const { data, error } = await query;
         if (error) throw error;
         
