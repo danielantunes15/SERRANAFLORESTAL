@@ -20,6 +20,16 @@
         font-weight: 600;
         animation: terminalFadeIn 0.3s ease-out;
     }
+    
+    /* ========================================================== */
+    /* NOVA REGRA PARA CORRIGIR O FUNDO BRANCO NO DROPDOWN        */
+    /* ========================================================== */
+    select.search-input-dark option, 
+    select.dark-select option {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+    }
+    /* ========================================================== */
 </style>
 
 <div id="viewListagemColaboradores" style="animation: terminalFadeIn 0.3s ease-out;">
@@ -28,6 +38,13 @@
             <h2 style="color: #fff; margin-right: 15px; white-space: nowrap;"><i class="fas fa-users"></i> Quadro de Funcionários</h2>
             
             <input type="text" id="filtroMatricula" class="search-input-dark" style="width: 150px;" placeholder="Matrícula..." onkeyup="window.filtrarColaboradoresLista()">
+            
+            <!-- NOVO CAMPO: Filtro por Setor -->
+            <select id="filtroSetorLista" class="search-input-dark" style="width: 180px;" onchange="window.filtrarColaboradoresLista()">
+                <option value="">Todos os Setores</option>
+                <!-- Preenchido via JS -->
+            </select>
+
             <input type="text" id="filtroNome" class="search-input-dark" style="flex: 1;" placeholder="Buscar por Nome do Colaborador..." onkeyup="window.filtrarColaboradoresLista()">
         </div>
         <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -46,6 +63,7 @@
                         <th>Matrícula</th>
                         <th>Nome Completo</th>
                         <th>Função</th>
+                        <th>Setor</th> <!-- NOVA COLUNA -->
                         <th>Status</th>
                         <th style="text-align: right;">Ações</th>
                     </tr>

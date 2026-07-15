@@ -18,6 +18,7 @@ window.initRHColaboradores = async function() {
     document.getElementById('viewListagemColaboradores').style.display = 'block';
     document.getElementById('viewFichaColaborador').style.display = 'none';
     
+    await window.carregarSetoresGlobal(); // CARREGA OS SETORES INICIALMENTE PARA O FILTRO
     await window.carregarCursosGlobais();
     await window.carregarColaboradoresLista();
 };
@@ -28,9 +29,19 @@ window.carregarSetoresGlobal = async function() {
         const { data, error } = await window.supabaseClient.from('setores').select('id, nome').eq('status', 'Ativo');
         if (error) throw error;
         
+        // Preenche o campo de seleção dentro da ficha do colaborador
         const selSetor = document.getElementById('colSetorId');
-        selSetor.innerHTML = '<option value="">Selecione um setor...</option>' + 
-            data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
+        if (selSetor) {
+            selSetor.innerHTML = '<option value="">Selecione um setor...</option>' + 
+                data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
+        }
+        
+        // Preenche o NOVO campo de filtro de setor na listagem
+        const selFiltroSetor = document.getElementById('filtroSetorLista');
+        if (selFiltroSetor) {
+            selFiltroSetor.innerHTML = '<option value="">Todos os Setores</option>' + 
+                data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
+        }
     } catch(e) { console.error("Erro ao carregar setores:", e); }
 };
 
@@ -62,7 +73,7 @@ window.limparValidacaoVisualFicha = function() {
 window.carregarColaboradoresLista = async function() {
     try {
         const tbody = document.getElementById('tbListaColaboradores');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando banco de dados...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando banco de dados...</td></tr>`;
         
         window.listaColaboradoresDb = await db.getColaboradores();
         window.renderizarTabelaColaboradores(window.listaColaboradoresDb);
@@ -78,7 +89,7 @@ window.renderizarTabelaColaboradores = function(lista) {
     tbody.innerHTML = '';
 
     if (lista.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador encontrado com os filtros aplicados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador encontrado com os filtros aplicados.</td></tr>`;
         return;
     }
 
@@ -95,12 +106,23 @@ window.renderizarTabelaColaboradores = function(lista) {
         if (pendencias.length > 0 && c.status !== 'Inativo' && c.status !== 'Desligado') {
             badgeAlerta = `<span title="Cadastro Desatualizado (${pendencias.length} informações pendentes)" style="color: #ef4444; margin-right: 5px; font-size: 1.1rem; cursor: help;"><i class="fas fa-exclamation-triangle"></i></span>`;
         }
+        
+        // Busca o nome do setor baseado no ID do colaborador para exibição na tabela
+        let nomeSetor = 'Não informado';
+        if (c.setor_id) {
+            const selectSetor = document.getElementById('filtroSetorLista');
+            if (selectSetor) {
+                const option = Array.from(selectSetor.options).find(opt => opt.value == c.setor_id);
+                if (option) nomeSetor = option.text;
+            }
+        }
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><strong style="color: var(--ccol-blue-bright); font-size: 1.1rem;">${matriculaFormatada}</strong></td>
             <td style="text-align: left; font-weight: bold; font-size: 1.05rem;">${c.nome}</td>
             <td><span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-dim); font-size: 0.85rem;">${c.funcao || 'Não informada'}</span></td>
+            <td><span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-dim); font-size: 0.85rem;">${nomeSetor}</span></td>
             <td><span style="color: ${corStatus}; font-weight: bold; font-size: 0.9rem;">${c.status || 'Ativo'}</span></td>
             <td style="text-align: right;">
                 <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
@@ -115,19 +137,20 @@ window.renderizarTabelaColaboradores = function(lista) {
     });
 };
 
+// ==================== MELHORIA: LÓGICA DE FILTRO ATUALIZADA ====================
 window.filtrarColaboradoresLista = function() {
     const termoNome = document.getElementById('filtroNome').value.toLowerCase();
     const termoMatricula = document.getElementById('filtroMatricula').value.toLowerCase();
+    const termoSetor = document.getElementById('filtroSetorLista').value; // Novo filtro de setor
     
     const filtrados = window.listaColaboradoresDb.filter(c => {
-        const nomeMatch = c.nome && c.nome.toLowerCase().includes(termoNome);
-        const matMatch = c.cod_funcionario && String(c.cod_funcionario).includes(termoMatricula);
+        // Validações isoladas
+        const nomeMatch = !termoNome || (c.nome && c.nome.toLowerCase().includes(termoNome));
+        const matMatch = !termoMatricula || (c.cod_funcionario && String(c.cod_funcionario).includes(termoMatricula));
+        const setorMatch = !termoSetor || (String(c.setor_id) === String(termoSetor));
         
-        // Se ambos os campos foram digitados, tem que bater com os dois. Se só um, bate com aquele.
-        if (termoNome && termoMatricula) return nomeMatch && matMatch;
-        if (termoNome) return nomeMatch;
-        if (termoMatricula) return matMatch;
-        return true; // Se ambos vazios, retorna todos
+        // O colaborador só aparece se passar em todos os filtros que estiverem preenchidos
+        return nomeMatch && matMatch && setorMatch;
     });
     
     window.renderizarTabelaColaboradores(filtrados);
