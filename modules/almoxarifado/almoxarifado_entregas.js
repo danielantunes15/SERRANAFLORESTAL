@@ -402,7 +402,7 @@ window.finalizarEntregaAssinadaEntregas = async function() {
             let colabUrl = null;
             let entregadorUrl = null;
 
-            // Upload Assinatura Colaborador
+            // 1. Faz o Upload da Imagem do Colaborador (Apenas UMA vez!)
             if (hasColabSig) {
                 const blobColab = base64ParaBlob(canvasColab.toDataURL('image/png'), 'image/png');
                 const nomeArqColab = `sig_colab_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
@@ -412,7 +412,7 @@ window.finalizarEntregaAssinadaEntregas = async function() {
                 }
             }
 
-            // Upload Assinatura Entregador
+            // 2. Faz o Upload da Imagem do Entregador (Apenas UMA vez!)
             if (hasEntregadorSig) {
                 const blobEnt = base64ParaBlob(canvasEntregador.toDataURL('image/png'), 'image/png');
                 const nomeArqEnt = `sig_ent_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
@@ -422,17 +422,18 @@ window.finalizarEntregaAssinadaEntregas = async function() {
                 }
             }
 
-            // Prepara a atualização do banco de dados
             let updatePayload = { data_assinatura: new Date().toISOString() };
             if (colabUrl) updatePayload.assinatura_url = colabUrl;
             if (entregadorUrl) updatePayload.assinatura_entregador_url = entregadorUrl;
 
-            // Salva os links das imagens no banco de dados para os itens da requisição
-            const { error: dbError } = await window.supabaseClient.from('almoxarifado_requisicoes')
-                .update(updatePayload)
-                .in('id', idsParaAtualizar);
-
-            if (dbError) throw dbError;
+            // 3. Atualiza os Itens UM POR UM usando exatamente a MESMA URL gerada acima!
+            for (let idReq of idsParaAtualizar) {
+                const { error: dbError } = await window.supabaseClient.from('almoxarifado_requisicoes')
+                    .update(updatePayload)
+                    .eq('id', idReq);
+                    
+                if (dbError) throw dbError;
+            }
             
             fecharModalEntregas('modalAssinaturaEntregas');
             if (confirm("Assinaturas salvas com sucesso! Deseja imprimir o Termo de Entrega agora?")) { 
@@ -446,7 +447,7 @@ window.finalizarEntregaAssinadaEntregas = async function() {
         
     } catch(e) { 
         console.error(e); 
-        alert("Erro ao salvar assinatura. Verifique o console."); 
+        alert("Erro ao salvar assinaturas. Verifique o console."); 
     } finally { 
         btn.innerHTML = '<i class="fas fa-check"></i> Finalizar Entrega'; 
         btn.disabled = false; 
@@ -507,6 +508,7 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
         linhasTabela += `<tr><td style="text-align:center;">${item.quantidade}</td><td style="text-align:center;">${peca.unidade || 'UN'}</td><td>${peca.codigo || 'S/N'}</td><td>${peca.nome}</td><td style="text-align:center;">${dataAtual}</td></tr>`;
     });
 
+    // CAIXA DE IMAGEM CORRIGIDA PARA NÃO QUEBRAR O LAYOUT
     let imgColab = assinaturaColabUrl ? `<img src="${assinaturaColabUrl}" style="max-height: 85px; max-width: 100%; object-fit: contain;">` : '';
     let imgEnt = assinaturaEntregadorUrl ? `<img src="${assinaturaEntregadorUrl}" style="max-height: 85px; max-width: 100%; object-fit: contain;">` : '';
 
@@ -523,6 +525,7 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
             .table-info th, .table-info td { border: 1px solid #000; padding: 12px; text-align: left; } 
             .table-info th { background-color: #f0f0f0; } 
             
+            /* Correção do Layout das Assinaturas */
             .signature-container { display: flex; justify-content: space-between; margin-top: 60px; } 
             .signature-box { text-align: center; width: 45%; } 
             .img-wrapper { height: 90px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 5px;}
