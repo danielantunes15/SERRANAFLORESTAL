@@ -53,6 +53,7 @@
     .badge-abc-A { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
     .badge-abc-B { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid #f59e0b; }
     .badge-abc-C { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; }
+    
     /* Modal Styles */
     .almo-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
     .almo-modal-content { background: #1e293b; color: #e2e8f0; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); padding: 30px; position: relative; border: 1px solid #334155; }
@@ -113,10 +114,6 @@
     <div class="almo-controls">
         <div class="almo-tabs">
             <button class="almo-tab-btn active" onclick="mudarAbaAlmoxarifado('estoque', this)"><i class="fas fa-box-open"></i> Estoque Atual</button>
-            <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('requisicoes', this)" style="display: inline-flex; align-items: center; gap: 6px;">
-                <i class="fas fa-clipboard-check"></i> Entregas & Requisições
-                <span id="badgeReqPendente" style="display:none; background:#ef4444; color:#fff; border-radius:10px; padding:3px 7px; font-size:0.75rem; font-weight:bold; line-height:1;">0</span>
-            </button>
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('notas', this)"><i class="fas fa-file-invoice-dollar"></i> Notas Fiscais</button>
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('movimentacoes', this)"><i class="fas fa-exchange-alt"></i> Histórico & Auditoria</button>
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('pneus', this)"><i class="fas fa-tire"></i> Gestão de Pneus</button>
@@ -145,22 +142,6 @@
                 </tr>
             </thead>
             <tbody id="tabelaPecasBody"></tbody>
-        </table>
-    </div>
-    <div id="abaRequisicoes" class="almo-table-container" style="display: none;">
-        <table class="almo-table">
-            <thead>
-                <tr>
-                    <th>Data/Hora</th>
-                    <th>Origem (RM Interna / O.S)</th>
-                    <th>Usuário / Mecânico</th>
-                    <th>Peça Solicitada</th>
-                    <th>Qtd</th>
-                    <th>Status</th>
-                    <th style="text-align: right;">Ação</th>
-                </tr>
-            </thead>
-            <tbody id="tabelaRequisicoesBody"></tbody>
         </table>
     </div>
     <div id="abaNotas" class="almo-table-container" style="display: none;">
@@ -456,22 +437,6 @@
                 </thead>
                 <tbody id="tabelaDetalhesNotaBody"></tbody>
             </table>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL ASSINATURA -->
-<div id="modalAssinatura" class="almo-modal">
-    <div class="almo-modal-content" style="max-width: 600px; text-align: center;">
-        <span class="almo-close" onclick="fecharModalAlmox('modalAssinatura')">&times;</span>
-        <h3 style="color: #38bdf8;"><i class="fas fa-signature"></i> Assinatura de Retirada</h3>
-        <p style="color: #94a3b8; margin-bottom: 20px;">O colaborador confirma o recebimento dos itens listados.</p>
-        <div style="background: #fff; border-radius: 8px; padding: 10px; margin-bottom: 20px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1);">
-            <canvas id="canvasAssinatura" width="500" height="200" style="border: 2px dashed #cbd5e1; cursor: crosshair; touch-action: none; width: 100%; border-radius: 6px;"></canvas>
-        </div>
-        <div style="display: flex; gap: 15px; justify-content: center;">
-            <button type="button" class="btn-modern btn-warning" onclick="limparAssinatura()"><i class="fas fa-eraser"></i> Limpar</button>
-            <button type="button" class="btn-modern btn-success" id="btnSalvarAssinatura" onclick="finalizarEntregaAssinada()"><i class="fas fa-check"></i> Confirmar Entrega</button>
         </div>
     </div>
 </div>

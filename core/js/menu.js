@@ -24,6 +24,7 @@ window.MAPA_MENUS = [
     
     // --- MÓDULO INDEPENDENTE: ALMOXARIFADO ---
     { id: 'almoxarifado', label: 'Gestão de Estoque', setor: 'Almoxarifado', icon: 'fas fa-boxes' },
+    { id: 'almoxarifado_entregas', label: 'Entregas & Requisições', setor: 'Almoxarifado', icon: 'fas fa-clipboard-check' },
     { id: 'requisicao_materiais', label: 'Requisitar Material', setor: 'Almoxarifado', icon: 'fas fa-hand-holding-medical' },
     { id: 'almoxarifado_relatorios', label: 'Painel de Relatórios', setor: 'Almoxarifado', icon: 'fas fa-chart-pie' },
     { id: 'almoxarifado_cadastros', label: 'Cadastros Almoxarifado', setor: 'Almoxarifado', icon: 'fas fa-list-alt' },
@@ -129,15 +130,13 @@ const ROTAS = {
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
     
     'almoxarifado': 'modules/almoxarifado/almoxarifado.html',
+    'almoxarifado_entregas': 'modules/almoxarifado/almoxarifado_entregas.html',
     'almoxarifado_cadastros': 'modules/almoxarifado/almoxarifado_cadastros.html',
     'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html',
     'almoxarifado_relatorios': 'modules/almoxarifado/almoxarifado_relatorios.html'
 };
 
-// =========================================================================================
-// MUDANÇA DE VERSÃO: FORÇA O NAVEGADOR A LIMPAR O CACHE E BAIXAR OS ARQUIVOS NOVOS
-// =========================================================================================
-const VERSAO_SISTEMA = "1.0.19"; 
+const VERSAO_SISTEMA = "1.0.21"; 
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -165,7 +164,6 @@ window.renderizarMenu = async function() {
         meusMenus = permissoesAtuais[userKey];
     }
     
-    // Garante que o menu do tarifador apareça caso não tenha sido configurado ainda no banco de dados para os Admins
     if (userRole === 'Admin' || userRole === 'SuperAdmin') {
         if (!meusMenus.includes('tarifador')) meusMenus.push('tarifador');
     }
@@ -305,6 +303,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'caminhoes' && typeof window.renderizarConjuntos === 'function') window.renderizarConjuntos();
         
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
+        if (pagina === 'almoxarifado_entregas' && typeof window.renderizarAlmoxarifadoEntregas === 'function') window.renderizarAlmoxarifadoEntregas();
         if (pagina === 'almoxarifado_cadastros' && typeof window.renderizarCadastrosAlmox === 'function') window.renderizarCadastrosAlmox();
         if (pagina === 'requisicao_materiais' && typeof window.renderizarRequisicaoMateriais === 'function') window.renderizarRequisicaoMateriais();
         if (pagina === 'almoxarifado_relatorios' && typeof window.renderizarAlmoxRelatorios === 'function') window.renderizarAlmoxRelatorios();
@@ -361,8 +360,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'producao_frota' && typeof window.initProducaoFrota === 'function') window.initProducaoFrota();
         if (pagina === 'evolucao_fazendas' && typeof window.initEvolucaoFazendas === 'function') window.initEvolucaoFazendas();
         if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
-        
-        // Chamada de inicialização do Módulo Tarifador
         if (pagina === 'tarifador' && typeof window.initTarifador === 'function') window.initTarifador();
 
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();

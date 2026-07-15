@@ -1,0 +1,79 @@
+<style>
+    .almo-container { font-family: 'Segoe UI', system-ui, sans-serif; color: #e2e8f0; animation: fadeIn 0.4s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .almo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 15px; border-bottom: 1px solid #334155; flex-wrap: wrap; gap: 15px; }
+    .almo-header h2 { margin: 0; color: #ffffff; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+    .almo-header h2 i { color: #3b82f6; }
+    
+    .almo-controls { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; background: #1e293b; padding: 10px 20px; border-radius: 10px; border: 1px solid #334155; }
+    .almo-search { position: relative; width: 300px; }
+    .almo-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; }
+    .almo-search input { width: 100%; padding: 10px 10px 10px 35px; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 8px; outline: none; transition: 0.2s; font-family: inherit; }
+    .almo-search input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+    
+    .almo-table-container { background: #1e293b; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); overflow-x: auto; border: 1px solid #334155; }
+    .almo-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .almo-table th { background-color: #0f172a; padding: 14px 20px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #334155; white-space: nowrap; }
+    .almo-table td { padding: 14px 20px; border-bottom: 1px solid #334155; vertical-align: middle; color: #e2e8f0; }
+    .almo-table tr:last-child td { border-bottom: none; }
+    .almo-table tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
+    
+    .badge { padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
+    .btn-modern { padding: 10px 18px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; font-size: 0.9rem; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-warning { background: #f59e0b; color: white; }
+    .btn-dark { background: #475569; color: white; }
+    .btn-action-sm { padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; transition: 0.2s; color: white; }
+    
+    .almo-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
+    .almo-modal-content { background: #1e293b; color: #e2e8f0; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); padding: 30px; position: relative; border: 1px solid #334155; }
+    .almo-close { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; color: #94a3b8; cursor: pointer; transition: 0.2s; }
+    .almo-close:hover { color: #fff; }
+</style>
+
+<div class="almo-container">
+    <div class="almo-header">
+        <h2><i class="fas fa-clipboard-check"></i> Gestão de Entregas & Requisições</h2>
+    </div>
+    
+    <div class="almo-controls">
+        <div class="almo-search">
+            <i class="fas fa-search"></i>
+            <input type="text" id="entregasSearchInput" onkeyup="filtrarTabelaEntregas()" placeholder="Pesquisar requisições...">
+        </div>
+    </div>
+    
+    <div class="almo-table-container">
+        <table class="almo-table">
+            <thead>
+                <tr>
+                    <th>Data/Hora</th>
+                    <th>Origem (RM Interna / O.S)</th>
+                    <th>Usuário / Mecânico</th>
+                    <th>Peça Solicitada</th>
+                    <th>Qtd</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Ação</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaEntregasBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL ASSINATURA EXCLUSIVO -->
+<div id="modalAssinaturaEntregas" class="almo-modal">
+    <div class="almo-modal-content" style="max-width: 600px; text-align: center;">
+        <span class="almo-close" onclick="fecharModalEntregas('modalAssinaturaEntregas')">&times;</span>
+        <h3 style="color: #38bdf8; margin-top:0;"><i class="fas fa-signature"></i> Assinatura de Retirada</h3>
+        <p style="color: #94a3b8; margin-bottom: 20px;">O colaborador confirma o recebimento dos itens listados.</p>
+        <div style="background: #fff; border-radius: 8px; padding: 10px; margin-bottom: 20px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1);">
+            <canvas id="canvasAssinaturaEntregas" width="500" height="200" style="border: 2px dashed #cbd5e1; cursor: crosshair; touch-action: none; width: 100%; border-radius: 6px;"></canvas>
+        </div>
+        <div style="display: flex; gap: 15px; justify-content: center;">
+            <button type="button" class="btn-modern btn-warning" onclick="limparAssinaturaEntregas()"><i class="fas fa-eraser"></i> Limpar</button>
+            <button type="button" class="btn-modern btn-success" id="btnSalvarAssinaturaEntregas" onclick="finalizarEntregaAssinadaEntregas()"><i class="fas fa-check"></i> Confirmar Entrega</button>
+        </div>
+    </div>
+</div>
