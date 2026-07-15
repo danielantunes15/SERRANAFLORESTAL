@@ -22,6 +22,18 @@ window.initRHColaboradores = async function() {
     await window.carregarColaboradoresLista();
 };
 
+// ==================== CARREGAR SETORES GLOBAIS ====================
+window.carregarSetoresGlobal = async function() {
+    try {
+        const { data, error } = await window.supabaseClient.from('setores').select('id, nome').eq('status', 'Ativo');
+        if (error) throw error;
+        
+        const selSetor = document.getElementById('colSetorId');
+        selSetor.innerHTML = '<option value="">Selecione um setor...</option>' + 
+            data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
+    } catch(e) { console.error("Erro ao carregar setores:", e); }
+};
+
 // ==================== VERIFICAÇÃO DE PENDÊNCIAS ====================
 window.verificarPendenciasCadastro = function(colaborador) {
     let camposFaltando = [];
@@ -138,11 +150,12 @@ window.calcularProximaMatriculaFull = function() {
     return novoCod;
 };
 
-window.abrirFichaCompleta = function(id = null) {
+window.abrirFichaCompleta = async function(id = null) {
     document.getElementById('viewListagemColaboradores').style.display = 'none';
     document.getElementById('viewFichaColaborador').style.display = 'block';
     
     window.limparValidacaoVisualFicha();
+    await window.carregarSetoresGlobal();
     
     if (id) {
         // MODO EDIÇÃO
@@ -156,6 +169,7 @@ window.abrirFichaCompleta = function(id = null) {
         document.getElementById('colCodFuncionarioDisplay').innerText = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'N/A';
         
         document.getElementById('colStatus').value = c.status || 'Ativo';
+        document.getElementById('colSetorId').value = c.setor_id || '';
         document.getElementById('colPlanoSaude').value = c.plano_saude || 'Não';
         document.getElementById('colSindicato').value = c.ativo_sindicato || 'Não';
         
@@ -211,6 +225,7 @@ window.abrirFichaCompleta = function(id = null) {
                         
         campos.forEach(el => document.getElementById(el).value = '');
         document.getElementById('colStatus').value = 'Ativo';
+        document.getElementById('colSetorId').value = '';
         document.getElementById('colPlanoSaude').value = 'Não';
         document.getElementById('colSindicato').value = 'Não';
         
@@ -232,6 +247,7 @@ window.salvarColaboradorFicha = async function() {
     });
 
     const dados = {
+        setor_id: getValue('colSetorId') ? parseInt(getValue('colSetorId')) : null,
         status: getValue('colStatus'),
         plano_saude: getValue('colPlanoSaude'),
         ativo_sindicato: getValue('colSindicato'),
