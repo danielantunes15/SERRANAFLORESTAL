@@ -464,7 +464,7 @@ window.mudarAbaAlmoxarifado = function(abaId, btn) {
     filtrarAlmoxarifado();
 }
 
-// ======================= APROVAÇÃO (Onde acontece a mágica do estoque) ======================= //
+// ======================= APROVAÇÃO E GERAÇÃO DE TERMO ======================= //
 window.aprovarRequisicao = async function(reqId, sourceTable) {
     const req = requisicoesEstoque.find(r => r.id == reqId && r.source_table == sourceTable);
     if(!req) { alert("Requisição não encontrada no sistema."); return; }
@@ -511,6 +511,13 @@ window.aprovarRequisicao = async function(reqId, sourceTable) {
 
         await db.addMovimentacao(novaMovimentacao);
         alert("Requisição Aprovada! Estoque atualizado com sucesso.");
+
+        // 3. SE FOR EPI/MATERIAL DO COLABORADOR, PERGUNTA SE QUER IMPRIMIR O TERMO
+        if (sourceTable === 'almoxarifado_requisicoes') {
+            if (confirm(`Deseja imprimir o Termo de Responsabilidade e Entrega de EPI para o(a) colaborador(a) ${req.colaborador_nome}?`)) {
+                imprimirTermoEntrega(req, peca);
+            }
+        }
         
         await carregarDadosAlmoxarifado(); // Recarrega tela
     } catch (e) { alert("Erro ao aprovar requisição. Tente novamente."); console.error(e); }
@@ -527,6 +534,84 @@ window.recusarRequisicao = async function(reqId, sourceTable) {
         await carregarDadosAlmoxarifado(); 
     } 
     catch(e) { alert("Erro ao recusar."); }
+}
+
+// FUNÇÃO EXCLUSIVA PARA IMPRIMIR O RECIBO DO EPI
+window.imprimirTermoEntrega = function(req, peca) {
+    const win = window.open('', '_blank', 'width=850,height=600');
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+    
+    win.document.write(`
+        <html>
+        <head>
+            <title>Termo de Entrega - ${req.colaborador_nome}</title>
+            <style>
+                body { font-family: 'Arial', sans-serif; margin: 40px; color: #000; }
+                .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+                .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; }
+                .header p { margin: 5px 0 0 0; font-size: 14px; color: #555; }
+                .content { font-size: 14px; line-height: 1.6; text-align: justify; margin-bottom: 30px; }
+                .table-info { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+                .table-info th, .table-info td { border: 1px solid #000; padding: 12px; text-align: left; }
+                .table-info th { background-color: #f0f0f0; }
+                .signature-container { display: flex; justify-content: space-between; margin-top: 80px; }
+                .signature-box { text-align: center; width: 45%; }
+                .signature-line { width: 100%; border-top: 1px solid #000; margin-bottom: 10px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>TERMO DE RESPONSABILIDADE E ENTREGA DE EPI / MATERIAIS</h1>
+                <p>Serrana Florestal - Gestão de Almoxarifado</p>
+            </div>
+            
+            <div class="content">
+                <p>Eu, <strong>${req.colaborador_nome}</strong>, declaro para os devidos fins legais que recebi da empresa Serrana Florestal, o(s) equipamento(s)/material(is) abaixo discriminado(s), de forma gratuita, em perfeito estado de conservação e funcionamento.</p>
+                <p>Comprometo-me a utilizá-lo(s) estritamente para a finalidade a que se destina(m) em minhas atividades laborais, responsabilizando-me por sua guarda, correta utilização e conservação. Estou ciente de que, em caso de dano por mau uso ou extravio, deverei comunicar imediatamente a liderança. Em caso de desligamento da empresa, me comprometo a devolver os materiais não descartáveis.</p>
+                
+                <table class="table-info">
+                    <thead>
+                        <tr>
+                            <th style="width: 10%; text-align:center;">Qtd.</th>
+                            <th style="width: 10%; text-align:center;">Unid.</th>
+                            <th style="width: 20%;">Código/CA</th>
+                            <th style="width: 45%;">Descrição do Produto</th>
+                            <th style="width: 15%; text-align:center;">Data Entrega</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="text-align:center;">${req.quantidade}</td>
+                            <td style="text-align:center;">${peca.unidade || 'UN'}</td>
+                            <td>${peca.codigo || 'S/N'}</td>
+                            <td>${peca.nome}</td>
+                            <td style="text-align:center;">${dataAtual}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="signature-container">
+                <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <strong>${req.colaborador_nome}</strong><br>
+                    Assinatura do Colaborador
+                </div>
+                <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <strong>${req.usuario_solicitante || 'Almoxarifado'}</strong><br>
+                    Responsável pela Entrega
+                </div>
+            </div>
+            
+            <script>
+                // Abre a janela de impressão logo após carregar o layout
+                setTimeout(() => { window.print(); window.close(); }, 500);
+            </script>
+        </body>
+        </html>
+    `);
+    win.document.close();
 }
 // ============================================================================================== //
 
