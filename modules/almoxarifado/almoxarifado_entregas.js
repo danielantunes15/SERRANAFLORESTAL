@@ -60,7 +60,7 @@ function initSignaturePadEntregas() {
     };
 
     const iniciarDesenho = (e) => { e.preventDefault(); desenhandoEntregas = true; const pos = getPos(e); ctxAssinaturaEntregas.beginPath(); ctxAssinaturaEntregas.moveTo(pos.x, pos.y); };
-    const desenhar = (e) => { if (!deshandoEntregas) return; e.preventDefault(); const pos = getPos(e); ctxAssinaturaEntregas.lineTo(pos.x, pos.y); ctxAssinaturaEntregas.stroke(); };
+    const desenhar = (e) => { if (!desenhandoEntregas) return; e.preventDefault(); const pos = getPos(e); ctxAssinaturaEntregas.lineTo(pos.x, pos.y); ctxAssinaturaEntregas.stroke(); };
     const pararDesenho = () => { desenhandoEntregas = false; ctxAssinaturaEntregas.closePath(); };
 
     canvasAssinaturaEntregas.addEventListener("mousedown", iniciarDesenho);
@@ -311,27 +311,74 @@ window.confirmarAvaliacaoGrupoEntregas = async function() {
     finally { btn.innerHTML = '<i class="fas fa-arrow-right"></i> Prosseguir para Assinatura'; btn.disabled = false; }
 }
 
+// Função auxiliar: Converte Base64 para Blob para salvar no Supabase Storage
+function base64ParaBlob(base64, mimeType) {
+    const byteCharacters = atob(base64.split(',')[1]);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+}
+
 window.finalizarEntregaAssinadaEntregas = async function() {
     const btn = document.getElementById('btnSalvarAssinaturaEntregas');
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando no Storage...'; 
+    btn.disabled = true;
 
     try {
-        const assinaturaBase64 = canvasAssinaturaEntregas.toDataURL();
+        const assinaturaBase64 = canvasAssinaturaEntregas.toDataURL('image/png');
         const idsParaAtualizar = itensPendentesParaAssinaturaEntregas.map(item => item.id);
         
         if (idsParaAtualizar.length > 0) {
-            const { error } = await window.supabaseClient.from('almoxarifado_requisicoes')
-                .update({ assinatura_base64: assinaturaBase64, data_assinatura: new Date().toISOString() })
+            // 1. Converter Base64 para Blob (Arquivo PNG)
+            const blobAssinatura = base64ParaBlob(assinaturaBase64, 'image/png');
+            
+            // 2. Criar um nome único para o arquivo
+            const nomeArquivo = `assinatura_req_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
+
+            // 3. Fazer o Upload para o Supabase Storage
+            const { data: uploadData, error: uploadError } = await window.supabaseClient.storage
+                .from('assinaturas')
+                .upload(nomeArquivo, blobAssinatura, {
+                    contentType: 'image/png',
+                    upsert: false
+                });
+
+            if (uploadError) throw uploadError;
+
+            // 4. Pegar a URL pública da imagem que acabou de ser salva
+            const { data: urlData } = window.supabaseClient.storage
+                .from('assinaturas')
+                .getPublicUrl(nomeArquivo);
+                
+            const assinaturaUrl = urlData.publicUrl;
+
+            // 5. Salvar APENAS a URL no banco de dados
+            const { error: dbError } = await window.supabaseClient.from('almoxarifado_requisicoes')
+                .update({ assinatura_url: assinaturaUrl, data_assinatura: new Date().toISOString() })
                 .in('id', idsParaAtualizar);
-            if (error) throw error;
+
+            if (dbError) throw dbError;
+            
+            fecharModalEntregas('modalAssinaturaEntregas');
+            if (confirm("Assinatura salva com sucesso! Deseja imprimir o Termo de Entrega agora?")) { 
+                imprimirTermoEntregaGrupoEntregas(itensPendentesParaAssinaturaEntregas, assinaturaUrl); 
+            }
+        } else {
+            fecharModalEntregas('modalAssinaturaEntregas');
         }
         
-        fecharModalEntregas('modalAssinaturaEntregas');
-        if (confirm("Assinatura salva! Deseja imprimir o Termo de Entrega agora?")) { imprimirTermoEntregaGrupoEntregas(itensPendentesParaAssinaturaEntregas, assinaturaBase64); }
         await carregarDadosEntregas();
         
-    } catch(e) { console.error(e); alert("Erro ao salvar assinatura."); } 
-    finally { btn.innerHTML = '<i class="fas fa-check"></i> Confirmar Entrega'; btn.disabled = false; }
+    } catch(e) { 
+        console.error(e); 
+        alert("Erro ao salvar assinatura. Verifique o console."); 
+    } finally { 
+        btn.innerHTML = '<i class="fas fa-check"></i> Confirmar Entrega'; 
+        btn.disabled = false; 
+    }
 }
 
 window.estornarRequisicaoGrupoEntregas = async function(dataReq, sourceTable, identificador) {
@@ -368,11 +415,14 @@ window.reimprimirTermoGrupoEntregas = function(dataReq, sourceTable, identificad
         (r.colaborador_nome === identificador || String(r.os_id) === identificador || r.centro_custo === identificador) &&
         r.status === 'Aprovado'
     );
-    if(itensGrupo.length > 0) imprimirTermoEntregaGrupoEntregas(itensGrupo);
+    // Recupera a assinaturaUrl dos itens se ela existir (normalmente todos do grupo têm a mesma)
+    const assinaturaRecuperada = itensGrupo.length > 0 ? itensGrupo[0].assinatura_url : null;
+    
+    if(itensGrupo.length > 0) imprimirTermoEntregaGrupoEntregas(itensGrupo, assinaturaRecuperada);
     else alert("Nenhum item aprovado encontrado para impressão.");
 }
 
-window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaBase64 = null) {
+window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaUrl = null) {
     if(!itensGrupo || itensGrupo.length === 0) return;
     const reqBase = itensGrupo[0]; 
     const win = window.open('', '_blank', 'width=850,height=600');
@@ -384,7 +434,7 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaBase64
         linhasTabela += `<tr><td style="text-align:center;">${item.quantidade}</td><td style="text-align:center;">${peca.unidade || 'UN'}</td><td>${peca.codigo || 'S/N'}</td><td>${peca.nome}</td><td style="text-align:center;">${dataAtual}</td></tr>`;
     });
 
-    let assinaturaHtml = assinaturaBase64 ? `<img src="${assinaturaBase64}" style="max-height: 80px; max-width: 100%; border-bottom: 1px solid #000; margin-bottom: 5px;">` : `<div class="signature-line"></div>`;
+    let assinaturaHtml = assinaturaUrl ? `<img src="${assinaturaUrl}" style="max-height: 80px; max-width: 100%; border-bottom: 1px solid #000; margin-bottom: 5px;">` : `<div class="signature-line"></div>`;
 
     win.document.write(`<html><head><title>Termo de Entrega - ${reqBase.colaborador_nome}</title><style>body { font-family: 'Arial', sans-serif; margin: 40px; color: #000; } .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; } .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; } .content { font-size: 14px; line-height: 1.6; text-align: justify; margin-bottom: 30px; } .table-info { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; } .table-info th, .table-info td { border: 1px solid #000; padding: 12px; text-align: left; } .table-info th { background-color: #f0f0f0; } .signature-container { display: flex; justify-content: space-between; margin-top: 80px; } .signature-box { text-align: center; width: 45%; } .signature-line { width: 100%; border-top: 1px solid #000; margin-bottom: 10px; }</style></head><body><div class="header"><h1>TERMO DE RESPONSABILIDADE E ENTREGA DE EPI / MATERIAIS</h1><p>Serrana Florestal - Gestão de Almoxarifado</p></div><div class="content"><p>Eu, <strong>${reqBase.colaborador_nome}</strong>, declaro para os devidos fins legais que recebi da empresa Serrana Florestal, o(s) equipamento(s)/material(is) abaixo discriminado(s), de forma gratuita, em perfeito estado de conservação e funcionamento.</p><p>Comprometo-me a utilizá-lo(s) estritamente para a finalidade a que se destina(m) em minhas atividades laborais, responsabilizando-me por sua guarda, correta utilização e conservação. Estou ciente de que, em caso de dano por mau uso ou extravio, deverei comunicar imediatamente a liderança. Em caso de desligamento da empresa, me comprometo a devolver os materiais não descartáveis.</p><table class="table-info"><thead><tr><th style="width: 10%; text-align:center;">Qtd.</th><th style="width: 10%; text-align:center;">Unid.</th><th style="width: 20%;">Código/CA</th><th style="width: 45%;">Descrição do Produto</th><th style="width: 15%; text-align:center;">Data Entrega</th></tr></thead><tbody>${linhasTabela}</tbody></table></div><div class="signature-container"><div class="signature-box">${assinaturaHtml}<strong>${reqBase.colaborador_nome}</strong><br>Assinatura do Colaborador</div><div class="signature-box"><div class="signature-line"></div><strong>${reqBase.usuario_solicitante || 'Almoxarifado'}</strong><br>Responsável pela Entrega</div></div><script>setTimeout(() => { window.print(); window.close(); }, 500);</script></body></html>`);
     win.document.close();
