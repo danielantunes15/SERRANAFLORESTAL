@@ -1,3 +1,4 @@
+<!-- ==================== colaboradores.html ==================== -->
 <style>
     .campo-pendente {
         border-color: #ef4444 !important;
@@ -29,7 +30,9 @@
             <input type="text" id="filtroMatricula" class="search-input-dark" style="width: 150px;" placeholder="Matrícula..." onkeyup="window.filtrarColaboradoresLista()">
             <input type="text" id="filtroNome" class="search-input-dark" style="flex: 1;" placeholder="Buscar por Nome do Colaborador..." onkeyup="window.filtrarColaboradoresLista()">
         </div>
-        <div class="button-group" style="display: flex; gap: 10px;">
+        <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn-secondary-dark" onclick="window.exportarTodasFichas()"><i class="fas fa-file-pdf"></i> Exportar Fichas</button>
+            <button class="btn-secondary-dark" onclick="window.exportarTodasFichasEPI()"><i class="fas fa-hard-hat"></i> Exportar EPIs</button>
             <button class="btn-secondary-dark" onclick="window.abrirModalGerenciarCursos()"><i class="fas fa-book"></i> Cursos Exigidos</button>
             <button class="btn-primary-blue" onclick="window.abrirFichaCompleta()"><i class="fas fa-plus"></i> Novo Cadastro</button>
         </div>
@@ -44,7 +47,7 @@
                         <th>Nome Completo</th>
                         <th>Função</th>
                         <th>Status</th>
-                        <th>Ações</th>
+                        <th style="text-align: right;">Ações</th>
                     </tr>
                 </thead>
                 <tbody id="tbListaColaboradores">
