@@ -24,6 +24,8 @@ window.MAPA_MENUS = [
     
     // --- MÓDULO INDEPENDENTE: ALMOXARIFADO ---
     { id: 'almoxarifado', label: 'Gestão de Estoque', setor: 'Almoxarifado', icon: 'fas fa-boxes' },
+    { id: 'requisicao_materiais', label: 'Requisitar Material', setor: 'Almoxarifado', icon: 'fas fa-hand-holding-medical' },
+    { id: 'almoxarifado_relatorios', label: 'Painel de Relatórios', setor: 'Almoxarifado', icon: 'fas fa-chart-pie' },
     { id: 'almoxarifado_cadastros', label: 'Cadastros Almoxarifado', setor: 'Almoxarifado', icon: 'fas fa-list-alt' },
     
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
@@ -127,13 +129,15 @@ const ROTAS = {
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
     
     'almoxarifado': 'modules/almoxarifado/almoxarifado.html',
-    'almoxarifado_cadastros': 'modules/almoxarifado/almoxarifado_cadastros.html'
+    'almoxarifado_cadastros': 'modules/almoxarifado/almoxarifado_cadastros.html',
+    'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html',
+    'almoxarifado_relatorios': 'modules/almoxarifado/almoxarifado_relatorios.html'
 };
 
 // =========================================================================================
 // MUDANÇA DE VERSÃO: FORÇA O NAVEGADOR A LIMPAR O CACHE E BAIXAR OS ARQUIVOS NOVOS
 // =========================================================================================
-const VERSAO_SISTEMA = "1.0.18"; 
+const VERSAO_SISTEMA = "1.0.19"; 
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -302,6 +306,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
         if (pagina === 'almoxarifado_cadastros' && typeof window.renderizarCadastrosAlmox === 'function') window.renderizarCadastrosAlmox();
+        if (pagina === 'requisicao_materiais' && typeof window.renderizarRequisicaoMateriais === 'function') window.renderizarRequisicaoMateriais();
+        if (pagina === 'almoxarifado_relatorios' && typeof window.renderizarAlmoxRelatorios === 'function') window.renderizarAlmoxRelatorios();
 
         if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
         if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();

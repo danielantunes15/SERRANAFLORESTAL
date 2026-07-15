@@ -35,7 +35,6 @@ async function carregarDadosAlmoxarifado() {
         atualizarTabelaRequisicoes(requisicoesEstoque);
         
         atualizarKPIsAlmoxarifado();
-        gerarRelatoriosAvancados();
     } catch (e) { console.error("Erro ao carregar almoxarifado", e); }
 }
 
@@ -74,7 +73,6 @@ function atualizarTabelaPecas(listaPecas) {
     const grupos = {};
     let valorTotalGlobal = 0;
 
-    // Fase 1: Agrupar Itens com mesmo Código ou Nome
     listaPecas.forEach(peca => {
         const chave = (peca.codigo && peca.codigo.trim() !== '') ? peca.codigo.trim().toUpperCase() : peca.nome.trim().toUpperCase();
         if (!grupos[chave]) {
@@ -95,7 +93,6 @@ function atualizarTabelaPecas(listaPecas) {
         if (peca.data_validade) grupos[chave].validades.push(peca.data_validade);
     });
 
-    // Fase 2: Calcular Curva ABC do Grupo e Ordenar por Valor Total Imobilizado
     const listaGrupos = Object.values(grupos).sort((a,b) => b.valor_total - a.valor_total);
     let somaAcumulada = 0;
     let indexGrupo = 0;
@@ -110,7 +107,6 @@ function atualizarTabelaPecas(listaPecas) {
         const statusHtml = estaBaixo ? `<span class="badge badge-alert"><i class="fas fa-exclamation-circle"></i> Baixo</span>` : `<span class="badge badge-ok"><i class="fas fa-check"></i> Normal</span>`;
         const precoMedio = grupo.quantidade_total > 0 ? (grupo.valor_total / grupo.quantidade_total) : 0;
         
-        // Exibir a validade mais próxima a vencer no grupo principal
         let validadeDestaque = '-';
         if (grupo.validades.length > 0) {
             const validadesOrdenadas = grupo.validades.sort((a,b) => new Date(a) - new Date(b));
@@ -118,7 +114,6 @@ function atualizarTabelaPecas(listaPecas) {
             validadeDestaque = `${dia}/${mes}/${ano}`;
         }
 
-        // ROW 1: SOMA DO PRODUTO (Agrupado)
         const trGroup = document.createElement('tr');
         trGroup.style.backgroundColor = 'rgba(255,255,255,0.02)';
         trGroup.innerHTML = `
@@ -144,7 +139,6 @@ function atualizarTabelaPecas(listaPecas) {
         `;
         tbody.appendChild(trGroup);
 
-        // ROWS FILHAS: Lotes individuais (Ficam ocultos se houver mais de um)
         if (grupo.itens.length > 1) {
             grupo.itens.forEach((lote, idxLote) => {
                 let dataVal = '-';
@@ -152,7 +146,7 @@ function atualizarTabelaPecas(listaPecas) {
                 
                 const trLote = document.createElement('tr');
                 trLote.className = `lotes_${indexGrupo}`;
-                trLote.style.display = 'none'; // Começa escondido
+                trLote.style.display = 'none'; 
                 trLote.style.backgroundColor = 'rgba(0,0,0,0.2)';
                 trLote.innerHTML = `
                     <td colspan="5" style="text-align: right; color: #64748b; font-size:0.85rem;"><i class="fas fa-level-up-alt" style="transform: rotate(90deg);"></i> Lote ${idxLote + 1}</td>
@@ -425,52 +419,6 @@ function atualizarKPIsAlmoxarifado() {
         if(pendentes > 0) { badgeReq.innerText = pendentes; badgeReq.style.display = 'inline-block'; } 
         else { badgeReq.style.display = 'none'; }
     }
-
-    const listaABC = document.getElementById('listaCurvaABC');
-    if(listaABC) {
-        listaABC.innerHTML = `
-            <li style="margin-bottom:12px; display:flex; align-items:center; gap:10px;"><span class="badge badge-abc-A" style="width:35px;justify-content:center;">A</span> <span><b>${abcData.A.qtd} produtos</b> = <strong style="color:#fca5a5;">R$ ${abcData.A.val.toFixed(2).replace('.',',')}</strong></span></li>
-            <li style="margin-bottom:12px; display:flex; align-items:center; gap:10px;"><span class="badge badge-abc-B" style="width:35px;justify-content:center;">B</span> <span><b>${abcData.B.qtd} produtos</b> = <strong style="color:#fcd34d;">R$ ${abcData.B.val.toFixed(2).replace('.',',')}</strong></span></li>
-            <li style="display:flex; align-items:center; gap:10px;"><span class="badge badge-abc-C" style="width:35px;justify-content:center;">C</span> <span><b>${abcData.C.qtd} produtos</b> = <strong style="color:#6ee7b7;">R$ ${abcData.C.val.toFixed(2).replace('.',',')}</strong></span></li>
-        `;
-    }
-}
-
-function gerarRelatoriosAvancados() {
-    let custosFrota = {}, custosSetor = {}, totalEntradasMes = 0, totalSaidasMes = 0;
-    const mesAtual = new Date().getMonth(), anoAtual = new Date().getFullYear();
-
-    movimentacoesEstoque.forEach(m => {
-        const val = (m.quantidade * m.valor_unitario);
-        const dataMov = new Date(m.data_movimentacao);
-        const noMesAtual = (dataMov.getMonth() === mesAtual && dataMov.getFullYear() === anoAtual);
-
-        if (m.tipo === 'entrada' && noMesAtual) totalEntradasMes += val;
-        if (m.tipo === 'saida') {
-            if (noMesAtual) totalSaidasMes += val;
-
-            if (m.setor_destino) { if(!custosSetor[m.setor_destino]) custosSetor[m.setor_destino] = 0; custosSetor[m.setor_destino] += val; } 
-            else if (m.cavalo) { if(!custosFrota[m.cavalo]) custosFrota[m.cavalo] = 0; custosFrota[m.cavalo] += val; } 
-            else { if(!custosSetor["Oficina Geral"]) custosSetor["Oficina Geral"] = 0; custosSetor["Oficina Geral"] += val; }
-        }
-    });
-
-    if(document.getElementById('relMesEntrada')) {
-        document.getElementById('relMesEntrada').innerText = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalEntradasMes);
-        document.getElementById('relMesSaida').innerText = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSaidasMes);
-    }
-
-    const preencheTabela = (id, objDados) => {
-        const tbody = document.getElementById(id);
-        if(!tbody) return;
-        tbody.innerHTML = '';
-        let sortArr = Object.keys(objDados).map(k => ({nome: k, valor: objDados[k]})).sort((a,b) => b.valor - a.valor);
-        if(sortArr.length === 0) tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; color:#94a3b8;">Sem dados.</td></tr>';
-        else sortArr.forEach(c => tbody.innerHTML += `<tr><td><strong style="color:#60a5fa;">${c.nome}</strong></td><td style="color:#f8fafc; font-weight:bold;">R$ ${c.valor.toFixed(2).replace('.',',')}</td></tr>`);
-    };
-
-    preencheTabela('tabelaCustoFrota', custosFrota);
-    preencheTabela('tabelaCustoSetor', custosSetor);
 }
 
 window.filtrarAlmoxarifado = function() {
@@ -486,7 +434,7 @@ window.mudarAbaAlmoxarifado = function(abaId, btn) {
     abaAtualAlmox = abaId;
     document.querySelectorAll('.almo-tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    ['estoque','requisicoes','notas','movimentacoes','pneus','relatorios'].forEach(id => {
+    ['estoque','requisicoes','notas','movimentacoes','pneus'].forEach(id => {
         const element = document.getElementById('aba'+id.charAt(0).toUpperCase() + id.slice(1));
         if(element) element.style.display = (id === abaId ? 'block' : 'none');
     });
