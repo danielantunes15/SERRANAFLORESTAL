@@ -17,15 +17,30 @@ async function carregarDadosAlmoxarifado() {
         movimentacoesEstoque = await db.getMovimentacoesEstoque();
         
         if (window.supabaseClient) {
+            // Pneus
             let queryPneus = window.supabaseClient.from('almoxarifado_pneus').select('*').order('created_at', { ascending: false });
             if (typeof window.aplicarFiltroFilial === 'function') queryPneus = window.aplicarFiltroFilial(queryPneus);
             const { data: pneus } = await queryPneus;
             pneusEstoque = pneus || [];
             
-            let queryReqs = window.supabaseClient.from('os_pecas_utilizadas').select('*').order('id', { ascending: false }).limit(100);
-            if (typeof window.aplicarFiltroFilial === 'function') queryReqs = window.aplicarFiltroFilial(queryReqs);
-            const { data: reqs } = await queryReqs;
-            requisicoesEstoque = reqs || [];
+            // Requisicoes da MANUTENÇÃO (OS)
+            let queryReqsOS = window.supabaseClient.from('os_pecas_utilizadas').select('*').order('id', { ascending: false }).limit(100);
+            if (typeof window.aplicarFiltroFilial === 'function') queryReqsOS = window.aplicarFiltroFilial(queryReqsOS);
+            const { data: reqsOS } = await queryReqsOS;
+            
+            // Requisicoes de COLABORADORES (NOVA TABELA)
+            let queryReqsColab = window.supabaseClient.from('almoxarifado_requisicoes').select('*').order('id', { ascending: false }).limit(100);
+            if (typeof window.aplicarFiltroFilial === 'function') queryReqsColab = window.aplicarFiltroFilial(queryReqsColab);
+            const { data: reqsColab } = await queryReqsColab;
+
+            // Unificando tudo para a mesma tabela
+            let unificadas = [];
+            if(reqsOS) reqsOS.forEach(r => unificadas.push({ ...r, source_table: 'os_pecas_utilizadas' }));
+            if(reqsColab) reqsColab.forEach(r => unificadas.push({ ...r, source_table: 'almoxarifado_requisicoes' }));
+            
+            // Ordenando pelas mais recentes
+            unificadas.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            requisicoesEstoque = unificadas;
         }
 
         atualizarTabelaPecas(pecasEstoque);
@@ -182,19 +197,29 @@ function atualizarTabelaRequisicoes(listaReqs) {
         const dataFormatada = req.created_at ? new Date(req.created_at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
         const pecaRef = pecasEstoque.find(p => String(p.id) === String(req.peca_id));
         const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
-        const usuarioReq = req.mecanico_responsavel || 'Usuário';
         const stat = req.status || 'Pendente';
         
-        let tituloOrigem = req.centro_custo 
-            ? `<strong style="color:#a855f7; font-size:1.05rem;">RM #${req.id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-building"></i> ${req.centro_custo}</span>` 
-            : `<strong style="color:#60a5fa; font-size:1.05rem;">O.S #${req.os_id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-truck"></i> ${req.placa || 'Frota'}</span>`;
+        let tituloOrigem = '';
+        let usuarioReq = '';
+
+        // Formatação diferente dependendo de onde veio a requisição
+        if(req.source_table === 'almoxarifado_requisicoes') {
+            tituloOrigem = `<strong style="color:#fbbf24; font-size:1.05rem;">Req. Mat #${req.id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-id-badge"></i> Para: ${req.colaborador_nome}</span>`;
+            usuarioReq = `<span style="color:#94a3b8; font-size:0.75rem;">Solicitado por:</span><br><strong style="color:#e2e8f0;">${req.usuario_solicitante}</strong>`;
+        } else {
+            // Veio de O.S.
+            tituloOrigem = req.centro_custo 
+                ? `<strong style="color:#a855f7; font-size:1.05rem;">RM-Int #${req.id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-building"></i> ${req.centro_custo}</span>` 
+                : `<strong style="color:#60a5fa; font-size:1.05rem;">O.S #${req.os_id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-truck"></i> ${req.placa || 'Frota'}</span>`;
+            usuarioReq = `<strong style="color:#e2e8f0;">${req.mecanico_responsavel || 'Mecânico'}</strong>`;
+        }
 
         let statusBadge = '', btnAcao = '';
         if (stat === 'Pendente') {
             statusBadge = '<span class="badge" style="background:#f59e0b; color:#fff;"><i class="fas fa-clock"></i> Aguardando</span>';
             btnAcao = `
-                <button class="btn-action-sm btn-success" title="Aprovar e Baixar Estoque" onclick="aprovarRequisicao(${req.id})"><i class="fas fa-check"></i></button>
-                <button class="btn-action-sm btn-delete" title="Recusar" onclick="recusarRequisicao(${req.id})"><i class="fas fa-times"></i></button>
+                <button class="btn-action-sm btn-success" title="Aprovar e Baixar Estoque" onclick="aprovarRequisicao(${req.id}, '${req.source_table}')"><i class="fas fa-check"></i></button>
+                <button class="btn-action-sm btn-delete" title="Recusar" onclick="recusarRequisicao(${req.id}, '${req.source_table}')"><i class="fas fa-times"></i></button>
             `;
         } else if (stat === 'Aprovado') {
             statusBadge = '<span class="badge" style="background:#10b981; color:#fff;"><i class="fas fa-check"></i> Liberada</span>';
@@ -208,7 +233,7 @@ function atualizarTabelaRequisicoes(listaReqs) {
         tr.innerHTML = `
             <td style="color: #94a3b8;">${dataFormatada}</td>
             <td>${tituloOrigem}</td>
-            <td><strong style="color:#e2e8f0;">${usuarioReq}</strong></td>
+            <td>${usuarioReq}</td>
             <td>${nomePeca}</td>
             <td style="font-weight: bold; font-size: 1.1rem; color:#f8fafc;">${req.quantidade}</td>
             <td>${statusBadge}</td>
@@ -328,7 +353,7 @@ function atualizarTabelaMovimentacoes(listaMovimentacoes) {
         if (mov.tipo === 'ajuste') destinoTxt = `<span style="color:#cbd5e1;">Motivo: ${mov.observacao || 'S/N'}</span>`;
         else if (mov.tipo === 'entrada') destinoTxt = `Forn: <span style="color:#cbd5e1;">${mov.fornecedor || 'N/A'}</span>`;
         else if (mov.tipo === 'saida') {
-            if (mov.setor_destino) destinoTxt = `Setor: <strong style="color:#a855f7;">${mov.setor_destino}</strong>`;
+            if (mov.setor_destino) destinoTxt = `Destino: <strong style="color:#a855f7;">${mov.setor_destino}</strong>`;
             else if (mov.cavalo) destinoTxt = `Frota: <strong style="color:#f8fafc;">${mov.cavalo}</strong> ${mov.os_id ? `(OS: ${mov.os_id})` : ''}`;
         }
 
@@ -427,7 +452,7 @@ window.filtrarAlmoxarifado = function() {
     else if (abaAtualAlmox === 'notas') atualizarTabelaNotas(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo) || (m.usuario||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'movimentacoes') atualizarTabelaMovimentacoes(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo) || (m.cavalo||'').toLowerCase().includes(termo) || (m.setor_destino||'').toLowerCase().includes(termo) || (m.usuario||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'pneus') atualizarTabelaPneus(pneusEstoque.filter(p => (p.num_fogo||'').toLowerCase().includes(termo) || (p.cavalo_atual||'').toLowerCase().includes(termo)));
-    else if (abaAtualAlmox === 'requisicoes') atualizarTabelaRequisicoes(requisicoesEstoque.filter(r => (r.placa||'').toLowerCase().includes(termo) || (r.mecanico_responsavel||'').toLowerCase().includes(termo) || (r.centro_custo||'').toLowerCase().includes(termo)));
+    else if (abaAtualAlmox === 'requisicoes') atualizarTabelaRequisicoes(requisicoesEstoque.filter(r => (r.placa||'').toLowerCase().includes(termo) || (r.mecanico_responsavel||'').toLowerCase().includes(termo) || (r.centro_custo||'').toLowerCase().includes(termo) || (r.colaborador_nome||'').toLowerCase().includes(termo)));
 }
 
 window.mudarAbaAlmoxarifado = function(abaId, btn) {
@@ -440,6 +465,76 @@ window.mudarAbaAlmoxarifado = function(abaId, btn) {
     });
     filtrarAlmoxarifado();
 }
+
+// ======================= APROVAÇÃO (Onde acontece a mágica do estoque) ======================= //
+window.aprovarRequisicao = async function(reqId, sourceTable) {
+    const req = requisicoesEstoque.find(r => r.id == reqId && r.source_table == sourceTable);
+    if(!req) { alert("Requisição não encontrada no sistema."); return; }
+    
+    const peca = pecasEstoque.find(p => p.id == req.peca_id);
+    if (!peca || peca.quantidade < req.quantidade) { 
+        alert(`Estoque insuficiente! Você possui apenas ${peca ? peca.quantidade : 0} unidade(s).`); 
+        return; 
+    }
+    
+    if(!confirm(`Confirma a liberação de ${req.quantidade} unidades de "${peca.nome}"? O estoque será baixado.`)) return;
+
+    try {
+        // 1. Atualiza Status da Requisição
+        if (sourceTable === 'almoxarifado_requisicoes') {
+            await window.supabaseClient.from('almoxarifado_requisicoes').update({ status: 'Aprovado' }).eq('id', reqId);
+        } else {
+            await window.supabaseClient.from('os_pecas_utilizadas').update({ status: 'Aprovado' }).eq('id', reqId);
+        }
+        
+        // 2. Diminui a quantidade da Peça no banco de dados (BAIXA FÍSICA)
+        peca.quantidade = parseFloat(peca.quantidade) - parseFloat(req.quantidade);
+        await db.upsertPeca(peca);
+        
+        // 3. Grava no Histórico de Movimentações para Gerar Relatório de Custo
+        let novaMovimentacao = {
+            peca_id: req.peca_id, 
+            tipo: 'saida', 
+            quantidade: req.quantidade, 
+            valor_unitario: req.valor_unitario || peca.preco_medio,
+            usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
+            data_movimentacao: new Date().toISOString()
+        };
+
+        if (sourceTable === 'almoxarifado_requisicoes') {
+            novaMovimentacao.setor_destino = 'Colaborador: ' + req.colaborador_nome;
+            novaMovimentacao.nota_fiscal = `RM-RH #${req.id}`;
+        } else {
+            if (req.centro_custo) {
+                novaMovimentacao.setor_destino = req.centro_custo;
+                novaMovimentacao.nota_fiscal = `RM-Int #${req.id}`;
+            } else {
+                novaMovimentacao.cavalo = req.placa || 'Oficina';
+                novaMovimentacao.os_id = req.os_id;
+                novaMovimentacao.nota_fiscal = `O.S #${req.os_id}`;
+            }
+        }
+
+        await db.addMovimentacao(novaMovimentacao);
+        alert("Requisição Aprovada! Estoque atualizado com sucesso.");
+        
+        await carregarDadosAlmoxarifado(); // Recarrega tela
+    } catch (e) { alert("Erro ao aprovar requisição. Tente novamente."); console.error(e); }
+}
+
+window.recusarRequisicao = async function(reqId, sourceTable) {
+    if(!confirm("Deseja RECUSAR esta peça? O solicitante será notificado e o estoque não será alterado.")) return;
+    try { 
+        if (sourceTable === 'almoxarifado_requisicoes') {
+            await window.supabaseClient.from('almoxarifado_requisicoes').update({ status: 'Recusado' }).eq('id', reqId);
+        } else {
+            await window.supabaseClient.from('os_pecas_utilizadas').update({ status: 'Recusado' }).eq('id', reqId);
+        }
+        await carregarDadosAlmoxarifado(); 
+    } 
+    catch(e) { alert("Erro ao recusar."); }
+}
+// ============================================================================================== //
 
 window.carregarCentrosCustoAlmox = async function() {
     const selectCC = document.getElementById('movCentroCusto');
@@ -463,47 +558,6 @@ window.toggleTipoSaida = function() {
         document.getElementById('camposFrotaSaida').style.display = 'none'; document.getElementById('camposSetorSaida').style.display = 'block';
         document.getElementById('movOS').required = false; document.getElementById('movCentroCusto').required = true; document.getElementById('movCavalo').value = ''; document.getElementById('movOS').value = '';
     }
-}
-
-window.aprovarRequisicao = async function(reqId) {
-    const req = requisicoesEstoque.find(r => r.id == reqId);
-    if(!req) { alert("Requisição não encontrada no sistema."); return; }
-    const peca = pecasEstoque.find(p => p.id == req.peca_id);
-    if (!peca || peca.quantidade < req.quantidade) { alert(`Estoque insuficiente! Você possui apenas ${peca ? peca.quantidade : 0} unidade(s).`); return; }
-    
-    if(!confirm(`Confirma a liberação de ${req.quantidade} unidades de "${peca.nome}"?`)) return;
-
-    try {
-        await window.supabaseClient.from('os_pecas_utilizadas').update({ status: 'Aprovado' }).eq('id', reqId);
-        
-        let novaMovimentacao = {
-            peca_id: req.peca_id, 
-            tipo: 'saida', 
-            quantidade: req.quantidade, 
-            valor_unitario: req.valor_unitario || peca.preco_medio,
-            usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
-            data_movimentacao: new Date().toISOString()
-        };
-
-        if (req.centro_custo) {
-            novaMovimentacao.setor_destino = req.centro_custo;
-            novaMovimentacao.nota_fiscal = `RM #${req.id}`;
-        } else {
-            novaMovimentacao.cavalo = req.placa || 'Oficina';
-            novaMovimentacao.os_id = req.os_id;
-            novaMovimentacao.nota_fiscal = `Requisição Oficina`;
-        }
-
-        await db.addMovimentacao(novaMovimentacao);
-        alert("Requisição Aprovada com sucesso! Custo direcionado.");
-        await carregarDadosAlmoxarifado();
-    } catch (e) { alert("Erro ao aprovar requisição. Tente novamente."); console.error(e); }
-}
-
-window.recusarRequisicao = async function(reqId) {
-    if(!confirm("Deseja RECUSAR esta peça? O solicitante será notificado.")) return;
-    try { await window.supabaseClient.from('os_pecas_utilizadas').update({ status: 'Recusado' }).eq('id', reqId); await carregarDadosAlmoxarifado(); } 
-    catch(e) { alert("Erro ao recusar."); }
 }
 
 window.prepararModalMovimentacao = function(tipo) {

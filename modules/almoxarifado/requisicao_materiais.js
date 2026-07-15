@@ -10,7 +10,7 @@ async function carregarDadosIniciaisRequisicao() {
     if (!window.supabaseClient) return;
     
     try {
-        // 1. Carregar Colaboradores Ativos do RH
+        // 1. Carregar Colaboradores Ativos da tabela de RH
         let queryColab = window.supabaseClient.from('rh_colaboradores').select('id, nome').eq('status', 'Ativo').order('nome', { ascending: true });
         if (typeof window.aplicarFiltroFilial === 'function') queryColab = window.aplicarFiltroFilial(queryColab);
         const { data: cols } = await queryColab;
@@ -27,7 +27,7 @@ async function carregarDadosIniciaisRequisicao() {
         // 2. Carregar Peças do Almoxarifado
         listaPecasReq = await db.getPecas();
         
-        // 3. Extrair as categorias que existem atualmente nas peças para preencher o filtro
+        // 3. Extrair as categorias para o filtro
         const categoriasUnicas = [...new Set(listaPecasReq.map(p => p.categoria).filter(c => c))];
         const selCat = document.getElementById('reqCategoria');
         if (selCat) {
@@ -92,7 +92,7 @@ window.adicionarPecaCarrinho = function() {
         return;
     }
 
-    // Verifica se já tem no carrinho, se sim, soma a quantidade
+    // Verifica se já tem no carrinho
     const indexExistente = carrinhoRequisicao.findIndex(item => item.peca_id == pecaId);
     if (indexExistente >= 0) {
         carrinhoRequisicao[indexExistente].quantidade += qtd;
@@ -180,26 +180,28 @@ window.enviarRequisicaoFinal = async function() {
         const usernameLogado = window.currentUser ? window.currentUser.username : 'Sistema';
         const horaAtual = new Date().toISOString();
 
-        // Monta o array de inserções para a tabela `os_pecas_utilizadas`
+        // Insere na NOVA tabela almoxarifado_requisicoes
         const requisicoesParaInserir = carrinhoRequisicao.map(item => {
             let req = {
                 peca_id: item.peca_id,
+                colaborador_nome: colabName,            // Quem recebe
+                usuario_solicitante: usernameLogado,    // Quem pediu no sistema
                 quantidade: item.quantidade,
-                status: 'Pendente',
-                mecanico_responsavel: colabName, 
-                centro_custo: 'Requisição Direta - RH', 
                 valor_unitario: item.valor_unitario,
+                status: 'Pendente',
                 created_at: horaAtual
             };
             if (typeof window.injetarFilial === 'function') req = window.injetarFilial(req);
             return req;
         });
 
-        const { error } = await window.supabaseClient.from('os_pecas_utilizadas').insert(requisicoesParaInserir);
+        const { error } = await window.supabaseClient.from('almoxarifado_requisicoes').insert(requisicoesParaInserir);
         if (error) throw error;
 
-        alert("Requisição enviada com sucesso ao Almoxarifado!");
+        // Exibe o modal de confirmação
+        document.getElementById('modalConfirmacaoReq').style.display = 'flex';
         
+        // Limpa o carrinho
         carrinhoRequisicao = [];
         atualizarTabelaCarrinho();
         document.getElementById('reqColaborador').value = '';

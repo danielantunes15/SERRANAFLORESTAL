@@ -29,6 +29,11 @@
     
     .empty-cart { text-align: center; padding: 30px; color: #64748b; font-style: italic; }
     .empty-cart i { font-size: 3rem; margin-bottom: 10px; opacity: 0.5; }
+
+    /* Modal de Confirmação */
+    .almo-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); z-index: 9999; align-items: center; justify-content: center; }
+    .almo-modal-content { background: #1e293b; color: #e2e8f0; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); padding: 40px; border: 1px solid #334155; text-align: center; animation: popIn 0.3s ease-out; }
+    @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 </style>
 
 <div class="req-container">
@@ -108,5 +113,20 @@
                 <i class="fas fa-paper-plane"></i> Enviar Solicitação ao Almoxarifado
             </button>
         </div>
+    </div>
+</div>
+
+<!-- MODAL DE SUCESSO -->
+<div id="modalConfirmacaoReq" class="almo-modal">
+    <div class="almo-modal-content" style="max-width: 450px;">
+        <i class="fas fa-check-circle" style="font-size: 4.5rem; color: #10b981; margin-bottom: 20px;"></i>
+        <h2 style="color: #f8fafc; font-size: 1.8rem; margin-bottom: 10px;">Solicitação Enviada!</h2>
+        <p style="color: #94a3b8; font-size: 1.05rem; margin-bottom: 25px; line-height: 1.5;">
+            O Almoxarifado já recebeu seu pedido.<br>
+            Aguarde a aprovação e separação do material.
+        </p>
+        <button class="btn-req btn-submit" onclick="document.getElementById('modalConfirmacaoReq').style.display='none'" style="margin: 0;">
+            OK, Entendi
+        </button>
     </div>
 </div>
