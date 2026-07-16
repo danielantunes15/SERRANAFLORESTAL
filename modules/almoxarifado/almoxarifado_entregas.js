@@ -564,7 +564,7 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
             <div class="signature-box">
                 <div class="img-wrapper">${imgEnt}</div>
                 <div class="signature-line"></div>
-                <strong>${reqBase.usuario_solicitante || 'Almoxarifado'}</strong><br>
+                <strong>${window.currentUser ? window.currentUser.username : 'Almoxarifado'}</strong><br>
                 Responsável pela Entrega
             </div>
 
