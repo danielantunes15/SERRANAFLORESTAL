@@ -20,6 +20,7 @@ window.initRHColaboradores = async function() {
     
     await window.carregarSetoresGlobal(); // CARREGA OS SETORES INICIALMENTE PARA O FILTRO
     await window.carregarCursosGlobais();
+    await window.carregarCargosControladoria(); // <--- CARREGA OS CARGOS DA CONTROLADORIA
     await window.carregarColaboradoresLista();
 };
 
@@ -43,6 +44,29 @@ window.carregarSetoresGlobal = async function() {
                 data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
         }
     } catch(e) { console.error("Erro ao carregar setores:", e); }
+};
+
+// ==================== CARREGAR CARGOS DA CONTROLADORIA ====================
+window.carregarCargosControladoria = async function() {
+    try {
+        const { data, error } = await window.supabaseClient
+            .from('cargos')
+            .select('id, nome')
+            .eq('status', 'Ativo')
+            .order('nome', { ascending: true });
+
+        if (error) throw error;
+
+        const selCargo = document.getElementById('colFuncao');
+        if (selCargo) {
+            selCargo.innerHTML = '<option value="">Selecione um cargo...</option>' + 
+                data.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+        }
+    } catch(e) { 
+        console.error("Erro ao carregar cargos da Controladoria:", e); 
+        const selCargo = document.getElementById('colFuncao');
+        if (selCargo) selCargo.innerHTML = '<option value="">Erro ao carregar cargos</option>';
+    }
 };
 
 // ==================== VERIFICAÇÃO DE PENDÊNCIAS ====================
