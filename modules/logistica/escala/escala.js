@@ -214,7 +214,7 @@ window.renderizarEscala = function() {
                     <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
                         <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 12%;">Horário</th>
                         <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">FROTA/Placa</th>
-                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 6%;">Equipa</th>
+                        <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 6%;">EQUIPE</th>
                         <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">Posição</th>
                         <th style="padding: 12px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 22%;">Colaborador</th>
                         ${diasRender.map(d => `<th style="padding: 10px 5px; border: 1px solid rgba(255,255,255,0.05); width: 5.7%; color: #cbd5e1;">${d.diaTexto}<br><span style="font-size:0.85rem; font-weight:800; color: #fff;">${d.diaNum}</span></th>`).join('')}
@@ -306,8 +306,8 @@ window.renderizarEscala = function() {
             return rowsHtml;
         };
 
-        html += renderRows(grupoDia, '  TURNO DO DIA (EQUIPAS A, B, C)');
-        html += renderRows(grupoNoite, '  TURNO DA NOITE (EQUIPAS D, E, F)');
+        html += renderRows(grupoDia, '  TURNO DO DIA (EQUIPES A, B, C)');
+        html += renderRows(grupoNoite, '  TURNO DA NOITE (EQUIPES D, E, F)');
         html += renderRows(outros, '  OUTROS / SEM TURNO FIXO');
 
         html += `</tbody></table></div></div>`;
@@ -633,7 +633,7 @@ function renderizarAlocacao() {
             <div style="display: flex; align-items: center; justify-content: flex-start;">
                 ${posicaoTag}
                 <select class="select-aloc-equipe select-turno" data-id="${m.id}" ${isBlocked ? 'disabled' : ''} style="width: 140px; font-weight: bold; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px;">
-                    <option value="-" ${eq === '-' ? 'selected' : ''}>Sem Equipa</option>
+                    <option value="-" ${eq === '-' ? 'selected' : ''}>Sem EQUIPE</option>
                     <option value="A" ${eq === 'A' ? 'selected' : ''}>A (Dia)</option>
                     <option value="B" ${eq === 'B' ? 'selected' : ''}>B (Dia)</option>
                     <option value="C" ${eq === 'C' ? 'selected' : ''}>C (Dia)</option>
@@ -806,7 +806,7 @@ window.abrirModalEscalaManual = function(id) {
 
     let eq = getEq(m);
     if (m.conjuntoId && eq === '-') { 
-        alert("O motorista precisa ter uma equipa (A-F) antes de configurar a data do ciclo!"); 
+        alert("O motorista precisa ter uma EQUIPE (A-F) antes de configurar a data do ciclo!"); 
         return; 
     }
 
@@ -969,8 +969,8 @@ window.imprimirRelatorioEscalaSemanal = function() {
 
         html += `<div class="trinca-box"><div class="trinca-num">CONJUNTO ${String(conj.id).padStart(2, '0')}</div>`;
         html += `<table><thead><tr><th style="width:11%;">HORÁRIO</th><th style="width:11%;">FROTA/PLACA</th><th style="width:5%;">EQ</th><th style="width:11%;">POSIÇÃO</th><th style="text-align:left;">COLABORADOR</th>${window.currentDatas.map(d => `<th style="width:8%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
-        html += renderTable(gDia, 'TURNO DO DIA (EQUIPAS A, B, C)', 'dia-bg');
-        html += renderTable(gNoite, 'TURNO DA NOITE (EQUIPAS D, E, F)', 'noite-bg');
+        html += renderTable(gDia, 'TURNO DO DIA (EQUIPES A, B, C)', 'dia-bg');
+        html += renderTable(gNoite, 'TURNO DA NOITE (EQUIPES D, E, F)', 'noite-bg');
         html += `</tbody></table></div>`;
     });
 
@@ -989,7 +989,7 @@ window.exportarEscalaMensalExcel = function() {
     const mes = dataBase.getMonth(); 
     const diasNoMes = new Date(ano, mes + 1, 0).getDate(); 
 
-    let csvContent = "\uFEFFHorário;FROTA/Placa;Equipa;Posição;Colaborador";
+    let csvContent = "\uFEFFHorário;FROTA/Placa;EQUIPE;Posição;Colaborador";
     for (let dia = 1; dia <= diasNoMes; dia++) csvContent += `;${dia.toString().padStart(2, '0')}/${(mes + 1).toString().padStart(2, '0')}`;
     csvContent += "\n";
 
@@ -1142,7 +1142,7 @@ window.gerarRelatorioImpressao = function() {
         if (lista.length === 0) return '<p style="text-align:center;">Nenhum registro para exibir.</p>';
 
         let tHtml = `<div class="section-title">${titulo} (${lista.length} registros)</div>`;
-        tHtml += `<table><thead><tr><th style="width: 14%">HORÁRIO</th><th style="width: 10%">CONJUNTO</th><th style="width: 38%">MOTORISTA</th><th style="width: 10%">EQUIPA</th><th style="width: 28%">STATUS / CAMINHÃO</th></tr></thead><tbody>`;
+        tHtml += `<table><thead><tr><th style="width: 14%">HORÁRIO</th><th style="width: 10%">CONJUNTO</th><th style="width: 38%">MOTORISTA</th><th style="width: 10%">EQUIPE</th><th style="width: 28%">STATUS / CAMINHÃO</th></tr></thead><tbody>`;
         
         lista.forEach(l => {
             const isVazio = l.nome === ''; 
