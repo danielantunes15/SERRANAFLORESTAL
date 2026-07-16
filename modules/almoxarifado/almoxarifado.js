@@ -61,108 +61,65 @@ function atualizarTabelaPecas(listaPecas) {
     const tbody = document.getElementById('tabelaPecasBody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    if(listaPecas.length === 0) { tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma peça encontrada.</td></tr>'; return; }
+    
+    if(listaPecas.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma peça encontrada.</td></tr>'; 
+        return; 
+    }
 
-    const grupos = {};
     let valorTotalGlobal = 0;
 
-    listaPecas.forEach(peca => {
-        const chave = (peca.codigo && peca.codigo.trim() !== '') ? peca.codigo.trim().toUpperCase() : peca.nome.trim().toUpperCase();
-        if (!grupos[chave]) {
-            grupos[chave] = {
-                chave: chave, nome: peca.nome, codigo: peca.codigo, unidade: peca.unidade,
-                categoria: peca.categoria, localizacao: peca.localizacao, estoque_minimo: peca.estoque_minimo,
-                quantidade_total: 0, valor_total: 0, itens: [], validades: []
-            };
-        }
-        let qtd = parseFloat(peca.quantidade);
-        let val = qtd * parseFloat(peca.preco_medio || 0);
-        
-        grupos[chave].quantidade_total += qtd;
-        grupos[chave].valor_total += val;
-        valorTotalGlobal += val;
-        grupos[chave].itens.push(peca);
-        
-        if (peca.data_validade) grupos[chave].validades.push(peca.data_validade);
+    // Prepara os dados calculando os totais individuais para a Curva ABC
+    const itensProcessados = listaPecas.map(peca => {
+        let qtd = parseFloat(peca.quantidade) || 0;
+        let preco = parseFloat(peca.preco_medio || 0);
+        let valTotal = qtd * preco;
+        valorTotalGlobal += valTotal;
+        return { ...peca, valor_total: valTotal, quantidade_numerica: qtd };
     });
 
-    const listaGrupos = Object.values(grupos).sort((a,b) => b.valor_total - a.valor_total);
+    // Ordena do maior valor financeiro para o menor (Curva ABC)
+    itensProcessados.sort((a,b) => b.valor_total - a.valor_total);
+
     let somaAcumulada = 0;
-    let indexGrupo = 0;
 
-    listaGrupos.forEach(grupo => {
-        indexGrupo++;
-        somaAcumulada += grupo.valor_total;
+    itensProcessados.forEach(peca => {
+        somaAcumulada += peca.valor_total;
         let perc = (somaAcumulada / (valorTotalGlobal || 1)) * 100;
-        grupo.curva = perc <= 80 ? 'A' : (perc <= 95 ? 'B' : 'C');
+        peca.curva = perc <= 80 ? 'A' : (perc <= 95 ? 'B' : 'C');
 
-        const estaBaixo = grupo.quantidade_total <= grupo.estoque_minimo;
+        const min = parseFloat(peca.estoque_minimo) || 0;
+        const estaBaixo = peca.quantidade_numerica <= min;
         const statusHtml = estaBaixo ? `<span class="badge badge-alert"><i class="fas fa-exclamation-circle"></i> Baixo</span>` : `<span class="badge badge-ok"><i class="fas fa-check"></i> Normal</span>`;
-        const precoMedio = grupo.quantidade_total > 0 ? (grupo.valor_total / grupo.quantidade_total) : 0;
         
         let validadeDestaque = '-';
-        if (grupo.validades.length > 0) {
-            const validadesOrdenadas = grupo.validades.sort((a,b) => new Date(a) - new Date(b));
-            const [ano, mes, dia] = validadesOrdenadas[0].split('-');
+        if (peca.data_validade) {
+            const [ano, mes, dia] = peca.data_validade.split('-');
             validadeDestaque = `${dia}/${mes}/${ano}`;
         }
 
-        const trGroup = document.createElement('tr');
-        trGroup.style.backgroundColor = 'rgba(255,255,255,0.02)';
-        trGroup.innerHTML = `
-            <td style="font-family: monospace; color: #60a5fa; font-weight:bold;">${grupo.codigo || '-'}</td>
-            <td>
-                <strong style="color: #f8fafc;">${grupo.nome}</strong> 
-                ${grupo.itens.length > 1 ? `<span style="font-size:0.7rem; color:#94a3b8; background:#334155; padding:2px 6px; border-radius:10px; margin-left:5px; cursor:pointer;" onclick="toggleLotes('lotes_${indexGrupo}')"><i class="fas fa-layer-group"></i> ${grupo.itens.length} Lotes</span>` : ''}
-            </td>
-            <td><span style="color:#cbd5e1; font-size:0.85rem; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; border: 1px solid #334155;">${grupo.categoria || '-'}</span></td>
-            <td style="color: #cbd5e1; font-weight: bold;">${grupo.unidade || 'UN'}</td>
-            <td><span class="badge badge-abc-${grupo.curva}">${grupo.curva}</span></td>
-            <td style="color: #94a3b8;"><i class="fas fa-map-marker-alt" style="font-size:0.8rem;"></i> ${grupo.localizacao || '-'}</td>
+        const tr = document.createElement('tr');
+        tr.style.backgroundColor = 'rgba(255,255,255,0.02)';
+        tr.innerHTML = `
+            <td style="font-family: monospace; color: #60a5fa; font-weight:bold;">${peca.codigo || '-'}</td>
+            <td><strong style="color: #f8fafc;">${peca.nome}</strong></td>
+            <td><span style="color:#cbd5e1; font-size:0.85rem; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; border: 1px solid #334155;">${peca.categoria || '-'}</span></td>
+            <td style="color: #cbd5e1; font-weight: bold;">${peca.unidade || 'UN'}</td>
+            <td><span class="badge badge-abc-${peca.curva}">${peca.curva}</span></td>
+            <td style="color: #94a3b8;"><i class="fas fa-map-marker-alt" style="font-size:0.8rem;"></i> ${peca.localizacao || '-'}</td>
             <td style="color: #94a3b8;">${validadeDestaque}</td>
-            <td style="font-size: 1.1rem; font-weight: bold; ${estaBaixo ? 'color: #f87171;' : 'color: #34d399;'}">${grupo.quantidade_total.toFixed(2)}</td>
-            <td style="color: #94a3b8;">${grupo.estoque_minimo}</td>
-            <td style="font-weight: 500; color: #f8fafc;">R$ ${precoMedio.toFixed(2).replace('.', ',')}</td>
+            <td style="font-size: 1.1rem; font-weight: bold; ${estaBaixo ? 'color: #f87171;' : 'color: #34d399;'}">${peca.quantidade_numerica.toFixed(2)}</td>
+            <td style="color: #94a3b8;">${min}</td>
+            <td style="font-weight: 500; color: #f8fafc;">R$ ${parseFloat(peca.preco_medio||0).toFixed(2).replace('.', ',')}</td>
             <td>${statusHtml}</td>
             <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
-                ${grupo.itens.length > 1 ? `<button type="button" title="Ver Lotes" class="btn-action-sm btn-info" onclick="toggleLotes('lotes_${indexGrupo}')"><i class="fas fa-list"></i></button>` : ''}
-                <button type="button" title="Imprimir Etiqueta" class="btn-action-sm" style="background:#8b5cf6;" onclick='imprimirQRCode(${JSON.stringify(grupo.itens[0])})'><i class="fas fa-qrcode"></i></button>
-                ${grupo.itens.length === 1 ? `<button type="button" title="Editar" class="btn-action-sm btn-edit" onclick='editarPeca(${JSON.stringify(grupo.itens[0])})'><i class="fas fa-pen"></i></button> <button type="button" title="Excluir" class="btn-action-sm btn-delete" onclick='deletarPeca(${grupo.itens[0].id})'><i class="fas fa-trash"></i></button>` : ''}
+                <button type="button" title="Imprimir Etiqueta" class="btn-action-sm" style="background:#8b5cf6;" onclick='imprimirQRCode(${JSON.stringify(peca).replace(/'/g, "&apos;")})'><i class="fas fa-qrcode"></i></button>
+                <button type="button" title="Editar" class="btn-action-sm btn-edit" onclick='editarPeca(${JSON.stringify(peca).replace(/'/g, "&apos;")})'><i class="fas fa-pen"></i></button> 
+                <button type="button" title="Excluir" class="btn-action-sm btn-delete" onclick='deletarPeca(${peca.id})'><i class="fas fa-trash"></i></button>
             </td>
         `;
-        tbody.appendChild(trGroup);
-
-        if (grupo.itens.length > 1) {
-            grupo.itens.forEach((lote, idxLote) => {
-                let dataVal = '-';
-                if(lote.data_validade) { const [a, m, d] = lote.data_validade.split('-'); dataVal = `${d}/${m}/${a}`; }
-                
-                const trLote = document.createElement('tr');
-                trLote.className = `lotes_${indexGrupo}`;
-                trLote.style.display = 'none'; 
-                trLote.style.backgroundColor = 'rgba(0,0,0,0.2)';
-                trLote.innerHTML = `
-                    <td colspan="5" style="text-align: right; color: #64748b; font-size:0.85rem;"><i class="fas fa-level-up-alt" style="transform: rotate(90deg);"></i> Lote ${idxLote + 1}</td>
-                    <td style="color: #94a3b8; font-size:0.85rem;">${lote.localizacao || '-'}</td>
-                    <td style="color: #cbd5e1; font-size:0.85rem;">${dataVal}</td>
-                    <td style="color: #34d399; font-weight:bold; font-size:0.95rem;">${lote.quantidade}</td>
-                    <td></td>
-                    <td style="color: #cbd5e1; font-size:0.85rem;">R$ ${parseFloat(lote.preco_medio||0).toFixed(2).replace('.',',')}</td>
-                    <td></td>
-                    <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
-                        <button type="button" title="Editar Lote" class="btn-action-sm btn-edit" onclick='editarPeca(${JSON.stringify(lote)})'><i class="fas fa-pen"></i></button>
-                        <button type="button" title="Excluir Lote" class="btn-action-sm btn-delete" onclick='deletarPeca(${lote.id})'><i class="fas fa-trash"></i></button>
-                    </td>
-                `;
-                tbody.appendChild(trLote);
-            });
-        }
+        tbody.appendChild(tr);
     });
-}
-
-window.toggleLotes = function(className) {
-    const rows = document.querySelectorAll('.' + className);
-    rows.forEach(row => { row.style.display = row.style.display === 'none' ? 'table-row' : 'none'; });
 }
 
 function atualizarTabelaNotas(listaMovimentacoes) {
@@ -325,37 +282,32 @@ function atualizarTabelaPneus(lista) {
 function atualizarKPIsAlmoxarifado() {
     let valorTotal = 0, itensBaixos = 0;
     
-    const grupos = {};
-    pecasEstoque.forEach(p => {
-        const chave = (p.codigo && p.codigo.trim() !== '') ? p.codigo.trim().toUpperCase() : p.nome.trim().toUpperCase();
-        if (!grupos[chave]) grupos[chave] = { valor_total: 0, quantidade: 0, minimo: p.estoque_minimo };
-        grupos[chave].valor_total += (p.quantidade * parseFloat(p.preco_medio || 0));
-        grupos[chave].quantidade += parseFloat(p.quantidade);
-    });
-
     let abcData = {A: {qtd:0, val:0}, B: {qtd:0, val:0}, C: {qtd:0, val:0}};
-    let listaGrupos = Object.values(grupos);
     let valorTotalEstoque = 0;
+
+    const itens = pecasEstoque.map(p => {
+        let valTotal = parseFloat(p.quantidade || 0) * parseFloat(p.preco_medio || 0);
+        valorTotalEstoque += valTotal;
+        if (parseFloat(p.quantidade || 0) <= parseFloat(p.estoque_minimo || 0)) itensBaixos++;
+        return { ...p, valor_total: valTotal };
+    });
     
-    listaGrupos.forEach(g => valorTotalEstoque += g.valor_total);
-    listaGrupos.sort((a, b) => b.valor_total - a.valor_total);
+    itens.sort((a, b) => b.valor_total - a.valor_total);
 
     let somaAcumulada = 0;
-    listaGrupos.forEach(g => {
-        somaAcumulada += g.valor_total;
+    itens.forEach(p => {
+        somaAcumulada += p.valor_total;
         let percentual = (somaAcumulada / (valorTotalEstoque || 1)) * 100;
         let curva = percentual <= 80 ? 'A' : (percentual <= 95 ? 'B' : 'C');
         
         abcData[curva].qtd++;
-        abcData[curva].val += g.valor_total;
-        
-        if (g.quantidade <= g.minimo) itensBaixos++;
-        valorTotal += g.valor_total;
+        abcData[curva].val += p.valor_total;
+        valorTotal += p.valor_total;
     });
 
     pneusEstoque.forEach(pneu => valorTotal += parseFloat(pneu.custo_atual || 0));
 
-    document.getElementById('kpiTotalItens').innerText = listaGrupos.length; 
+    document.getElementById('kpiTotalItens').innerText = pecasEstoque.length; 
     document.getElementById('kpiEstoqueMinimo').innerText = itensBaixos;
     document.getElementById('kpiValorTotal').innerText = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorTotal);
     document.getElementById('kpiPneusResumo').innerText = `${pneusEstoque.filter(p => p.status === 'Rodando').length} / ${pneusEstoque.filter(p => p.status === 'Estoque').length}`;
@@ -726,50 +678,22 @@ window.salvarPeca = async function(e) {
             pecaInput.id = id;
             await db.upsertPeca(pecaInput);
         } else {
-            const pecaExistenteIgual = pecasEstoque.find(p => 
-                p.codigo && pecaInput.codigo &&
-                p.codigo.toUpperCase() === pecaInput.codigo.toUpperCase() && 
-                parseFloat(p.preco_medio || 0).toFixed(2) === pecaInput.preco_medio.toFixed(2)
-            );
-
-            if (pecaExistenteIgual) {
-                pecaExistenteIgual.quantidade = parseFloat(pecaExistenteIgual.quantidade) + pecaInput.quantidade;
-                if (pecaInput.data_validade) pecaExistenteIgual.data_validade = pecaInput.data_validade; 
-                await db.upsertPeca(pecaExistenteIgual);
-                
-                if (pecaInput.quantidade > 0) {
-                    const mov = typeof window.injetarFilial === 'function' ? window.injetarFilial({
-                        peca_id: pecaExistenteIgual.id, 
-                        tipo: 'entrada', 
-                        quantidade: pecaInput.quantidade, 
-                        valor_unitario: pecaInput.preco_medio,
-                        nota_fiscal: 'Entrada Manual Sist.', 
-                        fornecedor: 'Desconhecido',
-                        usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
-                        data_movimentacao: new Date().toISOString()
-                    }) : {};
-                    await window.supabaseClient.from('almoxarifado_movimentacoes').insert([mov]);
-                }
-
-                alert(`Peça lançada! O item já existia com o MESMO código e valor, portanto a quantidade foi somada ao Lote existente.`);
-            } else {
-                const pInjetada = typeof window.injetarFilial === 'function' ? window.injetarFilial(pecaInput) : pecaInput;
-                const { data, error } = await window.supabaseClient.from('almoxarifado_pecas').insert([pInjetada]).select();
-                if(error) throw error;
-                
-                if (data && data.length > 0 && pecaInput.quantidade > 0) {
-                    const mov = typeof window.injetarFilial === 'function' ? window.injetarFilial({
-                        peca_id: data[0].id, 
-                        tipo: 'entrada', 
-                        quantidade: pecaInput.quantidade, 
-                        valor_unitario: pecaInput.preco_medio,
-                        nota_fiscal: 'Entrada Manual Sist.', 
-                        fornecedor: 'Desconhecido',
-                        usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
-                        data_movimentacao: new Date().toISOString()
-                    }) : {};
-                    await window.supabaseClient.from('almoxarifado_movimentacoes').insert([mov]);
-                }
+            const pInjetada = typeof window.injetarFilial === 'function' ? window.injetarFilial(pecaInput) : pecaInput;
+            const { data, error } = await window.supabaseClient.from('almoxarifado_pecas').insert([pInjetada]).select();
+            if(error) throw error;
+            
+            if (data && data.length > 0 && pecaInput.quantidade > 0) {
+                const mov = typeof window.injetarFilial === 'function' ? window.injetarFilial({
+                    peca_id: data[0].id, 
+                    tipo: 'entrada', 
+                    quantidade: pecaInput.quantidade, 
+                    valor_unitario: pecaInput.preco_medio,
+                    nota_fiscal: 'Entrada Manual Sist.', 
+                    fornecedor: 'Desconhecido',
+                    usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
+                    data_movimentacao: new Date().toISOString()
+                }) : {};
+                await window.supabaseClient.from('almoxarifado_movimentacoes').insert([mov]);
             }
         }
         fecharModalAlmox('modalPeca'); await carregarDadosAlmoxarifado();
