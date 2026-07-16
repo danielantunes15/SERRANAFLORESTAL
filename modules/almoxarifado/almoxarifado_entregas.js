@@ -505,7 +505,7 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
     let linhasTabela = '';
     itensGrupo.forEach(item => {
         const peca = pecasEstoqueEntregas.find(p => String(p.id) === String(item.peca_id)) || {unidade:'UN', codigo:'S/N', nome:'Produto Desconhecido'};
-        linhasTabela += `<tr><td style="text-align:center;">${item.quantidade}</td><td style="text-align:center;">${peca.unidade || 'UN'}</td><td>${peca.codigo || 'S/N'}</td><td>${peca.nome}</td><td style="text-align:center;">${dataAtual}</td></tr>`;
+        linhasTabela += `<tr><td class="text-center">${item.quantidade}</td><td class="text-center">${peca.unidade || 'UN'}</td><td>${peca.codigo || 'S/N'}</td><td>${peca.nome}</td><td class="text-center">${dataAtual}</td></tr>`;
     });
 
     // CAIXA DE IMAGEM CORRIGIDA PARA NÃO QUEBRAR O LAYOUT
@@ -517,25 +517,34 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
     <head>
         <title>Termo de Entrega - ${reqBase.colaborador_nome}</title>
         <style>
-            body { font-family: 'Arial', sans-serif; margin: 40px; color: #000; } 
-            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; } 
-            .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; } 
-            .content { font-size: 14px; line-height: 1.6; text-align: justify; margin-bottom: 30px; } 
-            .table-info { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; } 
-            .table-info th, .table-info td { border: 1px solid #000; padding: 12px; text-align: left; } 
-            .table-info th { background-color: #f0f0f0; } 
+            body { font-family: 'Arial', sans-serif; margin: 40px; color: #000; display: flex; flex-direction: column; min-height: 90vh; } 
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; } 
+            .header-text { text-align: left; }
+            .header-text h1 { margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: 1px; } 
+            .header-text p { margin: 5px 0 0 0; font-size: 14px; color: #333; }
+            .logo { max-height: 50px; width: auto; }
+            .content { font-size: 14px; line-height: 1.6; text-align: justify; flex-grow: 1; } 
+            .table-info { width: 100%; border-collapse: collapse; margin-top: 25px; font-size: 13px; } 
+            .table-info th, .table-info td { border: 1px solid #555; padding: 12px 10px; text-align: left; } 
+            .table-info th { background-color: #f1f5f9; text-transform: uppercase; font-size: 12px; } 
+            .text-center { text-align: center !important; }
             
             /* Correção do Layout das Assinaturas */
-            .signature-container { display: flex; justify-content: space-between; margin-top: 60px; } 
-            .signature-box { text-align: center; width: 45%; } 
+            .signature-container { display: flex; justify-content: space-between; margin-top: 120px; padding: 0 20px; page-break-inside: avoid; } 
+            .signature-box { text-align: center; width: 40%; } 
             .img-wrapper { height: 90px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 5px;}
-            .signature-line { width: 100%; border-top: 1px solid #000; margin-bottom: 5px; }
+            .signature-line { width: 100%; border-top: 1px solid #000; margin-bottom: 8px; }
+            .signature-name { font-size: 14px; font-weight: bold; text-transform: uppercase; }
+            .signature-role { font-size: 12px; color: #444; }
         </style>
     </head>
     <body>
         <div class="header">
-            <h1>TERMO DE RESPONSABILIDADE E ENTREGA DE EPI / MATERIAIS</h1>
-            <p>Serrana Florestal - Gestão de Almoxarifado</p>
+            <div class="header-text">
+                <h1>TERMO DE RESPONSABILIDADE E ENTREGA</h1>
+                <p>Serrana Florestal - Gestão de Almoxarifado</p>
+            </div>
+            <img src="assets/logoverde.png" class="logo" alt="Serrana Florestal">
         </div>
         <div class="content">
             <p>Eu, <strong>${reqBase.colaborador_nome}</strong>, declaro para os devidos fins legais que recebi da empresa Serrana Florestal, o(s) equipamento(s)/material(is) abaixo discriminado(s), de forma gratuita, em perfeito estado de conservação e funcionamento.</p>
@@ -543,31 +552,30 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
             <table class="table-info">
                 <thead>
                     <tr>
-                        <th style="width: 10%; text-align:center;">Qtd.</th>
-                        <th style="width: 10%; text-align:center;">Unid.</th>
-                        <th style="width: 20%;">Código/CA</th><th style="width: 45%;">Descrição do Produto</th>
-                        <th style="width: 15%; text-align:center;">Data Entrega</th>
+                        <th class="text-center" style="width: 8%;">Qtd.</th>
+                        <th class="text-center" style="width: 8%;">Unid.</th>
+                        <th style="width: 15%;">Código/CA</th>
+                        <th style="width: 50%;">Descrição do Produto</th>
+                        <th class="text-center" style="width: 19%;">Data Entrega</th>
                     </tr>
                 </thead>
                 <tbody>${linhasTabela}</tbody>
             </table>
         </div>
         <div class="signature-container">
-            
             <div class="signature-box">
                 <div class="img-wrapper">${imgColab}</div>
                 <div class="signature-line"></div>
-                <strong>${reqBase.colaborador_nome}</strong><br>
-                Assinatura do Colaborador
+                <div class="signature-name">${reqBase.colaborador_nome}</div>
+                <div class="signature-role">Assinatura do Colaborador</div>
             </div>
             
             <div class="signature-box">
                 <div class="img-wrapper">${imgEnt}</div>
                 <div class="signature-line"></div>
-                <strong>${window.currentUser ? window.currentUser.username : 'Almoxarifado'}</strong><br>
-                Responsável pela Entrega
+                <div class="signature-name">${window.currentUser ? window.currentUser.username : 'Almoxarifado'}</div>
+                <div class="signature-role">Responsável pela Entrega</div>
             </div>
-
         </div>
         <script>setTimeout(() => { window.print(); window.close(); }, 500);</script>
     </body>
