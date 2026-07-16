@@ -1,3 +1,6 @@
+<!-- Importando SweetAlert2 para os modais modernos -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <style>
     .almo-container { font-family: 'Segoe UI', system-ui, sans-serif; color: #e2e8f0; animation: fadeIn 0.4s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -5,6 +8,16 @@
     .almo-header h2 { margin: 0; color: #ffffff; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; font-weight: bold; }
     .almo-header h2 i { color: #3b82f6; }
     
+    /* Novos estilos para Abas e Filtros */
+    .almo-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #334155; }
+    .almo-tab { padding: 10px 20px; cursor: pointer; color: #94a3b8; font-weight: 600; border-bottom: 2px solid transparent; transition: 0.2s; }
+    .almo-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+    .almo-tab:hover:not(.active) { color: #e2e8f0; }
+
+    .almo-history-filters { display: none; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; background: #1e293b; padding: 15px; border-radius: 10px; border: 1px solid #334155; align-items: center; }
+    .almo-history-filters input, .almo-history-filters select { padding: 10px; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 8px; outline: none; font-family: inherit; flex: 1; min-width: 150px;}
+    .almo-history-filters input:focus, .almo-history-filters select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+
     .almo-controls { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; background: #1e293b; padding: 10px 20px; border-radius: 10px; border: 1px solid #334155; }
     .almo-search { position: relative; width: 300px; }
     .almo-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; }
@@ -37,7 +50,30 @@
         <h2><i class="fas fa-clipboard-check"></i> Gestão de Entregas & Requisições</h2>
     </div>
     
-    <div class="almo-controls">
+    <!-- Submenu -->
+    <div class="almo-tabs">
+        <div class="almo-tab active" id="tab-hoje" onclick="trocarAbaEntregas('hoje')"><i class="fas fa-calendar-day"></i> Requisições de Hoje</div>
+        <div class="almo-tab" id="tab-historico" onclick="trocarAbaEntregas('historico')"><i class="fas fa-history"></i> Histórico</div>
+    </div>
+
+    <!-- Filtros do Histórico -->
+    <div class="almo-history-filters" id="filtrosHistorico">
+        <input type="text" id="filtroSol" placeholder="Quem Solicitou...">
+        <input type="text" id="filtroPed" placeholder="Recebedor / Placa...">
+        <input type="date" id="filtroData">
+        <select id="filtroStatus">
+            <option value="">Todos os Status</option>
+            <option value="Pendente">Pendente</option>
+            <option value="Aprovado">Aprovado (Entregue)</option>
+            <option value="Recusado">Recusado</option>
+            <option value="Devolvido">Devolvido (Estornado)</option>
+        </select>
+        <button class="btn-modern btn-primary" onclick="filtrarHistoricoEntregas()"><i class="fas fa-filter"></i> Filtrar</button>
+        <button class="btn-modern btn-dark" onclick="limparFiltrosEntregas()"><i class="fas fa-times"></i> Limpar</button>
+    </div>
+
+    <!-- Controle de Busca Simples da aba Hoje -->
+    <div class="almo-controls" id="controleBuscaSimples">
         <div class="almo-search">
             <i class="fas fa-search"></i>
             <input type="text" id="entregasSearchInput" onkeyup="filtrarTabelaEntregas()" placeholder="Pesquisar requisições...">

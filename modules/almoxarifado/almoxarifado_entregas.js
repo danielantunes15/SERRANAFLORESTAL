@@ -5,6 +5,9 @@ let requisicoesEstoqueEntregas = [];
 let grupoAvaliacaoAtualEntregas = [];
 let itensPendentesParaAssinaturaEntregas = [];
 
+// Variável para controle das Abas
+let abaAtualEntregas = 'hoje';
+
 // Variáveis para as duas assinaturas
 let canvasColab, ctxColab, isDrawingColab = false, hasColabSig = false;
 let canvasEntregador, ctxEntregador, isDrawingEntregador = false, hasEntregadorSig = false;
@@ -44,6 +47,71 @@ function injetarModalAprovacaoEntregas() {
     </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
+
+// ==================== LÓGICA DAS ABAS E FILTROS ====================
+
+window.trocarAbaEntregas = function(aba) {
+    abaAtualEntregas = aba;
+    document.getElementById('tab-hoje').classList.toggle('active', aba === 'hoje');
+    document.getElementById('tab-historico').classList.toggle('active', aba === 'historico');
+    
+    document.getElementById('filtrosHistorico').style.display = aba === 'historico' ? 'flex' : 'none';
+    document.getElementById('controleBuscaSimples').style.display = aba === 'hoje' ? 'flex' : 'none';
+    
+    renderizarTabelaPorAba();
+}
+
+window.filtrarHistoricoEntregas = function() {
+    renderizarTabelaPorAba();
+}
+
+window.limparFiltrosEntregas = function() {
+    document.getElementById('filtroSol').value = '';
+    document.getElementById('filtroPed').value = '';
+    document.getElementById('filtroData').value = '';
+    document.getElementById('filtroStatus').value = '';
+    renderizarTabelaPorAba();
+}
+
+window.filtrarTabelaEntregas = function() {
+    renderizarTabelaPorAba();
+}
+
+window.renderizarTabelaPorAba = function() {
+    let dados = [...requisicoesEstoqueEntregas];
+
+    if(abaAtualEntregas === 'hoje') {
+        const hojeStr = new Date().toLocaleDateString('pt-BR');
+        dados = dados.filter(req => {
+            const reqDate = req.created_at ? new Date(req.created_at).toLocaleDateString('pt-BR') : '';
+            return reqDate === hojeStr;
+        });
+        
+        const termo = document.getElementById('entregasSearchInput').value.toLowerCase();
+        if(termo) {
+            dados = dados.filter(r => (r.placa||'').toLowerCase().includes(termo) || (r.mecanico_responsavel||'').toLowerCase().includes(termo) || (r.centro_custo||'').toLowerCase().includes(termo) || (r.colaborador_nome||'').toLowerCase().includes(termo));
+        }
+    } else {
+        const fSol = document.getElementById('filtroSol').value.toLowerCase();
+        const fPed = document.getElementById('filtroPed').value.toLowerCase();
+        const fData = document.getElementById('filtroData').value;
+        
+        if(fSol) dados = dados.filter(r => (r.usuario_solicitante||'').toLowerCase().includes(fSol));
+        if(fPed) dados = dados.filter(r => (r.colaborador_nome||r.os_id||r.centro_custo||r.placa||'').toString().toLowerCase().includes(fPed));
+        if(fData) {
+            dados = dados.filter(r => {
+                if(!r.created_at) return false;
+                const d = new Date(r.created_at);
+                const tzOffset = d.getTimezoneOffset() * 60000;
+                const dataReq = new Date(d.getTime() - tzOffset).toISOString().split('T')[0];
+                return dataReq === fData;
+            });
+        }
+    }
+
+    atualizarTabelaEntregas(dados);
+}
+
 
 // ==================== LÓGICA DAS ASSINATURAS (PASSOS E CANVAS) ====================
 
@@ -123,7 +191,22 @@ window.limparAssinaturaEntregador = function() {
 
 window.irParaPassoEntregador = function() {
     if (!hasColabSig) {
-        if(!confirm("O colaborador ainda não assinou. Tem certeza que deseja pular esta assinatura?")) return;
+        Swal.fire({
+            title: 'Assinatura Ausente',
+            text: "O colaborador ainda não assinou. Tem certeza que deseja pular esta assinatura?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sim, pular',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('passoAssinaturaColab').style.display = 'none';
+                document.getElementById('passoAssinaturaEntregador').style.display = 'block';
+            }
+        });
+        return;
     }
     document.getElementById('passoAssinaturaColab').style.display = 'none';
     document.getElementById('passoAssinaturaEntregador').style.display = 'block';
@@ -157,7 +240,7 @@ async function carregarDadosEntregas() {
             requisicoesEstoqueEntregas = unificadas;
         }
 
-        atualizarTabelaEntregas(requisicoesEstoqueEntregas);
+        renderizarTabelaPorAba();
     } catch (e) { console.error("Erro ao carregar requisições para entregas", e); }
 }
 
@@ -165,7 +248,7 @@ function atualizarTabelaEntregas(listaReqs) {
     const tbody = document.getElementById('tabelaEntregasBody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    if(listaReqs.length === 0) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma requisição pendente.</td></tr>'; return; }
+    if(listaReqs.length === 0) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma requisição encontrada.</td></tr>'; return; }
 
     const gruposReq = {};
     listaReqs.forEach(req => {
@@ -179,7 +262,7 @@ function atualizarTabelaEntregas(listaReqs) {
                 origem: req.source_table,
                 colaborador_nome: req.colaborador_nome,
                 usuario_solicitante: req.usuario_solicitante,
-                usuario_entregador: req.usuario_entregador, // Mapeando a nova coluna
+                usuario_entregador: req.usuario_entregador,
                 centro_custo: req.centro_custo,
                 os_id: req.os_id,
                 placa: req.placa,
@@ -230,6 +313,12 @@ function atualizarTabelaEntregas(listaReqs) {
         else if(todosRecusados) stat = 'Recusado';
         else if(todosDevolvidos) stat = 'Devolvido';
 
+        // Filtro condicional por Status na Aba Histórico
+        if (abaAtualEntregas === 'historico') {
+            const fStatus = document.getElementById('filtroStatus').value;
+            if (fStatus && stat !== fStatus) return; // Pula este grupo
+        }
+
         let statusBadge = '', btnAcao = '';
         if (stat === 'Pendente') {
             statusBadge = '<span class="badge" style="background:#f59e0b; color:#fff;"><i class="fas fa-clock"></i> Aguardando</span>';
@@ -263,10 +352,6 @@ function atualizarTabelaEntregas(listaReqs) {
     });
 }
 
-window.filtrarTabelaEntregas = function() {
-    const termo = document.getElementById('entregasSearchInput').value.toLowerCase();
-    atualizarTabelaEntregas(requisicoesEstoqueEntregas.filter(r => (r.placa||'').toLowerCase().includes(termo) || (r.mecanico_responsavel||'').toLowerCase().includes(termo) || (r.centro_custo||'').toLowerCase().includes(termo) || (r.colaborador_nome||'').toLowerCase().includes(termo)));
-}
 
 window.abrirModalAprovacaoGrupoEntregas = function(dataReq, sourceTable, identificador) {
     grupoAvaliacaoAtualEntregas = requisicoesEstoqueEntregas.filter(r => 
@@ -275,7 +360,10 @@ window.abrirModalAprovacaoGrupoEntregas = function(dataReq, sourceTable, identif
         (r.status === 'Pendente' || !r.status)
     );
 
-    if(grupoAvaliacaoAtualEntregas.length === 0) { alert("Nenhum item pendente neste pedido."); return; }
+    if(grupoAvaliacaoAtualEntregas.length === 0) { 
+        Swal.fire({icon: 'info', title: 'Aviso', text: 'Nenhum item pendente neste pedido.'});
+        return; 
+    }
 
     document.getElementById('modalApOrigemEntregas').innerText = sourceTable === 'almoxarifado_requisicoes' ? '(Termo de Colaborador)' : '(Uso Interno / Oficina)';
     document.getElementById('modalApDestinoEntregas').innerText = identificador;
@@ -360,7 +448,6 @@ window.confirmarAvaliacaoGrupoEntregas = async function() {
         if (aprovouAlgo && grupoAvaliacaoAtualEntregas[0].source_table === 'almoxarifado_requisicoes') {
             itensPendentesParaAssinaturaEntregas = itensAprovadosParaTermo;
             
-            // Reseta a visualização dos passos para iniciar pelo Colaborador
             document.getElementById('passoAssinaturaColab').style.display = 'block';
             document.getElementById('passoAssinaturaEntregador').style.display = 'none';
             document.getElementById('modalAssinaturaEntregas').style.display = 'flex';
@@ -372,15 +459,18 @@ window.confirmarAvaliacaoGrupoEntregas = async function() {
             }, 200);
             
         } else {
-            alert("Avaliação processada e materiais liberados com sucesso!");
-            await carregarDadosEntregas();
+            Swal.fire('Sucesso!', 'Avaliação processada e materiais liberados com sucesso!', 'success').then(() => {
+                carregarDadosEntregas();
+            });
         }
 
-    } catch (e) { console.error(e); alert("Erro ao salvar avaliação."); } 
+    } catch (e) { 
+        console.error(e); 
+        Swal.fire('Erro', 'Erro ao salvar avaliação.', 'error');
+    } 
     finally { btn.innerHTML = '<i class="fas fa-arrow-right"></i> Prosseguir para Assinatura'; btn.disabled = false; }
 }
 
-// Função auxiliar para converter Base64 em Blob para o Upload
 function base64ParaBlob(base64, mimeType) {
     const byteCharacters = atob(base64.split(',')[1]);
     const byteNumbers = new Array(byteCharacters.length);
@@ -393,7 +483,7 @@ function base64ParaBlob(base64, mimeType) {
 
 window.finalizarEntregaAssinadaEntregas = async function() {
     const btn = document.getElementById('btnSalvarAssinaturaEntregas');
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando no Storage...'; 
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; 
     btn.disabled = true;
 
     try {
@@ -403,7 +493,6 @@ window.finalizarEntregaAssinadaEntregas = async function() {
             let colabUrl = null;
             let entregadorUrl = null;
 
-            // 1. Faz o Upload da Imagem do Colaborador (Apenas UMA vez!)
             if (hasColabSig) {
                 const blobColab = base64ParaBlob(canvasColab.toDataURL('image/png'), 'image/png');
                 const nomeArqColab = `sig_colab_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
@@ -413,7 +502,6 @@ window.finalizarEntregaAssinadaEntregas = async function() {
                 }
             }
 
-            // 2. Faz o Upload da Imagem do Entregador (Apenas UMA vez!)
             if (hasEntregadorSig) {
                 const blobEnt = base64ParaBlob(canvasEntregador.toDataURL('image/png'), 'image/png');
                 const nomeArqEnt = `sig_ent_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
@@ -423,7 +511,6 @@ window.finalizarEntregaAssinadaEntregas = async function() {
                 }
             }
 
-            // Geração do Payload com a nova coluna de rastreamento do usuário
             let updatePayload = { 
                 data_assinatura: new Date().toISOString(),
                 usuario_entregador: window.currentUser ? window.currentUser.username : 'Almoxarifado'
@@ -432,7 +519,6 @@ window.finalizarEntregaAssinadaEntregas = async function() {
             if (colabUrl) updatePayload.assinatura_url = colabUrl;
             if (entregadorUrl) updatePayload.assinatura_entregador_url = entregadorUrl;
 
-            // 3. Atualiza os Itens UM POR UM usando exatamente a MESMA URL gerada acima!
             for (let idReq of idsParaAtualizar) {
                 const { error: dbError } = await window.supabaseClient.from('almoxarifado_requisicoes')
                     .update(updatePayload)
@@ -442,16 +528,25 @@ window.finalizarEntregaAssinadaEntregas = async function() {
             }
             
             fecharModalEntregas('modalAssinaturaEntregas');
-            if (confirm("Assinaturas salvas com sucesso! Deseja imprimir o Termo de Entrega agora?")) { 
-                // Passa as URLs temporárias recém geradas para forçar a impressão com elas
-                const itensAtualizadosTemporariamente = itensPendentesParaAssinaturaEntregas.map(i => {
-                    return {
-                        ...i,
-                        usuario_entregador: updatePayload.usuario_entregador
-                    };
-                });
-                imprimirTermoEntregaGrupoEntregas(itensAtualizadosTemporariamente, colabUrl, entregadorUrl); 
-            }
+            
+            Swal.fire({
+                title: 'Sucesso!',
+                text: "Assinaturas salvas com sucesso! Deseja imprimir o Termo de Entrega agora?",
+                icon: 'success',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="fas fa-print"></i> Sim, Imprimir',
+                cancelButtonText: 'Não, apenas fechar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const itensAtualizadosTemporariamente = itensPendentesParaAssinaturaEntregas.map(i => {
+                        return { ...i, usuario_entregador: updatePayload.usuario_entregador };
+                    });
+                    imprimirTermoEntregaGrupoEntregas(itensAtualizadosTemporariamente, colabUrl, entregadorUrl); 
+                }
+            });
+
         } else {
             fecharModalEntregas('modalAssinaturaEntregas');
         }
@@ -460,39 +555,59 @@ window.finalizarEntregaAssinadaEntregas = async function() {
         
     } catch(e) { 
         console.error(e); 
-        alert("Erro ao salvar assinaturas. Verifique o console."); 
+        Swal.fire('Erro', 'Erro ao salvar assinaturas. Verifique o console.', 'error');
     } finally { 
         btn.innerHTML = '<i class="fas fa-check"></i> Finalizar Entrega'; 
         btn.disabled = false; 
     }
 }
 
-window.estornarRequisicaoGrupoEntregas = async function(dataReq, sourceTable, identificador) {
+window.estornarRequisicaoGrupoEntregas = function(dataReq, sourceTable, identificador) {
     const itensGrupo = requisicoesEstoqueEntregas.filter(r => 
         r.created_at === dataReq && r.source_table === sourceTable && 
         (r.colaborador_nome === identificador || String(r.os_id) === identificador || r.centro_custo === identificador) &&
         r.status === 'Aprovado'
     );
-    if(itensGrupo.length === 0) { alert("Nenhum item aprovado neste pedido."); return; }
-    if(!confirm(`Deseja CANCELAR este pedido e DEVOLVER todos os itens ao estoque?`)) return;
-
-    try {
-        for(let req of itensGrupo) {
-            const peca = pecasEstoqueEntregas.find(p => String(p.id) === String(req.peca_id));
-            const table = sourceTable === 'almoxarifado_requisicoes' ? 'almoxarifado_requisicoes' : 'os_pecas_utilizadas';
-            await window.supabaseClient.from(table).update({ status: 'Devolvido' }).eq('id', req.id);
-            
-            let novaMovimentacao = {
-                peca_id: req.peca_id, tipo: 'entrada', quantidade: req.quantidade, 
-                valor_unitario: req.valor_unitario || (peca ? peca.preco_medio : 0),
-                nota_fiscal: 'Estorno/Devolução', fornecedor: 'Devolução Interna',
-                usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
-                data_movimentacao: new Date().toISOString()
-            };
-            await db.addMovimentacao(novaMovimentacao);
+    
+    if(itensGrupo.length === 0) { 
+        Swal.fire('Atenção', 'Nenhum item aprovado neste pedido.', 'warning');
+        return; 
+    }
+    
+    Swal.fire({
+        title: 'Confirmar Estorno',
+        text: "Deseja CANCELAR este pedido e DEVOLVER todos os itens ao estoque?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sim, Estornar!',
+        cancelButtonText: 'Cancelar'
+    }).then(async (result) => {
+        if(result.isConfirmed) {
+            try {
+                for(let req of itensGrupo) {
+                    const peca = pecasEstoqueEntregas.find(p => String(p.id) === String(req.peca_id));
+                    const table = sourceTable === 'almoxarifado_requisicoes' ? 'almoxarifado_requisicoes' : 'os_pecas_utilizadas';
+                    await window.supabaseClient.from(table).update({ status: 'Devolvido' }).eq('id', req.id);
+                    
+                    let novaMovimentacao = {
+                        peca_id: req.peca_id, tipo: 'entrada', quantidade: req.quantidade, 
+                        valor_unitario: req.valor_unitario || (peca ? peca.preco_medio : 0),
+                        nota_fiscal: 'Estorno/Devolução', fornecedor: 'Devolução Interna',
+                        usuario: window.currentUser ? window.currentUser.username : 'Sistema', 
+                        data_movimentacao: new Date().toISOString()
+                    };
+                    await db.addMovimentacao(novaMovimentacao);
+                }
+                Swal.fire('Estornado!', 'O pedido foi devolvido ao estoque com sucesso.', 'success');
+                await carregarDadosEntregas();
+            } catch (e) { 
+                console.error(e); 
+                Swal.fire('Erro', 'Ocorreu um erro ao estornar.', 'error');
+            }
         }
-        alert("Pedido estornado!"); await carregarDadosEntregas();
-    } catch (e) { console.error(e); alert("Erro ao estornar."); }
+    });
 }
 
 window.reimprimirTermoGrupoEntregas = function(dataReq, sourceTable, identificador) {
@@ -505,8 +620,11 @@ window.reimprimirTermoGrupoEntregas = function(dataReq, sourceTable, identificad
     const urlColab = itensGrupo.length > 0 ? itensGrupo[0].assinatura_url : null;
     const urlEntregador = itensGrupo.length > 0 ? itensGrupo[0].assinatura_entregador_url : null;
     
-    if(itensGrupo.length > 0) imprimirTermoEntregaGrupoEntregas(itensGrupo, urlColab, urlEntregador);
-    else alert("Nenhum item aprovado encontrado para impressão.");
+    if(itensGrupo.length > 0) {
+        imprimirTermoEntregaGrupoEntregas(itensGrupo, urlColab, urlEntregador);
+    } else {
+        Swal.fire('Aviso', 'Nenhum item aprovado encontrado para impressão.', 'info');
+    }
 }
 
 window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabUrl = null, assinaturaEntregadorUrl = null) {
@@ -521,7 +639,6 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
         linhasTabela += `<tr><td class="text-center">${item.quantidade}</td><td class="text-center">${peca.unidade || 'UN'}</td><td>${peca.codigo || 'S/N'}</td><td>${peca.nome}</td><td class="text-center">${dataAtual}</td></tr>`;
     });
 
-    // CAIXA DE IMAGEM CORRIGIDA PARA NÃO QUEBRAR O LAYOUT
     let imgColab = assinaturaColabUrl ? `<img src="${assinaturaColabUrl}" style="max-height: 85px; max-width: 100%; object-fit: contain;">` : '';
     let imgEnt = assinaturaEntregadorUrl ? `<img src="${assinaturaEntregadorUrl}" style="max-height: 85px; max-width: 100%; object-fit: contain;">` : '';
 
@@ -542,7 +659,6 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
             .table-info th { background-color: #f1f5f9; text-transform: uppercase; font-size: 12px; } 
             .text-center { text-align: center !important; }
             
-            /* Correção do Layout das Assinaturas */
             .signature-container { display: flex; justify-content: space-between; margin-top: 120px; padding: 0 20px; page-break-inside: avoid; } 
             .signature-box { text-align: center; width: 40%; } 
             .img-wrapper { height: 90px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 5px;}
