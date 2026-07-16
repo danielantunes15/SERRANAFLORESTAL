@@ -21,6 +21,7 @@ var gruasPropriasCache = new Map();
 
 var chartVolumesObj = null;
 var chartReceitasObj = null;
+var chartFaturamentoTotalObj = null; // Instância do novo gráfico
 
 function getSupabaseClient() {
     if (window.supabaseClient) return window.supabaseClient;
@@ -453,7 +454,7 @@ function processarFiltrosEExibir() {
         dadosFrentesAtual = Object.values(agrupamentoFrente).sort((a, b) => b.volume - a.volume);
         agrupamentoDiarioGlobal = agrupamentoDiario;
 
-        // === CÁLCULO SEPARADO E EXCLUSIVO DOS ÚLTIMOS 7 DIAS (GRÁFICO FINANCEIRO) ===
+        // === CÁLCULO SEPARADO E EXCLUSIVO DOS ÚLTIMOS 7 DIAS (GRÁFICO FINANCEIRO 2) ===
         let dataFimGrafico = new Date();
         dataFimGrafico.setDate(dataFimGrafico.getDate() - 1); // <-- DEFINE A DATA FINAL COMO ONTEM
         
@@ -581,11 +582,16 @@ function desenharGraficos(agrupamento, agrupamento7Dias) {
         const labels = [];
         const volTranspArr = []; 
         const volCarregArr = [];
+        const faturamentoTotalArr = []; // Array para o novo gráfico
 
         datasOrdenadas.forEach(d => {
             labels.push(d.substring(0, 5)); 
             volTranspArr.push(parseFloat(agrupamento[d].volTransp.toFixed(2)));
             volCarregArr.push(parseFloat(agrupamento[d].volCarreg.toFixed(2)));
+            
+            // Soma o faturamento total diário
+            const totalDia = agrupamento[d].recTransp + agrupamento[d].recCarreg;
+            faturamentoTotalArr.push(parseFloat(totalDia.toFixed(2)));
         });
 
         if (chartVolumesObj) chartVolumesObj.destroy();
@@ -669,6 +675,42 @@ function desenharGraficos(agrupamento, agrupamento7Dias) {
                 options: getBasicChartOptions('Receita (R$)', true)
             });
         }
+
+        // Gráfico 3: Faturamento Total (Diário) baseado nos filtros aplicados
+        if (chartFaturamentoTotalObj) chartFaturamentoTotalObj.destroy();
+        const ctx3 = document.getElementById('chartFaturamentoTotal');
+        if(ctx3) {
+            const ctx3Context = ctx3.getContext('2d');
+            
+            const gradTotal = ctx3Context.createLinearGradient(0, 0, 0, 320);
+            gradTotal.addColorStop(0, 'rgba(168, 85, 247, 0.4)'); // Purple-500
+            gradTotal.addColorStop(1, 'rgba(168, 85, 247, 0.0)');
+
+            chartFaturamentoTotalObj = new Chart(ctx3, {
+                type: 'line',
+                data: {
+                    labels: labels, // Mesmo eixo X do gráfico de volumes (dados filtrados)
+                    datasets: [
+                        {
+                            label: 'Faturamento Total Bruto (R$)',
+                            data: faturamentoTotalArr,
+                            borderColor: '#a855f7', // Purple-400/500
+                            backgroundColor: gradTotal,
+                            borderWidth: 4,
+                            pointBackgroundColor: '#0f172a',
+                            pointBorderColor: '#a855f7',
+                            pointBorderWidth: 2,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: getBasicChartOptions('Faturamento (R$)', true)
+            });
+        }
+
     } catch(e) { console.error("[PRODUCAO] Erro nos gráficos:", e); }
 }
 
