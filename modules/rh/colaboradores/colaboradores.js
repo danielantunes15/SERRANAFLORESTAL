@@ -20,7 +20,7 @@ window.initRHColaboradores = async function() {
     
     await window.carregarSetoresGlobal(); // CARREGA OS SETORES INICIALMENTE PARA O FILTRO
     await window.carregarCursosGlobais();
-    await window.carregarCargosControladoria(); // <--- CARREGA OS CARGOS DA CONTROLADORIA
+    await window.carregarCargosControladoria(); // <--- CARREGA OS CARGOS DA CONTROLADORIA FILTRADOS
     await window.carregarColaboradoresLista();
 };
 
@@ -49,16 +49,25 @@ window.carregarSetoresGlobal = async function() {
 // ==================== CARREGAR CARGOS DA CONTROLADORIA ====================
 window.carregarCargosControladoria = async function() {
     try {
-        const { data, error } = await window.supabaseClient
+        // Inicia a query buscando cargos ativos
+        let query = window.supabaseClient
             .from('cargos')
             .select('id, nome')
             .eq('status', 'Ativo')
             .order('nome', { ascending: true });
 
+        // Aplica automaticamente o filtro da filial do usuário logado
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        }
+
+        const { data, error } = await query;
+
         if (error) throw error;
 
         const selCargo = document.getElementById('colFuncao');
         if (selCargo) {
+            // Usamos c.nome como value para manter a compatibilidade com o resto do sistema
             selCargo.innerHTML = '<option value="">Selecione um cargo...</option>' + 
                 data.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
         }
