@@ -581,37 +581,3 @@ window.gerarRelatorioPdfUnico = async function(idFrota) {
         setLoadingState(false);
     }
 };
-
-window.gerarRelatorioPdfTodos = async function() {
-    if (typeof window.PDFLib === 'undefined' || listaDeFrotasIndependente.length === 0) return alert("Nenhum dado encontrado.");
-    
-    if(!confirm("Deseja gerar o relatório unificado de TODOS os cavalos cadastrados?")) return;
-
-    setLoadingState(true, "Processando todas as viaturas da frota. Por favor, aguarde...");
-    try {
-        const { PDFDocument } = window.PDFLib;
-        const masterPdf = await PDFDocument.create();
-
-        for (let i = 0; i < listaDeFrotasIndependente.length; i++) {
-            const frota = listaDeFrotasIndependente[i];
-            const subPdfBytes = await buildPdfBufferParaFrota(frota, PDFDocument);
-            const subPdf = await PDFDocument.load(subPdfBytes);
-
-            const copiedPages = await masterPdf.copyPages(subPdf, subPdf.getPageIndices());
-            copiedPages.forEach((page) => masterPdf.addPage(page));
-        }
-
-        const finalBytes = await masterPdf.save();
-        const blob = new Blob([finalBytes], { type: 'application/pdf' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `Relatorio_Completo_Frotas_Geral.pdf`;
-        link.click();
-
-    } catch (e) {
-        console.error(e);
-        alert("Ocorreu um erro ao compilar o relatório unificado.");
-    } finally {
-        setLoadingState(false);
-    }
-};
