@@ -105,7 +105,6 @@ async function buscarTodosDadosSupabase() {
     }
 
     try {
-        // 1. PRIMEIRO: BUSCAR AS GRUAS E SUAS FRENTES / ORDEM
         if(tStatus) tStatus.innerText = "Baixando configurações de Gruas...";
         const { data: gruasData } = await client.from('config_gruas').select('codigos, tipo_frente, ordem, frente');
         
@@ -124,7 +123,6 @@ async function buscarTodosDadosSupabase() {
             });
         }
 
-        // 2. SEGUNDO: BUSCAR HISTÓRICO DE VIAGENS
         if(tStatus) tStatus.innerText = "Baixando histórico de viagens...";
         dadosHistoricoGlobal = [];
         
@@ -191,7 +189,6 @@ function converterDataString(dataStr) {
     return new Date(dataStr);
 }
 
-// CÁLCULO DE TARIFA ESTRITAMENTE PARA TRANSPORTE
 function calcularTarifaTransporte(asfalto, terra) {
     if (!tarifadorAtivoGlobal || !tarifadorAtivoGlobal.dados) return 0;
 
@@ -220,9 +217,9 @@ function atualizarPaineisReceita(f5, f6) {
     const formatarDinheiro = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const formatarNumero = (valor) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
-    // Cálculos Frente 5
-    const f5TranspRS = f5.volTransp * f5.tarifaT;
-    const f5CarrRS = f5.volCarreg * f5.tarifaC;
+    // Cálculos Frente 5 (Acumulados e Médias Corretas)
+    const f5TranspRS = f5.recTranspTotal;
+    const f5CarrRS = f5.recCarregTotal;
     
     document.getElementById('f5_transporte_rs').innerText = formatarDinheiro(f5TranspRS);
     document.getElementById('f5_carregamento_rs').innerText = formatarDinheiro(f5CarrRS);
@@ -234,9 +231,9 @@ function atualizarPaineisReceita(f5, f6) {
     document.getElementById('f5_tarifa_transporte').innerText = formatarNumero(f5.tarifaT);
     document.getElementById('f5_tarifa_carregamento').innerText = formatarNumero(f5.tarifaC);
 
-    // Cálculos Frente 6
-    const f6TranspRS = f6.volTransp * f6.tarifaT;
-    const f6CarrRS = f6.volCarreg * f6.tarifaC;
+    // Cálculos Frente 6 (Acumulados e Médias Corretas)
+    const f6TranspRS = f6.recTranspTotal;
+    const f6CarrRS = f6.recCarregTotal;
 
     document.getElementById('f6_transporte_rs').innerText = formatarDinheiro(f6TranspRS);
     document.getElementById('f6_carregamento_rs').innerText = formatarDinheiro(f6CarrRS);
@@ -274,15 +271,12 @@ function processarFiltrosEExibir() {
             const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
             const isNossaGrua = gruasPropriasCache.has(gruaReg);
 
-            // REGRA 1: Se não é a nossa transportadora E TAMBÉM não é a nossa Grua, esconde da tela
             if (!isSerrana && !isNossaGrua) return false;
 
-            // Filtros do Dropdown
             if (filtroTransp === 'SOMENTE_SERRANA' && !isSerrana) return false;
             if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) return false;
             if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) return false;
 
-            // Filtros de Data - PUXANDO PELA dtFimDescarFabrica prioritariamente
             const dataViagem = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
             
             if (dataViagem) {
@@ -295,7 +289,7 @@ function processarFiltrosEExibir() {
         });
 
         const agrupamentoTabela = {};
-        const agrupamentoFrente = {}; // Mantido apenas para a exportação de Excel
+        const agrupamentoFrente = {}; 
         const agrupamentoDiario = {};
         
         let tTranspViagens = 0, tTranspVol = 0, tTranspRec = 0;
@@ -303,11 +297,17 @@ function processarFiltrosEExibir() {
 
         let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
 
-        let f5 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0 };
-        let f6 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0 };
+        // Estrutura de acúmulo financeiro e de distância real das frentes
+        let f5 = { 
+            volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0,
+            totalAsfalto: 0, totalTerra: 0, totalTarifaT: 0, recTranspTotal: 0, recCarregTotal: 0 
+        };
+        let f6 = { 
+            volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0,
+            totalAsfalto: 0, totalTerra: 0, totalTarifaT: 0, recTranspTotal: 0, recCarregTotal: 0 
+        };
 
         dadosFiltradosAtual.forEach(registro => {
-            // Data Oficial da Viagem baseada no Descarregamento
             const d = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
             
             const pl = registro.placa ? registro.placa.trim().toUpperCase() : 'N/A';
@@ -322,15 +322,11 @@ function processarFiltrosEExibir() {
             const asfalto = parseFloat(String(registro.distanciaAsfalto).replace(',','.')) || 0;
             const terra = parseFloat(String(registro.distanciaTerra).replace(',','.')) || 0;
             
-            // Lógica de cálculo financeiro
             let tarifaTransporte = isSerrana ? calcularTarifaTransporte(asfalto, terra) : 0;
             let recTransporte = isSerrana ? (v * tarifaTransporte) : 0;
-            
-            // REGRA 2: Carregamento só gera receita se a grua for nossa (Propria)
             let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
             let totalReceitaItem = recTransporte + recCarregamento;
 
-            // Acumuladores Globais
             if (isSerrana) {
                 tTranspViagens += 1;
                 tTranspVol += v;
@@ -343,43 +339,45 @@ function processarFiltrosEExibir() {
                 tCarregRec += recCarregamento;
             }
 
-            // Identificação de Frentes Específicas 5 e 6
             let nomeFrente = infoGrua ? infoGrua.frente.toUpperCase() : (registro.frente ? String(registro.frente).toUpperCase() : '');
             
             if (nomeFrente.includes('5')) {
                 if (isSerrana) {
                     f5.volTransp += v;
                     f5.viagens += 1;
-                    f5.asfalto = asfalto;
-                    f5.terra = terra;
-                    f5.tarifaT = tarifaTransporte;
+                    f5.totalAsfalto += asfalto;
+                    f5.totalTerra += terra;
+                    f5.totalTarifaT += tarifaTransporte;
+                    f5.recTranspTotal += recTransporte;
                 }
                 if (isNossaGrua) {
                     f5.volCarreg += v;
+                    f5.recCarregTotal += recCarregamento;
                     f5.tarifaC = precoCarregamento;
                 }
             } else if (nomeFrente.includes('6')) {
                 if (isSerrana) {
                     f6.volTransp += v;
                     f6.viagens += 1;
-                    f6.asfalto = asfalto;
-                    f6.terra = terra;
-                    f6.tarifaT = tarifaTransporte;
+                    f6.totalAsfalto += asfalto;
+                    f6.totalTerra += terra;
+                    f6.totalTarifaT += tarifaTransporte;
+                    f6.recTranspTotal += recTransporte;
                 }
                 if (isNossaGrua) {
                     f6.volCarreg += v;
+                    f6.recCarregTotal += recCarregamento;
                     f6.tarifaC = precoCarregamento;
                 }
             }
 
-            // === ACUMULADOR OBRIGATÓRIO (PARA EXPORTAÇÃO EXCEL APENAS) ===
             let nomeCategoria = "DESCONHECIDO";
             if (isSerrana && isNossaGrua) {
                 let ordem = infoGrua.ordem || 'CX';
                 let frenteNome = infoGrua.frente || 'FRENTE DESCONHECIDA';
                 nomeCategoria = `${ordem}: SERRANA - ${frenteNome}`.toUpperCase();
             } else if (!isSerrana && isNossaGrua) {
-                let nomeTr = tr.split(' ')[0]; // Pega primeira palavra da transportadora
+                let nomeTr = tr.split(' ')[0]; 
                 nomeCategoria = `${nomeTr}: TRANSP. ${tr}`.toUpperCase();
             } else if (isSerrana && !isNossaGrua) {
                 nomeCategoria = `OUTRAS FRENTES: NOSSOS CAMINHÕES`.toUpperCase();
@@ -401,9 +399,7 @@ function processarFiltrosEExibir() {
             agrupamentoFrente[chaveFrente].volume += v;
             agrupamentoFrente[chaveFrente].receita += totalReceitaItem;
 
-            // === 2. ACUMULADOR TABELA PLACA ===
             const chaveTabela = `${pl}_${asfalto}_${terra}`;
-
             if (!agrupamentoTabela[chaveTabela]) {
                 agrupamentoTabela[chaveTabela] = { 
                     placa: pl, 
@@ -424,7 +420,6 @@ function processarFiltrosEExibir() {
             agrupamentoTabela[chaveTabela].recTransp += recTransporte;
             agrupamentoTabela[chaveTabela].recCarreg += recCarregamento;
 
-            // === 3. ACUMULADOR DIÁRIO GRÁFICOS ===
             if (d) {
                 if (!agrupamentoDiario[d]) agrupamentoDiario[d] = { volTransp: 0, recTransp: 0, volCarreg: 0, recCarreg: 0 };
                 if (isSerrana) {
@@ -438,14 +433,123 @@ function processarFiltrosEExibir() {
             }
         });
 
+        // Cálculo das Médias de Distância e Tarifas do Período Filtrado
+        if (f5.viagens > 0) {
+            f5.asfalto = f5.totalAsfalto / f5.viagens;
+            f5.terra = f5.totalTerra / f5.viagens;
+            f5.tarifaT = f5.totalTarifaT / f5.viagens;
+        }
+        if (f6.viagens > 0) {
+            f6.asfalto = f6.totalAsfalto / f6.viagens;
+            f6.terra = f6.totalTerra / f6.viagens;
+            f6.tarifaT = f6.totalTarifaT / f6.viagens;
+        }
+
         dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => {
             if (a.placa === b.placa) return b.viagens - a.viagens; 
             return a.placa.localeCompare(b.placa); 
         });
 
         dadosFrentesAtual = Object.values(agrupamentoFrente).sort((a, b) => b.volume - a.volume);
-
         agrupamentoDiarioGlobal = agrupamentoDiario;
+
+        // === CÁLCULO SEPARADO E EXCLUSIVO DOS ÚLTIMOS 7 DIAS (GRÁFICO FINANCEIRO) ===
+        let dataFimGrafico = new Date();
+        dataFimGrafico.setDate(dataFimGrafico.getDate() - 1); // <-- DEFINE A DATA FINAL COMO ONTEM
+        
+        const milissegundosEm7Dias = 7 * 24 * 60 * 60 * 1000;
+        const referenciaTime = dataFimGrafico.getTime();
+        
+        const temDadosRecentes = dadosHistoricoGlobal.some(r => {
+            const dt = r.dtFimDescarFabrica || r.dataDaBaseExcel;
+            if (!dt) return false;
+            const t = converterDataString(dt).getTime();
+            return (referenciaTime - t) < milissegundosEm7Dias && t <= referenciaTime;
+        });
+
+        if (!temDadosRecentes) {
+            let maxTime = 0;
+            dadosHistoricoGlobal.forEach(r => {
+                const dt = r.dtFimDescarFabrica || r.dataDaBaseExcel;
+                if (dt) {
+                    const t = converterDataString(dt).getTime();
+                    if (t > maxTime && t <= referenciaTime) maxTime = t;
+                }
+            });
+            if (maxTime > 0) dataFimGrafico = new Date(maxTime);
+        }
+
+        dataFimGrafico.setHours(23, 59, 59, 999);
+        const dataInicioGrafico = new Date(dataFimGrafico);
+        dataInicioGrafico.setDate(dataFimGrafico.getDate() - 6);
+        dataInicioGrafico.setHours(0, 0, 0, 0);
+
+        const formatarDataChave = (dateObj) => {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+
+        const ultimos7DiasArray = [];
+        for (let i = 0; i < 7; i++) {
+            const dTemp = new Date(dataInicioGrafico);
+            dTemp.setDate(dataInicioGrafico.getDate() + i);
+            ultimos7DiasArray.push(dTemp);
+        }
+
+        const agrupamento7Dias = {};
+        ultimos7DiasArray.forEach(dt => {
+            const key = formatarDataChave(dt);
+            agrupamento7Dias[key] = {
+                volTransp: 0,
+                recTransp: 0,
+                volCarreg: 0,
+                recCarreg: 0,
+                label: dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+            };
+        });
+
+        dadosHistoricoGlobal.forEach(registro => {
+            const tr = registro.transportadora ? registro.transportadora.trim().toUpperCase() : 'N/A';
+            const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
+            
+            const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
+            const infoGrua = gruasPropriasCache.get(gruaReg);
+            const isNossaGrua = !!infoGrua;
+
+            if (filtroTransp === 'SOMENTE_SERRANA' && !isSerrana) return;
+            if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) return;
+            if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) return;
+
+            const dataViagemStr = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
+            if (!dataViagemStr) return;
+
+            const dateViagem = converterDataString(dataViagemStr);
+            const timeViagem = dateViagem.getTime();
+
+            if (timeViagem >= dataInicioGrafico.getTime() && timeViagem <= dataFimGrafico.getTime()) {
+                const key = formatarDataChave(dateViagem);
+                if (agrupamento7Dias[key]) {
+                    const v = parseFloat(String(registro.volumeReal).replace(',','.')) || 0;
+                    const asfalto = parseFloat(String(registro.distanciaAsfalto).replace(',','.')) || 0;
+                    const terra = parseFloat(String(registro.distanciaTerra).replace(',','.')) || 0;
+                    
+                    let tarifaTransporte = isSerrana ? calcularTarifaTransporte(asfalto, terra) : 0;
+                    let recTransporte = isSerrana ? (v * tarifaTransporte) : 0;
+                    let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
+
+                    if (isSerrana) {
+                        agrupamento7Dias[key].volTransp += v;
+                        agrupamento7Dias[key].recTransp += recTransporte;
+                    }
+                    if (isNossaGrua) {
+                        agrupamento7Dias[key].volCarreg += v;
+                        agrupamento7Dias[key].recCarreg += recCarregamento;
+                    }
+                }
+            }
+        });
 
         // Atualização dos Cards Superiores
         document.getElementById('valTranspViagens').innerText = tTranspViagens.toLocaleString('pt-BR');
@@ -459,7 +563,7 @@ function processarFiltrosEExibir() {
         const totalConsolidado = tTranspRec + tCarregRec;
         document.getElementById('valTotalReceita').innerText = totalConsolidado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        desenharGraficos(agrupamentoDiarioGlobal);
+        desenharGraficos(agrupamentoDiarioGlobal, agrupamento7Dias);
         atualizarPaineisReceita(f5, f6); 
         renderizarTabela(dadosAgrupadosAtual);
 
@@ -470,23 +574,20 @@ function processarFiltrosEExibir() {
     }
 }
 
-function desenharGraficos(agrupamento) {
+function desenharGraficos(agrupamento, agrupamento7Dias) {
     try {
+        // Gráfico 1: Volumes (Respeita filtros de data)
         const datasOrdenadas = Object.keys(agrupamento).sort((a, b) => converterDataString(a).getTime() - converterDataString(b).getTime());
-
         const labels = [];
-        const volTranspArr = []; const volCarregArr = [];
-        const recTranspArr = []; const recCarregArr = [];
+        const volTranspArr = []; 
+        const volCarregArr = [];
 
         datasOrdenadas.forEach(d => {
             labels.push(d.substring(0, 5)); 
             volTranspArr.push(parseFloat(agrupamento[d].volTransp.toFixed(2)));
             volCarregArr.push(parseFloat(agrupamento[d].volCarreg.toFixed(2)));
-            recTranspArr.push(parseFloat(agrupamento[d].recTransp.toFixed(2)));
-            recCarregArr.push(parseFloat(agrupamento[d].recCarreg.toFixed(2)));
         });
 
-        // Gráfico 1: Volumes
         if (chartVolumesObj) chartVolumesObj.destroy();
         const ctx1 = document.getElementById('chartVolumes');
         if(ctx1) {
@@ -503,17 +604,66 @@ function desenharGraficos(agrupamento) {
             });
         }
 
-        // Gráfico 2: Receitas Financeiras
+        // Gráfico 2: Receitas (Autônomo - Últimos 7 Dias)
+        const datas7DiasOrdenadas = Object.keys(agrupamento7Dias).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        const labels7Dias = [];
+        const recTransp7Dias = []; 
+        const recCarreg7Dias = [];
+
+        datas7DiasOrdenadas.forEach(k => {
+            const item = agrupamento7Dias[k];
+            labels7Dias.push(item.label);
+            recTransp7Dias.push(parseFloat(item.recTransp.toFixed(2)));
+            recCarreg7Dias.push(parseFloat(item.recCarreg.toFixed(2)));
+        });
+
         if (chartReceitasObj) chartReceitasObj.destroy();
         const ctx2 = document.getElementById('chartReceitas');
         if(ctx2) {
+            const ctx2Context = ctx2.getContext('2d');
+            
+            // Gradientes modernos para as áreas das curvas de faturamento
+            const gradTransp = ctx2Context.createLinearGradient(0, 0, 0, 320);
+            gradTransp.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+            gradTransp.addColorStop(1, 'rgba(56, 189, 248, 0.00)');
+
+            const gradCarreg = ctx2Context.createLinearGradient(0, 0, 0, 320);
+            gradCarreg.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+            gradCarreg.addColorStop(1, 'rgba(16, 185, 129, 0.00)');
+
             chartReceitasObj = new Chart(ctx2, {
                 type: 'line',
                 data: {
-                    labels: labels,
+                    labels: labels7Dias,
                     datasets: [
-                        { label: 'Rec. Transporte (Serrana)', data: recTranspArr, borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#38bdf8', fill: true, tension: 0.3 },
-                        { label: 'Rec. Carregamento (Nossas Gruas)', data: recCarregArr, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 3, pointBackgroundColor: '#0f172a', pointBorderColor: '#10b981', fill: true, tension: 0.3 }
+                        { 
+                            label: 'Rec. Transporte (Serrana)', 
+                            data: recTransp7Dias, 
+                            borderColor: '#38bdf8', 
+                            backgroundColor: gradTransp, 
+                            borderWidth: 4, 
+                            pointBackgroundColor: '#0f172a', 
+                            pointBorderColor: '#38bdf8', 
+                            pointBorderWidth: 2,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            fill: true, 
+                            tension: 0.4 
+                        },
+                        { 
+                            label: 'Rec. Carregamento (Nossas Gruas)', 
+                            data: recCarreg7Dias, 
+                            borderColor: '#10b981', 
+                            backgroundColor: gradCarreg, 
+                            borderWidth: 4, 
+                            pointBackgroundColor: '#0f172a', 
+                            pointBorderColor: '#10b981', 
+                            pointBorderWidth: 2,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            fill: true, 
+                            tension: 0.4 
+                        }
                     ]
                 },
                 options: getBasicChartOptions('Receita (R$)', true)
@@ -524,25 +674,54 @@ function desenharGraficos(agrupamento) {
 
 function getBasicChartOptions(titleY, isMoney = false) {
     return {
-        responsive: true, maintainAspectRatio: false,
+        responsive: true, 
+        maintainAspectRatio: false,
         plugins: {
-            legend: { labels: { color: '#e2e8f0', font: { weight: 'bold' } } },
+            legend: { 
+                position: 'top',
+                labels: { 
+                    color: '#cbd5e1', 
+                    font: { weight: 'bold', size: 11 },
+                    padding: 15,
+                    usePointStyle: true
+                } 
+            },
             datalabels: {
                 display: true,
                 align: 'top',
                 anchor: 'end',
-                color: '#fff',
+                color: '#f8fafc',
                 font: { weight: 'bold', size: 9 },
                 formatter: (val) => {
                     if (val === 0) return '';
-                    if (isMoney) return (val/1000).toFixed(1) + 'k'; 
-                    return val;
+                    if (isMoney) return 'R$ ' + (val/1000).toFixed(1) + 'k'; 
+                    return val.toLocaleString('pt-BR') + ' m³';
                 }
             }
         },
         scales: {
-            x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { weight: 'bold' } } },
-            y: { display: true, title: { display: true, text: titleY, color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
+            x: { 
+                grid: { display: false }, 
+                ticks: { color: '#94a3b8', font: { weight: 'bold', size: 11 } } 
+            },
+            y: { 
+                display: true, 
+                grid: { 
+                    color: 'rgba(255, 255, 255, 0.06)',
+                    drawBorder: false
+                }, 
+                ticks: { 
+                    color: '#94a3b8',
+                    font: { size: 10 },
+                    callback: function(value) {
+                        if (isMoney) {
+                            if (value >= 1000) return 'R$ ' + (value / 1000) + 'k';
+                            return 'R$ ' + value;
+                        }
+                        return value;
+                    }
+                } 
+            }
         }
     }
 }
@@ -574,11 +753,11 @@ function renderizarTabela(dados) {
             tr.innerHTML = `
                 <td class="px-6 py-3 font-bold text-white"><span class="bg-slate-900 px-2 py-1 rounded border border-slate-700 font-mono tracking-widest">${l.placa}</span></td>
                 <td class="px-6 py-3 uppercase">${isSerranaBadge}</td>
-                <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.asfalto} km</td>
-                <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.terra} km</td>
+                <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.asfalto.toFixed(1)} km</td>
+                <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.terra.toFixed(1)} km</td>
                 <td class="px-6 py-3 text-center text-sky-400 font-mono font-bold">${tarifaStr}</td>
                 <td class="px-6 py-3 text-center text-slate-300 font-black">${l.viagens}</td>
-                <td class="px-6 py-3 text-right text-slate-300 font-mono font-bold">${l.volume.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                <td class="px-6 py-3 text-right text-slate-300 font-mono font-bold">${l.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                 <td class="px-6 py-3 text-right text-sky-400 font-mono">${l.recTransp.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                 <td class="px-6 py-3 text-right text-emerald-400 font-mono">${l.recCarreg.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                 <td class="px-6 py-3 text-right text-purple-400 font-mono font-black bg-purple-500/5">${totalGerado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
@@ -603,9 +782,7 @@ function exportarParaExcel() {
     
     const wb = XLSX.utils.book_new();
 
-    // ==========================================
     // 1. ABA DE FRENTES (RESUMO)
-    // ==========================================
     const excelFrentesArr = dadosFrentesAtual.map(i => ({
         "Frente / Categoria": i.categoria,
         "Dist. Asfalto (km)": i.asfalto,
@@ -618,9 +795,7 @@ function exportarParaExcel() {
     }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelFrentesArr), "Resumo por Frente");
 
-    // ==========================================
     // 2. ABA DETALHADA POR PLACA E ROTA
-    // ==========================================
     const obj = {};
     let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
 
