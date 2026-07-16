@@ -179,6 +179,7 @@ function atualizarTabelaEntregas(listaReqs) {
                 origem: req.source_table,
                 colaborador_nome: req.colaborador_nome,
                 usuario_solicitante: req.usuario_solicitante,
+                usuario_entregador: req.usuario_entregador, // Mapeando a nova coluna
                 centro_custo: req.centro_custo,
                 os_id: req.os_id,
                 placa: req.placa,
@@ -422,7 +423,12 @@ window.finalizarEntregaAssinadaEntregas = async function() {
                 }
             }
 
-            let updatePayload = { data_assinatura: new Date().toISOString() };
+            // Geração do Payload com a nova coluna de rastreamento do usuário
+            let updatePayload = { 
+                data_assinatura: new Date().toISOString(),
+                usuario_entregador: window.currentUser ? window.currentUser.username : 'Almoxarifado'
+            };
+            
             if (colabUrl) updatePayload.assinatura_url = colabUrl;
             if (entregadorUrl) updatePayload.assinatura_entregador_url = entregadorUrl;
 
@@ -437,7 +443,14 @@ window.finalizarEntregaAssinadaEntregas = async function() {
             
             fecharModalEntregas('modalAssinaturaEntregas');
             if (confirm("Assinaturas salvas com sucesso! Deseja imprimir o Termo de Entrega agora?")) { 
-                imprimirTermoEntregaGrupoEntregas(itensPendentesParaAssinaturaEntregas, colabUrl, entregadorUrl); 
+                // Passa as URLs temporárias recém geradas para forçar a impressão com elas
+                const itensAtualizadosTemporariamente = itensPendentesParaAssinaturaEntregas.map(i => {
+                    return {
+                        ...i,
+                        usuario_entregador: updatePayload.usuario_entregador
+                    };
+                });
+                imprimirTermoEntregaGrupoEntregas(itensAtualizadosTemporariamente, colabUrl, entregadorUrl); 
             }
         } else {
             fecharModalEntregas('modalAssinaturaEntregas');
@@ -573,7 +586,7 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
             <div class="signature-box">
                 <div class="img-wrapper">${imgEnt}</div>
                 <div class="signature-line"></div>
-                <div class="signature-name">${window.currentUser ? window.currentUser.username : 'Almoxarifado'}</div>
+                <div class="signature-name">${reqBase.usuario_entregador || 'Almoxarifado'}</div>
                 <div class="signature-role">Responsável pela Entrega</div>
             </div>
         </div>
