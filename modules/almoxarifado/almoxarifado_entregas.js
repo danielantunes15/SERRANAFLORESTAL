@@ -5,8 +5,10 @@ let requisicoesEstoqueEntregas = [];
 let grupoAvaliacaoAtualEntregas = [];
 let itensPendentesParaAssinaturaEntregas = [];
 
-// Variável para controle das Abas
+// Controle de Abas e Paginação
 let abaAtualEntregas = 'hoje';
+let paginaAtualHistorico = 1;
+const itensPorPagina = 10; // Você pode aumentar ou diminuir a quantidade de requisições por página
 
 // Variáveis para as duas assinaturas
 let canvasColab, ctxColab, isDrawingColab = false, hasColabSig = false;
@@ -48,20 +50,24 @@ function injetarModalAprovacaoEntregas() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-// ==================== LÓGICA DAS ABAS E FILTROS ====================
+// ==================== LÓGICA DAS ABAS, FILTROS E PAGINAÇÃO ====================
 
 window.trocarAbaEntregas = function(aba) {
     abaAtualEntregas = aba;
+    paginaAtualHistorico = 1; // Reseta a paginação ao trocar de aba
+    
     document.getElementById('tab-hoje').classList.toggle('active', aba === 'hoje');
     document.getElementById('tab-historico').classList.toggle('active', aba === 'historico');
     
     document.getElementById('filtrosHistorico').style.display = aba === 'historico' ? 'flex' : 'none';
     document.getElementById('controleBuscaSimples').style.display = aba === 'hoje' ? 'flex' : 'none';
+    document.getElementById('paginacaoEntregas').style.display = aba === 'historico' ? 'flex' : 'none';
     
     renderizarTabelaPorAba();
 }
 
 window.filtrarHistoricoEntregas = function() {
+    paginaAtualHistorico = 1; // Reseta a paginação ao filtrar
     renderizarTabelaPorAba();
 }
 
@@ -70,6 +76,7 @@ window.limparFiltrosEntregas = function() {
     document.getElementById('filtroPed').value = '';
     document.getElementById('filtroData').value = '';
     document.getElementById('filtroStatus').value = '';
+    paginaAtualHistorico = 1;
     renderizarTabelaPorAba();
 }
 
@@ -77,9 +84,15 @@ window.filtrarTabelaEntregas = function() {
     renderizarTabelaPorAba();
 }
 
+window.mudarPaginaEntregas = function(direcao) {
+    paginaAtualHistorico += direcao;
+    renderizarTabelaPorAba();
+}
+
 window.renderizarTabelaPorAba = function() {
     let dados = [...requisicoesEstoqueEntregas];
 
+    // Aplicar Filtros Iniciais Baseados na Aba
     if(abaAtualEntregas === 'hoje') {
         const hojeStr = new Date().toLocaleDateString('pt-BR');
         dados = dados.filter(req => {
@@ -109,7 +122,147 @@ window.renderizarTabelaPorAba = function() {
         }
     }
 
-    atualizarTabelaEntregas(dados);
+    // 1. Agrupar os Itens (Para não quebrar um pedido no meio da paginação)
+    const gruposReq = {};
+    dados.forEach(req => {
+        let chave = req.source_table === 'almoxarifado_requisicoes' ? `${req.created_at}_${req.colaborador_nome}` : `${req.created_at}_${req.os_id || req.centro_custo}`;
+        if(!gruposReq[chave]) {
+            gruposReq[chave] = {
+                data: req.created_at,
+                origem: req.source_table,
+                colaborador_nome: req.colaborador_nome,
+                usuario_solicitante: req.usuario_solicitante,
+                usuario_entregador: req.usuario_entregador,
+                centro_custo: req.centro_custo,
+                os_id: req.os_id,
+                placa: req.placa,
+                mecanico_responsavel: req.mecanico_responsavel,
+                status: req.status || 'Pendente',
+                itens: [],
+                id_grupo: req.id
+            };
+        }
+        if(req.status === 'Pendente' || !req.status) { gruposReq[chave].status = 'Pendente'; }
+        gruposReq[chave].itens.push(req);
+    });
+
+    // Filtra Status do Grupo (só aplicável no Histórico)
+    let gruposArray = Object.values(gruposReq);
+    if (abaAtualEntregas === 'historico') {
+        const fStatus = document.getElementById('filtroStatus').value;
+        if (fStatus) {
+            gruposArray = gruposArray.filter(grupo => {
+                let todosAprovados = true, todosRecusados = true, todosDevolvidos = true;
+                grupo.itens.forEach(req => {
+                    const stat = req.status || 'Pendente';
+                    if(stat !== 'Aprovado') todosAprovados = false;
+                    if(stat !== 'Recusado') todosRecusados = false;
+                    if(stat !== 'Devolvido') todosDevolvidos = false;
+                });
+                let statusFinal = grupo.status;
+                if(todosAprovados) statusFinal = 'Aprovado';
+                else if(todosRecusados) statusFinal = 'Recusado';
+                else if(todosDevolvidos) statusFinal = 'Devolvido';
+
+                return statusFinal === fStatus;
+            });
+        }
+    }
+
+    // 2. Aplicar Paginação APENAS se for Aba Histórico
+    if (abaAtualEntregas === 'historico') {
+        const totalPaginas = Math.ceil(gruposArray.length / itensPorPagina) || 1;
+        
+        if (paginaAtualHistorico < 1) paginaAtualHistorico = 1;
+        if (paginaAtualHistorico > totalPaginas) paginaAtualHistorico = totalPaginas;
+
+        document.getElementById('textoPaginacao').innerText = `Página ${paginaAtualHistorico} de ${totalPaginas}`;
+        document.getElementById('btnPaginaAnt').disabled = (paginaAtualHistorico === 1);
+        document.getElementById('btnPaginaProx').disabled = (paginaAtualHistorico === totalPaginas);
+
+        const inicio = (paginaAtualHistorico - 1) * itensPorPagina;
+        const fim = inicio + itensPorPagina;
+        gruposArray = gruposArray.slice(inicio, fim);
+    }
+
+    // 3. Renderizar o HTML da Tabela
+    const tbody = document.getElementById('tabelaEntregasBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    if(gruposArray.length === 0) { 
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma requisição encontrada.</td></tr>'; 
+        return; 
+    }
+
+    gruposArray.forEach(grupo => {
+        const dataFormatada = grupo.data ? new Date(grupo.data).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+        
+        let tituloOrigem = '', usuarioReq = '';
+        if(grupo.origem === 'almoxarifado_requisicoes') {
+            tituloOrigem = `<strong style="color:#fbbf24; font-size:1.05rem;">Req. Mat #${grupo.id_grupo}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-id-badge"></i> Para: ${grupo.colaborador_nome}</span>`;
+            usuarioReq = `<span style="color:#94a3b8; font-size:0.75rem;">Solicitado por:</span><br><strong style="color:#e2e8f0;">${grupo.usuario_solicitante}</strong>`;
+        } else {
+            tituloOrigem = grupo.centro_custo 
+                ? `<strong style="color:#a855f7; font-size:1.05rem;">RM-Int #${grupo.id_grupo}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-building"></i> ${grupo.centro_custo}</span>` 
+                : `<strong style="color:#60a5fa; font-size:1.05rem;">O.S #${grupo.os_id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-truck"></i> ${grupo.placa || 'Frota'}</span>`;
+            usuarioReq = `<strong style="color:#e2e8f0;">${grupo.mecanico_responsavel || 'Mecânico'}</strong>`;
+        }
+
+        let listaPecasHtml = '', listaQtdHtml = '';
+        let todosAprovados = true, todosRecusados = true, todosDevolvidos = true;
+
+        grupo.itens.forEach(req => {
+            const pecaRef = pecasEstoqueEntregas.find(p => String(p.id) === String(req.peca_id));
+            const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
+            const stat = req.status || 'Pendente';
+            
+            let corItem = stat === 'Aprovado' ? '#34d399' : (stat === 'Recusado' ? '#ef4444' : (stat === 'Devolvido' ? '#94a3b8' : '#cbd5e1'));
+
+            listaPecasHtml += `<div style="padding: 3px 0; color: ${corItem}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;" title="${nomePeca}">• ${nomePeca}</div>`;
+            listaQtdHtml += `<div style="padding: 3px 0; color: ${corItem}; font-weight: bold;">${req.quantidade}</div>`;
+            
+            if(stat !== 'Aprovado') todosAprovados = false;
+            if(stat !== 'Recusado') todosRecusados = false;
+            if(stat !== 'Devolvido') todosDevolvidos = false;
+        });
+
+        let stat = grupo.status;
+        if(todosAprovados) stat = 'Aprovado';
+        else if(todosRecusados) stat = 'Recusado';
+        else if(todosDevolvidos) stat = 'Devolvido';
+
+        let statusBadge = '', btnAcao = '';
+        if (stat === 'Pendente') {
+            statusBadge = '<span class="badge" style="background:#f59e0b; color:#fff;"><i class="fas fa-clock"></i> Aguardando</span>';
+            btnAcao = `<button class="btn-action-sm btn-info" style="background:#38bdf8; padding:8px 12px; font-weight:bold;" title="Avaliar e Entregar" onclick="abrirModalAprovacaoGrupoEntregas('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome || grupo.os_id || grupo.centro_custo}')"><i class="fas fa-boxes"></i> Separar & Entregar</button>`;
+        } else if (stat === 'Aprovado') {
+            statusBadge = '<span class="badge" style="background:#10b981; color:#fff;"><i class="fas fa-check"></i> Entregue</span>';
+            btnAcao = `
+                <div style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;">
+                    ${grupo.origem === 'almoxarifado_requisicoes' ? `<button class="btn-action-sm" style="background:#8b5cf6;" title="Reimprimir Termo" onclick="reimprimirTermoGrupoEntregas('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome}')"><i class="fas fa-print"></i></button>` : ''}
+                    <button class="btn-action-sm" style="background:#f59e0b; color:#fff;" title="Cancelar Pedido e Devolver ao Estoque" onclick="estornarRequisicaoGrupoEntregas('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome || grupo.os_id || grupo.centro_custo}')"><i class="fas fa-undo"></i> Estornar</button>
+                </div>`;
+        } else if (stat === 'Devolvido') {
+            statusBadge = '<span class="badge" style="background:#64748b; color:#fff;"><i class="fas fa-undo"></i> Estornada</span>';
+            btnAcao = '<span style="color:#94a3b8; font-size:0.8rem;">Itens Devolvidos</span>';
+        } else {
+            statusBadge = '<span class="badge" style="background:#ef4444; color:#fff;"><i class="fas fa-times"></i> Recusada</span>';
+            btnAcao = '<span style="color:#94a3b8; font-size:0.8rem;">Recusada</span>';
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="color: #94a3b8; vertical-align: middle;">${dataFormatada}</td>
+            <td style="vertical-align: middle;">${tituloOrigem}</td>
+            <td style="vertical-align: middle;">${usuarioReq}</td>
+            <td style="vertical-align: middle;">${listaPecasHtml}</td>
+            <td style="vertical-align: middle; text-align:center;">${listaQtdHtml}</td>
+            <td style="vertical-align: middle;">${statusBadge}</td>
+            <td style="text-align: right; display:flex; gap:5px; justify-content: flex-end; align-items:center; height: 100%; min-height: 60px;">${btnAcao}</td>
+        `;
+        tbody.appendChild(tr);
+    });
 }
 
 
@@ -224,11 +377,13 @@ async function carregarDadosEntregas() {
         pecasEstoqueEntregas = await db.getPecas();
         
         if (window.supabaseClient) {
-            let queryReqsOS = window.supabaseClient.from('os_pecas_utilizadas').select('*').order('id', { ascending: false }).limit(100);
+            // OBS: Removi o .limit(100) para permitir que o histórico completo seja buscado
+            // e paginado. Caso comece a travar no futuro, limite a 500, 1000 ou aplique paginação direto na API
+            let queryReqsOS = window.supabaseClient.from('os_pecas_utilizadas').select('*').order('id', { ascending: false });
             if (typeof window.aplicarFiltroFilial === 'function') queryReqsOS = window.aplicarFiltroFilial(queryReqsOS);
             const { data: reqsOS } = await queryReqsOS;
             
-            let queryReqsColab = window.supabaseClient.from('almoxarifado_requisicoes').select('*').order('id', { ascending: false }).limit(100);
+            let queryReqsColab = window.supabaseClient.from('almoxarifado_requisicoes').select('*').order('id', { ascending: false });
             if (typeof window.aplicarFiltroFilial === 'function') queryReqsColab = window.aplicarFiltroFilial(queryReqsColab);
             const { data: reqsColab } = await queryReqsColab;
 
@@ -242,114 +397,6 @@ async function carregarDadosEntregas() {
 
         renderizarTabelaPorAba();
     } catch (e) { console.error("Erro ao carregar requisições para entregas", e); }
-}
-
-function atualizarTabelaEntregas(listaReqs) {
-    const tbody = document.getElementById('tabelaEntregasBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-    if(listaReqs.length === 0) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma requisição encontrada.</td></tr>'; return; }
-
-    const gruposReq = {};
-    listaReqs.forEach(req => {
-        let chave = '';
-        if(req.source_table === 'almoxarifado_requisicoes') { chave = `${req.created_at}_${req.colaborador_nome}`; } 
-        else { chave = `${req.created_at}_${req.os_id || req.centro_custo}`; }
-        
-        if(!gruposReq[chave]) {
-            gruposReq[chave] = {
-                data: req.created_at,
-                origem: req.source_table,
-                colaborador_nome: req.colaborador_nome,
-                usuario_solicitante: req.usuario_solicitante,
-                usuario_entregador: req.usuario_entregador,
-                centro_custo: req.centro_custo,
-                os_id: req.os_id,
-                placa: req.placa,
-                mecanico_responsavel: req.mecanico_responsavel,
-                status: req.status || 'Pendente',
-                itens: [],
-                id_grupo: req.id
-            };
-        }
-        if(req.status === 'Pendente' || !req.status) { gruposReq[chave].status = 'Pendente'; }
-        gruposReq[chave].itens.push(req);
-    });
-
-    Object.values(gruposReq).forEach(grupo => {
-        const dataFormatada = grupo.data ? new Date(grupo.data).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
-        
-        let tituloOrigem = '', usuarioReq = '';
-        if(grupo.origem === 'almoxarifado_requisicoes') {
-            tituloOrigem = `<strong style="color:#fbbf24; font-size:1.05rem;">Req. Mat #${grupo.id_grupo}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-id-badge"></i> Para: ${grupo.colaborador_nome}</span>`;
-            usuarioReq = `<span style="color:#94a3b8; font-size:0.75rem;">Solicitado por:</span><br><strong style="color:#e2e8f0;">${grupo.usuario_solicitante}</strong>`;
-        } else {
-            tituloOrigem = grupo.centro_custo 
-                ? `<strong style="color:#a855f7; font-size:1.05rem;">RM-Int #${grupo.id_grupo}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-building"></i> ${grupo.centro_custo}</span>` 
-                : `<strong style="color:#60a5fa; font-size:1.05rem;">O.S #${grupo.os_id}</strong><br><span style="color:#cbd5e1; font-size:0.85rem;"><i class="fas fa-truck"></i> ${grupo.placa || 'Frota'}</span>`;
-            usuarioReq = `<strong style="color:#e2e8f0;">${grupo.mecanico_responsavel || 'Mecânico'}</strong>`;
-        }
-
-        let listaPecasHtml = '', listaQtdHtml = '';
-        let todosAprovados = true, todosRecusados = true, todosDevolvidos = true;
-
-        grupo.itens.forEach(req => {
-            const pecaRef = pecasEstoqueEntregas.find(p => String(p.id) === String(req.peca_id));
-            const nomePeca = pecaRef ? pecaRef.nome : '<span style="color:#f87171; font-style:italic;">Peça Excluída</span>';
-            const stat = req.status || 'Pendente';
-            
-            let corItem = stat === 'Aprovado' ? '#34d399' : (stat === 'Recusado' ? '#ef4444' : (stat === 'Devolvido' ? '#94a3b8' : '#cbd5e1'));
-
-            listaPecasHtml += `<div style="padding: 3px 0; color: ${corItem}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;" title="${nomePeca}">• ${nomePeca}</div>`;
-            listaQtdHtml += `<div style="padding: 3px 0; color: ${corItem}; font-weight: bold;">${req.quantidade}</div>`;
-            
-            if(stat !== 'Aprovado') todosAprovados = false;
-            if(stat !== 'Recusado') todosRecusados = false;
-            if(stat !== 'Devolvido') todosDevolvidos = false;
-        });
-
-        let stat = grupo.status;
-        if(todosAprovados) stat = 'Aprovado';
-        else if(todosRecusados) stat = 'Recusado';
-        else if(todosDevolvidos) stat = 'Devolvido';
-
-        // Filtro condicional por Status na Aba Histórico
-        if (abaAtualEntregas === 'historico') {
-            const fStatus = document.getElementById('filtroStatus').value;
-            if (fStatus && stat !== fStatus) return; // Pula este grupo
-        }
-
-        let statusBadge = '', btnAcao = '';
-        if (stat === 'Pendente') {
-            statusBadge = '<span class="badge" style="background:#f59e0b; color:#fff;"><i class="fas fa-clock"></i> Aguardando</span>';
-            btnAcao = `<button class="btn-action-sm btn-info" style="background:#38bdf8; padding:8px 12px; font-weight:bold;" title="Avaliar e Entregar" onclick="abrirModalAprovacaoGrupoEntregas('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome || grupo.os_id || grupo.centro_custo}')"><i class="fas fa-boxes"></i> Separar & Entregar</button>`;
-        } else if (stat === 'Aprovado') {
-            statusBadge = '<span class="badge" style="background:#10b981; color:#fff;"><i class="fas fa-check"></i> Entregue</span>';
-            btnAcao = `
-                <div style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;">
-                    ${grupo.origem === 'almoxarifado_requisicoes' ? `<button class="btn-action-sm" style="background:#8b5cf6;" title="Reimprimir Termo" onclick="reimprimirTermoGrupoEntregas('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome}')"><i class="fas fa-print"></i></button>` : ''}
-                    <button class="btn-action-sm" style="background:#f59e0b; color:#fff;" title="Cancelar Pedido e Devolver ao Estoque" onclick="estornarRequisicaoGrupoEntregas('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome || grupo.os_id || grupo.centro_custo}')"><i class="fas fa-undo"></i> Estornar</button>
-                </div>`;
-        } else if (stat === 'Devolvido') {
-            statusBadge = '<span class="badge" style="background:#64748b; color:#fff;"><i class="fas fa-undo"></i> Estornada</span>';
-            btnAcao = '<span style="color:#94a3b8; font-size:0.8rem;">Itens Devolvidos</span>';
-        } else {
-            statusBadge = '<span class="badge" style="background:#ef4444; color:#fff;"><i class="fas fa-times"></i> Recusada</span>';
-            btnAcao = '<span style="color:#94a3b8; font-size:0.8rem;">Recusada</span>';
-        }
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td style="color: #94a3b8; vertical-align: middle;">${dataFormatada}</td>
-            <td style="vertical-align: middle;">${tituloOrigem}</td>
-            <td style="vertical-align: middle;">${usuarioReq}</td>
-            <td style="vertical-align: middle;">${listaPecasHtml}</td>
-            <td style="vertical-align: middle; text-align:center;">${listaQtdHtml}</td>
-            <td style="vertical-align: middle;">${statusBadge}</td>
-            <td style="text-align: right; display:flex; gap:5px; justify-content: flex-end; align-items:center; height: 100%; min-height: 60px;">${btnAcao}</td>
-        `;
-        tbody.appendChild(tr);
-    });
 }
 
 

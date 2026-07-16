@@ -8,7 +8,7 @@
     .almo-header h2 { margin: 0; color: #ffffff; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; font-weight: bold; }
     .almo-header h2 i { color: #3b82f6; }
     
-    /* Novos estilos para Abas e Filtros */
+    /* Abas e Filtros */
     .almo-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #334155; }
     .almo-tab { padding: 10px 20px; cursor: pointer; color: #94a3b8; font-weight: 600; border-bottom: 2px solid transparent; transition: 0.2s; }
     .almo-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
@@ -33,6 +33,7 @@
     
     .badge { padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
     .btn-modern { padding: 10px 18px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; font-size: 0.9rem; }
+    .btn-modern:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: #3b82f6; color: white; }
     .btn-success { background: #10b981; color: white; }
     .btn-warning { background: #f59e0b; color: white; }
@@ -43,6 +44,10 @@
     .almo-modal-content { background: #1e293b; color: #e2e8f0; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); padding: 30px; position: relative; border: 1px solid #334155; }
     .almo-close { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; color: #94a3b8; cursor: pointer; transition: 0.2s; }
     .almo-close:hover { color: #fff; }
+
+    /* Paginação */
+    .almo-pagination { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px; }
+    .almo-pagination span { color: #cbd5e1; font-weight: 600; font-size: 0.9rem; }
 </style>
 
 <div class="almo-container">
@@ -95,6 +100,13 @@
             </thead>
             <tbody id="tabelaEntregasBody"></tbody>
         </table>
+    </div>
+
+    <!-- Controles de Paginação -->
+    <div class="almo-pagination" id="paginacaoEntregas" style="display: none;">
+        <button class="btn-modern btn-dark" id="btnPaginaAnt" onclick="mudarPaginaEntregas(-1)"><i class="fas fa-chevron-left"></i> Anterior</button>
+        <span id="textoPaginacao">Página 1 de 1</span>
+        <button class="btn-modern btn-dark" id="btnPaginaProx" onclick="mudarPaginaEntregas(1)">Próxima <i class="fas fa-chevron-right"></i></button>
     </div>
 </div>
 
