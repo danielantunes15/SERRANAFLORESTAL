@@ -1,10 +1,11 @@
 <div class="action-bar" style="flex-wrap: wrap; gap: 15px;">
     <h3 style="color: var(--text-primary); margin: 0; align-self: center;"><i class="fas fa-life-ring"></i> Gestão de Borracharia</h3>
-    <div class="button-group" style="margin-left: auto;">
+    <div class="button-group" style="margin-left: auto; flex-wrap: wrap;">
         <button class="btn-primary-blue" onclick="abrirModalLivroBorracharia()" style="background-color: #6366f1; border-color: #6366f1; color: white;"><i class="fas fa-book"></i> Gerar Livro do Mês</button>
         <button class="btn-secondary-dark" onclick="abrirModalFichaBorracharia()"><i class="fas fa-print"></i> Ficha Avulsa</button>
+        <button class="btn-secondary-dark" onclick="alternarTelaBorracharia('pneus')" style="border-color: #a855f7; color: #d8b4fe;"><i class="fas fa-database"></i> Cadastro de Pneus</button>
         <button class="btn-primary-blue" onclick="alternarTelaBorracharia('painel')"><i class="fas fa-chart-line"></i> Painel e Alertas</button>
-        <button class="btn-primary-blue" onclick="alternarTelaBorracharia('historico')"><i class="fas fa-history"></i> Histórico</button>
+        <button class="btn-primary-blue" onclick="alternarTelaBorracharia('historico')"><i class="fas fa-history"></i> Histórico Diário</button>
         <button class="btn-primary-green" onclick="alternarTelaBorracharia('calibragem')"><i class="fas fa-compress-arrows-alt"></i> Nova Calibragem</button>
         <button class="btn-danger-block" onclick="alternarTelaBorracharia('troca')"><i class="fas fa-sync-alt"></i> Registrar Troca</button>
     </div>
@@ -13,23 +14,26 @@
 <!-- TELA PAINEL / DASHBOARD -->
 <div id="telaPainelBorracharia" class="content-panel" style="display: block;">
     <div class="panel-header" style="background: rgba(59, 130, 246, 0.1);">
-        <h3 style="color: var(--ccol-blue-bright);"><i class="fas fa-chart-line"></i> Painel de Alertas - Calibragem (Ciclo de 15 Dias)</h3>
+        <h3 style="color: var(--ccol-blue-bright);"><i class="fas fa-chart-line"></i> Painel de Controle Integrado</h3>
     </div>
     
     <div class="quick-stats-header" style="padding: 20px; gap: 15px; flex-wrap: wrap;">
         <div class="q-stat" style="flex: 1; text-align: center; border-left: 4px solid var(--ccol-green-bright);">
-            Calibragens (Mês Atual)<br><span id="kpiCalibragensMes" style="font-size: 2rem; color: #fff;">0</span>
+            Calibragens (Mês)<br><span id="kpiCalibragensMes" style="font-size: 1.8rem; color: #fff;">0</span>
         </div>
-        <div class="q-stat" style="flex: 1; text-align: center; border-left: 4px solid #ef4444;">
-            Pneus Trocados (Mês Atual)<br><span id="kpiTrocasMes" style="font-size: 2rem; color: #fff;">0</span>
+        <div class="q-stat" style="flex: 1; text-align: center; border-left: 4px solid #3b82f6;">
+            Pneus em Estoque<br><span id="kpiEstoquePneus" style="font-size: 1.8rem; color: #3b82f6;">0</span>
+        </div>
+        <div class="q-stat" style="flex: 1; text-align: center; border-left: 4px solid #a855f7;">
+            Pneus na Recapagem<br><span id="kpiRecapagemPneus" style="font-size: 1.8rem; color: #d8b4fe;">0</span>
         </div>
         <div class="q-stat" style="flex: 1; text-align: center; border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.1);">
-            Veículos com Calibragem Vencida<br><span id="kpiVencidos" style="font-size: 2rem; color: #f59e0b;">0</span>
+            Calibragens Vencidas<br><span id="kpiVencidos" style="font-size: 1.8rem; color: #f59e0b;">0</span>
         </div>
     </div>
 
     <div style="padding: 0 20px 20px 20px;">
-        <h4 style="color: #fca5a5; margin-bottom: 10px;"><i class="fas fa-exclamation-triangle"></i> Atenção: Veículos sem calibração há mais de 15 dias (Gruas não listadas)</h4>
+        <h4 style="color: #fca5a5; margin-bottom: 10px;"><i class="fas fa-exclamation-triangle"></i> Veículos sem calibração há mais de 15 dias</h4>
         <div class="table-modern-wrapper">
             <table class="data-table-modern">
                 <thead>
@@ -50,10 +54,39 @@
     </div>
 </div>
 
-<!-- TELA DE HISTÓRICO -->
+<!-- TELA CADASTRO DE PNEUS -->
+<div id="telaPneusBorracharia" class="content-panel" style="display: none;">
+    <div class="panel-header" style="background: rgba(139, 92, 246, 0.1); border-bottom: 2px solid #8b5cf6;">
+        <h3 style="color: #d8b4fe;"><i class="fas fa-tire"></i> Inventário de Pneus (Controle por Fogo)</h3>
+        <div class="panel-controls" style="display: flex; gap: 10px;">
+            <input type="text" id="searchPneus" placeholder="Buscar Fogo, Marca, Placa..." class="search-input-dark" onkeyup="renderizarPneusBorracharia()">
+            <button class="btn-primary-green" onclick="abrirModalPneu()"><i class="fas fa-plus"></i> Novo Pneu</button>
+        </div>
+    </div>
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Nº Fogo</th>
+                    <th>Marca / Medida</th>
+                    <th>Status</th>
+                    <th>Ciclos (Vidas)</th>
+                    <th>Localização Atual</th>
+                    <th>Custo Unit.</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaPneusBorracharia">
+                <tr><td colspan="7">Carregando banco de pneus...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- TELA DE HISTÓRICO DE SERVIÇOS -->
 <div id="telaHistoricoBorracharia" class="content-panel" style="display: none;">
     <div class="panel-header">
-        <h3>Histórico Geral de Pneus da Frota</h3>
+        <h3>Histórico de Calibragens e Trocas</h3>
         <div class="panel-controls">
             <input type="text" id="searchBorracharia" placeholder="Buscar por placa..." class="search-input-dark" onkeyup="renderizarHistoricoBorracharia()">
         </div>
@@ -65,8 +98,8 @@
                     <th>Data do Serviço</th>
                     <th>Placa (Veículo)</th>
                     <th>Tipo Serviço</th>
-                    <th>Posição do Pneu</th>
-                    <th>Pressão / Marca</th>
+                    <th>Posição</th>
+                    <th>Detalhe (Lbs / Pneu)</th>
                     <th>Mecânico</th>
                     <th>Motivo/Obs</th>
                 </tr>
@@ -122,10 +155,10 @@
     </div>
 </div>
 
-<!-- TELA REGISTRAR TROCA -->
+<!-- TELA REGISTRAR TROCA (AGORA INTEGRADA AO ESTOQUE) -->
 <div id="telaTrocaBorracharia" class="content-panel" style="display: none;">
     <div class="panel-header" style="background: rgba(239, 68, 68, 0.1); border-bottom: 2px solid #ef4444;">
-        <h3 style="color: #ef4444;"><i class="fas fa-sync-alt"></i> Registrar Troca de Pneu</h3>
+        <h3 style="color: #ef4444;"><i class="fas fa-sync-alt"></i> Registrar Troca de Pneu (Integrado)</h3>
     </div>
     <div style="padding: 25px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
         <div class="form-group-dark">
@@ -145,37 +178,158 @@
             </select>
         </div>
         <div class="form-group-dark">
-            <label>Placa da Frota</label>
-            <select id="trocaPlaca" class="dark-select"><option value="">Selecione...</option></select>
+            <label>Placa da Frota (Destino)</label>
+            <select id="trocaPlaca" class="dark-select"><option value="">Selecione o caminhão...</option></select>
         </div>
         <div class="form-group-dark">
-            <label>Posição do Pneu Trocado</label>
-            <input type="text" id="trocaPosicao" placeholder="Ex: 3º Eixo Direito Ext.">
+            <label>Posição no Veículo</label>
+            <input type="text" id="trocaPosicao" placeholder="Ex: 3º Eixo Dir Ext">
         </div>
-        <div class="form-group-dark">
-            <label>Marca / Modelo do Novo Pneu</label>
-            <input type="text" id="trocaMarca" placeholder="Ex: Michelin XTE2">
+        
+        <div class="form-group-dark" style="background: rgba(59, 130, 246, 0.1); padding: 10px; border-radius: 8px; border: 1px solid #3b82f6;">
+            <label style="color: var(--ccol-blue-bright);"><i class="fas fa-arrow-down"></i> Pneu a Instalar (Vem do Estoque)</label>
+            <select id="trocaFogoNovo" class="dark-select">
+                <option value="">Selecione o Pneu no Estoque...</option>
+            </select>
         </div>
+
+        <div class="form-group-dark" style="background: rgba(239, 68, 68, 0.1); padding: 10px; border-radius: 8px; border: 1px solid #ef4444;">
+            <label style="color: #fca5a5;"><i class="fas fa-arrow-up"></i> Nº de Fogo Retirado (Opcional)</label>
+            <input type="text" id="trocaFogoRetirado" placeholder="Ex: 98765">
+        </div>
+        
         <div class="form-group-dark" style="grid-column: 1 / -1;">
-            <label>Motivo da Troca</label>
-            <select id="trocaMotivo" class="dark-select">
-                <option value="Desgaste Natural">Desgaste Natural</option>
-                <option value="Estouro / Furo">Estouro / Furo</option>
-                <option value="Recapagem (Ressulagem)">Envio para Recapagem (Ressulagem)</option>
-                <option value="Sucata">Sucata</option>
+            <label>O que fazer com o Pneu Retirado?</label>
+            <select id="trocaDestinoRetirado" class="dark-select">
+                <option value="Recapagem">Enviar para Recapagem</option>
+                <option value="Sucata">Descartar (Sucata)</option>
+                <option value="Estoque">Voltar para Estoque Interno</option>
             </select>
         </div>
         <div class="form-group-dark" style="grid-column: 1 / -1;">
-            <label>Observações Adicionais (Nº de Fogo, etc)</label>
-            <input type="text" id="trocaObs" placeholder="Ex: Fogo do pneu novo: 98765">
+            <label>Observações da Troca / Motivo</label>
+            <input type="text" id="trocaObs" placeholder="Ex: Pneu furado, desgaste natural...">
         </div>
         <div style="grid-column: 1 / -1;">
-            <button class="btn-danger-block btn-full" onclick="salvarServicoBorracharia('Troca')" style="padding: 15px; font-size: 1.1rem;">  Registrar Troca no Sistema</button>
+            <button class="btn-danger-block btn-full" onclick="salvarServicoBorracharia('Troca')" style="padding: 15px; font-size: 1.1rem;">  Efetuar Troca Integrada</button>
         </div>
     </div>
 </div>
 
-<!-- MODAL IMPRIMIR LIVRO DO MÊS (COMPLETO) -->
+<!-- ========================= MODAIS ========================= -->
+<!-- MODAL CADASTRAR/EDITAR PNEU -->
+<div id="modalPneu" class="modal-overlay">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3 id="tituloModalPneu"><i class="fas fa-plus-circle"></i> Cadastrar Novo Pneu</h3>
+            <button class="close-modal" onclick="fecharModalPneu()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="pneuId">
+            <div class="form-group-dark">
+                <label>Nº de Fogo (Identificação Única)</label>
+                <input type="text" id="pneuFogo" placeholder="Ex: 123456" class="dark-select">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group-dark">
+                    <label>Marca</label>
+                    <input type="text" id="pneuMarca" placeholder="Ex: Michelin">
+                </div>
+                <div class="form-group-dark">
+                    <label>Medida</label>
+                    <input type="text" id="pneuMedida" placeholder="Ex: 295/80R22.5">
+                </div>
+                <div class="form-group-dark">
+                    <label>Custo de Aquisição (R$)</label>
+                    <input type="number" id="pneuCusto" placeholder="Ex: 2500.00" step="0.01">
+                </div>
+                <div class="form-group-dark">
+                    <label>Vida Útil (Ciclos)</label>
+                    <input type="number" id="pneuVida" placeholder="0 = Novo, 1 = 1ª Recap" value="0">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalPneu()">Cancelar</button>
+            <button class="btn-primary-green" onclick="salvarPneuBorracharia()">Salvar Pneu no Banco</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL MOVIMENTAR PNEU MANUALMENTE -->
+<div id="modalMovPneu" class="modal-overlay">
+    <div class="custom-modal" style="max-width: 500px;">
+        <div class="modal-header" style="background: rgba(139, 92, 246, 0.1);">
+            <h3 style="color: #d8b4fe;"><i class="fas fa-exchange-alt"></i> Movimentação: Fogo nº <span id="movPneuFogoText"></span></h3>
+            <button class="close-modal" onclick="fecharModalMovPneu()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="movPneuId">
+            <div class="form-group-dark">
+                <label>O que deseja fazer com este pneu?</label>
+                <select id="movTipo" class="dark-select" onchange="tratarCamposMovPneu()">
+                    <option value="Instalação">Instalar no Veículo (Mudar para Rodando)</option>
+                    <option value="Retirada">Retirar do Veículo (Mudar para Estoque)</option>
+                    <option value="Envio Recapagem">Enviar para Recapagem (Borracharia Externa)</option>
+                    <option value="Retorno Recapagem">Retornou da Recapagem (Estoque +1 Vida)</option>
+                    <option value="Descarte">Descartar (Sucata)</option>
+                </select>
+            </div>
+            <div id="movCamposVeiculo" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group-dark">
+                    <label>Veículo de Destino (Placa)</label>
+                    <select id="movCavalo" class="dark-select"></select>
+                </div>
+                <div class="form-group-dark">
+                    <label>Posição no Veículo</label>
+                    <input type="text" id="movPosicao" placeholder="Ex: 3º Eixo Dir Ext">
+                </div>
+                <div class="form-group-dark" style="grid-column: 1 / -1;">
+                    <label>Hodômetro do Veículo no Momento (KM)</label>
+                    <input type="number" id="movKm" placeholder="Ex: 150000">
+                </div>
+            </div>
+            <div class="form-group-dark">
+                <label>Observações da Movimentação</label>
+                <input type="text" id="movObs" placeholder="Ex: Pneu furado, desgaste na banda...">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalMovPneu()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="salvarMovPneu()">Confirmar Movimento</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL HISTÓRICO DE MOVIMENTAÇÕES DO PNEU -->
+<div id="modalHistoricoMovPneu" class="modal-overlay">
+    <div class="custom-modal" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-list-alt"></i> Histórico de Vida do Pneu: Fogo nº <span id="histPneuFogoText"></span></h3>
+            <button class="close-modal" onclick="fecharModalHistoricoMov()">&times;</button>
+        </div>
+        <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+            <div class="table-modern-wrapper">
+                <table class="data-table-modern">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Ação Registrada</th>
+                            <th>Veículo (Placa)</th>
+                            <th>KM Frota</th>
+                            <th>Observação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaHistoricoMovPneu">
+                        <tr><td colspan="5">Buscando histórico...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAIS DE IMPRESSÃO (Livro e Ficha Avulsa) -->
 <div id="modalLivroBorracharia" class="modal-overlay">
     <div class="custom-modal">
         <div class="modal-header" style="background: rgba(99, 102, 241, 0.1);">
@@ -183,13 +337,8 @@
             <button class="close-modal" onclick="fecharModalLivroBorracharia()">&times;</button>
         </div>
         <div class="modal-body">
-            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
-                Esta opção gera o Livro Oficial do Mês contendo Capa, Contra-Capa e as tabelas com espaço duplo por veículo para registros diários/semanais.
-            </p>
-            <div class="form-group-dark">
-                <label>Mês de Referência</label>
-                <input type="month" id="livroMesAno" class="dark-select">
-            </div>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">Gera o Livro Oficial do Mês (1 página para cada dia do mês).</p>
+            <div class="form-group-dark"><label>Mês de Referência</label><input type="month" id="livroMesAno" class="dark-select"></div>
             <div class="form-group-dark">
                 <label>Categoria da Frota</label>
                 <select id="livroCategoria" class="dark-select">
@@ -203,26 +352,17 @@
                 </select>
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn-secondary-dark" onclick="fecharModalLivroBorracharia()">Cancelar</button>
-            <button class="btn-primary-blue" onclick="gerarLivroBorrachariaPDF()" style="background-color: #6366f1; border-color: #6366f1; color: white;">  Gerar Livro em PDF</button>
-        </div>
+        <div class="modal-footer"><button class="btn-secondary-dark" onclick="fecharModalLivroBorracharia()">Cancelar</button><button class="btn-primary-blue" onclick="gerarLivroBorrachariaPDF()">Gerar Livro PDF</button></div>
     </div>
 </div>
 
-<!-- MODAL IMPRIMIR FICHA MANUAL AVULSA -->
 <div id="modalFichaBorracharia" class="modal-overlay">
     <div class="custom-modal">
-        <div class="modal-header">
-            <h3><i class="fas fa-print"></i> Gerar Ficha de Controle Avulsa</h3>
-            <button class="close-modal" onclick="fecharModalFichaBorracharia()">&times;</button>
-        </div>
+        <div class="modal-header"><h3><i class="fas fa-print"></i> Gerar Ficha de Controle Avulsa</h3><button class="close-modal" onclick="fecharModalFichaBorracharia()">&times;</button></div>
         <div class="modal-body">
-            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
-                Gera apenas uma folha simples para anotações rápidas no pátio.
-            </p>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">Gera apenas uma folha simples para anotações rápidas no pátio.</p>
             <div class="form-group-dark">
-                <label>Selecione a Categoria da Frota</label>
+                <label>Selecione a Categoria</label>
                 <select id="printFichaCategoria" class="dark-select">
                     <option value="TODAS" style="font-weight: bold;">TODAS AS CATEGORIAS</option>
                     <option value="TRITREM">Tritrem</option>
@@ -234,9 +374,6 @@
                 </select>
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn-secondary-dark" onclick="fecharModalFichaBorracharia()">Cancelar</button>
-            <button class="btn-primary-blue" onclick="gerarPDFBorracharia()">  Gerar Ficha Simples</button>
-        </div>
+        <div class="modal-footer"><button class="btn-secondary-dark" onclick="fecharModalFichaBorracharia()">Cancelar</button><button class="btn-primary-blue" onclick="gerarPDFBorracharia()">Gerar Ficha Simples</button></div>
     </div>
 </div>
