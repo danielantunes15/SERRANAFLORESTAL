@@ -3,22 +3,25 @@ window.ocorrenciasCache = [];
 
 window.initHistoricoOcorrencias = async function() {
     await window.carregarHistoricoOcorrencias();
-}
+};
 
 window.carregarHistoricoOcorrencias = async function() {
     const tbody = document.getElementById('tbodyHistoricoOcorrencias');
     if (!tbody) return;
-
     tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Buscando ocorrências no banco de dados...</td></tr>';
-
+    
     try {
-        // Busca na tabela real de ocorrências ordenando pelo ID
-        let query = window.supabaseClient.from('ocorrencias').select('*').order('id', { ascending: false });
-        query = window.aplicarFiltroFilial(query); 
+        // Busca na tabela real de ocorrências ordenando pela data, hora e ID (mais recentes primeiro)
+        let query = window.supabaseClient.from('ocorrencias')
+            .select('*')
+            .order('data_ocorrido', { ascending: false })
+            .order('hora_ocorrido', { ascending: false })
+            .order('id', { ascending: false });
+            
+        query = window.aplicarFiltroFilial(query);
 
         const { data, error } = await query;
         if (error) throw error;
-
         window.ocorrenciasCache = data || [];
         window.popularFiltrosOcorrencias();
         window.renderizarHistoricoOcorrencias();
@@ -26,54 +29,53 @@ window.carregarHistoricoOcorrencias = async function() {
         console.error("Erro ao carregar ocorrências", e);
         tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #ef4444;">Ocorreu um erro ao carregar os dados.</td></tr>';
     }
-}
+};
 
 window.popularFiltrosOcorrencias = function() {
     const selectSetor = document.getElementById('filtroSetor');
     const selectEnvolvido = document.getElementById('filtroEnvolvido');
     const selectPlaca = document.getElementById('filtroPlaca');
-
     if (!selectSetor || !selectEnvolvido || !selectPlaca) return;
-
+    
     let setores = new Set();
     let envolvidos = new Set();
     let placas = new Set();
-
+    
     window.ocorrenciasCache.forEach(o => {
         if (o.setor) setores.add(o.setor);
         if (o.nome_envolvido) envolvidos.add(o.nome_envolvido);
         if (o.placa) placas.add(o.placa.toUpperCase());
     });
-
+    
     const valSetor = selectSetor.value;
     const valEnv = selectEnvolvido.value;
     const valPlaca = selectPlaca.value;
-
+    
     let htmlSetor = '<option value="">Todos os Setores</option>';
     Array.from(setores).sort().forEach(s => htmlSetor += `<option value="${s}">${s}</option>`);
     selectSetor.innerHTML = htmlSetor;
     selectSetor.value = valSetor;
-
+    
     let htmlEnv = '<option value="">Todos os Envolvidos</option>';
     Array.from(envolvidos).sort().forEach(r => htmlEnv += `<option value="${r}">${r}</option>`);
     selectEnvolvido.innerHTML = htmlEnv;
     selectEnvolvido.value = valEnv;
-
+    
     let htmlPlaca = '<option value="">Todas as Placas</option>';
     Array.from(placas).sort().forEach(p => htmlPlaca += `<option value="${p}">${p}</option>`);
     selectPlaca.innerHTML = htmlPlaca;
     selectPlaca.value = valPlaca;
-}
+};
 
 window.renderizarHistoricoOcorrencias = function() {
     const tbody = document.getElementById('tbodyHistoricoOcorrencias');
     if (!tbody) return;
-
+    
     const fSetor = document.getElementById('filtroSetor').value;
     const fEnv = document.getElementById('filtroEnvolvido').value;
     const fPlaca = document.getElementById('filtroPlaca').value;
     const fData = document.getElementById('filtroData').value;
-
+    
     let filtrados = window.ocorrenciasCache.filter(o => {
         let match = true;
         if (fSetor && o.setor !== fSetor) match = false;
@@ -83,11 +85,24 @@ window.renderizarHistoricoOcorrencias = function() {
         return match;
     });
 
+    // ORDENAÇÃO EXPLICITA: Mais recentes para os mais antigos (Data e Hora)
+    filtrados.sort((a, b) => {
+        const dataA = a.data_ocorrido || '1970-01-01';
+        const horaA = a.hora_ocorrido ? a.hora_ocorrido.substring(0, 5) : '00:00';
+        const dataB = b.data_ocorrido || '1970-01-01';
+        const horaB = b.hora_ocorrido ? b.hora_ocorrido.substring(0, 5) : '00:00';
+        
+        const datetimeA = new Date(`${dataA}T${horaA}:00`);
+        const datetimeB = new Date(`${dataB}T${horaB}:00`);
+        
+        return datetimeB - datetimeA;
+    });
+
     if (filtrados.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #94a3b8;">Nenhuma ocorrência encontrada.</td></tr>';
         return;
     }
-
+    
     let html = '';
     filtrados.forEach(o => {
         const dataFormatada = o.data_ocorrido ? o.data_ocorrido.split('-').reverse().join('/') : '-';
@@ -100,7 +115,7 @@ window.renderizarHistoricoOcorrencias = function() {
         } else {
             badgeStatus = `<span style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid rgba(239, 68, 68, 0.3);">${o.status || 'Aberta'}</span>`;
         }
-
+        
         // Botões de ação na Horizontal (lado a lado) - Adicionado o Botão de Imprimir
         const acoesHtml = `
             <div style="display: flex; gap: 8px; justify-content: center;">
@@ -109,7 +124,6 @@ window.renderizarHistoricoOcorrencias = function() {
                 <button class="btn-action-sm btn-delete" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s;" onclick="excluirOcorrencia(${o.id})" title="Excluir"><i class="fas fa-trash"></i></button>
             </div>
         `;
-
         html += `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.3s ease;">
                 <td style="color: #94a3b8; font-weight: bold;">${dataFormatada}</td>
@@ -123,9 +137,8 @@ window.renderizarHistoricoOcorrencias = function() {
             </tr>
         `;
     });
-
     tbody.innerHTML = html;
-}
+};
 
 window.imprimirOcorrencia = function(id) {
     const o = window.ocorrenciasCache.find(x => x.id === id);
@@ -140,12 +153,12 @@ window.imprimirOcorrencia = function(id) {
     } else {
         alert("O módulo de impressão não foi carregado corretamente.");
     }
-}
+};
 
 window.abrirModalEdicaoOcorrencia = function(id) {
     const o = window.ocorrenciasCache.find(x => x.id === id);
     if (!o) return;
-
+    
     // Popula todos os campos mapeados do banco
     document.getElementById('edit_id').value = o.id;
     document.getElementById('edit_numero_frota').value = o.numero_frota || '';
@@ -175,17 +188,17 @@ window.abrirModalEdicaoOcorrencia = function(id) {
         if(o.status) statusSelect.innerHTML += `<option value="${o.status}">${o.status}</option>`;
     }
     statusSelect.value = o.status || 'Aberta';
-
+    
     document.getElementById('edit_valor_prejuizo').value = o.valor_prejuizo || '';
     document.getElementById('edit_is_responsavel').value = o.is_responsavel ? "true" : "false";
-
+    
     // Abre o Modal centralizado
     document.getElementById('modalEditarOcorrencia').style.display = 'flex';
-}
+};
 
 window.fecharModalEdicaoOcorrencia = function() {
     document.getElementById('modalEditarOcorrencia').style.display = 'none';
-}
+};
 
 window.salvarEdicaoOcorrencia = async function() {
     const id = document.getElementById('edit_id').value;
@@ -216,16 +229,16 @@ window.salvarEdicaoOcorrencia = async function() {
         valor_prejuizo: document.getElementById('edit_valor_prejuizo').value ? parseFloat(document.getElementById('edit_valor_prejuizo').value) : null,
         is_responsavel: document.getElementById('edit_is_responsavel').value === "true"
     };
-
+    
     if(!payload.data_ocorrido || !payload.placa || !payload.nome_envolvido || !payload.descricao_fatos) {
         alert("Preencha os campos obrigatórios (Data, Placa, Nome e Descrição).");
         return;
     }
-
+    
     try {
         const { error } = await window.supabaseClient.from('ocorrencias').update(payload).eq('id', id);
         if (error) throw error;
-
+        
         alert('Ocorrência atualizada com sucesso!');
         window.fecharModalEdicaoOcorrencia();
         await window.carregarHistoricoOcorrencias();
@@ -233,19 +246,18 @@ window.salvarEdicaoOcorrencia = async function() {
         alert('Erro ao atualizar ocorrência. Verifique a conexão com o banco.');
         console.error(e);
     }
-}
+};
 
 window.excluirOcorrencia = async function(id) {
     if (!confirm("Tem certeza que deseja excluir permanentemente esta ocorrência?")) return;
-
     try {
         const { error } = await window.supabaseClient.from('ocorrencias').delete().eq('id', id);
         if (error) throw error;
-
+        
         alert('Ocorrência excluída com sucesso!');
         await window.carregarHistoricoOcorrencias();
     } catch (e) {
         alert('Erro ao excluir ocorrência.');
         console.error(e);
     }
-}
+};
