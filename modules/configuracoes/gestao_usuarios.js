@@ -177,7 +177,10 @@ window.renderizarUsuarios = async function() {
 
             return `
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <td style="font-weight: bold; color: var(--ccol-blue-bright); padding: 12px;">${u.username} ${isCurrent ? '(Você)' : ''}</td>
+                <td style="padding: 12px;">
+                    <div style="font-weight: bold; color: var(--ccol-blue-bright);">${u.nome_completo || 'Sem Nome Cadastrado'} ${isCurrent ? '(Você)' : ''}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);"><i class="fas fa-sign-in-alt"></i> ${u.username}</div>
+                </td>
                 <td><span class="badge-role" style="font-size: 0.75rem; background: #3b82f6;">${nomeDoCargo}</span></td>
                 <td style="font-size: 0.8rem; color: #cbd5e1;">${filialNome}</td>
                 <td>${statusBadge}</td>
@@ -191,8 +194,11 @@ window.renderizarUsuarios = async function() {
 };
 
 window.adicionarUsuario = async function() {
+    const nomeCompleto = document.getElementById('novoNomeCompleto').value.trim().toUpperCase();
     const nome = document.getElementById('novoUsername').value.trim().toUpperCase();
-    if (!nome) { alert('⚠️ Preencha o nome do usuário.'); return; }
+
+    if (!nomeCompleto) { alert('⚠️ Preencha o nome completo do colaborador.'); return; }
+    if (!nome) { alert('⚠️ Preencha o nome de usuário (username).'); return; }
 
     const selectFilial = document.getElementById('novoUserFilial');
     const selectCargo = document.getElementById('novoUserCargo');
@@ -221,6 +227,7 @@ window.adicionarUsuario = async function() {
 
     try {
         const novoUsuarioObj = { 
+            nome_completo: nomeCompleto,
             username: nome, 
             senha_hash: "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5", 
             role: systemRole, 
@@ -235,14 +242,15 @@ window.adicionarUsuario = async function() {
         
         // ---------- AUDITORIA: INSERINDO LOG DE CRIAÇÃO ----------
         if (typeof window.registrarLogAuditoria === 'function') {
-            window.registrarLogAuditoria('Gestão de Usuários', 'Criação de Usuário', `Novo usuário de sistema cadastrado: ${nome} (Permissão Base: ${systemRole})`);
+            window.registrarLogAuditoria('Gestão de Usuários', 'Criação de Usuário', `Novo usuário de sistema cadastrado: ${nomeCompleto} (${nome}) (Permissão Base: ${systemRole})`);
         }
         // --------------------------------------------------------
 
+        document.getElementById('novoNomeCompleto').value = '';
         document.getElementById('novoUsername').value = '';
         selectCargo.value = '';
         
-        alert(`✅ Usuário ${nome} criado e integrado ao Organograma com sucesso!\nSenha provisória: 12345`);
+        alert(`✅ Usuário ${nomeCompleto} criado e integrado ao Organograma com sucesso!\nSenha provisória: 12345`);
         window.renderizarUsuarios();
     } catch(e) { 
         console.error(e);
@@ -293,6 +301,7 @@ window.abrirModalEdicaoUsuario = async function(id) {
     if (!u || !window.verificarPermissaoAcao(u)) return;
 
     document.getElementById('editUserId').value = u.id;
+    document.getElementById('editNomeCompleto').value = u.nome_completo || '';
     document.getElementById('editUsername').value = u.username;
 
     const selectFilial = document.getElementById('editUserFilial');
@@ -370,11 +379,13 @@ window.carregarCargosParaFilialEdicao = async function(filialId, cargoIdSelecion
 
 window.salvarEdicaoUsuario = async function() {
     const id = parseInt(document.getElementById('editUserId').value);
+    const nomeCompleto = document.getElementById('editNomeCompleto').value.trim().toUpperCase();
     const nome = document.getElementById('editUsername').value.trim().toUpperCase();
     const selectFilial = document.getElementById('editUserFilial');
     const selectCargo = document.getElementById('editUserCargo');
 
-    if (!nome) { alert('⚠️ Preencha o nome do usuário.'); return; }
+    if (!nomeCompleto) { alert('⚠️ Preencha o nome completo.'); return; }
+    if (!nome) { alert('⚠️ Preencha o nome do usuário (username).'); return; }
     if (!selectFilial || selectFilial.value === '') { alert('⚠️ Selecione a Filial de Atuação.'); return; }
     if (!selectCargo || selectCargo.value === '') { alert('⚠️ Selecione a nova Função/Cargo.'); return; }
 
@@ -392,6 +403,7 @@ window.salvarEdicaoUsuario = async function() {
 
     try {
         const { error } = await supabaseClient.from('usuarios').update({
+            nome_completo: nomeCompleto,
             username: nome,
             filial_id: filialSelecionada,
             cargo_id: cargoId,
@@ -403,7 +415,7 @@ window.salvarEdicaoUsuario = async function() {
 
         // ---------- AUDITORIA: INSERINDO LOG DE ATUALIZAÇÃO ----------
         if (typeof window.registrarLogAuditoria === 'function') {
-            window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Usuário', `Dados e permissões atualizadas para o usuário: ${nome} (Novo cargo: ${cargoNome})`);
+            window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Usuário', `Dados e permissões atualizadas para o usuário: ${nomeCompleto} (${nome}) (Novo cargo: ${cargoNome})`);
         }
         // -------------------------------------------------------------
 

@@ -10,6 +10,11 @@
         
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; align-items: end;">
             <div class="form-group-dark" style="margin-bottom: 0;">
+                <label style="font-size: 0.85rem; color: var(--text-secondary);">Nome Completo</label>
+                <input type="text" id="novoNomeCompleto" class="dark-select" placeholder="EX: JOÃO DA SILVA" autocomplete="off">
+            </div>
+
+            <div class="form-group-dark" style="margin-bottom: 0;">
                 <label style="font-size: 0.85rem; color: var(--text-secondary);">Nome de Acesso (Username)</label>
                 <input type="text" id="novoUsername" class="dark-select" placeholder="EX: JOAO.SILVA" autocomplete="off">
             </div>
@@ -70,6 +75,11 @@
         <div class="modal-body">
             <input type="hidden" id="editUserId">
             
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Nome Completo</label>
+                <input type="text" id="editNomeCompleto" class="dark-select" style="width: 100%;">
+            </div>
+
             <div class="form-group-dark" style="margin-bottom: 15px;">
                 <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Nome de Acesso (Username)</label>
                 <input type="text" id="editUsername" class="dark-select" style="width: 100%;">
