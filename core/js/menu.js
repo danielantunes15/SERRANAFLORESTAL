@@ -1,4 +1,5 @@
 // ==================== core/js/menu.js ====================
+
 // ==================== DEFINIÇÃO CENTRAL DE MENUS ====================
 window.MAPA_MENUS = [
     { id: 'escala', label: 'Escala Semanal', setor: 'Logística', icon: 'fas fa-calendar-alt' },
@@ -19,6 +20,7 @@ window.MAPA_MENUS = [
     { id: 'historico_os', label: 'Histórico de O.S.', setor: 'Manutenção', icon: 'fas fa-history' },
     { id: 'painel_tv', label: 'Painel TV (Tempo Real)', setor: 'Manutenção', icon: 'fas fa-tv' },
     { id: 'servicos', label: 'Serviços (Mecânicos)', setor: 'Manutenção', icon: 'fas fa-toolbox' },
+    { id: 'borracharia', label: 'Borracharia', setor: 'Manutenção', icon: 'fas fa-life-ring' },
     { id: 'cadastro_frota', label: 'Cadastro Frota (O.S.)', setor: 'Manutenção', icon: 'fas fa-truck-moving' },
     { id: 'cadastro_os_classificacoes', label: 'Cadastro Básico (Tipos)', setor: 'Manutenção', icon: 'fas fa-list' },
     
@@ -44,7 +46,7 @@ window.MAPA_MENUS = [
     { id: 'indicadores', label: 'Indicadores - Cliente', setor: 'Indicadores', icon: 'fas fa-chart-area' },
     { id: 'indicadores_serrana', label: 'Indicadores Serrana', setor: 'Indicadores', icon: 'fas fa-chart-bar' },
     { id: 'cadastro_indicadores', label: 'Cadastro Indicadores', setor: 'Indicadores', icon: 'fas fa-list-alt' },
-
+    
     { id: 'visao_geral', label: 'Visão Geral (Analítico)', setor: 'Monitoramento', icon: 'fas fa-chart-pie' },
     { id: 'operacional', label: 'Metas Operacionais', setor: 'Monitoramento', icon: 'fas fa-chart-line' },
     { id: 'desempenho_frota', label: 'Desempenho da Frota', setor: 'Monitoramento', icon: 'fas fa-truck-fast' },
@@ -54,7 +56,7 @@ window.MAPA_MENUS = [
     { id: 'historico_jornadas', label: 'Histórico de Jornadas', setor: 'Monitoramento', icon: 'fas fa-history' },
     { id: 'configuracoes_gerencial', label: 'Configurações de Metas', setor: 'Monitoramento', icon: 'fas fa-cogs' },
     { id: 'cadastro_up', label: 'Cadastro de UP e Fazendas', setor: 'Monitoramento', icon: 'fas fa-map-marked-alt' },
-
+    
     { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Gerencial', icon: 'fas fa-money-bill-wave' },
     { id: 'evolucao_fazendas', label: 'Evolução das Fazendas', setor: 'Gerencial', icon: 'fas fa-seedling' },
     { id: 'visao_executiva', label: 'Visão Executiva (Global)', setor: 'Gerencial', icon: 'fas fa-globe-americas' },
@@ -63,7 +65,7 @@ window.MAPA_MENUS = [
     // --- MÓDULO GLOBAL ---
     { id: 'gestao_filiais', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
     { id: 'auditoria_logs', label: 'Auditoria de Sistema', setor: 'Global', icon: 'fas fa-shield-alt' },
-
+    
     // --- MÓDULOS DE CONFIGURAÇÕES INDEPENDENTES ---
     { id: 'gestao_usuarios', label: 'Gestão de Usuários', setor: 'Configurações', icon: 'fas fa-users' },
     { id: 'gestao_acessos', label: 'Menus e Acessos', setor: 'Configurações', icon: 'fas fa-user-shield' }
@@ -89,6 +91,7 @@ const ROTAS = {
     'historico_os': 'modules/manutencao/historico_os/historico_os.html',
     'painel_tv': 'modules/manutencao/painel_tv/painel_tv.html',
     'servicos': 'modules/manutencao/servicos/servicos.html',
+    'borracharia': 'modules/manutencao/borracharia/borracharia.html',
     'cadastro_os_classificacoes': 'modules/manutencao/cadastros/classificacoes.html',
     
     'treinamento': 'modules/ssma/treinamento/treinamento.html',
@@ -103,6 +106,7 @@ const ROTAS = {
     'relatorio_ocorrencias': 'modules/controladoria/ocorrencias/relatorio_ocorrencias.html',
     
     'recados': 'modules/ssma/recados/recados.html',
+    
     'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/indicadores.html',
     'indicadores_serrana': 'modules/indicadores/indicadores_serrana.html',
@@ -154,6 +158,7 @@ window.renderizarMenu = async function() {
     const cargoKey = (currentUser && currentUser.cargo_id) ? currentUser.cargo_id.toString() : null;
 
     let meusMenus = [];
+
     if (cargoKey && permissoesAtuais[cargoKey]) {
         meusMenus = permissoesAtuais[cargoKey];
     } else if (permissoesAtuais[userRole]) {
@@ -287,6 +292,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
             const response = await fetch(`${caminhoArquivo}?v=${VERSAO_SISTEMA}`);
             if (!response.ok) throw new Error('Página não encontrada');
+
             pageCache[pagina] = await response.text();
         }
         
@@ -312,6 +318,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();
         if (pagina === 'campo_equipe' && typeof window.renderizarEquipeCampo === 'function') window.renderizarEquipeCampo();
         if (pagina === 'campo_maquinas' && typeof window.renderizarMaquinasCampo === 'function') window.renderizarMaquinasCampo();
+
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
         if (pagina === 'historico_os' && typeof window.initHistoricoOS === 'function') window.initHistoricoOS();
         if (pagina === 'cadastro_os_classificacoes' && typeof window.renderizarCadastroClassificacoes === 'function') window.renderizarCadastroClassificacoes();
@@ -336,12 +343,15 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
+
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
         if (pagina === 'indicadores_serrana' && typeof window.carregarDadosDashboardSerrana === 'function') window.carregarDadosDashboardSerrana();
         if (pagina === 'cadastro_indicadores' && typeof window.initCadastroIndicadores === 'function') window.initCadastroIndicadores();
+
         if (pagina === 'servicos' && typeof window.renderizarTelaServicos === 'function') window.renderizarTelaServicos();
         if (pagina === 'cadastro_frota' && typeof window.renderizarTelaCadastroFrota === 'function') window.renderizarTelaCadastroFrota();
         if (pagina === 'documentos_frota' && typeof window.renderizarTelaDocumentosFrota === 'function') window.renderizarTelaDocumentosFrota();
+        if (pagina === 'borracharia' && typeof window.initBorracharia === 'function') window.initBorracharia();
 
         if (pagina === 'relatorio_gerencial') {
             try { if (typeof carregarDadosOS === 'function') await carregarDadosOS(); } catch(e) {}

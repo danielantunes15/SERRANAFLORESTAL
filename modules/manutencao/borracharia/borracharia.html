@@ -1,0 +1,101 @@
+<div class="action-bar" style="flex-wrap: wrap; gap: 15px;">
+    <h3 style="color: var(--text-primary); margin: 0; align-self: center;"><i class="fas fa-life-ring"></i> Gestão de Borracharia</h3>
+    <div class="button-group" style="margin-left: auto;">
+        <button class="btn-primary-blue" onclick="alternarTelaBorracharia('historico')"><i class="fas fa-history"></i> Histórico Geral</button>
+        <button class="btn-primary-green" onclick="alternarTelaBorracharia('calibragem')"><i class="fas fa-compress-arrows-alt"></i> Nova Calibragem</button>
+        <button class="btn-danger-block" onclick="alternarTelaBorracharia('troca')"><i class="fas fa-sync-alt"></i> Registrar Troca</button>
+    </div>
+</div>
+
+<!-- TELA DE HISTÓRICO -->
+<div id="telaHistoricoBorracharia" class="content-panel" style="display: block;">
+    <div class="panel-header">
+        <h3>Histórico de Pneus da Frota</h3>
+        <div class="panel-controls">
+            <input type="text" id="searchBorracharia" placeholder="Buscar por placa..." class="search-input-dark" onkeyup="renderizarHistoricoBorracharia()">
+        </div>
+    </div>
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Placa (Veículo)</th>
+                    <th>Tipo Serviço</th>
+                    <th>Posição do Pneu</th>
+                    <th>Pressão / Marca</th>
+                    <th>Mecânico</th>
+                    <th>Motivo/Obs</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaHistoricoBorracharia">
+                <tr><td colspan="7">Carregando dados...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- TELA NOVA CALIBRAGEM -->
+<div id="telaCalibragemBorracharia" class="content-panel" style="display: none;">
+    <div class="panel-header" style="background: rgba(16, 185, 129, 0.1); border-bottom: 2px solid #10b981;">
+        <h3 style="color: #10b981;"><i class="fas fa-compress-arrows-alt"></i> Registrar Nova Calibragem</h3>
+    </div>
+    <div style="padding: 25px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+        <div class="form-group-dark">
+            <label>Selecione a Placa da Frota</label>
+            <select id="calibragemPlaca" class="dark-select"></select>
+        </div>
+        <div class="form-group-dark">
+            <label>Posição do Pneu</label>
+            <input type="text" id="calibragemPosicao" placeholder="Ex: Dianteiro Esquerdo, 1º Eixo Esq...">
+        </div>
+        <div class="form-group-dark">
+            <label>Pressão Registrada (Libras)</label>
+            <input type="number" id="calibragemPressao" placeholder="Ex: 110">
+        </div>
+        <div class="form-group-dark" style="grid-column: 1 / -1;">
+            <label>Observações</label>
+            <input type="text" id="calibragemObs" placeholder="Ex: Pneu apresentava desgaste irregular">
+        </div>
+        <div style="grid-column: 1 / -1;">
+            <button class="btn-primary-green btn-full" onclick="salvarServicoBorracharia('Calibragem')">Salvar Calibragem</button>
+        </div>
+    </div>
+</div>
+
+<!-- TELA REGISTRAR TROCA -->
+<div id="telaTrocaBorracharia" class="content-panel" style="display: none;">
+    <div class="panel-header" style="background: rgba(239, 68, 68, 0.1); border-bottom: 2px solid #ef4444;">
+        <h3 style="color: #ef4444;"><i class="fas fa-sync-alt"></i> Registrar Troca de Pneu</h3>
+    </div>
+    <div style="padding: 25px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+        <div class="form-group-dark">
+            <label>Selecione a Placa da Frota</label>
+            <select id="trocaPlaca" class="dark-select"></select>
+        </div>
+        <div class="form-group-dark">
+            <label>Posição do Pneu Trocado</label>
+            <input type="text" id="trocaPosicao" placeholder="Ex: 3º Eixo Direito Ext.">
+        </div>
+        <div class="form-group-dark">
+            <label>Marca / Modelo do Novo Pneu</label>
+            <input type="text" id="trocaMarca" placeholder="Ex: Michelin XTE2">
+        </div>
+        <div class="form-group-dark" style="grid-column: 1 / -1;">
+            <label>Motivo da Troca</label>
+            <select id="trocaMotivo" class="dark-select">
+                <option value="Desgaste Natural">Desgaste Natural</option>
+                <option value="Estouro / Furo">Estouro / Furo</option>
+                <option value="Recapagem (Ressulagem)">Envio para Recapagem (Ressulagem)</option>
+                <option value="Sucata">Sucata</option>
+            </select>
+        </div>
+        <div class="form-group-dark" style="grid-column: 1 / -1;">
+            <label>Observações Adicionais</label>
+            <input type="text" id="trocaObs" placeholder="Ex: Número de Fogo: 12345">
+        </div>
+        <div style="grid-column: 1 / -1;">
+            <button class="btn-danger-block btn-full" onclick="salvarServicoBorracharia('Troca')">Salvar Troca</button>
+        </div>
+    </div>
+</div>
