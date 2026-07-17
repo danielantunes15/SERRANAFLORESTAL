@@ -1,16 +1,58 @@
 <div class="action-bar" style="flex-wrap: wrap; gap: 15px;">
     <h3 style="color: var(--text-primary); margin: 0; align-self: center;"><i class="fas fa-life-ring"></i> Gestão de Borracharia</h3>
     <div class="button-group" style="margin-left: auto;">
-        <button class="btn-primary-blue" onclick="alternarTelaBorracharia('historico')"><i class="fas fa-history"></i> Histórico Geral</button>
+        <button class="btn-secondary-dark" onclick="abrirModalFichaBorracharia()"><i class="fas fa-print"></i> Imprimir Ficha Manual</button>
+        <button class="btn-primary-blue" onclick="alternarTelaBorracharia('painel')"><i class="fas fa-chart-line"></i> Painel e Alertas</button>
+        <button class="btn-primary-blue" onclick="alternarTelaBorracharia('historico')"><i class="fas fa-history"></i> Histórico</button>
         <button class="btn-primary-green" onclick="alternarTelaBorracharia('calibragem')"><i class="fas fa-compress-arrows-alt"></i> Nova Calibragem</button>
         <button class="btn-danger-block" onclick="alternarTelaBorracharia('troca')"><i class="fas fa-sync-alt"></i> Registrar Troca</button>
     </div>
 </div>
 
+<!-- TELA PAINEL / DASHBOARD -->
+<div id="telaPainelBorracharia" class="content-panel" style="display: block;">
+    <div class="panel-header" style="background: rgba(59, 130, 246, 0.1);">
+        <h3 style="color: var(--ccol-blue-bright);"><i class="fas fa-chart-line"></i> Painel de Alertas - Calibragem (Ciclo de 15 Dias)</h3>
+    </div>
+    
+    <div class="quick-stats-header" style="padding: 20px; gap: 15px; flex-wrap: wrap;">
+        <div class="q-stat" style="flex: 1; text-align: center; border-left: 4px solid var(--ccol-green-bright);">
+            Calibragens (Mês Atual)<br><span id="kpiCalibragensMes" style="font-size: 2rem; color: #fff;">0</span>
+        </div>
+        <div class="q-stat" style="flex: 1; text-align: center; border-left: 4px solid #ef4444;">
+            Pneus Trocados (Mês Atual)<br><span id="kpiTrocasMes" style="font-size: 2rem; color: #fff;">0</span>
+        </div>
+        <div class="q-stat" style="flex: 1; text-align: center; border-left: 4px solid #f59e0b; background: rgba(245, 158, 11, 0.1);">
+            Veículos com Calibragem Vencida<br><span id="kpiVencidos" style="font-size: 2rem; color: #f59e0b;">0</span>
+        </div>
+    </div>
+
+    <div style="padding: 0 20px 20px 20px;">
+        <h4 style="color: #fca5a5; margin-bottom: 10px;"><i class="fas fa-exclamation-triangle"></i> Atenção: Veículos sem calibração há mais de 15 dias</h4>
+        <div class="table-modern-wrapper">
+            <table class="data-table-modern">
+                <thead>
+                    <tr>
+                        <th>Placa (Cavalo)</th>
+                        <th>Frota</th>
+                        <th>Categoria</th>
+                        <th>Última Calibragem</th>
+                        <th>Dias em Atraso</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaAlertasBorracharia">
+                    <tr><td colspan="6">Carregando alertas...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <!-- TELA DE HISTÓRICO -->
-<div id="telaHistoricoBorracharia" class="content-panel" style="display: block;">
+<div id="telaHistoricoBorracharia" class="content-panel" style="display: none;">
     <div class="panel-header">
-        <h3>Histórico de Pneus da Frota</h3>
+        <h3>Histórico Geral de Pneus da Frota</h3>
         <div class="panel-controls">
             <input type="text" id="searchBorracharia" placeholder="Buscar por placa..." class="search-input-dark" onkeyup="renderizarHistoricoBorracharia()">
         </div>
@@ -19,7 +61,7 @@
         <table class="data-table-modern">
             <thead>
                 <tr>
-                    <th>Data</th>
+                    <th>Data do Serviço</th>
                     <th>Placa (Veículo)</th>
                     <th>Tipo Serviço</th>
                     <th>Posição do Pneu</th>
@@ -40,25 +82,41 @@
     <div class="panel-header" style="background: rgba(16, 185, 129, 0.1); border-bottom: 2px solid #10b981;">
         <h3 style="color: #10b981;"><i class="fas fa-compress-arrows-alt"></i> Registrar Nova Calibragem</h3>
     </div>
-    <div style="padding: 25px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+    <div style="padding: 25px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
         <div class="form-group-dark">
-            <label>Selecione a Placa da Frota</label>
-            <select id="calibragemPlaca" class="dark-select"></select>
+            <label>Data e Hora do Serviço</label>
+            <input type="datetime-local" id="calibragemData" class="dark-select">
+        </div>
+        <div class="form-group-dark">
+            <label>Filtrar por Categoria</label>
+            <select id="calibragemCategoria" class="dark-select" onchange="carregarPlacasBorracharia('calibragem')">
+                <option value="">Todas</option>
+                <option value="TRITREM">Tritrem</option>
+                <option value="PRANCHA">Prancha</option>
+                <option value="GRUA">Grua</option>
+                <option value="COMBOIO">Comboio</option>
+                <option value="CARRETA">Carreta</option>
+                <option value="FROTA LEVE">Frota Leve</option>
+            </select>
+        </div>
+        <div class="form-group-dark">
+            <label>Placa da Frota</label>
+            <select id="calibragemPlaca" class="dark-select"><option value="">Selecione...</option></select>
         </div>
         <div class="form-group-dark">
             <label>Posição do Pneu</label>
-            <input type="text" id="calibragemPosicao" placeholder="Ex: Dianteiro Esquerdo, 1º Eixo Esq...">
+            <input type="text" id="calibragemPosicao" placeholder="Ex: Todos, Dianteiro Esq...">
         </div>
         <div class="form-group-dark">
-            <label>Pressão Registrada (Libras)</label>
+            <label>Pressão (Libras)</label>
             <input type="number" id="calibragemPressao" placeholder="Ex: 110">
         </div>
         <div class="form-group-dark" style="grid-column: 1 / -1;">
-            <label>Observações</label>
-            <input type="text" id="calibragemObs" placeholder="Ex: Pneu apresentava desgaste irregular">
+            <label>Observações / Diagnóstico</label>
+            <input type="text" id="calibragemObs" placeholder="Ex: Pneus calibrados conforme padrão.">
         </div>
         <div style="grid-column: 1 / -1;">
-            <button class="btn-primary-green btn-full" onclick="salvarServicoBorracharia('Calibragem')">Salvar Calibragem</button>
+            <button class="btn-primary-green btn-full" onclick="salvarServicoBorracharia('Calibragem')" style="padding: 15px; font-size: 1.1rem;">  Salvar Calibragem no Sistema</button>
         </div>
     </div>
 </div>
@@ -68,10 +126,26 @@
     <div class="panel-header" style="background: rgba(239, 68, 68, 0.1); border-bottom: 2px solid #ef4444;">
         <h3 style="color: #ef4444;"><i class="fas fa-sync-alt"></i> Registrar Troca de Pneu</h3>
     </div>
-    <div style="padding: 25px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+    <div style="padding: 25px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
         <div class="form-group-dark">
-            <label>Selecione a Placa da Frota</label>
-            <select id="trocaPlaca" class="dark-select"></select>
+            <label>Data e Hora da Troca</label>
+            <input type="datetime-local" id="trocaData" class="dark-select">
+        </div>
+        <div class="form-group-dark">
+            <label>Filtrar por Categoria</label>
+            <select id="trocaCategoria" class="dark-select" onchange="carregarPlacasBorracharia('troca')">
+                <option value="">Todas</option>
+                <option value="TRITREM">Tritrem</option>
+                <option value="PRANCHA">Prancha</option>
+                <option value="GRUA">Grua</option>
+                <option value="COMBOIO">Comboio</option>
+                <option value="CARRETA">Carreta</option>
+                <option value="FROTA LEVE">Frota Leve</option>
+            </select>
+        </div>
+        <div class="form-group-dark">
+            <label>Placa da Frota</label>
+            <select id="trocaPlaca" class="dark-select"><option value="">Selecione...</option></select>
         </div>
         <div class="form-group-dark">
             <label>Posição do Pneu Trocado</label>
@@ -91,11 +165,41 @@
             </select>
         </div>
         <div class="form-group-dark" style="grid-column: 1 / -1;">
-            <label>Observações Adicionais</label>
-            <input type="text" id="trocaObs" placeholder="Ex: Número de Fogo: 12345">
+            <label>Observações Adicionais (Nº de Fogo, etc)</label>
+            <input type="text" id="trocaObs" placeholder="Ex: Fogo do pneu novo: 98765">
         </div>
         <div style="grid-column: 1 / -1;">
-            <button class="btn-danger-block btn-full" onclick="salvarServicoBorracharia('Troca')">Salvar Troca</button>
+            <button class="btn-danger-block btn-full" onclick="salvarServicoBorracharia('Troca')" style="padding: 15px; font-size: 1.1rem;">  Registrar Troca no Sistema</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL IMPRIMIR FICHA MANUAL -->
+<div id="modalFichaBorracharia" class="modal-overlay">
+    <div class="custom-modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-print"></i> Gerar Ficha de Controle Manual</h3>
+            <button class="close-modal" onclick="fecharModalFichaBorracharia()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
+                Esta opção gera um PDF com a lista de veículos ativos para que o borracheiro possa ir a campo anotar as calibragens na caneta.
+            </p>
+            <div class="form-group-dark">
+                <label>Selecione a Categoria da Frota</label>
+                <select id="printFichaCategoria" class="dark-select">
+                    <option value="TRITREM">Tritrem</option>
+                    <option value="PRANCHA">Prancha</option>
+                    <option value="GRUA">Grua</option>
+                    <option value="COMBOIO">Comboio</option>
+                    <option value="CARRETA">Carreta</option>
+                    <option value="FROTA LEVE">Frota Leve</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalFichaBorracharia()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="gerarPDFBorracharia()">  Gerar PDF</button>
         </div>
     </div>
 </div>
