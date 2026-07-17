@@ -28,13 +28,13 @@
     </div>
 
     <div style="padding: 0 20px 20px 20px;">
-        <h4 style="color: #fca5a5; margin-bottom: 10px;"><i class="fas fa-exclamation-triangle"></i> Atenção: Veículos sem calibração há mais de 15 dias</h4>
+        <h4 style="color: #fca5a5; margin-bottom: 10px;"><i class="fas fa-exclamation-triangle"></i> Atenção: Veículos sem calibração há mais de 15 dias (Gruas não listadas)</h4>
         <div class="table-modern-wrapper">
             <table class="data-table-modern">
                 <thead>
                     <tr>
                         <th>Placa (Cavalo)</th>
-                        <th>Frota</th>
+                        <th>Frota / Status</th>
                         <th>Categoria</th>
                         <th>Última Calibragem</th>
                         <th>Dias em Atraso</th>
@@ -183,11 +183,12 @@
         </div>
         <div class="modal-body">
             <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
-                Esta opção gera um PDF com a lista de veículos ativos para que o borracheiro possa ir a campo anotar as calibragens na caneta.
+                Esta opção gera um PDF com a lista de veículos para que o borracheiro possa ir a campo anotar as calibragens na caneta.
             </p>
             <div class="form-group-dark">
                 <label>Selecione a Categoria da Frota</label>
                 <select id="printFichaCategoria" class="dark-select">
+                    <option value="TODAS" style="font-weight: bold;">TODAS AS CATEGORIAS</option>
                     <option value="TRITREM">Tritrem</option>
                     <option value="PRANCHA">Prancha</option>
                     <option value="GRUA">Grua</option>
