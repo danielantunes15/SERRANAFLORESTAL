@@ -118,7 +118,7 @@ window.gerarPDFBorracharia = function() {
 
 
 // ==============================================================================
-// GERAÇÃO DO LIVRO MENSAL OFICIAL (CAPA, 1 FOLHA POR DIA, CONTRA-CAPA)
+// GERAÇÃO DO LIVRO MENSAL OFICIAL (CAPA COM ASSINATURAS DINÂMICAS, FOLHAS DIÁRIAS)
 // ==============================================================================
 window.gerarLivroBorrachariaPDF = function() {
     const categoria = document.getElementById('livroCategoria').value;
@@ -127,7 +127,7 @@ window.gerarLivroBorrachariaPDF = function() {
     if (!categoria || !mesAno) return alert('Selecione a categoria e o mês de referência.');
 
     const [ano, mesNum] = mesAno.split('-');
-    const diasNoMes = new Date(ano, parseInt(mesNum), 0).getDate(); // Retorna o último dia do mês (ex: 30 ou 31)
+    const diasNoMes = new Date(ano, parseInt(mesNum), 0).getDate(); // Retorna o último dia do mês
     const mesesExtenso = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const nomeMes = mesesExtenso[parseInt(mesNum) - 1].toUpperCase();
 
@@ -164,21 +164,38 @@ window.gerarLivroBorrachariaPDF = function() {
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(30);
-        doc.text("LIVRO DE CONTROLE", pageWidth / 2, 110, { align: "center" });
-        doc.text("DIÁRIO DE BORRACHARIA", pageWidth / 2, 125, { align: "center" });
+        doc.text("LIVRO DE CONTROLE", pageWidth / 2, 100, { align: "center" });
+        doc.text("DIÁRIO DE BORRACHARIA", pageWidth / 2, 115, { align: "center" });
 
         doc.setFontSize(16);
         doc.setFont("helvetica", "normal");
-        doc.text(`MÊS REFERÊNCIA: ${nomeMes} / ${ano}`, pageWidth / 2, 150, { align: "center" });
-        doc.text(`CATEGORIA: ${categoria === 'TODAS' ? 'FROTA GERAL' : categoria}`, pageWidth / 2, 160, { align: "center" });
+        doc.text(`MÊS REFERÊNCIA: ${nomeMes} / ${ano}`, pageWidth / 2, 140, { align: "center" });
+        doc.text(`CATEGORIA: ${categoria === 'TODAS' ? 'FROTA GERAL' : categoria}`, pageWidth / 2, 150, { align: "center" });
 
-        doc.line(50, 240, pageWidth - 50, 240);
-        doc.setFontSize(12);
-        doc.text("Assinatura do Borracheiro / Responsável Tático", pageWidth / 2, 248, { align: "center" });
+        // --- ASSINATURAS DINÂMICAS DOS BORRACHEIROS NA CAPA ---
+        const borracheiros = window.borracheirosList || [];
+        if (borracheiros.length > 0) {
+            // Limita a 5 nomes para não ultrapassar a borda inferior da folha
+            const maxBorracheiros = Math.min(borracheiros.length, 5); 
+            const espacamento = 20; // 20mm de espaçamento entre cada linha de assinatura
+            let startY = 265 - (maxBorracheiros * espacamento);
+
+            for (let i = 0; i < maxBorracheiros; i++) {
+                const func = borracheiros[i];
+                doc.line(50, startY, pageWidth - 50, startY);
+                doc.setFontSize(11);
+                doc.text(`${func.nome} (${func.funcao || 'Borracheiro'})`, pageWidth / 2, startY + 6, { align: "center" });
+                startY += espacamento;
+            }
+        } else {
+            // Fallback genérico caso a lista esteja vazia
+            doc.line(50, 240, pageWidth - 50, 240);
+            doc.setFontSize(12);
+            doc.text("Assinatura do Borracheiro / Responsável Tático", pageWidth / 2, 248, { align: "center" });
+        }
 
 
         // ================= PÁGINAS INTERNAS: UM DIA POR VEZ =================
-        // Como a data já vai no cabeçalho do dia, removemos a coluna "Data" para dar mais espaço.
         const tableCols = ["Placa", "Frota/Status", "Categ.", "Lbs", "Troca (Posição)", "Assinatura", "Obs."];
         const tableRows = [];
 
