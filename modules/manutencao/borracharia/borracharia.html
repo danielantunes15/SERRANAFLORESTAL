@@ -60,7 +60,8 @@
         <h3 style="color: #d8b4fe;"><i class="fas fa-tire"></i> Inventário de Pneus (Controle por Fogo)</h3>
         <div class="panel-controls" style="display: flex; gap: 10px;">
             <input type="text" id="searchPneus" placeholder="Buscar Fogo, Marca, Placa..." class="search-input-dark" onkeyup="renderizarPneusBorracharia()">
-            <button class="btn-primary-green" onclick="abrirModalPneu()"><i class="fas fa-plus"></i> Novo Pneu</button>
+            <!-- Alterado para função única da borracharia -->
+            <button class="btn-primary-green" onclick="abrirModalPneuBorracharia()"><i class="fas fa-plus"></i> Novo Pneu</button>
         </div>
     </div>
     <div class="table-modern-wrapper">
@@ -155,7 +156,7 @@
     </div>
 </div>
 
-<!-- TELA REGISTRAR TROCA (AGORA INTEGRADA AO ESTOQUE) -->
+<!-- TELA REGISTRAR TROCA (INTEGRADA AO ESTOQUE) -->
 <div id="telaTrocaBorracharia" class="content-panel" style="display: none;">
     <div class="panel-header" style="background: rgba(239, 68, 68, 0.1); border-bottom: 2px solid #ef4444;">
         <h3 style="color: #ef4444;"><i class="fas fa-sync-alt"></i> Registrar Troca de Pneu (Integrado)</h3>
@@ -216,13 +217,14 @@
     </div>
 </div>
 
-<!-- ========================= MODAIS ========================= -->
+<!-- ========================= NOVOS MODAIS DO CADASTRO DE PNEUS ========================= -->
+
 <!-- MODAL CADASTRAR/EDITAR PNEU -->
-<div id="modalPneu" class="modal-overlay">
+<div id="modalPneuBorracharia" class="modal-overlay">
     <div class="custom-modal">
         <div class="modal-header">
             <h3 id="tituloModalPneu"><i class="fas fa-plus-circle"></i> Cadastrar Novo Pneu</h3>
-            <button class="close-modal" onclick="fecharModalPneu()">&times;</button>
+            <button class="close-modal" onclick="fecharModalPneuBorracharia()">&times;</button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="pneuId">
@@ -250,24 +252,24 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-secondary-dark" onclick="fecharModalPneu()">Cancelar</button>
+            <button class="btn-secondary-dark" onclick="fecharModalPneuBorracharia()">Cancelar</button>
             <button class="btn-primary-green" onclick="salvarPneuBorracharia()">Salvar Pneu no Banco</button>
         </div>
     </div>
 </div>
 
 <!-- MODAL MOVIMENTAR PNEU MANUALMENTE -->
-<div id="modalMovPneu" class="modal-overlay">
+<div id="modalMovPneuBorracharia" class="modal-overlay">
     <div class="custom-modal" style="max-width: 500px;">
         <div class="modal-header" style="background: rgba(139, 92, 246, 0.1);">
             <h3 style="color: #d8b4fe;"><i class="fas fa-exchange-alt"></i> Movimentação: Fogo nº <span id="movPneuFogoText"></span></h3>
-            <button class="close-modal" onclick="fecharModalMovPneu()">&times;</button>
+            <button class="close-modal" onclick="fecharModalMovPneuBorracharia()">&times;</button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="movPneuId">
             <div class="form-group-dark">
                 <label>O que deseja fazer com este pneu?</label>
-                <select id="movTipo" class="dark-select" onchange="tratarCamposMovPneu()">
+                <select id="movTipo" class="dark-select" onchange="tratarCamposMovPneuBorracharia()">
                     <option value="Instalação">Instalar no Veículo (Mudar para Rodando)</option>
                     <option value="Retirada">Retirar do Veículo (Mudar para Estoque)</option>
                     <option value="Envio Recapagem">Enviar para Recapagem (Borracharia Externa)</option>
@@ -295,18 +297,18 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn-secondary-dark" onclick="fecharModalMovPneu()">Cancelar</button>
-            <button class="btn-primary-blue" onclick="salvarMovPneu()">Confirmar Movimento</button>
+            <button class="btn-secondary-dark" onclick="fecharModalMovPneuBorracharia()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="salvarMovPneuBorracharia()">Confirmar Movimento</button>
         </div>
     </div>
 </div>
 
 <!-- MODAL HISTÓRICO DE MOVIMENTAÇÕES DO PNEU -->
-<div id="modalHistoricoMovPneu" class="modal-overlay">
+<div id="modalHistoricoMovPneuBorracharia" class="modal-overlay">
     <div class="custom-modal" style="max-width: 700px;">
         <div class="modal-header">
             <h3><i class="fas fa-list-alt"></i> Histórico de Vida do Pneu: Fogo nº <span id="histPneuFogoText"></span></h3>
-            <button class="close-modal" onclick="fecharModalHistoricoMov()">&times;</button>
+            <button class="close-modal" onclick="fecharModalHistoricoMovBorracharia()">&times;</button>
         </div>
         <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
             <div class="table-modern-wrapper">
@@ -329,7 +331,7 @@
     </div>
 </div>
 
-<!-- MODAIS DE IMPRESSÃO (Livro e Ficha Avulsa) -->
+<!-- ========================= MODAIS DE IMPRESSÃO (Mantidos) ========================= -->
 <div id="modalLivroBorracharia" class="modal-overlay">
     <div class="custom-modal">
         <div class="modal-header" style="background: rgba(99, 102, 241, 0.1);">

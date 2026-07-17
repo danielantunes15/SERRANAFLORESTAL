@@ -10,8 +10,10 @@ window.initBorracharia = async function() {
     
     const agora = new Date();
     const fusoAjuste = new Date(agora.getTime() - (agora.getTimezoneOffset() * 60000));
-    document.getElementById('calibragemData').value = fusoAjuste.toISOString().slice(0, 16);
-    document.getElementById('trocaData').value = fusoAjuste.toISOString().slice(0, 16);
+    
+    // Trava de segurança: Garante que os campos existem antes de preencher
+    if (document.getElementById('calibragemData')) document.getElementById('calibragemData').value = fusoAjuste.toISOString().slice(0, 16);
+    if (document.getElementById('trocaData')) document.getElementById('trocaData').value = fusoAjuste.toISOString().slice(0, 16);
 
     await buscarHistoricoBorracharia();
     await buscarPneusBorracharia();
@@ -20,34 +22,37 @@ window.initBorracharia = async function() {
 };
 
 window.alternarTelaBorracharia = function(tela) {
-    document.getElementById('telaPainelBorracharia').style.display = 'none';
-    document.getElementById('telaHistoricoBorracharia').style.display = 'none';
-    document.getElementById('telaCalibragemBorracharia').style.display = 'none';
-    document.getElementById('telaTrocaBorracharia').style.display = 'none';
-    document.getElementById('telaPneusBorracharia').style.display = 'none';
+    if (document.getElementById('telaPainelBorracharia')) document.getElementById('telaPainelBorracharia').style.display = 'none';
+    if (document.getElementById('telaHistoricoBorracharia')) document.getElementById('telaHistoricoBorracharia').style.display = 'none';
+    if (document.getElementById('telaCalibragemBorracharia')) document.getElementById('telaCalibragemBorracharia').style.display = 'none';
+    if (document.getElementById('telaTrocaBorracharia')) document.getElementById('telaTrocaBorracharia').style.display = 'none';
+    if (document.getElementById('telaPneusBorracharia')) document.getElementById('telaPneusBorracharia').style.display = 'none';
 
     if (tela === 'painel') {
-        document.getElementById('telaPainelBorracharia').style.display = 'block';
+        if (document.getElementById('telaPainelBorracharia')) document.getElementById('telaPainelBorracharia').style.display = 'block';
         renderizarPainelBorracharia();
     } else if (tela === 'historico') {
-        document.getElementById('telaHistoricoBorracharia').style.display = 'block';
+        if (document.getElementById('telaHistoricoBorracharia')) document.getElementById('telaHistoricoBorracharia').style.display = 'block';
         renderizarHistoricoBorracharia();
     } else if (tela === 'calibragem') {
-        document.getElementById('telaCalibragemBorracharia').style.display = 'block';
+        if (document.getElementById('telaCalibragemBorracharia')) document.getElementById('telaCalibragemBorracharia').style.display = 'block';
         carregarPlacasBorracharia('calibragem');
     } else if (tela === 'troca') {
-        document.getElementById('telaTrocaBorracharia').style.display = 'block';
+        if (document.getElementById('telaTrocaBorracharia')) document.getElementById('telaTrocaBorracharia').style.display = 'block';
         carregarPlacasBorracharia('troca');
         carregarPneusParaTroca();
     } else if (tela === 'pneus') {
-        document.getElementById('telaPneusBorracharia').style.display = 'block';
+        if (document.getElementById('telaPneusBorracharia')) document.getElementById('telaPneusBorracharia').style.display = 'block';
         renderizarPneusBorracharia();
     }
 };
 
 window.carregarPlacasBorracharia = async function(prefixo) {
     const select = document.getElementById(prefixo + 'Placa');
-    const categoria = document.getElementById(prefixo + 'Categoria') ? document.getElementById(prefixo + 'Categoria').value : 'TODAS';
+    if (!select) return; // Segurança
+
+    const catElem = document.getElementById(prefixo + 'Categoria');
+    const categoria = catElem ? catElem.value : 'TODAS';
     
     if (!window.frotasManutencao || window.frotasManutencao.length === 0) {
         if (typeof carregarDadosOS === 'function') await carregarDadosOS();
@@ -64,10 +69,9 @@ window.carregarPlacasBorracharia = async function(prefixo) {
             if (f.go) options += `<option value="${f.go}">${f.go} (GO)</option>`;
         });
     }
-    if (select) select.innerHTML = options;
+    select.innerHTML = options;
 };
 
-// Carrega os pneus em estoque para a tela de TROCA
 window.carregarPneusParaTroca = function() {
     const selectPneu = document.getElementById('trocaFogoNovo');
     if (!selectPneu) return;
@@ -108,14 +112,14 @@ window.renderizarPainelBorracharia = function() {
         }
     });
 
-    document.getElementById('kpiCalibragensMes').innerText = calibsMes;
-    document.getElementById('kpiTrocasMes').innerText = trocasMes;
+    if (document.getElementById('kpiCalibragensMes')) document.getElementById('kpiCalibragensMes').innerText = calibsMes;
+    if (document.getElementById('kpiTrocasMes')) document.getElementById('kpiTrocasMes').innerText = trocasMes;
 
     // Novos KPIs de Estoque de Pneus
     const emEstoque = window.pneusBorracharia.filter(p => p.status === 'Estoque').length;
     const emRecapagem = window.pneusBorracharia.filter(p => p.status === 'Recapagem').length;
-    document.getElementById('kpiEstoquePneus').innerText = emEstoque;
-    document.getElementById('kpiRecapagemPneus').innerText = emRecapagem;
+    if (document.getElementById('kpiEstoquePneus')) document.getElementById('kpiEstoquePneus').innerText = emEstoque;
+    if (document.getElementById('kpiRecapagemPneus')) document.getElementById('kpiRecapagemPneus').innerText = emRecapagem;
 
     const frotaGeral = window.frotasManutencao || [];
     const alertas = [];
@@ -149,21 +153,24 @@ window.renderizarPainelBorracharia = function() {
         }
     });
 
-    document.getElementById('kpiVencidos').innerText = alertas.length;
+    if (document.getElementById('kpiVencidos')) document.getElementById('kpiVencidos').innerText = alertas.length;
+    
     const tbodyAlertas = document.getElementById('tabelaAlertasBorracharia');
-    if (alertas.length === 0) {
-        tbodyAlertas.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#10b981; font-weight:bold;">Frota em dia com a calibragem!</td></tr>';
-    } else {
-        tbodyAlertas.innerHTML = alertas.map(a => `
-            <tr style="background: rgba(239, 68, 68, 0.05);">
-                <td style="color: #ef4444; font-weight: bold;">${a.placa}</td>
-                <td>${a.frota}</td>
-                <td>${a.categoria}</td>
-                <td>${a.dataUltima}</td>
-                <td style="color: #f59e0b; font-weight: bold;"><i class="fas fa-clock"></i> ${a.dias}</td>
-                <td><button class="btn-primary-green" onclick="alternarTelaBorracharia('calibragem')" style="padding: 4px 8px; font-size: 0.8rem;">Calibrar</button></td>
-            </tr>
-        `).join('');
+    if (tbodyAlertas) {
+        if (alertas.length === 0) {
+            tbodyAlertas.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#10b981; font-weight:bold;">Frota em dia com a calibragem!</td></tr>';
+        } else {
+            tbodyAlertas.innerHTML = alertas.map(a => `
+                <tr style="background: rgba(239, 68, 68, 0.05);">
+                    <td style="color: #ef4444; font-weight: bold;">${a.placa}</td>
+                    <td>${a.frota}</td>
+                    <td>${a.categoria}</td>
+                    <td>${a.dataUltima}</td>
+                    <td style="color: #f59e0b; font-weight: bold;"><i class="fas fa-clock"></i> ${a.dias}</td>
+                    <td><button class="btn-primary-green" onclick="alternarTelaBorracharia('calibragem')" style="padding: 4px 8px; font-size: 0.8rem;">Calibrar</button></td>
+                </tr>
+            `).join('');
+        }
     }
 };
 
@@ -196,7 +203,6 @@ window.renderizarHistoricoBorracharia = function() {
     }).join('');
 };
 
-// Função Integrada de Calibragem e Troca (Modificada para conversar com banco de pneus)
 window.salvarServicoBorracharia = async function(tipo) {
     const usuarioLogado = (window.currentUser && window.currentUser.username) ? window.currentUser.username : 'Mecânico';
 
@@ -229,14 +235,13 @@ window.salvarServicoBorracharia = async function(tipo) {
         const placa = document.getElementById('trocaPlaca').value;
         const posicao = document.getElementById('trocaPosicao').value.trim();
         
-        const pneuNovoId = document.getElementById('trocaFogoNovo').value; // Pneu de Entrada
-        const fogoRetirado = document.getElementById('trocaFogoRetirado').value.trim(); // Pneu de Saída
+        const pneuNovoId = document.getElementById('trocaFogoNovo').value; 
+        const fogoRetirado = document.getElementById('trocaFogoRetirado').value.trim(); 
         const destinoRetirado = document.getElementById('trocaDestinoRetirado').value;
         const obs = document.getElementById('trocaObs').value.trim();
 
         if (!dataServico || !placa || !posicao || !pneuNovoId) return alert('Preencha a Data, Placa, Posição e selecione o Pneu a Instalar.');
 
-        // Busca o objeto do pneu novo para pegar o nome e registrar no histórico
         const pneuNovoObj = window.pneusBorracharia.find(p => p.id == pneuNovoId);
         const detalheStr = pneuNovoObj ? `Instalou: Fogo ${pneuNovoObj.num_fogo}` : 'Troca registrada';
         
@@ -244,20 +249,15 @@ window.salvarServicoBorracharia = async function(tipo) {
         if (typeof window.injetarFilial === 'function') insertHistoricoFrota = window.injetarFilial(insertHistoricoFrota);
 
         try {
-            // 1. Grava no histórico geral da Borracharia (Aba de visualização do caminhão)
             await window.supabaseClient.from('borracharia_registros').insert([insertHistoricoFrota]);
-
-            // 2. Atualiza o Pneu NOVO no banco (Muda status para Rodando e vincula ao caminhão)
             await window.supabaseClient.from('almoxarifado_pneus').update({
                 status: 'Rodando', cavalo_atual: placa, posicao: posicao
             }).eq('id', pneuNovoId);
 
-            // Grava a movimentação do pneu novo
             let movNovo = { pneu_id: pneuNovoId, tipo: 'Instalação', cavalo: placa, observacao: 'Instalado via tela de Troca Integrada' };
             if (typeof window.injetarFilial === 'function') movNovo = window.injetarFilial(movNovo);
             await window.supabaseClient.from('almoxarifado_pneus_mov').insert([movNovo]);
 
-            // 3. Atualiza o Pneu VELHO (se o mecânico digitou o fogo que saiu)
             if (fogoRetirado) {
                 const pRetirado = window.pneusBorracharia.find(p => p.num_fogo.toUpperCase() === fogoRetirado.toUpperCase());
                 if (pRetirado) {
@@ -276,8 +276,8 @@ window.salvarServicoBorracharia = async function(tipo) {
             document.getElementById('trocaFogoRetirado').value = '';
             document.getElementById('trocaObs').value = '';
             
-            await buscarPneusBorracharia(); // Recarrega os pneus
-            await buscarHistoricoBorracharia(); // Recarrega os logs
+            await buscarPneusBorracharia(); 
+            await buscarHistoricoBorracharia(); 
             renderizarPainelBorracharia();
             alternarTelaBorracharia('historico');
 
@@ -288,7 +288,7 @@ window.salvarServicoBorracharia = async function(tipo) {
     }
 };
 
-// ======================== MÓDULO: CADASTRO E CONTROLE DE PNEUS (Nº FOGO) ========================
+// ======================== MÓDULO: CADASTRO E CONTROLE DE PNEUS ========================
 
 window.buscarPneusBorracharia = async function() {
     try {
@@ -340,16 +340,16 @@ window.renderizarPneusBorracharia = function() {
                 <td>${custoTexto}</td>
                 <td>
                     <div style="display: flex; gap: 5px; justify-content: center;">
-                        <button class="btn-primary-blue" onclick="abrirModalMovPneu(${p.id})" title="Movimentar" style="padding: 5px 10px; font-size: 0.8rem;"><i class="fas fa-exchange-alt"></i></button>
-                        <button class="btn-secondary-dark" onclick="verHistoricoPneu(${p.id})" title="Histórico" style="padding: 5px 10px; font-size: 0.8rem;"><i class="fas fa-list"></i></button>
-                        <button class="btn-primary-green" onclick="abrirModalPneu(${p.id})" title="Editar" style="padding: 5px 10px; font-size: 0.8rem;"><i class="fas fa-edit"></i></button>
+                        <button class="btn-primary-blue" onclick="abrirModalMovPneuBorracharia(${p.id})" title="Movimentar" style="padding: 5px 10px; font-size: 0.8rem;"><i class="fas fa-exchange-alt"></i></button>
+                        <button class="btn-secondary-dark" onclick="verHistoricoPneuBorracharia(${p.id})" title="Histórico" style="padding: 5px 10px; font-size: 0.8rem;"><i class="fas fa-list"></i></button>
+                        <button class="btn-primary-green" onclick="abrirModalPneuBorracharia(${p.id})" title="Editar" style="padding: 5px 10px; font-size: 0.8rem;"><i class="fas fa-edit"></i></button>
                     </div>
                 </td>
             </tr>`;
     }).join('');
 };
 
-window.abrirModalPneu = function(id = null) {
+window.abrirModalPneuBorracharia = function(id = null) {
     document.getElementById('pneuId').value = id || '';
     if (id) {
         const pneu = window.pneusBorracharia.find(p => p.id === id);
@@ -359,7 +359,7 @@ window.abrirModalPneu = function(id = null) {
         document.getElementById('pneuMedida').value = pneu.medida || '';
         document.getElementById('pneuCusto').value = pneu.custo_atual || '';
         document.getElementById('pneuVida').value = pneu.vida || 0;
-        document.getElementById('pneuFogo').disabled = true; // Evitar mudar o código de fogo depois de criado
+        document.getElementById('pneuFogo').disabled = true; 
     } else {
         document.getElementById('tituloModalPneu').innerHTML = `<i class="fas fa-plus-circle"></i> Cadastrar Novo Pneu`;
         document.getElementById('pneuFogo').value = '';
@@ -369,11 +369,11 @@ window.abrirModalPneu = function(id = null) {
         document.getElementById('pneuVida').value = 0;
         document.getElementById('pneuFogo').disabled = false;
     }
-    document.getElementById('modalPneu').style.display = 'flex';
+    document.getElementById('modalPneuBorracharia').style.display = 'flex';
 };
 
-window.fecharModalPneu = function() {
-    document.getElementById('modalPneu').style.display = 'none';
+window.fecharModalPneuBorracharia = function() {
+    document.getElementById('modalPneuBorracharia').style.display = 'none';
 };
 
 window.salvarPneuBorracharia = async function() {
@@ -400,17 +400,17 @@ window.salvarPneuBorracharia = async function() {
             if (error) throw error;
             alert('Pneu cadastrado com sucesso!');
         }
-        fecharModalPneu();
+        fecharModalPneuBorracharia();
         await buscarPneusBorracharia();
         renderizarPneusBorracharia();
-        renderizarPainelBorracharia(); // Atualiza KPI Estoque
+        renderizarPainelBorracharia(); 
     } catch (e) {
         console.error("Erro ao salvar pneu", e);
         alert('Erro ao salvar. Verifique se o Nº de Fogo já existe.');
     }
 };
 
-window.abrirModalMovPneu = function(id) {
+window.abrirModalMovPneuBorracharia = function(id) {
     const pneu = window.pneusBorracharia.find(p => p.id === id);
     if (!pneu) return;
 
@@ -427,16 +427,16 @@ window.abrirModalMovPneu = function(id) {
     document.getElementById('movObs').value = '';
 
     carregarPlacasBorracharia('mov');
-    tratarCamposMovPneu();
+    tratarCamposMovPneuBorracharia();
 
-    document.getElementById('modalMovPneu').style.display = 'flex';
+    document.getElementById('modalMovPneuBorracharia').style.display = 'flex';
 };
 
-window.fecharModalMovPneu = function() {
-    document.getElementById('modalMovPneu').style.display = 'none';
+window.fecharModalMovPneuBorracharia = function() {
+    document.getElementById('modalMovPneuBorracharia').style.display = 'none';
 };
 
-window.tratarCamposMovPneu = function() {
+window.tratarCamposMovPneuBorracharia = function() {
     const tipo = document.getElementById('movTipo').value;
     const boxVeiculo = document.getElementById('movCamposVeiculo');
     if (tipo === 'Instalação') {
@@ -446,7 +446,7 @@ window.tratarCamposMovPneu = function() {
     }
 };
 
-window.salvarMovPneu = async function() {
+window.salvarMovPneuBorracharia = async function() {
     const pneuId = document.getElementById('movPneuId').value;
     const tipo = document.getElementById('movTipo').value;
     const cavalo = document.getElementById('movCavalo').value;
@@ -496,7 +496,7 @@ window.salvarMovPneu = async function() {
         if (resPneu.error) throw resPneu.error;
 
         alert('Movimentação registrada com sucesso!');
-        fecharModalMovPneu();
+        fecharModalMovPneuBorracharia();
         await buscarPneusBorracharia();
         renderizarPneusBorracharia();
         renderizarPainelBorracharia();
@@ -506,13 +506,13 @@ window.salvarMovPneu = async function() {
     }
 };
 
-window.verHistoricoPneu = async function(pneuId) {
+window.verHistoricoPneuBorracharia = async function(pneuId) {
     const pneu = window.pneusBorracharia.find(p => p.id === pneuId);
     document.getElementById('histPneuFogoText').innerText = pneu ? pneu.num_fogo : '';
     
     const tbody = document.getElementById('tabelaHistoricoMovPneu');
     tbody.innerHTML = '<tr><td colspan="5">Buscando histórico na nuvem...</td></tr>';
-    document.getElementById('modalHistoricoMovPneu').style.display = 'flex';
+    document.getElementById('modalHistoricoMovPneuBorracharia').style.display = 'flex';
 
     try {
         const { data, error } = await window.supabaseClient.from('almoxarifado_pneus_mov').select('*').eq('pneu_id', pneuId).order('data_mov', { ascending: false });
@@ -540,11 +540,11 @@ window.verHistoricoPneu = async function(pneuId) {
     }
 };
 
-window.fecharModalHistoricoMov = function() {
-    document.getElementById('modalHistoricoMovPneu').style.display = 'none';
+window.fecharModalHistoricoMovBorracharia = function() {
+    document.getElementById('modalHistoricoMovPneuBorracharia').style.display = 'none';
 };
 
-// ================= LÓGICA DE MODAIS DE IMPRESSÃO =================
+// ================= LÓGICA DE MODAIS DE IMPRESSÃO (Mantida) =================
 window.abrirModalLivroBorracharia = function() {
     const inputMes = document.getElementById('livroMesAno');
     if (inputMes) {
