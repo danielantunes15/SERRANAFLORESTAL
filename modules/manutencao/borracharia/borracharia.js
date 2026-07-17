@@ -3,20 +3,16 @@
 window.registrosBorracharia = [];
 
 window.initBorracharia = async function() {
-    // CORREÇÃO: Força o sistema a baixar a lista de caminhões do banco de dados antes de carregar a tela
     if (typeof carregarDadosOS === 'function') {
         await carregarDadosOS();
     }
     
-    // Seta a data e hora atual nos inputs por padrão
     const agora = new Date();
     const fusoAjuste = new Date(agora.getTime() - (agora.getTimezoneOffset() * 60000));
     document.getElementById('calibragemData').value = fusoAjuste.toISOString().slice(0, 16);
     document.getElementById('trocaData').value = fusoAjuste.toISOString().slice(0, 16);
 
     await buscarHistoricoBorracharia();
-    
-    // Só renderiza o painel depois que tudo já foi carregado
     alternarTelaBorracharia('painel');
 };
 
@@ -45,7 +41,6 @@ window.carregarPlacasBorracharia = async function(prefixo) {
     const select = document.getElementById(prefixo + 'Placa');
     const categoria = document.getElementById(prefixo + 'Categoria').value;
     
-    // Garantia dupla de que a frota está carregada
     if (!window.frotasManutencao || window.frotasManutencao.length === 0) {
         if (typeof carregarDadosOS === 'function') await carregarDadosOS();
     }
@@ -53,11 +48,9 @@ window.carregarPlacasBorracharia = async function(prefixo) {
     let options = '<option value="">Selecione um veículo...</option>';
     if (window.frotasManutencao) {
         window.frotasManutencao.forEach(f => {
-            // Tratamento contra espaços em branco e letras minúsculas
             const catBanco = f.categoria ? f.categoria.trim().toUpperCase() : '';
             const catFiltro = categoria ? categoria.trim().toUpperCase() : '';
             
-            // Filtra pela categoria selecionada, se houver
             if (catFiltro && catBanco !== catFiltro && catFiltro !== 'TODAS') return;
             
             if (f.cavalo) {
@@ -90,7 +83,6 @@ window.renderizarPainelBorracharia = function() {
     const agora = new Date();
     const trintaDiasAtras = new Date(agora.getTime() - (30 * 24 * 60 * 60 * 1000));
     
-    // Calcula KPIs do mês atual
     let calibsMes = 0;
     let trocasMes = 0;
     
@@ -105,27 +97,22 @@ window.renderizarPainelBorracharia = function() {
     document.getElementById('kpiCalibragensMes').innerText = calibsMes;
     document.getElementById('kpiTrocasMes').innerText = trocasMes;
 
-    // ALERTA DE VENCIMENTO: Puxa TODOS os veículos da frota geral para garantir que "os sem calibração" apareçam.
     const frotaGeral = window.frotasManutencao || [];
     const alertas = [];
 
     frotaGeral.forEach(f => {
         if (!f.cavalo) return;
         
-        // Exclui a categoria GRUA do alerta
         const catBanco = f.categoria ? f.categoria.trim().toUpperCase() : '';
         if (catBanco === 'GRUA') return; 
 
-        // Pega as calibragens apenas deste cavalo
         const calibsCavalo = window.registrosBorracharia.filter(r => r.placa === f.cavalo && r.tipo_servico === 'Calibragem');
         
         let diasEmAtraso = 'Nunca Calibrado';
         let dataUltima = '-';
         let isAtrasado = false;
 
-        // Se encontrou alguma calibração, checa os dias. Se não encontrou nenhuma (0), já cai no isAtrasado = true
         if (calibsCavalo.length > 0) {
-            // Ordenamos a lista para ter certeza que o item [0] é o mais recente
             calibsCavalo.sort((a, b) => new Date(b.data_registro) - new Date(a.data_registro));
             
             const lastCalib = calibsCavalo[0];
@@ -138,7 +125,6 @@ window.renderizarPainelBorracharia = function() {
             
             if (diffDias > 15) isAtrasado = true;
         } else {
-            // Nunca calibrado
             isAtrasado = true;
         }
 
@@ -160,7 +146,6 @@ window.renderizarPainelBorracharia = function() {
     if (alertas.length === 0) {
         tbodyAlertas.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#10b981; font-weight:bold;">Toda a frota está com a calibração em dia!</td></tr>';
     } else {
-        // Renderiza as linhas dos veículos vencidos/nunca calibrados
         tbodyAlertas.innerHTML = alertas.map(a => `
             <tr style="background: rgba(239, 68, 68, 0.05);">
                 <td style="color: #ef4444; font-weight: bold;">${a.placa}</td>
@@ -280,113 +265,11 @@ window.salvarServicoBorracharia = async function(tipo) {
         }
 
         await buscarHistoricoBorracharia();
-        renderizarPainelBorracharia(); // Atualiza o alerta automaticamente
+        renderizarPainelBorracharia(); 
         alternarTelaBorracharia('historico');
         
     } catch (error) {
         console.error("Erro ao salvar na borracharia:", error);
         alert(`Erro ao salvar. Verifique a conexão.`);
     }
-};
-
-// ================= LÓGICA DE PDF - IMPRESSÃO MANUAL =================
-
-window.abrirModalFichaBorracharia = function() {
-    document.getElementById('modalFichaBorracharia').style.display = 'flex';
-};
-
-window.fecharModalFichaBorracharia = function() {
-    document.getElementById('modalFichaBorracharia').style.display = 'none';
-};
-
-window.gerarPDFBorracharia = function() {
-    const categoria = document.getElementById('printFichaCategoria').value;
-    if (!categoria) return alert('Selecione uma categoria.');
-
-    // Removemos todas as amarras de "status === Ativo" e garantimos o trim() para não ter erro
-    const frotasCategoria = (window.frotasManutencao || []).filter(f => {
-        const catBanco = f.categoria ? f.categoria.trim().toUpperCase() : '';
-        const catFiltro = categoria.trim().toUpperCase();
-        
-        if (catFiltro === 'TODAS') return true;
-        return catBanco === catFiltro;
-    });
-    
-    if (frotasCategoria.length === 0) {
-        alert('Nenhum veículo encontrado para a seleção.');
-        return;
-    }
-
-    // Ordenar primeiro por Frota, depois pela Placa
-    frotasCategoria.sort((a, b) => (a.numero_frota || a.cavalo).localeCompare(b.numero_frota || b.cavalo));
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('landscape');
-
-    // Cabeçalho Principal
-    doc.setFontSize(16);
-    doc.text(`Ficha de Controle de Borracharia - ${categoria === 'TODAS' ? 'GERAL' : categoria}`, 14, 15);
-    
-    // Campo fixo para o mecânico colocar a data do dia em que ele foi fazer a checagem
-    doc.setFontSize(12);
-    doc.text(`Data do Controle a Campo: ____/____/202___`, 210, 15);
-    
-    doc.setFontSize(10);
-    doc.text(`Data de Impressão: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
-    doc.text(`Instruções: Preencha a data de serviço para os calibrados, anote a pressão, trocas e assine na frente.`, 14, 28);
-
-    const tableCols = [
-        "Placa (Cavalo)", 
-        "Nº Frota / Status", 
-        "Categoria",
-        "Data Serviço", 
-        "Pressão (Lbs)", 
-        "Pneus Trocados", 
-        "Assinatura (Mecânico)", 
-        "Observações"
-    ];
-
-    const tableRows = [];
-
-    frotasCategoria.forEach(f => {
-        const frotaTexto = f.numero_frota || '-';
-        const statusTexto = f.status ? `(${f.status})` : '';
-        
-        tableRows.push([
-            f.cavalo || '-',
-            `${frotaTexto} ${statusTexto}`,
-            f.categoria || '-',
-            "", 
-            "", 
-            "", 
-            "", 
-            ""
-        ]);
-    });
-
-    doc.autoTable({
-        startY: 35,
-        head: [tableCols],
-        body: tableRows,
-        theme: 'grid',
-        headStyles: { fillColor: [4, 120, 87] },
-        styles: { 
-            fontSize: 9, 
-            cellPadding: 6, // Mais espaçoso para facilitar escrever à caneta
-            minCellHeight: 15
-        },
-        columnStyles: {
-            0: { fontStyle: 'bold', cellWidth: 25 },
-            1: { cellWidth: 35 },
-            2: { cellWidth: 25 }, // Categoria
-            3: { cellWidth: 25 }, // Data serviço
-            4: { cellWidth: 25 }, // Pressao
-            5: { cellWidth: 40 }, // Pneus Trocados
-            6: { cellWidth: 35 }  // Assinatura
-            // Coluna Observações pega o restante do espaço da folha
-        }
-    });
-
-    doc.save(`Ficha_Borracharia_${categoria}_${new Date().getTime()}.pdf`);
-    fecharModalFichaBorracharia();
 };
