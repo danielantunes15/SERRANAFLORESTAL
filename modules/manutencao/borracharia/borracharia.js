@@ -110,7 +110,7 @@ window.carregarPlacasBorracharia = async function(prefixo) {
         if (typeof carregarDadosOS === 'function') await carregarDadosOS();
     }
 
-    let options = '<option value="">Selecione um ve culo...</option>';
+    let options = '<option value="">Selecione um veiculo...</option>';
     if (window.frotasManutencao) {
         window.frotasManutencao.forEach(f => {
             const catBanco = f.categoria ? f.categoria.trim().toUpperCase() : '';
