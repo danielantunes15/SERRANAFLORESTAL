@@ -273,3 +273,19 @@ window.salvarServicoBorracharia = async function(tipo) {
         alert(`Erro ao salvar. Verifique a conexão.`);
     }
 };
+
+// Funções para gerenciar o Modal do Livro Mensal
+window.abrirModalLivroBorracharia = function() {
+    const inputMes = document.getElementById('livroMesAno');
+    if (inputMes) {
+        const agora = new Date();
+        const ano = agora.getFullYear();
+        const mes = String(agora.getMonth() + 1).padStart(2, '0');
+        inputMes.value = `${ano}-${mes}`;
+    }
+    document.getElementById('modalLivroBorracharia').style.display = 'flex';
+};
+
+window.fecharModalLivroBorracharia = function() {
+    document.getElementById('modalLivroBorracharia').style.display = 'none';
+};

@@ -1,7 +1,8 @@
 <div class="action-bar" style="flex-wrap: wrap; gap: 15px;">
     <h3 style="color: var(--text-primary); margin: 0; align-self: center;"><i class="fas fa-life-ring"></i> Gestão de Borracharia</h3>
     <div class="button-group" style="margin-left: auto;">
-        <button class="btn-secondary-dark" onclick="abrirModalFichaBorracharia()"><i class="fas fa-print"></i> Imprimir Ficha Manual</button>
+        <button class="btn-primary-blue" onclick="abrirModalLivroBorracharia()" style="background-color: #6366f1; border-color: #6366f1; color: white;"><i class="fas fa-book"></i> Gerar Livro do Mês</button>
+        <button class="btn-secondary-dark" onclick="abrirModalFichaBorracharia()"><i class="fas fa-print"></i> Ficha Avulsa</button>
         <button class="btn-primary-blue" onclick="alternarTelaBorracharia('painel')"><i class="fas fa-chart-line"></i> Painel e Alertas</button>
         <button class="btn-primary-blue" onclick="alternarTelaBorracharia('historico')"><i class="fas fa-history"></i> Histórico</button>
         <button class="btn-primary-green" onclick="alternarTelaBorracharia('calibragem')"><i class="fas fa-compress-arrows-alt"></i> Nova Calibragem</button>
@@ -174,16 +175,51 @@
     </div>
 </div>
 
-<!-- MODAL IMPRIMIR FICHA MANUAL -->
+<!-- MODAL IMPRIMIR LIVRO DO MÊS (COMPLETO) -->
+<div id="modalLivroBorracharia" class="modal-overlay">
+    <div class="custom-modal">
+        <div class="modal-header" style="background: rgba(99, 102, 241, 0.1);">
+            <h3 style="color: #818cf8;"><i class="fas fa-book"></i> Gerar Livro de Controle Mensal</h3>
+            <button class="close-modal" onclick="fecharModalLivroBorracharia()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
+                Esta opção gera o Livro Oficial do Mês contendo Capa, Contra-Capa e as tabelas com espaço duplo por veículo para registros diários/semanais.
+            </p>
+            <div class="form-group-dark">
+                <label>Mês de Referência</label>
+                <input type="month" id="livroMesAno" class="dark-select">
+            </div>
+            <div class="form-group-dark">
+                <label>Categoria da Frota</label>
+                <select id="livroCategoria" class="dark-select">
+                    <option value="TODAS" style="font-weight: bold;">TODAS AS CATEGORIAS</option>
+                    <option value="TRITREM">Tritrem</option>
+                    <option value="PRANCHA">Prancha</option>
+                    <option value="GRUA">Grua</option>
+                    <option value="COMBOIO">Comboio</option>
+                    <option value="CARRETA">Carreta</option>
+                    <option value="FROTA LEVE">Frota Leve</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="fecharModalLivroBorracharia()">Cancelar</button>
+            <button class="btn-primary-blue" onclick="gerarLivroBorrachariaPDF()" style="background-color: #6366f1; border-color: #6366f1; color: white;">  Gerar Livro em PDF</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL IMPRIMIR FICHA MANUAL AVULSA -->
 <div id="modalFichaBorracharia" class="modal-overlay">
     <div class="custom-modal">
         <div class="modal-header">
-            <h3><i class="fas fa-print"></i> Gerar Ficha de Controle Manual</h3>
+            <h3><i class="fas fa-print"></i> Gerar Ficha de Controle Avulsa</h3>
             <button class="close-modal" onclick="fecharModalFichaBorracharia()">&times;</button>
         </div>
         <div class="modal-body">
             <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
-                Esta opção gera um PDF com a lista de veículos para que o borracheiro possa ir a campo anotar as calibragens na caneta.
+                Gera apenas uma folha simples para anotações rápidas no pátio.
             </p>
             <div class="form-group-dark">
                 <label>Selecione a Categoria da Frota</label>
@@ -200,7 +236,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="fecharModalFichaBorracharia()">Cancelar</button>
-            <button class="btn-primary-blue" onclick="gerarPDFBorracharia()">  Gerar PDF</button>
+            <button class="btn-primary-blue" onclick="gerarPDFBorracharia()">  Gerar Ficha Simples</button>
         </div>
     </div>
 </div>
