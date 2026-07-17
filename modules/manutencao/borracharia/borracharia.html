@@ -159,12 +159,14 @@
     </div>
 </div>
 
-<!-- TELA REGISTRAR TROCA (INTEGRADA AO ESTOQUE) -->
+<!-- TELA REGISTRAR TROCA (BLOCO DINÂMICO) -->
 <div id="telaTrocaBorracharia" class="content-panel" style="display: none;">
     <div class="panel-header" style="background: rgba(239, 68, 68, 0.1); border-bottom: 2px solid #ef4444;">
-        <h3 style="color: #ef4444;"><i class="fas fa-sync-alt"></i> Registrar Troca de Pneu (Integrado)</h3>
+        <h3 style="color: #ef4444;"><i class="fas fa-sync-alt"></i> Registrar Troca de Pneus</h3>
     </div>
     <div style="padding: 25px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        
+        <!-- DADOS GLOBAIS DA FROTA -->
         <div class="form-group-dark">
             <label>Data e Hora da Troca</label>
             <input type="datetime-local" id="trocaData" class="dark-select">
@@ -189,43 +191,35 @@
             <label>Borracheiro / Executor</label>
             <input type="text" id="trocaBorracheiro" placeholder="Ex: João Silva">
         </div>
-        <div class="form-group-dark">
-            <label>Posição no Veículo</label>
-            <input type="text" id="trocaPosicao" placeholder="Ex: 3º Eixo Dir Ext">
-        </div>
-        
-        <div class="form-group-dark" style="background: rgba(59, 130, 246, 0.1); padding: 10px; border-radius: 8px; border: 1px solid #3b82f6;">
-            <label style="color: var(--ccol-blue-bright);"><i class="fas fa-arrow-down"></i> Pneu a Instalar (Vem do Estoque)</label>
-            <select id="trocaFogoNovo" class="dark-select">
-                <option value="">Selecione o Pneu no Estoque...</option>
-            </select>
+
+        <div style="grid-column: 1 / -1; border-top: 1px dashed rgba(255,255,255,0.2); margin-top: 10px; padding-top: 20px;">
+            <h4 style="color: #fca5a5; margin-bottom: 10px;"><i class="fas fa-tools"></i> Pneus a Trocar</h4>
+            <p style="font-size: 0.85rem; color: var(--text-secondary);">Preencha os dados do pneu. Se precisar trocar mais de um neste mesmo veículo, clique em "Adicionar Mais um Pneu".</p>
         </div>
 
-        <div class="form-group-dark" style="background: rgba(239, 68, 68, 0.1); padding: 10px; border-radius: 8px; border: 1px solid #ef4444;">
-            <label style="color: #fca5a5;"><i class="fas fa-arrow-up"></i> Nº de Fogo Retirado (Opcional)</label>
-            <input type="text" id="trocaFogoRetirado" placeholder="Ex: 98765">
+        <!-- CONTAINER DINÂMICO PARA OS PNEUS -->
+        <div id="containerPneusTroca" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 15px;">
+            <!-- Os blocos serão gerados via JS aqui -->
         </div>
-        
-        <div class="form-group-dark" style="grid-column: 1 / -1;">
-            <label>O que fazer com o Pneu Retirado?</label>
-            <select id="trocaDestinoRetirado" class="dark-select">
-                <option value="Recapagem">Enviar para Recapagem</option>
-                <option value="Sucata">Descartar (Sucata)</option>
-                <option value="Estoque">Voltar para Estoque Interno</option>
-            </select>
-        </div>
-        <div class="form-group-dark" style="grid-column: 1 / -1;">
-            <label>Observações da Troca / Motivo</label>
-            <input type="text" id="trocaObs" placeholder="Ex: Pneu furado, desgaste natural...">
-        </div>
+
+        <!-- BOTÃO ADICIONAR MAIS -->
         <div style="grid-column: 1 / -1;">
-            <button class="btn-danger-block btn-full" onclick="salvarServicoBorracharia('Troca')" style="padding: 15px; font-size: 1.1rem;">  Efetuar Troca Integrada</button>
+            <button class="btn-secondary-dark btn-full" onclick="adicionarCamposPneuTroca()" style="border-color: #3b82f6; color: #3b82f6; padding: 12px; font-weight: bold; border-style: dashed;">
+                <i class="fas fa-plus"></i> Adicionar Mais um Pneu à Troca
+            </button>
         </div>
+
+        <!-- BOTÃO SALVAR TUDO -->
+        <div style="grid-column: 1 / -1; margin-top: 15px;">
+            <button class="btn-danger-block btn-full" onclick="salvarServicoBorracharia('Troca')" style="padding: 15px; font-size: 1.1rem; text-transform: uppercase; font-weight: 900;">
+                <i class="fas fa-check-double"></i> Registrar Troca(s) no Sistema
+            </button>
+        </div>
+
     </div>
 </div>
 
 <!-- ========================= MODAIS DO CADASTRO DE PNEUS ========================= -->
-
 <div id="modalPneuBorracharia" class="modal-overlay">
     <div class="custom-modal">
         <div class="modal-header">
@@ -264,7 +258,6 @@
     </div>
 </div>
 
-<!-- MODAL MOVIMENTAR PNEU MANUALMENTE -->
 <div id="modalMovPneuBorracharia" class="modal-overlay">
     <div class="custom-modal" style="max-width: 500px;">
         <div class="modal-header" style="background: rgba(139, 92, 246, 0.1);">
@@ -309,7 +302,6 @@
     </div>
 </div>
 
-<!-- MODAL HISTÓRICO DE MOVIMENTAÇÕES DO PNEU -->
 <div id="modalHistoricoMovPneuBorracharia" class="modal-overlay">
     <div class="custom-modal" style="max-width: 700px;">
         <div class="modal-header">
@@ -337,7 +329,7 @@
     </div>
 </div>
 
-<!-- MODAIS DE IMPRESSÃO (Livro e Ficha Avulsa) -->
+<!-- ========================= MODAIS DE IMPRESSÃO (Mantidos) ========================= -->
 <div id="modalLivroBorracharia" class="modal-overlay">
     <div class="custom-modal">
         <div class="modal-header" style="background: rgba(99, 102, 241, 0.1);">
