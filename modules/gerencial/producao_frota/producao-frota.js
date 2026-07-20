@@ -632,6 +632,7 @@ function atualizarPainelDinamico(dadosEnriquecidos) {
                     distanciaBase: registro.distTotal,
                     asfaltoBase: registro.distAsfalto,
                     terraBase: registro.distTerra,
+                    tarifaBase: registro.tarifaTransporte,
                     registros: [registro],
                     totalTransp: registro.recTransp,
                     totalCarreg: registro.recCarreg,
@@ -693,6 +694,7 @@ function renderizarPainelDinamico(resultadoDinamico) {
                         <div class="flex justify-between"><span class="text-slate-400">Vol. Transp (m³):</span> <span class="font-mono text-white">${formatVol(grupo.totalVolTransp)}</span></div>
                         <div class="flex justify-between"><span class="text-slate-400">Vol. Carreg (m³):</span> <span class="font-mono text-white">${formatVol(grupo.totalVolCarreg)}</span></div>
                         <div class="flex justify-between"><span class="text-slate-400">Viagens:</span> <span class="font-mono text-white">${grupo.viagens}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Tarifa Ref. (R$):</span> <span class="font-mono text-white">${formatMoney(grupo.tarifaBase)}</span></div>
                         <div class="flex justify-between mt-1 pt-1 border-t border-slate-700"><span class="text-slate-400">Frentes:</span> <span class="text-white text-right truncate ml-2" title="${grupo.ups.join(', ')}">${grupo.ups.join(', ')}</span></div>
                     </div>
                     <div class="bg-slate-900 rounded p-2 text-sm border border-slate-700">
