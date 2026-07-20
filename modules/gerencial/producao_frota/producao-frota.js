@@ -23,6 +23,8 @@ var chartVolumesObj = null;
 var chartReceitasObj = null;
 var chartFaturamentoTotalObj = null; // Instância do novo gráfico
 
+const TOLERANCIA_DISTANCIA_KM = 5.0; // Tolerância em km para agrupar as tarifas
+
 function getSupabaseClient() {
     if (window.supabaseClient) return window.supabaseClient;
     if (typeof supabaseClient !== 'undefined') return supabaseClient;
@@ -292,6 +294,7 @@ function processarFiltrosEExibir() {
         const agrupamentoTabela = {};
         const agrupamentoFrente = {}; 
         const agrupamentoDiario = {};
+        let dadosEnriquecidos = [];
         
         let tTranspViagens = 0, tTranspVol = 0, tTranspRec = 0;
         let tCarregViagens = 0, tCarregVol = 0, tCarregRec = 0;
@@ -432,6 +435,23 @@ function processarFiltrosEExibir() {
                     agrupamentoDiario[d].recCarreg += recCarregamento;
                 }
             }
+
+            dadosEnriquecidos.push({
+                data: d,
+                up: nomeFrente,
+                placa: pl,
+                distAsfalto: asfalto,
+                distTerra: terra,
+                distTotal: asfalto + terra,
+                tarifaTransporte: tarifaTransporte,
+                recTransp: recTransporte,
+                recCarreg: recCarregamento,
+                recTotal: totalReceitaItem,
+                volume: v,
+                viagens: 1,
+                isSerrana: isSerrana,
+                isNossaGrua: isNossaGrua
+            });
         });
 
         // Cálculo das Médias de Distância e Tarifas do Período Filtrado
@@ -567,12 +587,130 @@ function processarFiltrosEExibir() {
         desenharGraficos(agrupamentoDiarioGlobal, agrupamento7Dias);
         atualizarPaineisReceita(f5, f6); 
         renderizarTabela(dadosAgrupadosAtual);
+        atualizarPainelDinamico(dadosEnriquecidos); // Chamada para o novo painel dinâmico
 
         if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} rotas analisadas`;
         
     } catch (errInterface) {
         console.error("[PRODUCAO] Erro Crítico na montagem da tela:", errInterface);
     }
+}
+
+function atualizarPainelDinamico(dadosEnriquecidos) {
+    const entradasPorDia = {};
+    dadosEnriquecidos.forEach(r => {
+        if (!r.data) return;
+        if (!entradasPorDia[r.data]) entradasPorDia[r.data] = [];
+        entradasPorDia[r.data].push(r);
+    });
+
+    const resultadoDinamico = [];
+    
+    for (const data in entradasPorDia) {
+        const registrosDia = entradasPorDia[data];
+        let gruposTarifarios = [];
+
+        registrosDia.forEach(registro => {
+            let grupoExistente = gruposTarifarios.find(g => 
+                Math.abs(g.distanciaBase - registro.distTotal) <= TOLERANCIA_DISTANCIA_KM
+            );
+
+            if (grupoExistente) {
+                grupoExistente.registros.push(registro);
+                grupoExistente.totalTransp += registro.recTransp;
+                grupoExistente.totalCarreg += registro.recCarreg;
+                grupoExistente.totalReceita += registro.recTotal;
+                if (registro.isSerrana) grupoExistente.totalVolTransp += registro.volume;
+                if (registro.isNossaGrua) grupoExistente.totalVolCarreg += registro.volume;
+                grupoExistente.viagens += 1;
+                if (!grupoExistente.ups.includes(registro.up)) {
+                    grupoExistente.ups.push(registro.up);
+                }
+            } else {
+                gruposTarifarios.push({
+                    idGrupo: Math.random().toString(36).substr(2, 9),
+                    distanciaBase: registro.distTotal,
+                    asfaltoBase: registro.distAsfalto,
+                    terraBase: registro.distTerra,
+                    registros: [registro],
+                    totalTransp: registro.recTransp,
+                    totalCarreg: registro.recCarreg,
+                    totalReceita: registro.recTotal,
+                    totalVolTransp: registro.isSerrana ? registro.volume : 0,
+                    totalVolCarreg: registro.isNossaGrua ? registro.volume : 0,
+                    viagens: 1,
+                    ups: [registro.up]
+                });
+            }
+        });
+
+        // Ordena os grupos pela distancia total
+        gruposTarifarios.sort((a,b) => a.distanciaBase - b.distanciaBase);
+
+        resultadoDinamico.push({
+            data: data,
+            grupos: gruposTarifarios
+        });
+    }
+    
+    // Ordena por data
+    resultadoDinamico.sort((a,b) => converterDataString(a.data).getTime() - converterDataString(b.data).getTime());
+
+    renderizarPainelDinamico(resultadoDinamico);
+}
+
+function renderizarPainelDinamico(resultadoDinamico) {
+    const container = document.getElementById('conteudo-painel-dinamico');
+    if (!container) return;
+    
+    if (resultadoDinamico.length === 0) {
+        container.innerHTML = '<div class="text-center text-slate-400 py-8">Nenhum dado para o período selecionado.</div>';
+        return;
+    }
+
+    let html = '<div class="space-y-6">';
+    const formatMoney = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const formatVol = v => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    resultadoDinamico.forEach(dia => {
+        html += `
+        <div class="bg-slate-900/50 rounded-lg border border-slate-700/50 overflow-hidden">
+            <div class="bg-slate-800 px-4 py-2 border-b border-slate-700">
+                <h4 class="font-bold text-slate-200"><i class="fas fa-calendar-day text-amber-500 mr-2"></i> Data: ${dia.data}</h4>
+            </div>
+            <div class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        `;
+        
+        dia.grupos.forEach((grupo, idx) => {
+            html += `
+                <div class="bg-slate-800/80 rounded border border-slate-600 p-4 hover:border-amber-500/50 transition-colors">
+                    <div class="text-xs font-bold text-amber-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">
+                        Tarifa/Fazenda ${idx + 1}
+                    </div>
+                    <div class="text-sm text-slate-300 space-y-1 mb-3">
+                        <div class="flex justify-between"><span class="text-slate-400">Ref. Total (km):</span> <span class="font-mono text-white">${formatVol(grupo.distanciaBase)}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Asf / Terra (Ref):</span> <span class="font-mono text-white">${formatVol(grupo.asfaltoBase)} / ${formatVol(grupo.terraBase)}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Vol. Transp (m³):</span> <span class="font-mono text-white">${formatVol(grupo.totalVolTransp)}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Vol. Carreg (m³):</span> <span class="font-mono text-white">${formatVol(grupo.totalVolCarreg)}</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Viagens:</span> <span class="font-mono text-white">${grupo.viagens}</span></div>
+                        <div class="flex justify-between mt-1 pt-1 border-t border-slate-700"><span class="text-slate-400">Frentes:</span> <span class="text-white text-right truncate ml-2" title="${grupo.ups.join(', ')}">${grupo.ups.join(', ')}</span></div>
+                    </div>
+                    <div class="bg-slate-900 rounded p-2 text-sm border border-slate-700">
+                        <div class="flex justify-between items-center"><span class="text-sky-400 text-xs uppercase font-bold">Transp:</span> <span class="font-mono text-sky-400">${formatMoney(grupo.totalTransp)}</span></div>
+                        <div class="flex justify-between items-center"><span class="text-emerald-400 text-xs uppercase font-bold">Carreg:</span> <span class="font-mono text-emerald-400">${formatMoney(grupo.totalCarreg)}</span></div>
+                        <div class="flex justify-between items-center mt-1 pt-1 border-t border-slate-700"><span class="text-amber-400 text-xs uppercase font-bold">Receita Total:</span> <span class="font-mono font-bold text-amber-400 text-base">${formatMoney(grupo.totalReceita)}</span></div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+            </div>
+        </div>`;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
 }
 
 function desenharGraficos(agrupamento, agrupamento7Dias) {
