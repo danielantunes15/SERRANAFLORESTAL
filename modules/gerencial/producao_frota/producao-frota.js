@@ -23,7 +23,7 @@ var chartVolumesObj = null;
 var chartReceitasObj = null;
 var chartFaturamentoTotalObj = null; // Instância do novo gráfico
 
-const TOLERANCIA_DISTANCIA_KM = 5.0; // Tolerância em km para agrupar as tarifas
+const TOLERANCIA_DISTANCIA_KM = 8.0; // Tolerância aumentada para agrupar as fazendas corretamente
 
 function getSupabaseClient() {
     if (window.supabaseClient) return window.supabaseClient;
