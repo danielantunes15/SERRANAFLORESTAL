@@ -3,13 +3,12 @@
 window.abrirModalFichaBorracharia = function() {
     document.getElementById('modalFichaBorracharia').style.display = 'flex';
 }
-
 window.fecharModalFichaBorracharia = function() {
     document.getElementById('modalFichaBorracharia').style.display = 'none';
 }
 
 // ==============================================================================
-// FUNÇÃO AUXILIAR: CARREGAR A LOGO PARA O PDF
+// FUN O AUXILIAR: CARREGAR A LOGO PARA O PDF
 // ==============================================================================
 function carregarLogoBorracharia(callback) {
     const logoUrl = 'assets/logoverde.png';
@@ -23,7 +22,7 @@ function carregarLogoBorracharia(callback) {
             ctx.drawImage(img, 0, 0);
             callback(canvas.toDataURL('image/png'));
         } catch(e) {
-            console.warn("Segurança do navegador bloqueou a imagem local. PDF sairá sem logo.");
+            console.warn("Seguran a do navegador bloqueou a imagem local. PDF sair  sem logo.");
             callback(null);
         }
     };
@@ -32,7 +31,7 @@ function carregarLogoBorracharia(callback) {
 }
 
 // ==============================================================================
-// GERAÇÃO DA FICHA SIMPLES (AVULSA)
+// GERA O DA FICHA SIMPLES (AVULSA)
 // ==============================================================================
 window.gerarPDFBorracharia = function() {
     const categoria = document.getElementById('printFichaCategoria').value;
@@ -46,7 +45,7 @@ window.gerarPDFBorracharia = function() {
     });
     
     if (frotasCategoria.length === 0) {
-        alert('Nenhum veículo encontrado para a seleção.');
+        alert('Nenhum ve culo encontrado para a sele o.');
         return;
     }
 
@@ -54,55 +53,66 @@ window.gerarPDFBorracharia = function() {
 
     carregarLogoBorracharia((logoDataUrl) => {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF(); // Padrão A4 Retrato (Vertical)
+        const doc = new jsPDF(); // Padr  A4 Retrato (Vertical)
 
-        const tableCols = ["Placa", "Frota/Status", "Categ.", "KM", "Lbs", "Troca (Posição)", "Assinatura", "Obs."];
+        const tableCols = ["Cavalo", "GO / Carretas (Marque com X)", "Data", "KM", "Lbs", "Troca", "Assinatura", "Obs."];
         const tableRows = [];
 
         frotasCategoria.forEach(f => {
-            const frotaTexto = f.numero_frota || '-';
-            const statusTexto = f.status ? `(${f.status.substring(0, 4)}.)` : '';
+            const implementos = [];
+            if (f.go && f.go.trim() !== '') implementos.push(`[  ] ${f.go.trim()}`);
+            if (f.carreta1 && f.carreta1.trim() !== '') implementos.push(`[  ] ${f.carreta1.trim()}`);
+            if (f.carreta2 && f.carreta2.trim() !== '') implementos.push(`[  ] ${f.carreta2.trim()}`);
+            if (f.carreta3 && f.carreta3.trim() !== '') implementos.push(`[  ] ${f.carreta3.trim()}`);
+            
+            let implTexto = '-';
+            if (implementos.length > 0) {
+                if (implementos.length > 2) {
+                    // Quebra em duas linhas para ficar organizado e caber na coluna
+                    implTexto = implementos.slice(0, 2).join('   ') + '\n' + implementos.slice(2).join('   ');
+                } else {
+                    implTexto = implementos.join('   ');
+                }
+            }
             
             tableRows.push([
-                f.cavalo || '-', 
-                `${frotaTexto} ${statusTexto}`, 
-                (f.categoria || '-').substring(0, 8),
-                "", "", "", "", ""
+                f.cavalo || '-',
+                implTexto,
+                "", "", "", "", "", ""
             ]);
         });
 
-        // Tabela Auto-ajustável com repetição de cabeçalho em cada página
+        // Tabela Auto-ajust vel com repeti o de cabe alho em cada p gina
         doc.autoTable({
             startY: 40,
             head: [tableCols],
             body: tableRows,
             theme: 'grid',
             headStyles: { fillColor: [4, 120, 87], halign: 'center' }, 
-            styles: { fontSize: 8, cellPadding: 3, minCellHeight: 10, valign: 'middle' },
+            styles: { fontSize: 8, cellPadding: 3, minCellHeight: 11, valign: 'middle' },
             columnStyles: {
-                0: { fontStyle: 'bold', cellWidth: 18, halign: 'center' }, // Placa
-                1: { cellWidth: 26, halign: 'center' }, // Frota/Status
-                2: { cellWidth: 16, halign: 'center' }, // Categoria
-                3: { cellWidth: 16, halign: 'center' }, // KM
-                4: { cellWidth: 12, halign: 'center' }, // Lbs
-                5: { cellWidth: 32 }, // Troca
+                0: { fontStyle: 'bold', cellWidth: 16, halign: 'center' }, // Cavalo
+                1: { cellWidth: 48, halign: 'center', fontSize: 7.5 }, // GO / Carretas
+                2: { cellWidth: 16, halign: 'center' }, // Data
+                3: { cellWidth: 15, halign: 'center' }, // KM
+                4: { cellWidth: 10, halign: 'center' }, // Lbs
+                5: { cellWidth: 28 }, // Troca
                 6: { cellWidth: 25 }  // Assinatura
                 // Coluna 7 (Obs) pega o resto do papel
             },
             margin: { left: 10, right: 10, top: 40, bottom: 15 },
             didDrawPage: function(data) {
-                // Desenha o Cabeçalho em todas as páginas criadas
                 doc.setFontSize(14);
                 doc.setFont("helvetica", "bold");
                 doc.text(`FICHA AVULSA DE BORRACHARIA - ${categoria === 'TODAS' ? 'GERAL' : categoria}`, 105, 15, { align: "center" });
                 
                 doc.setFontSize(10);
                 doc.setFont("helvetica", "normal");
-                doc.text(`Data de Impressão: ${new Date().toLocaleDateString('pt-BR')}`, 10, 25);
+                doc.text(`Data de Impress o: ${new Date().toLocaleDateString('pt-BR')}`, 10, 25);
                 doc.text(`Data do Controle a Campo: ____/____/202___`, 120, 25);
                 
                 doc.setFontSize(9);
-                doc.text(`Instruções: Preencha a data do serviço, KM do veículo, pressão (Lbs), trocas e assine na frente.`, 10, 32);
+                doc.text(`Instru es: Marque o [ X ] na carreta atendida. Preencha a data, KM, pressão (Lbs) e trocas.`, 10, 32);
 
                 if (logoDataUrl) {
                     const pageWidth = doc.internal.pageSize.getWidth();
@@ -117,18 +127,18 @@ window.gerarPDFBorracharia = function() {
 }
 
 // ==============================================================================
-// GERAÇÃO DO LIVRO MENSAL OFICIAL (CAPA COM ASSINATURAS DINÂMICAS, FOLHAS DIÁRIAS)
+// GERA O DO LIVRO MENSAL OFICIAL (CAPA COM ASSINATURAS DIN MICAS, FOLHAS DI RIAS)
 // ==============================================================================
 window.gerarLivroBorrachariaPDF = function() {
     const categoria = document.getElementById('livroCategoria').value;
     const mesAno = document.getElementById('livroMesAno').value; 
 
-    if (!categoria || !mesAno) return alert('Selecione a categoria e o mês de referência.');
+    if (!categoria || !mesAno) return alert('Selecione a categoria e o m s de refer ncia.');
 
     const [ano, mesNum] = mesAno.split('-');
-    const diasNoMes = new Date(ano, parseInt(mesNum), 0).getDate(); // Retorna o último dia do mês
-
-    const mesesExtenso = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const diasNoMes = new Date(ano, parseInt(mesNum), 0).getDate(); // Retorna o  ltimo dia do m
+    
+    const mesesExtenso = ['Janeiro', 'Fevereiro', 'Mar o', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const nomeMes = mesesExtenso[parseInt(mesNum) - 1].toUpperCase();
 
     const frotasCategoria = (window.frotasManutencao || []).filter(f => {
@@ -139,7 +149,7 @@ window.gerarLivroBorrachariaPDF = function() {
     });
 
     if (frotasCategoria.length === 0) {
-        alert('Nenhum veículo encontrado para a seleção no mês especificado.');
+        alert('Nenhum ve culo encontrado para a sele o no m s especificado.');
         return;
     }
 
@@ -151,12 +161,11 @@ window.gerarLivroBorrachariaPDF = function() {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        // ================= PÁGINA 1: CAPA =================
+        // ================= P GINA 1: CAPA =================
         if (logoDataUrl) {
             doc.addImage(logoDataUrl, 'PNG', pageWidth - 55, 15, 40, 13);
         }
-
-        // Borda elegante da Capa
+        
         doc.setLineWidth(1.5);
         doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
         doc.setLineWidth(0.5);
@@ -165,19 +174,18 @@ window.gerarLivroBorrachariaPDF = function() {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(30);
         doc.text("LIVRO DE CONTROLE", pageWidth / 2, 100, { align: "center" });
-        doc.text("DIÁRIO DE BORRACHARIA", pageWidth / 2, 115, { align: "center" });
+        doc.text("DI RIO DE BORRACHARIA", pageWidth / 2, 115, { align: "center" });
 
         doc.setFontSize(16);
         doc.setFont("helvetica", "normal");
-        doc.text(`MÊS REFERÊNCIA: ${nomeMes} / ${ano}`, pageWidth / 2, 140, { align: "center" });
+        doc.text(`M S REFER NCIA: ${nomeMes} / ${ano}`, pageWidth / 2, 140, { align: "center" });
         doc.text(`CATEGORIA: ${categoria === 'TODAS' ? 'FROTA GERAL' : categoria}`, pageWidth / 2, 150, { align: "center" });
 
-        // --- ASSINATURAS DINÂMICAS DOS BORRACHEIROS NA CAPA ---
         const borracheiros = window.borracheirosList || [];
+        
         if (borracheiros.length > 0) {
-            // Limita a 5 nomes para não ultrapassar a borda inferior da folha
             const maxBorracheiros = Math.min(borracheiros.length, 5); 
-            const espacamento = 20; // 20mm de espaçamento entre cada linha de assinatura
+            const espacamento = 20; 
             let startY = 265 - (maxBorracheiros * espacamento);
 
             for (let i = 0; i < maxBorracheiros; i++) {
@@ -188,25 +196,34 @@ window.gerarLivroBorrachariaPDF = function() {
                 startY += espacamento;
             }
         } else {
-            // Fallback genérico caso a lista esteja vazia
             doc.line(50, 240, pageWidth - 50, 240);
             doc.setFontSize(12);
-            doc.text("Assinatura do Borracheiro / Responsável Tático", pageWidth / 2, 248, { align: "center" });
+            doc.text("Assinatura do Borracheiro / Respons vel T tico", pageWidth / 2, 248, { align: "center" });
         }
 
-        // ================= PÁGINAS INTERNAS: UM DIA POR VEZ =================
-        const tableCols = ["Placa", "Frota/Status", "Categ.", "KM", "Lbs", "Troca (Posição)", "Assinatura", "Obs."];
+        // ================= P GINAS INTERNAS: UM DIA POR VEZ =================
+        const tableCols = ["Cavalo", "GO / Carretas (Marque com X)", "KM Atual", "Lbs", "Troca (Posição)", "Assinatura", "Obs."];
         const tableRows = [];
 
         frotasCategoria.forEach(f => {
-            const frotaTexto = f.numero_frota || '-';
-            const statusTexto = f.status ? `(${f.status.substring(0, 4)}.)` : '';
-            const cat = (f.categoria || '-').substring(0, 8);
+            const implementos = [];
+            if (f.go && f.go.trim() !== '') implementos.push(`[  ] ${f.go.trim()}`);
+            if (f.carreta1 && f.carreta1.trim() !== '') implementos.push(`[  ] ${f.carreta1.trim()}`);
+            if (f.carreta2 && f.carreta2.trim() !== '') implementos.push(`[  ] ${f.carreta2.trim()}`);
+            if (f.carreta3 && f.carreta3.trim() !== '') implementos.push(`[  ] ${f.carreta3.trim()}`);
             
-            tableRows.push([f.cavalo || '-', `${frotaTexto} ${statusTexto}`, cat, "", "", "", "", ""]);
+            let implTexto = '-';
+            if (implementos.length > 0) {
+                if (implementos.length > 2) {
+                    implTexto = implementos.slice(0, 2).join('   ') + '\n' + implementos.slice(2).join('   ');
+                } else {
+                    implTexto = implementos.join('   ');
+                }
+            }
+            
+            tableRows.push([f.cavalo || '-', implTexto, "", "", "", "", ""]);
         });
 
-        // Cria uma página para cada dia do mês
         for (let dia = 1; dia <= diasNoMes; dia++) {
             doc.addPage();
             
@@ -218,27 +235,25 @@ window.gerarLivroBorrachariaPDF = function() {
                 body: tableRows,
                 theme: 'grid',
                 headStyles: { fillColor: [4, 120, 87], halign: 'center' },
-                styles: { fontSize: 8, cellPadding: 2, minCellHeight: 8, valign: 'middle' },
+                styles: { fontSize: 8, cellPadding: 2, minCellHeight: 11, valign: 'middle' },
                 columnStyles: {
-                    0: { fontStyle: 'bold', cellWidth: 20, halign: 'center' }, // Placa
-                    1: { cellWidth: 28, halign: 'center' }, // Frota/Status
-                    2: { cellWidth: 18, halign: 'center' }, // Categoria
-                    3: { cellWidth: 16, halign: 'center' }, // KM
-                    4: { cellWidth: 14, halign: 'center' }, // Lbs
-                    5: { cellWidth: 35 }, // Trocas
-                    6: { cellWidth: 25 }  // Assinatura
-                    // Obs pega o restante (aproximadamente 34)
+                    0: { fontStyle: 'bold', cellWidth: 16, halign: 'center' }, // Cavalo
+                    1: { cellWidth: 50, halign: 'center', fontSize: 7.5 }, // GO/Carretas com Checkbox
+                    2: { cellWidth: 16, halign: 'center' }, // KM Atual
+                    3: { cellWidth: 12, halign: 'center' }, // Lbs
+                    4: { cellWidth: 35 }, // Trocas
+                    5: { cellWidth: 30 }  // Assinatura
+                    // Coluna 6 (Obs) pega o resto
                 },
                 margin: { left: 10, right: 10, top: 35, bottom: 15 },
                 didDrawPage: function(data) {
-                    // Cabeçalho fixo para a página de CADA DIA
                     doc.setFontSize(14);
                     doc.setFont("helvetica", "bold");
-                    doc.text(`CONTROLE DIÁRIO - ${categoria === 'TODAS' ? 'GERAL' : categoria}`, 10, 15);
+                    doc.text(`CONTROLE DI RIO - ${categoria === 'TODAS' ? 'GERAL' : categoria}`, 10, 15);
                     
                     doc.setFontSize(11);
                     doc.setFont("helvetica", "normal");
-                    doc.text(`Data da Medição: ${dataFormatada}`, 10, 23);
+                    doc.text(`Data da Medi o: ${dataFormatada}`, 10, 23);
                     doc.text(`Visto do Supervisor: _______________________`, 95, 23);
 
                     if (logoDataUrl) {
@@ -248,8 +263,9 @@ window.gerarLivroBorrachariaPDF = function() {
             });
         }
 
-        // ================= ÚLTIMA PÁGINA: CONTRA-CAPA =================
+        // =================  LTIMA P GINA: CONTRA-CAPA =================
         doc.addPage();
+        
         doc.setLineWidth(1.5);
         doc.rect(10, 10, pageWidth - 20, pageHeight - 20);
         doc.setLineWidth(0.5);
@@ -261,24 +277,23 @@ window.gerarLivroBorrachariaPDF = function() {
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(26);
-        doc.text("FECHAMENTO DO MÊS", pageWidth / 2, 110, { align: "center" });
-        
+        doc.text("FECHAMENTO DO M S", pageWidth / 2, 110, { align: "center" });
+
         doc.setFontSize(16);
         doc.setFont("helvetica", "normal");
-        doc.text(`Referência: ${nomeMes} / ${ano}`, pageWidth / 2, 130, { align: "center" });
+        doc.text(`Refer ncia: ${nomeMes} / ${ano}`, pageWidth / 2, 130, { align: "center" });
         
-        doc.text("Atesto que as informações registradas nestas folhas", pageWidth / 2, 145, { align: "center" });
+        doc.text("Atesto que as informa es registradas nestas folhas", pageWidth / 2, 145, { align: "center" });
         doc.text("foram conferidas e transferidas para o sistema digital.", pageWidth / 2, 153, { align: "center" });
 
         doc.line(50, 230, pageWidth - 50, 230);
         doc.setFontSize(12);
-        doc.text("Assinatura do Gestor de Manutenção / CCOL", pageWidth / 2, 238, { align: "center" });
+        doc.text("Assinatura do Gestor de Manuten o / CCOL", pageWidth / 2, 238, { align: "center" });
 
-        // Salvar Arquivo
         doc.save(`Livro_Mensal_Borracharia_${categoria}_${nomeMes}_${ano}.pdf`);
         
         if (typeof window.fecharModalLivroBorracharia === 'function') {
             window.fecharModalLivroBorracharia();
         }
     });
-};
+}
