@@ -2,11 +2,11 @@
 
 window.abrirModalFichaBorracharia = function() {
     document.getElementById('modalFichaBorracharia').style.display = 'flex';
-};
+}
 
 window.fecharModalFichaBorracharia = function() {
     document.getElementById('modalFichaBorracharia').style.display = 'none';
-};
+}
 
 // ==============================================================================
 // FUNÇÃO AUXILIAR: CARREGAR A LOGO PARA O PDF
@@ -54,18 +54,18 @@ window.gerarPDFBorracharia = function() {
 
     carregarLogoBorracharia((logoDataUrl) => {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF(); // Padrão é A4 Retrato (Vertical)
+        const doc = new jsPDF(); // Padrão A4 Retrato (Vertical)
 
-        const tableCols = ["Placa", "Frota/Status", "Categ.", "Data", "Lbs", "Troca (Posição)", "Assinatura", "Obs."];
+        const tableCols = ["Placa", "Frota/Status", "Categ.", "KM", "Lbs", "Troca (Posição)", "Assinatura", "Obs."];
         const tableRows = [];
 
         frotasCategoria.forEach(f => {
             const frotaTexto = f.numero_frota || '-';
-            const statusTexto = f.status ? `(${f.status.substring(0, 4)}.)` : ''; 
+            const statusTexto = f.status ? `(${f.status.substring(0, 4)}.)` : '';
             
             tableRows.push([
-                f.cavalo || '-',
-                `${frotaTexto} ${statusTexto}`,
+                f.cavalo || '-', 
+                `${frotaTexto} ${statusTexto}`, 
                 (f.categoria || '-').substring(0, 8),
                 "", "", "", "", ""
             ]);
@@ -80,13 +80,13 @@ window.gerarPDFBorracharia = function() {
             headStyles: { fillColor: [4, 120, 87], halign: 'center' }, 
             styles: { fontSize: 8, cellPadding: 3, minCellHeight: 10, valign: 'middle' },
             columnStyles: {
-                0: { fontStyle: 'bold', cellWidth: 18, halign: 'center' },
-                1: { cellWidth: 26, halign: 'center' },
-                2: { cellWidth: 16, halign: 'center' },
-                3: { cellWidth: 18 },
-                4: { cellWidth: 12 },
-                5: { cellWidth: 32 },
-                6: { cellWidth: 25 }
+                0: { fontStyle: 'bold', cellWidth: 18, halign: 'center' }, // Placa
+                1: { cellWidth: 26, halign: 'center' }, // Frota/Status
+                2: { cellWidth: 16, halign: 'center' }, // Categoria
+                3: { cellWidth: 16, halign: 'center' }, // KM
+                4: { cellWidth: 12, halign: 'center' }, // Lbs
+                5: { cellWidth: 32 }, // Troca
+                6: { cellWidth: 25 }  // Assinatura
                 // Coluna 7 (Obs) pega o resto do papel
             },
             margin: { left: 10, right: 10, top: 40, bottom: 15 },
@@ -102,7 +102,7 @@ window.gerarPDFBorracharia = function() {
                 doc.text(`Data do Controle a Campo: ____/____/202___`, 120, 25);
                 
                 doc.setFontSize(9);
-                doc.text(`Instruções: Preencha a data do serviço, pressão medida (Lbs), trocas e assine na frente.`, 10, 32);
+                doc.text(`Instruções: Preencha a data do serviço, KM do veículo, pressão (Lbs), trocas e assine na frente.`, 10, 32);
 
                 if (logoDataUrl) {
                     const pageWidth = doc.internal.pageSize.getWidth();
@@ -114,8 +114,7 @@ window.gerarPDFBorracharia = function() {
         doc.save(`Ficha_Avulsa_Borracharia_${categoria}_${new Date().getTime()}.pdf`);
         fecharModalFichaBorracharia();
     });
-};
-
+}
 
 // ==============================================================================
 // GERAÇÃO DO LIVRO MENSAL OFICIAL (CAPA COM ASSINATURAS DINÂMICAS, FOLHAS DIÁRIAS)
@@ -128,6 +127,7 @@ window.gerarLivroBorrachariaPDF = function() {
 
     const [ano, mesNum] = mesAno.split('-');
     const diasNoMes = new Date(ano, parseInt(mesNum), 0).getDate(); // Retorna o último dia do mês
+
     const mesesExtenso = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const nomeMes = mesesExtenso[parseInt(mesNum) - 1].toUpperCase();
 
@@ -194,22 +194,22 @@ window.gerarLivroBorrachariaPDF = function() {
             doc.text("Assinatura do Borracheiro / Responsável Tático", pageWidth / 2, 248, { align: "center" });
         }
 
-
         // ================= PÁGINAS INTERNAS: UM DIA POR VEZ =================
-        const tableCols = ["Placa", "Frota/Status", "Categ.", "Lbs", "Troca (Posição)", "Assinatura", "Obs."];
+        const tableCols = ["Placa", "Frota/Status", "Categ.", "KM", "Lbs", "Troca (Posição)", "Assinatura", "Obs."];
         const tableRows = [];
 
         frotasCategoria.forEach(f => {
             const frotaTexto = f.numero_frota || '-';
             const statusTexto = f.status ? `(${f.status.substring(0, 4)}.)` : '';
             const cat = (f.categoria || '-').substring(0, 8);
-
-            tableRows.push([f.cavalo || '-', `${frotaTexto} ${statusTexto}`, cat, "", "", "", ""]);
+            
+            tableRows.push([f.cavalo || '-', `${frotaTexto} ${statusTexto}`, cat, "", "", "", "", ""]);
         });
 
         // Cria uma página para cada dia do mês
         for (let dia = 1; dia <= diasNoMes; dia++) {
             doc.addPage();
+            
             const dataFormatada = `${String(dia).padStart(2, '0')}/${mesNum}/${ano}`;
 
             doc.autoTable({
@@ -223,10 +223,11 @@ window.gerarLivroBorrachariaPDF = function() {
                     0: { fontStyle: 'bold', cellWidth: 20, halign: 'center' }, // Placa
                     1: { cellWidth: 28, halign: 'center' }, // Frota/Status
                     2: { cellWidth: 18, halign: 'center' }, // Categoria
-                    3: { cellWidth: 16, halign: 'center' }, // Lbs
-                    4: { cellWidth: 40 }, // Trocas
-                    5: { cellWidth: 35 }  // Assinatura
-                    // Obs pega o restante
+                    3: { cellWidth: 16, halign: 'center' }, // KM
+                    4: { cellWidth: 14, halign: 'center' }, // Lbs
+                    5: { cellWidth: 35 }, // Trocas
+                    6: { cellWidth: 25 }  // Assinatura
+                    // Obs pega o restante (aproximadamente 34)
                 },
                 margin: { left: 10, right: 10, top: 35, bottom: 15 },
                 didDrawPage: function(data) {
@@ -261,10 +262,11 @@ window.gerarLivroBorrachariaPDF = function() {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(26);
         doc.text("FECHAMENTO DO MÊS", pageWidth / 2, 110, { align: "center" });
-
+        
         doc.setFontSize(16);
         doc.setFont("helvetica", "normal");
         doc.text(`Referência: ${nomeMes} / ${ano}`, pageWidth / 2, 130, { align: "center" });
+        
         doc.text("Atesto que as informações registradas nestas folhas", pageWidth / 2, 145, { align: "center" });
         doc.text("foram conferidas e transferidas para o sistema digital.", pageWidth / 2, 153, { align: "center" });
 

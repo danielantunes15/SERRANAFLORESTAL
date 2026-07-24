@@ -63,6 +63,7 @@
             <button class="btn-primary-green" onclick="abrirModalPneuBorracharia()"><i class="fas fa-plus"></i> Novo Pneu</button>
         </div>
     </div>
+
     <div class="table-modern-wrapper">
         <table class="data-table-modern">
             <thead>
@@ -91,6 +92,7 @@
             <input type="text" id="searchBorracharia" placeholder="Buscar por placa..." class="search-input-dark" onkeyup="renderizarHistoricoBorracharia()">
         </div>
     </div>
+
     <div class="table-modern-wrapper">
         <table class="data-table-modern">
             <thead>
@@ -116,6 +118,7 @@
     <div class="panel-header" style="background: rgba(16, 185, 129, 0.1); border-bottom: 2px solid #10b981;">
         <h3 style="color: #10b981;"><i class="fas fa-compress-arrows-alt"></i> Registrar Nova Calibragem</h3>
     </div>
+
     <div style="padding: 25px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
         <div class="form-group-dark">
             <label>Data e Hora do Serviço</label>
@@ -153,8 +156,11 @@
             <label>Observações / Diagnóstico</label>
             <input type="text" id="calibragemObs" placeholder="Ex: Pneus calibrados conforme padrão.">
         </div>
+
         <div style="grid-column: 1 / -1;">
-            <button class="btn-primary-green btn-full" onclick="salvarServicoBorracharia('Calibragem')" style="padding: 15px; font-size: 1.1rem;">  Salvar Calibragem no Sistema</button>
+            <button class="btn-primary-green btn-full" onclick="salvarServicoBorracharia('Calibragem')" style="padding: 15px; font-size: 1.1rem;">
+                <i class="fas fa-check"></i> Salvar Calibragem no Sistema
+            </button>
         </div>
     </div>
 </div>
@@ -164,6 +170,7 @@
     <div class="panel-header" style="background: rgba(239, 68, 68, 0.1); border-bottom: 2px solid #ef4444;">
         <h3 style="color: #ef4444;"><i class="fas fa-sync-alt"></i> Registrar Troca de Pneus</h3>
     </div>
+
     <div style="padding: 25px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
         
         <!-- DADOS GLOBAIS DA FROTA -->
@@ -186,6 +193,10 @@
         <div class="form-group-dark">
             <label>Placa da Frota (Destino)</label>
             <select id="trocaPlaca" class="dark-select"><option value="">Selecione o caminhão...</option></select>
+        </div>
+        <div class="form-group-dark">
+            <label>KM do Veículo</label>
+            <input type="number" id="trocaKm" class="dark-select" placeholder="Ex: 150000">
         </div>
         <div class="form-group-dark">
             <label>Borracheiro / Executor</label>
@@ -219,6 +230,7 @@
     </div>
 </div>
 
+
 <!-- ========================= MODAIS DO CADASTRO DE PNEUS ========================= -->
 <div id="modalPneuBorracharia" class="modal-overlay">
     <div class="custom-modal">
@@ -228,10 +240,12 @@
         </div>
         <div class="modal-body">
             <input type="hidden" id="pneuId">
+            
             <div class="form-group-dark">
                 <label>Nº de Fogo (Identificação Única)</label>
                 <input type="text" id="pneuFogo" placeholder="Ex: 123456" class="dark-select">
             </div>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="form-group-dark">
                     <label>Marca</label>
@@ -266,6 +280,7 @@
         </div>
         <div class="modal-body">
             <input type="hidden" id="movPneuId">
+            
             <div class="form-group-dark">
                 <label>O que deseja fazer com este pneu?</label>
                 <select id="movTipo" class="dark-select" onchange="tratarCamposMovPneuBorracharia()">
@@ -276,6 +291,7 @@
                     <option value="Descarte">Descartar (Sucata)</option>
                 </select>
             </div>
+
             <div id="movCamposVeiculo" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="form-group-dark">
                     <label>Veículo de Destino (Placa)</label>
@@ -290,10 +306,12 @@
                     <input type="number" id="movKm" placeholder="Ex: 150000">
                 </div>
             </div>
+
             <div class="form-group-dark">
                 <label>Observações da Movimentação</label>
                 <input type="text" id="movObs" placeholder="Ex: Pneu furado, desgaste na banda...">
             </div>
+
         </div>
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="fecharModalMovPneuBorracharia()">Cancelar</button>
@@ -328,6 +346,7 @@
         </div>
     </div>
 </div>
+
 
 <!-- ========================= MODAIS DE IMPRESSÃO (Mantidos) ========================= -->
 <div id="modalLivroBorracharia" class="modal-overlay">
