@@ -167,32 +167,20 @@ window.carregarMotoristasSelectOS = async function() {
     try {
         let options = '<option value="">Selecione...</option>';
 
-        // Condicional: Se for GRUA, busca os Operadores. Se for qualquer outra, busca os Colaboradores
-        if (categoriaSelecionada === 'GRUA') {
-            const { data, error } = await supabaseClient
-                .from('equipe_campo')
-                .select('nome')
-                .eq('funcao', 'Operador de Máquina')
-                .order('nome', { ascending: true });
-                
-            if (error) throw error;
-            if (data) {
-                data.forEach(m => {
-                    options += `<option value="${m.nome}">${m.nome}</option>`;
-                });
-            }
-        } else {
-            // ---> ALTERAÇÃO AQUI: Trocado de 'motoristas' para 'rh_colaboradores' <---
-            let query = supabaseClient.from('rh_colaboradores').select('nome').order('nome', { ascending: true });
-            if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
-            const { data, error } = await query;
-                
-            if (error) throw error;
-            if (data) {
-                data.forEach(m => {
-                    options += `<option value="${m.nome}">${m.nome}</option>`;
-                });
-            }
+        // ---> ALTERAÇÃO AQUI: Agora busca de rh_colaboradores para TODAS as categorias sem filtro de "GRUA" <---
+        let query = supabaseClient.from('rh_colaboradores').select('nome').order('nome', { ascending: true });
+        
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        }
+        
+        const { data, error } = await query;
+            
+        if (error) throw error;
+        if (data) {
+            data.forEach(m => {
+                options += `<option value="${m.nome}">${m.nome}</option>`;
+            });
         }
 
         select.innerHTML = options;
