@@ -167,7 +167,7 @@ window.carregarMotoristasSelectOS = async function() {
     try {
         let options = '<option value="">Selecione...</option>';
 
-        // Condicional: Se for GRUA, busca os Operadores. Se for qualquer outra, busca os Motoristas
+        // Condicional: Se for GRUA, busca os Operadores. Se for qualquer outra, busca os Colaboradores
         if (categoriaSelecionada === 'GRUA') {
             const { data, error } = await supabaseClient
                 .from('equipe_campo')
@@ -182,7 +182,8 @@ window.carregarMotoristasSelectOS = async function() {
                 });
             }
         } else {
-            let query = supabaseClient.from('motoristas').select('nome').order('nome', { ascending: true });
+            // ---> ALTERAÇÃO AQUI: Trocado de 'motoristas' para 'rh_colaboradores' <---
+            let query = supabaseClient.from('rh_colaboradores').select('nome').order('nome', { ascending: true });
             if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
             const { data, error } = await query;
                 
@@ -197,7 +198,7 @@ window.carregarMotoristasSelectOS = async function() {
         select.innerHTML = options;
         select.dataset.categoriaCarregada = categoriaSelecionada; // Salva o estado para evitar loop desnecessário
     } catch (error) {
-        console.error("Erro ao carregar motoristas/operadores para OS:", error);
+        console.error("Erro ao carregar colaboradores para OS:", error);
         select.innerHTML = '<option value="">Erro ao carregar</option>';
     }
 };
