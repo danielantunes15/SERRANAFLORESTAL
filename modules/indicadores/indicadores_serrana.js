@@ -5,20 +5,18 @@ window.corrigirDataSupabase = function(dateStr) {
     if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return null;
     let str = String(dateStr).trim();
     
-    // Troca espaço por T (Padrão ISO)
+    // 1. Garante o padrão ISO trocando espaço por T
     if (!str.includes('T')) str = str.replace(' ', 'T');
     
-    // 1. Remove a letra Z (UTC), caso o Supabase a tenha inserido
-    str = str.replace(/Z/gi, '');
+    // 2. A MÁGICA ACONTECE AQUI:
+    // Remove qualquer fuso que o banco mande no final da string (Z, +00, +00:00, -03, etc)
+    // Cobre exatamente o caso de "2026-07-27 07:53:00+00"
+    str = str.replace(/(Z|[+-]\d{2}(:\d{2})?)$/i, '');
     
-    // 2. Remove qualquer fuso de horas extra (+00:00, -00:00, etc.) do final da string
-    // Isso garante que peguemos a hora crua e literal, ignorando fusos indesejados.
-    str = str.replace(/[+-]\d{2}:\d{2}$/, '');
-    
-    // 3. Corrige o excesso de casas decimais (Supabase manda 6 casas decimais, o JS processa melhor com 3)
+    // 3. Limpa o excesso de casas decimais de milissegundos se existirem
     str = str.replace(/\.(\d{3})\d+/, '.$1');
 
-    // 4. Força o fuso horário de Brasília (-03:00) na hora exata que ocorreu o evento
+    // 4. Força o fuso horário de Brasília (-03:00) na hora pura
     str += '-03:00';
     
     const d = new Date(str);
