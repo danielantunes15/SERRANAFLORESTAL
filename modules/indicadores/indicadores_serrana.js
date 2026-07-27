@@ -5,16 +5,21 @@ window.corrigirDataSupabase = function(dateStr) {
     if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return null;
     let str = String(dateStr).trim();
     
+    // Troca espaço por T (Padrão ISO)
     if (!str.includes('T')) str = str.replace(' ', 'T');
     
-    // Verifica se a hora veio sem o fuso horário (Z, + ou -). Se sim, força o Z (UTC).
-    const partes = str.split('T');
-    if (partes.length === 2) {
-        const horaStr = partes[1];
-        if (!horaStr.includes('Z') && !horaStr.includes('+') && !horaStr.includes('-')) {
-            str += 'Z'; 
-        }
-    }
+    // 1. Remove a letra Z (UTC), caso o Supabase a tenha inserido
+    str = str.replace(/Z/gi, '');
+    
+    // 2. Remove qualquer fuso de horas extra (+00:00, -00:00, etc.) do final da string
+    // Isso garante que peguemos a hora crua e literal, ignorando fusos indesejados.
+    str = str.replace(/[+-]\d{2}:\d{2}$/, '');
+    
+    // 3. Corrige o excesso de casas decimais (Supabase manda 6 casas decimais, o JS processa melhor com 3)
+    str = str.replace(/\.(\d{3})\d+/, '.$1');
+
+    // 4. Força o fuso horário de Brasília (-03:00) na hora exata que ocorreu o evento
+    str += '-03:00';
     
     const d = new Date(str);
     return isNaN(d.getTime()) ? null : d;
@@ -356,7 +361,6 @@ async function renderizarGraficoEvolucaoDmSerrana() {
             return;
         }
 
-        // CORREÇÃO APLICADA: Limite ampliado e ordenação por data adicionados para não perder dados recentes
         let queryOS = supabaseClient.from('ordens_servico')
             .select('placa, data_abertura, data_conclusao, status, tipo')
             .neq('status', 'Agendada')
@@ -387,7 +391,6 @@ async function renderizarGraficoEvolucaoDmSerrana() {
 
         const placasEmOS = [...new Set(ordensServico.map(os => limpaPlaca(os.placa)))];
 
-        // MANTENDO A EVOLUÇÃO HORÁRIA
         for (let h = 0; h < 24; h++) {
             const inicioHora = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), h, 0, 0, 0);
             const fimHora = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), h, 59, 59, 999);
