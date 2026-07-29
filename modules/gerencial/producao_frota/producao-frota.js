@@ -23,7 +23,9 @@ var chartVolumesObj = null;
 var chartReceitasObj = null;
 var chartFaturamentoTotalObj = null; // Instância do novo gráfico
 
-const TOLERANCIA_DISTANCIA_KM = 8.0; // Tolerância aumentada para agrupar as fazendas corretamente
+// SUBSTITUÍDO: Tolerância por total foi trocada por tolerâncias independentes para evitar agrupar fazendas erradas
+const TOLERANCIA_ASFALTO_KM = 2.0; 
+const TOLERANCIA_TERRA_KM = 2.0; 
 
 function getSupabaseClient() {
     if (window.supabaseClient) return window.supabaseClient;
@@ -611,8 +613,10 @@ function atualizarPainelDinamico(dadosEnriquecidos) {
         let gruposTarifarios = [];
 
         registrosDia.forEach(registro => {
+            // CORREÇÃO: Agora verifica de forma independente o Asfalto e a Terra, e não a soma total
             let grupoExistente = gruposTarifarios.find(g => 
-                Math.abs(g.distanciaBase - registro.distTotal) <= TOLERANCIA_DISTANCIA_KM
+                Math.abs(g.asfaltoBase - registro.distAsfalto) <= TOLERANCIA_ASFALTO_KM &&
+                Math.abs(g.terraBase - registro.distTerra) <= TOLERANCIA_TERRA_KM
             );
 
             if (grupoExistente) {
