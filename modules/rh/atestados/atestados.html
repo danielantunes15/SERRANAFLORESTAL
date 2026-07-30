@@ -1,47 +1,48 @@
-<div class="action-bar">
+<div class="action-bar" style="animation: terminalFadeIn 0.3s ease-out;">
     <div class="filter-group">
         <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-notes-medical"></i> Registro de Atestados</h2>
-        <input type="text" id="buscaAtestado" class="search-input-dark" placeholder="Buscar por colaborador ou CID..." onkeyup="window.filtrarAtestados()">
+        <input type="text" id="buscaAtestado" class="search-input-dark" placeholder="Buscar por colaborador, médico ou CID..." onkeyup="window.filtrarAtestados()">
     </div>
     <div class="button-group">
         <button class="btn-primary-green" onclick="window.abrirModalAtestado()"><i class="fas fa-plus"></i> Lançar Atestado</button>
     </div>
 </div>
 
-<div class="content-panel">
+<div class="content-panel" style="animation: terminalFadeIn 0.4s ease-out;">
     <div class="table-modern-wrapper">
         <table class="data-table-modern">
             <thead>
                 <tr>
                     <th>Lançado em</th>
                     <th>Colaborador</th>
-                    <th>CID / Motivo</th>
+                    <th>Médico / CID</th>
                     <th>Período do Afastamento</th>
                     <th>Retorno Previsto</th>
+                    <th>Anexo</th>
                     <th>Ações</th>
                 </tr>
             </thead>
             <tbody id="tbAtestados">
-                </tbody>
+            </tbody>
         </table>
     </div>
 </div>
 
 <div id="modalAtestado" class="modal-overlay">
-    <div class="custom-modal" style="max-width: 650px;">
+    <div class="custom-modal" style="max-width: 700px;">
         <div class="modal-header">
             <h3><i class="fas fa-file-medical"></i> Lançar Novo Atestado</h3>
             <button class="close-modal" onclick="window.fecharModalAtestado()">&times;</button>
         </div>
         
         <div class="modal-body">
-            <div class="form-grid-conjunto" style="grid-template-columns: 1fr 1fr;">
+            <div class="form-grid-conjunto" style="grid-template-columns: 1fr 1fr; gap: 15px;">
                 
                 <div class="form-group-dark" style="grid-column: 1 / -1;">
                     <label>Colaborador *</label>
                     <select id="atColaborador" class="dark-select">
                         <option value="">Selecione um colaborador do RH...</option>
-                        </select>
+                    </select>
                 </div>
                 
                 <div class="form-group-dark">
@@ -61,6 +62,16 @@
                 </div>
 
                 <div class="form-group-dark">
+                    <label>Nome do Médico</label>
+                    <input type="text" id="atMedicoNome" placeholder="Ex: Dr. João Silva">
+                </div>
+                
+                <div class="form-group-dark">
+                    <label>CRM do Médico</label>
+                    <input type="text" id="atMedicoCrm" placeholder="Ex: 12345-BA">
+                </div>
+
+                <div class="form-group-dark">
                     <label>CID (Opcional)</label>
                     <input type="text" id="atCid" placeholder="Ex: J00, M54">
                 </div>
@@ -70,9 +81,15 @@
                     <input type="text" id="atMotivo" placeholder="Ex: Conjuntivite, Dor lombar...">
                 </div>
 
+                <!-- CAMPO DE UPLOAD DE ARQUIVO -->
+                <div class="form-group-dark" style="grid-column: 1 / -1;">
+                    <label>Anexar Atestado (PDF ou Imagem)</label>
+                    <input type="file" id="atAnexo" accept=".pdf,image/png,image/jpeg,image/jpg" class="search-input-dark" style="background: rgba(0,0,0,0.3); padding: 10px; border: 1px dashed var(--ccol-blue-bright); width: 100%; cursor: pointer;">
+                </div>
+                
                 <div class="form-group-dark" style="grid-column: 1 / -1;">
                     <label>Observações / Anotações do RH</label>
-                    <textarea id="atObservacoes" rows="2" placeholder="Foi entregue no prazo? Há necessidade de agendar perícia do INSS?"></textarea>
+                    <textarea id="atObservacoes" rows="2" placeholder="Foi entregue no prazo? Há necessidade de agendar perícia do INSS?" style="width: 100%;"></textarea>
                 </div>
                 
             </div>
@@ -80,7 +97,7 @@
         
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="window.fecharModalAtestado()">Cancelar</button>
-            <button class="btn-primary-green" onclick="window.salvarAtestado()">💾 Gravar Atestado</button>
+            <button id="btnSalvarAtestado" class="btn-primary-green" onclick="window.salvarAtestado()">  Gravar Atestado</button>
         </div>
     </div>
 </div>

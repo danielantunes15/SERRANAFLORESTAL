@@ -20,7 +20,7 @@ window.carregarListaBaseColaboradores = async function() {
 window.carregarAtestados = async function() {
     try {
         const tbody = document.getElementById('tbAtestados');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando atestados...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando atestados...</td></tr>`;
         
         window.listaAtestados = await db.getAtestados();
         window.renderizarTabelaAtestados(window.listaAtestados);
@@ -43,7 +43,7 @@ window.renderizarTabelaAtestados = function(lista) {
     tbody.innerHTML = '';
 
     if (lista.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum atestado registrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum atestado registrado.</td></tr>`;
         return;
     }
 
@@ -63,7 +63,6 @@ window.renderizarTabelaAtestados = function(lista) {
             const hoje = new Date();
             hoje.setHours(0,0,0,0);
             
-            // Garantir que fuso horário não altere a data do banco
             const [ano, mes, dia] = a.data_retorno.split('-');
             const retorno = new Date(ano, mes - 1, dia);
             
@@ -76,6 +75,9 @@ window.renderizarTabelaAtestados = function(lista) {
             }
         }
 
+        const medicoHTML = a.medico_nome ? `<strong style="color:var(--ccol-blue-bright); display:block; margin-bottom: 2px;"><i class="fas fa-user-md"></i> ${a.medico_nome}</strong> <span style="font-size:0.75rem; color:#94a3b8;">CRM: ${a.medico_crm || 'Não informado'}</span><br>` : '';
+        const btnAnexo = a.anexo_url ? `<a href="${a.anexo_url}" target="_blank" class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.75rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; border-radius: 6px;"><i class="fas fa-paperclip"></i> Ver Arquivo</a>` : '<span style="color:#64748b; font-size:0.8rem; font-style: italic;">Sem anexo</span>';
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="font-size: 0.8rem; color: #94a3b8;">${dataLancamento}</td>
@@ -84,11 +86,13 @@ window.renderizarTabelaAtestados = function(lista) {
                 ${nomeColaborador}
             </td>
             <td style="text-align: left;">
+                ${medicoHTML}
                 <strong style="color:#f59e0b;">CID: ${a.cid || 'N/A'}</strong><br>
                 <span style="font-size: 0.8rem; color: #cbd5e1;">${a.motivo || 'Sem motivo detalhado'}</span>
             </td>
             <td>${formatarData(a.data_inicio)} <i class="fas fa-arrow-right" style="color:#475569; margin: 0 5px; font-size:0.7rem;"></i> <strong>${a.dias_afastamento} dias</strong></td>
             <td>${badgeRetorno}</td>
+            <td>${btnAnexo}</td>
             <td>
                 <button class="btn-icon-only" onclick="window.excluirAtestado('${a.id}')" title="Excluir Lançamento"><i class="fas fa-trash" style="color: #ef4444;"></i></button>
             </td>
@@ -103,7 +107,8 @@ window.filtrarAtestados = function() {
         const nome = a.rh_colaboradores ? a.rh_colaboradores.nome.toLowerCase() : '';
         const cid = a.cid ? a.cid.toLowerCase() : '';
         const motivo = a.motivo ? a.motivo.toLowerCase() : '';
-        return nome.includes(termo) || cid.includes(termo) || motivo.includes(termo);
+        const medico = a.medico_nome ? a.medico_nome.toLowerCase() : '';
+        return nome.includes(termo) || cid.includes(termo) || motivo.includes(termo) || medico.includes(termo);
     });
     window.renderizarTabelaAtestados(filtrados);
 };
@@ -122,6 +127,9 @@ window.abrirModalAtestado = function() {
     document.getElementById('atDataRetorno').value = '';
     document.getElementById('atCid').value = '';
     document.getElementById('atMotivo').value = '';
+    document.getElementById('atMedicoNome').value = '';
+    document.getElementById('atMedicoCrm').value = '';
+    document.getElementById('atAnexo').value = '';
     document.getElementById('atObservacoes').value = '';
 
     document.getElementById('modalAtestado').classList.add('show');
@@ -162,21 +170,40 @@ window.salvarAtestado = async function() {
         return;
     }
 
-    const dados = {
-        colaborador_id: colaboradorId,
-        data_inicio: dataInicio,
-        dias_afastamento: dias,
-        data_retorno: dataRetorno || null,
-        cid: document.getElementById('atCid').value,
-        motivo: document.getElementById('atMotivo').value,
-        observacoes: document.getElementById('atObservacoes').value
-    };
+    const btnSalvar = document.getElementById('btnSalvarAtestado');
+    const txtOriginal = btnSalvar.innerHTML;
+    btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...';
+    btnSalvar.disabled = true;
+
+    let anexoUrlFinal = null;
+    const fileInput = document.getElementById('atAnexo');
 
     try {
-        const btnSalvar = document.querySelector('#modalAtestado .btn-primary-green');
-        const txtOriginal = btnSalvar.innerHTML;
-        btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
-        btnSalvar.disabled = true;
+        // Lógica de Upload do Arquivo (se houver arquivo selecionado)
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_colab${colaboradorId}.${fileExt}`;
+            
+            const { data, error } = await window.supabaseClient.storage.from('atestados').upload(fileName, file, { upsert: true });
+            if (error) throw error;
+            
+            const { data: publicUrlData } = window.supabaseClient.storage.from('atestados').getPublicUrl(fileName);
+            anexoUrlFinal = publicUrlData.publicUrl;
+        }
+
+        const dados = {
+            colaborador_id: colaboradorId,
+            data_inicio: dataInicio,
+            dias_afastamento: dias,
+            data_retorno: dataRetorno || null,
+            cid: document.getElementById('atCid').value,
+            motivo: document.getElementById('atMotivo').value,
+            observacoes: document.getElementById('atObservacoes').value,
+            medico_nome: document.getElementById('atMedicoNome').value,
+            medico_crm: document.getElementById('atMedicoCrm').value,
+            anexo_url: anexoUrlFinal
+        };
 
         await db.addAtestado(dados);
         
@@ -190,18 +217,32 @@ window.salvarAtestado = async function() {
         window.fecharModalAtestado();
         await window.carregarAtestados();
 
-        btnSalvar.innerHTML = txtOriginal;
-        btnSalvar.disabled = false;
     } catch (e) {
         console.error(e);
-        alert('Erro ao salvar o atestado. Verifique sua conexão.');
-        document.querySelector('#modalAtestado .btn-primary-green').disabled = false;
+        alert('Erro ao salvar o atestado. Verifique sua conexão e o tamanho do arquivo.');
+    } finally {
+        btnSalvar.innerHTML = txtOriginal;
+        btnSalvar.disabled = false;
     }
 };
 
 window.excluirAtestado = async function(id) {
-    if (confirm('Atenção: Deseja realmente excluir este lançamento de atestado?')) {
+    if (confirm('Atenção: Deseja realmente excluir este lançamento? O arquivo em anexo também será deletado permanentemente.')) {
         try {
+            const atestado = window.listaAtestados.find(x => x.id === id);
+            
+            // Excluir o arquivo físico da nuvem
+            if (atestado && atestado.anexo_url) {
+                try {
+                    const urlParts = atestado.anexo_url.split('/');
+                    const fileName = urlParts[urlParts.length - 1];
+                    await window.supabaseClient.storage.from('atestados').remove([fileName]);
+                } catch (errStorage) {
+                    console.warn("Arquivo não encontrado ou erro ao deletar no storage:", errStorage);
+                }
+            }
+
+            // Excluir o registro do banco de dados
             await db.deleteAtestado(id);
             if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Exclusão', `Lançamento de atestado removido do sistema`, 'Info');
             await window.carregarAtestados();
