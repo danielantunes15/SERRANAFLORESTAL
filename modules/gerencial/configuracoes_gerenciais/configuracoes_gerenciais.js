@@ -1,13 +1,8 @@
-// Aguarda o carregamento do DOM ou a injeção da tela
-document.addEventListener('DOMContentLoaded', initConfiguracoesGerenciais);
-
-// Tratativa para quando a página é injetada via fetch no SPA
-if (document.getElementById('form-metas-gerenciais')) {
-    initConfiguracoesGerenciais();
-}
-
-function initConfiguracoesGerenciais() {
+window.initConfiguracoesGerenciais = function() {
     const formMetas = document.getElementById('form-metas-gerenciais');
+    
+    if (!formMetas) return;
+
     const inputMetaDiaTransporte = document.getElementById('meta_diaria_transporte');
     const inputMetaDiaCarregamento = document.getElementById('meta_diaria_carregamento');
     const btnCancelar = document.getElementById('btn-cancelar-metas');
@@ -21,19 +16,27 @@ function initConfiguracoesGerenciais() {
         labelFilial.innerHTML = `<i class="fas fa-map-marker-alt mr-1"></i> Configurando metas para a filial: <span class="text-white font-bold">${filialAtual}</span>`;
     }
 
+    // --- FUNÇÃO PARA DETECTAR O CLIENTE DO SUPABASE ---
+    function getSupabaseClient() {
+        if (typeof window.supabaseClient !== 'undefined') return window.supabaseClient;
+        if (typeof window.db !== 'undefined' && typeof window.db.from === 'function') return window.db; 
+        if (typeof window.db !== 'undefined' && window.db.supabase) return window.db.supabase;
+        return null;
+    }
+
     // --- APLICAÇÃO DA MÁSCARA MONETÁRIA ---
     function aplicarMascaraMoeda(inputElement) {
+        if (!inputElement) return;
+
         inputElement.addEventListener('input', function(e) {
-            let valor = e.target.value.replace(/\D/g, ''); // Remove tudo que não for dígito
+            let valor = e.target.value.replace(/\D/g, ''); 
             if (valor === '') {
                 e.target.value = '';
                 return;
             }
             
-            // Converte para formato numérico dividido por 100 para criar as casas decimais
             let floatValor = parseInt(valor, 10) / 100;
             
-            // Formata para a moeda brasileira (ex: 1.000,00)
             e.target.value = floatValor.toLocaleString('pt-BR', { 
                 minimumFractionDigits: 2, 
                 maximumFractionDigits: 2 
@@ -41,20 +44,18 @@ function initConfiguracoesGerenciais() {
         });
     }
 
-    // Aplica a máscara aos dois inputs
     aplicarMascaraMoeda(inputMetaDiaTransporte);
     aplicarMascaraMoeda(inputMetaDiaCarregamento);
 
-    // Função para extrair o valor decimal correto do campo mascarado (ex: "1.000,00" vira 1000.00)
     function extrairFloatMoeda(valorString) {
         if (!valorString) return 0.00;
         return parseFloat(valorString.replace(/\./g, '').replace(',', '.')) || 0.00;
     }
 
-    // 1. Carregar as metas atuais ao abrir a tela
+    // 1. Carregar as metas atuais do Banco de Dados
     carregarMetas();
 
-    // 2. Evento de submissão do formulário
+    // 2. Evento de submissão
     formMetas.addEventListener('submit', function(event) {
         event.preventDefault(); 
         
@@ -67,7 +68,7 @@ function initConfiguracoesGerenciais() {
         salvarMetas(dadosMetas);
     });
 
-    // 3. Evento do botão cancelar
+    // 3. Evento cancelar
     btnCancelar.addEventListener('click', function() {
         formMetas.reset();
         carregarMetas(); 
@@ -78,72 +79,77 @@ function initConfiguracoesGerenciais() {
 
     async function carregarMetas() {
         try {
-            // Caso utilize o Supabase, descomente o bloco abaixo e comente o localStorage:
-            /*
-            const { data, error } = await supabase
+            const dbClient = getSupabaseClient();
+            
+            if (!dbClient) {
+                console.warn("Cliente Supabase não encontrado. Usando LocalStorage.");
+                const metasSalvas = JSON.parse(localStorage.getItem(`metas_gerenciais_${filialAtual}`));
+                if (metasSalvas) preencherCampos(metasSalvas.meta_diaria_transporte, metasSalvas.meta_diaria_carregamento);
+                return;
+            }
+
+            // AQUI ESTÁ A CORREÇÃO: Usando .maybeSingle() ao invés de .single()
+            const { data, error } = await dbClient
                 .from('metas_gerenciais')
                 .select('*')
                 .eq('filial_id', filialAtual)
-                .single();
+                .maybeSingle(); 
+            
+            if (error) {
+                throw error;
+            }
             
             if (data) {
-                const transporte = parseFloat(data.meta_diaria_transporte || 0);
-                const carregamento = parseFloat(data.meta_diaria_carregamento || 0);
-                
-                inputMetaDiaTransporte.value = transporte.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                inputMetaDiaCarregamento.value = carregamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-            */
-            
-            // Simulação com LocalStorage (Enquanto não integra com API)
-            const metasSalvas = JSON.parse(localStorage.getItem(`metas_gerenciais_${filialAtual}`));
-            
-            if (metasSalvas) {
-                const transporte = parseFloat(metasSalvas.meta_diaria_transporte || 0);
-                const carregamento = parseFloat(metasSalvas.meta_diaria_carregamento || 0);
-                
-                inputMetaDiaTransporte.value = transporte.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                inputMetaDiaCarregamento.value = carregamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                preencherCampos(data.meta_diaria_transporte, data.meta_diaria_carregamento);
             }
         } catch (error) {
-            console.error("Erro ao carregar metas:", error);
-            mostrarAlerta("Erro ao carregar as metas atuais.", "error");
+            console.error("Erro ao carregar metas do banco:", error);
+            mostrarAlerta("Erro ao carregar as metas atuais do servidor.", "error");
         }
     }
 
+    function preencherCampos(transporte, carregamento) {
+        const valTransporte = parseFloat(transporte || 0);
+        const valCarregamento = parseFloat(carregamento || 0);
+        
+        inputMetaDiaTransporte.value = valTransporte.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        inputMetaDiaCarregamento.value = valCarregamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     async function salvarMetas(dados) {
+        const btnSalvar = document.getElementById('btn-salvar-metas');
+        const textoOriginal = btnSalvar.innerHTML;
+        
         try {
-            const btnSalvar = document.getElementById('btn-salvar-metas');
-            const textoOriginal = btnSalvar.innerHTML;
+            const dbClient = getSupabaseClient();
             
-            // Efeito de loading no botão
             btnSalvar.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Salvando...';
             btnSalvar.disabled = true;
             btnSalvar.classList.add('opacity-75', 'cursor-not-allowed');
 
-            // Timeout para simular requisição (Substitua por um UPSERT no Supabase)
-            /*
-            const { error } = await supabase
-                .from('metas_gerenciais')
-                .upsert(dados, { onConflict: 'filial_id' });
-            if (error) throw error;
-            */
-            
-            setTimeout(() => {
+            if (!dbClient) {
                 localStorage.setItem(`metas_gerenciais_${filialAtual}`, JSON.stringify(dados));
+            } else {
+                const { error } = await dbClient
+                    .from('metas_gerenciais')
+                    .upsert(dados, { onConflict: 'filial_id' });
                 
-                // Restaura o botão
-                btnSalvar.innerHTML = textoOriginal;
-                btnSalvar.disabled = false;
-                btnSalvar.classList.remove('opacity-75', 'cursor-not-allowed');
-                
-                mostrarAlerta("Metas atualizadas com sucesso para a filial " + filialAtual + "!", "success");
-                
-            }, 800);
+                if (error) throw error;
+            }
+            
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+            btnSalvar.classList.remove('opacity-75', 'cursor-not-allowed');
+            
+            mostrarAlerta("Metas atualizadas com sucesso para a filial " + filialAtual + "!", "success");
 
         } catch (error) {
-            console.error("Erro ao salvar metas:", error);
-            mostrarAlerta("Erro ao salvar as configurações. Tente novamente.", "error");
+            console.error("Erro ao salvar metas no banco:", error);
+            mostrarAlerta("Erro ao salvar as configurações. Verifique o banco de dados.", "error");
+            
+            btnSalvar.innerHTML = textoOriginal;
+            btnSalvar.disabled = false;
+            btnSalvar.classList.remove('opacity-75', 'cursor-not-allowed');
         }
     }
 
