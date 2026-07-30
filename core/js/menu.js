@@ -1,5 +1,4 @@
 // ==================== core/js/menu.js ====================
-
 // ==================== DEFINIÇÃO CENTRAL DE MENUS ====================
 window.MAPA_MENUS = [
     { id: 'escala', label: 'Escala Semanal', setor: 'Logística', icon: 'fas fa-calendar-alt' },
@@ -36,6 +35,7 @@ window.MAPA_MENUS = [
     { id: 'rh_colaboradores', label: 'Cadastro de Colaboradores', setor: 'RH', icon: 'fas fa-id-badge' },
     { id: 'rh_atestados', label: 'Atestados (Saúde)', setor: 'RH', icon: 'fas fa-notes-medical' },
     { id: 'rh_sorteio', label: 'Sorteio de Colaboradores', setor: 'RH', icon: 'fas fa-random' },
+    { id: 'rh_configuracoes', label: 'Configurações Base', setor: 'RH', icon: 'fas fa-cogs' },
     
     { id: 'centro_custo', label: 'Gestão de Custos', setor: 'Controladoria', icon: 'fas fa-sitemap' },
     { id: 'ocorrencias', label: 'Registrar Ocorrência', setor: 'Controladoria', icon: 'fas fa-exclamation-triangle' },
@@ -99,6 +99,7 @@ const ROTAS = {
     'rh_colaboradores': 'modules/rh/colaboradores/colaboradores.html',
     'rh_atestados': 'modules/rh/atestados/atestados.html',
     'rh_sorteio': 'modules/rh/sorteio/sorteio.html',
+    'rh_configuracoes': 'modules/rh/configuracoes/rh_configuracoes.html',
     
     'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', 
     'ocorrencias': 'modules/controladoria/ocorrencias/ocorrencias.html',
@@ -158,7 +159,6 @@ window.renderizarMenu = async function() {
     const cargoKey = (currentUser && currentUser.cargo_id) ? currentUser.cargo_id.toString() : null;
 
     let meusMenus = [];
-
     if (cargoKey && permissoesAtuais[cargoKey]) {
         meusMenus = permissoesAtuais[cargoKey];
     } else if (permissoesAtuais[userRole]) {
@@ -177,7 +177,6 @@ window.renderizarMenu = async function() {
     const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
 
     let navHtml = '<nav class="main-nav">';
-
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
 
     setores.forEach(setor => {
@@ -204,7 +203,6 @@ window.renderizarMenu = async function() {
                     </button>`;
                 }
             });
-
             navHtml += `</div></div>`;
         }
     });
@@ -335,6 +333,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'rh_colaboradores' && typeof window.initRHColaboradores === 'function') window.initRHColaboradores();
         if (pagina === 'rh_atestados' && typeof window.initRHAtestados === 'function') window.initRHAtestados();
         if (pagina === 'rh_sorteio' && typeof window.initRHSorteio === 'function') window.initRHSorteio();
+        if (pagina === 'rh_configuracoes' && typeof window.initRHConfiguracoes === 'function') window.initRHConfiguracoes();
         
         if (pagina === 'centro_custo' && typeof window.initControladoria === 'function') window.initControladoria();
         if (pagina === 'ocorrencias' && typeof window.initOcorrencias === 'function') window.initOcorrencias();
@@ -371,7 +370,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'evolucao_fazendas' && typeof window.initEvolucaoFazendas === 'function') window.initEvolucaoFazendas();
         if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
         if (pagina === 'tarifador' && typeof window.initTarifador === 'function') window.initTarifador();
-
+        
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();
         if (pagina === 'historico_producao' && typeof window.initHistoricoProducao === 'function') window.initHistoricoProducao();
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();

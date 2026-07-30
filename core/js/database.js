@@ -112,6 +112,7 @@ const db = {
         try {
             const start = (page - 1) * limit;
             const end = start + limit - 1;
+
             let query = supabaseClient.from('logs_exclusao')
                 .select('id, data_hora, usuario, acao, detalhes, severidade, ip_address, tabela_afetada, registro_id, filial_id, filiais(nome)', { count: 'exact' })
                 .order('data_hora', { ascending: false })
@@ -138,6 +139,7 @@ const db = {
                 }
                 if (chaves !== '') query = query.or(chaves);
             }
+
             if (filtros.usuario && filtros.usuario !== 'TODOS') query = query.eq('usuario', filtros.usuario);
             if (filtros.dataInicio) query = query.gte('data_hora', `${filtros.dataInicio}T00:00:00`);
             if (filtros.dataFim) query = query.lte('data_hora', `${filtros.dataFim}T23:59:59`);
@@ -282,7 +284,8 @@ const db = {
                 .select('*')
                 .order('data_movimentacao', { ascending: false })
                 .limit(limite);
-             const { data, error } = await aplicarFiltroFilial(query);
+            
+            const { data, error } = await aplicarFiltroFilial(query);
             if(error) throw error;
             return data || [];
         } catch(e) { console.error("Erro getMovimentacoesEstoque:", e); return []; }
@@ -301,6 +304,7 @@ const db = {
         let queryCatalogo = supabaseClient.from('almoxarifado_pecas').select('*');
         queryCatalogo = aplicarFiltroFilial(queryCatalogo);
         let { data: pecasBusca } = await queryCatalogo;
+        
         if (!pecasBusca) pecasBusca = [];
 
         for (let item of itens) {
@@ -310,19 +314,20 @@ const db = {
 
             // Busca pelo Código E que tenha exatamento o mesmo PREÇO
             let pecaDB = pecasBusca.find(p => 
-                p.codigo && item.codigo && p.codigo.toUpperCase() === item.codigo.toUpperCase() && 
+                p.codigo && item.codigo && p.codigo.toUpperCase() === item.codigo.toUpperCase() &&
                 parseFloat(p.preco_medio || 0).toFixed(2) === valorUnitarioItem.toFixed(2)
             );
             
             // Se não encontrou pelo código, busca pelo Nome E que tenha o mesmo PREÇO
             if (!pecaDB) {
                 pecaDB = pecasBusca.find(p => 
-                    p.nome.toUpperCase() === item.nome.toUpperCase() && 
+                    p.nome.toUpperCase() === item.nome.toUpperCase() &&
                     parseFloat(p.preco_medio || 0).toFixed(2) === valorUnitarioItem.toFixed(2)
                 );
             }
 
             let pecaId;
+
             if (pecaDB) {
                 // SOMA se o código existir e tiver o mesmo valor
                 pecaId = pecaDB.id;
@@ -468,6 +473,20 @@ const db = {
     },
     async deleteAtestado(id) {
         await supabaseClient.from('rh_atestados').delete().eq('id', id);
+    },
+    
+    // --- RH CONFIGURAÇÕES ---
+    async getRHConfiguracoes() {
+        try {
+            const query = supabaseClient.from('rh_configuracoes').select('*');
+            const { data, error } = await aplicarFiltroFilial(query);
+            if(error) throw error;
+            return { data: data || [] };
+        } catch(e) { console.error("Erro getRHConfiguracoes:", e); return { data: [] }; }
+    },
+    async upsertRHConfiguracoes(dados) {
+        const { error } = await supabaseClient.from('rh_configuracoes').upsert([injetarFilial(dados)]);
+        if (error) throw error;
     },
 
     // --- CLASSIFICAÇÕES DE O.S. (CADASTRO BÁSICO) ---
