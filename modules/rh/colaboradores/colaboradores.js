@@ -20,8 +20,25 @@ window.initRHColaboradores = async function() {
     
     await window.carregarSetoresGlobal(); // CARREGA OS SETORES INICIALMENTE PARA O FILTRO
     await window.carregarCursosGlobais();
-    await window.carregarCargosControladoria(); // <--- CARREGA OS CARGOS DA CONTROLADORIA FILTRADOS
+    await window.carregarCargosControladoria(); // CARREGA OS CARGOS DA CONTROLADORIA FILTRADOS
     await window.carregarColaboradoresLista();
+};
+
+// ==================== MÁSCARA DE CPF ====================
+window.mascaraCPF = function(campo) {
+    let v = campo.value.replace(/\D/g, ""); // Remove tudo que não é número
+    
+    if (v.length > 11) v = v.substring(0, 11); // Limita a 11 números
+    
+    if (v.length > 9) {
+        v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, "$1.$2.$3-$4");
+    } else if (v.length > 6) {
+        v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, "$1.$2.$3");
+    } else if (v.length > 3) {
+        v = v.replace(/(\d{3})(\d{1,3})/, "$1.$2");
+    }
+    
+    campo.value = v;
 };
 
 // ==================== CARREGAR SETORES GLOBAIS ====================
@@ -34,16 +51,18 @@ window.carregarSetoresGlobal = async function() {
         const selSetor = document.getElementById('colSetorId');
         if (selSetor) {
             selSetor.innerHTML = '<option value="">Selecione um setor...</option>' + 
-                data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
+                 data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
         }
         
         // Preenche o NOVO campo de filtro de setor na listagem
         const selFiltroSetor = document.getElementById('filtroSetorLista');
         if (selFiltroSetor) {
             selFiltroSetor.innerHTML = '<option value="">Todos os Setores</option>' + 
-                data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
+                 data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
         }
-    } catch(e) { console.error("Erro ao carregar setores:", e); }
+    } catch(e) { 
+        console.error("Erro ao carregar setores:", e); 
+    }
 };
 
 // ==================== CARREGAR CARGOS DA CONTROLADORIA ====================
@@ -62,14 +81,13 @@ window.carregarCargosControladoria = async function() {
         }
 
         const { data, error } = await query;
-
         if (error) throw error;
 
         const selCargo = document.getElementById('colFuncao');
         if (selCargo) {
             // Usamos c.nome como value para manter a compatibilidade com o resto do sistema
             selCargo.innerHTML = '<option value="">Selecione um cargo...</option>' + 
-                data.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+                 data.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
         }
     } catch(e) { 
         console.error("Erro ao carregar cargos da Controladoria:", e); 
@@ -130,7 +148,7 @@ window.renderizarTabelaColaboradores = function(lista) {
         let corStatus = 'var(--ccol-green-bright)';
         if(c.status === 'Inativo' || c.status === 'Desligado') corStatus = '#ef4444';
         else if(c.status === 'Férias' || c.status === 'Afastado') corStatus = '#f59e0b';
-
+        
         const matriculaFormatada = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'S/ Matrícula';
         
         // Verifica se há informações faltando no cadastro
@@ -170,19 +188,17 @@ window.renderizarTabelaColaboradores = function(lista) {
     });
 };
 
-// ==================== MELHORIA: LÓGICA DE FILTRO ATUALIZADA ====================
+// ==================== LÓGICA DE FILTRO ATUALIZADA ====================
 window.filtrarColaboradoresLista = function() {
     const termoNome = document.getElementById('filtroNome').value.toLowerCase();
     const termoMatricula = document.getElementById('filtroMatricula').value.toLowerCase();
-    const termoSetor = document.getElementById('filtroSetorLista').value; // Novo filtro de setor
+    const termoSetor = document.getElementById('filtroSetorLista').value; 
     
     const filtrados = window.listaColaboradoresDb.filter(c => {
-        // Validações isoladas
         const nomeMatch = !termoNome || (c.nome && c.nome.toLowerCase().includes(termoNome));
         const matMatch = !termoMatricula || (c.cod_funcionario && String(c.cod_funcionario).includes(termoMatricula));
         const setorMatch = !termoSetor || (String(c.setor_id) === String(termoSetor));
         
-        // O colaborador só aparece se passar em todos os filtros que estiverem preenchidos
         return nomeMatch && matMatch && setorMatch;
     });
     
@@ -217,7 +233,6 @@ window.abrirFichaCompleta = async function(id = null) {
         // MODO EDIÇÃO
         const c = window.listaColaboradoresDb.find(x => x.id === id);
         if (!c) return;
-
         document.getElementById('tituloFicha').innerText = c.nome;
         document.getElementById('subtituloFicha').innerText = 'Edição de Ficha Cadastral';
         document.getElementById('btnExcluirFicha').style.display = 'flex';
@@ -230,6 +245,8 @@ window.abrirFichaCompleta = async function(id = null) {
         document.getElementById('colSindicato').value = c.ativo_sindicato || 'Não';
         
         document.getElementById('colCpf').value = c.cpf || '';
+        if (c.cpf) window.mascaraCPF(document.getElementById('colCpf')); // Aplica máscara ao carregar
+
         document.getElementById('colRg').value = c.rg || '';
         document.getElementById('colNome').value = c.nome || '';
         document.getElementById('colDataNascimento').value = c.data_nascimento || '';
@@ -247,7 +264,7 @@ window.abrirFichaCompleta = async function(id = null) {
         document.getElementById('colAsoVencimento').value = c.aso_vencimento || '';
         document.getElementById('colToxicologico').value = c.toxicologico_vencimento || '';
         document.getElementById('colObservacoes').value = c.observacoes || '';
-
+        
         window.montarCamposCursosDinamicosFull(c.cursos_vencimentos || {});
         
         // Destacar campos pendentes se houver
@@ -264,7 +281,6 @@ window.abrirFichaCompleta = async function(id = null) {
                 }
             });
         }
-
     } else {
         // MODO NOVO CADASTRO
         document.getElementById('tituloFicha').innerText = 'Novo Cadastro';
@@ -294,7 +310,7 @@ window.salvarColaboradorFicha = async function() {
     
     const getValue = (elId) => document.getElementById(elId).value;
     const getDateValue = (elId) => { const val = document.getElementById(elId).value; return val ? val : null; };
-
+    
     const cursosVencimentosObj = {};
     document.querySelectorAll('.input-curso-dinamico').forEach(input => {
         const nomeCurso = input.getAttribute('data-cursonome');
@@ -344,7 +360,7 @@ window.salvarColaboradorFicha = async function() {
         }
         
         await window.carregarColaboradoresLista();
-        window.voltarParaListagem(); // Retorna à lista automaticamente
+        window.voltarParaListagem(); 
     } catch (e) {
         console.error(e);
         alert('Erro ao salvar no banco de dados. Tente novamente.');
@@ -412,8 +428,8 @@ window.abrirModalGerenciarCursos = async function() {
     document.getElementById('modalGerenciarCursos').classList.add('show');
 };
 
-window.fecharModalGerenciarCursos = function() { 
-    document.getElementById('modalGerenciarCursos').classList.remove('show'); 
+window.fecharModalGerenciarCursos = function() {
+     document.getElementById('modalGerenciarCursos').classList.remove('show');
 };
 
 window.renderizarListaCursosGlobais = function() {
@@ -449,7 +465,6 @@ window.salvarNovoCursoGlobal = async function() {
         await window.carregarCursosGlobais();
         window.renderizarListaCursosGlobais();
         
-        // Se a ficha estiver aberta, atualiza ela silenciosamente pra mostrar o novo campo
         if(document.getElementById('viewFichaColaborador').style.display === 'block') {
             const vencimentos = {};
             document.querySelectorAll('.input-curso-dinamico').forEach(inp => vencimentos[inp.getAttribute('data-cursonome')] = inp.value);
@@ -475,7 +490,6 @@ window.excluirCursoGlobal = async function(id) {
 };
 
 // ==================== IMPRESSÃO DE FICHAS E EPIS ====================
-
 window.gerarHtmlFichaColaborador = function(colaboradores) {
     let html = `<html><head><title>Ficha Cadastral</title><style>
         body { font-family: Arial, sans-serif; font-size: 13px; color: #000; }
@@ -554,7 +568,6 @@ window.gerarHtmlFichaColaborador = function(colaboradores) {
             </div>
         </div>`;
     });
-
     html += `</body></html>`;
     return html;
 };
@@ -563,12 +576,10 @@ window.gerarHtmlFichaEPI = async function(colaboradores) {
     let pecas = [];
     let reqs = [];
     
-    // Busca informações cruzadas do módulo Almoxarifado para cruzar com RH
     if (window.supabaseClient) {
         const resPecas = await window.supabaseClient.from('almoxarifado_pecas').select('id, codigo, nome, categoria, unidade');
         if (resPecas.data) pecas = resPecas.data;
-
-        // Ao buscar as requisições, ele já traz automaticamente a assinatura_url
+        
         const resReqs = await window.supabaseClient.from('almoxarifado_requisicoes').select('*').eq('status', 'Aprovado');
         if (resReqs.data) reqs = resReqs.data;
     }
@@ -620,7 +631,7 @@ window.gerarHtmlFichaEPI = async function(colaboradores) {
                     </tr>
                 </thead>
                 <tbody>`;
-        
+                
         if (itensColab.length === 0) {
             html += `<tr><td colspan="5" style="text-align:center; padding: 20px;">Nenhum equipamento registrado para este colaborador.</td></tr>`;
         } else {
@@ -628,7 +639,6 @@ window.gerarHtmlFichaEPI = async function(colaboradores) {
                 let peca = pecas.find(p => p.id == req.peca_id);
                 let dataFormatada = new Date(req.created_at).toLocaleDateString('pt-BR');
                 
-                // NOVA LÓGICA: Injeta a assinatura na linha do item
                 let imgAssinaturaNaTabela = req.assinatura_url 
                     ? `<img src="${req.assinatura_url}" style="max-height: 45px; max-width: 100%; object-fit: contain; vertical-align: middle;">` 
                     : `<span style="color: #999; font-size: 10px;">Sem assinatura no sistema</span>`;
@@ -648,6 +658,7 @@ window.gerarHtmlFichaEPI = async function(colaboradores) {
         html += `
                 </tbody>
             </table>
+
             <div class="assinaturas">
                 <div>
                     <div class="sig-line"></div>
@@ -661,7 +672,6 @@ window.gerarHtmlFichaEPI = async function(colaboradores) {
             </div>
         </div>`;
     });
-
     html += `</body></html>`;
     return html;
 };
@@ -709,5 +719,5 @@ window.exportarTodasFichasEPI = async function() {
     win.document.write(html);
     win.document.close();
     
-    setTimeout(() => { win.print(); win.close(); }, 1500); // Dá um tempo maior para carregar os dados todos
+    setTimeout(() => { win.print(); win.close(); }, 1500);
 };
