@@ -125,9 +125,13 @@
                     <option value="tudo">Apagar TUDO (Viagens e Eventos)</option>
                     <option value="viagens">Apagar Viagens (TUDO)</option>
                     <option value="viagens_mes">Apagar Viagens (Mês Específico)</option>
+                    <option value="viagens_dia">Apagar Viagens (Dia Específico)</option>
                     <option value="eventos">Apagar Eventos (TUDO)</option>
                 </select>
+                <!-- Entradas que aparecem dinamicamente -->
                 <input type="month" id="mesExclusao" style="display: none;" class="bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-bold rounded px-4 py-2 outline-none cursor-pointer">
+                <input type="date" id="diaExclusao" style="display: none;" class="bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-bold rounded px-4 py-2 outline-none cursor-pointer">
+                
                 <button id="btnLimparBanco" class="bg-rose-900/80 hover:bg-rose-700 text-white font-bold py-2 px-6 rounded text-xs transition-all">EXECUTAR EXCLUSÃO</button>
             </div>
         </div>
