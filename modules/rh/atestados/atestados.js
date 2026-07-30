@@ -1,11 +1,19 @@
-console.log("Módulo de Atestados carregado com sucesso na memória!");
+console.log("Módulo de Atestados e Dashboard carregado com sucesso na memória!");
 
 window.listaAtestados = [];
 window.listaParaSelectColaboradores = [];
+window.graficoEvolucaoAtest = null;
+window.graficoCidAtest = null;
 
 window.initRHAtestados = async function() {
     await window.carregarListaBaseColaboradores();
     await window.carregarAtestados();
+    
+    // Garante que os gráficos se ajustem ao redimensionar a tela
+    window.addEventListener('resize', function() {
+        if (window.graficoEvolucaoAtest) window.graficoEvolucaoAtest.resize();
+        if (window.graficoCidAtest) window.graficoCidAtest.resize();
+    });
 };
 
 window.carregarListaBaseColaboradores = async function() {
@@ -20,14 +28,159 @@ window.carregarListaBaseColaboradores = async function() {
 window.carregarAtestados = async function() {
     try {
         const tbody = document.getElementById('tbAtestados');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando atestados...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando atestados e montando dashboard...</td></tr>`;
         
         window.listaAtestados = await db.getAtestados();
+        
+        window.renderizarDashboardAtestados();
         window.renderizarTabelaAtestados(window.listaAtestados);
     } catch (e) {
         console.error(e);
         alert("Erro ao carregar lista de atestados.");
     }
+};
+
+window.renderizarDashboardAtestados = function() {
+    if (typeof echarts === 'undefined') return;
+
+    let totalDiasPerdidos = 0;
+    let atestadosMesAtual = 0;
+    
+    const hoje = new Date();
+    const mesAtualStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+    
+    const freqCid = {};
+    const chavesMeses = [];
+    const mesesLabels = [];
+
+    // Prepara os últimos 6 meses para o gráfico
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+        const label = `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        mesesLabels.push(label);
+        chavesMeses.push({ key: key, countAtestados: 0, countDias: 0 });
+    }
+
+    // Processamento dos Dados
+    window.listaAtestados.forEach(a => {
+        const dias = parseInt(a.dias_afastamento) || 0;
+        totalDiasPerdidos += dias;
+
+        // KPI Mês Atual e Gráfico Evolução
+        if (a.data_inicio) {
+            const [ano, mes] = a.data_inicio.split('-');
+            const key = `${ano}-${mes}`;
+            
+            if (key === mesAtualStr) {
+                atestadosMesAtual++;
+            }
+
+            const targetMes = chavesMeses.find(m => m.key === key);
+            if (targetMes) {
+                targetMes.countAtestados++;
+                targetMes.countDias += dias;
+            }
+        }
+
+        // Frequência de CID/Motivo
+        let chaveCid = a.cid ? a.cid.trim().toUpperCase() : (a.motivo ? a.motivo.trim() : 'Não Informado');
+        if (chaveCid === '') chaveCid = 'Não Informado';
+        freqCid[chaveCid] = (freqCid[chaveCid] || 0) + 1;
+    });
+
+    // Ordenação do CID para achar o Top 1 (Para o KPI) e Top 5 (Para o Gráfico)
+    const cidArray = Object.keys(freqCid).map(k => ({ name: k, value: freqCid[k] }));
+    cidArray.sort((a,b) => b.value - a.value);
+    
+    const top1Cid = cidArray.length > 0 ? cidArray[0].name : 'Nenhum';
+    const top5Cid = cidArray.slice(0, 5);
+
+    // ==========================================
+    // ATUALIZAÇÃO DOS KPIS (CARDS)
+    // ==========================================
+    document.getElementById('kpiTotalAtestados').innerText = window.listaAtestados.length;
+    document.getElementById('kpiDiasPerdidos').innerText = totalDiasPerdidos;
+    document.getElementById('kpiAtestadosMes').innerText = atestadosMesAtual;
+    document.getElementById('kpiTopCid').innerText = top1Cid;
+    document.getElementById('kpiTopCid').title = top1Cid;
+
+    // ==========================================
+    // GRÁFICO 1: EVOLUÇÃO (LINHA E BARRA)
+    // ==========================================
+    const dataAtestados = chavesMeses.map(c => c.countAtestados);
+    const dataDias = chavesMeses.map(c => c.countDias);
+
+    const domEvolucao = document.getElementById('chartAtestadosEvolucao');
+    if (window.graficoEvolucaoAtest) window.graficoEvolucaoAtest.dispose();
+    window.graficoEvolucaoAtest = echarts.init(domEvolucao);
+
+    const optionEvolucao = {
+        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+        legend: { data: ['Dias Perdidos', 'Qtd de Atestados'], textStyle: { color: '#9ca3af' } },
+        grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
+        xAxis: { 
+            type: 'category', 
+            data: mesesLabels, 
+            axisLabel: { color: '#9ca3af' },
+            axisLine: { lineStyle: { color: '#374151' } }
+        },
+        yAxis: [
+            { 
+                type: 'value', name: 'Dias', 
+                axisLabel: { color: '#9ca3af' }, 
+                splitLine: { lineStyle: { color: '#374151', type: 'dashed' } }
+            },
+            { 
+                type: 'value', name: 'Qtd', 
+                axisLabel: { color: '#9ca3af' }, 
+                splitLine: { show: false }
+            }
+        ],
+        series: [
+            {
+                name: 'Dias Perdidos',
+                type: 'bar',
+                barWidth: '40%',
+                data: dataDias,
+                itemStyle: { color: '#ef4444', borderRadius: [4, 4, 0, 0] }
+            },
+            {
+                name: 'Qtd de Atestados',
+                type: 'line',
+                yAxisIndex: 1,
+                data: dataAtestados,
+                itemStyle: { color: '#60a5fa' },
+                lineStyle: { width: 3 },
+                symbolSize: 8
+            }
+        ]
+    };
+    window.graficoEvolucaoAtest.setOption(optionEvolucao);
+
+    // ==========================================
+    // GRÁFICO 2: INCIDÊNCIA CID (DONUT)
+    // ==========================================
+    const domCid = document.getElementById('chartAtestadosCid');
+    if (window.graficoCidAtest) window.graficoCidAtest.dispose();
+    window.graficoCidAtest = echarts.init(domCid);
+
+    const optionCid = {
+        tooltip: { trigger: 'item', formatter: '{b}: {c} ocorrência(s) ({d}%)' },
+        legend: { top: 'bottom', textStyle: { color: '#9ca3af' } },
+        color: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'],
+        series: [{
+            type: 'pie',
+            radius: ['45%', '75%'],
+            avoidLabelOverlap: false,
+            itemStyle: { borderRadius: 8, borderColor: '#1f2937', borderWidth: 3 },
+            label: { show: false, position: 'center' },
+            emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' } },
+            labelLine: { show: false },
+            data: top5Cid.length > 0 ? top5Cid : [{ name: 'Sem dados', value: 0 }]
+        }]
+    };
+    window.graficoCidAtest.setOption(optionCid);
 };
 
 // Formatar Data (YYYY-MM-DD para DD/MM/YYYY)

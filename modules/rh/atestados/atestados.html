@@ -1,6 +1,6 @@
 <div class="action-bar" style="animation: terminalFadeIn 0.3s ease-out;">
     <div class="filter-group">
-        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-notes-medical"></i> Registro de Atestados</h2>
+        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-heartbeat"></i> Dashboard de Absenteísmo (Atestados)</h2>
         <input type="text" id="buscaAtestado" class="search-input-dark" placeholder="Buscar por colaborador, médico ou CID..." onkeyup="window.filtrarAtestados()">
     </div>
     <div class="button-group">
@@ -8,7 +8,45 @@
     </div>
 </div>
 
-<div class="content-panel" style="animation: terminalFadeIn 0.4s ease-out;">
+<!-- KPIs (Indicadores Principais) -->
+<div class="config-grid" style="margin-bottom: 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; animation: terminalFadeIn 0.4s ease-out;">
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-blue-bright);">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Total de Atestados</h4>
+        <div id="kpiTotalAtestados" style="font-size: 2.2rem; font-weight: 900; color: #fff;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #ef4444;">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Total de Dias Perdidos</h4>
+        <div id="kpiDiasPerdidos" style="font-size: 2.2rem; font-weight: 900; color: #ef4444;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #f59e0b;">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Atestados (Mês Atual)</h4>
+        <div id="kpiAtestadosMes" style="font-size: 2.2rem; font-weight: 900; color: #f59e0b;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-green-bright);">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">CID / Motivo Frequente</h4>
+        <div id="kpiTopCid" style="font-size: 1.2rem; font-weight: 900; color: var(--ccol-green-bright); margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+</div>
+
+<!-- Gráficos de Atestados -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 25px; animation: terminalFadeIn 0.5s ease-out;">
+    <div class="content-panel" style="padding: 20px; margin-bottom: 0;">
+        <h4 style="color: #fff; margin-top: 0; margin-bottom: 5px; font-size: 1rem;"><i class="fas fa-chart-bar" style="color: var(--ccol-blue-bright);"></i> Evolução de Absenteísmo</h4>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0; margin-bottom: 15px;">Dias perdidos x Volume de atestados nos últimos 6 meses</p>
+        <div id="chartAtestadosEvolucao" style="width: 100%; height: 300px;"></div>
+    </div>
+    <div class="content-panel" style="padding: 20px; margin-bottom: 0;">
+        <h4 style="color: #fff; margin-top: 0; margin-bottom: 5px; font-size: 1rem;"><i class="fas fa-viruses" style="color: #ef4444;"></i> Incidência por CID / Motivo</h4>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0; margin-bottom: 15px;">Proporção das causas de afastamento na base total</p>
+        <div id="chartAtestadosCid" style="width: 100%; height: 300px;"></div>
+    </div>
+</div>
+
+<!-- Tabela de Registros -->
+<div class="content-panel" style="animation: terminalFadeIn 0.6s ease-out;">
+    <div class="panel-header">
+        <h3><i class="fas fa-list"></i> Histórico de Registros Médicos</h3>
+    </div>
     <div class="table-modern-wrapper">
         <table class="data-table-modern">
             <thead>
@@ -28,6 +66,7 @@
     </div>
 </div>
 
+<!-- Modal Lançamento -->
 <div id="modalAtestado" class="modal-overlay">
     <div class="custom-modal" style="max-width: 700px;">
         <div class="modal-header">
