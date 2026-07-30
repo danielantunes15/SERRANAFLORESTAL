@@ -14,7 +14,7 @@ window.initRHPainel = async function() {
             db.getAtestados()
         ]);
         
-        // Filtra garantindo que ignora maiúsculas/minúsculas no status
+        // Filtra garantindo que ignora inativos
         window.listaParaPainelRH = dadosColab.filter(c => {
             const status = c.status ? c.status.toLowerCase() : '';
             return status !== 'inativo' && status !== 'desligado';
@@ -45,10 +45,42 @@ window.atualizarKPIsPainelRH = function() {
     const sindicato = window.listaParaPainelRH.filter(c => c.ativo_sindicato && c.ativo_sindicato.toLowerCase() === 'sim').length;
     
     let asoAlertas = 0;
+    let emFerias = 0;
+    let feriasAlertas = 0;
+
     const hoje = new Date();
     hoje.setHours(0,0,0,0);
+    const mesAtual = hoje.getMonth() + 1; // 1 a 12
+    const anoAtual = hoje.getFullYear();
     
     window.listaParaPainelRH.forEach(c => {
+        // --- 1. Verificação de Status Férias ---
+        const status = c.status ? c.status.toLowerCase() : '';
+        if (status === 'férias' || status === 'ferias') {
+            emFerias++;
+        }
+
+        // --- 2. Alerta de Férias a Vencer ---
+        if (c.data_admissao && status !== 'férias' && status !== 'ferias') {
+            const [anoAdm, mesAdm, diaAdm] = c.data_admissao.split('-');
+            const mesAdmNum = parseInt(mesAdm);
+            const anoAdmNum = parseInt(anoAdm);
+
+            // Quantos meses de empresa o funcionário tem
+            const mesesTotal = (anoAtual - anoAdmNum) * 12 + (mesAtual - mesAdmNum);
+
+            // Se tem pelo menos 11 meses de empresa (já está fechando o 1º ano)
+            if (mesesTotal >= 11) {
+                const mesCiclo = mesesTotal % 12;
+                // Alerta dispara se faltar 1 ou 2 meses pro aniversário de admissão (10, 11),
+                // no mês do aniversário (0) ou se estourou em 1 mês (1)
+                if (mesCiclo >= 10 || mesCiclo === 0 || mesCiclo === 1) {
+                    feriasAlertas++;
+                }
+            }
+        }
+
+        // --- 3. Verificação de ASO Vencido ---
         if(c.aso_vencimento) {
             const venc = new Date(c.aso_vencimento + 'T00:00:00');
             const dif = (venc.getTime() - hoje.getTime()) / (1000 * 3600 * 24);
@@ -58,7 +90,7 @@ window.atualizarKPIsPainelRH = function() {
         }
     });
 
-    // Calcular atestados dos últimos 30 dias
+    // --- 4. Calcular atestados dos últimos 30 dias ---
     let atestados30Dias = 0;
     const data30DiasAtras = new Date();
     data30DiasAtras.setDate(hoje.getDate() - 30);
@@ -73,11 +105,14 @@ window.atualizarKPIsPainelRH = function() {
         }
     });
 
+    // Atualizando o HTML
     document.getElementById('kpiTotalAtivos').innerText = total;
     document.getElementById('kpiPlanoSaude').innerText = plano;
     document.getElementById('kpiSindicato').innerText = sindicato;
     document.getElementById('kpiAsoVencido').innerText = asoAlertas;
     document.getElementById('kpiAtestados').innerText = atestados30Dias;
+    document.getElementById('kpiEmFerias').innerText = emFerias;
+    document.getElementById('kpiFeriasVencer').innerText = feriasAlertas;
 };
 
 window.renderizarGraficosRH = function() {
@@ -129,7 +164,6 @@ window.renderizarGraficosRH = function() {
     const mesesLabels = [];
     const chavesAnoMes = [];
     
-    // Cria as labels retroativas (ex: 02/2026, 03/2026...)
     for (let i = 5; i >= 0; i--) {
         const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
         const label = `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
@@ -138,7 +172,6 @@ window.renderizarGraficosRH = function() {
         chavesAnoMes.push({ key: key, count: 0 });
     }
 
-    // Contabiliza os atestados na chave do mês correspondente
     window.listaAtestadosPainel.forEach(a => {
         if (a.data_inicio) {
             const [ano, mes] = a.data_inicio.split('-');

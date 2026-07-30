@@ -6,25 +6,33 @@
 </div>
 
 <!-- KPIs (Indicadores Principais) -->
-<div class="config-grid" style="margin-bottom: 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; animation: terminalFadeIn 0.4s ease-out;">
+<div class="config-grid" style="margin-bottom: 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; animation: terminalFadeIn 0.4s ease-out;">
     <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-blue-bright);">
-        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Total de Colaboradores</h4>
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Total (Ativos)</h4>
         <div id="kpiTotalAtivos" style="font-size: 2.2rem; font-weight: 900; color: #fff;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
     </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #14b8a6;">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Em Férias</h4>
+        <div id="kpiEmFerias" style="font-size: 2.2rem; font-weight: 900; color: #14b8a6;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #f43f5e;">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Férias a Vencer</h4>
+        <div id="kpiFeriasVencer" style="font-size: 2.2rem; font-weight: 900; color: #f43f5e;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
     <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-green-bright);">
-        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">No Plano de Saúde</h4>
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Plano de Saúde</h4>
         <div id="kpiPlanoSaude" style="font-size: 2.2rem; font-weight: 900; color: var(--ccol-green-bright);"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
     </div>
     <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #8b5cf6;">
-        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">No Sindicato</h4>
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Sindicato</h4>
         <div id="kpiSindicato" style="font-size: 2.2rem; font-weight: 900; color: #8b5cf6;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
     </div>
     <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #ef4444;">
-        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">ASO Vencido / Alerta</h4>
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">ASO Vencido</h4>
         <div id="kpiAsoVencido" style="font-size: 2.2rem; font-weight: 900; color: #ef4444;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
     </div>
     <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #f59e0b;">
-        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Atestados (Últimos 30 Dias)</h4>
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Atestados (30 Dias)</h4>
         <div id="kpiAtestados" style="font-size: 2.2rem; font-weight: 900; color: #f59e0b;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
     </div>
 </div>
