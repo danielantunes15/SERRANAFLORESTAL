@@ -51,17 +51,21 @@ window.renderizarTabelaAtestados = function(lista) {
         let dataLancamento = '-';
         if(a.created_at) {
             const dateObj = new Date(a.created_at);
-            dataLancamento = dateObj.toLocaleDateString('pt-BR') + ' as ' + dateObj.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            dataLancamento = dateObj.toLocaleDateString('pt-BR') + ' às ' + dateObj.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
         }
 
         const nomeColaborador = a.rh_colaboradores ? a.rh_colaboradores.nome : '<span style="color:#ef4444;">Colaborador Removido</span>';
         const matricula = (a.rh_colaboradores && a.rh_colaboradores.cod_funcionario) ? String(a.rh_colaboradores.cod_funcionario).padStart(4, '0') : '';
-
+        
         let badgeRetorno = `<span style="color: var(--text-secondary); font-weight:bold;">${formatarData(a.data_retorno)}</span>`;
+        
         if (a.data_retorno) {
             const hoje = new Date();
             hoje.setHours(0,0,0,0);
-            const retorno = new Date(a.data_retorno + 'T00:00:00');
+            
+            // Garantir que fuso horário não altere a data do banco
+            const [ano, mes, dia] = a.data_retorno.split('-');
+            const retorno = new Date(ano, mes - 1, dia);
             
             if (hoje.getTime() > retorno.getTime()) {
                 badgeRetorno += ` <span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left:5px;">Já Retornou</span>`;
@@ -132,7 +136,9 @@ window.calcularDataRetornoAtestado = function() {
     const dias = parseInt(document.getElementById('atDias').value);
 
     if (dataStr && !isNaN(dias) && dias > 0) {
-        const dataIncial = new Date(dataStr + 'T12:00:00');
+        const [anoStr, mesStr, diaStr] = dataStr.split('-');
+        const dataIncial = new Date(anoStr, mesStr - 1, diaStr);
+        
         dataIncial.setDate(dataIncial.getDate() + dias);
         
         const ano = dataIncial.getFullYear();
@@ -167,6 +173,11 @@ window.salvarAtestado = async function() {
     };
 
     try {
+        const btnSalvar = document.querySelector('#modalAtestado .btn-primary-green');
+        const txtOriginal = btnSalvar.innerHTML;
+        btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+        btnSalvar.disabled = true;
+
         await db.addAtestado(dados);
         
         const select = document.getElementById('atColaborador');
@@ -178,9 +189,13 @@ window.salvarAtestado = async function() {
         
         window.fecharModalAtestado();
         await window.carregarAtestados();
+
+        btnSalvar.innerHTML = txtOriginal;
+        btnSalvar.disabled = false;
     } catch (e) {
         console.error(e);
         alert('Erro ao salvar o atestado. Verifique sua conexão.');
+        document.querySelector('#modalAtestado .btn-primary-green').disabled = false;
     }
 };
 

@@ -17,14 +17,15 @@ window.initRHPainel = async function() {
         window.renderizarTabelaPainelRH(window.listaParaPainelRH);
     } catch(e) {
         console.error("Erro ao carregar Painel RH:", e);
-        document.getElementById('tbPainelRH').innerHTML = `<tr><td colspan="7" style="color: #ef4444; text-align: center;">Erro ao carregar os dados.</td></tr>`;
+        const tbody = document.getElementById('tbPainelRH');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="color: #ef4444; text-align: center;">Erro ao carregar os dados.</td></tr>`;
     }
 };
 
 window.atualizarKPIsPainelRH = function() {
     const total = window.listaParaPainelRH.length;
     
-    // Converte para minúsculo para garantir a contagem correta mesmo se no banco estiver "sim", "Sim" ou "SIM"
+    // Converte para minúsculo para garantir a contagem correta
     const plano = window.listaParaPainelRH.filter(c => c.plano_saude && c.plano_saude.toLowerCase() === 'sim').length;
     const sindicato = window.listaParaPainelRH.filter(c => c.ativo_sindicato && c.ativo_sindicato.toLowerCase() === 'sim').length;
     
@@ -51,9 +52,10 @@ window.atualizarKPIsPainelRH = function() {
 window.calcularBadgeAsoPainel = function(dataStr) {
     if (!dataStr) return '<span style="color:#ef4444; font-weight:bold;">Não Cadastrado</span>';
     const hoje = new Date(); hoje.setHours(0,0,0,0);
-    const venc = new Date(dataStr + 'T00:00:00'); 
+    const venc = new Date(dataStr + 'T00:00:00');
+    
     const dias = Math.ceil((venc.getTime() - hoje.getTime()) / (1000 * 3600 * 24));
-
+    
     if (dias < 0) return '<span style="color:#ef4444; font-weight:bold;">Vencido</span>';
     if (dias <= 30) return `<span style="color:#fb923c; font-weight:bold;">Vence em ${dias}d</span>`;
     return '<span style="color: var(--ccol-green-bright);">Regular</span>';
@@ -79,7 +81,7 @@ window.renderizarTabelaPainelRH = function(lista) {
         const sindStr = isSind ? '<span style="color:#8b5cf6;">Sim</span>' : '<span style="color:#ef4444;">Não</span>';
         
         const asoBadge = window.calcularBadgeAsoPainel(c.aso_vencimento);
-
+        
         tbody.innerHTML += `
             <tr>
                 <td><strong style="color:var(--ccol-blue-bright);">${mat}</strong></td>
