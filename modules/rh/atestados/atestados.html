@@ -110,9 +110,11 @@
                     <input type="text" id="atMedicoCrm" placeholder="Ex: 12345-BA">
                 </div>
 
+                <!-- CAMPO DE CID COM INTELIGÊNCIA -->
                 <div class="form-group-dark">
                     <label>CID (Opcional)</label>
-                    <input type="text" id="atCid" placeholder="Ex: J00, M54">
+                    <input type="text" id="atCid" placeholder="Ex: J00, M54" onkeyup="window.buscarDescricaoCid()" style="text-transform: uppercase;">
+                    <small id="cidDescricao" style="color: var(--ccol-green-bright); display: block; margin-top: 5px; font-weight: bold; min-height: 16px;"></small>
                 </div>
                 
                 <div class="form-group-dark">

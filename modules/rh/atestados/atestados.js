@@ -5,6 +5,116 @@ window.listaParaSelectColaboradores = [];
 window.graficoEvolucaoAtest = null;
 window.graficoCidAtest = null;
 
+// ==============================================================
+// DICIONÁRIO INTELIGENTE DOS CIDs OCUPACIONAIS MAIS COMUNS
+// ==============================================================
+window.dicionarioCid = {
+    "A09": "Diarreia e gastroenterite de origem infecciosa",
+    "A90": "Dengue [dengue clássico]",
+    "B30": "Infecção por vírus (Geral)",
+    "B34": "Doença por vírus, não especificada (Virose)",
+    "B34.2": "Infecção por coronavírus (COVID-19)",
+    "F32": "Episódios depressivos",
+    "F33": "Transtorno depressivo recorrente",
+    "F41": "Outros transtornos ansiosos",
+    "F43": "Reação ao stress grave e transtornos de adaptação",
+    "G43": "Enxaqueca",
+    "H10": "Conjuntivite",
+    "H11": "Outros transtornos da conjuntiva",
+    "J00": "Nasofaringite aguda (Resfriado comum)",
+    "J01": "Sinusite aguda",
+    "J02": "Faringite aguda",
+    "J03": "Amigdalite aguda",
+    "J04": "Laringite e traqueíte agudas",
+    "J06": "Infecções agudas das vias aéreas superiores",
+    "J11": "Influenza (Gripe)",
+    "J20": "Bronquite aguda",
+    "K04": "Doenças da polpa dentária e tecidos (Odontológico)",
+    "K29": "Gastrite e duodenite",
+    "K52": "Gastroenterite e colite não-infecciosas",
+    "M54": "Dorsalgia (Dor nas costas)",
+    "M54.4": "Lumbago com ciática",
+    "M54.5": "Dor lombar baixa",
+    "M65": "Sinovite e tenossinovite",
+    "M75": "Lesões do ombro",
+    "M79": "Mialgia / Transtornos dos tecidos moles",
+    "N39": "Outros transtornos do trato urinário (Infecção)",
+    "O20": "Hemorragia do início da gravidez",
+    "R10": "Dor abdominal e pélvica",
+    "R11": "Náusea e vômitos",
+    "R50": "Febre de origem desconhecida",
+    "R51": "Cefaleia (Dor de cabeça)",
+    "R52": "Dor, não classificada em outra parte",
+    "S62": "Fratura ao nível do punho e da mão",
+    "S93": "Luxação, entorse e distensão (Tornozelo/Pé)",
+    "Z02": "Exame e encontro para fins administrativos (Ocupacional)",
+    "Z30": "Exame geral e investigação",
+    "Z76": "Contato com serviços de saúde (Acompanhamento de Familiar)"
+};
+
+window.buscarDescricaoCid = function() {
+    const inputCid = document.getElementById('atCid');
+    const labelDesc = document.getElementById('cidDescricao');
+    const inputMotivo = document.getElementById('atMotivo');
+    
+    let val = inputCid.value.toUpperCase().trim();
+    if (val.length < 3) {
+        labelDesc.innerText = '';
+        return;
+    }
+
+    // 1. Tenta achar o CID exato (ex: M54.5) ou a família dele (os 3 primeiros dígitos, ex: M54)
+    let descricao = window.dicionarioCid[val] || window.dicionarioCid[val.substring(0,3)];
+
+    // 2. Inteligência de Fallback (Busca pela Categoria Geral através da primeira letra)
+    if (!descricao) {
+        const letra = val.charAt(0);
+        const categorias = {
+            'A': 'Doenças Infecciosas e Parasitárias',
+            'B': 'Doenças Infecciosas / Virais',
+            'C': 'Oncologia (Tumores e Neoplasias)',
+            'D': 'Doenças do Sangue / Imunidade',
+            'E': 'Doenças Endócrinas ou Nutricionais',
+            'F': 'Transtornos Mentais e Comportamentais',
+            'G': 'Doenças do Sistema Nervoso',
+            'H': 'Doenças do Olho ou do Ouvido',
+            'I': 'Doenças do Aparelho Circulatório',
+            'J': 'Doenças do Aparelho Respiratório',
+            'K': 'Doenças do Aparelho Digestivo / Odontologia',
+            'L': 'Doenças da Pele e Tecido Subcutâneo',
+            'M': 'Doenças do Sistema Osteomuscular (Músculos/Ossos)',
+            'N': 'Doenças do Aparelho Geniturinário',
+            'O': 'Gravidez, Parto e Puerpério',
+            'P': 'Afecções Originadas no Período Perinatal',
+            'Q': 'Malformações Congênitas',
+            'R': 'Sintomas, Sinais ou Achados Anormais',
+            'S': 'Traumatismos e Lesões Específicas',
+            'T': 'Traumatismos e Envenenamentos Gerais',
+            'V': 'Causas Externas de Acidentes',
+            'W': 'Causas Externas de Acidentes',
+            'X': 'Causas Externas de Acidentes',
+            'Y': 'Causas Externas de Acidentes',
+            'Z': 'Exames, Consultas ou Acompanhamentos'
+        };
+        
+        if (categorias[letra]) {
+            descricao = categorias[letra] + ' (Especifique o motivo abaixo)';
+        }
+    }
+
+    if (descricao) {
+        labelDesc.innerHTML = `<i class="fas fa-check-circle"></i> ${descricao}`;
+        
+        // Só preenche o "Motivo" automaticamente se não for um fallback pedindo para especificar
+        if (inputMotivo.value.trim() === '' && !descricao.includes('Especifique')) {
+            inputMotivo.value = descricao;
+        }
+    } else {
+        labelDesc.innerHTML = `<span style="color:#f59e0b;"><i class="fas fa-info-circle"></i> CID não reconhecido. Por favor, digite o motivo abaixo.</span>`;
+    }
+};
+// ==============================================================
+
 window.initRHAtestados = async function() {
     await window.carregarListaBaseColaboradores();
     await window.carregarAtestados();
@@ -86,6 +196,13 @@ window.renderizarDashboardAtestados = function() {
         // Frequência de CID/Motivo
         let chaveCid = a.cid ? a.cid.trim().toUpperCase() : (a.motivo ? a.motivo.trim() : 'Não Informado');
         if (chaveCid === '') chaveCid = 'Não Informado';
+        
+        // Se for um CID mapeado, usa o nome bonito no gráfico
+        let nomeParaGrafico = window.dicionarioCid[chaveCid] || window.dicionarioCid[chaveCid.substring(0,3)];
+        if(nomeParaGrafico) {
+            chaveCid = `${chaveCid} - ${nomeParaGrafico.split(' (')[0].substring(0, 20)}...`; // Abrevia para não estourar o gráfico
+        }
+
         freqCid[chaveCid] = (freqCid[chaveCid] || 0) + 1;
     });
 
@@ -284,6 +401,7 @@ window.abrirModalAtestado = function() {
     document.getElementById('atMedicoCrm').value = '';
     document.getElementById('atAnexo').value = '';
     document.getElementById('atObservacoes').value = '';
+    document.getElementById('cidDescricao').innerText = ''; // Limpa o label da inteligência
 
     document.getElementById('modalAtestado').classList.add('show');
 };
@@ -350,7 +468,7 @@ window.salvarAtestado = async function() {
             data_inicio: dataInicio,
             dias_afastamento: dias,
             data_retorno: dataRetorno || null,
-            cid: document.getElementById('atCid').value,
+            cid: document.getElementById('atCid').value.toUpperCase(),
             motivo: document.getElementById('atMotivo').value,
             observacoes: document.getElementById('atObservacoes').value,
             medico_nome: document.getElementById('atMedicoNome').value,
