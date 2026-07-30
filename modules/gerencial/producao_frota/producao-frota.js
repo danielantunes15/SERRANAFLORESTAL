@@ -1,8 +1,8 @@
 // ==========================================
-// js/producao-frota.js - PRODUÇÃO E FATURAMENTO (TRANSPORTE VS CARREGAMENTO)
+// js/producao-frota.js - PRODUÇÃO E FATURAMENTO COM METAS
 // ==========================================
 
-if(typeof Chart !== 'undefined') {
+if(typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
     Chart.register(ChartDataLabels);
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
@@ -16,19 +16,25 @@ var dadosFiltradosAtual = [];
 var agrupamentoDiarioGlobal = {}; 
 var tarifadorAtivoGlobal = null;
 
-// Agora usamos um Map para guardar as propriedades detalhadas das gruas
+// Armazena as propriedades detalhadas das gruas
 var gruasPropriasCache = new Map(); 
 
+// Instâncias dos Gráficos ECharts
 var chartVolumesObj = null;
-var chartReceitasObj = null;
-var chartFaturamentoTotalObj = null; // Instância do novo gráfico
+var chartTransporteEvoObj = null;
+var chartCarregamentoEvoObj = null;
 
-// SUBSTITUÍDO: Tolerância por total foi trocada por tolerâncias independentes para evitar agrupar fazendas erradas
+// Metas Diárias Globais
+var metaTransporteDiaria = 0;
+var metaCarregamentoDiaria = 0;
+
 const TOLERANCIA_ASFALTO_KM = 2.0; 
 const TOLERANCIA_TERRA_KM = 2.0; 
 
 function getSupabaseClient() {
-    if (window.supabaseClient) return window.supabaseClient;
+    if (typeof window.supabaseClient !== 'undefined') return window.supabaseClient;
+    if (typeof window.db !== 'undefined' && typeof window.db.from === 'function') return window.db; 
+    if (typeof window.db !== 'undefined' && window.db.supabase) return window.db.supabase;
     if (typeof supabaseClient !== 'undefined') return supabaseClient;
     console.error("[PRODUCAO] FATAL: Nenhum cliente Supabase encontrado!");
     return null;
@@ -38,6 +44,7 @@ window.initProducaoFrota = async function() {
     console.log("[PRODUCAO] Módulo iniciado.");
     configurarEventos();
     definirDatasPadrao();
+    await carregarMetas(); 
     await buscarTarifadorAtivo();
     buscarTodosDadosSupabase();
 };
@@ -51,18 +58,55 @@ function configurarEventos() {
     
     const btnResProd = document.getElementById('btnExportarResumoProd');
     if(btnResProd) btnResProd.addEventListener('click', exportarResumoDiarioExcel);
+
+    // Garante o redimensionamento perfeito caso a janela mude de tamanho
+    window.addEventListener('resize', () => {
+        if (chartTransporteEvoObj) chartTransporteEvoObj.resize();
+        if (chartCarregamentoEvoObj) chartCarregamentoEvoObj.resize();
+        if (chartVolumesObj) chartVolumesObj.resize();
+    });
 }
 
 function definirDatasPadrao() {
     const dataFim = new Date();
     const dataInicio = new Date();
-    dataInicio.setDate(dataFim.getDate() - 7);
+    // PADRÃO: ÚLTIMOS 30 DIAS
+    dataInicio.setDate(dataFim.getDate() - 29);
     
     const elFim = document.getElementById('dataFim');
     if(elFim) elFim.value = dataFim.toISOString().split('T')[0];
 
     const elInicio = document.getElementById('dataInicio');
     if(elInicio) elInicio.value = dataInicio.toISOString().split('T')[0];
+}
+
+async function carregarMetas() {
+    try {
+        const client = getSupabaseClient();
+        const filialAtual = (typeof currentUser !== 'undefined' && currentUser.filial_id) ? currentUser.filial_id : 'CENTRAL';
+
+        if (client) {
+            const { data, error } = await client
+                .from('metas_gerenciais')
+                .select('*')
+                .eq('filial_id', filialAtual)
+                .maybeSingle();
+            
+            if (data) {
+                metaTransporteDiaria = parseFloat(data.meta_diaria_transporte || 0);
+                metaCarregamentoDiaria = parseFloat(data.meta_diaria_carregamento || 0);
+                return;
+            }
+        }
+        
+        const metasSalvas = JSON.parse(localStorage.getItem(`metas_gerenciais_${filialAtual}`));
+        if (metasSalvas) {
+            metaTransporteDiaria = parseFloat(metasSalvas.meta_diaria_transporte || 0);
+            metaCarregamentoDiaria = parseFloat(metasSalvas.meta_diaria_carregamento || 0);
+        }
+    } catch (error) {
+        console.error("[PRODUCAO] Erro ao buscar metas:", error);
+    }
 }
 
 async function buscarTarifadorAtivo() {
@@ -89,7 +133,7 @@ async function buscarTarifadorAtivo() {
             }
         } else {
             tarifadorAtivoGlobal = null;
-            if(displayNome) displayNome.innerText = "Nenhum Tarifador Ativo no Sistema";
+            if(displayNome) displayNome.innerText = "Nenhum Tarifador Ativo";
             if(badge) {
                 badge.classList.remove('bg-indigo-600/20', 'text-indigo-400', 'border-indigo-500/50', 'bg-emerald-600/20', 'text-emerald-400', 'border-emerald-500/50');
                 badge.classList.add('bg-rose-600/20', 'text-rose-400', 'border-rose-500/50');
@@ -110,7 +154,7 @@ async function buscarTodosDadosSupabase() {
     }
 
     try {
-        if(tStatus) tStatus.innerText = "Baixando configurações de Gruas...";
+        if(tStatus) tStatus.innerText = "Baixando configurações...";
         const { data: gruasData } = await client.from('config_gruas').select('codigos, tipo_frente, ordem, frente');
         
         gruasPropriasCache = new Map();
@@ -128,7 +172,7 @@ async function buscarTodosDadosSupabase() {
             });
         }
 
-        if(tStatus) tStatus.innerText = "Baixando histórico de viagens...";
+        if(tStatus) tStatus.innerText = "Baixando viagens...";
         dadosHistoricoGlobal = [];
         
         let from = 0;
@@ -166,22 +210,24 @@ function popularDropdownTransportadoras(dados) {
 
         const transpSet = new Set();
         dados.forEach(d => {
-             if (d.transportadora) {
-                transpSet.add(d.transportadora.trim().toUpperCase());
-             }
+             if (d.transportadora) transpSet.add(d.transportadora.trim().toUpperCase());
         });
         
         let opsHtml = '<option value="">TODAS AS TRANSPORTADORAS E FRENTES</option>';
         opsHtml += '<option value="SOMENTE_SERRANA">📦 APENAS NOSSOS CAMINHÕES (Serrana)</option>';
         opsHtml += '<option value="SOMENTE_TERCEIROS">🤝 APENAS CAMINHÕES TERCEIROS</option>';
         
-        Array.from(transpSet).sort().forEach(t => {
-            opsHtml += `<option value="${t}">${t}</option>`;
-        });
-        
+        Array.from(transpSet).sort().forEach(t => { opsHtml += `<option value="${t}">${t}</option>`; });
         select.innerHTML = opsHtml;
-    } catch(e) { console.error("[PRODUCAO] Erro dropdown transportadora:", e); }
+    } catch(e) {}
 }
+
+const formatarDataChave = (dateObj) => {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
 
 function converterDataString(dataStr) {
     if (!dataStr) return new Date(0);
@@ -222,13 +268,9 @@ function atualizarPaineisReceita(f5, f6) {
     const formatarDinheiro = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const formatarNumero = (valor) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
-    // Cálculos Frente 5 (Acumulados e Médias Corretas)
-    const f5TranspRS = f5.recTranspTotal;
-    const f5CarrRS = f5.recCarregTotal;
-    
-    document.getElementById('f5_transporte_rs').innerText = formatarDinheiro(f5TranspRS);
-    document.getElementById('f5_carregamento_rs').innerText = formatarDinheiro(f5CarrRS);
-    document.getElementById('f5_receita_total').innerText = formatarDinheiro(f5TranspRS + f5CarrRS);
+    document.getElementById('f5_transporte_rs').innerText = formatarDinheiro(f5.recTranspTotal);
+    document.getElementById('f5_carregamento_rs').innerText = formatarDinheiro(f5.recCarregTotal);
+    document.getElementById('f5_receita_total').innerText = formatarDinheiro(f5.recTranspTotal + f5.recCarregTotal);
     document.getElementById('f5_vol_transportado').innerText = formatarNumero(f5.volTransp);
     document.getElementById('f5_vol_carregado').innerText = formatarNumero(f5.volCarreg);
     document.getElementById('f5_qtd_viagens').innerText = f5.viagens;
@@ -236,13 +278,9 @@ function atualizarPaineisReceita(f5, f6) {
     document.getElementById('f5_tarifa_transporte').innerText = formatarNumero(f5.tarifaT);
     document.getElementById('f5_tarifa_carregamento').innerText = formatarNumero(f5.tarifaC);
 
-    // Cálculos Frente 6 (Acumulados e Médias Corretas)
-    const f6TranspRS = f6.recTranspTotal;
-    const f6CarrRS = f6.recCarregTotal;
-
-    document.getElementById('f6_transporte_rs').innerText = formatarDinheiro(f6TranspRS);
-    document.getElementById('f6_carregamento_rs').innerText = formatarDinheiro(f6CarrRS);
-    document.getElementById('f6_receita_total').innerText = formatarDinheiro(f6TranspRS + f6CarrRS);
+    document.getElementById('f6_transporte_rs').innerText = formatarDinheiro(f6.recTranspTotal);
+    document.getElementById('f6_carregamento_rs').innerText = formatarDinheiro(f6.recCarregTotal);
+    document.getElementById('f6_receita_total').innerText = formatarDinheiro(f6.recTranspTotal + f6.recCarregTotal);
     document.getElementById('f6_vol_transportado').innerText = formatarNumero(f6.volTransp);
     document.getElementById('f6_vol_carregado').innerText = formatarNumero(f6.volCarreg);
     document.getElementById('f6_qtd_viagens').innerText = f6.viagens;
@@ -265,31 +303,37 @@ function processarFiltrosEExibir() {
         const elStrFim = document.getElementById('dataFim');
         const strFim = elStrFim ? elStrFim.value : '';
 
-        let timeInicio = strInicio ? new Date(strInicio.split('-')[0], parseInt(strInicio.split('-')[1]) - 1, strInicio.split('-')[2]).getTime() : 0;
-        let timeFim = strFim ? new Date(strFim.split('-')[0], parseInt(strFim.split('-')[1]) - 1, strFim.split('-')[2], 23, 59, 59).getTime() : Infinity;
+        if (!strInicio || !strFim) {
+            mostrarAlerta("Selecione um período válido.", "error");
+            return;
+        }
+
+        let dateIniObj = new Date(strInicio.split('-')[0], parseInt(strInicio.split('-')[1]) - 1, strInicio.split('-')[2]);
+        let dateFimObj = new Date(strFim.split('-')[0], parseInt(strFim.split('-')[1]) - 1, strFim.split('-')[2]);
+        
+        let timeInicio = dateIniObj.getTime();
+        let timeFim = new Date(dateFimObj.getFullYear(), dateFimObj.getMonth(), dateFimObj.getDate(), 23, 59, 59).getTime();
+
+        let diasNoPeriodo = Math.round((timeFim - timeInicio) / (1000 * 60000 * 60 * 24)) + 1;
+        if (diasNoPeriodo < 1) diasNoPeriodo = 1;
 
         // Limpeza dos filtros
         dadosFiltradosAtual = dadosHistoricoGlobal.filter(registro => {
             const tr = registro.transportadora ? registro.transportadora.trim().toUpperCase() : 'N/A';
             const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
-            
             const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
             const isNossaGrua = gruasPropriasCache.has(gruaReg);
 
             if (!isSerrana && !isNossaGrua) return false;
-
             if (filtroTransp === 'SOMENTE_SERRANA' && !isSerrana) return false;
             if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) return false;
             if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) return false;
 
             const dataViagem = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
-            
             if (dataViagem) {
                 const trTime = converterDataString(dataViagem).getTime();
                 if (trTime < timeInicio || trTime > timeFim) return false;
-            } else {
-                return false; 
-            }
+            } else { return false; }
             return true;
         });
 
@@ -303,23 +347,17 @@ function processarFiltrosEExibir() {
 
         let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
 
-        // Estrutura de acúmulo financeiro e de distância real das frentes
-        let f5 = { 
-            volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0,
-            totalAsfalto: 0, totalTerra: 0, totalTarifaT: 0, recTranspTotal: 0, recCarregTotal: 0 
-        };
-        let f6 = { 
-            volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0,
-            totalAsfalto: 0, totalTerra: 0, totalTarifaT: 0, recTranspTotal: 0, recCarregTotal: 0 
-        };
+        let f5 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0, totalAsfalto: 0, totalTerra: 0, totalTarifaT: 0, recTranspTotal: 0, recCarregTotal: 0 };
+        let f6 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0, totalAsfalto: 0, totalTerra: 0, totalTarifaT: 0, recTranspTotal: 0, recCarregTotal: 0 };
 
         dadosFiltradosAtual.forEach(registro => {
             const d = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
+            const dateVal = converterDataString(d);
+            const keyData = formatarDataChave(dateVal);
             
             const pl = registro.placa ? registro.placa.trim().toUpperCase() : 'N/A';
             const tr = registro.transportadora ? registro.transportadora.toUpperCase() : 'N/A';
             const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
-            
             const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
             const infoGrua = gruasPropriasCache.get(gruaReg);
             const isNossaGrua = !!infoGrua;
@@ -333,48 +371,17 @@ function processarFiltrosEExibir() {
             let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
             let totalReceitaItem = recTransporte + recCarregamento;
 
-            if (isSerrana) {
-                tTranspViagens += 1;
-                tTranspVol += v;
-                tTranspRec += recTransporte;
-            }
-            
-            if (isNossaGrua) {
-                tCarregViagens += 1;
-                tCarregVol += v;
-                tCarregRec += recCarregamento;
-            }
+            if (isSerrana) { tTranspViagens++; tTranspVol += v; tTranspRec += recTransporte; }
+            if (isNossaGrua) { tCarregViagens++; tCarregVol += v; tCarregRec += recCarregamento; }
 
             let nomeFrente = infoGrua ? infoGrua.frente.toUpperCase() : (registro.frente ? String(registro.frente).toUpperCase() : '');
             
             if (nomeFrente.includes('5')) {
-                if (isSerrana) {
-                    f5.volTransp += v;
-                    f5.viagens += 1;
-                    f5.totalAsfalto += asfalto;
-                    f5.totalTerra += terra;
-                    f5.totalTarifaT += tarifaTransporte;
-                    f5.recTranspTotal += recTransporte;
-                }
-                if (isNossaGrua) {
-                    f5.volCarreg += v;
-                    f5.recCarregTotal += recCarregamento;
-                    f5.tarifaC = precoCarregamento;
-                }
+                if (isSerrana) { f5.volTransp += v; f5.viagens++; f5.totalAsfalto += asfalto; f5.totalTerra += terra; f5.totalTarifaT += tarifaTransporte; f5.recTranspTotal += recTransporte; }
+                if (isNossaGrua) { f5.volCarreg += v; f5.recCarregTotal += recCarregamento; f5.tarifaC = precoCarregamento; }
             } else if (nomeFrente.includes('6')) {
-                if (isSerrana) {
-                    f6.volTransp += v;
-                    f6.viagens += 1;
-                    f6.totalAsfalto += asfalto;
-                    f6.totalTerra += terra;
-                    f6.totalTarifaT += tarifaTransporte;
-                    f6.recTranspTotal += recTransporte;
-                }
-                if (isNossaGrua) {
-                    f6.volCarreg += v;
-                    f6.recCarregTotal += recCarregamento;
-                    f6.tarifaC = precoCarregamento;
-                }
+                if (isSerrana) { f6.volTransp += v; f6.viagens++; f6.totalAsfalto += asfalto; f6.totalTerra += terra; f6.totalTarifaT += tarifaTransporte; f6.recTranspTotal += recTransporte; }
+                if (isNossaGrua) { f6.volCarreg += v; f6.recCarregTotal += recCarregamento; f6.tarifaC = precoCarregamento; }
             }
 
             let nomeCategoria = "DESCONHECIDO";
@@ -391,82 +398,33 @@ function processarFiltrosEExibir() {
 
             const chaveFrente = `${nomeCategoria}_${asfalto}_${terra}`;
             if (!agrupamentoFrente[chaveFrente]) {
-                agrupamentoFrente[chaveFrente] = {
-                    categoria: nomeCategoria,
-                    asfalto: asfalto,
-                    terra: terra,
-                    tarifa: tarifaTransporte,
-                    viagens: 0,
-                    volume: 0,
-                    receita: 0
-                };
+                agrupamentoFrente[chaveFrente] = { categoria: nomeCategoria, asfalto: asfalto, terra: terra, tarifa: tarifaTransporte, viagens: 0, volume: 0, receita: 0 };
             }
-            agrupamentoFrente[chaveFrente].viagens += 1;
+            agrupamentoFrente[chaveFrente].viagens++;
             agrupamentoFrente[chaveFrente].volume += v;
             agrupamentoFrente[chaveFrente].receita += totalReceitaItem;
 
             const chaveTabela = `${pl}_${asfalto}_${terra}`;
             if (!agrupamentoTabela[chaveTabela]) {
-                agrupamentoTabela[chaveTabela] = { 
-                    placa: pl, 
-                    transp: tr, 
-                    isSerrana: isSerrana, 
-                    isNossaGrua: isNossaGrua,
-                    asfalto: asfalto, 
-                    terra: terra, 
-                    tarifa: tarifaTransporte,
-                    viagens: 0, 
-                    volume: 0, 
-                    recTransp: 0, 
-                    recCarreg: 0 
-                };
+                agrupamentoTabela[chaveTabela] = { placa: pl, transp: tr, isSerrana: isSerrana, isNossaGrua: isNossaGrua, asfalto: asfalto, terra: terra, tarifa: tarifaTransporte, viagens: 0, volume: 0, recTransp: 0, recCarreg: 0 };
             }
-            agrupamentoTabela[chaveTabela].viagens += 1;
+            agrupamentoTabela[chaveTabela].viagens++;
             agrupamentoTabela[chaveTabela].volume += v;
             agrupamentoTabela[chaveTabela].recTransp += recTransporte;
             agrupamentoTabela[chaveTabela].recCarreg += recCarregamento;
 
-            if (d) {
-                if (!agrupamentoDiario[d]) agrupamentoDiario[d] = { volTransp: 0, recTransp: 0, volCarreg: 0, recCarreg: 0 };
-                if (isSerrana) {
-                    agrupamentoDiario[d].volTransp += v;
-                    agrupamentoDiario[d].recTransp += recTransporte;
-                }
-                if (isNossaGrua) {
-                    agrupamentoDiario[d].volCarreg += v;
-                    agrupamentoDiario[d].recCarreg += recCarregamento;
-                }
-            }
+            if (!agrupamentoDiario[keyData]) agrupamentoDiario[keyData] = { volTransp: 0, recTransp: 0, volCarreg: 0, recCarreg: 0 };
+            if (isSerrana) { agrupamentoDiario[keyData].volTransp += v; agrupamentoDiario[keyData].recTransp += recTransporte; }
+            if (isNossaGrua) { agrupamentoDiario[keyData].volCarreg += v; agrupamentoDiario[keyData].recCarreg += recCarregamento; }
 
             dadosEnriquecidos.push({
-                data: d,
-                up: nomeFrente,
-                placa: pl,
-                distAsfalto: asfalto,
-                distTerra: terra,
-                distTotal: asfalto + terra,
-                tarifaTransporte: tarifaTransporte,
-                recTransp: recTransporte,
-                recCarreg: recCarregamento,
-                recTotal: totalReceitaItem,
-                volume: v,
-                viagens: 1,
-                isSerrana: isSerrana,
-                isNossaGrua: isNossaGrua
+                data: d, up: nomeFrente, placa: pl, distAsfalto: asfalto, distTerra: terra, distTotal: asfalto + terra, tarifaTransporte: tarifaTransporte,
+                recTransp: recTransporte, recCarreg: recCarregamento, recTotal: totalReceitaItem, volume: v, viagens: 1, isSerrana: isSerrana, isNossaGrua: isNossaGrua
             });
         });
 
-        // Cálculo das Médias de Distância e Tarifas do Período Filtrado
-        if (f5.viagens > 0) {
-            f5.asfalto = f5.totalAsfalto / f5.viagens;
-            f5.terra = f5.totalTerra / f5.viagens;
-            f5.tarifaT = f5.totalTarifaT / f5.viagens;
-        }
-        if (f6.viagens > 0) {
-            f6.asfalto = f6.totalAsfalto / f6.viagens;
-            f6.terra = f6.totalTerra / f6.viagens;
-            f6.tarifaT = f6.totalTarifaT / f6.viagens;
-        }
+        if (f5.viagens > 0) { f5.asfalto = f5.totalAsfalto / f5.viagens; f5.terra = f5.totalTerra / f5.viagens; f5.tarifaT = f5.totalTarifaT / f5.viagens; }
+        if (f6.viagens > 0) { f6.asfalto = f6.totalAsfalto / f6.viagens; f6.terra = f6.totalTerra / f6.viagens; f6.tarifaT = f6.totalTarifaT / f6.viagens; }
 
         dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => {
             if (a.placa === b.placa) return b.viagens - a.viagens; 
@@ -476,126 +434,96 @@ function processarFiltrosEExibir() {
         dadosFrentesAtual = Object.values(agrupamentoFrente).sort((a, b) => b.volume - a.volume);
         agrupamentoDiarioGlobal = agrupamentoDiario;
 
-        // === CÁLCULO SEPARADO E EXCLUSIVO DOS ÚLTIMOS 7 DIAS (GRÁFICO FINANCEIRO 2) ===
-        let dataFimGrafico = new Date();
-        dataFimGrafico.setDate(dataFimGrafico.getDate() - 1); // <-- DEFINE A DATA FINAL COMO ONTEM
+        // === CÁLCULOS DOS KPIS DE METAS ===
+        const formatMoney = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
-        const milissegundosEm7Dias = 7 * 24 * 60 * 60 * 1000;
-        const referenciaTime = dataFimGrafico.getTime();
-        
-        const temDadosRecentes = dadosHistoricoGlobal.some(r => {
-            const dt = r.dtFimDescarFabrica || r.dataDaBaseExcel;
-            if (!dt) return false;
-            const t = converterDataString(dt).getTime();
-            return (referenciaTime - t) < milissegundosEm7Dias && t <= referenciaTime;
-        });
+        let hojeTransporte = 0;
+        let hojeCarregamento = 0;
+        const hojeKey = formatarDataChave(new Date());
 
-        if (!temDadosRecentes) {
-            let maxTime = 0;
-            dadosHistoricoGlobal.forEach(r => {
-                const dt = r.dtFimDescarFabrica || r.dataDaBaseExcel;
-                if (dt) {
-                    const t = converterDataString(dt).getTime();
-                    if (t > maxTime && t <= referenciaTime) maxTime = t;
-                }
-            });
-            if (maxTime > 0) dataFimGrafico = new Date(maxTime);
+        if (agrupamentoDiario[hojeKey]) {
+            hojeTransporte = agrupamentoDiario[hojeKey].recTransp;
+            hojeCarregamento = agrupamentoDiario[hojeKey].recCarreg;
+        } else if (Object.keys(agrupamentoDiario).length > 0) {
+            const sortedKeys = Object.keys(agrupamentoDiario).sort();
+            const lastKey = sortedKeys[sortedKeys.length - 1];
+            hojeTransporte = agrupamentoDiario[lastKey].recTransp;
+            hojeCarregamento = agrupamentoDiario[lastKey].recCarreg;
         }
 
-        dataFimGrafico.setHours(23, 59, 59, 999);
-        const dataInicioGrafico = new Date(dataFimGrafico);
-        dataInicioGrafico.setDate(dataFimGrafico.getDate() - 6);
-        dataInicioGrafico.setHours(0, 0, 0, 0);
+        const metaPeriodoTransporte = metaTransporteDiaria * diasNoPeriodo;
+        const metaPeriodoCarregamento = metaCarregamentoDiaria * diasNoPeriodo;
 
-        const formatarDataChave = (dateObj) => {
-            const y = dateObj.getFullYear();
-            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const d = String(dateObj.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
-        };
+        const percTransPeriodo = metaPeriodoTransporte > 0 ? ((tTranspRec / metaPeriodoTransporte) * 100) : 0;
+        const percCarrPeriodo = metaPeriodoCarregamento > 0 ? ((tCarregRec / metaPeriodoCarregamento) * 100) : 0;
+        const percTransHoje = metaTransporteDiaria > 0 ? ((hojeTransporte / metaTransporteDiaria) * 100) : 0;
+        const percCarrHoje = metaCarregamentoDiaria > 0 ? ((hojeCarregamento / metaCarregamentoDiaria) * 100) : 0;
 
-        const ultimos7DiasArray = [];
-        for (let i = 0; i < 7; i++) {
-            const dTemp = new Date(dataInicioGrafico);
-            dTemp.setDate(dataInicioGrafico.getDate() + i);
-            ultimos7DiasArray.push(dTemp);
-        }
+        // Atualiza Dom KPIs
+        document.getElementById('valTranspReceita').innerText = formatMoney(tTranspRec);
+        document.getElementById('valCarregReceita').innerText = formatMoney(tCarregRec);
+        document.getElementById('kpi-transporte-hoje').innerText = formatMoney(hojeTransporte);
+        document.getElementById('kpi-carregamento-hoje').innerText = formatMoney(hojeCarregamento);
 
-        const agrupamento7Dias = {};
-        ultimos7DiasArray.forEach(dt => {
-            const key = formatarDataChave(dt);
-            agrupamento7Dias[key] = {
-                volTransp: 0,
-                recTransp: 0,
-                volCarreg: 0,
-                recCarreg: 0,
-                label: dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-            };
-        });
+        document.getElementById('desc-transporte-periodo').innerText = `Meta Período: ${formatMoney(metaPeriodoTransporte)}`;
+        document.getElementById('desc-carregamento-periodo').innerText = `Meta Período: ${formatMoney(metaPeriodoCarregamento)}`;
+        document.getElementById('desc-transporte-hoje').innerText = `Meta Diária: ${formatMoney(metaTransporteDiaria)}`;
+        document.getElementById('desc-carregamento-hoje').innerText = `Meta Diária: ${formatMoney(metaCarregamentoDiaria)}`;
 
-        dadosHistoricoGlobal.forEach(registro => {
-            const tr = registro.transportadora ? registro.transportadora.trim().toUpperCase() : 'N/A';
-            const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
-            
-            const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
-            const infoGrua = gruasPropriasCache.get(gruaReg);
-            const isNossaGrua = !!infoGrua;
+        aplicarBadge('badge-transporte-periodo', percTransPeriodo);
+        aplicarBadge('badge-carregamento-periodo', percCarrPeriodo);
+        aplicarBadge('badge-transporte-hoje', percTransHoje);
+        aplicarBadge('badge-carregamento-hoje', percCarrHoje);
 
-            if (filtroTransp === 'SOMENTE_SERRANA' && !isSerrana) return;
-            if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) return;
-            if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) return;
-
-            const dataViagemStr = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
-            if (!dataViagemStr) return;
-
-            const dateViagem = converterDataString(dataViagemStr);
-            const timeViagem = dateViagem.getTime();
-
-            if (timeViagem >= dataInicioGrafico.getTime() && timeViagem <= dataFimGrafico.getTime()) {
-                const key = formatarDataChave(dateViagem);
-                if (agrupamento7Dias[key]) {
-                    const v = parseFloat(String(registro.volumeReal).replace(',','.')) || 0;
-                    const asfalto = parseFloat(String(registro.distanciaAsfalto).replace(',','.')) || 0;
-                    const terra = parseFloat(String(registro.distanciaTerra).replace(',','.')) || 0;
-                    
-                    let tarifaTransporte = isSerrana ? calcularTarifaTransporte(asfalto, terra) : 0;
-                    let recTransporte = isSerrana ? (v * tarifaTransporte) : 0;
-                    let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
-
-                    if (isSerrana) {
-                        agrupamento7Dias[key].volTransp += v;
-                        agrupamento7Dias[key].recTransp += recTransporte;
-                    }
-                    if (isNossaGrua) {
-                        agrupamento7Dias[key].volCarreg += v;
-                        agrupamento7Dias[key].recCarreg += recCarregamento;
-                    }
-                }
-            }
-        });
-
-        // Atualização dos Cards Superiores
         document.getElementById('valTranspViagens').innerText = tTranspViagens.toLocaleString('pt-BR');
         document.getElementById('valTranspVolume').innerText = tTranspVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
-        document.getElementById('valTranspReceita').innerText = tTranspRec.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
         document.getElementById('valCarregViagens').innerText = tCarregViagens.toLocaleString('pt-BR');
         document.getElementById('valCarregVolume').innerText = tCarregVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
-        document.getElementById('valCarregReceita').innerText = tCarregRec.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('valTotalReceita').innerText = formatMoney(tTranspRec + tCarregRec);
 
-        const totalConsolidado = tTranspRec + tCarregRec;
-        document.getElementById('valTotalReceita').innerText = totalConsolidado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        // Prepara dados e datas rigorosamente sequenciais para os Gráficos
+        const dadosEvolucao = [];
+        let dataCorrente = new Date(dateIniObj.getTime());
+        const dataLimite = new Date(timeFim);
+        
+        while(dataCorrente <= dataLimite) {
+            const k = formatarDataChave(dataCorrente);
+            const label = dataCorrente.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+            
+            if (agrupamentoDiario[k]) {
+                dadosEvolucao.push({ 
+                    label: label, 
+                    recTransp: agrupamentoDiario[k].recTransp, 
+                    recCarreg: agrupamentoDiario[k].recCarreg, 
+                    volTransp: agrupamentoDiario[k].volTransp, 
+                    volCarreg: agrupamentoDiario[k].volCarreg 
+                });
+            } else {
+                dadosEvolucao.push({ label: label, recTransp: 0, recCarreg: 0, volTransp: 0, volCarreg: 0 });
+            }
+            dataCorrente.setDate(dataCorrente.getDate() + 1);
+        }
 
-        desenharGraficos(agrupamentoDiarioGlobal, agrupamento7Dias);
+        desenharGraficosEvolucao(dadosEvolucao);
         atualizarPaineisReceita(f5, f6); 
         renderizarTabela(dadosAgrupadosAtual);
-        atualizarPainelDinamico(dadosEnriquecidos); // Chamada para o novo painel dinâmico
+        atualizarPainelDinamico(dadosEnriquecidos); 
 
         if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} rotas analisadas`;
         
     } catch (errInterface) {
         console.error("[PRODUCAO] Erro Crítico na montagem da tela:", errInterface);
     }
+}
+
+function aplicarBadge(id, percent) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerText = percent.toFixed(1) + '%';
+    el.className = 'px-2 py-1 text-[11px] font-bold rounded shadow-sm border ';
+    if (percent >= 100) el.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/50');
+    else if (percent >= 80) el.classList.add('bg-yellow-500/20', 'text-yellow-400', 'border-yellow-500/50');
+    else el.classList.add('bg-red-500/20', 'text-red-400', 'border-red-500/50');
 }
 
 function atualizarPainelDinamico(dadosEnriquecidos) {
@@ -607,17 +535,12 @@ function atualizarPainelDinamico(dadosEnriquecidos) {
     });
 
     const resultadoDinamico = [];
-    
     for (const data in entradasPorDia) {
         const registrosDia = entradasPorDia[data];
         let gruposTarifarios = [];
 
         registrosDia.forEach(registro => {
-            // CORREÇÃO: Agora verifica de forma independente o Asfalto e a Terra, e não a soma total
-            let grupoExistente = gruposTarifarios.find(g => 
-                Math.abs(g.asfaltoBase - registro.distAsfalto) <= TOLERANCIA_ASFALTO_KM &&
-                Math.abs(g.terraBase - registro.distTerra) <= TOLERANCIA_TERRA_KM
-            );
+            let grupoExistente = gruposTarifarios.find(g => Math.abs(g.asfaltoBase - registro.distAsfalto) <= TOLERANCIA_ASFALTO_KM && Math.abs(g.terraBase - registro.distTerra) <= TOLERANCIA_TERRA_KM);
 
             if (grupoExistente) {
                 grupoExistente.registros.push(registro);
@@ -627,9 +550,7 @@ function atualizarPainelDinamico(dadosEnriquecidos) {
                 if (registro.isSerrana) grupoExistente.totalVolTransp += registro.volume;
                 if (registro.isNossaGrua) grupoExistente.totalVolCarreg += registro.volume;
                 grupoExistente.viagens += 1;
-                if (!grupoExistente.ups.includes(registro.up)) {
-                    grupoExistente.ups.push(registro.up);
-                }
+                if (!grupoExistente.ups.includes(registro.up)) grupoExistente.ups.push(registro.up);
             } else {
                 gruposTarifarios.push({
                     idGrupo: Math.random().toString(36).substr(2, 9),
@@ -648,19 +569,11 @@ function atualizarPainelDinamico(dadosEnriquecidos) {
                 });
             }
         });
-
-        // Ordena os grupos pela distancia total
         gruposTarifarios.sort((a,b) => a.distanciaBase - b.distanciaBase);
-
-        resultadoDinamico.push({
-            data: data,
-            grupos: gruposTarifarios
-        });
+        resultadoDinamico.push({ data: data, grupos: gruposTarifarios });
     }
     
-    // Ordena por data
     resultadoDinamico.sort((a,b) => converterDataString(a.data).getTime() - converterDataString(b.data).getTime());
-
     renderizarPainelDinamico(resultadoDinamico);
 }
 
@@ -710,205 +623,126 @@ function renderizarPainelDinamico(resultadoDinamico) {
             `;
         });
         
-        html += `
-            </div>
-        </div>`;
+        html += `</div></div>`;
     });
     
     html += '</div>';
     container.innerHTML = html;
 }
 
-function desenharGraficos(agrupamento, agrupamento7Dias) {
+// ==========================================
+// FUNÇÃO QUE DESENHA OS GRÁFICOS (ECHARTS EM DIVS) COM CORES INTELIGENTES
+// ==========================================
+function desenharGraficosEvolucao(dadosEvolucao) {
+    if(!dadosEvolucao || dadosEvolucao.length === 0) return;
+
     try {
-        // Gráfico 1: Volumes (Respeita filtros de data)
-        const datasOrdenadas = Object.keys(agrupamento).sort((a, b) => converterDataString(a).getTime() - converterDataString(b).getTime());
-        const labels = [];
-        const volTranspArr = []; 
-        const volCarregArr = [];
-        const faturamentoTotalArr = []; // Array para o novo gráfico
+        const labels = dadosEvolucao.map(d => d.label);
+        const formatadorBRL = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        datasOrdenadas.forEach(d => {
-            labels.push(d.substring(0, 5)); 
-            volTranspArr.push(parseFloat(agrupamento[d].volTransp.toFixed(2)));
-            volCarregArr.push(parseFloat(agrupamento[d].volCarreg.toFixed(2)));
-            
-            // Soma o faturamento total diário
-            const totalDia = agrupamento[d].recTransp + agrupamento[d].recCarreg;
-            faturamentoTotalArr.push(parseFloat(totalDia.toFixed(2)));
-        });
+        const recTranspArr = dadosEvolucao.map(d => d.recTransp);
+        const metaTranspArr = dadosEvolucao.map(d => metaTransporteDiaria);
 
-        if (chartVolumesObj) chartVolumesObj.destroy();
-        const ctx1 = document.getElementById('chartVolumes');
-        if(ctx1) {
-            chartVolumesObj = new Chart(ctx1, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Vol. Transportado (Serrana)', data: volTranspArr, backgroundColor: '#38bdf8', borderRadius: 4 },
-                        { label: 'Vol. Carregado (Nossas Gruas)', data: volCarregArr, backgroundColor: '#10b981', borderRadius: 4 }
-                    ]
-                },
-                options: getBasicChartOptions('Volume (m³)', false)
+        const recCarregArr = dadosEvolucao.map(d => d.recCarreg);
+        const metaCarregArr = dadosEvolucao.map(d => metaCarregamentoDiaria);
+
+        const volTranspArr = dadosEvolucao.map(d => d.volTransp);
+        const volCarregArr = dadosEvolucao.map(d => d.volCarreg);
+
+        // 1. Gráfico Transporte vs Meta
+        const domTransporte = document.getElementById('chartTransporteEvolucao');
+        if (domTransporte) {
+            if (chartTransporteEvoObj) chartTransporteEvoObj.dispose();
+            chartTransporteEvoObj = echarts.init(domTransporte);
+            chartTransporteEvoObj.setOption({
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: 'rgba(51, 65, 85, 0.5)', textStyle: { color: '#f8fafc' }, valueFormatter: formatadorBRL },
+                grid: { top: 20, right: '3%', bottom: '5%', left: '4%', containLabel: true },
+                xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 11, margin: 15 }, axisLine: { lineStyle: { color: '#334155' } } },
+                yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11, formatter: (v) => v >= 1000 ? (v/1000)+'k' : v }, splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } } },
+                series: [
+                    { 
+                        name: `Realizado (Transporte)`, 
+                        type: 'bar', 
+                        data: recTranspArr, 
+                        barMaxWidth: 50, 
+                        itemStyle: { 
+                            // COR INTELIGENTE: Fica verde se atingiu a meta, senao fica azul
+                            color: function(params) {
+                                if (params.value >= metaTransporteDiaria && metaTransporteDiaria > 0) {
+                                    return new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#34d399' }, { offset: 1, color: '#059669' }]);
+                                }
+                                return new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#38bdf8' }, { offset: 1, color: '#0284c7' }]);
+                            }, 
+                            borderRadius: [4, 4, 0, 0] 
+                        } 
+                    },
+                    { name: 'Meta Diária', type: 'line', data: metaTranspArr, symbol: 'none', lineStyle: { color: '#fbbf24', width: 3, type: 'dashed' }, z: 10 }
+                ]
             });
         }
 
-        // Gráfico 2: Receitas (Autônomo - Últimos 7 Dias)
-        const datas7DiasOrdenadas = Object.keys(agrupamento7Dias).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-        const labels7Dias = [];
-        const recTransp7Dias = []; 
-        const recCarreg7Dias = [];
-
-        datas7DiasOrdenadas.forEach(k => {
-            const item = agrupamento7Dias[k];
-            labels7Dias.push(item.label);
-            recTransp7Dias.push(parseFloat(item.recTransp.toFixed(2)));
-            recCarreg7Dias.push(parseFloat(item.recCarreg.toFixed(2)));
-        });
-
-        if (chartReceitasObj) chartReceitasObj.destroy();
-        const ctx2 = document.getElementById('chartReceitas');
-        if(ctx2) {
-            const ctx2Context = ctx2.getContext('2d');
-            
-            // Gradientes modernos para as áreas das curvas de faturamento
-            const gradTransp = ctx2Context.createLinearGradient(0, 0, 0, 320);
-            gradTransp.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
-            gradTransp.addColorStop(1, 'rgba(56, 189, 248, 0.00)');
-
-            const gradCarreg = ctx2Context.createLinearGradient(0, 0, 0, 320);
-            gradCarreg.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
-            gradCarreg.addColorStop(1, 'rgba(16, 185, 129, 0.00)');
-
-            chartReceitasObj = new Chart(ctx2, {
-                type: 'line',
-                data: {
-                    labels: labels7Dias,
-                    datasets: [
-                        { 
-                            label: 'Rec. Transporte (Serrana)', 
-                            data: recTransp7Dias, 
-                            borderColor: '#38bdf8', 
-                            backgroundColor: gradTransp, 
-                            borderWidth: 4, 
-                            pointBackgroundColor: '#0f172a', 
-                            pointBorderColor: '#38bdf8', 
-                            pointBorderWidth: 2,
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
-                            fill: true, 
-                            tension: 0.4 
-                        },
-                        { 
-                            label: 'Rec. Carregamento (Nossas Gruas)', 
-                            data: recCarreg7Dias, 
-                            borderColor: '#10b981', 
-                            backgroundColor: gradCarreg, 
-                            borderWidth: 4, 
-                            pointBackgroundColor: '#0f172a', 
-                            pointBorderColor: '#10b981', 
-                            pointBorderWidth: 2,
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
-                            fill: true, 
-                            tension: 0.4 
-                        }
-                    ]
-                },
-                options: getBasicChartOptions('Receita (R$)', true)
+        // 2. Gráfico Carregamento vs Meta
+        const domCarregamento = document.getElementById('chartCarregamentoEvolucao');
+        if (domCarregamento) {
+            if (chartCarregamentoEvoObj) chartCarregamentoEvoObj.dispose();
+            chartCarregamentoEvoObj = echarts.init(domCarregamento);
+            chartCarregamentoEvoObj.setOption({
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: 'rgba(51, 65, 85, 0.5)', textStyle: { color: '#f8fafc' }, valueFormatter: formatadorBRL },
+                grid: { top: 20, right: '3%', bottom: '5%', left: '4%', containLabel: true },
+                xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 11, margin: 15 }, axisLine: { lineStyle: { color: '#334155' } } },
+                yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11, formatter: (v) => v >= 1000 ? (v/1000)+'k' : v }, splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } } },
+                series: [
+                    { 
+                        name: `Realizado (Carregamento)`, 
+                        type: 'bar', 
+                        data: recCarregArr, 
+                        barMaxWidth: 50, 
+                        itemStyle: { 
+                            // COR INTELIGENTE: Fica verde se atingiu a meta, senao fica roxo
+                            color: function(params) {
+                                if (params.value >= metaCarregamentoDiaria && metaCarregamentoDiaria > 0) {
+                                    return new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#34d399' }, { offset: 1, color: '#059669' }]);
+                                }
+                                return new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#a855f7' }, { offset: 1, color: '#7e22ce' }]);
+                            }, 
+                            borderRadius: [4, 4, 0, 0] 
+                        } 
+                    },
+                    { name: 'Meta Diária', type: 'line', data: metaCarregArr, symbol: 'none', lineStyle: { color: '#fbbf24', width: 3, type: 'dashed' }, z: 10 }
+                ]
             });
         }
 
-        // Gráfico 3: Faturamento Total (Diário) baseado nos filtros aplicados
-        if (chartFaturamentoTotalObj) chartFaturamentoTotalObj.destroy();
-        const ctx3 = document.getElementById('chartFaturamentoTotal');
-        if(ctx3) {
-            const ctx3Context = ctx3.getContext('2d');
-            
-            const gradTotal = ctx3Context.createLinearGradient(0, 0, 0, 320);
-            gradTotal.addColorStop(0, 'rgba(168, 85, 247, 0.4)'); // Purple-500
-            gradTotal.addColorStop(1, 'rgba(168, 85, 247, 0.0)');
-
-            chartFaturamentoTotalObj = new Chart(ctx3, {
-                type: 'line',
-                data: {
-                    labels: labels, // Mesmo eixo X do gráfico de volumes (dados filtrados)
-                    datasets: [
-                        {
-                            label: 'Faturamento Total Bruto (R$)',
-                            data: faturamentoTotalArr,
-                            borderColor: '#a855f7', // Purple-400/500
-                            backgroundColor: gradTotal,
-                            borderWidth: 4,
-                            pointBackgroundColor: '#0f172a',
-                            pointBorderColor: '#a855f7',
-                            pointBorderWidth: 2,
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
-                            fill: true,
-                            tension: 0.4
-                        }
-                    ]
-                },
-                options: getBasicChartOptions('Faturamento (R$)', true)
+        // 3. Gráfico Comparativo Volumes
+        const domVolumes = document.getElementById('chartVolumes');
+        if (domVolumes) {
+            if (chartVolumesObj) chartVolumesObj.dispose();
+            chartVolumesObj = echarts.init(domVolumes);
+            chartVolumesObj.setOption({
+                backgroundColor: 'transparent',
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: 'rgba(51, 65, 85, 0.5)', textStyle: { color: '#f8fafc' }, valueFormatter: (v) => v.toLocaleString('pt-BR') + ' m³' },
+                legend: { top: '0%', left: '0%', textStyle: { color: '#cbd5e1', fontSize: 12 } },
+                grid: { top: 40, right: '3%', bottom: '5%', left: '4%', containLabel: true },
+                xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 11, margin: 15 }, axisLine: { lineStyle: { color: '#334155' } } },
+                yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } } },
+                series: [
+                    { name: 'Vol. Transportado', type: 'bar', data: volTranspArr, barMaxWidth: 40, itemStyle: { color: '#6366f1', borderRadius: [2, 2, 0, 0] } },
+                    { name: 'Vol. Carregado', type: 'bar', data: volCarregArr, barMaxWidth: 40, itemStyle: { color: '#a855f7', borderRadius: [2, 2, 0, 0] } }
+                ]
             });
         }
 
-    } catch(e) { console.error("[PRODUCAO] Erro nos gráficos:", e); }
-}
+        // Força Echarts a recalcular larguras e garantir preenchimento total
+        setTimeout(() => {
+            if (chartTransporteEvoObj) chartTransporteEvoObj.resize();
+            if (chartCarregamentoEvoObj) chartCarregamentoEvoObj.resize();
+            if (chartVolumesObj) chartVolumesObj.resize();
+        }, 150);
 
-function getBasicChartOptions(titleY, isMoney = false) {
-    return {
-        responsive: true, 
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { 
-                position: 'top',
-                labels: { 
-                    color: '#cbd5e1', 
-                    font: { weight: 'bold', size: 11 },
-                    padding: 15,
-                    usePointStyle: true
-                } 
-            },
-            datalabels: {
-                display: true,
-                align: 'top',
-                anchor: 'end',
-                color: '#f8fafc',
-                font: { weight: 'bold', size: 9 },
-                formatter: (val) => {
-                    if (val === 0) return '';
-                    if (isMoney) return 'R$ ' + (val/1000).toFixed(1) + 'k'; 
-                    return val.toLocaleString('pt-BR') + ' m³';
-                }
-            }
-        },
-        scales: {
-            x: { 
-                grid: { display: false }, 
-                ticks: { color: '#94a3b8', font: { weight: 'bold', size: 11 } } 
-            },
-            y: { 
-                display: true, 
-                grid: { 
-                    color: 'rgba(255, 255, 255, 0.06)',
-                    drawBorder: false
-                }, 
-                ticks: { 
-                    color: '#94a3b8',
-                    font: { size: 10 },
-                    callback: function(value) {
-                        if (isMoney) {
-                            if (value >= 1000) return 'R$ ' + (value / 1000) + 'k';
-                            return 'R$ ' + value;
-                        }
-                        return value;
-                    }
-                } 
-            }
-        }
+    } catch (errEcharts) {
+        console.error("Erro ao desenhar gráficos ECharts:", errEcharts);
     }
 }
 
@@ -926,16 +760,11 @@ function renderizarTabela(dados) {
 
         dados.forEach(l => {
             const totalGerado = l.recTransp + l.recCarreg;
-            
-            const isSerranaBadge = l.isSerrana 
-                ? `<span class="bg-sky-500/10 text-sky-400 font-bold px-2 py-0.5 rounded text-[10px]">${l.transp}</span>` 
-                : `<span class="text-slate-400 text-xs">${l.transp}</span>`;
-                
+            const isSerranaBadge = l.isSerrana ? `<span class="bg-sky-500/10 text-sky-400 font-bold px-2 py-0.5 rounded text-[10px]">${l.transp}</span>` : `<span class="text-slate-400 text-xs">${l.transp}</span>`;
             const tarifaStr = l.isSerrana && l.tarifa > 0 ? l.tarifa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
 
             const tr = document.createElement('tr');
             tr.className = "hover:bg-slate-700/30 transition-colors";
-            
             tr.innerHTML = `
                 <td class="px-6 py-3 font-bold text-white"><span class="bg-slate-900 px-2 py-1 rounded border border-slate-700 font-mono tracking-widest">${l.placa}</span></td>
                 <td class="px-6 py-3 uppercase">${isSerranaBadge}</td>
@@ -956,11 +785,7 @@ function renderizarTabela(dados) {
 
 function exportarParaExcel() {
     if (!dadosFiltradosAtual || dadosFiltradosAtual.length === 0) { alert("Sem dados para exportar."); return; }
-    
-    if (typeof XLSX === 'undefined') {
-        alert("A biblioteca Excel ainda não foi carregada. Aguarde.");
-        return;
-    }
+    if (typeof XLSX === 'undefined') { alert("A biblioteca Excel ainda não foi carregada. Aguarde."); return; }
     
     const dtInicio = document.getElementById('dataInicio') ? document.getElementById('dataInicio').value : '';
     const dtFim = document.getElementById('dataFim') ? document.getElementById('dataFim').value : '';
@@ -968,7 +793,6 @@ function exportarParaExcel() {
     
     const wb = XLSX.utils.book_new();
 
-    // 1. ABA DE FRENTES (RESUMO)
     const excelFrentesArr = dadosFrentesAtual.map(i => ({
         "Frente / Categoria": i.categoria,
         "Dist. Asfalto (km)": i.asfalto,
@@ -981,7 +805,6 @@ function exportarParaExcel() {
     }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelFrentesArr), "Resumo por Frente");
 
-    // 2. ABA DETALHADA POR PLACA E ROTA
     const obj = {};
     let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
 
@@ -989,7 +812,6 @@ function exportarParaExcel() {
         const dataViagem = r.dtFimDescarFabrica || r.dataDaBaseExcel;
         const tr = r.transportadora ? r.transportadora.toUpperCase() : 'N/A';
         const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
-        
         const gruaReg = r.grua ? r.grua.trim().toUpperCase() : '';
         const isNossaGrua = gruasPropriasCache.has(gruaReg);
         
@@ -1003,19 +825,7 @@ function exportarParaExcel() {
 
         const ch = `${dataViagem}_${r.placa}_${asfalto}_${terra}`;
 
-        if(!obj[ch]) obj[ch] = { 
-            Data: dataViagem, 
-            Placa: r.placa, 
-            Transp: tr, 
-            Asfalto: asfalto, 
-            Terra: terra, 
-            Tarifa: tarifaTransp,
-            Viagens: 0, 
-            Vol: 0, 
-            RecTransp: 0, 
-            RecCarreg: 0 
-        };
-        
+        if(!obj[ch]) obj[ch] = { Data: dataViagem, Placa: r.placa, Transp: tr, Asfalto: asfalto, Terra: terra, Tarifa: tarifaTransp, Viagens: 0, Vol: 0, RecTransp: 0, RecCarreg: 0 };
         obj[ch].Viagens += 1;
         obj[ch].Vol += v;
         obj[ch].RecTransp += recTransp;
@@ -1023,16 +833,8 @@ function exportarParaExcel() {
     });
     
     const excelArr = Object.values(obj).sort((a,b) => converterDataString(a.Data).getTime() - converterDataString(b.Data).getTime()).map(i => ({
-        "Data": i.Data, 
-        "Placa": i.Placa, 
-        "Transportadora": i.Transp, 
-        "Dist. Asfalto (km)": i.Asfalto,
-        "Dist. Terra (km)": i.Terra,
-        "Tarifa Base (R$)": parseFloat(i.Tarifa.toFixed(4)),
-        "Viagens": i.Viagens, 
-        "Volume Total (m³)": parseFloat(i.Vol.toFixed(2)), 
-        "Receita Transporte (R$)": parseFloat(i.RecTransp.toFixed(2)),
-        "Receita Carregamento (R$)": parseFloat(i.RecCarreg.toFixed(2)),
+        "Data": i.Data, "Placa": i.Placa, "Transportadora": i.Transp, "Dist. Asfalto (km)": i.Asfalto, "Dist. Terra (km)": i.Terra, "Tarifa Base (R$)": parseFloat(i.Tarifa.toFixed(4)),
+        "Viagens": i.Viagens, "Volume Total (m³)": parseFloat(i.Vol.toFixed(2)), "Receita Transporte (R$)": parseFloat(i.RecTransp.toFixed(2)), "Receita Carregamento (R$)": parseFloat(i.RecCarreg.toFixed(2)),
         "Receita Total (R$)": parseFloat((i.RecTransp + i.RecCarreg).toFixed(2))
     }));
 
@@ -1043,11 +845,7 @@ function exportarParaExcel() {
 function exportarResumoDiarioExcel() {
     const chaves = Object.keys(agrupamentoDiarioGlobal).sort((a, b) => converterDataString(a).getTime() - converterDataString(b).getTime());
     if (chaves.length === 0) { alert("Sem dados para resumo."); return; }
-
-    if (typeof XLSX === 'undefined') {
-        alert("A biblioteca Excel ainda não foi carregada. Aguarde.");
-        return;
-    }
+    if (typeof XLSX === 'undefined') { alert("A biblioteca Excel ainda não foi carregada. Aguarde."); return; }
 
     const excelArr = chaves.map(d => {
         const item = agrupamentoDiarioGlobal[d];
@@ -1064,4 +862,15 @@ function exportarResumoDiarioExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelArr), "Resumo Diario");
     XLSX.writeFile(wb, `Resumo_Operacional_Diario.xlsx`);
+}
+
+function mostrarAlerta(mensagem, tipo) {
+    const alertContainer = document.getElementById('producao-alert-container');
+    if(!alertContainer) return;
+    let bgClass, borderClass, textClass, iconClass;
+    if (tipo === 'error') { bgClass = 'bg-red-500/10'; borderClass = 'border-red-500/30'; textClass = 'text-red-400'; iconClass = 'fa-exclamation-triangle'; }
+    else if (tipo === 'warning') { bgClass = 'bg-yellow-500/10'; borderClass = 'border-yellow-500/30'; textClass = 'text-yellow-400'; iconClass = 'fa-exclamation-circle'; }
+    else { bgClass = 'bg-blue-500/10'; borderClass = 'border-blue-500/30'; textClass = 'text-blue-400'; iconClass = 'fa-info-circle'; }
+    alertContainer.innerHTML = `<div class="${bgClass} ${borderClass} border p-4 rounded-xl flex items-center gap-3 shadow-sm mb-4"><div class="${textClass} text-xl"><i class="fas ${iconClass}"></i></div><p class="${textClass} text-sm font-medium">${mensagem}</p></div>`;
+    setTimeout(() => { alertContainer.innerHTML = ''; }, 5000);
 }
