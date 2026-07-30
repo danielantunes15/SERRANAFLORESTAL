@@ -1,0 +1,94 @@
+<div class="p-4 md:p-8 max-w-6xl mx-auto w-full font-sans animate-fade-in" style="animation: fadeIn 0.3s ease-in-out;">
+    
+    <!-- Cabeçalho da Página -->
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+            <div class="p-2 bg-emerald-500/10 rounded-lg">
+                <i class="fas fa-sliders-h text-emerald-500"></i>
+            </div>
+            Configurações Gerenciais
+        </h2>
+        <p class="text-slate-400">Gerencie os objetivos diários operacionais do painel executivo.</p>
+    </div>
+
+    <!-- Card Principal -->
+    <div class="bg-[#1e293b]/80 border border-slate-700/70 rounded-2xl p-6 md:p-8 shadow-2xl backdrop-blur-md">
+        
+        <!-- Título do Card -->
+        <div class="flex items-center gap-4 mb-8 pb-5 border-b border-slate-700/50">
+            <div class="bg-emerald-500/20 p-3 rounded-xl text-emerald-400 shadow-inner">
+                <i class="fas fa-bullseye text-2xl"></i>
+            </div>
+            <div>
+                <h3 class="text-xl font-semibold text-white">Metas do Painel Gerencial</h3>
+                <p id="label-filial-atual" class="text-sm text-emerald-400 mt-1 font-semibold">Configurando metas para a filial atual</p>
+            </div>
+        </div>
+
+        <!-- Formulário -->
+        <form id="form-metas-gerenciais" class="space-y-8">
+            
+            <!-- Bloco: Metas Diárias -->
+            <div>
+                <h4 class="text-slate-300 font-semibold mb-4 text-sm uppercase tracking-wider border-l-2 border-emerald-500 pl-2">Metas Diárias (Operacionais)</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    
+                    <!-- Meta Diária Transporte -->
+                    <div class="space-y-2">
+                        <label for="meta_diaria_transporte" class="block text-sm font-medium text-slate-300">
+                            Meta Diária - Transporte
+                        </label>
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <span class="text-slate-500 font-semibold group-focus-within:text-emerald-500 transition-colors">R$</span>
+                            </div>
+                            <input type="text" id="meta_diaria_transporte" name="meta_diaria_transporte" 
+                                class="w-full pl-12 pr-4 py-3 bg-[#0f172a]/80 border border-slate-700 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all shadow-inner"
+                                placeholder="0,00" required>
+                        </div>
+                        <p class="text-xs text-slate-500 ml-1"><i class="fas fa-info-circle mr-1"></i>Objetivo de faturamento diário para transporte.</p>
+                    </div>
+
+                    <!-- Meta Diária Carregamento -->
+                    <div class="space-y-2">
+                        <label for="meta_diaria_carregamento" class="block text-sm font-medium text-slate-300">
+                            Meta Diária - Carregamento
+                        </label>
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <span class="text-slate-500 font-semibold group-focus-within:text-emerald-500 transition-colors">R$</span>
+                            </div>
+                            <input type="text" id="meta_diaria_carregamento" name="meta_diaria_carregamento" 
+                                class="w-full pl-12 pr-4 py-3 bg-[#0f172a]/80 border border-slate-700 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all shadow-inner"
+                                placeholder="0,00" required>
+                        </div>
+                        <p class="text-xs text-slate-500 ml-1"><i class="fas fa-info-circle mr-1"></i>Objetivo de faturamento diário para carregamento.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="pt-8 mt-4 border-t border-slate-700/50 flex flex-col sm:flex-row justify-end gap-4">
+                <button type="button" id="btn-cancelar-metas" class="px-6 py-3 rounded-xl font-semibold text-slate-300 hover:text-white hover:bg-slate-700 transition-all border border-slate-700 hover:border-slate-500 flex-1 sm:flex-none justify-center flex items-center gap-2">
+                    <i class="fas fa-undo-alt"></i> Desfazer Alterações
+                </button>
+                <button type="submit" id="btn-salvar-metas" class="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transform hover:-translate-y-0.5 flex-1 sm:flex-none justify-center flex items-center gap-2">
+                    <i class="fas fa-save"></i> Salvar Configurações
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Container de Alertas Tailwind -->
+    <div id="alert-container-metas" class="mt-6 max-w-md ml-auto"></div>
+</div>
+
+<style>
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+<!-- Carregamento do Script da página -->
+<script src="modules/gerencial/configuracoes_gerenciais/configuracoes_gerenciais.js"></script>

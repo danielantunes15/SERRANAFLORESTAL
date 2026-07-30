@@ -61,6 +61,7 @@ window.MAPA_MENUS = [
     { id: 'evolucao_fazendas', label: 'Evolução das Fazendas', setor: 'Gerencial', icon: 'fas fa-seedling' },
     { id: 'visao_executiva', label: 'Visão Executiva (Global)', setor: 'Gerencial', icon: 'fas fa-globe-americas' },
     { id: 'tarifador', label: 'Tarifador', setor: 'Gerencial', icon: 'fas fa-calculator' },
+    { id: 'configuracoes_gerenciais', label: 'Configurações Gerenciais', setor: 'Gerencial', icon: 'fas fa-cog' },
     
     // --- MÓDULO GLOBAL ---
     { id: 'gestao_filiais', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
@@ -124,6 +125,7 @@ const ROTAS = {
     'evolucao_fazendas': 'modules/gerencial/evolucao_fazendas/evolucao_fazendas.html',
     'visao_executiva': 'modules/gerencial/visao_executiva/visao_executiva.html', 
     'tarifador': 'modules/gerencial/tarifador/tarifador.html',
+    'configuracoes_gerenciais': 'modules/gerencial/configuracoes_gerenciais/configuracoes_gerenciais.html',
     
     'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
     'historico_producao': 'modules/monitoramento/historico/historico.html',
@@ -370,6 +372,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'evolucao_fazendas' && typeof window.initEvolucaoFazendas === 'function') window.initEvolucaoFazendas();
         if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
         if (pagina === 'tarifador' && typeof window.initTarifador === 'function') window.initTarifador();
+        if (pagina === 'configuracoes_gerenciais' && typeof window.initConfiguracoesGerenciais === 'function') window.initConfiguracoesGerenciais();
         
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();
         if (pagina === 'historico_producao' && typeof window.initHistoricoProducao === 'function') window.initHistoricoProducao();
