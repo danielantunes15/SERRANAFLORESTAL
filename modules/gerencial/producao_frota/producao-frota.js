@@ -314,7 +314,9 @@ function processarFiltrosEExibir() {
         let timeInicio = dateIniObj.getTime();
         let timeFim = new Date(dateFimObj.getFullYear(), dateFimObj.getMonth(), dateFimObj.getDate(), 23, 59, 59).getTime();
 
-        let diasNoPeriodo = Math.round((timeFim - timeInicio) / (1000 * 60000 * 60 * 24)) + 1;
+        // CORREÇÃO: A divisão precisa ser exata por milissegundos num dia
+        const diffTime = Math.abs(timeFim - timeInicio);
+        let diasNoPeriodo = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         if (diasNoPeriodo < 1) diasNoPeriodo = 1;
 
         // Limpeza dos filtros
@@ -465,8 +467,8 @@ function processarFiltrosEExibir() {
         document.getElementById('kpi-transporte-hoje').innerText = formatMoney(hojeTransporte);
         document.getElementById('kpi-carregamento-hoje').innerText = formatMoney(hojeCarregamento);
 
-        document.getElementById('desc-transporte-periodo').innerText = `Meta Período: ${formatMoney(metaPeriodoTransporte)}`;
-        document.getElementById('desc-carregamento-periodo').innerText = `Meta Período: ${formatMoney(metaPeriodoCarregamento)}`;
+        document.getElementById('desc-transporte-periodo').innerText = `Meta Período (${diasNoPeriodo}d): ${formatMoney(metaPeriodoTransporte)}`;
+        document.getElementById('desc-carregamento-periodo').innerText = `Meta Período (${diasNoPeriodo}d): ${formatMoney(metaPeriodoCarregamento)}`;
         document.getElementById('desc-transporte-hoje').innerText = `Meta Diária: ${formatMoney(metaTransporteDiaria)}`;
         document.getElementById('desc-carregamento-hoje').innerText = `Meta Diária: ${formatMoney(metaCarregamentoDiaria)}`;
 
@@ -631,14 +633,13 @@ function renderizarPainelDinamico(resultadoDinamico) {
 }
 
 // ==========================================
-// FUNÇÃO QUE DESENHA OS GRÁFICOS (ECHARTS EM DIVS) COM CORES INTELIGENTES
+// FUNÇÃO QUE DESENHA OS GRÁFICOS (ECHARTS EM DIVS) COM TOOLTIPS RICOS
 // ==========================================
 function desenharGraficosEvolucao(dadosEvolucao) {
     if(!dadosEvolucao || dadosEvolucao.length === 0) return;
 
     try {
         const labels = dadosEvolucao.map(d => d.label);
-        const formatadorBRL = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
         const recTranspArr = dadosEvolucao.map(d => d.recTransp);
         const metaTranspArr = dadosEvolucao.map(d => metaTransporteDiaria);
@@ -656,7 +657,28 @@ function desenharGraficosEvolucao(dadosEvolucao) {
             chartTransporteEvoObj = echarts.init(domTransporte);
             chartTransporteEvoObj.setOption({
                 backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: 'rgba(51, 65, 85, 0.5)', textStyle: { color: '#f8fafc' }, valueFormatter: formatadorBRL },
+                tooltip: { 
+                    trigger: 'axis', 
+                    axisPointer: { type: 'shadow' }, 
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                    borderColor: 'rgba(51, 65, 85, 0.8)', 
+                    textStyle: { color: '#f8fafc' }, 
+                    formatter: function(params) {
+                        let html = `<div style="font-weight:bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 4px;">${params[0].axisValue}</div>`;
+                        params.forEach(p => {
+                            let valFormatado = p.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                            html += `${p.marker} ${p.seriesName}: <b style="color: #fff">${valFormatado}</b><br/>`;
+                            
+                            // SE FOR A BARRA REALIZADA, ADICIONA A %
+                            if (p.seriesName.includes('Realizado')) {
+                                let perc = metaTransporteDiaria > 0 ? ((p.value / metaTransporteDiaria) * 100).toFixed(1) : 0;
+                                let corPerc = perc >= 100 ? '#34d399' : (perc >= 80 ? '#fbbf24' : '#f87171');
+                                html += `<div style="margin-left: 14px; font-size: 11.5px; color: ${corPerc}; margin-bottom: 3px; margin-top: 1px;">↳ Atingido no Dia: <b>${perc}%</b></div>`;
+                            }
+                        });
+                        return html;
+                    }
+                },
                 grid: { top: 20, right: '3%', bottom: '5%', left: '4%', containLabel: true },
                 xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 11, margin: 15 }, axisLine: { lineStyle: { color: '#334155' } } },
                 yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11, formatter: (v) => v >= 1000 ? (v/1000)+'k' : v }, splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } } },
@@ -667,7 +689,7 @@ function desenharGraficosEvolucao(dadosEvolucao) {
                         data: recTranspArr, 
                         barMaxWidth: 50, 
                         itemStyle: { 
-                            // COR INTELIGENTE: Fica verde se atingiu a meta, senao fica azul
+                            // COR INTELIGENTE: Verde (Bateu) ou Azul (Abaixo)
                             color: function(params) {
                                 if (params.value >= metaTransporteDiaria && metaTransporteDiaria > 0) {
                                     return new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#34d399' }, { offset: 1, color: '#059669' }]);
@@ -689,7 +711,28 @@ function desenharGraficosEvolucao(dadosEvolucao) {
             chartCarregamentoEvoObj = echarts.init(domCarregamento);
             chartCarregamentoEvoObj.setOption({
                 backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: 'rgba(51, 65, 85, 0.5)', textStyle: { color: '#f8fafc' }, valueFormatter: formatadorBRL },
+                tooltip: { 
+                    trigger: 'axis', 
+                    axisPointer: { type: 'shadow' }, 
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)', 
+                    borderColor: 'rgba(51, 65, 85, 0.8)', 
+                    textStyle: { color: '#f8fafc' }, 
+                    formatter: function(params) {
+                        let html = `<div style="font-weight:bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 4px;">${params[0].axisValue}</div>`;
+                        params.forEach(p => {
+                            let valFormatado = p.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                            html += `${p.marker} ${p.seriesName}: <b style="color: #fff">${valFormatado}</b><br/>`;
+                            
+                            // SE FOR A BARRA REALIZADA, ADICIONA A %
+                            if (p.seriesName.includes('Realizado')) {
+                                let perc = metaCarregamentoDiaria > 0 ? ((p.value / metaCarregamentoDiaria) * 100).toFixed(1) : 0;
+                                let corPerc = perc >= 100 ? '#34d399' : (perc >= 80 ? '#fbbf24' : '#f87171');
+                                html += `<div style="margin-left: 14px; font-size: 11.5px; color: ${corPerc}; margin-bottom: 3px; margin-top: 1px;">↳ Atingido no Dia: <b>${perc}%</b></div>`;
+                            }
+                        });
+                        return html;
+                    }
+                },
                 grid: { top: 20, right: '3%', bottom: '5%', left: '4%', containLabel: true },
                 xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 11, margin: 15 }, axisLine: { lineStyle: { color: '#334155' } } },
                 yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11, formatter: (v) => v >= 1000 ? (v/1000)+'k' : v }, splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } } },
@@ -700,7 +743,7 @@ function desenharGraficosEvolucao(dadosEvolucao) {
                         data: recCarregArr, 
                         barMaxWidth: 50, 
                         itemStyle: { 
-                            // COR INTELIGENTE: Fica verde se atingiu a meta, senao fica roxo
+                            // COR INTELIGENTE: Verde (Bateu) ou Roxo (Abaixo)
                             color: function(params) {
                                 if (params.value >= metaCarregamentoDiaria && metaCarregamentoDiaria > 0) {
                                     return new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#34d399' }, { offset: 1, color: '#059669' }]);
@@ -722,7 +765,7 @@ function desenharGraficosEvolucao(dadosEvolucao) {
             chartVolumesObj = echarts.init(domVolumes);
             chartVolumesObj.setOption({
                 backgroundColor: 'transparent',
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15, 23, 42, 0.9)', borderColor: 'rgba(51, 65, 85, 0.5)', textStyle: { color: '#f8fafc' }, valueFormatter: (v) => v.toLocaleString('pt-BR') + ' m³' },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(51, 65, 85, 0.8)', textStyle: { color: '#f8fafc' }, valueFormatter: (v) => v.toLocaleString('pt-BR') + ' m³' },
                 legend: { top: '0%', left: '0%', textStyle: { color: '#cbd5e1', fontSize: 12 } },
                 grid: { top: 40, right: '3%', bottom: '5%', left: '4%', containLabel: true },
                 xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 11, margin: 15 }, axisLine: { lineStyle: { color: '#334155' } } },
@@ -734,7 +777,6 @@ function desenharGraficosEvolucao(dadosEvolucao) {
             });
         }
 
-        // Força Echarts a recalcular larguras e garantir preenchimento total
         setTimeout(() => {
             if (chartTransporteEvoObj) chartTransporteEvoObj.resize();
             if (chartCarregamentoEvoObj) chartCarregamentoEvoObj.resize();
