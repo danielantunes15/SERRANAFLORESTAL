@@ -1,31 +1,54 @@
-<div class="action-bar">
+<div class="action-bar" style="animation: terminalFadeIn 0.3s ease-out;">
     <div class="filter-group">
-        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-users"></i> Dashboard de Recursos Humanos</h2>
+        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-chart-pie"></i> Dashboard Estratégico de RH</h2>
         <input type="text" id="buscaPainelRH" class="search-input-dark" placeholder="Buscar na tabela abaixo..." onkeyup="window.filtrarTabelaPainelRH()">
     </div>
 </div>
 
-<div class="config-grid" style="margin-bottom: 20px; padding: 0;">
+<!-- KPIs (Indicadores Principais) -->
+<div class="config-grid" style="margin-bottom: 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; animation: terminalFadeIn 0.4s ease-out;">
     <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-blue-bright);">
-        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem;">Total de Colaboradores (Ativos)</h4>
-        <div id="kpiTotalAtivos" style="font-size: 2.5rem; font-weight: 900; color: #fff;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Total de Colaboradores</h4>
+        <div id="kpiTotalAtivos" style="font-size: 2.2rem; font-weight: 900; color: #fff;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
     </div>
     <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-green-bright);">
-        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem;">Ativos no Plano de Saúde</h4>
-        <div id="kpiPlanoSaude" style="font-size: 2.5rem; font-weight: 900; color: var(--ccol-green-bright);"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">No Plano de Saúde</h4>
+        <div id="kpiPlanoSaude" style="font-size: 2.2rem; font-weight: 900; color: var(--ccol-green-bright);"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
     </div>
     <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #8b5cf6;">
-        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem;">Ativos no Sindicato</h4>
-        <div id="kpiSindicato" style="font-size: 2.5rem; font-weight: 900; color: #8b5cf6;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">No Sindicato</h4>
+        <div id="kpiSindicato" style="font-size: 2.2rem; font-weight: 900; color: #8b5cf6;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
     </div>
     <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #ef4444;">
-        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem;">ASO Vencido / Alerta</h4>
-        <div id="kpiAsoVencido" style="font-size: 2.5rem; font-weight: 900; color: #ef4444;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">ASO Vencido / Alerta</h4>
+        <div id="kpiAsoVencido" style="font-size: 2.2rem; font-weight: 900; color: #ef4444;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #f59e0b;">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Atestados (Últimos 30 Dias)</h4>
+        <div id="kpiAtestados" style="font-size: 2.2rem; font-weight: 900; color: #f59e0b;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
     </div>
 </div>
 
-<div class="content-panel">
-    <div class="table-modern-wrapper" style="max-height: 500px; overflow-y: auto;">
+<!-- Gráficos de Atestados -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 25px; animation: terminalFadeIn 0.5s ease-out;">
+    <div class="content-panel" style="padding: 20px; margin-bottom: 0;">
+        <h4 style="color: #fff; margin-top: 0; margin-bottom: 5px; font-size: 1rem;"><i class="fas fa-notes-medical" style="color: #f59e0b;"></i> Top 5 Motivos / CIDs</h4>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0; margin-bottom: 15px;">Atestados recorrentes na base</p>
+        <div id="graficoCid" style="width: 100%; height: 300px;"></div>
+    </div>
+    <div class="content-panel" style="padding: 20px; margin-bottom: 0;">
+        <h4 style="color: #fff; margin-top: 0; margin-bottom: 5px; font-size: 1rem;"><i class="fas fa-chart-area" style="color: var(--ccol-blue-bright);"></i> Volume de Atestados</h4>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0; margin-bottom: 15px;">Evolução de entregas nos últimos 6 meses</p>
+        <div id="graficoEvolucaoAtestados" style="width: 100%; height: 300px;"></div>
+    </div>
+</div>
+
+<!-- Tabela de Colaboradores -->
+<div class="content-panel" style="animation: terminalFadeIn 0.6s ease-out;">
+    <div class="panel-header">
+        <h3><i class="fas fa-list"></i> Resumo do Quadro de Colaboradores</h3>
+    </div>
+    <div class="table-modern-wrapper" style="max-height: 450px; overflow-y: auto;">
         <table class="data-table-modern">
             <thead>
                 <tr>
