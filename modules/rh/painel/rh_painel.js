@@ -22,6 +22,7 @@ window.initRHPainel = async function() {
 
         window.listaAtestadosPainel = dadosAtestados || [];
         
+        window.renderizarPainelFerias(); // Renderiza e já calcula os alertas
         window.atualizarKPIsPainelRH();
         window.renderizarGraficosRH();
         window.renderizarTabelaPainelRH(window.listaParaPainelRH);
@@ -39,6 +40,111 @@ window.initRHPainel = async function() {
     }
 };
 
+window.renderizarPainelFerias = function() {
+    const listaVencer = [];
+    const listaVencidas = [];
+    
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+
+    window.listaParaPainelRH.forEach(c => {
+        const status = c.status ? c.status.toLowerCase() : '';
+        if (status === 'férias' || status === 'ferias') return; // Ignora quem já está de férias
+        if (!c.data_admissao) return; // Ignora se não tem data de admissão
+        
+        const [anoAdm, mesAdm, diaAdm] = c.data_admissao.split('-');
+        const dataAdmObj = new Date(anoAdm, mesAdm - 1, diaAdm);
+        
+        // Cálculo exato de meses completos
+        let mesesTotal = (hoje.getFullYear() - dataAdmObj.getFullYear()) * 12;
+        mesesTotal -= dataAdmObj.getMonth();
+        mesesTotal += hoje.getMonth();
+        
+        // Se o dia de hoje for menor que o dia de admissão, ainda não fechou o mês
+        if (hoje.getDate() < dataAdmObj.getDate()) {
+            mesesTotal--;
+        }
+        
+        if (mesesTotal >= 11) {
+            const anosEmpresa = Math.floor(mesesTotal / 12);
+            const mesesRestantes = mesesTotal % 12;
+            
+            let tempoStr = anosEmpresa > 0 ? `${anosEmpresa} ano(s)` : '';
+            if (mesesRestantes > 0) {
+                tempoStr += tempoStr ? ` e ${mesesRestantes} mês(es)` : `${mesesRestantes} mês(es)`;
+            }
+
+            // Se tem 23 meses ou mais, já estourou ou está no mês limite
+            if (mesesTotal >= 23) {
+                listaVencidas.push({ ...c, tempoStr, mesesTotal });
+            } 
+            // Se fechou 11 meses do ciclo ou virou o ano exato
+            else if (mesesRestantes >= 11 || mesesRestantes === 0 || mesesRestantes === 1) {
+                listaVencer.push({ ...c, tempoStr, mesesTotal });
+            }
+        }
+    });
+
+    // Ordena para que os piores casos apareçam primeiro no topo
+    listaVencidas.sort((a, b) => b.mesesTotal - a.mesesTotal);
+    listaVencer.sort((a, b) => b.mesesTotal - a.mesesTotal);
+
+    // Salva globalmente para usar a contagem no KPI
+    window.totalFeriasAlertas = listaVencer.length + listaVencidas.length;
+
+    // Atualiza as Badges dos cabeçalhos dos painéis
+    document.getElementById('badgeCountVencer').innerText = listaVencer.length;
+    document.getElementById('badgeCountVencidas').innerText = listaVencidas.length;
+
+    // Constrói os cards HTML
+    const formatarData = (dataIso) => {
+        const [a, m, d] = dataIso.split('-');
+        return `${d}/${m}/${a}`;
+    };
+
+    const divVencer = document.getElementById('listaFeriasVencer');
+    if (listaVencer.length === 0) {
+        divVencer.innerHTML = `<div style="text-align:center; color:#10b981; padding:20px; font-weight:bold;"><i class="fas fa-check-circle" style="font-size:2rem; display:block; margin-bottom:10px;"></i>Ninguém com férias a programar no momento.</div>`;
+    } else {
+        divVencer.innerHTML = listaVencer.map(c => {
+            const matricula = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); border-left: 4px solid #f59e0b; padding: 12px 15px; border-radius: 6px;">
+                    <div>
+                        <strong style="color: #fff; font-size: 0.95rem; display: block; margin-bottom: 3px;">${c.nome}</strong>
+                        <span style="color: var(--text-secondary); font-size: 0.8rem;"><i class="fas fa-id-badge"></i> Mat: ${matricula} | ${c.funcao || 'Sem função'}</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 3px;">Admissão: <strong style="color:#fff;">${formatarData(c.data_admissao)}</strong></span>
+                        <span style="display: inline-block; background: rgba(245, 158, 11, 0.1); padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; color: #f59e0b; font-weight: bold;"><i class="fas fa-clock"></i> ${c.tempoStr}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    const divVencidas = document.getElementById('listaFeriasVencidas');
+    if (listaVencidas.length === 0) {
+        divVencidas.innerHTML = `<div style="text-align:center; color:#10b981; padding:20px; font-weight:bold;"><i class="fas fa-check-double" style="font-size:2rem; display:block; margin-bottom:10px;"></i>Nenhuma férias vencida! Excelente gestão.</div>`;
+    } else {
+        divVencidas.innerHTML = listaVencidas.map(c => {
+            const matricula = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 12px 15px; border-radius: 6px;">
+                    <div>
+                        <strong style="color: #fff; font-size: 0.95rem; display: block; margin-bottom: 3px;">${c.nome}</strong>
+                        <span style="color: var(--text-secondary); font-size: 0.8rem;"><i class="fas fa-id-badge"></i> Mat: ${matricula} | ${c.funcao || 'Sem função'}</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 3px;">Admissão: <strong style="color:#fff;">${formatarData(c.data_admissao)}</strong></span>
+                        <span style="display: inline-block; background: #ef4444; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; color: #fff; font-weight: bold;"><i class="fas fa-exclamation-circle"></i> ${c.tempoStr}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+};
+
 window.atualizarKPIsPainelRH = function() {
     const total = window.listaParaPainelRH.length;
     const plano = window.listaParaPainelRH.filter(c => c.plano_saude && c.plano_saude.toLowerCase() === 'sim').length;
@@ -46,12 +152,9 @@ window.atualizarKPIsPainelRH = function() {
     
     let asoAlertas = 0;
     let emFerias = 0;
-    let feriasAlertas = 0;
 
     const hoje = new Date();
     hoje.setHours(0,0,0,0);
-    const mesAtual = hoje.getMonth() + 1; // 1 a 12
-    const anoAtual = hoje.getFullYear();
     
     window.listaParaPainelRH.forEach(c => {
         // --- 1. Verificação de Status Férias ---
@@ -60,27 +163,7 @@ window.atualizarKPIsPainelRH = function() {
             emFerias++;
         }
 
-        // --- 2. Alerta de Férias a Vencer ---
-        if (c.data_admissao && status !== 'férias' && status !== 'ferias') {
-            const [anoAdm, mesAdm, diaAdm] = c.data_admissao.split('-');
-            const mesAdmNum = parseInt(mesAdm);
-            const anoAdmNum = parseInt(anoAdm);
-
-            // Quantos meses de empresa o funcionário tem
-            const mesesTotal = (anoAtual - anoAdmNum) * 12 + (mesAtual - mesAdmNum);
-
-            // Se tem pelo menos 11 meses de empresa (já está fechando o 1º ano)
-            if (mesesTotal >= 11) {
-                const mesCiclo = mesesTotal % 12;
-                // Alerta dispara se faltar 1 ou 2 meses pro aniversário de admissão (10, 11),
-                // no mês do aniversário (0) ou se estourou em 1 mês (1)
-                if (mesCiclo >= 10 || mesCiclo === 0 || mesCiclo === 1) {
-                    feriasAlertas++;
-                }
-            }
-        }
-
-        // --- 3. Verificação de ASO Vencido ---
+        // --- 2. Verificação de ASO Vencido ---
         if(c.aso_vencimento) {
             const venc = new Date(c.aso_vencimento + 'T00:00:00');
             const dif = (venc.getTime() - hoje.getTime()) / (1000 * 3600 * 24);
@@ -90,7 +173,7 @@ window.atualizarKPIsPainelRH = function() {
         }
     });
 
-    // --- 4. Calcular atestados dos últimos 30 dias ---
+    // --- 3. Calcular atestados dos últimos 30 dias ---
     let atestados30Dias = 0;
     const data30DiasAtras = new Date();
     data30DiasAtras.setDate(hoje.getDate() - 30);
@@ -112,7 +195,9 @@ window.atualizarKPIsPainelRH = function() {
     document.getElementById('kpiAsoVencido').innerText = asoAlertas;
     document.getElementById('kpiAtestados').innerText = atestados30Dias;
     document.getElementById('kpiEmFerias').innerText = emFerias;
-    document.getElementById('kpiFeriasVencer').innerText = feriasAlertas;
+    
+    // Total de alertas calculados na função renderizarPainelFerias()
+    document.getElementById('kpiFeriasVencer').innerText = window.totalFeriasAlertas || 0;
 };
 
 window.renderizarGraficosRH = function() {
