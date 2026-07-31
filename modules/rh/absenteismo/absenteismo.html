@@ -1,6 +1,6 @@
 <div class="action-bar" style="animation: terminalFadeIn 0.3s ease-out;">
     <div class="filter-group">
-        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-user-clock"></i> Absenteísmo</h2>
+        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-user-clock"></i> Absenteísmo e Histórico</h2>
         <input type="text" id="buscaAbsenteismo" class="search-input-dark" placeholder="Buscar por colaborador, motivo ou CID..." onkeyup="window.filtrarAbsenteismo()">
     </div>
     <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -47,18 +47,50 @@
 <!-- Submenus / Abas para Acompanhamento Completo -->
 <div class="content-panel" style="animation: terminalFadeIn 0.6s ease-out;">
     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <h3><i class="fas fa-list"></i> Histórico e Acompanhamento</h3>
+        <h3><i class="fas fa-list"></i> Gestão de Absenteísmo</h3>
         <div style="display: flex; gap: 5px; flex-wrap: wrap;">
-            <button id="tabBtn_todos" class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('todos')">Todos</button>
-            <button id="tabBtn_ATESTADO" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('ATESTADO')">Atestados (Saúde)</button>
-            <button id="tabBtn_FALTA" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('FALTA')">Faltas e Ausências</button>
-            <button id="tabBtn_BANCO_HORAS" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('BANCO_HORAS')">Banco de Horas</button>
+            <button id="tabBtn_todos" class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('todos')">Geral</button>
+            <button id="tabBtn_ATESTADO" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('ATESTADO')">Atestados</button>
+            <button id="tabBtn_FALTA" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('FALTA')">Faltas</button>
+            <button id="tabBtn_BANCO_HORAS" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('BANCO_HORAS')">Banco Horas</button>
+            <button id="tabBtn_relatorio" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.75rem; border-color: var(--ccol-rust-bright) !important; color: var(--ccol-rust-bright);" onclick="window.mudarAbaAbsenteismo('relatorio')"><i class="fas fa-print"></i> Relatórios</button>
         </div>
     </div>
+    
+    <!-- Painel de Filtros para Relatório (Oculto por padrão) -->
+    <div id="painelFiltrosRelatorio" style="display: none; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border-dim); padding: 15px 20px; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group-dark" style="flex: 1; min-width: 250px; margin: 0;">
+            <label>Filtrar por Colaborador</label>
+            <select id="relColaborador" class="dark-select" onchange="window.gerarRelatorioAbsenteismo()">
+                <option value="TODOS">Todos os Colaboradores</option>
+            </select>
+        </div>
+        <div class="form-group-dark" style="width: 150px; margin: 0;">
+            <label>Data Início</label>
+            <input type="date" id="relDataInicio" onchange="window.gerarRelatorioAbsenteismo()">
+        </div>
+        <div class="form-group-dark" style="width: 150px; margin: 0;">
+            <label>Data Fim</label>
+            <input type="date" id="relDataFim" onchange="window.gerarRelatorioAbsenteismo()">
+        </div>
+        <div class="form-group-dark" style="width: 170px; margin: 0;">
+            <label>Tipo de Registro</label>
+            <select id="relTipo" class="dark-select" onchange="window.gerarRelatorioAbsenteismo()">
+                <option value="TODOS">Todos</option>
+                <option value="ATESTADO">Somente Atestados</option>
+                <option value="FALTA">Somente Faltas</option>
+                <option value="BANCO_HORAS">Banco de Horas</option>
+            </select>
+        </div>
+        <div style="margin: 0;">
+            <button class="btn-primary-blue" onclick="window.imprimirRelatorioAbsenteismo()" style="padding: 10px 15px;"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
+        </div>
+    </div>
+
     <div class="table-modern-wrapper">
         <table class="data-table-modern">
             <thead>
-                <tr>
+                <tr id="headerAbsenteismo">
                     <th>Lançado em</th>
                     <th>Colaborador</th>
                     <th>Tipo</th>
