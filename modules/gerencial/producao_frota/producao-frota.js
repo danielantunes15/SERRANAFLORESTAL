@@ -69,8 +69,11 @@ window.initProducaoFrota = async function() {
 
     function definirDatasPadrao() {
         const dataFim = new Date();
+        // Ajuste D-1: Reduz 1 dia para não pegar o dia atual incompleto
+        dataFim.setDate(dataFim.getDate() - 1);
+        
         const dataInicio = new Date();
-        // PADRÃO ÚLTIMOS 30 DIAS
+        // PADRÃO ÚLTIMOS 30 DIAS a partir do D-1
         dataInicio.setDate(dataFim.getDate() - 29);
         
         const elFim = document.getElementById('dataFim');
@@ -666,7 +669,7 @@ window.initProducaoFrota = async function() {
                             return html;
                         }
                     },
-                    grid: { top: 20, right: '3%', bottom: '5%', left: '4%', containLabel: true },
+                    grid: { top: 25, right: '3%', bottom: '5%', left: '4%', containLabel: true },
                     xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 11, margin: 15 }, axisLine: { lineStyle: { color: '#334155' } } },
                     yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11, formatter: (v) => v >= 1000 ? (v/1000)+'k' : v }, splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } } },
                     series: [
@@ -675,6 +678,19 @@ window.initProducaoFrota = async function() {
                             type: 'bar', 
                             data: recTranspArr, 
                             barMaxWidth: 50, 
+                            label: {
+                                show: true,
+                                position: 'top',
+                                distance: 5,
+                                formatter: function(params) {
+                                    if (params.value === 0) return '';
+                                    if (params.value >= 1000) return (params.value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'k';
+                                    return params.value.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+                                },
+                                color: '#94a3b8',
+                                fontSize: 10,
+                                fontWeight: 'bold'
+                            },
                             itemStyle: { 
                                 color: function(params) {
                                     if (params.value >= metaTransporteDiaria && metaTransporteDiaria > 0) {
@@ -718,7 +734,7 @@ window.initProducaoFrota = async function() {
                             return html;
                         }
                     },
-                    grid: { top: 20, right: '3%', bottom: '5%', left: '4%', containLabel: true },
+                    grid: { top: 25, right: '3%', bottom: '5%', left: '4%', containLabel: true },
                     xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 11, margin: 15 }, axisLine: { lineStyle: { color: '#334155' } } },
                     yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11, formatter: (v) => v >= 1000 ? (v/1000)+'k' : v }, splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } } },
                     series: [
@@ -726,7 +742,20 @@ window.initProducaoFrota = async function() {
                             name: `Realizado (Carregamento)`, 
                             type: 'bar', 
                             data: recCarregArr, 
-                            barMaxWidth: 50, 
+                            barMaxWidth: 50,
+                            label: {
+                                show: true,
+                                position: 'top',
+                                distance: 5,
+                                formatter: function(params) {
+                                    if (params.value === 0) return '';
+                                    if (params.value >= 1000) return (params.value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'k';
+                                    return params.value.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+                                },
+                                color: '#94a3b8',
+                                fontSize: 10,
+                                fontWeight: 'bold'
+                            }, 
                             itemStyle: { 
                                 color: function(params) {
                                     if (params.value >= metaCarregamentoDiaria && metaCarregamentoDiaria > 0) {
@@ -755,8 +784,42 @@ window.initProducaoFrota = async function() {
                     xAxis: { type: 'category', data: labels, axisLabel: { color: '#94a3b8', fontSize: 11, margin: 15 }, axisLine: { lineStyle: { color: '#334155' } } },
                     yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } } },
                     series: [
-                        { name: 'Vol. Transportado', type: 'bar', data: volTranspArr, barMaxWidth: 40, itemStyle: { color: '#6366f1', borderRadius: [2, 2, 0, 0] } },
-                        { name: 'Vol. Carregado', type: 'bar', data: volCarregArr, barMaxWidth: 40, itemStyle: { color: '#a855f7', borderRadius: [2, 2, 0, 0] } }
+                        { 
+                            name: 'Vol. Transportado', 
+                            type: 'bar', 
+                            data: volTranspArr, 
+                            barMaxWidth: 40, 
+                            label: {
+                                show: true,
+                                position: 'top',
+                                formatter: function(params) {
+                                    if (params.value === 0) return '';
+                                    if (params.value >= 1000) return (params.value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'k';
+                                    return params.value.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+                                },
+                                color: '#94a3b8',
+                                fontSize: 9
+                            },
+                            itemStyle: { color: '#6366f1', borderRadius: [2, 2, 0, 0] } 
+                        },
+                        { 
+                            name: 'Vol. Carregado', 
+                            type: 'bar', 
+                            data: volCarregArr, 
+                            barMaxWidth: 40,
+                            label: {
+                                show: true,
+                                position: 'top',
+                                formatter: function(params) {
+                                    if (params.value === 0) return '';
+                                    if (params.value >= 1000) return (params.value / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'k';
+                                    return params.value.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+                                },
+                                color: '#94a3b8',
+                                fontSize: 9
+                            }, 
+                            itemStyle: { color: '#a855f7', borderRadius: [2, 2, 0, 0] } 
+                        }
                     ]
                 });
             }
@@ -781,8 +844,8 @@ window.initProducaoFrota = async function() {
             const hoje = new Date();
             const dias7 = [];
             
-            // Pega os últimos 7 dias a partir de hoje
-            for (let i = 6; i >= 0; i--) {
+            // Pega os últimos 7 dias encerrando no D-1 (ontem) para não mostrar o dia atual incompleto
+            for (let i = 7; i >= 1; i--) {
                 const d = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - i);
                 dias7.push(formatarDataChave(d));
             }
@@ -892,7 +955,7 @@ window.initProducaoFrota = async function() {
                             return html;
                         }
                     },
-                    grid: { top: 30, right: '4%', bottom: '5%', left: '5%', containLabel: true },
+                    grid: { top: 40, right: '4%', bottom: '5%', left: '5%', containLabel: true },
                     xAxis: { 
                         type: 'category', 
                         boundaryGap: false, 
@@ -914,6 +977,26 @@ window.initProducaoFrota = async function() {
                             symbol: 'circle',
                             symbolSize: 8,
                             showSymbol: true,
+                            label: {
+                                show: true,
+                                position: 'top',
+                                distance: 10,
+                                formatter: function(params) {
+                                    if (params.value === 0) return '';
+                                    return params.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+                                },
+                                color: '#f8fafc',
+                                fontSize: 10,
+                                fontWeight: 'bold',
+                                backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                                borderColor: 'rgba(56, 189, 248, 0.4)',
+                                borderWidth: 1,
+                                borderRadius: 6,
+                                padding: [4, 8],
+                                shadowColor: 'rgba(0, 0, 0, 0.5)',
+                                shadowBlur: 4,
+                                shadowOffsetY: 2
+                            },
                             itemStyle: { color: '#0ea5e9' },
                             lineStyle: { 
                                 width: 4, 
