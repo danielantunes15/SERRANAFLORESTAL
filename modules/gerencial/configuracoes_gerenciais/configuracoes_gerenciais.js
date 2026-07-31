@@ -5,18 +5,17 @@ window.initConfiguracoesGerenciais = function() {
 
     const inputMetaDiaTransporte = document.getElementById('meta_diaria_transporte');
     const inputMetaDiaCarregamento = document.getElementById('meta_diaria_carregamento');
+    const inputDiaFechamento = document.getElementById('dia_fechamento'); // NOVO
     const btnCancelar = document.getElementById('btn-cancelar-metas');
     const alertContainer = document.getElementById('alert-container-metas');
     const labelFilial = document.getElementById('label-filial-atual');
 
-    // Captura a filial do usuário logado
     const filialAtual = (typeof currentUser !== 'undefined' && currentUser.filial_id) ? currentUser.filial_id : 'CENTRAL';
     
     if(labelFilial) {
         labelFilial.innerHTML = `<i class="fas fa-map-marker-alt mr-1"></i> Configurando metas para a filial: <span class="text-white font-bold">${filialAtual}</span>`;
     }
 
-    // --- FUNÇÃO PARA DETECTAR O CLIENTE DO SUPABASE ---
     function getSupabaseClient() {
         if (typeof window.supabaseClient !== 'undefined') return window.supabaseClient;
         if (typeof window.db !== 'undefined' && typeof window.db.from === 'function') return window.db; 
@@ -24,7 +23,6 @@ window.initConfiguracoesGerenciais = function() {
         return null;
     }
 
-    // --- APLICAÇÃO DA MÁSCARA MONETÁRIA ---
     function aplicarMascaraMoeda(inputElement) {
         if (!inputElement) return;
 
@@ -34,9 +32,7 @@ window.initConfiguracoesGerenciais = function() {
                 e.target.value = '';
                 return;
             }
-            
             let floatValor = parseInt(valor, 10) / 100;
-            
             e.target.value = floatValor.toLocaleString('pt-BR', { 
                 minimumFractionDigits: 2, 
                 maximumFractionDigits: 2 
@@ -52,43 +48,37 @@ window.initConfiguracoesGerenciais = function() {
         return parseFloat(valorString.replace(/\./g, '').replace(',', '.')) || 0.00;
     }
 
-    // 1. Carregar as metas atuais do Banco de Dados
     carregarMetas();
 
-    // 2. Evento de submissão
     formMetas.addEventListener('submit', function(event) {
         event.preventDefault(); 
         
         const dadosMetas = {
             filial_id: filialAtual,
             meta_diaria_transporte: extrairFloatMoeda(inputMetaDiaTransporte.value).toFixed(2),
-            meta_diaria_carregamento: extrairFloatMoeda(inputMetaDiaCarregamento.value).toFixed(2)
+            meta_diaria_carregamento: extrairFloatMoeda(inputMetaDiaCarregamento.value).toFixed(2),
+            dia_fechamento: parseInt(inputDiaFechamento.value, 10) || 25 // NOVO
         };
 
         salvarMetas(dadosMetas);
     });
 
-    // 3. Evento cancelar
     btnCancelar.addEventListener('click', function() {
         formMetas.reset();
         carregarMetas(); 
         mostrarAlerta("Alterações desfeitas.", "info");
     });
 
-    // --- FUNÇÕES DE BANCO DE DADOS E ALERTA ---
-
     async function carregarMetas() {
         try {
             const dbClient = getSupabaseClient();
             
             if (!dbClient) {
-                console.warn("Cliente Supabase não encontrado. Usando LocalStorage.");
                 const metasSalvas = JSON.parse(localStorage.getItem(`metas_gerenciais_${filialAtual}`));
-                if (metasSalvas) preencherCampos(metasSalvas.meta_diaria_transporte, metasSalvas.meta_diaria_carregamento);
+                if (metasSalvas) preencherCampos(metasSalvas.meta_diaria_transporte, metasSalvas.meta_diaria_carregamento, metasSalvas.dia_fechamento);
                 return;
             }
 
-            // AQUI ESTÁ A CORREÇÃO: Usando .maybeSingle() ao invés de .single()
             const { data, error } = await dbClient
                 .from('metas_gerenciais')
                 .select('*')
@@ -100,7 +90,7 @@ window.initConfiguracoesGerenciais = function() {
             }
             
             if (data) {
-                preencherCampos(data.meta_diaria_transporte, data.meta_diaria_carregamento);
+                preencherCampos(data.meta_diaria_transporte, data.meta_diaria_carregamento, data.dia_fechamento);
             }
         } catch (error) {
             console.error("Erro ao carregar metas do banco:", error);
@@ -108,12 +98,14 @@ window.initConfiguracoesGerenciais = function() {
         }
     }
 
-    function preencherCampos(transporte, carregamento) {
+    function preencherCampos(transporte, carregamento, diaFechamento) {
         const valTransporte = parseFloat(transporte || 0);
         const valCarregamento = parseFloat(carregamento || 0);
+        const valDiaFechamento = parseInt(diaFechamento || 25);
         
         inputMetaDiaTransporte.value = valTransporte.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         inputMetaDiaCarregamento.value = valCarregamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        inputDiaFechamento.value = valDiaFechamento;
     }
 
     async function salvarMetas(dados) {
