@@ -162,7 +162,7 @@ window.imprimirFolhaOcorrencia = function(dados = {}) {
                 ${val(dados.descricao_fatos)}
             </div>
             <div class="text-box">
-                <span class="text-box-title">O que poderia ter sido feito para evitar a ocorrência?</span>
+                <span class="text-box-title">O que você poderia ter feito para evitar a ocorrência?</span>
                 ${val(dados.prevencao_falha)}
             </div>
             <div class="text-box" style="min-height: ${isBlank ? '80px' : '40px'};">
