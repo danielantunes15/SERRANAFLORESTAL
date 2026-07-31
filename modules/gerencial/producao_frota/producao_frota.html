@@ -47,6 +47,39 @@
         
         <!-- CARDS DE KPIs (META VS REALIZADO) -->
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">                          
+            
+            <!-- Transporte: D-1 -->
+            <div class="bg-slate-800/60 border border-indigo-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Transporte (D-1)</p>
+                        <h3 id="kpi-transporte-hoje" class="text-2xl font-black text-white mt-1">R$ 0,00</h3>
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded-lg border border-slate-700 text-indigo-400"><i class="fas fa-calendar-day"></i></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="badge-transporte-hoje" class="px-2 py-1 text-[11px] font-bold rounded bg-slate-700 text-slate-300">0%</span>
+                    <span class="text-xs font-mono text-slate-500" id="desc-transporte-hoje">Meta Diária: R$ 0,00</span>
+                </div>
+            </div>
+            
+            <!-- Carregamento: D-1 -->
+            <div class="bg-slate-800/60 border border-purple-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Carregamento (D-1)</p>
+                        <h3 id="kpi-carregamento-hoje" class="text-2xl font-black text-white mt-1">R$ 0,00</h3>
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded-lg border border-slate-700 text-purple-400"><i class="fas fa-calendar-day"></i></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="badge-carregamento-hoje" class="px-2 py-1 text-[11px] font-bold rounded bg-slate-700 text-slate-300">0%</span>
+                    <span class="text-xs font-mono text-slate-500" id="desc-carregamento-hoje">Meta Diária: R$ 0,00</span>
+                </div>
+            </div>
+
             <!-- Transporte: Período -->
             <div class="bg-slate-800/60 border border-sky-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group">
                 <div class="absolute top-0 right-0 w-24 h-24 bg-sky-500/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
@@ -79,37 +112,6 @@
                 </div>
             </div>
             
-            <!-- Transporte: Hoje -->
-            <div class="bg-slate-800/60 border border-indigo-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Transporte (Hoje)</p>
-                        <h3 id="kpi-transporte-hoje" class="text-2xl font-black text-white mt-1">R$ 0,00</h3>
-                    </div>
-                    <div class="bg-slate-900 p-2 rounded-lg border border-slate-700 text-indigo-400"><i class="fas fa-calendar-day"></i></div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span id="badge-transporte-hoje" class="px-2 py-1 text-[11px] font-bold rounded bg-slate-700 text-slate-300">0%</span>
-                    <span class="text-xs font-mono text-slate-500" id="desc-transporte-hoje">Meta Diária: R$ 0,00</span>
-                </div>
-            </div>
-            
-            <!-- Carregamento: Hoje -->
-            <div class="bg-slate-800/60 border border-purple-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Carregamento (Hoje)</p>
-                        <h3 id="kpi-carregamento-hoje" class="text-2xl font-black text-white mt-1">R$ 0,00</h3>
-                    </div>
-                    <div class="bg-slate-900 p-2 rounded-lg border border-slate-700 text-purple-400"><i class="fas fa-calendar-day"></i></div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span id="badge-carregamento-hoje" class="px-2 py-1 text-[11px] font-bold rounded bg-slate-700 text-slate-300">0%</span>
-                    <span class="text-xs font-mono text-slate-500" id="desc-carregamento-hoje">Meta Diária: R$ 0,00</span>
-                </div>
-            </div>
         </div>
         
         <!-- INDICADORES RESUMIDOS EM LINHA -->
