@@ -1,0 +1,155 @@
+<div class="action-bar" style="animation: terminalFadeIn 0.3s ease-out;">
+    <div class="filter-group">
+        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-user-clock"></i> Absenteísmo</h2>
+        <input type="text" id="buscaAbsenteismo" class="search-input-dark" placeholder="Buscar por colaborador, motivo ou CID..." onkeyup="window.filtrarAbsenteismo()">
+    </div>
+    <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn-primary-blue" onclick="window.abrirModalAbsenteismo('ATESTADO')"><i class="fas fa-notes-medical"></i> Lançar Atestado</button>
+        <button class="btn-danger-outline" onclick="window.abrirModalAbsenteismo('FALTA')"><i class="fas fa-user-times"></i> Lançar Falta/Ausência</button>
+        <button class="btn-primary-green" onclick="window.abrirModalAbsenteismo('BANCO_HORAS')"><i class="fas fa-business-time"></i> Banco de Horas</button>
+    </div>
+</div>
+
+<!-- KPIs (Indicadores Principais do Dashboard) -->
+<div class="config-grid" style="margin-bottom: 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; animation: terminalFadeIn 0.4s ease-out;">
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-blue-bright);">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Total de Registros</h4>
+        <div id="kpiTotalAbsenteismo" style="font-size: 2.2rem; font-weight: 900; color: #fff;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #ef4444;">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Total de Dias/Horas Perdidas</h4>
+        <div id="kpiDiasPerdidos" style="font-size: 2.2rem; font-weight: 900; color: #ef4444;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #f59e0b;">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Ocorrências (Mês Atual)</h4>
+        <div id="kpiAbsenteismoMes" style="font-size: 2.2rem; font-weight: 900; color: #f59e0b;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-green-bright);">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">CID / Motivo Frequente</h4>
+        <div id="kpiTopCid" style="font-size: 1.2rem; font-weight: 900; color: var(--ccol-green-bright); margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+</div>
+
+<!-- Gráficos do Dashboard -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 25px; animation: terminalFadeIn 0.5s ease-out;">
+    <div class="content-panel" style="padding: 20px; margin-bottom: 0;">
+        <h4 style="color: #fff; margin-top: 0; margin-bottom: 5px; font-size: 1rem;"><i class="fas fa-chart-bar" style="color: var(--ccol-blue-bright);"></i> Evolução de Absenteísmo</h4>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0; margin-bottom: 15px;">Dias perdidos x Volume de ocorrências nos últimos 6 meses</p>
+        <div id="chartAbsenteismoEvolucao" style="width: 100%; height: 300px;"></div>
+    </div>
+    <div class="content-panel" style="padding: 20px; margin-bottom: 0;">
+        <h4 style="color: #fff; margin-top: 0; margin-bottom: 5px; font-size: 1rem;"><i class="fas fa-viruses" style="color: #ef4444;"></i> Incidência por CID / Motivo</h4>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0; margin-bottom: 15px;">Proporção das causas de afastamento na base total</p>
+        <div id="chartAbsenteismoCid" style="width: 100%; height: 300px;"></div>
+    </div>
+</div>
+
+<!-- Submenus / Abas para Acompanhamento Completo -->
+<div class="content-panel" style="animation: terminalFadeIn 0.6s ease-out;">
+    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <h3><i class="fas fa-list"></i> Histórico e Acompanhamento</h3>
+        <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+            <button id="tabBtn_todos" class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('todos')">Todos</button>
+            <button id="tabBtn_ATESTADO" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('ATESTADO')">Atestados (Saúde)</button>
+            <button id="tabBtn_FALTA" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('FALTA')">Faltas e Ausências</button>
+            <button id="tabBtn_BANCO_HORAS" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.mudarAbaAbsenteismo('BANCO_HORAS')">Banco de Horas</button>
+        </div>
+    </div>
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Lançado em</th>
+                    <th>Colaborador</th>
+                    <th>Tipo</th>
+                    <th>Detalhes / Médico / CID</th>
+                    <th>Período / Horas</th>
+                    <th>Anexo</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbAbsenteismo">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Unificado de Lançamento -->
+<div id="modalAbsenteismo" class="modal-overlay">
+    <div class="custom-modal" style="max-width: 700px;">
+        <div class="modal-header">
+            <h3 id="absModalTitulo"><i class="fas fa-file-medical"></i> Lançar Registro</h3>
+            <button class="close-modal" onclick="window.fecharModalAbsenteismo()">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            <input type="hidden" id="absTipoRegistro">
+            <div class="form-grid-conjunto" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+                
+                <div class="form-group-dark" style="grid-column: 1 / -1;">
+                    <label>Colaborador *</label>
+                    <select id="absColaborador" class="dark-select">
+                        <option value="">Selecione um colaborador do RH...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group-dark">
+                    <label>Data de Início / Ocorrência *</label>
+                    <input type="date" id="absDataInicio" onchange="window.calcularDataRetornoAbs()">
+                </div>
+                
+                <div class="form-group-dark" id="grupoDiasAtestado">
+                    <label>Quantidade de Dias *</label>
+                    <input type="number" id="absDias" min="1" placeholder="Ex: 3" onkeyup="window.calcularDataRetornoAbs()" onchange="window.calcularDataRetornoAbs()">
+                </div>
+
+                <div class="form-group-dark" id="grupoHorasAusencia" style="display: none;">
+                    <label>Quantidade de Horas</label>
+                    <input type="number" id="absHoras" step="0.5" placeholder="Ex: 2.5">
+                </div>
+                
+                <div class="form-group-dark" id="grupoDataRetorno" style="grid-column: 1 / -1; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: 1px solid var(--border-dim);">
+                    <label style="color: var(--ccol-blue-bright);">Data Prevista para Retorno ao Trabalho</label>
+                    <input type="date" id="absDataRetorno" readonly style="background: transparent; border: none; font-weight: bold; color: #fff; font-size: 1.1rem; pointer-events: none;">
+                </div>
+
+                <div class="form-group-dark" id="grupoMedicoNome">
+                    <label>Nome do Médico</label>
+                    <input type="text" id="absMedicoNome" placeholder="Ex: Dr. João Silva">
+                </div>
+                
+                <div class="form-group-dark" id="grupoMedicoCrm">
+                    <label>CRM do Médico</label>
+                    <input type="text" id="absMedicoCrm" placeholder="Ex: 12345-BA">
+                </div>
+
+                <div class="form-group-dark" id="grupoCid">
+                    <label>CID (Opcional)</label>
+                    <input type="text" id="absCid" placeholder="Ex: J00, M54" onkeyup="window.buscarDescricaoCidAbs()" style="text-transform: uppercase;">
+                    <small id="absCidDescricao" style="color: var(--ccol-green-bright); display: block; margin-top: 5px; font-weight: bold; min-height: 16px;"></small>
+                </div>
+                
+                <div class="form-group-dark" id="grupoMotivo">
+                    <label id="labelMotivoDinamico">Motivo / Resumo *</label>
+                    <input type="text" id="absMotivo" placeholder="Ex: Conjuntivite, Falta injustificada...">
+                </div>
+
+                <div class="form-group-dark" id="grupoAnexo" style="grid-column: 1 / -1;">
+                    <label>Anexar Atestado / Documento (PDF ou Imagem)</label>
+                    <input type="file" id="absAnexo" accept=".pdf,image/png,image/jpeg,image/jpg" class="search-input-dark" style="background: rgba(0,0,0,0.3); padding: 10px; border: 1px dashed var(--ccol-blue-bright); width: 100%; cursor: pointer;">
+                </div>
+                
+                <div class="form-group-dark" style="grid-column: 1 / -1;">
+                    <label>Observações / Anotações do RH</label>
+                    <textarea id="absObservacoes" rows="2" placeholder="Informações adicionais..." style="width: 100%;"></textarea>
+                </div>
+                
+            </div>
+        </div>
+        
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.fecharModalAbsenteismo()">Cancelar</button>
+            <button id="btnSalvarAbsenteismo" class="btn-primary-green" onclick="window.salvarAbsenteismo()">Gravar Registro</button>
+        </div>
+    </div>
+</div>

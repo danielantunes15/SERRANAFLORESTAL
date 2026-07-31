@@ -33,7 +33,7 @@ window.MAPA_MENUS = [
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
     { id: 'rh_colaboradores', label: 'Cadastro de Colaboradores', setor: 'RH', icon: 'fas fa-id-badge' },
-    { id: 'rh_atestados', label: 'Atestados (Saúde)', setor: 'RH', icon: 'fas fa-notes-medical' },
+    { id: 'rh_absenteismo', label: 'Absenteísmo', setor: 'RH', icon: 'fas fa-user-clock' },
     { id: 'rh_sorteio', label: 'Sorteio de Colaboradores', setor: 'RH', icon: 'fas fa-random' },
     { id: 'rh_configuracoes', label: 'Configurações Base', setor: 'RH', icon: 'fas fa-cogs' },
     
@@ -98,7 +98,7 @@ const ROTAS = {
     'treinamento': 'modules/ssma/treinamento/treinamento.html',
     'rh_painel': 'modules/rh/painel/rh_painel.html',
     'rh_colaboradores': 'modules/rh/colaboradores/colaboradores.html',
-    'rh_atestados': 'modules/rh/atestados/atestados.html',
+    'rh_absenteismo': 'modules/rh/absenteismo/absenteismo.html',
     'rh_sorteio': 'modules/rh/sorteio/sorteio.html',
     'rh_configuracoes': 'modules/rh/configuracoes/rh_configuracoes.html',
     
@@ -333,7 +333,10 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
         if (pagina === 'rh_painel' && typeof window.initRHPainel === 'function') window.initRHPainel(); 
         if (pagina === 'rh_colaboradores' && typeof window.initRHColaboradores === 'function') window.initRHColaboradores();
-        if (pagina === 'rh_atestados' && typeof window.initRHAtestados === 'function') window.initRHAtestados();
+        
+        // NOVO INIT PARA ABSENTEÍSMO
+        if (pagina === 'rh_absenteismo' && typeof window.initRHAbsenteismo === 'function') window.initRHAbsenteismo();
+        
         if (pagina === 'rh_sorteio' && typeof window.initRHSorteio === 'function') window.initRHSorteio();
         if (pagina === 'rh_configuracoes' && typeof window.initRHConfiguracoes === 'function') window.initRHConfiguracoes();
         

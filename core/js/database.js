@@ -459,20 +459,25 @@ const db = {
         await supabaseClient.from('rh_colaboradores').delete().eq('id', id);
     },
 
-    // --- RH ATESTADOS ---
-    async getAtestados() {
+    // --- RH ABSENTEÍSMO (NOVO) ---
+    async getAbsenteismo() {
         try {
-            const query = supabaseClient.from('rh_atestados').select('*, rh_colaboradores(nome, cod_funcionario)').order('data_inicio', { ascending: false });
+            const query = supabaseClient.from('rh_absenteismo')
+                .select('*, rh_colaboradores(nome, cod_funcionario)')
+                .order('data_inicio', { ascending: false });
+            
             const { data, error } = await aplicarFiltroFilial(query);
             if(error) throw error;
             return data || [];
-        } catch(e) { console.error("Erro getAtestados:", e); return []; }
+        } catch(e) { console.error("Erro getAbsenteismo:", e); return []; }
     },
-    async addAtestado(atestado) {
-        await supabaseClient.from('rh_atestados').insert([injetarFilial(atestado)]);
+    async addAbsenteismo(registro) {
+        const { error } = await supabaseClient.from('rh_absenteismo').insert([injetarFilial(registro)]);
+        if (error) throw error;
     },
-    async deleteAtestado(id) {
-        await supabaseClient.from('rh_atestados').delete().eq('id', id);
+    async deleteAbsenteismo(id) {
+        const { error } = await supabaseClient.from('rh_absenteismo').delete().eq('id', id);
+        if (error) throw error;
     },
     
     // --- RH CONFIGURAÇÕES ---
