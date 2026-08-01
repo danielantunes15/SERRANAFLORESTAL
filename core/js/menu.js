@@ -33,12 +33,13 @@ window.MAPA_MENUS = [
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
     { id: 'rh_colaboradores', label: 'Cadastro de Colaboradores', setor: 'RH', icon: 'fas fa-id-badge' },
     { id: 'rh_absenteismo', label: 'Absenteísmo', setor: 'RH', icon: 'fas fa-user-clock' },
+    { id: 'rh_banco_horas', label: 'Banco de Horas', setor: 'RH', icon: 'fas fa-business-time' },
     { id: 'rh_sorteio', label: 'Sorteio de Colaboradores', setor: 'RH', icon: 'fas fa-random' },
     { id: 'rh_configuracoes', label: 'Configurações Base', setor: 'RH', icon: 'fas fa-cogs' },
     
     { id: 'centro_custo', label: 'Gestão de Custos', setor: 'Controladoria', icon: 'fas fa-sitemap' },
     { id: 'ocorrencias', label: 'Registrar Ocorrência', setor: 'Controladoria', icon: 'fas fa-exclamation-triangle' },
-    { id: 'historico_ocorrencias', label: 'Histórico de Ocorrências', setor: 'Controladoria', icon: 'fas fa-history' },
+    { id: 'historico_ocorrencias', label: 'Histórico de Ocrrências', setor: 'Controladoria', icon: 'fas fa-history' },
     { id: 'relatorio_ocorrencias', label: 'Relatório de Avarias', setor: 'Controladoria', icon: 'fas fa-chart-bar' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
@@ -97,6 +98,7 @@ const ROTAS = {
     'rh_painel': 'modules/rh/painel/rh_painel.html',
     'rh_colaboradores': 'modules/rh/colaboradores/colaboradores.html',
     'rh_absenteismo': 'modules/rh/absenteismo/absenteismo.html',
+    'rh_banco_horas': 'modules/rh/banco_horas/banco_horas.html',
     'rh_sorteio': 'modules/rh/sorteio/sorteio.html',
     'rh_configuracoes': 'modules/rh/configuracoes/rh_configuracoes.html',
     
@@ -331,8 +333,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'rh_painel' && typeof window.initRHPainel === 'function') window.initRHPainel(); 
         if (pagina === 'rh_colaboradores' && typeof window.initRHColaboradores === 'function') window.initRHColaboradores();
         
-        // NOVO INIT PARA ABSENTEÍSMO
         if (pagina === 'rh_absenteismo' && typeof window.initRHAbsenteismo === 'function') window.initRHAbsenteismo();
+        if (pagina === 'rh_banco_horas' && typeof window.initRHBancoHoras === 'function') window.initRHBancoHoras();
         
         if (pagina === 'rh_sorteio' && typeof window.initRHSorteio === 'function') window.initRHSorteio();
         if (pagina === 'rh_configuracoes' && typeof window.initRHConfiguracoes === 'function') window.initRHConfiguracoes();
