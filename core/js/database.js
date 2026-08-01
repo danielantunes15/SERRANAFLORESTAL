@@ -175,24 +175,30 @@ const db = {
         await supabaseClient.from('conjuntos').update({ caminhoes }).eq('id', id);
     },
 
-    // --- MOTORISTAS ---
+    // --- MOTORISTAS / COLABORADORES DA ALOCAÇÃO ---
     async getMotoristas() {
         try {
-            const query = supabaseClient.from('motoristas').select('*');
+            // Nova lógica: Puxando do módulo de RH (Filtrando Função de Motorista e Removendo Inativos/Desligados)
+            const query = supabaseClient.from('rh_colaboradores')
+                .select('*')
+                .ilike('funcao', '%MOTORISTA%') // Busca MOTORISTA, MOTORISTA DE TRITREM, etc.
+                .neq('status', 'Inativo')       // Some da escala automaticamente
+                .neq('status', 'Desligado');    // Some da escala automaticamente
+                
             const { data, error } = await aplicarFiltroFilial(query);
             if(error) throw error;
             return data || [];
         } catch(e) { console.error("Erro getMotoristas:", e); return []; }
     },
     async addMotorista(motorista) {
-        await supabaseClient.from('motoristas').insert([injetarFilial(motorista)]);
+        await supabaseClient.from('rh_colaboradores').insert([injetarFilial(motorista)]);
     },
     async updateMotorista(id, updates) {
         Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
-        await supabaseClient.from('motoristas').update(updates).eq('id', id).select();
+        await supabaseClient.from('rh_colaboradores').update(updates).eq('id', String(id)).select();
     },
     async deleteMotorista(id) {
-        await supabaseClient.from('motoristas').delete().eq('id', id);
+        await supabaseClient.from('rh_colaboradores').delete().eq('id', String(id));
     },
 
     // --- EXCEÇÕES DA ESCALA ---
@@ -211,7 +217,7 @@ const db = {
         await supabaseClient.from('escalas').delete().eq('id', id);
     },
     async deleteEscalasPorMotorista(motorista_id) {
-        await supabaseClient.from('escalas').delete().eq('motorista_id', motorista_id);
+        await supabaseClient.from('escalas').delete().eq('motorista_id', String(motorista_id));
     },
     async limparApenasEscalas() {
         const query = supabaseClient.from('escalas').delete().neq('id', '0');
@@ -312,13 +318,11 @@ const db = {
             let qtdItem = parseFloat(item.quantidade) || 0;
             let validadeItem = item.data_validade ? item.data_validade : null;
 
-            // Busca pelo Código E que tenha exatamento o mesmo PREÇO
             let pecaDB = pecasBusca.find(p => 
                 p.codigo && item.codigo && p.codigo.toUpperCase() === item.codigo.toUpperCase() &&
                 parseFloat(p.preco_medio || 0).toFixed(2) === valorUnitarioItem.toFixed(2)
             );
             
-            // Se não encontrou pelo código, busca pelo Nome E que tenha o mesmo PREÇO
             if (!pecaDB) {
                 pecaDB = pecasBusca.find(p => 
                     p.nome.toUpperCase() === item.nome.toUpperCase() &&
@@ -329,7 +333,6 @@ const db = {
             let pecaId;
 
             if (pecaDB) {
-                // SOMA se o código existir e tiver o mesmo valor
                 pecaId = pecaDB.id;
                 const novaQtd = parseFloat(pecaDB.quantidade || 0) + qtdItem;
                 
@@ -343,7 +346,6 @@ const db = {
                 if (valorUnitarioItem > 0) pecaDB.preco_medio = valorUnitarioItem;
                 if (validadeItem) pecaDB.data_validade = validadeItem;
             } else {
-                // CRIA SEPARADO se for código novo OU for o mesmo código, porém com preço diferente (Novo Lote)
                 const novaPeca = injetarFilial({
                     codigo: item.codigo || '',
                     nome: item.nome || 'Produto Desconhecido',
@@ -367,7 +369,6 @@ const db = {
                 }
             }
 
-            // Registra a movimentação no histórico
             if (pecaId) {
                 const mov = injetarFilial({
                     peca_id: pecaId,
@@ -453,13 +454,13 @@ const db = {
         await supabaseClient.from('rh_colaboradores').insert([injetarFilial(colaborador)]);
     },
     async updateColaborador(id, updates) {
-        await supabaseClient.from('rh_colaboradores').update(updates).eq('id', id);
+        await supabaseClient.from('rh_colaboradores').update(updates).eq('id', String(id));
     },
     async deleteColaborador(id) {
-        await supabaseClient.from('rh_colaboradores').delete().eq('id', id);
+        await supabaseClient.from('rh_colaboradores').delete().eq('id', String(id));
     },
 
-    // --- RH ABSENTEÍSMO (NOVO) ---
+    // --- RH ABSENTEÍSMO ---
     async getAbsenteismo() {
         try {
             const query = supabaseClient.from('rh_absenteismo')
