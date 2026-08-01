@@ -5,6 +5,7 @@ window.pesoEquipe = function(eq) { return {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 
 
 window.SISTEMA_CICLOS = [];
 window.ausenciasGlobais = [];
+window.bancoHorasGlobais = [];
 
 window.carregarAusenciasGlobais = async function() {
     try {
@@ -13,6 +14,14 @@ window.carregarAusenciasGlobais = async function() {
         window.ausenciasGlobais = data || [];
     } catch(e) {
         window.ausenciasGlobais = [];
+    }
+    
+    try {
+        const { data: dataBH } = await window.supabaseClient.from('rh_banco_horas')
+            .select('motorista_id, data_extra');
+        window.bancoHorasGlobais = dataBH || [];
+    } catch(e) {
+        window.bancoHorasGlobais = [];
     }
 };
 
@@ -552,7 +561,7 @@ window.imprimirRelatorioEscalaSemanal = function() {
                     
                     if (ausencia) {
                         valorExibicao = ausencia;
-                        cellClass = 'folga'; // Aproveitando o CSS vermelho/rosa de folga
+                        cellClass = 'folga'; 
                     } else {
                         const esc = window.getEscalaDiaComputada(m, d.dateKey);
                         const isF = esc.caminhao === 'F';
@@ -762,7 +771,7 @@ window.gerarRelatorioImpressao = async function() {
 };
 
 // ==============================================================
-// INTEGRAÇÃO COM RH (LANÇAMENTO DE FALTAS PELA CCOL)
+// VERIFICAÇÃO DE JORNADA E EXCLUSÃO PARA FALTAS/EXTRAS
 // ==============================================================
 window.abrirModalFaltaLogistica = async function() {
     if (!window.listaParaSelectColaboradores || window.listaParaSelectColaboradores.length === 0) {
@@ -782,9 +791,6 @@ window.abrirModalFaltaLogistica = async function() {
     }
 };
 
-// ==============================================================
-// LANÇAMENTO DE BANCO DE HORAS (EXTRAS) NA ESCALA
-// ==============================================================
 window.abrirModalBancoHoras = function() {
     document.getElementById('bhData').value = '';
     document.getElementById('bhMotorista').innerHTML = '<option value="">Selecione uma data primeiro...</option>';
@@ -817,7 +823,6 @@ window.carregarDadosBancoHoras = function() {
     let htmlMot = '<option value="" style="background-color: #1e293b; color: #ffffff;">Selecione o motorista de folga...</option>';
     let htmlCam = '<option value="" style="background-color: #1e293b; color: #ffffff;">Selecione o veículo...</option>';
 
-    // 1. Motoristas de Folga
     let motoristasFolga = [];
     motoristas.forEach(m => {
         const aus = window.getAusenciaNoDia(m.id, dataStr);
@@ -834,7 +839,6 @@ window.carregarDadosBancoHoras = function() {
     });
     selMotorista.innerHTML = htmlMot;
 
-    // 2. Caminhões (Destacando os sem motorista ou com motorista ausente)
     let alocacoesHoje = {};
     motoristas.forEach(m => {
         const aus = window.getAusenciaNoDia(m.id, dataStr);
@@ -851,19 +855,18 @@ window.carregarDadosBancoHoras = function() {
             conj.caminhoes.forEach(cam => {
                 const placa = typeof cam === 'string' ? cam : cam.placa;
                 let statusCam = 'Livre (Sem Motorista)';
-                let color = '#10b981'; // Verde
+                let color = '#10b981'; 
 
                 if (alocacoesHoje[placa]) {
                     let todosAusentes = alocacoesHoje[placa].every(x => x.ausencia);
                     if (todosAusentes) {
                         statusCam = `Motorista Ausente (${alocacoesHoje[placa].map(x => x.ausencia).join(', ')})`;
-                        color = '#f59e0b'; // Laranja
+                        color = '#f59e0b'; 
                     } else {
                         statusCam = `Ocupado (${alocacoesHoje[placa].filter(x => !x.ausencia).map(x => x.motorista.nome.split(' ')[0]).join(', ')})`;
-                        color = '#ef4444'; // Vermelho
+                        color = '#ef4444'; 
                     }
                 }
-                
                 caminhoesOptions.push({ placa: placa, status: statusCam, color: color });
             });
         }
@@ -875,6 +878,20 @@ window.carregarDadosBancoHoras = function() {
     selCaminhao.innerHTML = htmlCam;
 };
 
+// UTILITÁRIO PARA VERIFICAR SE TRABALHOU NO DIA
+const isWorkingDay = (idMot, dStr) => {
+    const ausencia = window.getAusenciaNoDia(idMot, dStr);
+    if (ausencia) return false; 
+    
+    const isExtra = window.bancoHorasGlobais && window.bancoHorasGlobais.some(bh => String(bh.motorista_id) === String(idMot) && bh.data_extra === dStr);
+    if (isExtra) return true;
+
+    const m = motoristas.find(x => String(x.id) === String(idMot));
+    if (!m) return false;
+    const esc = window.getEscalaDiaComputada(m, dStr);
+    return esc.caminhao !== 'F';
+};
+
 window.salvarBancoHoras = async function() {
     const dataStr = document.getElementById('bhData').value;
     const motId = document.getElementById('bhMotorista').value;
@@ -883,6 +900,50 @@ window.salvarBancoHoras = async function() {
 
     if (!dataStr || !motId || !caminhao || !turno) {
         alert('Preencha todos os campos.');
+        return;
+    }
+
+    // REGRA DE FADIGA: O MÁXIMO DE DIAS SEGUIDOS TRABALHADOS É 5.
+    let consecutiveDays = 1;
+    const dataExtraDate = new Date(dataStr + 'T00:00:00');
+    
+    let currentBack = new Date(dataExtraDate);
+    currentBack.setDate(currentBack.getDate() - 1);
+    for (let i = 0; i < 15; i++) {
+        const dStr = currentBack.toISOString().split('T')[0];
+        if (isWorkingDay(motId, dStr)) {
+            consecutiveDays++;
+            currentBack.setDate(currentBack.getDate() - 1);
+        } else {
+            break;
+        }
+    }
+
+    let currentFwd = new Date(dataExtraDate);
+    currentFwd.setDate(currentFwd.getDate() + 1);
+    for (let i = 0; i < 15; i++) {
+        const dStr = currentFwd.toISOString().split('T')[0];
+        if (isWorkingDay(motId, dStr)) {
+            consecutiveDays++;
+            currentFwd.setDate(currentFwd.getDate() + 1);
+        } else {
+            break;
+        }
+    }
+
+    if (consecutiveDays >= 6) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Alerta de Fadiga (Limite Excedido)',
+                html: `Operação Bloqueada! Ao alocar este motorista no dia <b>${dataStr.split('-').reverse().join('/')}</b>, ele trabalhará <b>${consecutiveDays} dias seguidos</b>.<br><br>A regra permite no máximo 5 dias de trabalho consecutivos.`,
+                confirmButtonColor: '#f59e0b',
+                background: '#1e293b',
+                color: '#fff'
+            });
+        } else {
+            alert(`BLOQUEADO: O motorista trabalhará ${consecutiveDays} dias seguidos se fizer esta extra. O limite é 5 dias.`);
+        }
         return;
     }
 
@@ -912,6 +973,11 @@ window.salvarBancoHoras = async function() {
             turno: turno
         }]);
 
+        if (typeof window.registrarLogAuditoria === 'function') {
+            const mInfo = motoristas.find(x => String(x.id) === String(motId));
+            window.registrarLogAuditoria('Logística', 'Banco de Horas', `Extra lançada p/ ${mInfo ? mInfo.nome : motId} dia ${dataStr.split('-').reverse().join('/')} (Placa ${caminhao})`, 'Alerta');
+        }
+
         alert('Banco de horas (Extra) lançado com sucesso!');
         window.fecharModalBancoHoras();
         window.renderizarEscala();
@@ -925,9 +991,52 @@ window.salvarBancoHoras = async function() {
     }
 };
 
-// ==============================================================
-// HOOK PARA ATUALIZAR A ESCALA AUTOMATICAMENTE APÓS LANÇAR AUSÊNCIA
-// ==============================================================
+window.excluirAbsenteismo = async function(id, anexoUrl) {
+    const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    const allowedRoles = ['RH', 'Supervisor', 'Admin', 'SuperAdmin'];
+    
+    if (!allowedRoles.includes(userRole)) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Acesso Negado',
+                text: 'Apenas usuários com a função RH ou Supervisor podem excluir registros de absenteísmo ou extras.',
+                confirmButtonColor: '#ef4444',
+                background: '#1e293b',
+                color: '#fff'
+            });
+        } else {
+            alert('Acesso Negado: Apenas a função RH ou Supervisor pode excluir registros.');
+        }
+        return;
+    }
+
+    if (confirm('Atenção: Deseja realmente excluir este lançamento? O histórico operacional e os relatórios de fechamento serão alterados.')) {
+        try {
+            if (anexoUrl && anexoUrl !== 'null') {
+                try {
+                    const urlParts = anexoUrl.split('/');
+                    const fileName = urlParts[urlParts.length - 1];
+                    await window.supabaseClient.storage.from('atestados').remove([fileName]);
+                } catch (errStorage) {
+                    console.warn("Erro ao remover anexo do storage:", errStorage);
+                }
+            }
+
+            await window.supabaseClient.from('rh_absenteismo').delete().eq('id', id);
+            
+            if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Absenteísmo', `Registro de ausência/falta excluído do sistema (ID ${id})`, 'Crítico');
+            
+            if (typeof window.carregarAbsenteismo === 'function') await window.carregarAbsenteismo();
+            if (document.getElementById('escalaContainer')) window.renderizarEscala();
+            
+        } catch (e) {
+            console.error(e);
+            alert('Erro ao excluir o registro do banco de dados.');
+        }
+    }
+};
+
 if (!window._escalaHooked) {
     const _originalSalvarAbsenteismo = window.salvarAbsenteismo;
     window.salvarAbsenteismo = async function() {

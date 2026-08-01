@@ -43,7 +43,6 @@ window.carregarBancoHorasRH = async function() {
         if (error) throw error;
         window.listaBancoHorasRH = data || [];
         
-        // Atualiza a tabela com os filtros aplicados, e recalcula os dashboards com base geral
         window.filtrarBancoHorasRH(); 
         window.renderizarGraficosBH();
     } catch (e) {
@@ -88,7 +87,6 @@ window.atualizarKPIsBancoHorasRH = function() {
     const anoAtual = hoje.getFullYear();
     const mesAtual = hoje.getMonth() + 1;
     
-    // Início da semana (Domingo)
     const inicioSemana = new Date(hoje);
     inicioSemana.setDate(hoje.getDate() - hoje.getDay());
     inicioSemana.setHours(0,0,0,0);
@@ -99,12 +97,10 @@ window.atualizarKPIsBancoHorasRH = function() {
         if (!item.data_extra) return;
         const [a, m, d] = item.data_extra.split('-');
         
-        // Verifica se é do mês atual
         if (parseInt(a) === anoAtual && parseInt(m) === mesAtual) {
             countMes++;
         }
 
-        // Verifica se é da semana atual
         const dataItem = new Date(item.data_extra + 'T00:00:00');
         if (dataItem >= inicioSemana && dataItem <= hoje) {
             countSemana++;
@@ -129,7 +125,6 @@ window.atualizarKPIsBancoHorasRH = function() {
 window.renderizarGraficosBH = function() {
     if (typeof echarts === 'undefined') return;
 
-    // 1. DADOS PARA EVOLUÇÃO (6 MESES) - Analisa toda a base (sem o filtro de período)
     const hoje = new Date();
     const chavesMeses = [];
     const mesesLabels = [];
@@ -185,7 +180,6 @@ window.renderizarGraficosBH = function() {
         });
     }
 
-    // 2. DADOS PARA TOP 5 (Geral)
     const arrTop = Object.keys(contagemTopGlobal).map(k => ({ name: k, value: contagemTopGlobal[k] }));
     arrTop.sort((a,b) => b.value - a.value);
     const top5 = arrTop.slice(0, 5);
@@ -249,9 +243,6 @@ window.renderizarTabelaBancoHorasRH = function() {
     tbody.innerHTML = html;
 };
 
-// ============================================================================
-// MODAL DE LANÇAMENTO AVULSO PELO RH
-// ============================================================================
 window.abrirModalLancamentoExtraRH = function() {
     const select = document.getElementById('modalExtraColaborador');
     select.innerHTML = '<option value="">Selecione o Colaborador...</option>';
@@ -303,7 +294,7 @@ window.salvarLancamentoExtraRH = async function() {
 
         alert("Registro de horas adicionado com sucesso!");
         window.fecharModalLancamentoExtraRH();
-        await window.carregarBancoHorasRH(); // Atualiza a tela
+        await window.carregarBancoHorasRH(); 
 
     } catch (e) {
         console.error("Erro ao inserir extra RH:", e);
@@ -315,10 +306,32 @@ window.salvarLancamentoExtraRH = async function() {
 };
 
 window.excluirBancoHorasRHTela = async function(id, dataExtra, colabNome) {
+    const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    const allowedRoles = ['RH', 'Supervisor', 'Admin', 'SuperAdmin'];
+    
+    if (!allowedRoles.includes(userRole)) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Acesso Negado',
+                text: 'Apenas usuários com a função RH ou Supervisor podem excluir registros no banco de horas.',
+                confirmButtonColor: '#ef4444',
+                background: '#1e293b',
+                color: '#fff'
+            });
+        } else {
+            alert('Acesso Negado: Apenas a função RH ou Supervisor pode excluir registros.');
+        }
+        return;
+    }
+
     if (!confirm(`Deseja realmente remover a convocação extra do motorista ${colabNome} no dia ${dataExtra.split('-').reverse().join('/')}?`)) return;
     
     try {
         await window.supabaseClient.from('rh_banco_horas').delete().eq('id', id);
+        
+        if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Banco de Horas', `Convocação Extra excluída do sistema para ${colabNome} (ID ${id})`, 'Crítico');
+        
         alert('Convocação extra removida com sucesso!');
         await window.carregarBancoHorasRH();
     } catch(e) {

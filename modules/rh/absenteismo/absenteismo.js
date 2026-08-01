@@ -3,14 +3,12 @@ console.log("Módulo de Absenteísmo e Relatórios carregado com sucesso!");
 window.listaAbsenteismo = [];
 window.listaRelatorioFiltrada = [];
 window.listaParaSelectColaboradores = [];
+window.listaConvocadosExtraBH = []; 
 window.graficoEvolucaoAbs = null;
 window.graficoCidAbs = null;
 window.abaAtualAbsenteismo = 'todos';
 window.datasMultiplasFalta = [];
 
-// ==============================================================
-// DICIONÁRIO INTELIGENTE DOS CIDs OCUPACIONAIS
-// ==============================================================
 window.dicionarioCid = {
     "A09": "Diarreia e gastroenterite", "A90": "Dengue [dengue clássico]",
     "B30": "Infecção por vírus (Geral)", "B34": "Doença por vírus, não especificada (Virose)",
@@ -104,7 +102,16 @@ window.carregarAbsenteismo = async function() {
         if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando registros...</td></tr>`;
         
         window.listaAbsenteismo = await db.getAbsenteismo();
-        window.listaRelatorioFiltrada = window.listaAbsenteismo; // Inicia igual
+        window.listaRelatorioFiltrada = window.listaAbsenteismo;
+        
+        try {
+            const { data } = await window.supabaseClient.from('rh_banco_horas')
+                .select('id, data_extra, caminhao_placa, turno, created_at, rh_colaboradores(nome, cod_funcionario)')
+                .order('created_at', { ascending: false });
+            window.listaConvocadosExtraBH = data || [];
+        } catch(errBH) {
+            window.listaConvocadosExtraBH = [];
+        }
         
         window.renderizarDashboardAbsenteismo();
         window.renderizarTabelaAbsenteismo();
@@ -114,13 +121,10 @@ window.carregarAbsenteismo = async function() {
     }
 };
 
-// ==============================================================
-// GESTÃO DE ABAS E RELATÓRIOS
-// ==============================================================
 window.mudarAbaAbsenteismo = function(aba) {
     window.abaAtualAbsenteismo = aba;
     
-    const abas = ['todos', 'ATESTADO', 'FALTA', 'BANCO_HORAS', 'relatorio'];
+    const abas = ['todos', 'ATESTADO', 'FALTA', 'BANCO_HORAS', 'CONVOCADOS_EXTRA', 'relatorio'];
     abas.forEach(a => {
         const btn = document.getElementById('tabBtn_' + a);
         if(btn) {
@@ -130,12 +134,17 @@ window.mudarAbaAbsenteismo = function(aba) {
                 btn.style.color = 'var(--ccol-rust-bright)';
                 btn.style.background = 'transparent';
             }
+            if (a === 'CONVOCADOS_EXTRA' && aba !== 'CONVOCADOS_EXTRA') {
+                btn.style.borderColor = '#10b981';
+                btn.style.color = '#10b981';
+                btn.style.background = 'transparent';
+            }
         }
     });
 
     const painelFiltro = document.getElementById('painelFiltrosRelatorio');
     if (aba === 'relatorio') {
-        painelFiltro.style.display = 'flex';
+        if(painelFiltro) painelFiltro.style.display = 'flex';
         window.gerarRelatorioAbsenteismo(); 
     } else {
         if(painelFiltro) painelFiltro.style.display = 'none';
@@ -231,9 +240,6 @@ window.imprimirRelatorioAbsenteismo = function() {
     doc.save(`Relatorio_Absenteismo_Serrana_${Date.now()}.pdf`);
 };
 
-// ==============================================================
-// DASHBOARD (COM PROTEÇÕES PARA CHAMADAS VIA OUTROS MÓDULOS)
-// ==============================================================
 window.renderizarDashboardAbsenteismo = function() {
     if (typeof echarts === 'undefined') return;
 
@@ -290,7 +296,6 @@ window.renderizarDashboardAbsenteismo = function() {
     const top1Cid = cidArray.length > 0 ? cidArray[0].name : 'Nenhum';
     const top5Cid = cidArray.slice(0, 5);
 
-    // PROTEÇÃO: Só tenta alterar os números do RH se eles existirem na tela atual
     if (document.getElementById('kpiTotalAbsenteismo')) document.getElementById('kpiTotalAbsenteismo').innerText = window.listaAbsenteismo.length;
     if (document.getElementById('kpiDiasPerdidos')) document.getElementById('kpiDiasPerdidos').innerText = totalDiasPerdidos;
     if (document.getElementById('kpiAbsenteismoMes')) document.getElementById('kpiAbsenteismoMes').innerText = mesAtualCount;
@@ -302,7 +307,6 @@ window.renderizarDashboardAbsenteismo = function() {
     const dataOcorrencias = chavesMeses.map(c => c.countOcorrencias);
     const dataDias = chavesMeses.map(c => c.countDias);
 
-    // PROTEÇÃO: Só desenha o gráfico de evolução se ele estiver na tela
     const domEvolucao = document.getElementById('chartAbsenteismoEvolucao');
     if (domEvolucao) {
         if (window.graficoEvolucaoAbs) window.graficoEvolucaoAbs.dispose();
@@ -321,7 +325,6 @@ window.renderizarDashboardAbsenteismo = function() {
         });
     }
 
-    // PROTEÇÃO: Só desenha o gráfico de pizza se ele estiver na tela
     const domCid = document.getElementById('chartAbsenteismoCid');
     if (domCid) {
         if (window.graficoCidAbs) window.graficoCidAbs.dispose();
@@ -348,9 +351,6 @@ function formatarData(dataIso) {
     return `${dia}/${mes}/${ano}`;
 }
 
-// ==============================================================
-// ALTERAÇÃO DE STATUS RH
-// ==============================================================
 window.alterarStatusRH = async function(id, novoStatus) {
     try {
         await window.supabaseClient.from('rh_absenteismo').update({ status_rh: novoStatus }).eq('id', id);
@@ -372,13 +372,10 @@ window.alterarStatusRH = async function(id, novoStatus) {
     }
 };
 
-// ==============================================================
-// RENDERIZAÇÃO DA TABELA PRINCIPAL
-// ==============================================================
 window.renderizarTabelaAbsenteismo = function() {
     const thead = document.getElementById('headerAbsenteismo');
     const tbody = document.getElementById('tbAbsenteismo');
-    if (!thead || !tbody) return; // Esta trava já impede que tente renderizar na tela de Logística
+    if (!thead || !tbody) return; 
 
     let htmlHead = '';
     
@@ -390,10 +387,45 @@ window.renderizarTabelaAbsenteismo = function() {
         htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Data da Falta</th><th>Classificação</th><th>Status RH</th><th>Ações</th>`;
     } else if(window.abaAtualAbsenteismo === 'BANCO_HORAS') {
         htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Data Referência</th><th>Horas Lançadas</th><th>Motivo Lançamento</th><th>Ações</th>`;
+    } else if(window.abaAtualAbsenteismo === 'CONVOCADOS_EXTRA') {
+        htmlHead = `<th>Criado em</th><th>Colaborador</th><th>Data da Extra</th><th>Veículo Assumido</th><th>Turno Realizado</th><th style="text-align: right;">Ações</th>`;
     }
     
     thead.innerHTML = htmlHead;
     tbody.innerHTML = '';
+
+    if (window.abaAtualAbsenteismo === 'CONVOCADOS_EXTRA') {
+        if (window.listaConvocadosExtraBH.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum motorista convocado em dia de folga localizado.</td></tr>`;
+            return;
+        }
+        
+        window.listaConvocadosExtraBH.forEach(item => {
+            let dataCriacao = '-';
+            if (item.created_at) {
+                const dateObj = new Date(item.created_at);
+                dataCriacao = dateObj.toLocaleDateString('pt-BR') + ' às ' + dateObj.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            }
+            
+            const colabNome = item.rh_colaboradores ? item.rh_colaboradores.nome : '<span style="color:#ef4444;">Removido</span>';
+            const mat = item.rh_colaboradores && item.rh_colaboradores.cod_funcionario ? `[${String(item.rh_colaboradores.cod_funcionario).padStart(4, '0')}]` : '';
+            const dataExtraFmt = item.data_extra ? item.data_extra.split('-').reverse().join('/') : '-';
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td style="font-size: 0.8rem; color: #94a3b8;">${dataCriacao}</td>
+                    <td style="text-align:left;"><b><span style="color:var(--text-secondary); font-size:0.8rem;">${mat}</span> ${colabNome}</b></td>
+                    <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85rem;"><i class="fas fa-calendar-day"></i> ${dataExtraFmt}</span></td>
+                    <td><strong style="color: var(--ccol-blue-bright); font-size: 1.05rem;">${item.caminhao_placa || '-'}</strong></td>
+                    <td><span class="search-input-dark" style="padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-dim);">${item.turno || '-'}</span></td>
+                    <td style="text-align: right;">
+                        <button class="btn-icon-only" onclick="window.excluirBancoHorasRHTela('${item.id}', '${item.data_extra}', '${colabNome}')" title="Excluir Convocação"><i class="fas fa-trash" style="color:#ef4444;"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+        return;
+    }
 
     let lista = window.listaAbsenteismo;
     if (window.abaAtualAbsenteismo === 'relatorio') {
@@ -500,6 +532,19 @@ window.filtrarAbsenteismo = function() {
         return;
     }
 
+    if (window.abaAtualAbsenteismo === 'CONVOCADOS_EXTRA') {
+        const filtradosBH = window.listaConvocadosExtraBH.filter(b => {
+            const nome = b.rh_colaboradores ? b.rh_colaboradores.nome.toLowerCase() : '';
+            const placa = b.caminhao_placa ? b.caminhao_placa.toLowerCase() : '';
+            return nome.includes(termo) || placa.includes(termo);
+        });
+        const backupBH = window.listaConvocadosExtraBH;
+        window.listaConvocadosExtraBH = filtradosBH;
+        window.renderizarTabelaAbsenteismo();
+        window.listaConvocadosExtraBH = backupBH;
+        return;
+    }
+
     const filtrados = window.listaAbsenteismo.filter(a => {
         const nome = a.rh_colaboradores ? a.rh_colaboradores.nome.toLowerCase() : '';
         const cid = a.cid ? a.cid.toLowerCase() : '';
@@ -514,9 +559,6 @@ window.filtrarAbsenteismo = function() {
     window.listaAbsenteismo = backupLista;
 };
 
-// ==============================================================
-// LÓGICA DE DATAS MÚLTIPLAS PARA FALTAS
-// ==============================================================
 window.adicionarDataFalta = function() {
     const inputData = document.getElementById('absDataInicio');
     const dataVal = inputData.value;
@@ -559,9 +601,6 @@ window.renderizarMultiDatas = function() {
     });
 };
 
-// ==============================================================
-// MODAL DE LANÇAMENTO E SALVAMENTO
-// ==============================================================
 window.abrirModalAbsenteismo = function(tipo) {
     const selectColaborador = document.getElementById('absColaborador');
     selectColaborador.innerHTML = '<option value="">Selecione um colaborador...</option>';
@@ -767,7 +806,6 @@ window.salvarAbsenteismo = async function() {
         
         window.fecharModalAbsenteismo();
         
-        // Verifica se a tabela principal existe na tela atual antes de tentar atualizá-la
         if (document.getElementById('tbAbsenteismo')) {
             await window.carregarAbsenteismo();
         } else {
@@ -784,6 +822,25 @@ window.salvarAbsenteismo = async function() {
 };
 
 window.excluirAbsenteismo = async function(id, anexoUrl) {
+    const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    const allowedRoles = ['RH', 'Supervisor', 'Admin', 'SuperAdmin'];
+    
+    if (!allowedRoles.includes(userRole)) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Acesso Negado',
+                text: 'Apenas usuários com a função RH ou Supervisor podem excluir registros de absenteísmo.',
+                confirmButtonColor: '#ef4444',
+                background: '#1e293b',
+                color: '#fff'
+            });
+        } else {
+            alert('Acesso Negado: Apenas a função RH ou Supervisor pode excluir registros.');
+        }
+        return;
+    }
+
     if (confirm('Atenção: Deseja realmente excluir este lançamento?')) {
         try {
             if (anexoUrl && anexoUrl !== 'null') {
@@ -796,11 +853,51 @@ window.excluirAbsenteismo = async function(id, anexoUrl) {
                 }
             }
 
-            await db.deleteAbsenteismo(id);
-            await window.carregarAbsenteismo();
+            await window.supabaseClient.from('rh_absenteismo').delete().eq('id', id);
+            
+            if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Absenteísmo', `Registro de ausência/falta excluído do sistema (ID ${id})`, 'Crítico');
+            
+            if (typeof window.carregarAbsenteismo === 'function') await window.carregarAbsenteismo();
+            if (document.getElementById('escalaContainer')) window.renderizarEscala();
+            
         } catch (e) {
             console.error(e);
-            alert('Erro ao excluir o registro.');
+            alert('Erro ao excluir o registro do banco de dados.');
         }
+    }
+};
+
+window.excluirConvocadoExtra = async function(id, dataBH, colabNome) {
+    const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    const allowedRoles = ['RH', 'Supervisor', 'Admin', 'SuperAdmin'];
+    
+    if (!allowedRoles.includes(userRole)) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Acesso Negado',
+                text: 'Apenas usuários com a função RH ou Supervisor podem excluir registros do banco de horas/extras.',
+                confirmButtonColor: '#ef4444',
+                background: '#1e293b',
+                color: '#fff'
+            });
+        } else {
+            alert('Acesso Negado: Apenas a função RH ou Supervisor pode excluir registros.');
+        }
+        return;
+    }
+
+    if (!confirm(`Deseja remover a convocação extra do motorista ${colabNome} no dia ${dataBH.split('-').reverse().join('/')}?`)) return;
+    
+    try {
+        await window.supabaseClient.from('rh_banco_horas').delete().eq('id', id);
+        
+        if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Banco de Horas', `Convocação Extra excluída do sistema para ${colabNome} (ID ${id})`, 'Crítico');
+        
+        alert('Convocação extra removida com sucesso. Observação: A exclusão na tabela não altera escalas manuais já consolidadas na folha operacional da logística.');
+        await window.carregarAbsenteismo();
+    } catch(e) {
+        console.error(e);
+        alert('Erro ao excluir registro de banco de horas.');
     }
 };
