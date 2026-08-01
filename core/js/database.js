@@ -178,10 +178,11 @@ const db = {
     // --- MOTORISTAS / COLABORADORES DA ALOCAÇÃO ---
     async getMotoristas() {
         try {
-            // Nova lógica: Puxando do módulo de RH (Filtrando Função de Motorista e Removendo Inativos/Desligados)
+            // Nova lógica: Puxando do módulo de RH (Duplo filtro na função e exclusão de inativos)
             const query = supabaseClient.from('rh_colaboradores')
                 .select('*')
-                .ilike('funcao', '%MOTORISTA%') // Busca MOTORISTA, MOTORISTA DE TRITREM, etc.
+                .ilike('funcao', '%MOTORISTA%') // Busca por Motorista
+                .ilike('funcao', '%TRITREM%')   // E que também tenha TRITREM
                 .neq('status', 'Inativo')       // Some da escala automaticamente
                 .neq('status', 'Desligado');    // Some da escala automaticamente
                 
