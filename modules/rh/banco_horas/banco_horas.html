@@ -1,0 +1,52 @@
+<div class="action-bar" style="animation: terminalFadeIn 0.3s ease-out;">
+    <div class="filter-group">
+        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-business-time" style="color: var(--ccol-green-bright);"></i> Banco de Horas (Extras)</h2>
+        <input type="text" id="buscaBancoHorasRH" class="search-input-dark" placeholder="Buscar por colaborador ou placa..." onkeyup="window.filtrarBancoHorasRH()">
+    </div>
+    <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <label style="color: #94a3b8; font-size: 0.8rem; font-weight: bold;">Período:</label>
+            <input type="date" id="bhRhDataInicio" class="search-input-dark" title="Data Início" onchange="window.filtrarBancoHorasRH()" style="width: auto;">
+            <span style="color: #94a3b8;">até</span>
+            <input type="date" id="bhRhDataFim" class="search-input-dark" title="Data Fim" onchange="window.filtrarBancoHorasRH()" style="width: auto;">
+        </div>
+        <button class="btn-primary-blue" onclick="window.exportarBancoHorasPdf()"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
+        <button class="btn-primary-green" onclick="window.exportarBancoHorasExcel()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="config-grid" style="margin-bottom: 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; animation: terminalFadeIn 0.4s ease-out;">
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-green-bright);">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Total de Extras (Período)</h4>
+        <div id="kpiTotalExtrasRH" style="font-size: 2.2rem; font-weight: 900; color: #fff;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-blue-bright);">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Colaborador Mais Acionado</h4>
+        <div id="kpiTopColabExtraRH" style="font-size: 1.2rem; font-weight: 900; color: var(--ccol-blue-bright); margin-top: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+</div>
+
+<!-- Tabela Principal -->
+<div class="content-panel" style="animation: terminalFadeIn 0.5s ease-out;">
+    <div class="panel-header">
+        <h3><i class="fas fa-list"></i> Relatório de Convocações Extras Operacionais</h3>
+    </div>
+    <div class="table-modern-wrapper">
+        <table class="data-table-modern">
+            <thead>
+                <tr>
+                    <th>Data da Extra</th>
+                    <th>Colaborador</th>
+                    <th>Veículo Assumido</th>
+                    <th>Turno Realizado</th>
+                    <th>Registrado Em</th>
+                    <th style="text-align: right;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tbBancoHorasRH">
+                <tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando registros...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
