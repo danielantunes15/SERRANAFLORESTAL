@@ -341,14 +341,16 @@ window.renderizarAlocacao = function() {
                     equipe: m.equipe,
                     turno: novoTurnoDbValue,
                     conjuntoId: m.conjuntoId,
-                    data_ancora: m.data_ancora || null
+                    data_ancora: hojeStr // Âncora atualiza para o dia da mudança
                 });
                 
                 m.turno = novoTurnoDbValue;
+                m.data_ancora = hojeStr; // Atualiza em memória
                 m.historico_alocacao = historico;
 
                 await window.supabaseClient.from('rh_colaboradores').update({
                     turno: novoTurnoDbValue,
+                    data_ancora: hojeStr, // Atualiza no banco
                     historico_alocacao: historico
                 }).eq('id', m.id);
             }
@@ -389,17 +391,19 @@ window.updateAlocacao = async function(e) {
 
     historico = historico.filter(h => h.data_inicio !== hojeStr);
 
+    // Atualiza a âncora para o dia atual da alteração
     historico.push({
         data_inicio: hojeStr,
         equipe: novaEquipe,
         turno: novoTurno,
         conjuntoId: novoConjuntoId,
-        data_ancora: m.data_ancora || null
+        data_ancora: hojeStr 
     });
 
     m.equipe = novaEquipe;
     m.turno = novoTurno;
     m.conjuntoId = novoConjuntoId;
+    m.data_ancora = hojeStr; // Atualiza a âncora principal em memória
     m.historico_alocacao = historico;
 
     select.disabled = true;
@@ -409,6 +413,7 @@ window.updateAlocacao = async function(e) {
             equipe: novaEquipe,
             turno: novoTurno,
             conjunto_id: novoConjuntoId ? parseInt(novoConjuntoId) : null,
+            data_ancora: hojeStr, // Atualiza a âncora principal no banco de dados
             historico_alocacao: historico
         }).eq('id', motoristaId);
 
@@ -568,13 +573,11 @@ window.renderizarHistoricoEscala = function() {
 
     motoristas.forEach(m => {
         if (m.historico_alocacao && Array.isArray(m.historico_alocacao)) {
-            // O primeiro registro é o base, as alterações começam a contar do segundo em diante
             const qtdAlteracoes = Math.max(0, m.historico_alocacao.length - 1);
             if (qtdAlteracoes > 0) {
                 motoristasAfetados++;
                 totalAlteracoes += qtdAlteracoes;
                 
-                // Pega a alteração mais recente para exibir na tabela
                 const ultimaAcao = m.historico_alocacao[m.historico_alocacao.length - 1];
                 
                 historicoMap.push({
@@ -593,14 +596,12 @@ window.renderizarHistoricoEscala = function() {
     document.getElementById('kpiMotoristasAlterados').innerText = motoristasAfetados;
 
     if (historicoMap.length > 0) {
-        // Encontrar quem tem mais trocas
         const topMotorista = [...historicoMap].sort((a, b) => b.qtd - a.qtd)[0];
         document.getElementById('kpiTopTrocado').innerHTML = `${topMotorista.nome}<br><span style="font-size:0.85rem; color:#64748b;">${topMotorista.qtd} trocas registradas</span>`;
     } else {
         document.getElementById('kpiTopTrocado').innerText = '-';
     }
 
-    // Ordenar a tabela por quem mudou mais recentemente (ou mais vezes)
     historicoMap.sort((a, b) => new Date(b.ultimaData) - new Date(a.ultimaData));
     window.dadosHistoricoMemoria = historicoMap;
 
@@ -659,7 +660,6 @@ window.verLinhaTempoAlocacao = function(idMotorista) {
     const container = document.getElementById('ltContainer');
     container.innerHTML = '';
 
-    // Clonar e inverter para mostrar a mais recente primeiro
     const historicoInvertido = [...m.historico_alocacao].sort((a, b) => new Date(b.data_inicio) - new Date(a.data_inicio));
 
     let html = '';
@@ -671,7 +671,6 @@ window.verLinhaTempoAlocacao = function(idMotorista) {
         let eqStr = reg.equipe && reg.equipe !== '-' ? `Equipe ${reg.equipe}` : 'Sem Equipe';
         let cjStr = reg.conjuntoId ? `Conjunto ${String(reg.conjuntoId).padStart(2, '0')}` : 'Sem Conjunto';
         
-        // Formata o turno para humano
         let turnoFormatado = reg.turno || '-';
         if (turnoFormatado !== '-') {
             let cl = window.getCiclos().find(c => c.dbValue === turnoFormatado);
