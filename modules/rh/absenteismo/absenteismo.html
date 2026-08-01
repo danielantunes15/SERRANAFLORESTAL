@@ -125,9 +125,13 @@
                     </select>
                 </div>
                 
-                <div class="form-group-dark">
-                    <label>Data de Início / Ocorrência *</label>
-                    <input type="date" id="absDataInicio" onchange="window.calcularDataRetornoAbs()">
+                <div class="form-group-dark" id="grupoDataInicio">
+                    <label id="labelDataInicio">Data de Início / Ocorrência *</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="absDataInicio" class="dark-select" onchange="window.calcularDataRetornoAbs()" style="flex: 1;">
+                        <button id="btnAdicionarMultiData" class="btn-primary-blue" style="display: none; padding: 0 15px; border-radius: 4px;" onclick="window.adicionarDataFalta()" title="Adicionar data à lista"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div id="containerMultiDatas" style="display: none; margin-top: 10px; gap: 8px; flex-wrap: wrap;"></div>
                 </div>
                 
                 <div class="form-group-dark" id="grupoDiasAtestado">
@@ -139,7 +143,7 @@
                     <label>Quantidade de Horas</label>
                     <input type="number" id="absHoras" step="0.5" placeholder="Ex: 2.5">
                 </div>
-                
+
                 <div class="form-group-dark" id="grupoDataRetorno" style="grid-column: 1 / -1; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: 1px solid var(--border-dim);">
                     <label style="color: var(--ccol-blue-bright);">Data Prevista para Retorno ao Trabalho</label>
                     <input type="date" id="absDataRetorno" readonly style="background: transparent; border: none; font-weight: bold; color: #fff; font-size: 1.1rem; pointer-events: none;">
@@ -161,6 +165,15 @@
                     <small id="absCidDescricao" style="color: var(--ccol-green-bright); display: block; margin-top: 5px; font-weight: bold; min-height: 16px;"></small>
                 </div>
                 
+                <div class="form-group-dark" id="grupoClassificacao" style="display: none;">
+                    <label>Classificação da Ausência *</label>
+                    <select id="absClassificacaoSelect" class="dark-select" onchange="window.verificarClassificacaoOutros()">
+                        <option value="Falta Injustificada">Falta Injustificada</option>
+                        <option value="Troca de dia">Troca de dia</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+
                 <div class="form-group-dark" id="grupoMotivo">
                     <label id="labelMotivoDinamico">Motivo / Resumo *</label>
                     <input type="text" id="absMotivo" placeholder="Ex: Conjuntivite, Falta injustificada...">

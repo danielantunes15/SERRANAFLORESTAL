@@ -6,6 +6,7 @@ window.listaParaSelectColaboradores = [];
 window.graficoEvolucaoAbs = null;
 window.graficoCidAbs = null;
 window.abaAtualAbsenteismo = 'todos';
+window.datasMultiplasFalta = [];
 
 // ==============================================================
 // DICIONÁRIO INTELIGENTE DOS CIDs OCUPACIONAIS
@@ -115,7 +116,7 @@ window.carregarAbsenteismo = async function() {
 };
 
 // ==============================================================
-// GESTÃO DE ABAS E RELATÓRIO
+// GESTÃO DE ABAS E RELATÓRIOS
 // ==============================================================
 window.mudarAbaAbsenteismo = function(aba) {
     window.abaAtualAbsenteismo = aba;
@@ -175,6 +176,7 @@ window.imprimirRelatorioAbsenteismo = function() {
         alert("Biblioteca PDF (jsPDF) não carregada. Atualize a página.");
         return;
     }
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('landscape'); // Formato deitado para caber os dados
 
@@ -186,7 +188,6 @@ window.imprimirRelatorioAbsenteismo = function() {
     doc.setTextColor(100, 100, 100);
     doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 14, 28);
 
-    // Identifica o filtro selecionado
     const colabSelect = document.getElementById('relColaborador');
     const nomeFiltro = colabSelect.options[colabSelect.selectedIndex].text;
     doc.text(`Filtro Aplicado: ${nomeFiltro}`, 14, 34);
@@ -208,7 +209,7 @@ window.imprimirRelatorioAbsenteismo = function() {
 
         let duracao = '';
         if (item.tipo_registro === 'ATESTADO') duracao = `${item.dias_afastamento || 1} dia(s)`;
-        else if (item.tipo_registro === 'FALTA') duracao = item.quantidade_horas ? `${item.quantidade_horas}h` : 'Integral';
+        else if (item.tipo_registro === 'FALTA') duracao = 'Falta/Ausência';
         else duracao = `${item.quantidade_horas}h`;
 
         let motivoCid = item.motivo || '-';
@@ -281,7 +282,6 @@ window.renderizarDashboardAbsenteismo = function() {
         if(nomeParaGrafico) {
             chaveCid = `${chaveCid} - ${nomeParaGrafico.split(' (')[0].substring(0, 20)}...`;
         }
-
         freqCid[chaveCid] = (freqCid[chaveCid] || 0) + 1;
     });
 
@@ -291,14 +291,12 @@ window.renderizarDashboardAbsenteismo = function() {
     const top1Cid = cidArray.length > 0 ? cidArray[0].name : 'Nenhum';
     const top5Cid = cidArray.slice(0, 5);
 
-    // Atualiza KPIs
     document.getElementById('kpiTotalAbsenteismo').innerText = window.listaAbsenteismo.length;
     document.getElementById('kpiDiasPerdidos').innerText = totalDiasPerdidos;
     document.getElementById('kpiAbsenteismoMes').innerText = mesAtualCount;
     document.getElementById('kpiTopCid').innerText = top1Cid;
     document.getElementById('kpiTopCid').title = top1Cid;
 
-    // Gráfico de Evolução
     const dataOcorrencias = chavesMeses.map(c => c.countOcorrencias);
     const dataDias = chavesMeses.map(c => c.countDias);
 
@@ -318,7 +316,6 @@ window.renderizarDashboardAbsenteismo = function() {
         ]
     });
 
-    // Gráfico de CID/Motivos (Donut)
     const domCid = document.getElementById('chartAbsenteismoCid');
     if (window.graficoCidAbs) window.graficoCidAbs.dispose();
     window.graficoCidAbs = echarts.init(domCid);
@@ -344,6 +341,30 @@ function formatarData(dataIso) {
 }
 
 // ==============================================================
+// ALTERAÇÃO DE STATUS RH
+// ==============================================================
+window.alterarStatusRH = async function(id, novoStatus) {
+    try {
+        await window.supabaseClient.from('rh_absenteismo').update({ status_rh: novoStatus }).eq('id', id);
+        
+        const idx = window.listaAbsenteismo.findIndex(x => x.id === id);
+        if(idx > -1) window.listaAbsenteismo[idx].status_rh = novoStatus;
+        
+        const idxRel = window.listaRelatorioFiltrada.findIndex(x => x.id === id);
+        if(idxRel > -1) window.listaRelatorioFiltrada[idxRel].status_rh = novoStatus;
+        
+        window.renderizarTabelaAbsenteismo();
+        
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('RH', 'Absenteísmo', `Status da falta/ausência alterado para ${novoStatus}`, 'Info');
+        }
+    } catch(e) {
+        console.error(e);
+        alert('Erro ao atualizar o status da ausência.');
+    }
+};
+
+// ==============================================================
 // RENDERIZAÇÃO DA TABELA PRINCIPAL
 // ==============================================================
 window.renderizarTabelaAbsenteismo = function() {
@@ -353,13 +374,12 @@ window.renderizarTabelaAbsenteismo = function() {
 
     let htmlHead = '';
     
-    // Configura o cabeçalho de acordo com a aba
     if(window.abaAtualAbsenteismo === 'todos' || window.abaAtualAbsenteismo === 'relatorio') {
         htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Tipo</th><th>Detalhes / Médico / CID</th><th>Período / Horas</th><th>Anexo</th><th>Ações</th>`;
     } else if(window.abaAtualAbsenteismo === 'ATESTADO') {
         htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Período / Data Retorno</th><th>Médico e CID</th><th>Motivo</th><th>Anexo</th><th>Ações</th>`;
     } else if(window.abaAtualAbsenteismo === 'FALTA') {
-        htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Data da Falta</th><th>Horas Descontadas</th><th>Classificação</th><th>Ações</th>`;
+        htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Data da Falta</th><th>Classificação</th><th>Status RH</th><th>Ações</th>`;
     } else if(window.abaAtualAbsenteismo === 'BANCO_HORAS') {
         htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Data Referência</th><th>Horas Lançadas</th><th>Motivo Lançamento</th><th>Ações</th>`;
     }
@@ -392,20 +412,26 @@ window.renderizarTabelaAbsenteismo = function() {
         const btnAnexo = item.anexo_url ? `<a href="${item.anexo_url}" target="_blank" class="btn-primary-blue" style="padding:4px 8px; font-size:0.75rem; text-decoration:none; border-radius:4px;"><i class="fas fa-paperclip"></i> Ver</a>` : '<span style="color:#64748b; font-size:0.8rem;">-</span>';
 
         let tr = document.createElement('tr');
-
         if(window.abaAtualAbsenteismo === 'todos' || window.abaAtualAbsenteismo === 'relatorio') {
             let badge = '';
-            if(item.tipo_registro === 'ATESTADO') badge = '<span style="background:rgba(96,165,250,0.2); color:var(--ccol-blue-bright); padding:3px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Atestado</span>';
-            else if(item.tipo_registro === 'FALTA') badge = '<span style="background:rgba(239,68,68,0.2); color:#ef4444; padding:3px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Falta/Ausência</span>';
-            else badge = '<span style="background:rgba(61,220,132,0.2); color:var(--ccol-green-bright); padding:3px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Banco Horas</span>';
+            if(item.tipo_registro === 'ATESTADO') {
+                badge = '<span style="background:rgba(96,165,250,0.2); color:var(--ccol-blue-bright); padding:3px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Atestado</span>';
+            } else if(item.tipo_registro === 'FALTA') {
+                let statusRh = item.status_rh || 'Pendente';
+                let corStatus = statusRh === 'Tratado' ? 'var(--ccol-green-bright)' : (statusRh === 'Pendente' ? '#f59e0b' : '#3b82f6');
+                badge = `<span style="background:rgba(239,68,68,0.2); color:#ef4444; padding:3px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Falta/Ausência</span>
+                         <span style="border: 1px solid ${corStatus}; color:${corStatus}; padding:2px 6px; border-radius:12px; font-size:0.7rem; font-weight:bold; margin-left: 5px;">${statusRh}</span>`;
+            } else {
+                badge = '<span style="background:rgba(61,220,132,0.2); color:var(--ccol-green-bright); padding:3px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Banco Horas</span>';
+            }
 
             let detalhesHTML = item.tipo_registro === 'ATESTADO' 
-                ? `<strong style="color:var(--ccol-blue-bright);"><i class="fas fa-user-md"></i> ${item.medico_nome || '-'}</strong><br><strong style="color:#f59e0b;">CID: ${item.cid || 'N/A'}</strong> - ${item.motivo || ''}` 
-                : `<span>${item.motivo || '-'}</span>`;
-
+                 ? `<strong style="color:var(--ccol-blue-bright);"><i class="fas fa-user-md"></i> ${item.medico_nome || '-'}</strong><br><strong style="color:#f59e0b;">CID: ${item.cid || 'N/A'}</strong> - ${item.motivo || ''}`
+                 : `<span>${item.motivo || '-'}</span>`;
+            
             let periodoHTML = item.tipo_registro === 'ATESTADO'
                 ? `${formatarData(item.data_inicio)} <i class="fas fa-arrow-right" style="font-size:0.7rem;"></i> <strong>${item.dias_afastamento || 1} dias</strong>`
-                : `${formatarData(item.data_inicio)} (<strong style="${item.tipo_registro === 'FALTA' ? 'color:#ef4444;' : 'color:var(--ccol-green-bright);'}">${item.quantidade_horas ? item.quantidade_horas + 'h' : 'Integral'}</strong>)`;
+                : (item.tipo_registro === 'FALTA' ? `${formatarData(item.data_inicio)}` : `${formatarData(item.data_inicio)} (<strong style="color:var(--ccol-green-bright);">${item.quantidade_horas}h</strong>)`);
 
             tr.innerHTML = `
                 <td style="font-size: 0.8rem; color: #94a3b8;">${dataLancamento}</td>
@@ -427,12 +453,20 @@ window.renderizarTabelaAbsenteismo = function() {
                 <td>${btnExcluir}</td>
             `;
         } else if (window.abaAtualAbsenteismo === 'FALTA') {
+            let statusRh = item.status_rh || 'Pendente';
+            let corStatus = statusRh === 'Tratado' ? 'var(--ccol-green-bright)' : (statusRh === 'Pendente' ? '#f59e0b' : '#3b82f6');
+            let selectStatus = `<select class="dark-select" onchange="window.alterarStatusRH('${item.id}', this.value)" style="background: rgba(0,0,0,0.3); color: ${corStatus}; border: 1px solid ${corStatus}; padding: 4px; border-radius: 4px; font-weight: bold; outline: none;">
+                <option value="Pendente" style="background-color: #1e293b; color: #ffffff;" ${statusRh === 'Pendente' ? 'selected' : ''}>Pendente</option>
+                <option value="Aprovado" style="background-color: #1e293b; color: #ffffff;" ${statusRh === 'Aprovado' ? 'selected' : ''}>Aprovado</option>
+                <option value="Tratado" style="background-color: #1e293b; color: #ffffff;" ${statusRh === 'Tratado' ? 'selected' : ''}>Tratado</option>
+            </select>`;
+
             tr.innerHTML = `
                 <td style="font-size: 0.8rem; color: #94a3b8;">${dataLancamento}</td>
                 <td style="text-align:left;"><b>${mat} ${nomeColaborador}</b></td>
                 <td>${formatarData(item.data_inicio)}</td>
-                <td><span style="color:#ef4444; font-weight:bold;">${item.quantidade_horas > 0 ? item.quantidade_horas+'h' : 'Dia Integral'}</span></td>
                 <td>${item.motivo || '-'}</td>
+                <td>${selectStatus}</td>
                 <td>${btnExcluir}</td>
             `;
         } else if (window.abaAtualAbsenteismo === 'BANCO_HORAS') {
@@ -445,6 +479,7 @@ window.renderizarTabelaAbsenteismo = function() {
                 <td>${btnExcluir}</td>
             `;
         }
+
         tbody.appendChild(tr);
     });
 };
@@ -452,7 +487,6 @@ window.renderizarTabelaAbsenteismo = function() {
 window.filtrarAbsenteismo = function() {
     const termo = document.getElementById('buscaAbsenteismo').value.toLowerCase();
     
-    // Se estiver no relatório, ignora a busca global e força o usuário a usar os filtros de relatório
     if (window.abaAtualAbsenteismo === 'relatorio') {
         alert("Na aba de Relatórios, utilize os filtros de Colaborador e Datas acima da tabela.");
         return;
@@ -466,11 +500,55 @@ window.filtrarAbsenteismo = function() {
         return nome.includes(termo) || cid.includes(termo) || motivo.includes(termo) || medico.includes(termo);
     });
     
-    // Hack rápido pra reutilizar a renderização:
     const backupLista = window.listaAbsenteismo;
     window.listaAbsenteismo = filtrados;
     window.renderizarTabelaAbsenteismo();
-    window.listaAbsenteismo = backupLista; // devolve original
+    window.listaAbsenteismo = backupLista;
+};
+
+// ==============================================================
+// LÓGICA DE DATAS MÚLTIPLAS PARA FALTAS
+// ==============================================================
+window.adicionarDataFalta = function() {
+    const inputData = document.getElementById('absDataInicio');
+    const dataVal = inputData.value;
+    
+    if (!dataVal) {
+        alert('Selecione uma data no calendário antes de clicar no "+".');
+        return;
+    }
+
+    if (window.datasMultiplasFalta.includes(dataVal)) {
+        alert('Esta data já foi adicionada na lista.');
+        return;
+    }
+
+    window.datasMultiplasFalta.push(dataVal);
+    window.renderizarMultiDatas();
+    inputData.value = '';
+};
+
+window.removerDataFalta = function(dataStr) {
+    window.datasMultiplasFalta = window.datasMultiplasFalta.filter(d => d !== dataStr);
+    window.renderizarMultiDatas();
+};
+
+window.renderizarMultiDatas = function() {
+    const container = document.getElementById('containerMultiDatas');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    window.datasMultiplasFalta.sort().forEach(dataStr => {
+        const [ano, mes, dia] = dataStr.split('-');
+        const dataFormatada = `${dia}/${mes}/${ano}`;
+        
+        container.innerHTML += `
+            <div style="background: rgba(59, 130, 246, 0.2); border: 1px solid var(--ccol-blue-bright); color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-calendar-day" style="color: var(--ccol-blue-bright);"></i> ${dataFormatada}
+                <i class="fas fa-times" style="color: #ef4444; cursor: pointer;" onclick="window.removerDataFalta('${dataStr}')" title="Remover"></i>
+            </div>
+        `;
+    });
 };
 
 // ==============================================================
@@ -497,6 +575,16 @@ window.abrirModalAbsenteismo = function(tipo) {
     document.getElementById('absObservacoes').value = '';
     document.getElementById('absCidDescricao').innerText = '';
 
+    window.datasMultiplasFalta = [];
+    const containerMultiDatas = document.getElementById('containerMultiDatas');
+    const btnAddMulti = document.getElementById('btnAdicionarMultiData');
+    const labelDataInicio = document.getElementById('labelDataInicio');
+    if (containerMultiDatas) {
+        containerMultiDatas.innerHTML = '';
+        containerMultiDatas.style.display = tipo === 'FALTA' ? 'flex' : 'none';
+    }
+    if (btnAddMulti) btnAddMulti.style.display = tipo === 'FALTA' ? 'block' : 'none';
+
     const gDias = document.getElementById('grupoDiasAtestado');
     const gHoras = document.getElementById('grupoHorasAusencia');
     const gRetorno = document.getElementById('grupoDataRetorno');
@@ -504,11 +592,16 @@ window.abrirModalAbsenteismo = function(tipo) {
     const gCrm = document.getElementById('grupoMedicoCrm');
     const gCid = document.getElementById('grupoCid');
     const gAnexo = document.getElementById('grupoAnexo');
+    const gClassificacao = document.getElementById('grupoClassificacao');
+    const gMotivo = document.getElementById('grupoMotivo');
     const lblMotivo = document.getElementById('labelMotivoDinamico');
     const tituloModal = document.getElementById('absModalTitulo');
+    
+    if (gClassificacao) gClassificacao.style.display = 'none';
 
     if (tipo === 'ATESTADO') {
         tituloModal.innerHTML = '<i class="fas fa-notes-medical" style="color:var(--ccol-blue-bright);"></i> Lançar Atestado';
+        labelDataInicio.innerText = 'Data de Início *';
         gDias.style.display = 'block';
         gHoras.style.display = 'none';
         gRetorno.style.display = 'block';
@@ -516,19 +609,27 @@ window.abrirModalAbsenteismo = function(tipo) {
         gCrm.style.display = 'block';
         gCid.style.display = 'block';
         gAnexo.style.display = 'block';
+        gMotivo.style.display = 'block';
         lblMotivo.innerText = 'Motivo / Resumo *';
     } else if (tipo === 'FALTA') {
         tituloModal.innerHTML = '<i class="fas fa-user-times" style="color:#ef4444;"></i> Lançar Falta / Ausência';
+        labelDataInicio.innerText = 'Selecione a(s) Data(s) da Falta *';
         gDias.style.display = 'none';
-        gHoras.style.display = 'block';
+        gHoras.style.display = 'none';
         gRetorno.style.display = 'none';
         gMedico.style.display = 'none';
         gCrm.style.display = 'none';
         gCid.style.display = 'none';
         gAnexo.style.display = 'none';
-        lblMotivo.innerText = 'Classificação da Ausência *';
+        
+        if (gClassificacao) gClassificacao.style.display = 'block';
+        document.getElementById('absClassificacaoSelect').value = 'Falta Injustificada';
+        window.verificarClassificacaoOutros();
+
+        lblMotivo.innerText = 'Descreva o Motivo *';
     } else if (tipo === 'BANCO_HORAS') {
         tituloModal.innerHTML = '<i class="fas fa-business-time" style="color:var(--ccol-green-bright);"></i> Lançar Banco de Horas';
+        labelDataInicio.innerText = 'Data de Ocorrência *';
         gDias.style.display = 'none';
         gHoras.style.display = 'block';
         gRetorno.style.display = 'none';
@@ -536,6 +637,7 @@ window.abrirModalAbsenteismo = function(tipo) {
         gCrm.style.display = 'none';
         gCid.style.display = 'none';
         gAnexo.style.display = 'none';
+        gMotivo.style.display = 'block';
         lblMotivo.innerText = 'Motivo (Crédito ou Débito) *';
     }
 
@@ -544,6 +646,20 @@ window.abrirModalAbsenteismo = function(tipo) {
 
 window.fecharModalAbsenteismo = function() {
     document.getElementById('modalAbsenteismo').classList.remove('show');
+};
+
+window.verificarClassificacaoOutros = function() {
+    const select = document.getElementById('absClassificacaoSelect');
+    const grupoMotivo = document.getElementById('grupoMotivo');
+    const inputMotivo = document.getElementById('absMotivo');
+    
+    if (select.value === 'Outros') {
+        grupoMotivo.style.display = 'block';
+        inputMotivo.value = '';
+    } else {
+        grupoMotivo.style.display = 'none';
+        inputMotivo.value = select.value;
+    }
 };
 
 window.calcularDataRetornoAbs = function() {
@@ -568,11 +684,31 @@ window.calcularDataRetornoAbs = function() {
 window.salvarAbsenteismo = async function() {
     const colaboradorId = document.getElementById('absColaborador').value;
     const tipo = document.getElementById('absTipoRegistro').value;
-    const dataInicio = document.getElementById('absDataInicio').value;
     const motivo = document.getElementById('absMotivo').value;
 
-    if (!colaboradorId || !dataInicio || !motivo) {
-        alert('Por favor, preencha o Colaborador, a Data e o Motivo/Classificação.');
+    let datasParaSalvar = [];
+    const dataInputVal = document.getElementById('absDataInicio').value;
+
+    if (tipo === 'FALTA') {
+        if (dataInputVal && !window.datasMultiplasFalta.includes(dataInputVal)) {
+            datasParaSalvar.push(dataInputVal);
+        }
+        datasParaSalvar.push(...window.datasMultiplasFalta);
+        
+        if (datasParaSalvar.length === 0) {
+            alert('Por favor, informe ao menos uma data de falta ou ausência.');
+            return;
+        }
+    } else {
+        if (!dataInputVal) {
+            alert('Por favor, informe a Data da Ocorrência.');
+            return;
+        }
+        datasParaSalvar.push(dataInputVal);
+    }
+
+    if (!colaboradorId || !motivo) {
+        alert('Por favor, preencha o Colaborador e o Motivo.');
         return;
     }
 
@@ -597,25 +733,28 @@ window.salvarAbsenteismo = async function() {
             anexoUrlFinal = publicUrlData.publicUrl;
         }
 
-        const dados = {
-            colaborador_id: colaboradorId,
-            tipo_registro: tipo,
-            data_inicio: dataInicio,
-            dias_afastamento: tipo === 'ATESTADO' ? (parseInt(document.getElementById('absDias').value) || 1) : null,
-            data_retorno: tipo === 'ATESTADO' ? document.getElementById('absDataRetorno').value : null,
-            quantidade_horas: tipo !== 'ATESTADO' ? (parseFloat(document.getElementById('absHoras').value) || 0) : 0,
-            cid: tipo === 'ATESTADO' ? document.getElementById('absCid').value.toUpperCase() : null,
-            motivo: motivo,
-            observacoes: document.getElementById('absObservacoes').value,
-            medico_nome: tipo === 'ATESTADO' ? document.getElementById('absMedicoNome').value : null,
-            medico_crm: tipo === 'ATESTADO' ? document.getElementById('absMedicoCrm').value : null,
-            anexo_url: anexoUrlFinal
-        };
+        for (const dataOcorrencia of datasParaSalvar) {
+            const dados = {
+                colaborador_id: colaboradorId,
+                tipo_registro: tipo,
+                data_inicio: dataOcorrencia,
+                dias_afastamento: tipo === 'ATESTADO' ? (parseInt(document.getElementById('absDias').value) || 1) : null,
+                data_retorno: tipo === 'ATESTADO' ? document.getElementById('absDataRetorno').value : null,
+                quantidade_horas: tipo !== 'ATESTADO' ? (parseFloat(document.getElementById('absHoras').value) || 0) : 0,
+                cid: tipo === 'ATESTADO' ? document.getElementById('absCid').value.toUpperCase() : null,
+                motivo: motivo,
+                status_rh: tipo === 'FALTA' ? 'Pendente' : null,
+                observacoes: document.getElementById('absObservacoes').value,
+                medico_nome: tipo === 'ATESTADO' ? document.getElementById('absMedicoNome').value : null,
+                medico_crm: tipo === 'ATESTADO' ? document.getElementById('absMedicoCrm').value : null,
+                anexo_url: anexoUrlFinal
+            };
 
-        await db.addAbsenteismo(dados);
+            await db.addAbsenteismo(dados);
+        }
         
         if (typeof window.registrarLogAuditoria === 'function') {
-            window.registrarLogAuditoria('RH', 'Absenteísmo', `Lançamento de ${tipo} efetuado com sucesso`, 'Alerta');
+            window.registrarLogAuditoria('RH', 'Absenteísmo', `Lançamento de ${tipo} efetuado para ${datasParaSalvar.length} dia(s)`, 'Alerta');
         }
         
         window.fecharModalAbsenteismo();
