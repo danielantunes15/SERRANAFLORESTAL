@@ -1,27 +1,128 @@
-<div class="content-panel" style="margin-bottom: 25px; border: 1px solid #3b82f6; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
-    <div class="panel-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px 20px; background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(15, 23, 42, 0) 100%);">
-        <h3 style="color: #3b82f6; margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: 0.5px;">
-            <i class="fas fa-exchange-alt"></i> Quadro de Troca de Turno (Cavalos por Horário)
-        </h3>
-    </div>
-    <div id="indicadorTrocaTurno" style="display: flex; gap: 15px; flex-wrap: wrap; padding: 20px; background: rgba(0,0,0,0.2);">
-        </div>
+<style>
+    /* Estilos para as Abas */
+    .tab-header { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+    .tab-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-size: 1rem; cursor: pointer; padding: 10px 20px; border-radius: 8px; font-weight: 600; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
+    .tab-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .tab-btn.active { background: #1e293b; color: var(--ccol-blue-bright); border-color: var(--ccol-blue-bright); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    
+    /* Estilos para a Linha do Tempo (Timeline) */
+    .timeline { border-left: 2px solid rgba(59, 130, 246, 0.5); padding-left: 20px; margin-top: 15px; margin-bottom: 15px; position: relative; }
+    .timeline-item { margin-bottom: 20px; position: relative; }
+    .timeline-item::before { content: ''; position: absolute; left: -26px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--ccol-blue-bright); border: 2px solid #0f172a; }
+    .timeline-date { font-size: 0.85rem; color: #94a3b8; font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+    .timeline-content { background: rgba(255,255,255,0.03); padding: 12px 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.9rem; color: #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .timeline-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-right: 5px; }
+</style>
+
+<div class="tab-header" style="animation: fadeIn 0.4s ease-in-out;">
+    <button class="tab-btn active" id="btnAbaAlocacao" onclick="window.alternarAbaAlocacao('atual')">
+        <i class="fas fa-users-cog"></i> Alocação Atual
+    </button>
+    <button class="tab-btn" id="btnAbaHistorico" onclick="window.alternarAbaAlocacao('historico')">
+        <i class="fas fa-history"></i> Histórico de Escala
+    </button>
 </div>
 
-<div class="content-panel">
-    <div class="panel-header"><h3>🔄 Gerenciar Alocação e Escala Manual</h3></div>
-    <div class="table-modern-wrapper">
-        <table class="data-table-modern">
-            <thead>
-                <tr>
-                    <th>Motorista</th>
-                    <th>Equipe</th>
-                    <th>Turno Padrão</th>
-                    <th>Conjunto</th>
-                    <th>Escala Manual</th>
-                </tr>
-            </thead>
-            <tbody id="alocacaoList"></tbody>
-        </table>
+<!-- ==========================================
+     ABA 1: ALOCAÇÃO ATUAL
+     ========================================== -->
+<div id="abaAlocacaoAtual" style="animation: fadeIn 0.4s ease-in-out;">
+    <div class="content-panel" style="margin-bottom: 25px; border: 1px solid #3b82f6; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
+        <div class="panel-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px 20px; background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(15, 23, 42, 0) 100%);">
+            <h3 style="color: #3b82f6; margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: 0.5px;">
+                <i class="fas fa-exchange-alt"></i> Quadro de Troca de Turno (Cavalos por Horário)
+            </h3>
+        </div>
+        <div id="indicadorTrocaTurno" style="display: flex; gap: 15px; flex-wrap: wrap; padding: 20px; background: rgba(0,0,0,0.2);">
+        </div>
+    </div>
+
+    <div class="content-panel">
+        <div class="panel-header"><h3>🔄 Gerenciar Alocação e Escala Manual</h3></div>
+        <div class="table-modern-wrapper">
+            <table class="data-table-modern">
+                <thead>
+                    <tr>
+                        <th>Motorista</th>
+                        <th>Equipe</th>
+                        <th>Turno Padrão</th>
+                        <th>Conjunto</th>
+                        <th>Escala Manual</th>
+                    </tr>
+                </thead>
+                <tbody id="alocacaoList"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+     ABA 2: HISTÓRICO DE ESCALA
+     ========================================== -->
+<div id="abaHistoricoAlocacao" style="display: none; animation: fadeIn 0.4s ease-in-out;">
+    
+    <!-- KPIs do Histórico -->
+    <div class="config-grid" style="margin-bottom: 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+        <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid var(--ccol-blue-bright);">
+            <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Total de Alterações</h4>
+            <div id="kpiTotalAlteracoes" style="font-size: 2.2rem; font-weight: 900; color: #fff;">0</div>
+        </div>
+        <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #f59e0b;">
+            <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Motoristas Afetados</h4>
+            <div id="kpiMotoristasAlterados" style="font-size: 2.2rem; font-weight: 900; color: #f59e0b;">0</div>
+        </div>
+        <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #10b981;">
+            <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Maior Frequência de Troca</h4>
+            <div id="kpiTopTrocado" style="font-size: 1.1rem; font-weight: 900; color: #10b981; margin-top: 10px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+        </div>
+    </div>
+
+    <!-- Tabela Resumo do Histórico -->
+    <div class="content-panel">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <h3><i class="fas fa-list-alt"></i> Relatório de Histórico por Colaborador</h3>
+            <input type="text" id="buscaHistoricoAlocacao" class="search-input-dark" placeholder="Buscar motorista..." onkeyup="window.filtrarTabelaHistorico()">
+        </div>
+        <div class="table-modern-wrapper">
+            <table class="data-table-modern">
+                <thead>
+                    <tr>
+                        <th>Motorista</th>
+                        <th style="text-align: center;">Qtd. de Alterações</th>
+                        <th>Última Alteração Em</th>
+                        <th>Status Atual</th>
+                        <th style="text-align: right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbHistoricoAlocacao">
+                    <tr><td colspan="5" style="text-align: center; padding: 20px;">Carregando histórico...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+     MODAL: LINHA DO TEMPO
+     ========================================== -->
+<div id="modalLinhaTempoAlocacao" class="modal-overlay" style="display:none;">
+    <div class="custom-modal form-panel-dark" style="max-width: 600px; width: 95%;">
+        <div class="modal-header">
+            <h3><i class="fas fa-stream"></i> Linha do Tempo da Escala</h3>
+            <button class="close-modal" onclick="window.fecharModalLinhaTempo()">&times;</button>
+        </div>
+        <div class="modal-body" style="max-height: 65vh; overflow-y: auto; padding-right: 10px;">
+            <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid var(--border-dim); margin-bottom: 10px;">
+                <span style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; font-weight: bold;">Colaborador</span>
+                <h4 id="ltNomeMotorista" style="color: var(--ccol-blue-bright); margin: 5px 0 0 0; font-size: 1.3rem;">-</h4>
+            </div>
+            
+            <div id="ltContainer" class="timeline">
+                <!-- Preenchido via JS -->
+            </div>
+        </div>
+        <div class="modal-footer" style="margin-top: 20px;">
+            <button class="btn-secondary-dark" onclick="window.fecharModalLinhaTempo()">Fechar Janela</button>
+        </div>
     </div>
 </div>

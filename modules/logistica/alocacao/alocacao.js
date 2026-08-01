@@ -1,5 +1,30 @@
-// ==================== MÓDULO: ALOCAÇÃO GERAL ====================
+// ==================== MÓDULO: ALOCAÇÃO GERAL E HISTÓRICO ====================
 
+window.dadosHistoricoMemoria = []; // Cache para a pesquisa da aba de histórico
+
+// ============================================================================
+// CONTROLE DE ABAS
+// ============================================================================
+window.alternarAbaAlocacao = function(aba) {
+    document.getElementById('btnAbaAlocacao').classList.remove('active');
+    document.getElementById('btnAbaHistorico').classList.remove('active');
+    document.getElementById('abaAlocacaoAtual').style.display = 'none';
+    document.getElementById('abaHistoricoAlocacao').style.display = 'none';
+
+    if (aba === 'atual') {
+        document.getElementById('btnAbaAlocacao').classList.add('active');
+        document.getElementById('abaAlocacaoAtual').style.display = 'block';
+        window.renderizarAlocacao();
+    } else {
+        document.getElementById('btnAbaHistorico').classList.add('active');
+        document.getElementById('abaHistoricoAlocacao').style.display = 'block';
+        window.renderizarHistoricoEscala();
+    }
+};
+
+// ============================================================================
+// RENDERIZAÇÃO DA ALOCAÇÃO ATUAL
+// ============================================================================
 window.renderizarIndicadorTrocaTurno = function() {
     const container = document.getElementById('indicadorTrocaTurno');
     if (!container) return;
@@ -110,7 +135,7 @@ window.renderizarIndicadorTrocaTurno = function() {
 
     finalHtml += '</div>';
     container.innerHTML = finalHtml;
-}
+};
 
 window.renderizarAlocacao = function() {
     if(typeof window.renderizarIndicadorTrocaTurno === 'function') window.renderizarIndicadorTrocaTurno();
@@ -336,7 +361,7 @@ window.renderizarAlocacao = function() {
             alert("Erro ao alterar turno em lote.");
         }
     }));
-}
+};
 
 window.updateAlocacao = async function(e) {
     const select = e.target;
@@ -352,7 +377,6 @@ window.updateAlocacao = async function(e) {
     const hojeStr = new Date().toISOString().split('T')[0];
     let historico = Array.isArray(m.historico_alocacao) ? [...m.historico_alocacao] : [];
 
-    // Cria a base inicial do passado se for a primeira alteração
     if (historico.length === 0) {
         historico.push({
             data_inicio: '2020-01-01',
@@ -363,10 +387,8 @@ window.updateAlocacao = async function(e) {
         });
     }
 
-    // Remove qualquer registro já feito hoje para não acumular sujeira no mesmo dia
     historico = historico.filter(h => h.data_inicio !== hojeStr);
 
-    // Registra a "foto" da nova alocação com data de hoje
     historico.push({
         data_inicio: hojeStr,
         equipe: novaEquipe,
@@ -533,4 +555,152 @@ window.atualizarPreviewManual = function() {
         `;
     }
     container.innerHTML = html;
+};
+
+// ============================================================================
+// LÓGICA DO HISTÓRICO DE ESCALA (NOVA ABA)
+// ============================================================================
+window.renderizarHistoricoEscala = function() {
+    let totalAlteracoes = 0;
+    let motoristasAfetados = 0;
+    
+    let historicoMap = [];
+
+    motoristas.forEach(m => {
+        if (m.historico_alocacao && Array.isArray(m.historico_alocacao)) {
+            // O primeiro registro é o base, as alterações começam a contar do segundo em diante
+            const qtdAlteracoes = Math.max(0, m.historico_alocacao.length - 1);
+            if (qtdAlteracoes > 0) {
+                motoristasAfetados++;
+                totalAlteracoes += qtdAlteracoes;
+                
+                // Pega a alteração mais recente para exibir na tabela
+                const ultimaAcao = m.historico_alocacao[m.historico_alocacao.length - 1];
+                
+                historicoMap.push({
+                    id: m.id,
+                    nome: m.nome,
+                    qtd: qtdAlteracoes,
+                    ultimaData: ultimaAcao.data_inicio,
+                    equipeAtual: m.equipe || '-',
+                    conjuntoAtual: m.conjuntoId || 'Sem Conjunto'
+                });
+            }
+        }
+    });
+
+    document.getElementById('kpiTotalAlteracoes').innerText = totalAlteracoes;
+    document.getElementById('kpiMotoristasAlterados').innerText = motoristasAfetados;
+
+    if (historicoMap.length > 0) {
+        // Encontrar quem tem mais trocas
+        const topMotorista = [...historicoMap].sort((a, b) => b.qtd - a.qtd)[0];
+        document.getElementById('kpiTopTrocado').innerHTML = `${topMotorista.nome}<br><span style="font-size:0.85rem; color:#64748b;">${topMotorista.qtd} trocas registradas</span>`;
+    } else {
+        document.getElementById('kpiTopTrocado').innerText = '-';
+    }
+
+    // Ordenar a tabela por quem mudou mais recentemente (ou mais vezes)
+    historicoMap.sort((a, b) => new Date(b.ultimaData) - new Date(a.ultimaData));
+    window.dadosHistoricoMemoria = historicoMap;
+
+    window.montarTabelaHistorico(historicoMap);
+};
+
+window.montarTabelaHistorico = function(lista) {
+    const tbody = document.getElementById('tbHistoricoAlocacao');
+    if (!tbody) return;
+
+    if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhum histórico de alteração encontrado na base.</td></tr>';
+        return;
+    }
+
+    let html = '';
+    lista.forEach(h => {
+        const dataFormatada = h.ultimaData.split('-').reverse().join('/');
+        let eqStr = h.equipeAtual !== '-' ? `Eq: ${h.equipeAtual}` : 'Sem Eq';
+        let cjStr = h.conjuntoAtual !== 'Sem Conjunto' ? `Cj: ${String(h.conjuntoAtual).padStart(2, '0')}` : 'S/ Conjunto';
+
+        html += `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="font-weight: bold; color: #f8fafc; font-size: 1rem;">${h.nome}</td>
+                <td style="text-align: center; color: #f59e0b; font-weight: 800; font-size: 1.1rem;">${h.qtd}</td>
+                <td style="color: #94a3b8;"><i class="fas fa-calendar-alt"></i> ${dataFormatada}</td>
+                <td>
+                    <span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-right: 5px;">${eqStr}</span>
+                    <span style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">${cjStr}</span>
+                </td>
+                <td style="text-align: right;">
+                    <button class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem;" onclick="window.verLinhaTempoAlocacao('${h.id}')">
+                        <i class="fas fa-stream"></i> Ver Timeline
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+};
+
+window.filtrarTabelaHistorico = function() {
+    const termo = document.getElementById('buscaHistoricoAlocacao').value.toLowerCase();
+    const filtrados = window.dadosHistoricoMemoria.filter(h => h.nome.toLowerCase().includes(termo));
+    window.montarTabelaHistorico(filtrados);
+};
+
+// ============================================================================
+// VISUALIZADOR DA LINHA DO TEMPO (MODAL)
+// ============================================================================
+window.verLinhaTempoAlocacao = function(idMotorista) {
+    const m = motoristas.find(x => String(x.id) === String(idMotorista));
+    if (!m || !m.historico_alocacao) return;
+
+    document.getElementById('ltNomeMotorista').innerText = m.nome;
+    const container = document.getElementById('ltContainer');
+    container.innerHTML = '';
+
+    // Clonar e inverter para mostrar a mais recente primeiro
+    const historicoInvertido = [...m.historico_alocacao].sort((a, b) => new Date(b.data_inicio) - new Date(a.data_inicio));
+
+    let html = '';
+    historicoInvertido.forEach((reg, index) => {
+        let isBase = (reg.data_inicio === '2020-01-01');
+        let dataExibicao = isBase ? 'Registro Inicial (Base)' : reg.data_inicio.split('-').reverse().join('/');
+        let iconeTime = isBase ? '<i class="fas fa-flag-checkered"></i>' : '<i class="fas fa-random"></i>';
+        
+        let eqStr = reg.equipe && reg.equipe !== '-' ? `Equipe ${reg.equipe}` : 'Sem Equipe';
+        let cjStr = reg.conjuntoId ? `Conjunto ${String(reg.conjuntoId).padStart(2, '0')}` : 'Sem Conjunto';
+        
+        // Formata o turno para humano
+        let turnoFormatado = reg.turno || '-';
+        if (turnoFormatado !== '-') {
+            let cl = window.getCiclos().find(c => c.dbValue === turnoFormatado);
+            if (cl) {
+                turnoFormatado = (['A','B','C'].includes(reg.equipe)) ? cl.labelDia : cl.labelNoite;
+            }
+        }
+
+        let corAviso = isBase ? '#64748b' : 'var(--ccol-blue-bright)';
+
+        html += `
+            <div class="timeline-item">
+                <div class="timeline-date" style="color: ${corAviso};">${iconeTime} ${dataExibicao}</div>
+                <div class="timeline-content">
+                    <div style="margin-bottom: 5px;">
+                        <span class="timeline-badge" style="background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4);">${cjStr}</span>
+                        <span class="timeline-badge" style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4);">${eqStr}</span>
+                    </div>
+                    <div><strong style="color: #94a3b8; font-size: 0.8rem;">Horário do Turno:</strong> <span style="color: #fff; font-weight: bold;">${turnoFormatado}</span></div>
+                    ${reg.data_ancora ? `<div style="margin-top: 5px;"><strong style="color: #94a3b8; font-size: 0.8rem;">Âncora do Ciclo:</strong> <span style="color: #4ade80;">${reg.data_ancora.split('-').reverse().join('/')}</span></div>` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    document.getElementById('modalLinhaTempoAlocacao').style.display = 'flex';
+};
+
+window.fecharModalLinhaTempo = function() {
+    document.getElementById('modalLinhaTempoAlocacao').style.display = 'none';
 };
