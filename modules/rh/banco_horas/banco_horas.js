@@ -1,8 +1,10 @@
 window.listaBancoHorasRH = [];
 window.listaBancoHorasRHFiltrada = [];
+window.colaboradoresAtivosBH = [];
+window.chartEvolucaoBH = null;
+window.chartTopColabBH = null;
 
 window.initRHBancoHoras = async function() {
-    // Ao iniciar, define o filtro de datas para o mês atual
     const hoje = new Date();
     const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
     const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
@@ -10,7 +12,22 @@ window.initRHBancoHoras = async function() {
     document.getElementById('bhRhDataInicio').value = primeiroDia.toISOString().split('T')[0];
     document.getElementById('bhRhDataFim').value = ultimoDia.toISOString().split('T')[0];
 
+    window.addEventListener('resize', function() {
+        if (window.chartEvolucaoBH) window.chartEvolucaoBH.resize();
+        if (window.chartTopColabBH) window.chartTopColabBH.resize();
+    });
+
+    await window.carregarColaboradoresBH();
     await window.carregarBancoHorasRH();
+};
+
+window.carregarColaboradoresBH = async function() {
+    try {
+        const dados = await db.getColaboradores();
+        window.colaboradoresAtivosBH = dados.filter(c => c.status !== 'Inativo' && c.status !== 'Desligado').sort((a,b) => a.nome.localeCompare(b.nome));
+    } catch(e) {
+        console.error("Erro ao puxar colaboradores BH:", e);
+    }
 };
 
 window.carregarBancoHorasRH = async function() {
@@ -25,7 +42,10 @@ window.carregarBancoHorasRH = async function() {
 
         if (error) throw error;
         window.listaBancoHorasRH = data || [];
-        window.filtrarBancoHorasRH(); // Vai filtrar pela data e renderizar
+        
+        // Atualiza a tabela com os filtros aplicados, e recalcula os dashboards com base geral
+        window.filtrarBancoHorasRH(); 
+        window.renderizarGraficosBH();
     } catch (e) {
         console.error("Erro ao carregar banco de horas:", e);
         if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#ef4444;">Erro ao carregar dados.</td></tr>`;
@@ -55,23 +75,141 @@ window.filtrarBancoHorasRH = function() {
 
 window.atualizarKPIsBancoHorasRH = function() {
     const kpiTotal = document.getElementById('kpiTotalExtrasRH');
+    const kpiMes = document.getElementById('kpiExtrasMesRH');
+    const kpiSemana = document.getElementById('kpiExtrasSemanaRH');
     const kpiTop = document.getElementById('kpiTopColabExtraRH');
     
     if (kpiTotal) kpiTotal.innerText = window.listaBancoHorasRHFiltrada.length;
+
+    let countMes = 0;
+    let countSemana = 0;
+
+    const hoje = new Date();
+    const anoAtual = hoje.getFullYear();
+    const mesAtual = hoje.getMonth() + 1;
+    
+    // Início da semana (Domingo)
+    const inicioSemana = new Date(hoje);
+    inicioSemana.setDate(hoje.getDate() - hoje.getDay());
+    inicioSemana.setHours(0,0,0,0);
+    
+    const contagem = {};
+
+    window.listaBancoHorasRHFiltrada.forEach(item => {
+        if (!item.data_extra) return;
+        const [a, m, d] = item.data_extra.split('-');
+        
+        // Verifica se é do mês atual
+        if (parseInt(a) === anoAtual && parseInt(m) === mesAtual) {
+            countMes++;
+        }
+
+        // Verifica se é da semana atual
+        const dataItem = new Date(item.data_extra + 'T00:00:00');
+        if (dataItem >= inicioSemana && dataItem <= hoje) {
+            countSemana++;
+        }
+
+        const nome = item.rh_colaboradores ? item.rh_colaboradores.nome : 'Desconhecido';
+        contagem[nome] = (contagem[nome] || 0) + 1;
+    });
+
+    if (kpiMes) kpiMes.innerText = countMes;
+    if (kpiSemana) kpiSemana.innerText = countSemana;
 
     if (window.listaBancoHorasRHFiltrada.length === 0) {
         if (kpiTop) kpiTop.innerText = '-';
         return;
     }
 
-    const contagem = {};
-    window.listaBancoHorasRHFiltrada.forEach(item => {
-        const nome = item.rh_colaboradores ? item.rh_colaboradores.nome : 'Desconhecido';
-        contagem[nome] = (contagem[nome] || 0) + 1;
-    });
-
     const topColab = Object.keys(contagem).reduce((a, b) => contagem[a] > contagem[b] ? a : b);
     if (kpiTop) kpiTop.innerHTML = `${topColab}<br><span style="font-size:0.8rem; color:#94a3b8;">(${contagem[topColab]} extras no período)</span>`;
+};
+
+window.renderizarGraficosBH = function() {
+    if (typeof echarts === 'undefined') return;
+
+    // 1. DADOS PARA EVOLUÇÃO (6 MESES) - Analisa toda a base (sem o filtro de período)
+    const hoje = new Date();
+    const chavesMeses = [];
+    const mesesLabels = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+        const label = `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        mesesLabels.push(label);
+        chavesMeses.push({ key: key, count: 0 });
+    }
+
+    const contagemTopGlobal = {};
+
+    window.listaBancoHorasRH.forEach(item => {
+        if (item.data_extra) {
+            const [ano, mes] = item.data_extra.split('-');
+            const key = `${ano}-${mes}`;
+            const targetMes = chavesMeses.find(m => m.key === key);
+            if (targetMes) targetMes.count++;
+        }
+
+        const nome = item.rh_colaboradores ? item.rh_colaboradores.nome : 'Desconhecido';
+        contagemTopGlobal[nome] = (contagemTopGlobal[nome] || 0) + 1;
+    });
+
+    const dataBarrasEvolucao = chavesMeses.map(c => c.count);
+
+    const domEvolucao = document.getElementById('chartBHEvolucao');
+    if (domEvolucao) {
+        if (window.chartEvolucaoBH) window.chartEvolucaoBH.dispose();
+        window.chartEvolucaoBH = echarts.init(domEvolucao);
+
+        window.chartEvolucaoBH.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+            xAxis: { type: 'category', data: mesesLabels, axisLabel: { color: '#9ca3af' }, axisLine: { lineStyle: { color: '#374151' } } },
+            yAxis: { type: 'value', axisLabel: { color: '#9ca3af' }, splitLine: { lineStyle: { color: '#374151', type: 'dashed' } } },
+            series: [{
+                name: 'Convocações Extras',
+                type: 'bar',
+                barWidth: '40%',
+                data: dataBarrasEvolucao,
+                itemStyle: { 
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: '#60a5fa' },
+                        { offset: 1, color: '#2563eb' }
+                    ]),
+                    borderRadius: [4, 4, 0, 0] 
+                },
+                label: { show: true, position: 'top', color: '#fff', fontWeight: 'bold' }
+            }]
+        });
+    }
+
+    // 2. DADOS PARA TOP 5 (Geral)
+    const arrTop = Object.keys(contagemTopGlobal).map(k => ({ name: k, value: contagemTopGlobal[k] }));
+    arrTop.sort((a,b) => b.value - a.value);
+    const top5 = arrTop.slice(0, 5);
+
+    const domTop = document.getElementById('chartBHTopColab');
+    if (domTop) {
+        if (window.chartTopColabBH) window.chartTopColabBH.dispose();
+        window.chartTopColabBH = echarts.init(domTop);
+
+        window.chartTopColabBH.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}: {c} extra(s) ({d}%)' },
+            legend: { top: 'bottom', textStyle: { color: '#9ca3af' } },
+            color: ['#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444'],
+            series: [{
+                type: 'pie',
+                radius: ['45%', '75%'],
+                avoidLabelOverlap: false,
+                itemStyle: { borderRadius: 8, borderColor: '#1f2937', borderWidth: 3 },
+                label: { show: false, position: 'center' },
+                emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' } },
+                data: top5.length > 0 ? top5 : [{ name: 'Sem dados', value: 0 }]
+            }]
+        });
+    }
 };
 
 window.renderizarTabelaBancoHorasRH = function() {
@@ -109,6 +247,71 @@ window.renderizarTabelaBancoHorasRH = function() {
         `;
     });
     tbody.innerHTML = html;
+};
+
+// ============================================================================
+// MODAL DE LANÇAMENTO AVULSO PELO RH
+// ============================================================================
+window.abrirModalLancamentoExtraRH = function() {
+    const select = document.getElementById('modalExtraColaborador');
+    select.innerHTML = '<option value="">Selecione o Colaborador...</option>';
+    window.colaboradoresAtivosBH.forEach(c => {
+        const mat = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
+        select.innerHTML += `<option value="${c.id}">[${mat}] ${c.nome}</option>`;
+    });
+
+    document.getElementById('modalExtraData').value = '';
+    document.getElementById('modalExtraAtividade').value = '';
+    document.getElementById('modalExtraTurno').value = '';
+
+    document.getElementById('modalLancarExtraRH').classList.add('show');
+    document.getElementById('modalLancarExtraRH').style.display = 'flex';
+};
+
+window.fecharModalLancamentoExtraRH = function() {
+    document.getElementById('modalLancarExtraRH').classList.remove('show');
+    document.getElementById('modalLancarExtraRH').style.display = 'none';
+};
+
+window.salvarLancamentoExtraRH = async function() {
+    const motId = document.getElementById('modalExtraColaborador').value;
+    const dataExtra = document.getElementById('modalExtraData').value;
+    const atividade = document.getElementById('modalExtraAtividade').value;
+    const turno = document.getElementById('modalExtraTurno').value;
+
+    if (!motId || !dataExtra || !atividade || !turno) {
+        alert("Por favor, preencha todos os campos obrigatórios.");
+        return;
+    }
+
+    const btn = document.getElementById('btnSalvarExtraRH');
+    const oriTxt = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+    btn.disabled = true;
+
+    try {
+        await window.supabaseClient.from('rh_banco_horas').insert([{
+            motorista_id: motId,
+            data_extra: dataExtra,
+            caminhao_placa: atividade,
+            turno: turno
+        }]);
+
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('RH', 'Banco de Horas', `Lançamento avulso de extra em ${dataExtra.split('-').reverse().join('/')}`, 'Info');
+        }
+
+        alert("Registro de horas adicionado com sucesso!");
+        window.fecharModalLancamentoExtraRH();
+        await window.carregarBancoHorasRH(); // Atualiza a tela
+
+    } catch (e) {
+        console.error("Erro ao inserir extra RH:", e);
+        alert("Falha de conexão. Tente novamente.");
+    } finally {
+        btn.innerHTML = oriTxt;
+        btn.disabled = false;
+    }
 };
 
 window.excluirBancoHorasRHTela = async function(id, dataExtra, colabNome) {
@@ -151,7 +354,7 @@ window.exportarBancoHorasPdf = function() {
 
     doc.autoTable({
         startY: 35,
-        head: [['Matrícula', 'Colaborador', 'Data da Extra', 'Veículo Assumido', 'Turno Realizado']],
+        head: [['Matrícula', 'Colaborador', 'Data da Extra', 'Veículo / Atividade', 'Turno Realizado']],
         body: bodyData,
         theme: 'grid',
         headStyles: { fillColor: [16, 185, 129] },
@@ -168,7 +371,7 @@ window.exportarBancoHorasExcel = function() {
     }
 
     let csvContent = "\uFEFF"; 
-    csvContent += "Matrícula;Colaborador;Data da Extra;Veículo Assumido;Turno Realizado;Lançado Em\n";
+    csvContent += "Matrícula;Colaborador;Data da Extra;Veículo / Atividade;Turno Realizado;Lançado Em\n";
 
     window.listaBancoHorasRHFiltrada.forEach(item => {
         const mat = item.rh_colaboradores && item.rh_colaboradores.cod_funcionario ? String(item.rh_colaboradores.cod_funcionario).padStart(4, '0') : '-';
