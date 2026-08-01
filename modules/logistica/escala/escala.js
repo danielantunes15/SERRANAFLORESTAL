@@ -1,10 +1,45 @@
-// ==================== MÓDULO: ESCALA SEMANAL (NÚCLEO) ====================
+// ==================== MÓDULO: ESCALA SEMANAL (NÚCLEO E INTEGRAÇÃO RH) ====================
 
-// Funções globais utilitárias para que o módulo de Alocação também possa usá-las
 window.getEq = function(m) { return m && m.equipe ? m.equipe.trim().toUpperCase() : '-'; };
 window.pesoEquipe = function(eq) { return {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6}[eq] || 99; };
 
 window.SISTEMA_CICLOS = [];
+window.ausenciasGlobais = []; // Cache inteligente das ausências do RH
+
+// Busca global de ausências para refletir Faltas/Atestados na Escala Logística
+window.carregarAusenciasGlobais = async function() {
+    try {
+        const { data } = await window.supabaseClient.from('rh_absenteismo')
+            .select('colaborador_id, tipo_registro, data_inicio, data_retorno, dias_afastamento');
+        window.ausenciasGlobais = data || [];
+    } catch(e) {
+        window.ausenciasGlobais = [];
+    }
+};
+
+window.getAusenciaNoDia = function(colabId, dateStr) {
+    if (!window.ausenciasGlobais || window.ausenciasGlobais.length === 0) return null;
+    const targetDate = new Date(dateStr + 'T00:00:00');
+    
+    for (let aus of window.ausenciasGlobais) {
+        if (String(aus.colaborador_id) === String(colabId)) {
+            if (aus.tipo_registro === 'ATESTADO') {
+                const start = new Date(aus.data_inicio + 'T00:00:00');
+                let end = new Date(start);
+                if (aus.data_retorno) {
+                    end = new Date(aus.data_retorno + 'T00:00:00');
+                    end.setDate(end.getDate() - 1); 
+                } else if (aus.dias_afastamento) {
+                    end.setDate(end.getDate() + aus.dias_afastamento - 1);
+                }
+                if (targetDate >= start && targetDate <= end) return 'ATESTADO';
+            } else if (aus.tipo_registro === 'FALTA') {
+                if (dateStr === aus.data_inicio) return 'FALTA';
+            }
+        }
+    }
+    return null;
+};
 
 window.getCiclos = function() {
     if (window.SISTEMA_CICLOS.length > 0) return window.SISTEMA_CICLOS;
@@ -130,10 +165,11 @@ window.getEscalaDiaComputada = function(motorista, dateKey) {
     return window.calcularEscalaMatematica(motorista, dateKey);
 }
 
-window.renderizarEscala = function() {
+window.renderizarEscala = async function() {
     const container = document.getElementById('escalaContainer');
     const filtroSelectEl = document.getElementById('filtroConjuntoEscala');
     
+    await window.carregarAusenciasGlobais();
     window.popularSelectMotoristas();
 
     if (filtroSelectEl) {
@@ -282,37 +318,49 @@ window.renderizarEscala = function() {
                 rowsHtml += `<td class="td-name" style="padding: 8px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; ${isBlocked ? 'color: #f87171;' : 'color: #fff;'} font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.nome}${flagStatusRH}</td>`;
                 
                 diasRender.forEach(d => {
-                    const escala = window.getEscalaDiaComputada(m, d.dateKey);
-                    const isFolga = escala.caminhao === 'F';
-                    const isManual = escala.status === 'manual';
+                    const ausencia = window.getAusenciaNoDia(m.id, d.dateKey);
+                    let bgCell, colorCell, borderSide, opcoes, selectDisabled;
                     
-                    let bgCell = isFolga ? 'rgba(249, 115, 22, 0.15)' : 'rgba(59, 130, 246, 0.15)';
-                    let colorCell = isFolga ? '#fb923c' : '#93c5fd';
-                    let borderSide = isFolga ? '1px solid rgba(249, 115, 22, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)';
-                    
-                    if (isManual) {
-                        bgCell = 'rgba(168, 85, 247, 0.15)';
-                        borderSide = '1px solid rgba(168, 85, 247, 0.5)';
-                    }
-                    
-                    let opcoes = `<option value="F" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fff;">F</option>`;
-                    
-                    opcoes += `<option value="T" ${escala.caminhao === 'T' || escala.caminhao === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #fff;">T</option>`;
-                    
-                    if (!conj.isSemFrota) {
-                        conj.caminhoes?.forEach(cam => {
-                            const placa = typeof cam === 'string' ? cam : cam.placa;
-                            opcoes += `<option value="${placa}" ${escala.caminhao === placa ? 'selected' : ''} style="background: #1e293b; color: #fff;">${placa}</option>`;
-                        });
-                    }
-                    
-                    if (isManual) {
-                        opcoes += `<option value="AUTO" style="background: #0f172a; color: #fbbf24; font-weight: bold;"> Voltar para Auto</option>`;
+                    if (ausencia) {
+                        bgCell = ausencia === 'FALTA' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)';
+                        colorCell = ausencia === 'FALTA' ? '#ef4444' : '#f59e0b';
+                        borderSide = `1px solid rgba(${ausencia === 'FALTA' ? '239, 68, 68' : '245, 158, 11'}, 0.3)`;
+                        selectDisabled = true;
+                        
+                        opcoes = `<option value="${ausencia}" selected style="background: #1e293b; color: ${colorCell};">${ausencia}</option>`;
+                    } else {
+                        const escala = window.getEscalaDiaComputada(m, d.dateKey);
+                        const isFolga = escala.caminhao === 'F';
+                        const isManual = escala.status === 'manual';
+                        
+                        bgCell = isFolga ? 'rgba(249, 115, 22, 0.15)' : 'rgba(59, 130, 246, 0.15)';
+                        colorCell = isFolga ? '#fb923c' : '#93c5fd';
+                        borderSide = isFolga ? '1px solid rgba(249, 115, 22, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)';
+                        
+                        if (isManual) {
+                            bgCell = 'rgba(168, 85, 247, 0.15)';
+                            borderSide = '1px solid rgba(168, 85, 247, 0.5)';
+                        }
+                        
+                        opcoes = `<option value="F" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fff;">F</option>`;
+                        opcoes += `<option value="T" ${escala.caminhao === 'T' || escala.caminhao === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #fff;">T</option>`;
+                        
+                        if (!conj.isSemFrota) {
+                            conj.caminhoes?.forEach(cam => {
+                                const placa = typeof cam === 'string' ? cam : cam.placa;
+                                opcoes += `<option value="${placa}" ${escala.caminhao === placa ? 'selected' : ''} style="background: #1e293b; color: #fff;">${placa}</option>`;
+                            });
+                        }
+                        
+                        if (isManual) {
+                            opcoes += `<option value="AUTO" style="background: #0f172a; color: #fbbf24; font-weight: bold;"> Voltar para Auto</option>`;
+                        }
+                        selectDisabled = isBlocked;
                     }
 
                     rowsHtml += `<td style="padding: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: ${borderSide}; border-right: ${borderSide}; background-color: ${bgCell}; text-align: center; vertical-align: middle;">
-                        <select class="select-escala-excel" data-motorista="${m.id}" data-data="${d.dateKey}" ${isBlocked ? 'disabled' : ''} style="width: 100%; padding: 6px 0; background: transparent; border: none; color: ${colorCell}; font-weight: 800; font-size: 0.9rem; text-align: center; appearance: none; cursor: pointer; outline: none; text-align-last: center;">
-                            ${isBlocked ? '<option value="F">Bloq</option>' : opcoes}
+                        <select class="select-escala-excel" data-motorista="${m.id}" data-data="${d.dateKey}" ${selectDisabled ? 'disabled' : ''} style="width: 100%; padding: 6px 0; background: transparent; border: none; color: ${colorCell}; font-weight: 800; font-size: 0.9rem; text-align: center; appearance: none; cursor: pointer; outline: none; text-align-last: center;">
+                            ${isBlocked && !ausencia ? '<option value="F">Bloq</option>' : opcoes}
                         </select>
                     </td>`;
                 });
@@ -499,10 +547,21 @@ window.imprimirRelatorioEscalaSemanal = function() {
                 tHtml += `<tr class="${classeTr}"><td>${printTurno}</td><td>${goStr}</td><td>${eq}</td><td>${posStr}</td><td style="text-align:left;"><b>${m.nome}</b></td>`;
                 
                 window.currentDatas.forEach(d => {
-                    const esc = window.getEscalaDiaComputada(m, d.dateKey);
-                    const isF = esc.caminhao === 'F';
-                    const valorExibicao = isF ? 'F' : esc.caminhao;
-                    tHtml += `<td class="${isF ? 'folga' : 'trab'}">${valorExibicao}</td>`;
+                    const ausencia = window.getAusenciaNoDia(m.id, d.dateKey);
+                    let valorExibicao = '';
+                    let cellClass = '';
+                    
+                    if (ausencia) {
+                        valorExibicao = ausencia;
+                        cellClass = 'folga'; // Aproveitando o CSS vermelho/rosa de folga
+                    } else {
+                        const esc = window.getEscalaDiaComputada(m, d.dateKey);
+                        const isF = esc.caminhao === 'F';
+                        valorExibicao = isF ? 'F' : esc.caminhao;
+                        cellClass = isF ? 'folga' : 'trab';
+                    }
+                    
+                    tHtml += `<td class="${cellClass}">${valorExibicao}</td>`;
                 });
                 tHtml += `</tr>`;
             });
@@ -522,13 +581,15 @@ window.imprimirRelatorioEscalaSemanal = function() {
     w.document.close();
 }
 
-window.exportarEscalaMensalExcel = function() {
+window.exportarEscalaMensalExcel = async function() {
     const inputData = document.getElementById('dataInicioEscala');
     let dataBase = inputData && inputData.value ? new Date(inputData.value + 'T00:00:00') : new Date();
     
     const ano = dataBase.getFullYear();
     const mes = dataBase.getMonth(); 
     const diasNoMes = new Date(ano, mes + 1, 0).getDate(); 
+    
+    await window.carregarAusenciasGlobais();
 
     let csvContent = "\uFEFFHorário;FROTA/Placa;EQUIPE;Posição;Colaborador";
     for (let dia = 1; dia <= diasNoMes; dia++) csvContent += `;${dia.toString().padStart(2, '0')}/${(mes + 1).toString().padStart(2, '0')}`;
@@ -556,8 +617,16 @@ window.exportarEscalaMensalExcel = function() {
         let linha = `${excelTurno};-;${eq !== '-' ? eq : '-'};${posStr};${m.nome}`;
         for (let dia = 1; dia <= diasNoMes; dia++) {
             const dataAtualStr = `${ano}-${(mes + 1).toString().padStart(2, '0')}-${dia.toString().padStart(2, '0')}`;
-            const escalaDia = window.getEscalaDiaComputada(m, dataAtualStr);
-            const valorExibicao = escalaDia.caminhao === 'F' ? 'F' : escalaDia.caminhao;
+            const ausencia = window.getAusenciaNoDia(m.id, dataAtualStr);
+            let valorExibicao = '';
+            
+            if (ausencia) {
+                valorExibicao = ausencia;
+            } else {
+                const escalaDia = window.getEscalaDiaComputada(m, dataAtualStr);
+                valorExibicao = escalaDia.caminhao === 'F' ? 'F' : escalaDia.caminhao;
+            }
+            
             linha += `;${valorExibicao}`;
         }
         csvContent += linha + "\n";
@@ -570,11 +639,13 @@ window.exportarEscalaMensalExcel = function() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
 
-window.gerarRelatorioImpressao = function() {
+window.gerarRelatorioImpressao = async function() {
     const dataStr = document.getElementById('printData').value;
     const turnoFiltro = document.getElementById('printTurno').value;
     
     if (!dataStr) { alert('Selecione uma data para impressão.'); return; }
+    
+    await window.carregarAusenciasGlobais();
 
     const partesData = dataStr.split('-');
     const dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
@@ -617,10 +688,18 @@ window.gerarRelatorioImpressao = function() {
 
     motoristasFiltrados.forEach(m => {
         const eq = window.getEq(m);
+        const ausencia = window.getAusenciaNoDia(m.id, dataStr);
         const escala = window.getEscalaDiaComputada(m, dataStr);
         const trinca = m.conjuntoId ? String(m.conjuntoId).padStart(2, '0') : 'S/F';
 
-        if (escala.caminhao !== 'F') {
+        if (ausencia) {
+            let relTurno = m.turno || '-';
+            if (m.turno && m.turno !== '-') {
+                let cMatch = window.getCiclos().find(c => c.dbValue === m.turno);
+                if (cMatch) relTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
+            }
+            trabs.push({ nome: m.nome, trinca: trinca, eq: eq, turno: relTurno, caminhao: ausencia });
+        } else if (escala.caminhao !== 'F') {
             let relTurno = m.turno || '-';
             if (m.turno && m.turno !== '-') {
                 let cMatch = window.getCiclos().find(c => c.dbValue === m.turno);
@@ -687,7 +766,6 @@ window.gerarRelatorioImpressao = function() {
 // INTEGRAÇÃO COM RH (LANÇAMENTO DE FALTAS PELA CCOL)
 // ==============================================================
 window.abrirModalFaltaLogistica = async function() {
-    // Garante que a lista de colaboradores está carregada para o select
     if (!window.listaParaSelectColaboradores || window.listaParaSelectColaboradores.length === 0) {
         if (typeof window.carregarListaBaseColaboradores === 'function') {
             const btn = document.getElementById('btnLancarFaltaLogistica');
@@ -698,10 +776,26 @@ window.abrirModalFaltaLogistica = async function() {
         }
     }
     
-    // Abre o modal na aba "FALTA" usando a função global do absenteismo.js
     if (typeof window.abrirModalAbsenteismo === 'function') {
         window.abrirModalAbsenteismo('FALTA');
     } else {
         alert("Erro: O módulo de Absenteísmo (RH) não está carregado no sistema.");
     }
 };
+
+// ==============================================================
+// HOOK PARA ATUALIZAR A ESCALA AUTOMATICAMENTE APÓS LANÇAR AUSÊNCIA
+// ==============================================================
+if (!window._escalaHooked) {
+    const _originalSalvarAbsenteismo = window.salvarAbsenteismo;
+    window.salvarAbsenteismo = async function() {
+        if (typeof _originalSalvarAbsenteismo === 'function') {
+            await _originalSalvarAbsenteismo();
+        }
+        // Após o salvamento completo no banco, se a escala estiver visível, recarrega
+        if (typeof window.renderizarEscala === 'function' && document.getElementById('escalaContainer')) {
+            window.renderizarEscala();
+        }
+    };
+    window._escalaHooked = true;
+}
