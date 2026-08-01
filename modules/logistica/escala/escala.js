@@ -1,4 +1,4 @@
-// ==================== MÓDULO: ESCALA SEMANAL (NÚCLEO E INTEGRAÇÃO RH E HISTÓRICO) ====================
+// ==================== MÓDULO: ESCALA SEMANAL (NÚCLEO E INTEGRAÇÃO RH) ====================
 
 window.getEq = function(m) { return m && m.equipe ? m.equipe.trim().toUpperCase() : '-'; };
 window.pesoEquipe = function(eq) { return {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6}[eq] || 99; };
@@ -108,38 +108,10 @@ window.getStatusMotorista = function(m, dDate) {
     return cicloDia < 4 ? 'TRAB' : 'F';
 }
 
-// --------------------------------------------------------------------------
-// MÁQUINA DO TEMPO: CAPTURA FOTOGRAFIA DA ALOCAÇÃO PARA UMA DATA ESPECÍFICA
-// --------------------------------------------------------------------------
-window.getMotoristaSnapshotParaData = function(motorista, dateKey) {
-    if (motorista.historico_alocacao && Array.isArray(motorista.historico_alocacao)) {
-        // Ordena da mais recente alteração para a mais antiga
-        let historicoOrdenado = [...motorista.historico_alocacao].sort((a, b) => new Date(b.data_inicio) - new Date(a.data_inicio));
-        
-        for (let reg of historicoOrdenado) {
-            // Se a data que estamos olhando na tabela (dateKey) é maior ou igual à data que ele trocou de escala
-            if (dateKey >= reg.data_inicio) {
-                return { 
-                    ...motorista, 
-                    equipe: reg.equipe || '-', 
-                    turno: reg.turno || '-', 
-                    conjuntoId: reg.conjuntoId || null, 
-                    data_ancora: reg.data_ancora || motorista.data_ancora 
-                };
-            }
-        }
-    }
-    return motorista;
-};
-
-window.calcularEscalaMatematica = function(motorista_real, dateKey) {
-    // Aplica o histórico do passado para fazer o cálculo correto dessa célula
-    const motorista = window.getMotoristaSnapshotParaData(motorista_real, dateKey);
-
+window.calcularEscalaMatematica = function(motorista, dateKey) {
     if (!motorista.data_ancora || motorista.masterDrive === 'Não' || motorista.destra === 'Não' || motorista.status === 'Férias' || motorista.status === 'Afastado') {
         return { caminhao: 'F', turno: motorista.turno, status: 'fallback' };
     }
-    
     const eq = window.getEq(motorista);
     if (motorista.conjuntoId && eq === '-') {
         return { caminhao: 'F', turno: motorista.turno, status: 'fallback' };
@@ -157,25 +129,23 @@ window.calcularEscalaMatematica = function(motorista_real, dateKey) {
     let placa2 = conjunto.caminhoes.length > 1 ? (typeof conjunto.caminhoes[1] === 'string' ? conjunto.caminhoes[1] : conjunto.caminhoes[1].placa) : placa1;
 
     let statusCaminhao = 'F';
-    
     if (eq === 'A' || eq === 'D') statusCaminhao = placa1;
     else if (eq === 'B' || eq === 'E') statusCaminhao = placa2;
     else if (eq === 'C') { 
-        // Os folguistas precisam respeitar as trocas que os titulares fizeram no passado!
-        const fixoA = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(window.getMotoristaSnapshotParaData(mot, dateKey)) === 'A');
-        const fixoB = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(window.getMotoristaSnapshotParaData(mot, dateKey)) === 'B');
-        const statusA = fixoA ? window.getStatusMotorista(window.getMotoristaSnapshotParaData(fixoA, dateKey), dDate) : 'F';
-        const statusB = fixoB ? window.getStatusMotorista(window.getMotoristaSnapshotParaData(fixoB, dateKey), dDate) : 'F';
+        const fixoA = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(mot) === 'A');
+        const fixoB = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(mot) === 'B');
+        const statusA = fixoA ? window.getStatusMotorista(fixoA, dDate) : 'F';
+        const statusB = fixoB ? window.getStatusMotorista(fixoB, dDate) : 'F';
 
         if (statusA === 'F') statusCaminhao = placa1;
         else if (statusB === 'F') statusCaminhao = placa2;
         else statusCaminhao = placa1; 
     } 
     else if (eq === 'F') {
-        const fixoD = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(window.getMotoristaSnapshotParaData(mot, dateKey)) === 'D');
-        const fixoE = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(window.getMotoristaSnapshotParaData(mot, dateKey)) === 'E');
-        const statusD = fixoD ? window.getStatusMotorista(window.getMotoristaSnapshotParaData(fixoD, dateKey), dDate) : 'F';
-        const statusE = fixoE ? window.getStatusMotorista(window.getMotoristaSnapshotParaData(fixoE, dateKey), dDate) : 'F';
+        const fixoD = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(mot) === 'D');
+        const fixoE = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(mot) === 'E');
+        const statusD = fixoD ? window.getStatusMotorista(fixoD, dDate) : 'F';
+        const statusE = fixoE ? window.getStatusMotorista(fixoE, dDate) : 'F';
 
         if (statusD === 'F') statusCaminhao = placa1;
         else if (statusE === 'F') statusCaminhao = placa2;
@@ -809,6 +779,149 @@ window.abrirModalFaltaLogistica = async function() {
         window.abrirModalAbsenteismo('FALTA');
     } else {
         alert("Erro: O módulo de Absenteísmo (RH) não está carregado no sistema.");
+    }
+};
+
+// ==============================================================
+// LANÇAMENTO DE BANCO DE HORAS (EXTRAS) NA ESCALA
+// ==============================================================
+window.abrirModalBancoHoras = function() {
+    document.getElementById('bhData').value = '';
+    document.getElementById('bhMotorista').innerHTML = '<option value="">Selecione uma data primeiro...</option>';
+    document.getElementById('bhCaminhao').innerHTML = '<option value="">Selecione uma data primeiro...</option>';
+    
+    let htmlTurnos = '<option value="">Selecione o Turno...</option>';
+    window.getCiclos().forEach(c => {
+        htmlTurnos += `<option value="${c.dbValue}" style="background-color: #1e293b; color: #ffffff;">${c.labelDia} / ${c.labelNoite}</option>`;
+    });
+    document.getElementById('bhTurno').innerHTML = htmlTurnos;
+
+    document.getElementById('modalBancoHoras').classList.add('show');
+};
+
+window.fecharModalBancoHoras = function() {
+    document.getElementById('modalBancoHoras').classList.remove('show');
+};
+
+window.carregarDadosBancoHoras = function() {
+    const dataStr = document.getElementById('bhData').value;
+    const selMotorista = document.getElementById('bhMotorista');
+    const selCaminhao = document.getElementById('bhCaminhao');
+
+    if (!dataStr) {
+        selMotorista.innerHTML = '<option value="">Selecione uma data primeiro...</option>';
+        selCaminhao.innerHTML = '<option value="">Selecione uma data primeiro...</option>';
+        return;
+    }
+
+    let htmlMot = '<option value="" style="background-color: #1e293b; color: #ffffff;">Selecione o motorista de folga...</option>';
+    let htmlCam = '<option value="" style="background-color: #1e293b; color: #ffffff;">Selecione o veículo...</option>';
+
+    // 1. Motoristas de Folga
+    let motoristasFolga = [];
+    motoristas.forEach(m => {
+        const aus = window.getAusenciaNoDia(m.id, dataStr);
+        if (aus) return; 
+
+        const esc = window.getEscalaDiaComputada(m, dataStr);
+        if (esc.caminhao === 'F') {
+            motoristasFolga.push(m);
+        }
+    });
+
+    motoristasFolga.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(m => {
+        htmlMot += `<option value="${m.id}" style="background-color: #1e293b; color: #ffffff;">${m.nome} (Folga)</option>`;
+    });
+    selMotorista.innerHTML = htmlMot;
+
+    // 2. Caminhões (Destacando os sem motorista ou com motorista ausente)
+    let alocacoesHoje = {};
+    motoristas.forEach(m => {
+        const aus = window.getAusenciaNoDia(m.id, dataStr);
+        const esc = window.getEscalaDiaComputada(m, dataStr);
+        if (esc.caminhao !== 'F' && esc.caminhao !== 'T') {
+            if (!alocacoesHoje[esc.caminhao]) alocacoesHoje[esc.caminhao] = [];
+            alocacoesHoje[esc.caminhao].push({ motorista: m, ausencia: aus });
+        }
+    });
+
+    let caminhoesOptions = [];
+    conjuntos.forEach(conj => {
+        if (conj.caminhoes) {
+            conj.caminhoes.forEach(cam => {
+                const placa = typeof cam === 'string' ? cam : cam.placa;
+                let statusCam = 'Livre (Sem Motorista)';
+                let color = '#10b981'; // Verde
+
+                if (alocacoesHoje[placa]) {
+                    let todosAusentes = alocacoesHoje[placa].every(x => x.ausencia);
+                    if (todosAusentes) {
+                        statusCam = `Motorista Ausente (${alocacoesHoje[placa].map(x => x.ausencia).join(', ')})`;
+                        color = '#f59e0b'; // Laranja
+                    } else {
+                        statusCam = `Ocupado (${alocacoesHoje[placa].filter(x => !x.ausencia).map(x => x.motorista.nome.split(' ')[0]).join(', ')})`;
+                        color = '#ef4444'; // Vermelho
+                    }
+                }
+                
+                caminhoesOptions.push({ placa: placa, status: statusCam, color: color });
+            });
+        }
+    });
+
+    caminhoesOptions.sort((a,b) => a.placa.localeCompare(b.placa)).forEach(c => {
+        htmlCam += `<option value="${c.placa}" style="background-color: #1e293b; color: ${c.color}; font-weight: bold;">${c.placa} - ${c.status}</option>`;
+    });
+    selCaminhao.innerHTML = htmlCam;
+};
+
+window.salvarBancoHoras = async function() {
+    const dataStr = document.getElementById('bhData').value;
+    const motId = document.getElementById('bhMotorista').value;
+    const caminhao = document.getElementById('bhCaminhao').value;
+    const turno = document.getElementById('bhTurno').value;
+
+    if (!dataStr || !motId || !caminhao || !turno) {
+        alert('Preencha todos os campos.');
+        return;
+    }
+
+    const btn = document.getElementById('btnSalvarBH');
+    const txtOri = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+    btn.disabled = true;
+
+    try {
+        const idExcecao = String(`${motId}_${dataStr}`);
+        await window.supabaseClient.from('escalas').upsert({
+            id: idExcecao,
+            motorista_id: motId,
+            data: dataStr,
+            turno: turno,
+            caminhao: caminhao,
+            status: 'manual'
+        });
+
+        if (!escalas[motId]) escalas[motId] = {};
+        escalas[motId][dataStr] = { turno: turno, caminhao: caminhao, status: 'manual' };
+
+        await window.supabaseClient.from('rh_banco_horas').insert([{
+            motorista_id: motId,
+            data_extra: dataStr,
+            caminhao_placa: caminhao,
+            turno: turno
+        }]);
+
+        alert('Banco de horas (Extra) lançado com sucesso!');
+        window.fecharModalBancoHoras();
+        window.renderizarEscala();
+
+    } catch (e) {
+        console.error(e);
+        alert('Erro ao salvar banco de horas.');
+    } finally {
+        btn.innerHTML = txtOri;
+        btn.disabled = false;
     }
 };
 

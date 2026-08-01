@@ -29,6 +29,10 @@
             <i class="fas fa-user-times"></i> Falta / Ausência
         </button>
 
+        <button id="btnLancarBancoHoras" class="btn-primary-green" style="padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold; border-color: #10b981; display: flex; align-items: center; gap: 5px; background: rgba(16, 185, 129, 0.2); color: #10b981;" onclick="window.abrirModalBancoHoras()">
+            <i class="fas fa-business-time"></i> Banco de Horas (Extra)
+        </button>
+
         <button id="btnImprimirRelatorioHoje" class="btn-primary-blue" style="background-color: #8b5cf6; border-color: #7c3aed; padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.abrirModalImpressao()"><i class="fas fa-print"></i> Imprimir Diária</button>
         <button id="btnGerarRelatorio" class="btn-primary-blue" style="padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.imprimirRelatorioEscalaSemanal()"><i class="fas fa-print"></i> Imprimir Semanal</button>
         <button id="btnExportarExcel" class="btn-primary-green" style="background-color: #10b981; padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.exportarEscalaMensalExcel()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
@@ -44,7 +48,7 @@
     <p>O sistema gera a semana exibindo os 7 dias exatos a partir da data informada. <strong>T</strong> representa Trabalho <span style="color:#60a5fa; font-weight:bold;">(Azul)</span> e <strong>F</strong> representa Folga <span style="color:#fb923c; font-weight:bold;">(Laranja)</span>.</p>
 </div>
 
-<!-- Modal Unificado de Lançamento (Importado para Escala) -->
+<!-- Modal Unificado de Lançamento (Absenteísmo) -->
 <div id="modalAbsenteismo" class="modal-overlay">
     <div class="custom-modal" style="max-width: 700px;">
         <div class="modal-header">
@@ -133,6 +137,54 @@
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="window.fecharModalAbsenteismo()">Cancelar</button>
             <button id="btnSalvarAbsenteismo" class="btn-primary-green" onclick="window.salvarAbsenteismo()">Gravar Registro</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Banco de Horas (Extra) -->
+<div id="modalBancoHoras" class="modal-overlay">
+    <div class="custom-modal" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-business-time" style="color:var(--ccol-green-bright);"></i> Alocar Extra (Banco de Horas)</h3>
+            <button class="close-modal" onclick="window.fecharModalBancoHoras()">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px;">Selecione a data para ver os motoristas que estão de folga e os caminhões que estão sem motorista escalado.</p>
+            
+            <div class="form-grid-conjunto" style="grid-template-columns: 1fr; gap: 15px;">
+                
+                <div class="form-group-dark">
+                    <label>Data da Extra *</label>
+                    <input type="date" id="bhData" class="dark-select" onchange="window.carregarDadosBancoHoras()">
+                </div>
+                
+                <div class="form-group-dark">
+                    <label>Motorista Convocado (Em dia de Folga) *</label>
+                    <select id="bhMotorista" class="dark-select">
+                        <option value="">Selecione uma data primeiro...</option>
+                    </select>
+                </div>
+
+                <div class="form-group-dark">
+                    <label>Caminhão / Veículo a ser assumido *</label>
+                    <select id="bhCaminhao" class="dark-select">
+                        <option value="">Selecione uma data primeiro...</option>
+                    </select>
+                </div>
+
+                <div class="form-group-dark">
+                    <label>Turno Realizado *</label>
+                    <select id="bhTurno" class="dark-select">
+                        <option value="">Selecione o Turno...</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.fecharModalBancoHoras()">Cancelar</button>
+            <button id="btnSalvarBH" class="btn-primary-green" onclick="window.salvarBancoHoras()">Confirmar Extra</button>
         </div>
     </div>
 </div>
