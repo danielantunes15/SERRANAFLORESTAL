@@ -9,16 +9,20 @@ window.bancoHorasGlobais = [];
 
 window.carregarAusenciasGlobais = async function() {
     try {
-        const { data } = await window.supabaseClient.from('rh_absenteismo')
+        let queryAbs = window.supabaseClient.from('rh_absenteismo')
             .select('colaborador_id, tipo_registro, data_inicio, data_retorno, dias_afastamento');
+        if (typeof window.aplicarFiltroFilial === 'function') queryAbs = window.aplicarFiltroFilial(queryAbs);
+        const { data } = await queryAbs;
         window.ausenciasGlobais = data || [];
     } catch(e) {
         window.ausenciasGlobais = [];
     }
     
     try {
-        const { data: dataBH } = await window.supabaseClient.from('rh_banco_horas')
+        let queryBH = window.supabaseClient.from('rh_banco_horas')
             .select('motorista_id, data_extra');
+        if (typeof window.aplicarFiltroFilial === 'function') queryBH = window.aplicarFiltroFilial(queryBH);
+        const { data: dataBH } = await queryBH;
         window.bancoHorasGlobais = dataBH || [];
     } catch(e) {
         window.bancoHorasGlobais = [];
@@ -939,7 +943,11 @@ window.salvarBancoHoras = async function() {
                 html: `Operação Bloqueada! Ao alocar este motorista no dia <b>${dataStr.split('-').reverse().join('/')}</b>, ele trabalhará <b>${consecutiveDays} dias seguidos</b>.<br><br>A regra permite no máximo 5 dias de trabalho consecutivos.`,
                 confirmButtonColor: '#f59e0b',
                 background: '#1e293b',
-                color: '#fff'
+                color: '#fff',
+                didOpen: () => {
+                    const swalContainer = document.querySelector('.swal2-container');
+                    if (swalContainer) swalContainer.style.zIndex = '99999';
+                }
             });
         } else {
             alert(`BLOQUEADO: O motorista trabalhará ${consecutiveDays} dias seguidos se fizer esta extra. O limite é 5 dias.`);
@@ -966,12 +974,16 @@ window.salvarBancoHoras = async function() {
         if (!escalas[motId]) escalas[motId] = {};
         escalas[motId][dataStr] = { turno: turno, caminhao: caminhao, status: 'manual' };
 
-        await window.supabaseClient.from('rh_banco_horas').insert([{
+        let payloadBH = {
             motorista_id: motId,
             data_extra: dataStr,
             caminhao_placa: caminhao,
             turno: turno
-        }]);
+        };
+        
+        if (typeof window.injetarFilial === 'function') payloadBH = window.injetarFilial(payloadBH);
+
+        await window.supabaseClient.from('rh_banco_horas').insert([payloadBH]);
 
         if (typeof window.registrarLogAuditoria === 'function') {
             const mInfo = motoristas.find(x => String(x.id) === String(motId));
@@ -1003,7 +1015,11 @@ window.excluirAbsenteismo = async function(id, anexoUrl) {
                 text: 'Apenas usuários com a função RH ou Supervisor podem excluir registros de absenteísmo ou extras.',
                 confirmButtonColor: '#ef4444',
                 background: '#1e293b',
-                color: '#fff'
+                color: '#fff',
+                didOpen: () => {
+                    const swalContainer = document.querySelector('.swal2-container');
+                    if (swalContainer) swalContainer.style.zIndex = '99999';
+                }
             });
         } else {
             alert('Acesso Negado: Apenas a função RH ou Supervisor pode excluir registros.');

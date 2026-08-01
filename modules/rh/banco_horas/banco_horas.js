@@ -35,10 +35,14 @@ window.carregarBancoHorasRH = async function() {
     if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando registros da base de dados...</td></tr>`;
 
     try {
-        const { data, error } = await window.supabaseClient
+        let query = window.supabaseClient
             .from('rh_banco_horas')
             .select('id, data_extra, caminhao_placa, turno, created_at, rh_colaboradores(nome, cod_funcionario)')
             .order('data_extra', { ascending: false });
+
+        if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+
+        const { data, error } = await query;
 
         if (error) throw error;
         window.listaBancoHorasRH = data || [];
@@ -281,12 +285,15 @@ window.salvarLancamentoExtraRH = async function() {
     btn.disabled = true;
 
     try {
-        await window.supabaseClient.from('rh_banco_horas').insert([{
+        let payloadExtra = {
             motorista_id: motId,
             data_extra: dataExtra,
             caminhao_placa: atividade,
             turno: turno
-        }]);
+        };
+        if (typeof window.injetarFilial === 'function') payloadExtra = window.injetarFilial(payloadExtra);
+
+        await window.supabaseClient.from('rh_banco_horas').insert([payloadExtra]);
 
         if (typeof window.registrarLogAuditoria === 'function') {
             window.registrarLogAuditoria('RH', 'Banco de Horas', `Lançamento avulso de extra em ${dataExtra.split('-').reverse().join('/')}`, 'Info');
@@ -317,7 +324,11 @@ window.excluirBancoHorasRHTela = async function(id, dataExtra, colabNome) {
                 text: 'Apenas usuários com a função RH ou Supervisor podem excluir registros no banco de horas.',
                 confirmButtonColor: '#ef4444',
                 background: '#1e293b',
-                color: '#fff'
+                color: '#fff',
+                didOpen: () => {
+                    const swalContainer = document.querySelector('.swal2-container');
+                    if (swalContainer) swalContainer.style.zIndex = '99999';
+                }
             });
         } else {
             alert('Acesso Negado: Apenas a função RH ou Supervisor pode excluir registros.');
