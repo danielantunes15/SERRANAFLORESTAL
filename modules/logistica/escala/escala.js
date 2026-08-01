@@ -1,12 +1,11 @@
-// ==================== MÓDULO: ESCALA SEMANAL (NÚCLEO E INTEGRAÇÃO RH) ====================
+// ==================== MÓDULO: ESCALA SEMANAL (NÚCLEO E INTEGRAÇÃO RH E HISTÓRICO) ====================
 
 window.getEq = function(m) { return m && m.equipe ? m.equipe.trim().toUpperCase() : '-'; };
 window.pesoEquipe = function(eq) { return {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6}[eq] || 99; };
 
 window.SISTEMA_CICLOS = [];
-window.ausenciasGlobais = []; // Cache inteligente das ausências do RH
+window.ausenciasGlobais = [];
 
-// Busca global de ausências para refletir Faltas/Atestados na Escala Logística
 window.carregarAusenciasGlobais = async function() {
     try {
         const { data } = await window.supabaseClient.from('rh_absenteismo')
@@ -109,10 +108,38 @@ window.getStatusMotorista = function(m, dDate) {
     return cicloDia < 4 ? 'TRAB' : 'F';
 }
 
-window.calcularEscalaMatematica = function(motorista, dateKey) {
+// --------------------------------------------------------------------------
+// MÁQUINA DO TEMPO: CAPTURA FOTOGRAFIA DA ALOCAÇÃO PARA UMA DATA ESPECÍFICA
+// --------------------------------------------------------------------------
+window.getMotoristaSnapshotParaData = function(motorista, dateKey) {
+    if (motorista.historico_alocacao && Array.isArray(motorista.historico_alocacao)) {
+        // Ordena da mais recente alteração para a mais antiga
+        let historicoOrdenado = [...motorista.historico_alocacao].sort((a, b) => new Date(b.data_inicio) - new Date(a.data_inicio));
+        
+        for (let reg of historicoOrdenado) {
+            // Se a data que estamos olhando na tabela (dateKey) é maior ou igual à data que ele trocou de escala
+            if (dateKey >= reg.data_inicio) {
+                return { 
+                    ...motorista, 
+                    equipe: reg.equipe || '-', 
+                    turno: reg.turno || '-', 
+                    conjuntoId: reg.conjuntoId || null, 
+                    data_ancora: reg.data_ancora || motorista.data_ancora 
+                };
+            }
+        }
+    }
+    return motorista;
+};
+
+window.calcularEscalaMatematica = function(motorista_real, dateKey) {
+    // Aplica o histórico do passado para fazer o cálculo correto dessa célula
+    const motorista = window.getMotoristaSnapshotParaData(motorista_real, dateKey);
+
     if (!motorista.data_ancora || motorista.masterDrive === 'Não' || motorista.destra === 'Não' || motorista.status === 'Férias' || motorista.status === 'Afastado') {
         return { caminhao: 'F', turno: motorista.turno, status: 'fallback' };
     }
+    
     const eq = window.getEq(motorista);
     if (motorista.conjuntoId && eq === '-') {
         return { caminhao: 'F', turno: motorista.turno, status: 'fallback' };
@@ -130,23 +157,25 @@ window.calcularEscalaMatematica = function(motorista, dateKey) {
     let placa2 = conjunto.caminhoes.length > 1 ? (typeof conjunto.caminhoes[1] === 'string' ? conjunto.caminhoes[1] : conjunto.caminhoes[1].placa) : placa1;
 
     let statusCaminhao = 'F';
+    
     if (eq === 'A' || eq === 'D') statusCaminhao = placa1;
     else if (eq === 'B' || eq === 'E') statusCaminhao = placa2;
     else if (eq === 'C') { 
-        const fixoA = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(mot) === 'A');
-        const fixoB = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(mot) === 'B');
-        const statusA = fixoA ? window.getStatusMotorista(fixoA, dDate) : 'F';
-        const statusB = fixoB ? window.getStatusMotorista(fixoB, dDate) : 'F';
+        // Os folguistas precisam respeitar as trocas que os titulares fizeram no passado!
+        const fixoA = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(window.getMotoristaSnapshotParaData(mot, dateKey)) === 'A');
+        const fixoB = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(window.getMotoristaSnapshotParaData(mot, dateKey)) === 'B');
+        const statusA = fixoA ? window.getStatusMotorista(window.getMotoristaSnapshotParaData(fixoA, dateKey), dDate) : 'F';
+        const statusB = fixoB ? window.getStatusMotorista(window.getMotoristaSnapshotParaData(fixoB, dateKey), dDate) : 'F';
 
         if (statusA === 'F') statusCaminhao = placa1;
         else if (statusB === 'F') statusCaminhao = placa2;
         else statusCaminhao = placa1; 
     } 
     else if (eq === 'F') {
-        const fixoD = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(mot) === 'D');
-        const fixoE = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(mot) === 'E');
-        const statusD = fixoD ? window.getStatusMotorista(fixoD, dDate) : 'F';
-        const statusE = fixoE ? window.getStatusMotorista(fixoE, dDate) : 'F';
+        const fixoD = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(window.getMotoristaSnapshotParaData(mot, dateKey)) === 'D');
+        const fixoE = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(window.getMotoristaSnapshotParaData(mot, dateKey)) === 'E');
+        const statusD = fixoD ? window.getStatusMotorista(window.getMotoristaSnapshotParaData(fixoD, dateKey), dDate) : 'F';
+        const statusE = fixoE ? window.getStatusMotorista(window.getMotoristaSnapshotParaData(fixoE, dateKey), dDate) : 'F';
 
         if (statusD === 'F') statusCaminhao = placa1;
         else if (statusE === 'F') statusCaminhao = placa2;
@@ -792,7 +821,6 @@ if (!window._escalaHooked) {
         if (typeof _originalSalvarAbsenteismo === 'function') {
             await _originalSalvarAbsenteismo();
         }
-        // Após o salvamento completo no banco, se a escala estiver visível, recarrega
         if (typeof window.renderizarEscala === 'function' && document.getElementById('escalaContainer')) {
             window.renderizarEscala();
         }
