@@ -320,6 +320,7 @@ window.renderizarAlocacao = function() {
         try {
             e.target.disabled = true;
             const hojeStr = new Date().toISOString().split('T')[0];
+            const timestampAtual = new Date().toISOString();
             const motsToUpdate = motoristas.filter(m => String(m.conjuntoId) === String(conjuntoId));
             
             for (let m of motsToUpdate) {
@@ -328,6 +329,7 @@ window.renderizarAlocacao = function() {
                 if (historico.length === 0) {
                     historico.push({
                         data_inicio: '2020-01-01',
+                        timestamp: '2020-01-01T00:00:00.000Z',
                         equipe: m.equipe || '-',
                         turno: m.turno || '-',
                         conjuntoId: m.conjuntoId || null,
@@ -335,22 +337,23 @@ window.renderizarAlocacao = function() {
                     });
                 }
                 
-                historico = historico.filter(h => h.data_inicio !== hojeStr);
+                // Adiciona o novo evento de mudança sem apagar os anteriores (preserva o histórico completo)
                 historico.push({
                     data_inicio: hojeStr,
+                    timestamp: timestampAtual,
                     equipe: m.equipe,
                     turno: novoTurnoDbValue,
                     conjuntoId: m.conjuntoId,
-                    data_ancora: hojeStr // Âncora atualiza para o dia da mudança
+                    data_ancora: hojeStr 
                 });
                 
                 m.turno = novoTurnoDbValue;
-                m.data_ancora = hojeStr; // Atualiza em memória
+                m.data_ancora = hojeStr;
                 m.historico_alocacao = historico;
 
                 await window.supabaseClient.from('rh_colaboradores').update({
                     turno: novoTurnoDbValue,
-                    data_ancora: hojeStr, // Atualiza no banco
+                    data_ancora: hojeStr,
                     historico_alocacao: historico
                 }).eq('id', m.id);
             }
@@ -377,11 +380,13 @@ window.updateAlocacao = async function(e) {
     const novoConjuntoId = tr.querySelector('.select-aloc-conjunto').value || null;
 
     const hojeStr = new Date().toISOString().split('T')[0];
+    const timestampAtual = new Date().toISOString();
     let historico = Array.isArray(m.historico_alocacao) ? [...m.historico_alocacao] : [];
 
     if (historico.length === 0) {
         historico.push({
             data_inicio: '2020-01-01',
+            timestamp: '2020-01-01T00:00:00.000Z',
             equipe: m.equipe || '-',
             turno: m.turno || '-',
             conjuntoId: m.conjuntoId || null,
@@ -389,11 +394,10 @@ window.updateAlocacao = async function(e) {
         });
     }
 
-    historico = historico.filter(h => h.data_inicio !== hojeStr);
-
-    // Atualiza a âncora para o dia atual da alteração
+    // ADICIONA O NOVO REGISTRO SEM APAGAR O ANTERIOR (MESMO NO MESMO DIA OU VOLTANDO AO ESTADO ANTIGO)
     historico.push({
         data_inicio: hojeStr,
+        timestamp: timestampAtual,
         equipe: novaEquipe,
         turno: novoTurno,
         conjuntoId: novoConjuntoId,
@@ -403,7 +407,7 @@ window.updateAlocacao = async function(e) {
     m.equipe = novaEquipe;
     m.turno = novoTurno;
     m.conjuntoId = novoConjuntoId;
-    m.data_ancora = hojeStr; // Atualiza a âncora principal em memória
+    m.data_ancora = hojeStr;
     m.historico_alocacao = historico;
 
     select.disabled = true;
@@ -413,7 +417,7 @@ window.updateAlocacao = async function(e) {
             equipe: novaEquipe,
             turno: novoTurno,
             conjunto_id: novoConjuntoId ? parseInt(novoConjuntoId) : null,
-            data_ancora: hojeStr, // Atualiza a âncora principal no banco de dados
+            data_ancora: hojeStr,
             historico_alocacao: historico
         }).eq('id', motoristaId);
 
@@ -436,6 +440,7 @@ window.resetarCicloConjunto = async function(conjuntoId) {
 
     const mots = motoristas.filter(m => String(m.conjuntoId) === String(conjuntoId));
     const hojeStr = new Date().toISOString().split('T')[0];
+    const timestampAtual = new Date().toISOString();
 
     for (let m of mots) {
         let eq = window.getEq(m);
@@ -456,9 +461,13 @@ window.resetarCicloConjunto = async function(conjuntoId) {
         m.data_ancora = novaAncora;
         
         let historico = Array.isArray(m.historico_alocacao) ? [...m.historico_alocacao] : [];
-        historico = historico.filter(h => h.data_inicio !== hojeStr);
+        if (historico.length === 0) {
+            historico.push({ data_inicio: '2020-01-01', timestamp: '2020-01-01T00:00:00.000Z', equipe: m.equipe || '-', turno: m.turno || '-', conjuntoId: m.conjuntoId || null, data_ancora: m.data_ancora || null });
+        }
+        
         historico.push({
             data_inicio: hojeStr,
+            timestamp: timestampAtual,
             equipe: m.equipe,
             turno: m.turno,
             conjuntoId: m.conjuntoId,
@@ -488,14 +497,21 @@ window.salvarEscalaManual = async function() {
     m.data_ancora = dataAncora;
     
     const hojeStr = new Date().toISOString().split('T')[0];
+    const timestampAtual = new Date().toISOString();
     let historico = Array.isArray(m.historico_alocacao) ? [...m.historico_alocacao] : [];
     
     if (historico.length === 0) {
-        historico.push({ data_inicio: '2020-01-01', equipe: m.equipe || '-', turno: m.turno || '-', conjuntoId: m.conjuntoId || null, data_ancora: m.data_ancora || null });
+        historico.push({ data_inicio: '2020-01-01', timestamp: '2020-01-01T00:00:00.000Z', equipe: m.equipe || '-', turno: m.turno || '-', conjuntoId: m.conjuntoId || null, data_ancora: m.data_ancora || null });
     }
     
-    historico = historico.filter(h => h.data_inicio !== hojeStr);
-    historico.push({ data_inicio: hojeStr, equipe: m.equipe, turno: m.turno, conjuntoId: m.conjuntoId, data_ancora: dataAncora });
+    historico.push({
+        data_inicio: hojeStr,
+        timestamp: timestampAtual,
+        equipe: m.equipe,
+        turno: m.turno,
+        conjuntoId: m.conjuntoId,
+        data_ancora: dataAncora
+    });
     m.historico_alocacao = historico;
 
     await window.supabaseClient.from('rh_colaboradores').update({
@@ -660,7 +676,7 @@ window.verLinhaTempoAlocacao = function(idMotorista) {
     const container = document.getElementById('ltContainer');
     container.innerHTML = '';
 
-    const historicoInvertido = [...m.historico_alocacao].sort((a, b) => new Date(b.data_inicio) - new Date(a.data_inicio));
+    const historicoInvertido = [...m.historico_alocacao].sort((a, b) => new Date(b.timestamp || b.data_inicio) - new Date(a.timestamp || a.data_inicio));
 
     let html = '';
     historicoInvertido.forEach((reg, index) => {
