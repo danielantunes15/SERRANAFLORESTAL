@@ -86,7 +86,6 @@ window.carregarListaBaseColaboradores = async function() {
         window.colaboradoresAtivos = dados.filter(c => c.status !== 'Inativo' && c.status !== 'Desligado');
         window.listaParaSelectColaboradores = window.colaboradoresAtivos;
         
-        // Popula o select do relatório também
         const selRel = document.getElementById('relColaborador');
         if(selRel) {
             selRel.innerHTML = '<option value="TODOS">Todos os Colaboradores</option>';
@@ -137,9 +136,9 @@ window.mudarAbaAbsenteismo = function(aba) {
     const painelFiltro = document.getElementById('painelFiltrosRelatorio');
     if (aba === 'relatorio') {
         painelFiltro.style.display = 'flex';
-        window.gerarRelatorioAbsenteismo(); // Executa o filtro logo ao entrar
+        window.gerarRelatorioAbsenteismo(); 
     } else {
-        painelFiltro.style.display = 'none';
+        if(painelFiltro) painelFiltro.style.display = 'none';
         window.renderizarTabelaAbsenteismo();
     }
 };
@@ -178,7 +177,7 @@ window.imprimirRelatorioAbsenteismo = function() {
     }
 
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('landscape'); // Formato deitado para caber os dados
+    const doc = new jsPDF('landscape');
 
     doc.setFontSize(16);
     doc.setTextColor(41, 128, 185);
@@ -233,7 +232,7 @@ window.imprimirRelatorioAbsenteismo = function() {
 };
 
 // ==============================================================
-// DASHBOARD
+// DASHBOARD (COM PROTEÇÕES PARA CHAMADAS VIA OUTROS MÓDULOS)
 // ==============================================================
 window.renderizarDashboardAbsenteismo = function() {
     if (typeof echarts === 'undefined') return;
@@ -291,47 +290,56 @@ window.renderizarDashboardAbsenteismo = function() {
     const top1Cid = cidArray.length > 0 ? cidArray[0].name : 'Nenhum';
     const top5Cid = cidArray.slice(0, 5);
 
-    document.getElementById('kpiTotalAbsenteismo').innerText = window.listaAbsenteismo.length;
-    document.getElementById('kpiDiasPerdidos').innerText = totalDiasPerdidos;
-    document.getElementById('kpiAbsenteismoMes').innerText = mesAtualCount;
-    document.getElementById('kpiTopCid').innerText = top1Cid;
-    document.getElementById('kpiTopCid').title = top1Cid;
+    // PROTEÇÃO: Só tenta alterar os números do RH se eles existirem na tela atual
+    if (document.getElementById('kpiTotalAbsenteismo')) document.getElementById('kpiTotalAbsenteismo').innerText = window.listaAbsenteismo.length;
+    if (document.getElementById('kpiDiasPerdidos')) document.getElementById('kpiDiasPerdidos').innerText = totalDiasPerdidos;
+    if (document.getElementById('kpiAbsenteismoMes')) document.getElementById('kpiAbsenteismoMes').innerText = mesAtualCount;
+    if (document.getElementById('kpiTopCid')) {
+        document.getElementById('kpiTopCid').innerText = top1Cid;
+        document.getElementById('kpiTopCid').title = top1Cid;
+    }
 
     const dataOcorrencias = chavesMeses.map(c => c.countOcorrencias);
     const dataDias = chavesMeses.map(c => c.countDias);
 
+    // PROTEÇÃO: Só desenha o gráfico de evolução se ele estiver na tela
     const domEvolucao = document.getElementById('chartAbsenteismoEvolucao');
-    if (window.graficoEvolucaoAbs) window.graficoEvolucaoAbs.dispose();
-    window.graficoEvolucaoAbs = echarts.init(domEvolucao);
+    if (domEvolucao) {
+        if (window.graficoEvolucaoAbs) window.graficoEvolucaoAbs.dispose();
+        window.graficoEvolucaoAbs = echarts.init(domEvolucao);
 
-    window.graficoEvolucaoAbs.setOption({
-        tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-        legend: { data: ['Dias Perdidos', 'Ocorrências'], textStyle: { color: '#9ca3af' } },
-        grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
-        xAxis: { type: 'category', data: mesesLabels, axisLabel: { color: '#9ca3af' }, axisLine: { lineStyle: { color: '#374151' } } },
-        yAxis: [{ type: 'value', name: 'Dias', axisLabel: { color: '#9ca3af' }, splitLine: { lineStyle: { color: '#374151', type: 'dashed' } } }, { type: 'value', name: 'Qtd', axisLabel: { color: '#9ca3af' }, splitLine: { show: false } }],
-        series: [
-            { name: 'Dias Perdidos', type: 'bar', barWidth: '40%', data: dataDias, itemStyle: { color: '#ef4444', borderRadius: [4, 4, 0, 0] } },
-            { name: 'Ocorrências', type: 'line', yAxisIndex: 1, data: dataOcorrencias, itemStyle: { color: '#60a5fa' }, lineStyle: { width: 3 }, symbolSize: 8 }
-        ]
-    });
+        window.graficoEvolucaoAbs.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+            legend: { data: ['Dias Perdidos', 'Ocorrências'], textStyle: { color: '#9ca3af' } },
+            grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
+            xAxis: { type: 'category', data: mesesLabels, axisLabel: { color: '#9ca3af' }, axisLine: { lineStyle: { color: '#374151' } } },
+            yAxis: [{ type: 'value', name: 'Dias', axisLabel: { color: '#9ca3af' }, splitLine: { lineStyle: { color: '#374151', type: 'dashed' } } }, { type: 'value', name: 'Qtd', axisLabel: { color: '#9ca3af' }, splitLine: { show: false } }],
+            series: [
+                { name: 'Dias Perdidos', type: 'bar', barWidth: '40%', data: dataDias, itemStyle: { color: '#ef4444', borderRadius: [4, 4, 0, 0] } },
+                { name: 'Ocorrências', type: 'line', yAxisIndex: 1, data: dataOcorrencias, itemStyle: { color: '#60a5fa' }, lineStyle: { width: 3 }, symbolSize: 8 }
+            ]
+        });
+    }
 
+    // PROTEÇÃO: Só desenha o gráfico de pizza se ele estiver na tela
     const domCid = document.getElementById('chartAbsenteismoCid');
-    if (window.graficoCidAbs) window.graficoCidAbs.dispose();
-    window.graficoCidAbs = echarts.init(domCid);
+    if (domCid) {
+        if (window.graficoCidAbs) window.graficoCidAbs.dispose();
+        window.graficoCidAbs = echarts.init(domCid);
 
-    window.graficoCidAbs.setOption({
-        tooltip: { trigger: 'item', formatter: '{b}: {c} ocorrência(s) ({d}%)' },
-        legend: { top: 'bottom', textStyle: { color: '#9ca3af' } },
-        color: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'],
-        series: [{
-            type: 'pie', radius: ['45%', '75%'], avoidLabelOverlap: false,
-            itemStyle: { borderRadius: 8, borderColor: '#1f2937', borderWidth: 3 },
-            label: { show: false, position: 'center' },
-            emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' } },
-            data: top5Cid.length > 0 ? top5Cid : [{ name: 'Sem dados', value: 0 }]
-        }]
-    });
+        window.graficoCidAbs.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}: {c} ocorrência(s) ({d}%)' },
+            legend: { top: 'bottom', textStyle: { color: '#9ca3af' } },
+            color: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'],
+            series: [{
+                type: 'pie', radius: ['45%', '75%'], avoidLabelOverlap: false,
+                itemStyle: { borderRadius: 8, borderColor: '#1f2937', borderWidth: 3 },
+                label: { show: false, position: 'center' },
+                emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' } },
+                data: top5Cid.length > 0 ? top5Cid : [{ name: 'Sem dados', value: 0 }]
+            }]
+        });
+    }
 };
 
 function formatarData(dataIso) {
@@ -370,7 +378,7 @@ window.alterarStatusRH = async function(id, novoStatus) {
 window.renderizarTabelaAbsenteismo = function() {
     const thead = document.getElementById('headerAbsenteismo');
     const tbody = document.getElementById('tbAbsenteismo');
-    if (!thead || !tbody) return;
+    if (!thead || !tbody) return; // Esta trava já impede que tente renderizar na tela de Logística
 
     let htmlHead = '';
     
@@ -758,7 +766,13 @@ window.salvarAbsenteismo = async function() {
         }
         
         window.fecharModalAbsenteismo();
-        await window.carregarAbsenteismo();
+        
+        // Verifica se a tabela principal existe na tela atual antes de tentar atualizá-la
+        if (document.getElementById('tbAbsenteismo')) {
+            await window.carregarAbsenteismo();
+        } else {
+            alert('Registro salvo com sucesso!');
+        }
 
     } catch (e) {
         console.error(e);

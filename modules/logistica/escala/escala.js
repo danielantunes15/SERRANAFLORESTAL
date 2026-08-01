@@ -5,6 +5,7 @@ window.getEq = function(m) { return m && m.equipe ? m.equipe.trim().toUpperCase(
 window.pesoEquipe = function(eq) { return {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6}[eq] || 99; };
 
 window.SISTEMA_CICLOS = [];
+
 window.getCiclos = function() {
     if (window.SISTEMA_CICLOS.length > 0) return window.SISTEMA_CICLOS;
     
@@ -81,9 +82,12 @@ window.calcularEscalaMatematica = function(motorista, dateKey) {
     if (motorista.conjuntoId && eq === '-') {
         return { caminhao: 'F', turno: motorista.turno, status: 'fallback' };
     }
+
     const dDate = new Date(dateKey + 'T00:00:00');
     const statusMot = window.getStatusMotorista(motorista, dDate);
+
     if (statusMot === 'F') return { caminhao: 'F', turno: motorista.turno, status: 'fallback' };
+
     const conjunto = conjuntos.find(c => String(c.id) === String(motorista.conjuntoId));
     if (!conjunto || !conjunto.caminhoes) return { caminhao: 'T', turno: motorista.turno, status: 'fallback' };
 
@@ -98,6 +102,7 @@ window.calcularEscalaMatematica = function(motorista, dateKey) {
         const fixoB = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(mot) === 'B');
         const statusA = fixoA ? window.getStatusMotorista(fixoA, dDate) : 'F';
         const statusB = fixoB ? window.getStatusMotorista(fixoB, dDate) : 'F';
+
         if (statusA === 'F') statusCaminhao = placa1;
         else if (statusB === 'F') statusCaminhao = placa2;
         else statusCaminhao = placa1; 
@@ -107,12 +112,14 @@ window.calcularEscalaMatematica = function(motorista, dateKey) {
         const fixoE = motoristas.find(mot => String(mot.conjuntoId) === String(motorista.conjuntoId) && window.getEq(mot) === 'E');
         const statusD = fixoD ? window.getStatusMotorista(fixoD, dDate) : 'F';
         const statusE = fixoE ? window.getStatusMotorista(fixoE, dDate) : 'F';
+
         if (statusD === 'F') statusCaminhao = placa1;
         else if (statusE === 'F') statusCaminhao = placa2;
         else statusCaminhao = placa1;
     }
     
     if (statusCaminhao === 'TRAB') statusCaminhao = 'T';
+
     return { caminhao: statusCaminhao, turno: motorista.turno, status: 'auto' };
 }
 
@@ -141,6 +148,7 @@ window.renderizarEscala = function() {
     }
 
     if (!container) return;
+
     if (motoristas.length === 0) {
         container.innerHTML = '<p style="padding: 20px; text-align: center;">Nenhum motorista registrado.</p>';
         return;
@@ -149,24 +157,26 @@ window.renderizarEscala = function() {
     const inputData = document.getElementById('dataInicioEscala');
     const agora = new Date();
     const dataLocalAtual = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`;
+
     let dataBaseStr = inputData && inputData.value ? inputData.value : dataLocalAtual;
     let dataBase = new Date(dataBaseStr + 'T00:00:00');
     
     let diasRender = [];
     const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
     for(let i = 0; i < 7; i++) {
         let d = new Date(dataBase);
         d.setDate(d.getDate() + i);
         let ano = d.getFullYear();
         let mes = String(d.getMonth() + 1).padStart(2, '0');
         let dia = String(d.getDate()).padStart(2, '0');
+
         diasRender.push({
             dateKey: `${ano}-${mes}-${dia}`,
             diaNum: dia + '/' + mes,
             diaTexto: diasSemana[d.getDay()]
         });
     }
-
     window.currentDatas = diasRender;
 
     const filtroSelec = filtroSelectEl ? filtroSelectEl.value : 'todos';
@@ -185,6 +195,7 @@ window.renderizarEscala = function() {
     });
 
     let html = '';
+
     conjuntosRender.forEach(conj => {
         let motoristasDoConjunto = conj.isSemFrota 
             ? motoristas.filter(m => !m.conjuntoId) 
@@ -227,6 +238,7 @@ window.renderizarEscala = function() {
                                 ${tituloGrupo}
                             </td>
                          </tr>`;
+
             grupo.forEach(m => {
                 const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
                 let eq = window.getEq(m);
@@ -246,6 +258,7 @@ window.renderizarEscala = function() {
                     let cam2 = conj.caminhoes.length > 1 ? conj.caminhoes[1] : cam1;
                     let go1 = (typeof cam1 === 'string' || (!cam1.go && !cam1.frota)) ? '-' : (cam1.frota || cam1.go);
                     let go2 = (typeof cam2 === 'string' || (!cam2.go && !cam2.frota)) ? '-' : (cam2.frota || cam2.go);
+
                     if (eq === 'A' || eq === 'D') goStr = go1;
                     else if (eq === 'B' || eq === 'E') goStr = go2;
                     else if (eq === 'C' || eq === 'F') goStr = (go1 !== '-' && go2 !== '-' && go1 !== go2) ? `${go1} / ${go2}` : (go1 !== '-' ? go1 : go2);
@@ -308,17 +321,15 @@ window.renderizarEscala = function() {
             return rowsHtml;
         };
 
-        html += renderRows(grupoDia, '  TURNO DO DIA (EQUIPES A, B, C)');
-        html += renderRows(grupoNoite, '  TURNO DA NOITE (EQUIPES D, E, F)');
-        html += renderRows(outros, '  OUTROS / SEM TURNO FIXO');
-
+        html += renderRows(grupoDia, '☀️ TURNO DO DIA (EQUIPES A, B, C)');
+        html += renderRows(grupoNoite, '🌙 TURNO DA NOITE (EQUIPES D, E, F)');
+        html += renderRows(outros, '📋 OUTROS / SEM TURNO FIXO');
+        
         html += `</tbody></table></div></div>`;
     });
 
     container.innerHTML = html;
-
     document.querySelectorAll('.select-escala-excel').forEach(select => select.addEventListener('change', window.handleEscalaChange));
-
     if(typeof atualizarStats === 'function') atualizarStats();
     
     if (document.getElementById('buscaMotoristaEscala') && document.getElementById('buscaMotoristaEscala').value.trim() !== '') {
@@ -346,8 +357,8 @@ window.limparBuscaMotorista = function() {
 window.buscarMotoristaEscala = function() {
     const selectBusca = document.getElementById('buscaMotoristaEscala');
     if (!selectBusca) return;
+    
     const termo = selectBusca.value.trim().toLowerCase();
-
     window.limparDestaqueMotorista();
 
     if (termo === '') return;
@@ -469,6 +480,7 @@ window.imprimirRelatorioEscalaSemanal = function() {
             grupo.forEach(m => {
                 let eq = window.getEq(m);
                 let goStr = '-', posStr = '-';
+                
                 if (conj.caminhoes && conj.caminhoes.length > 0) {
                     let cam1 = conj.caminhoes[0];
                     let cam2 = conj.caminhoes.length > 1 ? conj.caminhoes[1] : cam1;
@@ -542,7 +554,6 @@ window.exportarEscalaMensalExcel = function() {
         }
 
         let linha = `${excelTurno};-;${eq !== '-' ? eq : '-'};${posStr};${m.nome}`;
-
         for (let dia = 1; dia <= diasNoMes; dia++) {
             const dataAtualStr = `${ano}-${(mes + 1).toString().padStart(2, '0')}-${dia.toString().padStart(2, '0')}`;
             const escalaDia = window.getEscalaDiaComputada(m, dataAtualStr);
@@ -615,7 +626,6 @@ window.gerarRelatorioImpressao = function() {
                 let cMatch = window.getCiclos().find(c => c.dbValue === m.turno);
                 if (cMatch) relTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
             }
-
             trabs.push({ nome: m.nome, trinca: trinca, eq: eq, turno: relTurno, caminhao: escala.caminhao });
             if (escala.caminhao !== 'T' && escala.caminhao !== 'TRAB') caminhoesOcupados.push(escala.caminhao);
         }
@@ -663,11 +673,35 @@ window.gerarRelatorioImpressao = function() {
     };
 
     html += renderTabela(trabs, 'RELATÓRIO GERAL (ESCALADOS E CAMINHÕES DISPONÍVEIS)');
+    
     html += `<div style="margin-top: 30px; text-align: center; font-size: 10px; color: #555;">Relatório gerado pelo sistema CCOL em ${new Date().toLocaleString('pt-BR')}</div>
         <script>window.onload = function() { window.print(); }</script></body></html>`;
-    
+        
     const w = window.open('', '', 'width=900,height=700');
     w.document.write(html);
     w.document.close();
     window.fecharModalImpressao();
+};
+
+// ==============================================================
+// INTEGRAÇÃO COM RH (LANÇAMENTO DE FALTAS PELA CCOL)
+// ==============================================================
+window.abrirModalFaltaLogistica = async function() {
+    // Garante que a lista de colaboradores está carregada para o select
+    if (!window.listaParaSelectColaboradores || window.listaParaSelectColaboradores.length === 0) {
+        if (typeof window.carregarListaBaseColaboradores === 'function') {
+            const btn = document.getElementById('btnLancarFaltaLogistica');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aguarde...';
+            await window.carregarListaBaseColaboradores();
+            btn.innerHTML = originalHtml;
+        }
+    }
+    
+    // Abre o modal na aba "FALTA" usando a função global do absenteismo.js
+    if (typeof window.abrirModalAbsenteismo === 'function') {
+        window.abrirModalAbsenteismo('FALTA');
+    } else {
+        alert("Erro: O módulo de Absenteísmo (RH) não está carregado no sistema.");
+    }
 };
