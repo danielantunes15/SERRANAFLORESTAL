@@ -1,6 +1,7 @@
 // ==================== js/colaboradores.js ====================
 window.listaColaboradoresDb = [];
 window.listaCursosAtivos = [];
+window.filtroPendenciasAtivo = false;
 
 // Definição dos campos básicos obrigatórios para considerar um cadastro "Completo"
 window.camposBaseObrigatorios = [
@@ -14,22 +15,77 @@ window.camposBaseObrigatorios = [
 ];
 
 window.initRHColaboradores = async function() {
-    // Mostra a listagem e esconde a ficha no início
     document.getElementById('viewListagemColaboradores').style.display = 'block';
     document.getElementById('viewFichaColaborador').style.display = 'none';
     
-    await window.carregarSetoresGlobal(); // CARREGA OS SETORES INICIALMENTE PARA O FILTRO
+    await window.carregarSetoresGlobal(); 
     await window.carregarCursosGlobais();
-    await window.carregarCargosControladoria(); // CARREGA OS CARGOS DA CONTROLADORIA FILTRADOS
+    await window.carregarCargosControladoria(); 
     await window.carregarColaboradoresLista();
 };
 
-// ==================== MÁSCARAS DE ENTRADA ====================
+// ==================== LÓGICA DE ABAS E HEADER ====================
+window.mudarAbaFichaRH = function(abaId) {
+    // Esconde todas as abas
+    document.querySelectorAll('.rh-tab-content').forEach(el => {
+        el.style.display = 'none';
+        el.classList.remove('active');
+    });
+    // Tira o "active" dos botões
+    document.querySelectorAll('.rh-tab-btn').forEach(el => el.classList.remove('active'));
+    
+    // Mostra a aba clicada
+    const abaAlvo = document.getElementById(abaId);
+    if(abaAlvo) {
+        abaAlvo.style.display = 'block';
+        abaAlvo.classList.add('active');
+    }
+    
+    // Marca o botão clicado
+    const btnAtivo = document.querySelector(`[onclick="window.mudarAbaFichaRH('${abaId}')"]`);
+    if(btnAtivo) btnAtivo.classList.add('active');
+};
+
+window.atualizarBadgeStatusHeader = function() {
+    const val = document.getElementById('colStatus').value;
+    const badge = document.getElementById('displayStatusHeader');
+    if(val === 'Ativo') {
+        badge.style.background = 'rgba(16, 185, 129, 0.1)';
+        badge.style.color = 'var(--ccol-green-bright)';
+        badge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        badge.innerHTML = '<i class="fas fa-check-circle"></i> Ativo';
+    } else if(val === 'Inativo' || val === 'Desligado') {
+        badge.style.background = 'rgba(239, 68, 68, 0.1)';
+        badge.style.color = '#ef4444';
+        badge.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+        badge.innerHTML = '<i class="fas fa-times-circle"></i> Desligado';
+    } else if(val === 'Férias') {
+        badge.style.background = 'rgba(59, 130, 246, 0.1)';
+        badge.style.color = 'var(--ccol-blue-bright)';
+        badge.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+        badge.innerHTML = '<i class="fas fa-umbrella-beach"></i> Férias';
+    } else {
+        badge.style.background = 'rgba(245, 158, 11, 0.1)';
+        badge.style.color = '#f59e0b';
+        badge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+        badge.innerHTML = '<i class="fas fa-briefcase-medical"></i> Afastado';
+    }
+};
+
+window.previewAvatarRH = function(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('avatarPreviewRH').src = e.target.result;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+};
+
+// ==================== MÁSCARAS E VALIDAÇÕES ====================
 window.mascaraCPF = function(campo) {
-    let v = campo.value.replace(/\D/g, ""); // Remove tudo que não é número
-    
-    if (v.length > 11) v = v.substring(0, 11); // Limita a 11 números
-    
+    let v = campo.value.replace(/\D/g, ""); 
+    if (v.length > 11) v = v.substring(0, 11); 
     if (v.length > 9) {
         v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, "$1.$2.$3-$4");
     } else if (v.length > 6) {
@@ -37,14 +93,29 @@ window.mascaraCPF = function(campo) {
     } else if (v.length > 3) {
         v = v.replace(/(\d{3})(\d{1,3})/, "$1.$2");
     }
-    
     campo.value = v;
 };
 
+window.validarCPF = function(cpf) {
+    if (!cpf) return true; 
+    let strCPF = cpf.replace(/[^\d]+/g,'');
+    if (strCPF.length !== 11 || /^(\d)\1{10}$/.test(strCPF)) return false;
+    let soma = 0, resto;
+    for (let i = 1; i <= 9; i++) soma = soma + parseInt(strCPF.substring(i-1, i)) * (11 - i);
+    resto = (soma * 10) % 11;
+    if ((resto == 10) || (resto == 11)) resto = 0;
+    if (resto != parseInt(strCPF.substring(9, 10))) return false;
+    soma = 0;
+    for (let i = 1; i <= 10; i++) soma = soma + parseInt(strCPF.substring(i-1, i)) * (12 - i);
+    resto = (soma * 10) % 11;
+    if ((resto == 10) || (resto == 11)) resto = 0;
+    if (resto != parseInt(strCPF.substring(10, 11))) return false;
+    return true;
+};
+
 window.mascaraTelefone = function(campo) {
-    let v = campo.value.replace(/\D/g, ""); // Remove tudo que não é número
+    let v = campo.value.replace(/\D/g, ""); 
     if (v.length > 11) v = v.substring(0, 11);
-    
     if (v.length > 10) { 
         v = v.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
     } else if (v.length > 5) {
@@ -56,85 +127,131 @@ window.mascaraTelefone = function(campo) {
 };
 
 window.mascaraMoeda = function(campo) {
-    let v = campo.value.replace(/\D/g, ""); // Remove tudo que não é dígito
-    if (v === "") {
-        campo.value = "";
-        return;
-    }
-    // Converte para decimal da direita para a esquerda
+    let v = campo.value.replace(/\D/g, ""); 
+    if (v === "") { campo.value = ""; return; }
     v = (parseInt(v, 10) / 100).toFixed(2);
-    // Aplica o formato brasileiro (Ex: 2.500,00)
     v = v.replace(".", ",");
     v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
     campo.value = "R$ " + v;
 };
 
-// Helper para converter o valor da moeda formatada para Float pro banco de dados
 window.parseMoeda = function(valorStr) {
     if (!valorStr) return 0;
     if (typeof valorStr === 'number') return valorStr;
     let str = String(valorStr).replace('R$', '').trim();
-    str = str.replace(/\./g, ''); // Remove separador de milhares
-    str = str.replace(',', '.');  // Troca vírgula por ponto
+    str = str.replace(/\./g, ''); 
+    str = str.replace(',', '.');  
     return parseFloat(str) || 0;
 };
 
-// ==================== CARREGAR SETORES GLOBAIS ====================
+window.mascaraCEP = function(campo) {
+    let v = campo.value.replace(/\D/g, "");
+    if (v.length > 8) v = v.substring(0,8);
+    v = v.replace(/^(\d{5})(\d)/, "$1-$2");
+    campo.value = v;
+};
+
+window.buscarCep = async function(cep) {
+    let cepLimpo = cep.replace(/\D/g, '');
+    if(cepLimpo.length === 8) {
+        try {
+            let res = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+            let data = await res.json();
+            if(!data.erro) {
+                let enderecoCompleto = `${data.logradouro}, , ${data.bairro}, ${data.localidade} - ${data.uf}`;
+                document.getElementById('colEndereco').value = enderecoCompleto;
+            }
+        } catch(e) { console.log('Erro ao buscar CEP', e); }
+    }
+};
+
+window.calcularDiferencaDatasAnos = function(dataIso) {
+    if(!dataIso) return null;
+    let dt = new Date(dataIso + 'T00:00:00');
+    let hj = new Date();
+    let anos = hj.getFullYear() - dt.getFullYear();
+    let m = hj.getMonth() - dt.getMonth();
+    if (m < 0 || (m === 0 && hj.getDate() < dt.getDate())) anos--;
+    return anos;
+};
+
+window.atualizarLabelsTempo = function() {
+    let dtNascimento = document.getElementById('colDataNascimento').value;
+    let dtAdmissao = document.getElementById('colDataAdmissao').value;
+    
+    let lblIdade = document.getElementById('lblIdade');
+    let lblTempo = document.getElementById('lblTempoCasa');
+    
+    if (dtNascimento) {
+        let anos = window.calcularDiferencaDatasAnos(dtNascimento);
+        lblIdade.innerText = anos !== null ? `(${anos} anos)` : '';
+    } else {
+        lblIdade.innerText = '';
+    }
+    
+    if (dtAdmissao) {
+        let anos = window.calcularDiferencaDatasAnos(dtAdmissao);
+        lblTempo.innerText = anos !== null ? `(${anos} anos de casa)` : '';
+    } else {
+        lblTempo.innerText = '';
+    }
+};
+
+window.diasParaVencer = function(dataIso) {
+    if(!dataIso) return null;
+    let d = new Date(dataIso + 'T00:00:00');
+    let hj = new Date();
+    hj.setHours(0,0,0,0);
+    return Math.floor((d.getTime() - hj.getTime()) / (1000 * 3600 * 24));
+};
+
+window.analisarVencimentosColaborador = function(c) {
+    let alertas = [];
+    ['cnh_vencimento', 'aso_vencimento', 'toxicologico_vencimento'].forEach(campo => {
+        if(c[campo]) {
+            let dias = window.diasParaVencer(c[campo]);
+            let nomeDoAviso = campo.split('_')[0].toUpperCase();
+            if(dias < 0) alertas.push({ nome: nomeDoAviso, status: 'Vencido', cor: '#ef4444' });
+            else if(dias <= 30) alertas.push({ nome: nomeDoAviso, status: `Vence em ${dias}d`, cor: '#f59e0b' });
+        }
+    });
+    if(c.cursos_vencimentos) {
+        Object.keys(c.cursos_vencimentos).forEach(curso => {
+            let dias = window.diasParaVencer(c.cursos_vencimentos[curso]);
+            if(dias < 0) alertas.push({ nome: curso, status: 'Vencido', cor: '#ef4444' });
+            else if(dias <= 30) alertas.push({ nome: curso, status: `Vence em ${dias}d`, cor: '#f59e0b' });
+        });
+    }
+    return alertas;
+};
+
+// ==================== CARREGAR DADOS BÁSICOS ====================
 window.carregarSetoresGlobal = async function() {
     try {
         const { data, error } = await window.supabaseClient.from('setores').select('id, nome').eq('status', 'Ativo');
         if (error) throw error;
         
-        // Preenche o campo de seleção dentro da ficha do colaborador
         const selSetor = document.getElementById('colSetorId');
-        if (selSetor) {
-            selSetor.innerHTML = '<option value="">Selecione um setor...</option>' + 
-                 data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
-        }
+        if (selSetor) selSetor.innerHTML = '<option value="">Selecione um setor...</option>' + data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
         
-        // Preenche o NOVO campo de filtro de setor na listagem
         const selFiltroSetor = document.getElementById('filtroSetorLista');
-        if (selFiltroSetor) {
-            selFiltroSetor.innerHTML = '<option value="">Todos os Setores</option>' + 
-                 data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
-        }
-    } catch(e) { 
-        console.error("Erro ao carregar setores:", e); 
-    }
+        if (selFiltroSetor) selFiltroSetor.innerHTML = '<option value="">Todos os Setores</option>' + data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
+    } catch(e) { console.error("Erro ao carregar setores:", e); }
 };
 
-// ==================== CARREGAR CARGOS DA CONTROLADORIA ====================
 window.carregarCargosControladoria = async function() {
     try {
-        // Inicia a query buscando cargos ativos
-        let query = window.supabaseClient
-            .from('cargos')
-            .select('id, nome')
-            .eq('status', 'Ativo')
-            .order('nome', { ascending: true });
-
-        // Aplica automaticamente o filtro da filial do usuário logado
-        if (typeof window.aplicarFiltroFilial === 'function') {
-            query = window.aplicarFiltroFilial(query);
-        }
+        let query = window.supabaseClient.from('cargos').select('id, nome').eq('status', 'Ativo').order('nome', { ascending: true });
+        if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
 
         const { data, error } = await query;
         if (error) throw error;
 
         const selCargo = document.getElementById('colFuncao');
-        if (selCargo) {
-            // Usamos c.nome como value para manter a compatibilidade com o resto do sistema
-            selCargo.innerHTML = '<option value="">Selecione um cargo...</option>' + 
-                 data.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
-        }
-    } catch(e) { 
-        console.error("Erro ao carregar cargos da Controladoria:", e); 
-        const selCargo = document.getElementById('colFuncao');
-        if (selCargo) selCargo.innerHTML = '<option value="">Erro ao carregar cargos</option>';
-    }
+        if (selCargo) selCargo.innerHTML = '<option value="">Selecione um cargo...</option>' + data.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+    } catch(e) { console.error("Erro ao carregar cargos:", e); }
 };
 
-// ==================== VERIFICAÇÃO DE PENDÊNCIAS ====================
 window.verificarPendenciasCadastro = function(colaborador) {
     let camposFaltando = [];
     window.camposBaseObrigatorios.forEach(campo => {
@@ -142,6 +259,7 @@ window.verificarPendenciasCadastro = function(colaborador) {
             camposFaltando.push(campo);
         }
     });
+    if (colaborador.cpf && !window.validarCPF(colaborador.cpf)) camposFaltando.push({ key: 'cpf', id: 'colCpf' });
     return camposFaltando;
 };
 
@@ -165,7 +283,7 @@ window.carregarColaboradoresLista = async function() {
         if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando banco de dados...</td></tr>`;
         
         window.listaColaboradoresDb = await db.getColaboradores();
-        window.renderizarTabelaColaboradores(window.listaColaboradoresDb);
+        window.filtrarColaboradoresLista(); 
     } catch (e) {
         console.error(e);
         alert("Erro ao carregar lista de colaboradores.");
@@ -189,14 +307,23 @@ window.renderizarTabelaColaboradores = function(lista) {
         
         const matriculaFormatada = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'S/ Matrícula';
         
-        // Verifica se há informações faltando no cadastro
+        // --- ALERTAS DE PENDÊNCIA BASE E VENCIMENTOS ---
         const pendencias = window.verificarPendenciasCadastro(c);
-        let badgeAlerta = '';
+        let badgeAlertaFaltando = '';
         if (pendencias.length > 0 && c.status !== 'Inativo' && c.status !== 'Desligado') {
-            badgeAlerta = `<span title="Cadastro Desatualizado (${pendencias.length} informações pendentes)" style="color: #ef4444; margin-right: 5px; font-size: 1.1rem; cursor: help;"><i class="fas fa-exclamation-triangle"></i></span>`;
+            badgeAlertaFaltando = `<span title="Cadastro Incompleto ou Inválido (${pendencias.length} informações pendentes)" style="color: #ef4444; margin-right: 5px; font-size: 1.1rem; cursor: help;"><i class="fas fa-exclamation-triangle"></i></span>`;
+        }
+
+        let badgeVencimentos = '';
+        if (c.status !== 'Inativo' && c.status !== 'Desligado') {
+            let vencimentos = window.analisarVencimentosColaborador(c);
+            if (vencimentos.length > 0) {
+                let msg = vencimentos.map(v => `${v.nome} (${v.status})`).join('\n');
+                let corPior = vencimentos.some(v => v.status === 'Vencido') ? '#ef4444' : '#f59e0b';
+                badgeVencimentos = `<span title="Avisos de Vencimento:\n${msg}" style="color: ${corPior}; margin-right: 5px; font-size: 1.1rem; cursor: help;"><i class="fas fa-clock"></i></span>`;
+            }
         }
         
-        // Busca o nome do setor baseado no ID do colaborador para exibição na tabela
         let nomeSetor = 'Não informado';
         if (c.setor_id) {
             const selectSetor = document.getElementById('filtroSetorLista');
@@ -209,13 +336,18 @@ window.renderizarTabelaColaboradores = function(lista) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><strong style="color: var(--ccol-blue-bright); font-size: 1.1rem;">${matriculaFormatada}</strong></td>
-            <td style="text-align: left; font-weight: bold; font-size: 1.05rem;">${c.nome}</td>
+            <td style="text-align: left; font-weight: bold; font-size: 1.05rem;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    ${c.foto_url ? `<img src="${c.foto_url}" style="width: 25px; height: 25px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-dim);">` : ''}
+                    ${c.nome}
+                </div>
+            </td>
             <td><span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-dim); font-size: 0.85rem;">${c.funcao || 'Não informada'}</span></td>
             <td><span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-dim); font-size: 0.85rem;">${nomeSetor}</span></td>
             <td><span style="color: ${corStatus}; font-weight: bold; font-size: 0.9rem;">${c.status || 'Ativo'}</span></td>
             <td style="text-align: right;">
                 <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
-                    ${badgeAlerta}
+                    ${badgeAlertaFaltando} ${badgeVencimentos}
                     <button class="btn-icon-only" title="Imprimir Ficha Cadastral" style="color: #60a5fa; border:none; background:transparent; cursor:pointer; font-size:1.1rem;" onclick="window.imprimirFichaColaborador('${c.id}')"><i class="fas fa-id-card"></i></button>
                     <button class="btn-icon-only" title="Imprimir Ficha de EPI / Equipamentos" style="color: #f59e0b; border:none; background:transparent; cursor:pointer; font-size:1.1rem;" onclick="window.imprimirFichaEPI('${c.id}')"><i class="fas fa-hard-hat"></i></button>
                     <button class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem;" onclick="window.abrirFichaCompleta('${c.id}')"><i class="fas fa-edit"></i> Editar</button>
@@ -226,7 +358,21 @@ window.renderizarTabelaColaboradores = function(lista) {
     });
 };
 
-// ==================== LÓGICA DE FILTRO ATUALIZADA ====================
+window.toggleFiltroPendencias = function() {
+    window.filtroPendenciasAtivo = !window.filtroPendenciasAtivo;
+    const btn = document.getElementById('btnFiltroPendencias');
+    if(window.filtroPendenciasAtivo) {
+        btn.classList.remove('btn-danger-outline');
+        btn.classList.add('btn-danger-block');
+        btn.innerHTML = '<i class="fas fa-filter"></i> Filtrando Pendentes';
+    } else {
+        btn.classList.remove('btn-danger-block');
+        btn.classList.add('btn-danger-outline');
+        btn.innerHTML = '<i class="fas fa-exclamation-circle"></i> Mostrar Pendências';
+    }
+    window.filtrarColaboradoresLista();
+};
+
 window.filtrarColaboradoresLista = function() {
     const termoNome = document.getElementById('filtroNome').value.toLowerCase();
     const termoMatricula = document.getElementById('filtroMatricula').value.toLowerCase();
@@ -237,7 +383,18 @@ window.filtrarColaboradoresLista = function() {
         const matMatch = !termoMatricula || (c.cod_funcionario && String(c.cod_funcionario).includes(termoMatricula));
         const setorMatch = !termoSetor || (String(c.setor_id) === String(termoSetor));
         
-        return nomeMatch && matMatch && setorMatch;
+        let pendenciaMatch = true;
+        if (window.filtroPendenciasAtivo) {
+            if(c.status === 'Inativo' || c.status === 'Desligado') {
+                pendenciaMatch = false;
+            } else {
+                let f1 = window.verificarPendenciasCadastro(c);
+                let f2 = window.analisarVencimentosColaborador(c);
+                pendenciaMatch = (f1.length > 0 || f2.length > 0);
+            }
+        }
+        
+        return nomeMatch && matMatch && setorMatch && pendenciaMatch;
     });
     
     window.renderizarTabelaColaboradores(filtrados);
@@ -264,38 +421,50 @@ window.abrirFichaCompleta = async function(id = null) {
     document.getElementById('viewListagemColaboradores').style.display = 'none';
     document.getElementById('viewFichaColaborador').style.display = 'block';
     
+    window.mudarAbaFichaRH('tabPessoais');
     window.limparValidacaoVisualFicha();
     await window.carregarSetoresGlobal();
     
+    // Reseta Uploads Visuais
+    document.getElementById('colFoto').value = '';
+    document.getElementById('colAnexos').value = '';
+    document.getElementById('containerLinksArquivos').innerHTML = '<p style="color: var(--text-secondary); font-size: 0.85rem; font-style: italic; margin:0;">Nenhum arquivo anexado ainda.</p>';
+    
     if (id) {
-        // MODO EDIÇÃO
         const c = window.listaColaboradoresDb.find(x => x.id === id);
         if (!c) return;
+        
+        // Header
         document.getElementById('tituloFicha').innerText = c.nome;
-        document.getElementById('subtituloFicha').innerText = 'Edição de Ficha Cadastral';
+        document.getElementById('displayCargoHeader').innerText = c.funcao || 'Cargo não informado';
+        document.getElementById('colCodFuncionarioDisplay').innerText = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'N/A';
+        document.getElementById('avatarPreviewRH').src = c.foto_url ? c.foto_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(c.nome)}&background=1e293b&color=60a5fa&size=150`;
+        
         document.getElementById('btnExcluirFicha').style.display = 'flex';
         document.getElementById('colaboradorId').value = c.id;
-        document.getElementById('colCodFuncionarioDisplay').innerText = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'N/A';
         
         document.getElementById('colStatus').value = c.status || 'Ativo';
+        window.atualizarBadgeStatusHeader();
+        
         document.getElementById('colSetorId').value = c.setor_id || '';
         document.getElementById('colPlanoSaude').value = c.plano_saude || 'Não';
         document.getElementById('colSindicato').value = c.ativo_sindicato || 'Não';
         
         document.getElementById('colCpf').value = c.cpf || '';
-        if (c.cpf) window.mascaraCPF(document.getElementById('colCpf')); // Aplica máscara ao carregar
+        if (c.cpf) window.mascaraCPF(document.getElementById('colCpf'));
 
         document.getElementById('colRg').value = c.rg || '';
         document.getElementById('colNome').value = c.nome || '';
+        
         document.getElementById('colDataNascimento').value = c.data_nascimento || '';
         document.getElementById('colDataAdmissao').value = c.data_admissao || '';
+        window.atualizarLabelsTempo(); 
+        
         document.getElementById('colFuncao').value = c.funcao || '';
         
-        // Aplica a máscara no telefone se houver
         document.getElementById('colTelefone').value = c.telefone || '';
         if (c.telefone) window.mascaraTelefone(document.getElementById('colTelefone'));
         
-        // Aplica a máscara no salário se houver
         if (c.salario_base !== null && c.salario_base !== undefined && c.salario_base !== "") {
             let elSalario = document.getElementById('colSalario');
             elSalario.value = (parseFloat(c.salario_base) * 100).toFixed(0); 
@@ -304,7 +473,25 @@ window.abrirFichaCompleta = async function(id = null) {
             document.getElementById('colSalario').value = '';
         }
         
+        document.getElementById('colCep').value = c.cep || '';
+        if (c.cep) window.mascaraCEP(document.getElementById('colCep'));
         document.getElementById('colEndereco').value = c.endereco || '';
+        
+        document.getElementById('colEmailCorp').value = c.email_corp || '';
+        document.getElementById('colEmailPessoal').value = c.email_pessoal || '';
+        
+        document.getElementById('colContatoEmergenciaNome').value = c.emergencia_nome || '';
+        document.getElementById('colContatoEmergenciaTel').value = c.emergencia_tel || '';
+        if (c.emergencia_tel) window.mascaraTelefone(document.getElementById('colContatoEmergenciaTel'));
+        
+        document.getElementById('colBanco').value = c.banco || '';
+        document.getElementById('colAgencia').value = c.agencia || '';
+        document.getElementById('colConta').value = c.conta || '';
+        document.getElementById('colChavePix').value = c.chave_pix || '';
+        
+        document.getElementById('colTamanhoCamisa').value = c.tamanho_camisa || '';
+        document.getElementById('colTamanhoCalca').value = c.tamanho_calca || '';
+        document.getElementById('colTamanhoCalcado').value = c.tamanho_calcado || '';
         
         document.getElementById('colCnhNumero').value = c.cnh_numero || '';
         document.getElementById('colCnhCategoria').value = c.cnh_categoria || '';
@@ -317,7 +504,19 @@ window.abrirFichaCompleta = async function(id = null) {
         
         window.montarCamposCursosDinamicosFull(c.cursos_vencimentos || {});
         
-        // Destacar campos pendentes se houver
+        // Exibir Documentos e Fotos Existentes se houver
+        if (c.foto_url || (c.documentos_urls && c.documentos_urls.length > 0)) {
+             document.getElementById('containerLinksArquivos').innerHTML = '';
+        }
+        if (c.foto_url) {
+            document.getElementById('containerLinksArquivos').innerHTML += `<a href="${c.foto_url}" target="_blank" class="btn-primary-green" style="display:inline-flex; padding: 6px 12px; margin-right:10px;"><i class="fas fa-image"></i> Ver Foto de Perfil Atual</a>`;
+        }
+        if (c.documentos_urls && Array.isArray(c.documentos_urls)) {
+            c.documentos_urls.forEach((url, i) => {
+                document.getElementById('containerLinksArquivos').innerHTML += `<a href="${url}" target="_blank" class="btn-secondary-dark" style="display:inline-flex; padding: 6px 12px; margin-right:10px;"><i class="fas fa-file-pdf"></i> Visualizar Anexo ${i+1}</a>`;
+            });
+        }
+        
         const pendencias = window.verificarPendenciasCadastro(c);
         if (pendencias.length > 0) {
             document.getElementById('alertaCamposPendentes').style.display = 'flex';
@@ -333,8 +532,10 @@ window.abrirFichaCompleta = async function(id = null) {
         }
     } else {
         // MODO NOVO CADASTRO
-        document.getElementById('tituloFicha').innerText = 'Novo Cadastro';
-        document.getElementById('subtituloFicha').innerText = 'Preencha as informações do novo integrante';
+        document.getElementById('tituloFicha').innerText = 'Novo Colaborador';
+        document.getElementById('displayCargoHeader').innerText = 'Função a definir';
+        document.getElementById('avatarPreviewRH').src = 'https://ui-avatars.com/api/?name=Colaborador&background=1e293b&color=60a5fa&size=150';
+        
         document.getElementById('btnExcluirFicha').style.display = 'none';
         
         document.getElementById('colaboradorId').value = '';
@@ -342,15 +543,24 @@ window.abrirFichaCompleta = async function(id = null) {
         document.getElementById('colCodFuncionarioDisplay').innerText = String(proximoCod).padStart(4, '0');
         
         const campos = ['colCpf', 'colRg', 'colNome', 'colDataNascimento', 'colDataAdmissao', 
-                        'colFuncao', 'colTelefone', 'colSalario', 'colEndereco', 'colCnhNumero', 'colCnhCategoria', 
-                        'colCnhVencimento', 'colExperiencia', 'colAsoVencimento', 'colToxicologico', 'colObservacoes'];
+                        'colFuncao', 'colTelefone', 'colSalario', 'colCep', 'colEndereco', 'colEmailCorp', 'colEmailPessoal',
+                        'colContatoEmergenciaNome', 'colContatoEmergenciaTel', 'colBanco', 'colAgencia', 'colConta', 'colChavePix',
+                        'colCnhNumero', 'colCnhCategoria', 'colCnhVencimento', 'colExperiencia', 'colAsoVencimento', 'colToxicologico', 'colObservacoes'];
                         
         campos.forEach(el => document.getElementById(el).value = '');
+        
+        document.getElementById('colTamanhoCamisa').value = '';
+        document.getElementById('colTamanhoCalca').value = '';
+        document.getElementById('colTamanhoCalcado').value = '';
+        
         document.getElementById('colStatus').value = 'Ativo';
+        window.atualizarBadgeStatusHeader();
+        
         document.getElementById('colSetorId').value = '';
         document.getElementById('colPlanoSaude').value = 'Não';
         document.getElementById('colSindicato').value = 'Não';
         
+        window.atualizarLabelsTempo();
         window.montarCamposCursosDinamicosFull({});
     }
 };
@@ -361,6 +571,14 @@ window.salvarColaboradorFicha = async function() {
     const getValue = (elId) => document.getElementById(elId).value;
     const getDateValue = (elId) => { const val = document.getElementById(elId).value; return val ? val : null; };
     
+    let cpfInput = getValue('colCpf');
+    if (cpfInput && !window.validarCPF(cpfInput)) {
+        alert("O CPF inserido é inválido. Por favor, corrija antes de salvar.");
+        window.mudarAbaFichaRH('tabPessoais');
+        document.getElementById('colCpf').focus();
+        return;
+    }
+    
     const cursosVencimentosObj = {};
     document.querySelectorAll('.input-curso-dinamico').forEach(input => {
         const nomeCurso = input.getAttribute('data-cursonome');
@@ -368,21 +586,36 @@ window.salvarColaboradorFicha = async function() {
         if(valorData) cursosVencimentosObj[nomeCurso] = valorData;
     });
 
-    const dados = {
+    let dados = {
         setor_id: getValue('colSetorId') ? parseInt(getValue('colSetorId')) : null,
         status: getValue('colStatus'),
         plano_saude: getValue('colPlanoSaude'),
         ativo_sindicato: getValue('colSindicato'),
         nome: getValue('colNome'),
-        cpf: getValue('colCpf'),
+        cpf: cpfInput,
         rg: getValue('colRg'),
         data_nascimento: getDateValue('colDataNascimento'),
         data_admissao: getDateValue('colDataAdmissao'),
         funcao: getValue('colFuncao'),
         telefone: getValue('colTelefone'),
-        // Utiliza a nova função que limpa a mascara da moeda para transformar em Float no banco
         salario_base: window.parseMoeda(getValue('colSalario')),
+        cep: getValue('colCep'),
         endereco: getValue('colEndereco'),
+        
+        email_corp: getValue('colEmailCorp'),
+        email_pessoal: getValue('colEmailPessoal'),
+        
+        emergencia_nome: getValue('colContatoEmergenciaNome'),
+        emergencia_tel: getValue('colContatoEmergenciaTel'),
+        
+        banco: getValue('colBanco'),
+        agencia: getValue('colAgencia'),
+        conta: getValue('colConta'),
+        chave_pix: getValue('colChavePix'),
+        
+        tamanho_camisa: getValue('colTamanhoCamisa'),
+        tamanho_calca: getValue('colTamanhoCalca'),
+        tamanho_calcado: getValue('colTamanhoCalcado'),
         
         cnh_numero: getValue('colCnhNumero'),
         cnh_categoria: getValue('colCnhCategoria'),
@@ -397,9 +630,50 @@ window.salvarColaboradorFicha = async function() {
     };
 
     if (!id) dados.cod_funcionario = window.calcularProximaMatriculaFull();
-    if (!dados.nome) return alert('O Nome Completo é obrigatório para salvar a ficha.');
+    if (!dados.nome) {
+        alert('O Nome Completo é obrigatório para salvar a ficha.');
+        window.mudarAbaFichaRH('tabPessoais');
+        return;
+    }
 
     try {
+        const inputFoto = document.getElementById('colFoto');
+        const inputAnexos = document.getElementById('colAnexos');
+        
+        if (window.supabaseClient && (inputFoto.files.length > 0 || inputAnexos.files.length > 0)) {
+            let basePath = `colab_${dados.cod_funcionario}_${Date.now()}`;
+            
+            if (inputFoto.files.length > 0) {
+                const file = inputFoto.files[0];
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${basePath}_foto.${fileExt}`;
+                const { error } = await window.supabaseClient.storage.from('rh_arquivos').upload(fileName, file, { upsert: true });
+                if (!error) {
+                    const { data: publicUrlData } = window.supabaseClient.storage.from('rh_arquivos').getPublicUrl(fileName);
+                    dados.foto_url = publicUrlData.publicUrl;
+                } else {
+                    console.log('Bucket "rh_arquivos" pode não existir.', error);
+                }
+            }
+            
+            if (inputAnexos.files.length > 0) {
+                let docUrls = [];
+                for(let i = 0; i < inputAnexos.files.length; i++) {
+                    const file = inputAnexos.files[i];
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `${basePath}_doc_${i}.${fileExt}`;
+                    const { error } = await window.supabaseClient.storage.from('rh_arquivos').upload(fileName, file, { upsert: true });
+                    if (!error) {
+                        const { data: publicUrlData } = window.supabaseClient.storage.from('rh_arquivos').getPublicUrl(fileName);
+                        docUrls.push(publicUrlData.publicUrl);
+                    }
+                }
+                if (docUrls.length > 0) {
+                    dados.documentos_urls = docUrls; 
+                }
+            }
+        }
+        
         if (id) {
             await db.updateColaborador(id, dados);
             if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Edição', `Ficha atualizada: ${dados.nome}`, 'Info');
@@ -414,7 +688,7 @@ window.salvarColaboradorFicha = async function() {
         window.voltarParaListagem(); 
     } catch (e) {
         console.error(e);
-        alert('Erro ao salvar no banco de dados. Tente novamente.');
+        alert('Erro ao salvar no banco de dados. Verifique a conexão ou se o bucket foi criado.');
     }
 };
 
@@ -592,6 +866,10 @@ window.gerarHtmlFichaColaborador = function(colaboradores) {
             </div>
             <div class="row">
                 <div class="col" style="flex:2"><span class="label">Endereço</span><span class="val">${c.endereco || '-'}</span></div>
+                <div class="col"><span class="label">CEP</span><span class="val">${c.cep || '-'}</span></div>
+            </div>
+            <div class="row">
+                <div class="col"><span class="label">E-mail Corp</span><span class="val">${c.email_corp || '-'}</span></div>
                 <div class="col"><span class="label">Telefone</span><span class="val">${c.telefone || '-'}</span></div>
             </div>
             <div class="row">
@@ -600,7 +878,19 @@ window.gerarHtmlFichaColaborador = function(colaboradores) {
                 <div class="col"><span class="label">Salário Base</span><span class="val">R$ ${c.salario_base || '-'}</span></div>
             </div>
 
-            <div class="section-title">Habilitação e Saúde</div>
+            <div class="section-title">Dados Bancários & Contato de Emergência</div>
+            <div class="row">
+                <div class="col"><span class="label">Banco</span><span class="val">${c.banco || '-'}</span></div>
+                <div class="col"><span class="label">Agência</span><span class="val">${c.agencia || '-'}</span></div>
+                <div class="col"><span class="label">Conta</span><span class="val">${c.conta || '-'}</span></div>
+                <div class="col"><span class="label">Chave PIX</span><span class="val">${c.chave_pix || '-'}</span></div>
+            </div>
+            <div class="row">
+                <div class="col" style="flex:2"><span class="label">Nome (Emergência)</span><span class="val">${c.emergencia_nome || '-'}</span></div>
+                <div class="col"><span class="label">Telefone (Emergência)</span><span class="val">${c.emergencia_tel || '-'}</span></div>
+            </div>
+
+            <div class="section-title">Habilitação, Saúde e Uniforme</div>
             <div class="row">
                 <div class="col"><span class="label">Nº CNH</span><span class="val">${c.cnh_numero || '-'}</span></div>
                 <div class="col"><span class="label">Categoria CNH</span><span class="val">${c.cnh_categoria || '-'}</span></div>
@@ -609,6 +899,11 @@ window.gerarHtmlFichaColaborador = function(colaboradores) {
             <div class="row">
                 <div class="col"><span class="label">Vencimento ASO</span><span class="val">${fmtDt(c.aso_vencimento)}</span></div>
                 <div class="col"><span class="label">Vencimento Toxicológico</span><span class="val">${fmtDt(c.toxicologico_vencimento)}</span></div>
+            </div>
+            <div class="row">
+                <div class="col"><span class="label">Tamanho Camisa</span><span class="val">${c.tamanho_camisa || '-'}</span></div>
+                <div class="col"><span class="label">Tamanho Calça</span><span class="val">${c.tamanho_calca || '-'}</span></div>
+                <div class="col"><span class="label">Nº Calçado</span><span class="val">${c.tamanho_calcado || '-'}</span></div>
             </div>
 
             ${cursosHtml}

@@ -1,4 +1,5 @@
 // ==================== core/js/menu.js ====================
+
 // ==================== DEFINIÇÃO CENTRAL DE MENUS ====================
 window.MAPA_MENUS = [
     { id: 'escala', label: 'Escala Semanal', setor: 'Logística', icon: 'fas fa-calendar-alt' },
@@ -31,7 +32,7 @@ window.MAPA_MENUS = [
     
     { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
-    { id: 'rh_colaboradores', label: 'Cadastro de Colaboradores', setor: 'RH', icon: 'fas fa-id-badge' },
+    { id: 'rh_colaboradores', label: 'Colaboradores', setor: 'RH', icon: 'fas fa-id-badge' },
     { id: 'rh_absenteismo', label: 'Absenteísmo', setor: 'RH', icon: 'fas fa-user-clock' },
     { id: 'rh_banco_horas', label: 'Banco de Horas', setor: 'RH', icon: 'fas fa-business-time' },
     { id: 'rh_sorteio', label: 'Sorteio de Colaboradores', setor: 'RH', icon: 'fas fa-random' },
@@ -73,7 +74,6 @@ window.MAPA_MENUS = [
 ];
 
 const pageCache = {};
-
 const ROTAS = {
     'escala': 'modules/logistica/escala/escala.html',
     'troca_turno': 'modules/logistica/troca_turno/troca_turno.html',
@@ -143,7 +143,7 @@ const ROTAS = {
     'almoxarifado_relatorios': 'modules/almoxarifado/almoxarifado_relatorios.html'
 };
 
-const VERSAO_SISTEMA = "1.0.21"; 
+const VERSAO_SISTEMA = "1.0.21";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -166,7 +166,7 @@ window.renderizarMenu = async function() {
     } else if (permissoesAtuais[userRole]) {
         meusMenus = permissoesAtuais[userRole];
     }
-
+    
     if (userKey && permissoesAtuais[userKey] && !permissoesAtuais[userKey].includes('__RESET__')) {
         meusMenus = permissoesAtuais[userKey];
     }
@@ -205,6 +205,7 @@ window.renderizarMenu = async function() {
                     </button>`;
                 }
             });
+
             navHtml += `</div></div>`;
         }
     });
@@ -228,7 +229,7 @@ window.renderizarMenu = async function() {
                 } catch (e) { }
             }
         });
-    }, 2000); 
+    }, 2000);
 };
 
 window.getIconSetor = function(setor) {
@@ -250,7 +251,7 @@ window.getIconSetor = function(setor) {
 };
 
 window.toggleDropdown = function(event) {
-    const btn = event.currentTarget; 
+    const btn = event.currentTarget;
     const menu = btn.nextElementSibling;
     if (menu) menu.classList.toggle('show');
 };
@@ -292,7 +293,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
             const response = await fetch(`${caminhoArquivo}?v=${VERSAO_SISTEMA}`);
             if (!response.ok) throw new Error('Página não encontrada');
-
             pageCache[pagina] = await response.text();
         }
         
@@ -381,7 +381,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();
         if (pagina === 'configuracoes_gerencial' && typeof window.inicializarConfiguracoesGerencial === 'function') window.inicializarConfiguracoesGerencial();
         if (pagina === 'cadastro_up' && typeof window.initCadastroUP === 'function') window.initCadastroUP();
-
+        
         if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
         if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
 
