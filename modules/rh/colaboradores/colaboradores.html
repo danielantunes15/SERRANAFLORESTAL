@@ -125,7 +125,6 @@
             <div class="form-group-dark"><label>Data de Admissão</label><input type="date" id="colDataAdmissao"></div>
             <div class="form-group-dark" style="grid-column: span 2;"><label>Nome Completo *</label><input type="text" id="colNome" placeholder="Digite o nome completo"></div>
             
-            <!-- AQUI ESTÁ A MÁSCARA APLICADA NO CPF -->
             <div class="form-group-dark"><label>CPF</label><input type="text" id="colCpf" placeholder="000.000.000-00" oninput="window.mascaraCPF(this)" maxlength="14"></div>
             
             <div class="form-group-dark"><label>RG</label><input type="text" id="colRg" placeholder="Número do RG"></div>
@@ -137,8 +136,8 @@
                     <option value="">Carregando cargos...</option>
                 </select>
             </div>
-            <div class="form-group-dark"><label>Telefone / WhatsApp</label><input type="text" id="colTelefone" placeholder="(00) 00000-0000"></div>
-            <div class="form-group-dark"><label>Salário Base (R$)</label><input type="number" id="colSalario" step="0.01" placeholder="Ex: 2500.00"></div>
+            <div class="form-group-dark"><label>Telefone / WhatsApp</label><input type="text" id="colTelefone" placeholder="(00) 00000-0000" oninput="window.mascaraTelefone(this)" maxlength="15"></div>
+            <div class="form-group-dark"><label>Salário Base (R$)</label><input type="text" id="colSalario" placeholder="R$ 0,00" oninput="window.mascaraMoeda(this)"></div>
             <div class="form-group-dark" style="grid-column: 1 / -1;"><label>Endereço Completo</label><input type="text" id="colEndereco" placeholder="Rua, Número, Bairro, Cidade - UF"></div>
         </div>
         

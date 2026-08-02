@@ -24,7 +24,7 @@ window.initRHColaboradores = async function() {
     await window.carregarColaboradoresLista();
 };
 
-// ==================== MÁSCARA DE CPF ====================
+// ==================== MÁSCARAS DE ENTRADA ====================
 window.mascaraCPF = function(campo) {
     let v = campo.value.replace(/\D/g, ""); // Remove tudo que não é número
     
@@ -39,6 +39,44 @@ window.mascaraCPF = function(campo) {
     }
     
     campo.value = v;
+};
+
+window.mascaraTelefone = function(campo) {
+    let v = campo.value.replace(/\D/g, ""); // Remove tudo que não é número
+    if (v.length > 11) v = v.substring(0, 11);
+    
+    if (v.length > 10) { 
+        v = v.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
+    } else if (v.length > 5) {
+        v = v.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3");
+    } else if (v.length > 2) {
+        v = v.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
+    }
+    campo.value = v;
+};
+
+window.mascaraMoeda = function(campo) {
+    let v = campo.value.replace(/\D/g, ""); // Remove tudo que não é dígito
+    if (v === "") {
+        campo.value = "";
+        return;
+    }
+    // Converte para decimal da direita para a esquerda
+    v = (parseInt(v, 10) / 100).toFixed(2);
+    // Aplica o formato brasileiro (Ex: 2.500,00)
+    v = v.replace(".", ",");
+    v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+    campo.value = "R$ " + v;
+};
+
+// Helper para converter o valor da moeda formatada para Float pro banco de dados
+window.parseMoeda = function(valorStr) {
+    if (!valorStr) return 0;
+    if (typeof valorStr === 'number') return valorStr;
+    let str = String(valorStr).replace('R$', '').trim();
+    str = str.replace(/\./g, ''); // Remove separador de milhares
+    str = str.replace(',', '.');  // Troca vírgula por ponto
+    return parseFloat(str) || 0;
 };
 
 // ==================== CARREGAR SETORES GLOBAIS ====================
@@ -252,8 +290,20 @@ window.abrirFichaCompleta = async function(id = null) {
         document.getElementById('colDataNascimento').value = c.data_nascimento || '';
         document.getElementById('colDataAdmissao').value = c.data_admissao || '';
         document.getElementById('colFuncao').value = c.funcao || '';
+        
+        // Aplica a máscara no telefone se houver
         document.getElementById('colTelefone').value = c.telefone || '';
-        document.getElementById('colSalario').value = c.salario_base || '';
+        if (c.telefone) window.mascaraTelefone(document.getElementById('colTelefone'));
+        
+        // Aplica a máscara no salário se houver
+        if (c.salario_base !== null && c.salario_base !== undefined && c.salario_base !== "") {
+            let elSalario = document.getElementById('colSalario');
+            elSalario.value = (parseFloat(c.salario_base) * 100).toFixed(0); 
+            window.mascaraMoeda(elSalario);
+        } else {
+            document.getElementById('colSalario').value = '';
+        }
+        
         document.getElementById('colEndereco').value = c.endereco || '';
         
         document.getElementById('colCnhNumero').value = c.cnh_numero || '';
@@ -330,7 +380,8 @@ window.salvarColaboradorFicha = async function() {
         data_admissao: getDateValue('colDataAdmissao'),
         funcao: getValue('colFuncao'),
         telefone: getValue('colTelefone'),
-        salario_base: parseFloat(getValue('colSalario')) || 0,
+        // Utiliza a nova função que limpa a mascara da moeda para transformar em Float no banco
+        salario_base: window.parseMoeda(getValue('colSalario')),
         endereco: getValue('colEndereco'),
         
         cnh_numero: getValue('colCnhNumero'),
