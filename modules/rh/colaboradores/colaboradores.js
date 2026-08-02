@@ -1,9 +1,8 @@
 // ==================== js/colaboradores.js ====================
 window.listaColaboradoresDb = [];
 window.listaCursosAtivos = [];
-window.filtroPendenciasAtivo = false;
+window.estadoFiltroRH = 'nenhum'; // 'todos', 'pendencias', 'busca'
 
-// Definição dos campos básicos obrigatórios para considerar um cadastro "Completo"
 window.camposBaseObrigatorios = [
     { key: 'cpf', id: 'colCpf' },
     { key: 'rg', id: 'colRg' },
@@ -18,30 +17,162 @@ window.initRHColaboradores = async function() {
     document.getElementById('viewListagemColaboradores').style.display = 'block';
     document.getElementById('viewFichaColaborador').style.display = 'none';
     
+    // Esconde a tabela no carregamento inicial (Tela de Entrada Limpa)
+    document.getElementById('containerTabelaColaboradores').style.display = 'none';
+    document.getElementById('filtroSmart').value = '';
+    window.estadoFiltroRH = 'nenhum';
+    
     await window.carregarSetoresGlobal(); 
     await window.carregarCursosGlobais();
     await window.carregarCargosControladoria(); 
-    await window.carregarColaboradoresLista();
+    
+    // Carrega o banco em memória sem desenhar a tabela
+    window.listaColaboradoresDb = await db.getColaboradores();
 };
+
+// ==================== AÇÕES RÁPIDAS (DROPDOWN) ====================
+window.toggleActionMenu = function(id) {
+    // Esconde todos os outros menus primeiro
+    document.querySelectorAll('.action-dropdown-menu').forEach(m => {
+        if (m.id !== `action-menu-${id}`) m.style.display = 'none';
+    });
+    
+    const menu = document.getElementById(`action-menu-${id}`);
+    if (menu) {
+        menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+    }
+};
+
+// Fecha o menu de ações ao clicar fora
+document.addEventListener('click', function(e) {
+    if(!e.target.closest('.action-menu-container')) {
+        document.querySelectorAll('.action-dropdown-menu').forEach(m => m.style.display = 'none');
+    }
+});
+
+
+// ==================== BUSCA INTELIGENTE (HERO SEARCH) ====================
+window.aplicarFiltroRapido = function(tipo) {
+    document.getElementById('filtroSmart').value = ''; // Limpa o campo se clicou no botão
+    window.estadoFiltroRH = tipo;
+    window.executarBuscaInteligente();
+};
+
+window.executarBuscaInteligente = function() {
+    const termo = document.getElementById('filtroSmart').value.toLowerCase().trim();
+    const containerTabela = document.getElementById('containerTabelaColaboradores');
+    
+    if (termo.length > 0) window.estadoFiltroRH = 'busca';
+    
+    // Se não há termo e não clicou em filtro rápido, esconde a tabela
+    if (window.estadoFiltroRH === 'nenhum' && termo.length === 0) {
+        containerTabela.style.display = 'none';
+        return;
+    }
+    
+    containerTabela.style.display = 'block';
+    
+    const filtrados = window.listaColaboradoresDb.filter(c => {
+        const nomeMatch = c.nome && c.nome.toLowerCase().includes(termo);
+        const matMatch = c.cod_funcionario && String(c.cod_funcionario).includes(termo);
+        const funcMatch = c.funcao && c.funcao.toLowerCase().includes(termo);
+        
+        let passaBusca = nomeMatch || matMatch || funcMatch;
+        
+        if (window.estadoFiltroRH === 'pendencias') {
+            if(c.status === 'Inativo' || c.status === 'Desligado') return false;
+            let f1 = window.verificarPendenciasCadastro(c);
+            let f2 = window.analisarVencimentosColaborador(c);
+            return (f1.length > 0 || f2.length > 0) && passaBusca;
+        }
+        
+        return passaBusca;
+    });
+    
+    window.renderizarTabelaColaboradores(filtrados);
+};
+
+window.renderizarTabelaColaboradores = function(lista) {
+    const tbody = document.getElementById('tbListaColaboradores');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (lista.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador encontrado nesta busca.</td></tr>`;
+        return;
+    }
+
+    lista.forEach(c => {
+        let corStatus = 'var(--ccol-green-bright)';
+        if(c.status === 'Inativo' || c.status === 'Desligado') corStatus = '#ef4444';
+        else if(c.status === 'Férias' || c.status === 'Afastado') corStatus = '#f59e0b';
+        
+        const matriculaFormatada = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'S/ Matrícula';
+        
+        // --- ALERTAS DE PENDÊNCIA E VENCIMENTOS ---
+        const pendencias = window.verificarPendenciasCadastro(c);
+        let badgeAlertaFaltando = '';
+        if (pendencias.length > 0 && c.status !== 'Inativo' && c.status !== 'Desligado') {
+            badgeAlertaFaltando = `<span title="Cadastro Incompleto ou Inválido (${pendencias.length} informações pendentes)" style="color: #ef4444; margin-right: 8px; font-size: 1.1rem; cursor: help;"><i class="fas fa-exclamation-triangle"></i></span>`;
+        }
+
+        let badgeVencimentos = '';
+        if (c.status !== 'Inativo' && c.status !== 'Desligado') {
+            let vencimentos = window.analisarVencimentosColaborador(c);
+            if (vencimentos.length > 0) {
+                let msg = vencimentos.map(v => `${v.nome} (${v.status})`).join('\n');
+                let corPior = vencimentos.some(v => v.status === 'Vencido') ? '#ef4444' : '#f59e0b';
+                badgeVencimentos = `<span title="Avisos de Vencimento:\n${msg}" style="color: ${corPior}; margin-right: 8px; font-size: 1.1rem; cursor: help;"><i class="fas fa-clock"></i></span>`;
+            }
+        }
+        
+        let alertasHTML = (badgeAlertaFaltando || badgeVencimentos) ? (badgeAlertaFaltando + badgeVencimentos) : '<span style="color: #10b981; font-size:0.85rem;"><i class="fas fa-check-circle"></i> Tudo OK</span>';
+        
+        const imgAvatar = c.foto_url ? `<img src="${c.foto_url}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-dim);">` : `<div style="width: 32px; height: 32px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 0.8rem;">${c.nome.charAt(0)}</div>`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong style="color: var(--ccol-blue-bright); font-size: 1.1rem;">${matriculaFormatada}</strong></td>
+            <td style="text-align: left; font-weight: bold; font-size: 1rem;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    ${imgAvatar}
+                    ${c.nome}
+                </div>
+            </td>
+            <td><span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-dim); font-size: 0.85rem;">${c.funcao || 'Não informada'}</span></td>
+            <td>${alertasHTML}</td>
+            <td><span style="color: ${corStatus}; font-weight: bold; font-size: 0.9rem;">${c.status || 'Ativo'}</span></td>
+            <td style="text-align: right;">
+                <div class="action-menu-container" style="position: relative; display: inline-block; text-align: left;">
+                    <button class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.8rem;" onclick="window.toggleActionMenu('${c.id}')">
+                        Ações <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 5px;"></i>
+                    </button>
+                    <div id="action-menu-${c.id}" class="action-dropdown-menu">
+                        <button onclick="window.abrirFichaCompleta('${c.id}')"><i class="fas fa-folder-open" style="color: var(--ccol-blue-bright); width: 15px;"></i> Abrir Dossiê / Editar</button>
+                        <button onclick="window.imprimirFichaColaborador('${c.id}')"><i class="fas fa-id-card" style="color: #10b981; width: 15px;"></i> Imprimir Ficha RH</button>
+                        <button onclick="window.imprimirFichaEPI('${c.id}')"><i class="fas fa-hard-hat" style="color: #f59e0b; width: 15px;"></i> Imprimir Entrega de EPI</button>
+                    </div>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
 
 // ==================== LÓGICA DE ABAS E HEADER ====================
 window.mudarAbaFichaRH = function(abaId) {
-    // Esconde todas as abas
     document.querySelectorAll('.rh-tab-content').forEach(el => {
         el.style.display = 'none';
         el.classList.remove('active');
     });
-    // Tira o "active" dos botões
     document.querySelectorAll('.rh-tab-btn').forEach(el => el.classList.remove('active'));
     
-    // Mostra a aba clicada
     const abaAlvo = document.getElementById(abaId);
     if(abaAlvo) {
         abaAlvo.style.display = 'block';
         abaAlvo.classList.add('active');
     }
-    
-    // Marca o botão clicado
     const btnAtivo = document.querySelector(`[onclick="window.mudarAbaFichaRH('${abaId}')"]`);
     if(btnAtivo) btnAtivo.classList.add('active');
 };
@@ -234,8 +365,6 @@ window.carregarSetoresGlobal = async function() {
         const selSetor = document.getElementById('colSetorId');
         if (selSetor) selSetor.innerHTML = '<option value="">Selecione um setor...</option>' + data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
         
-        const selFiltroSetor = document.getElementById('filtroSetorLista');
-        if (selFiltroSetor) selFiltroSetor.innerHTML = '<option value="">Todos os Setores</option>' + data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
     } catch(e) { console.error("Erro ao carregar setores:", e); }
 };
 
@@ -276,129 +405,6 @@ window.limparValidacaoVisualFicha = function() {
     });
 };
 
-// ==================== LISTAGEM E PESQUISA ====================
-window.carregarColaboradoresLista = async function() {
-    try {
-        const tbody = document.getElementById('tbListaColaboradores');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando banco de dados...</td></tr>`;
-        
-        window.listaColaboradoresDb = await db.getColaboradores();
-        window.filtrarColaboradoresLista(); 
-    } catch (e) {
-        console.error(e);
-        alert("Erro ao carregar lista de colaboradores.");
-    }
-};
-
-window.renderizarTabelaColaboradores = function(lista) {
-    const tbody = document.getElementById('tbListaColaboradores');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    if (lista.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador encontrado com os filtros aplicados.</td></tr>`;
-        return;
-    }
-
-    lista.forEach(c => {
-        let corStatus = 'var(--ccol-green-bright)';
-        if(c.status === 'Inativo' || c.status === 'Desligado') corStatus = '#ef4444';
-        else if(c.status === 'Férias' || c.status === 'Afastado') corStatus = '#f59e0b';
-        
-        const matriculaFormatada = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'S/ Matrícula';
-        
-        // --- ALERTAS DE PENDÊNCIA BASE E VENCIMENTOS ---
-        const pendencias = window.verificarPendenciasCadastro(c);
-        let badgeAlertaFaltando = '';
-        if (pendencias.length > 0 && c.status !== 'Inativo' && c.status !== 'Desligado') {
-            badgeAlertaFaltando = `<span title="Cadastro Incompleto ou Inválido (${pendencias.length} informações pendentes)" style="color: #ef4444; margin-right: 5px; font-size: 1.1rem; cursor: help;"><i class="fas fa-exclamation-triangle"></i></span>`;
-        }
-
-        let badgeVencimentos = '';
-        if (c.status !== 'Inativo' && c.status !== 'Desligado') {
-            let vencimentos = window.analisarVencimentosColaborador(c);
-            if (vencimentos.length > 0) {
-                let msg = vencimentos.map(v => `${v.nome} (${v.status})`).join('\n');
-                let corPior = vencimentos.some(v => v.status === 'Vencido') ? '#ef4444' : '#f59e0b';
-                badgeVencimentos = `<span title="Avisos de Vencimento:\n${msg}" style="color: ${corPior}; margin-right: 5px; font-size: 1.1rem; cursor: help;"><i class="fas fa-clock"></i></span>`;
-            }
-        }
-        
-        let nomeSetor = 'Não informado';
-        if (c.setor_id) {
-            const selectSetor = document.getElementById('filtroSetorLista');
-            if (selectSetor) {
-                const option = Array.from(selectSetor.options).find(opt => opt.value == c.setor_id);
-                if (option) nomeSetor = option.text;
-            }
-        }
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><strong style="color: var(--ccol-blue-bright); font-size: 1.1rem;">${matriculaFormatada}</strong></td>
-            <td style="text-align: left; font-weight: bold; font-size: 1.05rem;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    ${c.foto_url ? `<img src="${c.foto_url}" style="width: 25px; height: 25px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-dim);">` : ''}
-                    ${c.nome}
-                </div>
-            </td>
-            <td><span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-dim); font-size: 0.85rem;">${c.funcao || 'Não informada'}</span></td>
-            <td><span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-dim); font-size: 0.85rem;">${nomeSetor}</span></td>
-            <td><span style="color: ${corStatus}; font-weight: bold; font-size: 0.9rem;">${c.status || 'Ativo'}</span></td>
-            <td style="text-align: right;">
-                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
-                    ${badgeAlertaFaltando} ${badgeVencimentos}
-                    <button class="btn-icon-only" title="Imprimir Ficha Cadastral" style="color: #60a5fa; border:none; background:transparent; cursor:pointer; font-size:1.1rem;" onclick="window.imprimirFichaColaborador('${c.id}')"><i class="fas fa-id-card"></i></button>
-                    <button class="btn-icon-only" title="Imprimir Ficha de EPI / Equipamentos" style="color: #f59e0b; border:none; background:transparent; cursor:pointer; font-size:1.1rem;" onclick="window.imprimirFichaEPI('${c.id}')"><i class="fas fa-hard-hat"></i></button>
-                    <button class="btn-primary-blue" style="padding: 6px 12px; font-size: 0.8rem;" onclick="window.abrirFichaCompleta('${c.id}')"><i class="fas fa-edit"></i> Editar</button>
-                </div>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-};
-
-window.toggleFiltroPendencias = function() {
-    window.filtroPendenciasAtivo = !window.filtroPendenciasAtivo;
-    const btn = document.getElementById('btnFiltroPendencias');
-    if(window.filtroPendenciasAtivo) {
-        btn.classList.remove('btn-danger-outline');
-        btn.classList.add('btn-danger-block');
-        btn.innerHTML = '<i class="fas fa-filter"></i> Filtrando Pendentes';
-    } else {
-        btn.classList.remove('btn-danger-block');
-        btn.classList.add('btn-danger-outline');
-        btn.innerHTML = '<i class="fas fa-exclamation-circle"></i> Mostrar Pendências';
-    }
-    window.filtrarColaboradoresLista();
-};
-
-window.filtrarColaboradoresLista = function() {
-    const termoNome = document.getElementById('filtroNome').value.toLowerCase();
-    const termoMatricula = document.getElementById('filtroMatricula').value.toLowerCase();
-    const termoSetor = document.getElementById('filtroSetorLista').value; 
-    
-    const filtrados = window.listaColaboradoresDb.filter(c => {
-        const nomeMatch = !termoNome || (c.nome && c.nome.toLowerCase().includes(termoNome));
-        const matMatch = !termoMatricula || (c.cod_funcionario && String(c.cod_funcionario).includes(termoMatricula));
-        const setorMatch = !termoSetor || (String(c.setor_id) === String(termoSetor));
-        
-        let pendenciaMatch = true;
-        if (window.filtroPendenciasAtivo) {
-            if(c.status === 'Inativo' || c.status === 'Desligado') {
-                pendenciaMatch = false;
-            } else {
-                let f1 = window.verificarPendenciasCadastro(c);
-                let f2 = window.analisarVencimentosColaborador(c);
-                pendenciaMatch = (f1.length > 0 || f2.length > 0);
-            }
-        }
-        
-        return nomeMatch && matMatch && setorMatch && pendenciaMatch;
-    });
-    
-    window.renderizarTabelaColaboradores(filtrados);
-};
 
 // ==================== TRANSIÇÃO E LÓGICA DA FICHA COMPLETA ====================
 window.voltarParaListagem = function() {
@@ -504,7 +510,6 @@ window.abrirFichaCompleta = async function(id = null) {
         
         window.montarCamposCursosDinamicosFull(c.cursos_vencimentos || {});
         
-        // Exibir Documentos e Fotos Existentes se houver
         if (c.foto_url || (c.documentos_urls && c.documentos_urls.length > 0)) {
              document.getElementById('containerLinksArquivos').innerHTML = '';
         }
@@ -651,8 +656,6 @@ window.salvarColaboradorFicha = async function() {
                 if (!error) {
                     const { data: publicUrlData } = window.supabaseClient.storage.from('rh_arquivos').getPublicUrl(fileName);
                     dados.foto_url = publicUrlData.publicUrl;
-                } else {
-                    console.log('Bucket "rh_arquivos" pode não existir.', error);
                 }
             }
             
@@ -668,9 +671,7 @@ window.salvarColaboradorFicha = async function() {
                         docUrls.push(publicUrlData.publicUrl);
                     }
                 }
-                if (docUrls.length > 0) {
-                    dados.documentos_urls = docUrls; 
-                }
+                if (docUrls.length > 0) dados.documentos_urls = docUrls; 
             }
         }
         
@@ -685,6 +686,8 @@ window.salvarColaboradorFicha = async function() {
         }
         
         await window.carregarColaboradoresLista();
+        // Dispara uma busca para ver a tabela com o item novo/atualizado
+        window.executarBuscaInteligente();
         window.voltarParaListagem(); 
     } catch (e) {
         console.error(e);
@@ -704,6 +707,7 @@ window.excluirColaboradorAtual = async function() {
             
             alert('Cadastro excluído com sucesso.');
             await window.carregarColaboradoresLista();
+            window.executarBuscaInteligente();
             window.voltarParaListagem();
         } catch (e) {
             console.error(e);

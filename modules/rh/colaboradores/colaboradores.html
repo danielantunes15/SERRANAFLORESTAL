@@ -27,6 +27,75 @@
     }
 
     /* ========================================================== */
+    /* BUSCA INTELIGENTE E AÇÕES RÁPIDAS (NOVO)                   */
+    /* ========================================================== */
+    .smart-hero {
+        text-align: center; 
+        padding: 50px 20px; 
+        background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); 
+        border-radius: 12px; 
+        margin-bottom: 25px; 
+        border: 1px solid var(--border-dim);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        animation: terminalFadeIn 0.4s ease-out;
+    }
+    .search-input-giant {
+        width: 100%; 
+        max-width: 650px; 
+        padding: 18px 30px; 
+        font-size: 1.2rem; 
+        border-radius: 40px;
+        background: rgba(0,0,0,0.3);
+        border: 2px solid var(--border-dim);
+        color: #fff;
+        transition: all 0.3s;
+        margin-bottom: 20px;
+    }
+    .search-input-giant:focus {
+        border-color: var(--ccol-blue-bright);
+        box-shadow: 0 0 20px rgba(96, 165, 250, 0.15);
+        outline: none;
+        background: rgba(0,0,0,0.5);
+    }
+    .action-dropdown-menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 5px);
+        background: #1e293b;
+        border: 1px solid var(--border-dim);
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        min-width: 200px;
+        z-index: 100;
+        display: none; /* Controlado via JS */
+        flex-direction: column;
+        overflow: hidden;
+        animation: terminalFadeIn 0.2s ease-out;
+    }
+    .action-dropdown-menu button {
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        padding: 14px 15px;
+        text-align: left;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: background 0.2s;
+        border-bottom: 1px solid rgba(255,255,255,0.02);
+    }
+    .action-dropdown-menu button:last-child {
+        border-bottom: none;
+    }
+    .action-dropdown-menu button:hover {
+        background: rgba(255,255,255,0.05);
+        color: #fff;
+    }
+
+    /* ========================================================== */
     /* NOVO DESIGN DO DOSSIÊ DE RH                                */
     /* ========================================================== */
     .rh-profile-header {
@@ -138,54 +207,59 @@
 </style>
 
 <div id="viewListagemColaboradores" style="animation: terminalFadeIn 0.3s ease-out;">
-    <div class="action-bar" style="display: flex; flex-wrap: wrap; gap: 15px;">
-        <div class="filter-group" style="flex: 1; display: flex; gap: 10px; min-width: 300px;">
-            <h2 style="color: #fff; margin-right: 15px; white-space: nowrap;"><i class="fas fa-users"></i> Colaboradores</h2>
-            
-            <input type="text" id="filtroMatricula" class="search-input-dark" style="width: 150px;" placeholder="Matrícula..." onkeyup="window.filtrarColaboradoresLista()">
-            
-            <!-- Filtro por Setor -->
-            <select id="filtroSetorLista" class="search-input-dark" style="width: 180px;" onchange="window.filtrarColaboradoresLista()">
-                <option value="">Todos os Setores</option>
-                <!-- Preenchido via JS -->
-            </select>
-            <input type="text" id="filtroNome" class="search-input-dark" style="flex: 1;" placeholder="Buscar por Nome do Colaborador..." onkeyup="window.filtrarColaboradoresLista()">
-        </div>
-        <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button id="btnFiltroPendencias" class="btn-danger-outline" onclick="window.toggleFiltroPendencias()"><i class="fas fa-exclamation-circle"></i> Mostrar Pendências</button>
-            <button class="btn-secondary-dark" onclick="window.exportarTodasFichas()"><i class="fas fa-file-pdf"></i> Exportar Fichas</button>
-            <button class="btn-secondary-dark" onclick="window.exportarTodasFichasEPI()"><i class="fas fa-hard-hat"></i> Exportar EPIs</button>
-            <button class="btn-secondary-dark" onclick="window.abrirModalGerenciarCursos()"><i class="fas fa-book"></i> Cursos</button>
-            <button class="btn-primary-blue" onclick="window.abrirFichaCompleta()"><i class="fas fa-plus"></i> Novo Cadastro</button>
+    
+    <!-- Tela de Entrada Inteligente (Hero Search) -->
+    <div class="smart-hero">
+        <i class="fas fa-search" style="font-size: 3rem; color: var(--ccol-blue-bright); margin-bottom: 20px;"></i>
+        <h2 style="color: #fff; font-size: 1.8rem; font-weight: 800; margin-bottom: 10px;">Busca de Colaboradores</h2>
+        <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 30px;">Digite o nome, matrícula, cargo ou utilize os atalhos rápidos abaixo.</p>
+        
+        <input type="text" id="filtroSmart" class="search-input-giant" placeholder="Quem você procura?..." onkeyup="window.executarBuscaInteligente()">
+        
+        <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+            <button class="btn-secondary-dark" onclick="window.aplicarFiltroRapido('todos')" style="padding: 12px 25px; border-radius: 30px;"><i class="fas fa-users"></i> Listar Todos</button>
+            <button class="btn-danger-outline" onclick="window.aplicarFiltroRapido('pendencias')" style="padding: 12px 25px; border-radius: 30px;"><i class="fas fa-exclamation-triangle"></i> CNH / ASO Pendentes</button>
+            <button class="btn-primary-green" onclick="window.abrirFichaCompleta()" style="padding: 12px 25px; border-radius: 30px;"><i class="fas fa-plus"></i> Novo Cadastro</button>
         </div>
     </div>
-    <div class="content-panel">
-        <div class="table-modern-wrapper" style="max-height: calc(100vh - 200px); overflow-y: auto;">
-            <table class="data-table-modern">
-                <thead>
-                    <tr>
-                        <th>Matrícula</th>
-                        <th>Nome Completo</th>
-                        <th>Função</th>
-                        <th>Setor</th>
-                        <th>Status</th>
-                        <th style="text-align: right;">Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="tbListaColaboradores">
-                    <!-- Preenchido via JS -->
-                </tbody>
-            </table>
+
+    <!-- Tabela de Resultados (Escondida Inicialmente) -->
+    <div id="containerTabelaColaboradores" style="display: none;">
+        <div class="action-bar" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="color: #fff; margin: 0; font-size: 1.1rem;"><i class="fas fa-list"></i> Resultados da Busca</h3>
+            <div class="button-group">
+                <button class="btn-secondary-dark" onclick="window.exportarTodasFichas()"><i class="fas fa-file-pdf"></i> Exportar Fichas (Lote)</button>
+                <button class="btn-secondary-dark" onclick="window.abrirModalGerenciarCursos()"><i class="fas fa-book"></i> Gestão de Cursos</button>
+            </div>
+        </div>
+        <div class="content-panel">
+            <div class="table-modern-wrapper" style="max-height: calc(100vh - 350px); overflow-y: auto;">
+                <table class="data-table-modern">
+                    <thead>
+                        <tr>
+                            <th>Matrícula</th>
+                            <th>Perfil / Colaborador</th>
+                            <th>Função</th>
+                            <th>Alertas / Vencimentos</th>
+                            <th>Status</th>
+                            <th style="text-align: right; width: 120px;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbListaColaboradores">
+                        <!-- Preenchido via JS -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
 <div id="viewFichaColaborador" style="display: none; animation: terminalFadeIn 0.3s ease-out;">
     <div class="action-bar" style="display: flex; justify-content: space-between;">
-        <button class="btn-secondary-dark" onclick="window.voltarParaListagem()"><i class="fas fa-arrow-left"></i> Voltar para Lista</button>
+        <button class="btn-secondary-dark" onclick="window.voltarParaListagem()"><i class="fas fa-arrow-left"></i> Voltar para Busca</button>
         <div class="button-group" style="display: flex; gap: 10px;">
             <button class="btn-danger-outline" id="btnExcluirFicha" onclick="window.excluirColaboradorAtual()"><i class="fas fa-trash"></i> Excluir Registro</button>
-            <button class="btn-primary-green" onclick="window.salvarColaboradorFicha()"><i class="fas fa-save"></i> Salvar Informações</button>
+            <button class="btn-primary-blue" onclick="window.salvarColaboradorFicha()"><i class="fas fa-save"></i> Salvar Dossiê</button>
         </div>
     </div>
     
@@ -198,10 +272,9 @@
         </div>
     </div>
     
-    <!-- NOVO: Header de Perfil -->
+    <!-- Header de Perfil -->
     <div class="rh-profile-header">
         <div class="rh-avatar-wrapper">
-            <!-- Imagem Padrão que será substituída se houver upload -->
             <img id="avatarPreviewRH" src="https://ui-avatars.com/api/?name=Colaborador&background=1e293b&color=60a5fa&size=150" alt="Foto Perfil">
         </div>
         <div class="rh-profile-info">
@@ -324,12 +397,8 @@
                     <label>Tamanho da Camisa</label>
                     <select id="colTamanhoCamisa" class="dark-select">
                         <option value="">Selecione...</option>
-                        <option value="PP">PP</option>
-                        <option value="P">P</option>
-                        <option value="M">M</option>
-                        <option value="G">G</option>
-                        <option value="GG">GG</option>
-                        <option value="XG">XG</option>
+                        <option value="PP">PP</option><option value="P">P</option><option value="M">M</option>
+                        <option value="G">G</option><option value="GG">GG</option><option value="XG">XG</option>
                         <option value="EXG">EXG</option>
                     </select>
                 </div>
@@ -337,29 +406,18 @@
                     <label>Tamanho da Calça</label>
                     <select id="colTamanhoCalca" class="dark-select">
                         <option value="">Selecione...</option>
-                        <option value="36">36</option>
-                        <option value="38">38</option>
-                        <option value="40">40</option>
-                        <option value="42">42</option>
-                        <option value="44">44</option>
-                        <option value="46">46</option>
-                        <option value="48">48</option>
-                        <option value="50">50</option>
-                        <option value="52">52</option>
-                        <option value="54">54</option>
-                        <option value="56">56</option>
+                        <option value="36">36</option><option value="38">38</option><option value="40">40</option>
+                        <option value="42">42</option><option value="44">44</option><option value="46">46</option>
+                        <option value="48">48</option><option value="50">50</option><option value="52">52</option>
                     </select>
                 </div>
                 <div class="form-group-dark">
                     <label>Nº do Calçado (Botina)</label>
                     <select id="colTamanhoCalcado" class="dark-select">
                         <option value="">Selecione...</option>
-                        <option value="35">35</option><option value="36">36</option>
-                        <option value="37">37</option><option value="38">38</option>
-                        <option value="39">39</option><option value="40">40</option>
-                        <option value="41">41</option><option value="42">42</option>
-                        <option value="43">43</option><option value="44">44</option>
-                        <option value="45">45</option><option value="46">46</option>
+                        <option value="35">35</option><option value="36">36</option><option value="37">37</option>
+                        <option value="38">38</option><option value="39">39</option><option value="40">40</option>
+                        <option value="41">41</option><option value="42">42</option><option value="43">43</option>
                     </select>
                 </div>
             </div>
@@ -399,16 +457,13 @@
 
         <!-- ================= ABA 5: DOCUMENTOS ================= -->
         <div id="tabDocumentos" class="rh-tab-content content-panel" style="padding: 30px;">
-            
             <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px;">
-                <!-- Upload Foto -->
                 <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 10px; border: 1px solid var(--border-dim);">
                     <div class="rh-section-title"><i class="fas fa-camera" style="color: var(--ccol-green-bright);"></i> Foto de Perfil</div>
                     <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Atualiza o crachá visual do colaborador no sistema.</p>
                     <input type="file" id="colFoto" accept="image/*" class="search-input-dark" style="background: rgba(0,0,0,0.4); padding: 10px; border: 1px dashed var(--ccol-green-bright); width: 100%; cursor: pointer;" onchange="window.previewAvatarRH(this)">
                 </div>
                 
-                <!-- Upload Múltiplos Arquivos -->
                 <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 10px; border: 1px solid var(--border-dim);">
                     <div class="rh-section-title"><i class="fas fa-file-upload" style="color: var(--ccol-blue-bright);"></i> Arquivos do Dossiê</div>
                     <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Selecione PDFs ou Imagens (CNH, RG, Atestados, Comprovantes).</p>
