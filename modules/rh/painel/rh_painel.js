@@ -292,6 +292,8 @@ window.atualizarKPIsPainelRH = function() {
 window.renderizarGraficosRH = function() {
     if (typeof echarts === 'undefined') return;
 
+    const hoje = new Date(); // Adicionado aqui para resolver o erro
+
     // ==========================================
     // GRÁFICO 1: CONTRATOS (DOUGHNUT COM NÚMERO NO MEIO)
     // ==========================================
