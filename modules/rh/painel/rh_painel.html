@@ -11,6 +11,13 @@
         <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Total (Ativos)</h4>
         <div id="kpiTotalAtivos" style="font-size: 2.2rem; font-weight: 900; color: #fff;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
     </div>
+    
+    <!-- NOVO KPI: ANIVERSARIANTES -->
+    <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #ec4899;">
+        <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Aniversariantes (Mês)</h4>
+        <div id="kpiAniversariantes" style="font-size: 2.2rem; font-weight: 900; color: #ec4899;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
+    </div>
+    
     <div class="config-card-dark" style="text-align: center; border-bottom: 3px solid #14b8a6;">
         <h4 style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.75rem;">Em Férias</h4>
         <div id="kpiEmFerias" style="font-size: 2.2rem; font-weight: 900; color: #14b8a6;"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i></div>
@@ -37,6 +44,20 @@
     </div>
 </div>
 
+<!-- NOVOS GRÁFICOS: Contratos e Setores -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 25px; animation: terminalFadeIn 0.45s ease-out;">
+    <div class="content-panel" style="padding: 20px; margin-bottom: 0;">
+        <h4 style="color: #fff; margin-top: 0; margin-bottom: 5px; font-size: 1rem;"><i class="fas fa-file-contract" style="color: #8b5cf6;"></i> Distribuição por Contrato</h4>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0; margin-bottom: 15px;">Volume de colaboradores ativos por modelo</p>
+        <div id="graficoContratos" style="width: 100%; height: 300px;"></div>
+    </div>
+    <div class="content-panel" style="padding: 20px; margin-bottom: 0;">
+        <h4 style="color: #fff; margin-top: 0; margin-bottom: 5px; font-size: 1rem;"><i class="fas fa-sitemap" style="color: #10b981;"></i> Colaboradores por Setor / Centro de Custo</h4>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0; margin-bottom: 15px;">Alocação departamental da equipe</p>
+        <div id="graficoSetores" style="width: 100%; height: 300px;"></div>
+    </div>
+</div>
+
 <!-- Gráficos de Atestados -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 25px; animation: terminalFadeIn 0.5s ease-out;">
     <div class="content-panel" style="padding: 20px; margin-bottom: 0;">
@@ -51,9 +72,22 @@
     </div>
 </div>
 
-<!-- Painel de Gestão de Férias -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 25px; animation: terminalFadeIn 0.55s ease-out;">
+<!-- Painéis de Gestão (Férias e Aniversários) -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-bottom: 25px; animation: terminalFadeIn 0.55s ease-out;">
     
+    <!-- NOVO: Aniversariantes -->
+    <div class="content-panel" style="padding: 20px; margin-bottom: 0; border-top: 3px solid #ec4899;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <h4 style="color: #fff; margin: 0; font-size: 1rem;"><i class="fas fa-birthday-cake" style="color: #ec4899;"></i> Aniversariantes do Mês</h4>
+            <button class="btn-secondary-dark" style="padding: 4px 8px; font-size: 0.75rem;" onclick="window.imprimirAniversariantes()"><i class="fas fa-print"></i> Imprimir</button>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 0; margin-bottom: 15px;">Celebrações no mês atual</p>
+        
+        <div id="listaAniversariantes" style="max-height: 300px; overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="text-align: center; color: #94a3b8; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
+        </div>
+    </div>
+
     <!-- Férias a Vencer -->
     <div class="content-panel" style="padding: 20px; margin-bottom: 0; border-top: 3px solid #f59e0b;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
@@ -66,7 +100,7 @@
             <div style="text-align: center; color: #94a3b8; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
         </div>
     </div>
-
+    
     <!-- Férias Vencidas / Risco -->
     <div class="content-panel" style="padding: 20px; margin-bottom: 0; border-top: 3px solid #ef4444;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
@@ -79,7 +113,6 @@
             <div style="text-align: center; color: #94a3b8; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
         </div>
     </div>
-
 </div>
 
 <!-- Tabela de Colaboradores -->
@@ -94,6 +127,7 @@
                     <th>Matrícula</th>
                     <th>Nome do Colaborador</th>
                     <th>Função</th>
+                    <th>Contrato</th>
                     <th>Telefone</th>
                     <th>Plano de Saúde</th>
                     <th>Sindicato</th>

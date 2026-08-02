@@ -1,43 +1,133 @@
 window.listaParaPainelRH = [];
 window.listaAbsenteismoPainel = [];
+window.setoresRH = [];
+window.listaAniversariantesCache = [];
 window.chartCid = null;
 window.chartEvolucaoAtestados = null;
+window.chartContratos = null;
+window.chartSetores = null;
 
 window.initRHPainel = async function() {
     try {
         const tbody = document.getElementById('tbPainelRH');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando dashboard e dados do RH...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando dashboard e dados do RH...</td></tr>`;
         
-        // Busca os colaboradores e os dados da NOVA tabela de absenteísmo simultaneamente
-        const [dadosColab, dadosAbsenteismo] = await Promise.all([
-            db.getColaboradores(),
-            db.getAbsenteismo()
-        ]);
+        // Busca paralela de todos os dados necessários
+        const pColab = db.getColaboradores();
+        const pAbs = db.getAbsenteismo();
+        const pSetores = window.supabaseClient.from('setores').select('id, nome');
+        
+        const [dadosColab, dadosAbsenteismo, resSetores] = await Promise.all([pColab, pAbs, pSetores]);
+        
+        window.setoresRH = resSetores.data || [];
+        window.listaAbsenteismoPainel = dadosAbsenteismo || [];
         
         // Filtra garantindo que ignora inativos
         window.listaParaPainelRH = dadosColab.filter(c => {
             const status = c.status ? c.status.toLowerCase() : '';
             return status !== 'inativo' && status !== 'desligado';
         });
-
-        window.listaAbsenteismoPainel = dadosAbsenteismo || [];
         
-        window.renderizarPainelFerias(); // Renderiza e já calcula os alertas
+        window.renderizarPaineisSecundarios(); 
         window.atualizarKPIsPainelRH();
         window.renderizarGraficosRH();
         window.renderizarTabelaPainelRH(window.listaParaPainelRH);
 
-        // Garante que os gráficos se ajustem se o usuário redimensionar a janela
+        // Responsividade dos gráficos
         window.addEventListener('resize', function() {
             if (window.chartCid) window.chartCid.resize();
             if (window.chartEvolucaoAtestados) window.chartEvolucaoAtestados.resize();
+            if (window.chartContratos) window.chartContratos.resize();
+            if (window.chartSetores) window.chartSetores.resize();
         });
-
     } catch(e) {
         console.error("Erro ao carregar Painel RH:", e);
         const tbody = document.getElementById('tbPainelRH');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="color: #ef4444; text-align: center;">Erro ao carregar os dados.</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="color: #ef4444; text-align: center;">Erro ao carregar os dados.</td></tr>`;
     }
+};
+
+window.renderizarPaineisSecundarios = function() {
+    window.renderizarPainelFerias();
+    window.renderizarPainelAniversariantes();
+};
+
+window.renderizarPainelAniversariantes = function() {
+    const hoje = new Date();
+    const mesAtual = hoje.getMonth() + 1;
+    let listaAniv = [];
+    
+    window.listaParaPainelRH.forEach(c => {
+        if (c.data_nascimento) {
+            const [a, m, d] = c.data_nascimento.split('-');
+            if (parseInt(m) === mesAtual) {
+                listaAniv.push({ ...c, dia: parseInt(d), mes: parseInt(m) });
+            }
+        }
+    });
+    
+    listaAniv.sort((a, b) => a.dia - b.dia);
+    window.listaAniversariantesCache = listaAniv;
+    
+    const divAniv = document.getElementById('listaAniversariantes');
+    if(divAniv) {
+        if (listaAniv.length === 0) {
+            divAniv.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px; font-weight:bold;"><i class="fas fa-calendar-times" style="font-size:2rem; display:block; margin-bottom:10px;"></i>Nenhum aniversariante neste mês.</div>`;
+        } else {
+            divAniv.innerHTML = listaAniv.map(c => {
+                const matricula = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
+                const isHoje = c.dia === hoje.getDate();
+                const borda = isHoje ? 'border-left: 4px solid #ec4899; background: rgba(236, 72, 153, 0.1);' : 'border-left: 4px solid #475569; background: rgba(0,0,0,0.2);';
+                const icone = isHoje ? '<i class="fas fa-gift" style="color: #ec4899; margin-left: 5px;" title="Aniversário Hoje!"></i>' : '';
+                
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; ${borda} padding: 12px 15px; border-radius: 6px;">
+                        <div>
+                            <strong style="color: #fff; font-size: 0.95rem; display: block; margin-bottom: 3px;">${c.nome} ${icone}</strong>
+                            <span style="color: var(--text-secondary); font-size: 0.8rem;"><i class="fas fa-id-badge"></i> Mat: ${matricula} | ${c.funcao || 'Sem função'}</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="display: inline-block; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 4px; font-size: 0.85rem; color: #fff; font-weight: bold;"><i class="fas fa-calendar-day"></i> Dia ${String(c.dia).padStart(2, '0')}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+};
+
+window.imprimirAniversariantes = function() {
+    if (!window.listaAniversariantesCache || window.listaAniversariantesCache.length === 0) {
+        alert("Nenhum aniversariante para imprimir.");
+        return;
+    }
+    const nomeMes = new Date().toLocaleString('pt-BR', { month: 'long' });
+    let html = `<html><head><title>Aniversariantes do Mês</title><style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h2 { text-align: center; color: #333; text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        th { background: #f4f4f4; text-transform: uppercase; font-size: 12px; }
+    </style></head><body>
+    <h2>Aniversariantes do Mês de ${nomeMes}</h2>
+    <table>
+        <thead><tr><th>Dia</th><th>Matrícula</th><th>Nome Completo</th><th>Setor/Função</th></tr></thead>
+        <tbody>
+    `;
+    window.listaAniversariantesCache.forEach(c => {
+        html += `<tr>
+            <td style="text-align:center;"><strong>${String(c.dia).padStart(2, '0')}</strong></td>
+            <td style="text-align:center;">${c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-'}</td>
+            <td>${c.nome}</td>
+            <td>${c.funcao || '-'}</td>
+        </tr>`;
+    });
+    html += `</tbody></table></body></html>`;
+    
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => { win.print(); win.close(); }, 500);
 };
 
 window.renderizarPainelFerias = function() {
@@ -49,8 +139,8 @@ window.renderizarPainelFerias = function() {
 
     window.listaParaPainelRH.forEach(c => {
         const status = c.status ? c.status.toLowerCase() : '';
-        if (status === 'férias' || status === 'ferias') return; 
-        if (!c.data_admissao) return; 
+        if (status === 'férias' || status === 'ferias') return;
+        if (!c.data_admissao) return;
         
         const [anoAdm, mesAdm, diaAdm] = c.data_admissao.split('-');
         const dataAdmObj = new Date(anoAdm, mesAdm - 1, diaAdm);
@@ -152,11 +242,18 @@ window.atualizarKPIsPainelRH = function() {
     let emFerias = 0;
     const hoje = new Date();
     hoje.setHours(0,0,0,0);
-    
+    const mesAtual = hoje.getMonth() + 1;
+    let aniversariantes = 0;
+
     window.listaParaPainelRH.forEach(c => {
         const status = c.status ? c.status.toLowerCase() : '';
         if (status === 'férias' || status === 'ferias') {
             emFerias++;
+        }
+        
+        if (c.data_nascimento) {
+            const [, m, ] = c.data_nascimento.split('-');
+            if (parseInt(m) === mesAtual) aniversariantes++;
         }
 
         if(c.aso_vencimento) {
@@ -173,7 +270,6 @@ window.atualizarKPIsPainelRH = function() {
     data30DiasAtras.setDate(hoje.getDate() - 30);
     
     window.listaAbsenteismoPainel.forEach(a => {
-        // Verifica apenas os que são do tipo ATESTADO para esta estatística
         if (a.tipo_registro === 'ATESTADO' && a.data_inicio) {
             const [ano, mes, dia] = a.data_inicio.split('-');
             const dataAt = new Date(ano, mes - 1, dia);
@@ -184,6 +280,7 @@ window.atualizarKPIsPainelRH = function() {
     });
 
     if(document.getElementById('kpiTotalAtivos')) document.getElementById('kpiTotalAtivos').innerText = total;
+    if(document.getElementById('kpiAniversariantes')) document.getElementById('kpiAniversariantes').innerText = aniversariantes;
     if(document.getElementById('kpiPlanoSaude')) document.getElementById('kpiPlanoSaude').innerText = plano;
     if(document.getElementById('kpiSindicato')) document.getElementById('kpiSindicato').innerText = sindicato;
     if(document.getElementById('kpiAsoVencido')) document.getElementById('kpiAsoVencido').innerText = asoAlertas;
@@ -196,11 +293,70 @@ window.renderizarGraficosRH = function() {
     if (typeof echarts === 'undefined') return;
 
     // ==========================================
-    // GRÁFICO 1: TOP 5 MOTIVOS / CID
+    // GRÁFICO 1: CONTRATOS
+    // ==========================================
+    const freqContrato = {};
+    window.listaParaPainelRH.forEach(c => {
+        let tipo = c.tipo_contrato || 'CLT';
+        freqContrato[tipo] = (freqContrato[tipo] || 0) + 1;
+    });
+    const dataContratos = Object.keys(freqContrato).map(k => ({ name: k, value: freqContrato[k] }));
+    
+    const domContratos = document.getElementById('graficoContratos');
+    if(domContratos) {
+        if (window.chartContratos) window.chartContratos.dispose();
+        window.chartContratos = echarts.init(domContratos);
+        window.chartContratos.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}: {c} colab. ({d}%)' },
+            legend: { top: 'bottom', textStyle: { color: '#9ca3af' } },
+            color: ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'],
+            series: [{
+                type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false,
+                itemStyle: { borderRadius: 8, borderColor: '#1f2937', borderWidth: 3 },
+                label: { show: false },
+                data: dataContratos
+            }]
+        });
+    }
+
+    // ==========================================
+    // GRÁFICO 2: SETORES / CENTROS DE CUSTO
+    // ==========================================
+    const freqSetor = {};
+    window.listaParaPainelRH.forEach(c => {
+        let nomeSetor = 'Sem Setor';
+        if(c.setor_id && window.setoresRH) {
+            let s = window.setoresRH.find(x => x.id == c.setor_id);
+            if(s) nomeSetor = s.nome;
+        }
+        freqSetor[nomeSetor] = (freqSetor[nomeSetor] || 0) + 1;
+    });
+    const dataSetores = Object.keys(freqSetor).map(k => ({ name: k, value: freqSetor[k] }));
+    dataSetores.sort((a,b) => b.value - a.value);
+    
+    const domSetores = document.getElementById('graficoSetores');
+    if(domSetores) {
+        if (window.chartSetores) window.chartSetores.dispose();
+        window.chartSetores = echarts.init(domSetores);
+        window.chartSetores.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}: {c} colab. ({d}%)' },
+            legend: { type: 'scroll', top: 'bottom', textStyle: { color: '#9ca3af' } },
+            color: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899', '#06b6d4'],
+            series: [{
+                type: 'pie', radius: '65%', center: ['50%', '45%'],
+                itemStyle: { borderRadius: 4, borderColor: '#1f2937', borderWidth: 2 },
+                label: { show: false },
+                data: dataSetores
+            }]
+        });
+    }
+
+    // ==========================================
+    // GRÁFICO 3: TOP 5 MOTIVOS / CID
     // ==========================================
     const freqCid = {};
     window.listaAbsenteismoPainel.forEach(a => {
-        if (a.tipo_registro !== 'ATESTADO') return; // Conta apenas os atestados
+        if (a.tipo_registro !== 'ATESTADO') return;
         let chave = a.cid ? a.cid.trim().toUpperCase() : (a.motivo ? a.motivo.trim() : 'Não Informado');
         if (chave === '') chave = 'Não Informado';
         freqCid[chave] = (freqCid[chave] || 0) + 1;
@@ -208,15 +364,13 @@ window.renderizarGraficosRH = function() {
     
     const cidArray = Object.keys(freqCid).map(k => ({ name: k, value: freqCid[k] }));
     cidArray.sort((a,b) => b.value - a.value);
-    
     const top5Cid = cidArray.slice(0, 5);
     const hasCidData = top5Cid.length > 0;
-
+    
     const domCid = document.getElementById('graficoCid');
     if(domCid) {
         if (window.chartCid) window.chartCid.dispose();
         window.chartCid = echarts.init(domCid);
-
         const optionCid = {
             tooltip: { trigger: 'item', formatter: '{b}: {c} ocorrência(s) ({d}%)' },
             legend: { top: 'bottom', textStyle: { color: '#9ca3af' } },
@@ -227,10 +381,7 @@ window.renderizarGraficosRH = function() {
                 avoidLabelOverlap: false,
                 itemStyle: { borderRadius: 8, borderColor: '#1f2937', borderWidth: 3 },
                 label: { show: false, position: 'center' },
-                emphasis: {
-                    label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' }
-                },
-                labelLine: { show: false },
+                emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' } },
                 data: hasCidData ? top5Cid : [{ name: 'Sem dados', value: 0 }]
             }]
         };
@@ -238,7 +389,7 @@ window.renderizarGraficosRH = function() {
     }
 
     // ==========================================
-    // GRÁFICO 2: EVOLUÇÃO 6 MESES
+    // GRÁFICO 4: EVOLUÇÃO 6 MESES ATESTADOS
     // ==========================================
     const hoje = new Date();
     const mesesLabels = [];
@@ -251,9 +402,8 @@ window.renderizarGraficosRH = function() {
         mesesLabels.push(label);
         chavesAnoMes.push({ key: key, count: 0 });
     }
-
     window.listaAbsenteismoPainel.forEach(a => {
-        if (a.tipo_registro !== 'ATESTADO') return; // Considera apenas atestados na evolução do RH geral
+        if (a.tipo_registro !== 'ATESTADO') return;
         if (a.data_inicio) {
             const [ano, mes] = a.data_inicio.split('-');
             const key = `${ano}-${mes}`;
@@ -261,14 +411,11 @@ window.renderizarGraficosRH = function() {
             if (target) target.count++;
         }
     });
-
     const dataBarras = chavesAnoMes.map(c => c.count);
     const domEvolucao = document.getElementById('graficoEvolucaoAtestados');
-
     if(domEvolucao) {
         if (window.chartEvolucaoAtestados) window.chartEvolucaoAtestados.dispose();
         window.chartEvolucaoAtestados = echarts.init(domEvolucao);
-
         const optionEvolucao = {
             tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
             grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
@@ -306,7 +453,6 @@ window.calcularBadgeAsoPainel = function(dataStr) {
     if (!dataStr) return '<span style="color:#ef4444; font-weight:bold;">Não Cadastrado</span>';
     const hoje = new Date(); hoje.setHours(0,0,0,0);
     const venc = new Date(dataStr + 'T00:00:00');
-    
     const dias = Math.ceil((venc.getTime() - hoje.getTime()) / (1000 * 3600 * 24));
     
     if (dias < 0) return '<span style="color:#ef4444; font-weight:bold;">Vencido</span>';
@@ -318,15 +464,19 @@ window.renderizarTabelaPainelRH = function(lista) {
     const tbody = document.getElementById('tbPainelRH');
     if (!tbody) return;
     tbody.innerHTML = '';
-
     if (lista.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador ativo encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador ativo encontrado.</td></tr>`;
         return;
     }
-
     lista.forEach(c => {
         const mat = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
         
+        let contratoLabel = c.tipo_contrato || 'CLT';
+        let badgeContrato = `<span style="background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-dim);">${contratoLabel}</span>`;
+        if (contratoLabel === 'Temporário') {
+            badgeContrato = `<span style="background: rgba(245,158,11,0.1); color: #f59e0b; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; border: 1px solid rgba(245,158,11,0.3); font-weight:bold;">Experiência</span>`;
+        }
+
         const isPlano = c.plano_saude && c.plano_saude.toLowerCase() === 'sim';
         const planoStr = isPlano ? '<span style="color:var(--ccol-green-bright);">Sim</span>' : '<span style="color:#ef4444;">Não</span>';
         
@@ -340,6 +490,7 @@ window.renderizarTabelaPainelRH = function(lista) {
                 <td><strong style="color:var(--ccol-blue-bright);">${mat}</strong></td>
                 <td style="text-align: left; font-weight: bold;">${c.nome}</td>
                 <td>${c.funcao || '-'}</td>
+                <td>${badgeContrato}</td>
                 <td>${c.telefone || '-'}</td>
                 <td>${planoStr}</td>
                 <td>${sindStr}</td>
