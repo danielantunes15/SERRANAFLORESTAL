@@ -27,36 +27,8 @@
     }
 
     /* ========================================================== */
-    /* BUSCA INTELIGENTE E AÇÕES RÁPIDAS (NOVO)                   */
+    /* AÇÕES RÁPIDAS (DROPDOWN DA TABELA)                         */
     /* ========================================================== */
-    .smart-hero {
-        text-align: center; 
-        padding: 50px 20px; 
-        background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); 
-        border-radius: 12px; 
-        margin-bottom: 25px; 
-        border: 1px solid var(--border-dim);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        animation: terminalFadeIn 0.4s ease-out;
-    }
-    .search-input-giant {
-        width: 100%; 
-        max-width: 650px; 
-        padding: 18px 30px; 
-        font-size: 1.2rem; 
-        border-radius: 40px;
-        background: rgba(0,0,0,0.3);
-        border: 2px solid var(--border-dim);
-        color: #fff;
-        transition: all 0.3s;
-        margin-bottom: 20px;
-    }
-    .search-input-giant:focus {
-        border-color: var(--ccol-blue-bright);
-        box-shadow: 0 0 20px rgba(96, 165, 250, 0.15);
-        outline: none;
-        background: rgba(0,0,0,0.5);
-    }
     .action-dropdown-menu {
         position: absolute;
         right: 0;
@@ -66,8 +38,8 @@
         border-radius: 8px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         min-width: 200px;
-        z-index: 100;
-        display: none; /* Controlado via JS */
+        z-index: 9999;
+        display: none;
         flex-direction: column;
         overflow: hidden;
         animation: terminalFadeIn 0.2s ease-out;
@@ -94,9 +66,15 @@
         background: rgba(255,255,255,0.05);
         color: #fff;
     }
+    
+    /* Para a paginação não cortar os menus */
+    .table-paginated-wrapper {
+        min-height: 400px;
+        padding-bottom: 50px;
+    }
 
     /* ========================================================== */
-    /* NOVO DESIGN DO DOSSIÊ DE RH                                */
+    /* DESIGN DO DOSSIÊ DE RH (MANTIDO)                           */
     /* ========================================================== */
     .rh-profile-header {
         display: flex;
@@ -158,7 +136,6 @@
         text-align: center;
     }
 
-    /* Sistema de Abas */
     .rh-tabs-container {
         display: flex;
         border-bottom: 2px solid var(--border-dim);
@@ -206,64 +183,69 @@
     }
 </style>
 
+<!-- TELA PRINCIPAL (LISTA PAGINADA) -->
 <div id="viewListagemColaboradores" style="animation: terminalFadeIn 0.3s ease-out;">
-    
-    <!-- Tela de Entrada Inteligente (Hero Search) -->
-    <div class="smart-hero">
-        <i class="fas fa-search" style="font-size: 3rem; color: var(--ccol-blue-bright); margin-bottom: 20px;"></i>
-        <h2 style="color: #fff; font-size: 1.8rem; font-weight: 800; margin-bottom: 10px;">Busca de Colaboradores</h2>
-        <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 30px;">Digite o nome, matrícula, cargo ou utilize os atalhos rápidos abaixo.</p>
-        
-        <input type="text" id="filtroSmart" class="search-input-giant" placeholder="Quem você procura?..." onkeyup="window.executarBuscaInteligente()">
-        
-        <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
-            <button class="btn-secondary-dark" onclick="window.aplicarFiltroRapido('todos')" style="padding: 12px 25px; border-radius: 30px;"><i class="fas fa-users"></i> Listar Todos</button>
-            <button class="btn-danger-outline" onclick="window.aplicarFiltroRapido('pendencias')" style="padding: 12px 25px; border-radius: 30px;"><i class="fas fa-exclamation-triangle"></i> CNH / ASO Pendentes</button>
-            <button class="btn-primary-green" onclick="window.abrirFichaCompleta()" style="padding: 12px 25px; border-radius: 30px;"><i class="fas fa-plus"></i> Novo Cadastro</button>
+    <div class="action-bar" style="display: flex; flex-wrap: wrap; gap: 15px;">
+        <div class="filter-group" style="flex: 1; display: flex; gap: 10px; min-width: 300px; align-items: center;">
+            <h2 style="color: #fff; margin-right: 15px; white-space: nowrap;"><i class="fas fa-users"></i> Colaboradores</h2>
+            
+            <input type="text" id="filtroMatricula" class="search-input-dark" style="width: 120px;" placeholder="Matrícula..." onkeyup="window.filtrarColaboradoresLista()">
+            
+            <select id="filtroSetorLista" class="search-input-dark" style="width: 160px;" onchange="window.filtrarColaboradoresLista()">
+                <option value="">Todos os Setores</option>
+            </select>
+            
+            <input type="text" id="filtroNome" class="search-input-dark" style="flex: 1;" placeholder="Buscar por Nome ou Função..." onkeyup="window.filtrarColaboradoresLista()">
+        </div>
+        <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="btnFiltroPendencias" class="btn-danger-outline" onclick="window.toggleFiltroPendencias()"><i class="fas fa-exclamation-triangle"></i> Pendências</button>
+            <button class="btn-secondary-dark" onclick="window.exportarTodasFichas()"><i class="fas fa-file-pdf"></i> Exportar (Lote)</button>
+            <button class="btn-secondary-dark" onclick="window.abrirModalGerenciarCursos()"><i class="fas fa-book"></i> Cursos</button>
+            <button class="btn-primary-blue" onclick="window.abrirFichaCompleta()"><i class="fas fa-plus"></i> Novo Cadastro</button>
         </div>
     </div>
-
-    <!-- Tabela de Resultados (Escondida Inicialmente) -->
-    <div id="containerTabelaColaboradores" style="display: none;">
-        <div class="action-bar" style="display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="color: #fff; margin: 0; font-size: 1.1rem;"><i class="fas fa-list"></i> Resultados da Busca</h3>
-            <div class="button-group">
-                <button class="btn-secondary-dark" onclick="window.exportarTodasFichas()"><i class="fas fa-file-pdf"></i> Exportar Fichas (Lote)</button>
-                <button class="btn-secondary-dark" onclick="window.abrirModalGerenciarCursos()"><i class="fas fa-book"></i> Gestão de Cursos</button>
-            </div>
+    
+    <div class="content-panel" style="padding: 0;">
+        <div class="table-paginated-wrapper" style="overflow-x: auto;">
+            <table class="data-table-modern" style="margin: 0; border: none; min-width: 1000px;">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Matrícula</th>
+                        <th>Perfil / Colaborador</th>
+                        <th style="width: 250px;">Função</th>
+                        <th style="width: 200px;">Alertas / Vencimentos</th>
+                        <th style="width: 100px;">Status</th>
+                        <th style="text-align: right; width: 120px;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbListaColaboradores">
+                    <!-- Preenchido via JS -->
+                </tbody>
+            </table>
         </div>
-        <div class="content-panel">
-            <div class="table-modern-wrapper" style="max-height: calc(100vh - 350px); overflow-y: auto;">
-                <table class="data-table-modern">
-                    <thead>
-                        <tr>
-                            <th>Matrícula</th>
-                            <th>Perfil / Colaborador</th>
-                            <th>Função</th>
-                            <th>Alertas / Vencimentos</th>
-                            <th>Status</th>
-                            <th style="text-align: right; width: 120px;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbListaColaboradores">
-                        <!-- Preenchido via JS -->
-                    </tbody>
-                </table>
+        
+        <!-- CONTROLES DE PAGINAÇÃO -->
+        <div id="paginacaoRH" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-top: 1px solid var(--border-dim); background: rgba(0,0,0,0.2);">
+            <span id="infoPaginacaoRH" style="color: var(--text-secondary); font-size: 0.85rem;">Carregando...</span>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button id="btnPagePrevRH" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.85rem;" onclick="window.mudarPaginaRH(-1)"><i class="fas fa-chevron-left"></i> Anterior</button>
+                <span id="displayPageRH" style="color: #fff; font-weight: bold; padding: 6px 12px; font-size: 0.95rem; background: rgba(255,255,255,0.05); border-radius: 4px; border: 1px solid var(--border-dim);">1</span>
+                <button id="btnPageNextRH" class="btn-secondary-dark" style="padding: 6px 12px; font-size: 0.85rem;" onclick="window.mudarPaginaRH(1)">Próxima <i class="fas fa-chevron-right"></i></button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- TELA DE DOSSIÊ DO COLABORADOR -->
 <div id="viewFichaColaborador" style="display: none; animation: terminalFadeIn 0.3s ease-out;">
     <div class="action-bar" style="display: flex; justify-content: space-between;">
-        <button class="btn-secondary-dark" onclick="window.voltarParaListagem()"><i class="fas fa-arrow-left"></i> Voltar para Busca</button>
+        <button class="btn-secondary-dark" onclick="window.voltarParaListagem()"><i class="fas fa-arrow-left"></i> Voltar para Lista</button>
         <div class="button-group" style="display: flex; gap: 10px;">
             <button class="btn-danger-outline" id="btnExcluirFicha" onclick="window.excluirColaboradorAtual()"><i class="fas fa-trash"></i> Excluir Registro</button>
             <button class="btn-primary-blue" onclick="window.salvarColaboradorFicha()"><i class="fas fa-save"></i> Salvar Dossiê</button>
         </div>
     </div>
     
-    <!-- Alerta Global Fixo -->
     <div id="alertaCamposPendentes" class="alerta-pendencia">
         <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem;"></i>
         <div>
@@ -272,7 +254,6 @@
         </div>
     </div>
     
-    <!-- Header de Perfil -->
     <div class="rh-profile-header">
         <div class="rh-avatar-wrapper">
             <img id="avatarPreviewRH" src="https://ui-avatars.com/api/?name=Colaborador&background=1e293b&color=60a5fa&size=150" alt="Foto Perfil">
@@ -293,7 +274,6 @@
     <div class="content-panel" style="padding: 0; background: transparent; border: none; box-shadow: none;">
         <input type="hidden" id="colaboradorId">
         
-        <!-- Navegação por Abas -->
         <div class="rh-tabs-container">
             <button class="rh-tab-btn active" onclick="window.mudarAbaFichaRH('tabPessoais')"><i class="fas fa-user"></i> Dados Pessoais</button>
             <button class="rh-tab-btn" onclick="window.mudarAbaFichaRH('tabProfissional')"><i class="fas fa-briefcase"></i> Profissional & Banco</button>
@@ -311,10 +291,8 @@
                 <div class="form-group-dark"><label>RG *</label><input type="text" id="colRg" placeholder="Número do RG"></div>
                 <div class="form-group-dark">
                     <label>Data de Nascimento *</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="date" id="colDataNascimento" style="flex: 1;" onchange="window.atualizarLabelsTempo()">
-                        <span id="lblIdade" style="align-self: center; color: #10b981; font-size: 0.8rem; font-weight: bold; white-space: nowrap;"></span>
-                    </div>
+                    <input type="date" id="colDataNascimento" onchange="window.atualizarLabelsTempo()">
+                    <small id="lblIdade" style="color: #10b981; font-weight: bold; display: block; margin-top: 6px; font-size: 0.8rem;"></small>
                 </div>
             </div>
 
@@ -358,13 +336,13 @@
                         <option value="">Carregando cargos...</option>
                     </select>
                 </div>
+                
                 <div class="form-group-dark">
                     <label>Data de Admissão *</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="date" id="colDataAdmissao" style="flex: 1;" onchange="window.atualizarLabelsTempo()">
-                        <span id="lblTempoCasa" style="align-self: center; color: var(--ccol-blue-bright); font-size: 0.8rem; font-weight: bold; white-space: nowrap;"></span>
-                    </div>
+                    <input type="date" id="colDataAdmissao" onchange="window.atualizarLabelsTempo()">
+                    <small id="lblTempoCasa" style="color: var(--ccol-blue-bright); font-weight: bold; display: block; margin-top: 6px; font-size: 0.8rem;"></small>
                 </div>
+                
                 <div class="form-group-dark"><label>Salário Base (R$)</label><input type="text" id="colSalario" placeholder="R$ 0,00" oninput="window.mascaraMoeda(this)"></div>
                 <div class="form-group-dark"><label>E-mail Corporativo</label><input type="email" id="colEmailCorp" placeholder="nome@empresa.com.br"></div>
             </div>

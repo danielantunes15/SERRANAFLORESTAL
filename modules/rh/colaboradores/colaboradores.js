@@ -1,7 +1,12 @@
 // ==================== js/colaboradores.js ====================
 window.listaColaboradoresDb = [];
+window.colaboradoresFiltradosRH = [];
 window.listaCursosAtivos = [];
-window.estadoFiltroRH = 'nenhum'; // 'todos', 'pendencias', 'busca'
+window.filtroPendenciasAtivo = false;
+
+// Variáveis de Paginação
+window.paginaAtualRH = 1;
+window.itensPorPaginaRH = 15;
 
 window.camposBaseObrigatorios = [
     { key: 'cpf', id: 'colCpf' },
@@ -16,100 +21,131 @@ window.camposBaseObrigatorios = [
 window.initRHColaboradores = async function() {
     document.getElementById('viewListagemColaboradores').style.display = 'block';
     document.getElementById('viewFichaColaborador').style.display = 'none';
-    
-    // Esconde a tabela no carregamento inicial (Tela de Entrada Limpa)
-    document.getElementById('containerTabelaColaboradores').style.display = 'none';
-    document.getElementById('filtroSmart').value = '';
-    window.estadoFiltroRH = 'nenhum';
+    window.filtroPendenciasAtivo = false;
+    window.paginaAtualRH = 1;
     
     await window.carregarSetoresGlobal(); 
     await window.carregarCursosGlobais();
     await window.carregarCargosControladoria(); 
     
-    // Carrega o banco em memória sem desenhar a tabela
-    window.listaColaboradoresDb = await db.getColaboradores();
+    await window.carregarColaboradoresLista();
 };
 
 // ==================== AÇÕES RÁPIDAS (DROPDOWN) ====================
 window.toggleActionMenu = function(id) {
-    // Esconde todos os outros menus primeiro
     document.querySelectorAll('.action-dropdown-menu').forEach(m => {
         if (m.id !== `action-menu-${id}`) m.style.display = 'none';
     });
-    
     const menu = document.getElementById(`action-menu-${id}`);
     if (menu) {
         menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
     }
 };
 
-// Fecha o menu de ações ao clicar fora
 document.addEventListener('click', function(e) {
     if(!e.target.closest('.action-menu-container')) {
         document.querySelectorAll('.action-dropdown-menu').forEach(m => m.style.display = 'none');
     }
 });
 
-
-// ==================== BUSCA INTELIGENTE (HERO SEARCH) ====================
-window.aplicarFiltroRapido = function(tipo) {
-    document.getElementById('filtroSmart').value = ''; // Limpa o campo se clicou no botão
-    window.estadoFiltroRH = tipo;
-    window.executarBuscaInteligente();
+// ==================== PAGINAÇÃO E FILTROS ====================
+window.carregarColaboradoresLista = async function() {
+    try {
+        const tbody = document.getElementById('tbListaColaboradores');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando banco de dados...</td></tr>`;
+        
+        window.listaColaboradoresDb = await db.getColaboradores();
+        window.filtrarColaboradoresLista(); 
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao carregar lista de colaboradores.");
+    }
 };
 
-window.executarBuscaInteligente = function() {
-    const termo = document.getElementById('filtroSmart').value.toLowerCase().trim();
-    const containerTabela = document.getElementById('containerTabelaColaboradores');
-    
-    if (termo.length > 0) window.estadoFiltroRH = 'busca';
-    
-    // Se não há termo e não clicou em filtro rápido, esconde a tabela
-    if (window.estadoFiltroRH === 'nenhum' && termo.length === 0) {
-        containerTabela.style.display = 'none';
-        return;
+window.toggleFiltroPendencias = function() {
+    window.filtroPendenciasAtivo = !window.filtroPendenciasAtivo;
+    const btn = document.getElementById('btnFiltroPendencias');
+    if(window.filtroPendenciasAtivo) {
+        btn.classList.remove('btn-danger-outline');
+        btn.classList.add('btn-danger-block');
+        btn.innerHTML = '<i class="fas fa-filter"></i> Filtrando Pendentes';
+    } else {
+        btn.classList.remove('btn-danger-block');
+        btn.classList.add('btn-danger-outline');
+        btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Pendências';
     }
+    window.filtrarColaboradoresLista();
+};
+
+window.filtrarColaboradoresLista = function() {
+    const termoNome = document.getElementById('filtroNome').value.toLowerCase().trim();
+    const termoMatricula = document.getElementById('filtroMatricula').value.toLowerCase().trim();
+    const termoSetor = document.getElementById('filtroSetorLista').value; 
     
-    containerTabela.style.display = 'block';
-    
-    const filtrados = window.listaColaboradoresDb.filter(c => {
-        const nomeMatch = c.nome && c.nome.toLowerCase().includes(termo);
-        const matMatch = c.cod_funcionario && String(c.cod_funcionario).includes(termo);
-        const funcMatch = c.funcao && c.funcao.toLowerCase().includes(termo);
+    window.colaboradoresFiltradosRH = window.listaColaboradoresDb.filter(c => {
+        const nomeMatch = !termoNome || (c.nome && c.nome.toLowerCase().includes(termoNome)) || (c.funcao && c.funcao.toLowerCase().includes(termoNome));
+        const matMatch = !termoMatricula || (c.cod_funcionario && String(c.cod_funcionario).includes(termoMatricula));
+        const setorMatch = !termoSetor || (String(c.setor_id) === String(termoSetor));
         
-        let passaBusca = nomeMatch || matMatch || funcMatch;
-        
-        if (window.estadoFiltroRH === 'pendencias') {
-            if(c.status === 'Inativo' || c.status === 'Desligado') return false;
-            let f1 = window.verificarPendenciasCadastro(c);
-            let f2 = window.analisarVencimentosColaborador(c);
-            return (f1.length > 0 || f2.length > 0) && passaBusca;
+        let pendenciaMatch = true;
+        if (window.filtroPendenciasAtivo) {
+            if(c.status === 'Inativo' || c.status === 'Desligado') {
+                pendenciaMatch = false;
+            } else {
+                let f1 = window.verificarPendenciasCadastro(c);
+                let f2 = window.analisarVencimentosColaborador(c);
+                pendenciaMatch = (f1.length > 0 || f2.length > 0);
+            }
         }
         
-        return passaBusca;
+        return nomeMatch && matMatch && setorMatch && pendenciaMatch;
     });
     
-    window.renderizarTabelaColaboradores(filtrados);
+    window.paginaAtualRH = 1;
+    window.renderizarTabelaPaginadaRH();
 };
 
-window.renderizarTabelaColaboradores = function(lista) {
+window.mudarPaginaRH = function(direcao) {
+    const totalPaginas = Math.ceil(window.colaboradoresFiltradosRH.length / window.itensPorPaginaRH);
+    window.paginaAtualRH += direcao;
+    
+    if (window.paginaAtualRH < 1) window.paginaAtualRH = 1;
+    if (window.paginaAtualRH > totalPaginas) window.paginaAtualRH = totalPaginas;
+    
+    window.renderizarTabelaPaginadaRH();
+};
+
+window.renderizarTabelaPaginadaRH = function() {
     const tbody = document.getElementById('tbListaColaboradores');
     if (!tbody) return;
     tbody.innerHTML = '';
-
-    if (lista.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador encontrado nesta busca.</td></tr>`;
+    
+    const totalItens = window.colaboradoresFiltradosRH.length;
+    
+    if (totalItens === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador encontrado com os filtros aplicados.</td></tr>`;
+        document.getElementById('infoPaginacaoRH').innerText = 'Mostrando 0 a 0 de 0';
+        document.getElementById('displayPageRH').innerText = '1';
+        document.getElementById('btnPagePrevRH').disabled = true;
+        document.getElementById('btnPageNextRH').disabled = true;
         return;
     }
+    
+    const totalPaginas = Math.ceil(totalItens / window.itensPorPaginaRH);
+    if (window.paginaAtualRH > totalPaginas) window.paginaAtualRH = totalPaginas;
+    
+    const startIndex = (window.paginaAtualRH - 1) * window.itensPorPaginaRH;
+    const endIndex = Math.min(startIndex + window.itensPorPaginaRH, totalItens);
+    
+    const itensPagina = window.colaboradoresFiltradosRH.slice(startIndex, endIndex);
 
-    lista.forEach(c => {
+    itensPagina.forEach(c => {
         let corStatus = 'var(--ccol-green-bright)';
         if(c.status === 'Inativo' || c.status === 'Desligado') corStatus = '#ef4444';
         else if(c.status === 'Férias' || c.status === 'Afastado') corStatus = '#f59e0b';
         
         const matriculaFormatada = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'S/ Matrícula';
         
-        // --- ALERTAS DE PENDÊNCIA E VENCIMENTOS ---
         const pendencias = window.verificarPendenciasCadastro(c);
         let badgeAlertaFaltando = '';
         if (pendencias.length > 0 && c.status !== 'Inativo' && c.status !== 'Desligado') {
@@ -157,8 +193,13 @@ window.renderizarTabelaColaboradores = function(lista) {
         `;
         tbody.appendChild(tr);
     });
+    
+    // Atualiza controles de paginação
+    document.getElementById('infoPaginacaoRH').innerText = `Mostrando ${startIndex + 1} a ${endIndex} de ${totalItens}`;
+    document.getElementById('displayPageRH').innerText = window.paginaAtualRH;
+    document.getElementById('btnPagePrevRH').disabled = window.paginaAtualRH === 1;
+    document.getElementById('btnPageNextRH').disabled = window.paginaAtualRH === totalPaginas;
 };
-
 
 // ==================== LÓGICA DE ABAS E HEADER ====================
 window.mudarAbaFichaRH = function(abaId) {
@@ -306,6 +347,40 @@ window.calcularDiferencaDatasAnos = function(dataIso) {
     return anos;
 };
 
+window.calcularTempoDeCasaTexto = function(dataIso) {
+    if (!dataIso) return null;
+    let dtAdmissao = new Date(dataIso + 'T00:00:00');
+    let hj = new Date();
+    hj.setHours(0,0,0,0);
+
+    if (dtAdmissao > hj) return "Admissão no futuro";
+
+    let anos = hj.getFullYear() - dtAdmissao.getFullYear();
+    let meses = hj.getMonth() - dtAdmissao.getMonth();
+    let dias = hj.getDate() - dtAdmissao.getDate();
+
+    if (dias < 0) {
+        meses--;
+        let ultimoDiaMesAnterior = new Date(hj.getFullYear(), hj.getMonth(), 0).getDate();
+        dias += ultimoDiaMesAnterior;
+    }
+
+    if (meses < 0) {
+        anos--;
+        meses += 12;
+    }
+
+    let partes = [];
+    if (anos > 0) partes.push(anos + (anos === 1 ? " ano" : " anos"));
+    if (meses > 0) partes.push(meses + (meses === 1 ? " mês" : " meses"));
+    if (dias > 0) partes.push(dias + (dias === 1 ? " dia" : " dias"));
+
+    if (partes.length === 0) return "Iniciou hoje";
+    if (partes.length === 1) return `${partes[0]} de empresa`;
+    if (partes.length === 2) return `${partes[0]} e ${partes[1]} de empresa`;
+    if (partes.length === 3) return `${partes[0]}, ${partes[1]} e ${partes[2]} de empresa`;
+};
+
 window.atualizarLabelsTempo = function() {
     let dtNascimento = document.getElementById('colDataNascimento').value;
     let dtAdmissao = document.getElementById('colDataAdmissao').value;
@@ -315,16 +390,16 @@ window.atualizarLabelsTempo = function() {
     
     if (dtNascimento) {
         let anos = window.calcularDiferencaDatasAnos(dtNascimento);
-        lblIdade.innerText = anos !== null ? `(${anos} anos)` : '';
+        lblIdade.innerHTML = anos !== null ? `<i class="fas fa-birthday-cake"></i> Idade: ${anos} anos` : '';
     } else {
-        lblIdade.innerText = '';
+        lblIdade.innerHTML = '';
     }
     
     if (dtAdmissao) {
-        let anos = window.calcularDiferencaDatasAnos(dtAdmissao);
-        lblTempo.innerText = anos !== null ? `(${anos} anos de casa)` : '';
+        let textoTempo = window.calcularTempoDeCasaTexto(dtAdmissao);
+        lblTempo.innerHTML = textoTempo ? `<i class="fas fa-clock"></i> ${textoTempo}` : '';
     } else {
-        lblTempo.innerText = '';
+        lblTempo.innerHTML = '';
     }
 };
 
@@ -365,6 +440,8 @@ window.carregarSetoresGlobal = async function() {
         const selSetor = document.getElementById('colSetorId');
         if (selSetor) selSetor.innerHTML = '<option value="">Selecione um setor...</option>' + data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
         
+        const selFiltroSetor = document.getElementById('filtroSetorLista');
+        if (selFiltroSetor) selFiltroSetor.innerHTML = '<option value="">Todos os Setores</option>' + data.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
     } catch(e) { console.error("Erro ao carregar setores:", e); }
 };
 
@@ -431,7 +508,6 @@ window.abrirFichaCompleta = async function(id = null) {
     window.limparValidacaoVisualFicha();
     await window.carregarSetoresGlobal();
     
-    // Reseta Uploads Visuais
     document.getElementById('colFoto').value = '';
     document.getElementById('colAnexos').value = '';
     document.getElementById('containerLinksArquivos').innerHTML = '<p style="color: var(--text-secondary); font-size: 0.85rem; font-style: italic; margin:0;">Nenhum arquivo anexado ainda.</p>';
@@ -440,7 +516,6 @@ window.abrirFichaCompleta = async function(id = null) {
         const c = window.listaColaboradoresDb.find(x => x.id === id);
         if (!c) return;
         
-        // Header
         document.getElementById('tituloFicha').innerText = c.nome;
         document.getElementById('displayCargoHeader').innerText = c.funcao || 'Cargo não informado';
         document.getElementById('colCodFuncionarioDisplay').innerText = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : 'N/A';
@@ -536,7 +611,6 @@ window.abrirFichaCompleta = async function(id = null) {
             });
         }
     } else {
-        // MODO NOVO CADASTRO
         document.getElementById('tituloFicha').innerText = 'Novo Colaborador';
         document.getElementById('displayCargoHeader').innerText = 'Função a definir';
         document.getElementById('avatarPreviewRH').src = 'https://ui-avatars.com/api/?name=Colaborador&background=1e293b&color=60a5fa&size=150';
@@ -686,8 +760,6 @@ window.salvarColaboradorFicha = async function() {
         }
         
         await window.carregarColaboradoresLista();
-        // Dispara uma busca para ver a tabela com o item novo/atualizado
-        window.executarBuscaInteligente();
         window.voltarParaListagem(); 
     } catch (e) {
         console.error(e);
@@ -707,7 +779,6 @@ window.excluirColaboradorAtual = async function() {
             
             alert('Cadastro excluído com sucesso.');
             await window.carregarColaboradoresLista();
-            window.executarBuscaInteligente();
             window.voltarParaListagem();
         } catch (e) {
             console.error(e);
