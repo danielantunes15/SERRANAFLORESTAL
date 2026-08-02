@@ -2,6 +2,7 @@
 
 var execChartComparativo = null;
 var execChartEvolucao = null;
+const tarifaCache = new Map(); // OTIMIZAÇÃO: Cache em memória para cálculos pesados
 
 window.initVisaoExecutiva = function() {
     const inputMes = document.getElementById('execFiltroMes');
@@ -28,6 +29,7 @@ function converterDataExcel(dataStr) {
     return new Date(str);
 }
 
+// Função Original de Cálculo
 function calcularTarifaExata(tarifador, asfalto, terra) {
     if (!tarifador || !tarifador.dados) return 0;
     
@@ -40,6 +42,7 @@ function calcularTarifaExata(tarifador, asfalto, terra) {
     let maisProximo = null;
     let menorDistancia = Infinity;
     
+    // Matemática pesada (Evitaremos rodar isso milhares de vezes usando o Cache)
     tarifador.dados.forEach(t => {
         const dist = Math.sqrt(Math.pow(t.asfalto - asf, 2) + Math.pow(t.terra - ter, 2));
         if (dist < menorDistancia) {
@@ -51,19 +54,48 @@ function calcularTarifaExata(tarifador, asfalto, terra) {
     return maisProximo ? maisProximo.tarifa : 0;
 }
 
+// OTIMIZAÇÃO 1: Função Inteligente que usa o Cache para evitar congelamento de tela
+function getTarifaRapida(tarifador, asfalto, terra) {
+    if (!tarifador || !tarifador.dados) return 0;
+    
+    // Cria uma chave única baseada nos valores exatos
+    const key = `${tarifador.id}_${asfalto}_${terra}`;
+    
+    if (tarifaCache.has(key)) {
+        return tarifaCache.get(key); // Retorna instantaneamente se já calculou antes
+    }
+    
+    // Se for a primeira vez, calcula e salva na memória
+    const tarifa = calcularTarifaExata(tarifador, asfalto, terra);
+    tarifaCache.set(key, tarifa);
+    return tarifa;
+}
+
 window.atualizarDadosExecutivos = async function() {
     const inputMes = document.getElementById('execFiltroMes');
     const mesFiltro = inputMes ? inputMes.value : ''; // Formato: "YYYY-MM"
     const containerCards = document.getElementById('containerCardsFiliais');
+    const btnRefresh = document.getElementById('btnAtualizarExec');
     
+    if (btnRefresh) {
+        btnRefresh.disabled = true;
+        btnRefresh.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+    }
+
     if (containerCards) {
-        containerCards.innerHTML = '<div class="col-span-full text-center text-slate-400 py-10"><i class="fas fa-spinner fa-spin fa-3x mb-3 text-purple-500"></i><p class="font-bold tracking-wide">Extraindo e cruzando dados de produção, frota e faturamento global...</p></div>';
+        containerCards.innerHTML = `
+            <div class="col-span-full text-center text-slate-400 py-10 flex flex-col items-center justify-center">
+                <i class="fas fa-circle-notch fa-spin fa-3x mb-4 text-purple-500"></i>
+                <p class="font-bold tracking-wide text-lg" id="execLoadingText">Mapeando base de dados corporativa...</p>
+                <p class="text-sm mt-2 text-slate-500">Isso pode levar alguns segundos dependendo do volume de dados.</p>
+            </div>`;
     }
 
     try {
+        const loadingText = document.getElementById('execLoadingText');
+
         // =========================================================
         // 1. DADOS BASE (PROMISE.ALL PARA ALTA VELOCIDADE)
-        // Utilizando apenas a conexão global window.supabaseClient
         // =========================================================
         const [
             { data: filiaisDB },
@@ -94,6 +126,8 @@ window.atualizarDadosExecutivos = async function() {
         // =========================================================
         // 2. BUSCAR DM OPERACIONAL DAQUELE MÊS ESPECÍFICO
         // =========================================================
+        if (loadingText) loadingText.innerText = "Processando indicadores de oficina...";
+        
         let dmGlobalMediaMes = 0;
         if (mesFiltro) {
             const anoMes = mesFiltro.split('-'); 
@@ -131,60 +165,84 @@ window.atualizarDadosExecutivos = async function() {
         }
 
         // =========================================================
-        // 4. BUSCAR VIAGENS (Pegamos últimos 7 meses em created_at por segurança)
+        // 4. OTIMIZAÇÃO EXTREMA: BUSCA PARALELA DE VIAGENS (MULTITHREADING)
         // =========================================================
+        if (loadingText) loadingText.innerText = "Preparando extração em massa do histórico...";
+        
         let dataInicioHist = new Date(anoAtual, mesAtual - 6, 1);
         let strInicioHist = `${dataInicioHist.getFullYear()}-${String(dataInicioHist.getMonth() + 1).padStart(2, '0')}-01T00:00:00`;
 
         let todasViagens = [];
-        let from = 0;
-        const step = 1000;
-        let fetchMore = true;
         
-        while (fetchMore) {
-            let query = window.supabaseClient.from('historico_viagens')
-                .select('filial_id, volumeReal, dtFimDescarFabrica, dataDaBaseExcel, transportadora, grua, distanciaAsfalto, distanciaTerra, created_at')
-                .gte('created_at', strInicioHist)
-                .range(from, from + step - 1);
-                
-            const { data, error } = await query;
-            if (error) throw error;
-            if (data && data.length > 0) {
-                todasViagens = todasViagens.concat(data);
-                from += step;
+        // 4.1 Primeiro, descobre exatamente quantas viagens existem para não fazer requests cegos
+        const { count, error: countError } = await window.supabaseClient.from('historico_viagens')
+            .select('*', { count: 'exact', head: true })
+            .gte('created_at', strInicioHist);
+            
+        if (countError) throw countError;
+
+        if (count && count > 0) {
+            if (loadingText) loadingText.innerText = `Baixando pacote de ${count.toLocaleString('pt-BR')} viagens em paralelo...`;
+            
+            const step = 1000;
+            const promessasFetch = [];
+            
+            // 4.2 Lança todas as requisições ao mesmo tempo em direção ao servidor
+            for (let from = 0; from <= count; from += step) {
+                promessasFetch.push(
+                    window.supabaseClient.from('historico_viagens')
+                    .select('filial_id, volumeReal, dtFimDescarFabrica, dataDaBaseExcel, transportadora, grua, distanciaAsfalto, distanciaTerra, created_at')
+                    .gte('created_at', strInicioHist)
+                    .range(from, from + step - 1)
+                );
             }
-            if (!data || data.length < step) fetchMore = false;
+            
+            // 4.3 Espera todas as páginas terminarem juntas
+            const resultados = await Promise.all(promessasFetch);
+            resultados.forEach(res => {
+                if (res.data) todasViagens = todasViagens.concat(res.data);
+            });
         }
 
         // =========================================================
-        // 5. CÁLCULO GIGANTE DE DADOS EM MEMÓRIA (Alta Performance)
+        // 5. CÁLCULO GIGANTE DE DADOS EM MEMÓRIA (Com Anti-Travamento)
         // =========================================================
-        let filiaisDataMap = {}; // Armazena Produção e Faturamento do MÊS SELECIONADO para cada Filial
+        if (loadingText) loadingText.innerText = "Cruzando Tarifador com Distâncias. Por favor, aguarde...";
         
-        // Helper para descobrir qual tarifador a filial usa
+        let filiaisDataMap = {}; 
+        
         function getTarifador(filialId) {
             if (!tarifadoresAtivos || tarifadoresAtivos.length === 0) return null;
             let t = tarifadoresAtivos.find(x => String(x.filial_id) === String(filialId));
             if (t) return t;
             t = tarifadoresAtivos.find(x => !x.filial_id);
             if (t) return t;
-            return tarifadoresAtivos[0]; // Pega o global/padrão
+            return tarifadoresAtivos[0]; 
         }
 
-        todasViagens.forEach(v => {
+        tarifaCache.clear(); // Limpa a memória RAM velha antes do loop pesado
+
+        for (let i = 0; i < todasViagens.length; i++) {
+            let v = todasViagens[i];
+            
+            // OTIMIZAÇÃO 2: A cada 5.000 viagens, libera a CPU por 5ms para o Google Chrome não travar a tela
+            if (i % 5000 === 0 && i > 0) {
+                if (loadingText) loadingText.innerText = `Processando cálculos financeiros... (${i} de ${todasViagens.length})`;
+                await new Promise(resolve => setTimeout(resolve, 5));
+            }
+
             let dataViagemStr = v.dtFimDescarFabrica || v.dataDaBaseExcel || (v.created_at ? v.created_at.split('T')[0] : null);
-            if (!dataViagemStr) return;
+            if (!dataViagemStr) continue;
             
             let dateObj = converterDataExcel(dataViagemStr);
-            if (isNaN(dateObj.getTime())) return;
+            if (isNaN(dateObj.getTime())) continue;
             
             let mesKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
             let mesChart = arrayMeses.find(m => m.key === mesKey);
             let isMesAtual = (mesKey === mesFiltro);
             
-            if (!mesChart && !isMesAtual) return; // Fora do range de cálculo
+            if (!mesChart && !isMesAtual) continue; 
             
-            // --- CÁLCULO FINANCEIRO EXATO (Transporte + Carregamento) ---
             let tr = v.transportadora ? v.transportadora.toUpperCase() : '';
             let isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
             
@@ -200,19 +258,18 @@ window.atualizarDadosExecutivos = async function() {
             
             let recTransp = 0;
             if (isSerrana) {
-                let tarifa = calcularTarifaExata(tarifador, asfalto, terra);
+                // Utiliza a função inteligente com memória Cache
+                let tarifa = getTarifaRapida(tarifador, asfalto, terra);
                 recTransp = vol * tarifa;
             }
             
             let recCarreg = isNossaGrua ? (vol * precoCarregamento) : 0;
             let receitaTotalViagem = recTransp + recCarreg;
             
-            // Adiciona na barra do gráfico de 6 meses
             if (mesChart) {
                 mesChart.totalFat += receitaTotalViagem;
             }
             
-            // Adiciona no DRE das filiais (Mês Atual)
             if (isMesAtual) {
                 if (!filiaisDataMap[v.filial_id]) {
                     filiaisDataMap[v.filial_id] = { producao: 0, faturamento: 0 };
@@ -220,11 +277,14 @@ window.atualizarDadosExecutivos = async function() {
                 filiaisDataMap[v.filial_id].producao += vol;
                 filiaisDataMap[v.filial_id].faturamento += receitaTotalViagem;
             }
-        });
+        }
 
         // =========================================================
         // 6. MONTAR DADOS DAS FILIAIS E KPIs
         // =========================================================
+        if (loadingText) loadingText.innerText = "Finalizando e renderizando painéis...";
+        await new Promise(resolve => setTimeout(resolve, 5)); // Último fôlego para a UI
+
         let filiaisData = [];
         let totalFatGlobal = 0;
         let totalProdGlobal = 0;
@@ -269,17 +329,22 @@ window.atualizarDadosExecutivos = async function() {
             });
         }
 
-        // Ordenar Filiais do maior faturamento pro menor
         filiaisData.sort((a,b) => b.faturamento - a.faturamento);
 
         // =========================================================
         // 7. ATUALIZAR INTERFACE
         // =========================================================
+        
+        let ticketMedio = totalProdGlobal > 0 ? (totalFatGlobal / totalProdGlobal) : 0;
+
         if (document.getElementById('kpiFatGlobal')) {
             document.getElementById('kpiFatGlobal').innerText = totalFatGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
         if (document.getElementById('kpiProdGlobal')) {
             document.getElementById('kpiProdGlobal').innerText = totalProdGlobal.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' m³';
+        }
+        if (document.getElementById('kpiTicketMedio')) {
+            document.getElementById('kpiTicketMedio').innerText = ticketMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
         if (document.getElementById('kpiDmGlobal')) {
             document.getElementById('kpiDmGlobal').innerText = dmGlobalMediaMes + '%'; 
@@ -342,6 +407,12 @@ window.atualizarDadosExecutivos = async function() {
                     <h3 class="font-black text-lg uppercase tracking-wider">Falha na Sincronização</h3>
                     <p class="text-sm mt-1 font-bold">${error.message}</p>
                 </div>`;
+        }
+    } finally {
+        // Restaura o botão de Atualizar
+        if (btnRefresh) {
+            btnRefresh.disabled = false;
+            btnRefresh.innerHTML = '<i class="fas fa-sync-alt"></i> Atualizar';
         }
     }
 };
