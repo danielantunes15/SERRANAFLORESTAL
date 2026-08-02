@@ -293,12 +293,15 @@ window.renderizarGraficosRH = function() {
     if (typeof echarts === 'undefined') return;
 
     // ==========================================
-    // GRÁFICO 1: CONTRATOS
+    // GRÁFICO 1: CONTRATOS (DOUGHNUT COM NÚMERO NO MEIO)
     // ==========================================
     const freqContrato = {};
+    let totalContratos = 0;
+    
     window.listaParaPainelRH.forEach(c => {
         let tipo = c.tipo_contrato || 'CLT';
         freqContrato[tipo] = (freqContrato[tipo] || 0) + 1;
+        totalContratos++;
     });
     const dataContratos = Object.keys(freqContrato).map(k => ({ name: k, value: freqContrato[k] }));
     
@@ -307,11 +310,21 @@ window.renderizarGraficosRH = function() {
         if (window.chartContratos) window.chartContratos.dispose();
         window.chartContratos = echarts.init(domContratos);
         window.chartContratos.setOption({
+            title: {
+                text: totalContratos.toString(),
+                subtext: 'Ativos',
+                left: 'center',
+                top: 'center',
+                textStyle: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
+                subtextStyle: { color: '#9ca3af', fontSize: 12 }
+            },
             tooltip: { trigger: 'item', formatter: '{b}: {c} colab. ({d}%)' },
             legend: { top: 'bottom', textStyle: { color: '#9ca3af' } },
             color: ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'],
             series: [{
-                type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false,
+                type: 'pie', 
+                radius: ['50%', '70%'], 
+                avoidLabelOverlap: false,
                 itemStyle: { borderRadius: 8, borderColor: '#1f2937', borderWidth: 3 },
                 label: { show: false },
                 data: dataContratos
@@ -320,7 +333,7 @@ window.renderizarGraficosRH = function() {
     }
 
     // ==========================================
-    // GRÁFICO 2: SETORES / CENTROS DE CUSTO
+    // GRÁFICO 2: SETORES / CENTROS DE CUSTO (BARRAS)
     // ==========================================
     const freqSetor = {};
     window.listaParaPainelRH.forEach(c => {
@@ -331,22 +344,53 @@ window.renderizarGraficosRH = function() {
         }
         freqSetor[nomeSetor] = (freqSetor[nomeSetor] || 0) + 1;
     });
-    const dataSetores = Object.keys(freqSetor).map(k => ({ name: k, value: freqSetor[k] }));
-    dataSetores.sort((a,b) => b.value - a.value);
+    
+    const dataSetoresArray = Object.keys(freqSetor).map(k => ({ name: k, value: freqSetor[k] }));
+    dataSetoresArray.sort((a,b) => b.value - a.value); // Decrescente para barras ficarem em ordem
+    
+    const xAxisData = dataSetoresArray.map(item => item.name);
+    const seriesData = dataSetoresArray.map(item => item.value);
     
     const domSetores = document.getElementById('graficoSetores');
     if(domSetores) {
         if (window.chartSetores) window.chartSetores.dispose();
         window.chartSetores = echarts.init(domSetores);
         window.chartSetores.setOption({
-            tooltip: { trigger: 'item', formatter: '{b}: {c} colab. ({d}%)' },
-            legend: { type: 'scroll', top: 'bottom', textStyle: { color: '#9ca3af' } },
-            color: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899', '#06b6d4'],
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+            xAxis: {
+                type: 'category',
+                data: xAxisData,
+                axisLabel: {
+                    color: '#9ca3af',
+                    interval: 0,
+                    rotate: 25, 
+                    formatter: function(value) {
+                        return value.length > 15 ? value.substring(0, 15) + '...' : value;
+                    }
+                },
+                axisLine: { lineStyle: { color: '#374151' } }
+            },
+            yAxis: {
+                type: 'value',
+                axisLabel: { color: '#9ca3af' },
+                splitLine: { lineStyle: { color: '#374151', type: 'dashed' } }
+            },
             series: [{
-                type: 'pie', radius: '65%', center: ['50%', '45%'],
-                itemStyle: { borderRadius: 4, borderColor: '#1f2937', borderWidth: 2 },
-                label: { show: false },
-                data: dataSetores
+                name: 'Colaboradores',
+                type: 'bar',
+                barWidth: '50%',
+                data: seriesData,
+                itemStyle: {
+                    color: '#10b981', 
+                    borderRadius: [4, 4, 0, 0]
+                },
+                label: {
+                    show: true,
+                    position: 'top',
+                    color: '#fff',
+                    fontWeight: 'bold'
+                }
             }]
         });
     }
@@ -391,9 +435,8 @@ window.renderizarGraficosRH = function() {
     // ==========================================
     // GRÁFICO 4: EVOLUÇÃO 6 MESES ATESTADOS
     // ==========================================
-    const hoje = new Date();
-    const mesesLabels = [];
     const chavesAnoMes = [];
+    const mesesLabels = [];
     
     for (let i = 5; i >= 0; i--) {
         const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
