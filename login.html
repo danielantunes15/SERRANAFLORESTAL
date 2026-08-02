@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="login.css">
 </head>
 <body class="dark-theme">
-
     <script src="core/js/config_manutencao.js"></script>
     
     <div id="telaManutencao" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #0f172a; z-index: 999999; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #f8fafc; font-family: 'Inter', sans-serif;">
@@ -28,7 +27,6 @@
             <span style="color: #10b981; font-weight: 600; font-size: 0.9rem;">Trabalhando nisso...</span>
         </div>
     </div>
-
     <script>
         if (typeof SISTEMA_EM_MANUTENCAO !== 'undefined' && SISTEMA_EM_MANUTENCAO) {
             const style = document.createElement('style');
@@ -37,6 +35,7 @@
             document.getElementById('telaManutencao').style.display = 'flex';
         }
     </script>
+
     <div class="login-container">
         <div class="login-banner">
             <div class="banner-overlay"></div>

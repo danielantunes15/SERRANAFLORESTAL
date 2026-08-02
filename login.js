@@ -23,8 +23,8 @@ async function carregarFiliaisDoBanco() {
     try {
         if (typeof db.getFiliais === 'function') {
             listaFiliais = await db.getFiliais();
-        } else if (window.supabaseClient) { 
-            const { data } = await window.supabaseClient.from('filiais').select('*').eq('status', 'Ativa').order('nome', { ascending: true });
+        } else if (window.supabaseClient) {
+             const { data } = await window.supabaseClient.from('filiais').select('*').eq('status', 'Ativa').order('nome', { ascending: true });
             listaFiliais = data || [];
         }
         select.innerHTML = '<option value="" disabled selected>Selecione a Base/Filial...</option>';
@@ -36,14 +36,11 @@ async function carregarFiliaisDoBanco() {
             select.appendChild(option);
         });
 
-        const adminOption = document.createElement('option');
-        adminOption.value = 'CENTRAL';
-        adminOption.textContent = 'ADMINISTRADOR';
-        adminOption.style.fontWeight = 'bold';
-        select.appendChild(adminOption);
+        // A OPÇÃO FIXA "ADMINISTRADOR" FOI REMOVIDA DAQUI PARA SEGURANÇA E CAMUFLAGEM
+
     } catch (e) {
         console.error(e);
-        select.innerHTML = '<option value="" disabled selected>  Erro ao carregar filiais</option>';
+        select.innerHTML = '<option value="" disabled selected>⚠️ Erro ao carregar filiais</option>';
     }
 }
 
@@ -54,6 +51,7 @@ window.realizarLogin = async function(event) {
     const passStr = document.getElementById('loginPass').value;
     const btn = document.getElementById('btnLogin');
 
+    // A trava da filial continua ativa aqui
     if (!filialId) { alert('Por favor, selecione uma filial válida.'); return; }
     if(!userStr || !passStr) { alert('Preencha seu usuário e senha.'); return; }
 
@@ -62,12 +60,11 @@ window.realizarLogin = async function(event) {
     btn.disabled = true;
 
     try {
-        // 1. AJUSTADO PARA O SEU DOMÍNIO CORRETO
         const emailFantasma = `${userStr.toLowerCase()}@serranalog.com`;
         let dbUser = null;
         let authIdSeguro = null;
 
-        // 2. TENTA O LOGIN SEGURO VIA SUPABASE AUTH
+        // TENTA O LOGIN SEGURO VIA SUPABASE AUTH
         const { data: authData, error: authError } = await window.supabaseClient.auth.signInWithPassword({
             email: emailFantasma,
             password: passStr
@@ -110,7 +107,6 @@ window.realizarLogin = async function(event) {
                     }
                 }
             }
-
         } else {
             // LOGIN SEGURO COM SUCESSO
             authIdSeguro = authData.user.id;
@@ -128,27 +124,18 @@ window.realizarLogin = async function(event) {
         if (dbUser) {
             let nomeFilialFinal = "Base Geral";
             let filialIdFinal = filialId;
-
             const isGlobalAdmin = (dbUser.role === 'SuperAdmin') || (dbUser.role === 'Admin' && dbUser.filial_id === null);
 
             // ================= REGRAS DE SEGURANÇA E BLOQUEIO =================
-            if (filialId === 'CENTRAL') {
-                if (!isGlobalAdmin) {
-                    alert('Acesso Negado! Área reservada para a Administração.');
-                    await window.supabaseClient.auth.signOut();
-                    btn.innerHTML = prevText; btn.disabled = false; return;
-                }
-                nomeFilialFinal = "Administrador Geral";
-                filialIdFinal = null; 
-            } else {
-                if (!isGlobalAdmin && dbUser.filial_id != filialId) {
-                    alert('Acesso Negado! Seu usuário não tem permissão para esta filial.');
-                    await window.supabaseClient.auth.signOut();
-                    btn.innerHTML = prevText; btn.disabled = false; return;
-                }
-                const filialSelecionada = listaFiliais.find(f => f.id == filialId);
-                if (filialSelecionada) nomeFilialFinal = filialSelecionada.nome;
+            // O isGlobalAdmin IGNORA ESSE BLOQUEIO (Permite logar camuflado em qualquer filial).
+            if (!isGlobalAdmin && dbUser.filial_id != filialId) {
+                alert('Acesso Negado! Seu usuário não tem permissão para a filial selecionada.');
+                await window.supabaseClient.auth.signOut();
+                btn.innerHTML = prevText; btn.disabled = false; return;
             }
+
+            const filialSelecionada = listaFiliais.find(f => f.id == filialId);
+            if (filialSelecionada) nomeFilialFinal = filialSelecionada.nome;
 
             const sessaoData = {
                 id: dbUser.id,
@@ -194,7 +181,6 @@ window.salvarNovaSenha = async function() {
     btn.disabled = true;
 
     try {
-        // AJUSTADO PARA O SEU DOMÍNIO AQUI TAMBÉM
         const emailFantasma = `${usuarioTemporario.username.toLowerCase()}@serranalog.com`;
         let authIdSeguro = usuarioTemporario.auth_id;
 
@@ -203,7 +189,6 @@ window.salvarNovaSenha = async function() {
                 email: emailFantasma,
                 password: p1
             });
-
             if (signUpError) {
                 console.error("Erro ao registrar no Supabase Auth:", signUpError);
                 alert("Erro de segurança ao gerar sua credencial. Verifique as permissões de confirmação de e-mail no painel.");
@@ -232,7 +217,6 @@ window.salvarNovaSenha = async function() {
         usuarioTemporario.auth_id = authIdSeguro;
         localStorage.setItem('ccol_user_session', JSON.stringify(usuarioTemporario));
         window.location.href = 'index.html';
-
     } catch(e) {
         console.error("Erro fatal ao salvar senha:", e);
         alert('Falha na comunicação com o servidor.');
