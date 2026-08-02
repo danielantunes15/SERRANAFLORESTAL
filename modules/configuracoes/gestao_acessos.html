@@ -5,6 +5,14 @@
     <p style="color: var(--text-secondary); margin-bottom: 20px; margin-top: 15px; font-size: 0.9rem;">
         Configure as permissões de visibilidade dos módulos baseando-se no Cargo ou criando exceções para um Usuário Específico.
     </p>
+
+    <!-- CONTAINER DE SELEÇÃO DE FILIAL (Visível apenas para SUPERADMIN e ID 4) -->
+    <div id="container-filial-permissao" class="form-group-dark" style="margin-bottom: 25px; display: none;">
+        <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Selecione a Filial para Gerenciar</label>
+        <select id="selectFilialContextoPermissao" class="dark-select" onchange="window.mudarFilialContexto()" style="max-width: 400px;">
+            <option value="" disabled selected>Carregando filiais...</option>
+        </select>
+    </div>
     
     <div style="display: flex; gap: 24px; margin-bottom: 25px; background: rgba(255,255,255,0.02); padding: 15px 20px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); width: max-content;">
         <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 500; color: #f8fafc;">
@@ -18,11 +26,11 @@
     </div>
 
     <div class="form-group-dark" style="margin-bottom: 30px;">
-        <select id="selectPerfilPermissao" class="dark-select" onchange="window.carregarCheckboxesPermissoes()" style="max-width: 400px;">
-            <option value="" disabled selected>-- Selecione o Cargo --</option>
+        <select id="selectPerfilPermissao" class="dark-select" onchange="window.carregarCheckboxesPermissoes()" style="max-width: 400px;" disabled>
+            <option value="" disabled selected>-- Aguardando Filial --</option>
         </select>
-        <select id="selectUsuarioPermissao" class="dark-select" style="display: none; max-width: 400px;" onchange="window.carregarCheckboxesPermissoes()">
-            <option value="" disabled selected>-- Selecione o Usuário --</option>
+        <select id="selectUsuarioPermissao" class="dark-select" style="display: none; max-width: 400px;" onchange="window.carregarCheckboxesPermissoes()" disabled>
+            <option value="" disabled selected>-- Aguardando Filial --</option>
         </select>
     </div>
 
