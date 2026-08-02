@@ -67,7 +67,6 @@
         color: #fff;
     }
     
-    /* Para a paginação não cortar os menus */
     .table-paginated-wrapper {
         min-height: 400px;
         padding-bottom: 50px;
@@ -207,13 +206,14 @@
     
     <div class="content-panel" style="padding: 0;">
         <div class="table-paginated-wrapper" style="overflow-x: auto;">
-            <table class="data-table-modern" style="margin: 0; border: none; min-width: 1000px;">
+            <table class="data-table-modern" style="margin: 0; border: none; min-width: 1250px;">
                 <thead>
                     <tr>
                         <th style="width: 80px;">Matrícula</th>
                         <th>Perfil / Colaborador</th>
-                        <th style="width: 250px;">Função</th>
-                        <th style="width: 200px;">Alertas / Vencimentos</th>
+                        <th style="width: 320px; text-align: left;">Cargo & Setor</th>
+                        <th style="width: 200px; text-align: left;">Contrato & Prazos</th>
+                        <th style="width: 180px;">Alertas</th>
                         <th style="width: 100px;">Status</th>
                         <th style="text-align: right; width: 120px;">Ações</th>
                     </tr>
@@ -289,7 +289,6 @@
                 <div class="form-group-dark" style="grid-column: span 2;"><label>Nome Completo *</label><input type="text" id="colNome" placeholder="Digite o nome completo" oninput="document.getElementById('tituloFicha').innerText = this.value || 'Novo Colaborador'"></div>
                 <div class="form-group-dark"><label>CPF *</label><input type="text" id="colCpf" placeholder="000.000.000-00" oninput="window.mascaraCPF(this)" maxlength="14"></div>
                 <div class="form-group-dark"><label>RG *</label><input type="text" id="colRg" placeholder="Número do RG"></div>
-                
                 <div class="form-group-dark">
                     <label>Data de Nascimento *</label>
                     <input type="date" id="colDataNascimento" onchange="window.atualizarLabelsTempo()">
@@ -348,7 +347,6 @@
                     </select>
                 </div>
                 
-                <!-- Datas Operacionais -->
                 <div class="form-group-dark">
                     <label>Data de Admissão *</label>
                     <input type="date" id="colDataAdmissao" onchange="window.atualizarLabelsTempo(); window.calcularVencimentoExperiencia();">
@@ -358,7 +356,7 @@
                 <div class="form-group-dark">
                     <label>Término da Experiência</label>
                     <input type="date" id="colVencimentoExperiencia" placeholder="Calculado automaticamente">
-                    <small style="color: var(--text-secondary); display: block; margin-top: 6px; font-size: 0.75rem;">(Calculado +90 dias após admissão)</small>
+                    <small style="color: var(--text-secondary); display: block; margin-top: 6px; font-size: 0.75rem;">(Auto-preenchido com +90 dias se vazio)</small>
                 </div>
 
                 <div class="form-group-dark">

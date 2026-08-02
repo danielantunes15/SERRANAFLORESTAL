@@ -21,6 +21,13 @@ window.camposBaseObrigatorios = [
 window.initRHColaboradores = async function() {
     document.getElementById('viewListagemColaboradores').style.display = 'block';
     document.getElementById('viewFichaColaborador').style.display = 'none';
+    
+    // Limpa campos da barra antes de carregar
+    const elNome = document.getElementById('filtroNome');
+    const elMat = document.getElementById('filtroMatricula');
+    if(elNome) elNome.value = '';
+    if(elMat) elMat.value = '';
+    
     window.filtroPendenciasAtivo = false;
     window.paginaAtualRH = 1;
     
@@ -31,15 +38,13 @@ window.initRHColaboradores = async function() {
     await window.carregarColaboradoresLista();
 };
 
-// ==================== AÇÕES RÁPIDAS (DROPDOWN) ====================
+// ==================== AÇÕES RÁPIDAS E EFETIVAÇÃO ====================
 window.toggleActionMenu = function(id) {
     document.querySelectorAll('.action-dropdown-menu').forEach(m => {
         if (m.id !== `action-menu-${id}`) m.style.display = 'none';
     });
     const menu = document.getElementById(`action-menu-${id}`);
-    if (menu) {
-        menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
-    }
+    if (menu) menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
 };
 
 document.addEventListener('click', function(e) {
@@ -48,11 +53,27 @@ document.addEventListener('click', function(e) {
     }
 });
 
+window.efetivarColaborador = async function(id, nome) {
+    if(confirm(`Deseja realmente efetivar ${nome}?\nO contrato passará de Temporário (Experiência) para CLT e os alertas de encerramento serão removidos.`)) {
+        try {
+            await db.updateColaborador(id, { tipo_contrato: 'CLT' });
+            if (typeof window.registrarLogAuditoria === 'function') {
+                window.registrarLogAuditoria('RH', 'Efetivação', `Colaborador efetivado (CLT): ${nome}`, 'Info');
+            }
+            alert('Colaborador efetivado com sucesso!');
+            await window.carregarColaboradoresLista();
+        } catch (e) {
+            console.error(e);
+            alert('Erro ao efetivar o colaborador. Verifique sua conexão.');
+        }
+    }
+};
+
 // ==================== PAGINAÇÃO E FILTROS ====================
 window.carregarColaboradoresLista = async function() {
     try {
         const tbody = document.getElementById('tbListaColaboradores');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando banco de dados...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando banco de dados...</td></tr>`;
         
         window.listaColaboradoresDb = await db.getColaboradores();
         window.filtrarColaboradoresLista(); 
@@ -78,9 +99,15 @@ window.toggleFiltroPendencias = function() {
 };
 
 window.filtrarColaboradoresLista = function() {
-    const termoNome = document.getElementById('filtroNome').value.toLowerCase().trim();
-    const termoMatricula = document.getElementById('filtroMatricula').value.toLowerCase().trim();
-    const termoSetor = document.getElementById('filtroSetorLista').value; 
+    const elNome = document.getElementById('filtroNome');
+    const elMat = document.getElementById('filtroMatricula');
+    const elSetor = document.getElementById('filtroSetorLista');
+    
+    if (!elNome || !elMat || !elSetor) return;
+
+    const termoNome = elNome.value.toLowerCase().trim();
+    const termoMatricula = elMat.value.toLowerCase().trim();
+    const termoSetor = elSetor.value; 
     
     window.colaboradoresFiltradosRH = window.listaColaboradoresDb.filter(c => {
         const nomeMatch = !termoNome || (c.nome && c.nome.toLowerCase().includes(termoNome)) || (c.funcao && c.funcao.toLowerCase().includes(termoNome));
@@ -123,7 +150,7 @@ window.renderizarTabelaPaginadaRH = function() {
     const totalItens = window.colaboradoresFiltradosRH.length;
     
     if (totalItens === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador encontrado com os filtros aplicados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum colaborador encontrado com os filtros aplicados.</td></tr>`;
         document.getElementById('infoPaginacaoRH').innerText = 'Mostrando 0 a 0 de 0';
         document.getElementById('displayPageRH').innerText = '1';
         document.getElementById('btnPagePrevRH').disabled = true;
@@ -138,6 +165,7 @@ window.renderizarTabelaPaginadaRH = function() {
     const endIndex = Math.min(startIndex + window.itensPorPaginaRH, totalItens);
     
     const itensPagina = window.colaboradoresFiltradosRH.slice(startIndex, endIndex);
+    const fmtDtTabela = (d) => d ? d.split('-').reverse().join('/') : '-';
 
     itensPagina.forEach(c => {
         let corStatus = 'var(--ccol-green-bright)';
@@ -157,7 +185,7 @@ window.renderizarTabelaPaginadaRH = function() {
             let vencimentos = window.analisarVencimentosColaborador(c);
             if (vencimentos.length > 0) {
                 let msg = vencimentos.map(v => `${v.nome} (${v.status})`).join('\n');
-                let corPior = vencimentos.some(v => v.status === 'Vencido') ? '#ef4444' : '#f59e0b';
+                let corPior = vencimentos.some(v => v.status === 'Vencido' || v.status === 'Efetivar ou Desligar') ? '#ef4444' : '#f59e0b';
                 badgeVencimentos = `<span title="Avisos de Vencimento:\n${msg}" style="color: ${corPior}; margin-right: 8px; font-size: 1.1rem; cursor: help;"><i class="fas fa-clock"></i></span>`;
             }
         }
@@ -165,6 +193,56 @@ window.renderizarTabelaPaginadaRH = function() {
         let alertasHTML = (badgeAlertaFaltando || badgeVencimentos) ? (badgeAlertaFaltando + badgeVencimentos) : '<span style="color: #10b981; font-size:0.85rem;"><i class="fas fa-check-circle"></i> Tudo OK</span>';
         
         const imgAvatar = c.foto_url ? `<img src="${c.foto_url}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-dim);">` : `<div style="width: 32px; height: 32px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 0.8rem;">${c.nome.charAt(0)}</div>`;
+
+        let nomeSetor = 'Sem Setor';
+        if (c.setor_id) {
+            const selectSetor = document.getElementById('filtroSetorLista');
+            if (selectSetor) {
+                const option = Array.from(selectSetor.options).find(opt => opt.value == c.setor_id);
+                if (option) nomeSetor = option.text;
+            }
+        }
+
+        let funcaoHtml = `
+            <div style="text-align: left;">
+                <span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-dim); font-size: 0.85rem; display: inline-block; margin-bottom: 4px; white-space: nowrap;">${c.funcao || 'Função não informada'}</span>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); padding-left: 2px;"><i class="fas fa-sitemap"></i> ${nomeSetor}</div>
+            </div>
+        `;
+
+        let dtAdmissao = fmtDtTabela(c.data_admissao);
+        let expFormatada = '-';
+        let expStyle = 'color: var(--text-secondary);';
+        
+        if (c.status === 'Ativo' && c.tipo_contrato === 'Temporário') {
+            let expDate = window.getVencimentoExperiencia(c);
+            if (expDate) {
+                expFormatada = fmtDtTabela(expDate);
+                let diasExp = window.diasParaVencer(expDate);
+                if (diasExp < 0) {
+                    expStyle = 'color: #ef4444; font-weight: bold;'; 
+                } else if (diasExp <= 30) {
+                    expStyle = 'color: #f59e0b; font-weight: bold;'; 
+                } else {
+                    expStyle = 'color: var(--ccol-blue-bright);';
+                }
+            }
+        } else if (c.tipo_contrato === 'CLT') {
+            expFormatada = '<i class="fas fa-check-circle"></i> Validado';
+            expStyle = 'color: #10b981; font-weight: bold;';
+        }
+
+        let infoContratoHtml = `
+            <div style="font-size: 0.85rem; line-height: 1.5; text-align: left;">
+                <div style="color: #94a3b8;">Admissão: <strong style="color: #fff;">${dtAdmissao}</strong></div>
+                <div style="color: #94a3b8;">Exp/Status: <span style="${expStyle}">${expFormatada}</span></div>
+            </div>
+        `;
+
+        let btnEfetivar = '';
+        if (c.status === 'Ativo' && c.tipo_contrato === 'Temporário') {
+            btnEfetivar = `<button onclick="window.efetivarColaborador('${c.id}', '${c.nome}')"><i class="fas fa-check-double" style="color: #10b981; width: 15px;"></i> Efetivar (Mudar p/ CLT)</button>`;
+        }
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -175,7 +253,8 @@ window.renderizarTabelaPaginadaRH = function() {
                     ${c.nome}
                 </div>
             </td>
-            <td><span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border-dim); font-size: 0.85rem;">${c.funcao || 'Não informada'}</span></td>
+            <td>${funcaoHtml}</td>
+            <td>${infoContratoHtml}</td>
             <td>${alertasHTML}</td>
             <td><span style="color: ${corStatus}; font-weight: bold; font-size: 0.9rem;">${c.status || 'Ativo'}</span></td>
             <td style="text-align: right;">
@@ -185,6 +264,7 @@ window.renderizarTabelaPaginadaRH = function() {
                     </button>
                     <div id="action-menu-${c.id}" class="action-dropdown-menu">
                         <button onclick="window.abrirFichaCompleta('${c.id}')"><i class="fas fa-folder-open" style="color: var(--ccol-blue-bright); width: 15px;"></i> Abrir Dossiê / Editar</button>
+                        ${btnEfetivar}
                         <button onclick="window.imprimirFichaColaborador('${c.id}')"><i class="fas fa-id-card" style="color: #10b981; width: 15px;"></i> Imprimir Ficha RH</button>
                         <button onclick="window.imprimirFichaEPI('${c.id}')"><i class="fas fa-hard-hat" style="color: #f59e0b; width: 15px;"></i> Imprimir Entrega de EPI</button>
                     </div>
@@ -380,6 +460,19 @@ window.calcularTempoDeCasaTexto = function(dataIso) {
     if (partes.length === 3) return `${partes[0]}, ${partes[1]} e ${partes[2]} de empresa`;
 };
 
+window.getVencimentoExperiencia = function(c) {
+    if (c.vencimento_experiencia) return c.vencimento_experiencia;
+    if (c.data_admissao) {
+        let dt = new Date(c.data_admissao + 'T00:00:00');
+        dt.setDate(dt.getDate() + 90);
+        const ano = dt.getFullYear();
+        const mes = String(dt.getMonth() + 1).padStart(2, '0');
+        const dia = String(dt.getDate()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}`;
+    }
+    return null;
+};
+
 window.calcularVencimentoExperiencia = function() {
     const dtAdmissao = document.getElementById('colDataAdmissao').value;
     if(dtAdmissao) {
@@ -433,10 +526,13 @@ window.analisarVencimentosColaborador = function(c) {
         }
     });
     
-    if(c.vencimento_experiencia && c.status === 'Ativo') {
-        let dias = window.diasParaVencer(c.vencimento_experiencia);
-        if(dias < 0) alertas.push({ nome: 'EXP. VENCIDA', status: 'Vencido', cor: '#ef4444' });
-        else if(dias <= 30) alertas.push({ nome: 'FIM EXPERIÊNCIA', status: `Vence em ${dias}d`, cor: '#f59e0b' });
+    if(c.status === 'Ativo' && c.tipo_contrato === 'Temporário') {
+        let expDate = window.getVencimentoExperiencia(c);
+        if(expDate) {
+            let dias = window.diasParaVencer(expDate);
+            if(dias < 0) alertas.push({ nome: 'EXP. VENCIDA', status: 'Efetivar ou Desligar', cor: '#ef4444' });
+            else if(dias <= 30) alertas.push({ nome: 'FIM EXPERIÊNCIA', status: `Vence em ${dias}d`, cor: '#f59e0b' });
+        }
     }
     
     if(c.cursos_vencimentos) {
@@ -785,6 +881,7 @@ window.salvarColaboradorFicha = async function() {
         }
         
         await window.carregarColaboradoresLista();
+        window.filtrarColaboradoresLista();
         window.voltarParaListagem(); 
     } catch (e) {
         console.error(e);
@@ -804,6 +901,7 @@ window.excluirColaboradorAtual = async function() {
             
             alert('Cadastro excluído com sucesso.');
             await window.carregarColaboradoresLista();
+            window.filtrarColaboradoresLista();
             window.voltarParaListagem();
         } catch (e) {
             console.error(e);
