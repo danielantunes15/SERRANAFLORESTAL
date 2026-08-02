@@ -74,7 +74,7 @@
     }
 
     /* ========================================================== */
-    /* DESIGN DO DOSSIÊ DE RH (MANTIDO)                           */
+    /* DESIGN DO DOSSIÊ DE RH                                     */
     /* ========================================================== */
     .rh-profile-header {
         display: flex;
@@ -276,7 +276,7 @@
         
         <div class="rh-tabs-container">
             <button class="rh-tab-btn active" onclick="window.mudarAbaFichaRH('tabPessoais')"><i class="fas fa-user"></i> Dados Pessoais</button>
-            <button class="rh-tab-btn" onclick="window.mudarAbaFichaRH('tabProfissional')"><i class="fas fa-briefcase"></i> Profissional & Banco</button>
+            <button class="rh-tab-btn" onclick="window.mudarAbaFichaRH('tabProfissional')"><i class="fas fa-briefcase"></i> Profissional & Contrato</button>
             <button class="rh-tab-btn" onclick="window.mudarAbaFichaRH('tabOperacional')"><i class="fas fa-id-card"></i> Habilitação & Uniforme</button>
             <button class="rh-tab-btn" onclick="window.mudarAbaFichaRH('tabSaude')"><i class="fas fa-notes-medical"></i> Saúde & Cursos</button>
             <button class="rh-tab-btn" onclick="window.mudarAbaFichaRH('tabDocumentos')"><i class="fas fa-folder-open"></i> Arquivos Digitais</button>
@@ -289,6 +289,7 @@
                 <div class="form-group-dark" style="grid-column: span 2;"><label>Nome Completo *</label><input type="text" id="colNome" placeholder="Digite o nome completo" oninput="document.getElementById('tituloFicha').innerText = this.value || 'Novo Colaborador'"></div>
                 <div class="form-group-dark"><label>CPF *</label><input type="text" id="colCpf" placeholder="000.000.000-00" oninput="window.mascaraCPF(this)" maxlength="14"></div>
                 <div class="form-group-dark"><label>RG *</label><input type="text" id="colRg" placeholder="Número do RG"></div>
+                
                 <div class="form-group-dark">
                     <label>Data de Nascimento *</label>
                     <input type="date" id="colDataNascimento" onchange="window.atualizarLabelsTempo()">
@@ -325,11 +326,21 @@
                     </select>
                 </div>
                 <div class="form-group-dark">
+                    <label>Tipo de Contrato *</label>
+                    <select id="colTipoContrato" class="dark-select">
+                        <option value="CLT">CLT</option>
+                        <option value="Temporário">Temporário (Experiência)</option>
+                        <option value="Estagiário">Estagiário</option>
+                        <option value="PJ">Terceirizado / PJ</option>
+                    </select>
+                </div>
+                <div class="form-group-dark">
                     <label>Setor</label>
                     <select id="colSetorId" class="dark-select">
                         <option value="">Selecione um setor...</option>
                     </select>
                 </div>
+                
                 <div class="form-group-dark">
                     <label>Função / Cargo *</label>
                     <select id="colFuncao" class="dark-select" onchange="document.getElementById('displayCargoHeader').innerText = this.value || 'Função a definir'">
@@ -337,10 +348,22 @@
                     </select>
                 </div>
                 
+                <!-- Datas Operacionais -->
                 <div class="form-group-dark">
                     <label>Data de Admissão *</label>
-                    <input type="date" id="colDataAdmissao" onchange="window.atualizarLabelsTempo()">
+                    <input type="date" id="colDataAdmissao" onchange="window.atualizarLabelsTempo(); window.calcularVencimentoExperiencia();">
                     <small id="lblTempoCasa" style="color: var(--ccol-blue-bright); font-weight: bold; display: block; margin-top: 6px; font-size: 0.8rem;"></small>
+                </div>
+                
+                <div class="form-group-dark">
+                    <label>Término da Experiência</label>
+                    <input type="date" id="colVencimentoExperiencia" placeholder="Calculado automaticamente">
+                    <small style="color: var(--text-secondary); display: block; margin-top: 6px; font-size: 0.75rem;">(Calculado +90 dias após admissão)</small>
+                </div>
+
+                <div class="form-group-dark">
+                    <label>Data de Desligamento</label>
+                    <input type="date" id="colDataDesligamento" placeholder="Preencher se inativo">
                 </div>
                 
                 <div class="form-group-dark"><label>Salário Base (R$)</label><input type="text" id="colSalario" placeholder="R$ 0,00" oninput="window.mascaraMoeda(this)"></div>

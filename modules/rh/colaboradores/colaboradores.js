@@ -194,7 +194,6 @@ window.renderizarTabelaPaginadaRH = function() {
         tbody.appendChild(tr);
     });
     
-    // Atualiza controles de paginação
     document.getElementById('infoPaginacaoRH').innerText = `Mostrando ${startIndex + 1} a ${endIndex} de ${totalItens}`;
     document.getElementById('displayPageRH').innerText = window.paginaAtualRH;
     document.getElementById('btnPagePrevRH').disabled = window.paginaAtualRH === 1;
@@ -381,6 +380,18 @@ window.calcularTempoDeCasaTexto = function(dataIso) {
     if (partes.length === 3) return `${partes[0]}, ${partes[1]} e ${partes[2]} de empresa`;
 };
 
+window.calcularVencimentoExperiencia = function() {
+    const dtAdmissao = document.getElementById('colDataAdmissao').value;
+    if(dtAdmissao) {
+        let dt = new Date(dtAdmissao + 'T00:00:00');
+        dt.setDate(dt.getDate() + 90);
+        const ano = dt.getFullYear();
+        const mes = String(dt.getMonth() + 1).padStart(2, '0');
+        const dia = String(dt.getDate()).padStart(2, '0');
+        document.getElementById('colVencimentoExperiencia').value = `${ano}-${mes}-${dia}`;
+    }
+};
+
 window.atualizarLabelsTempo = function() {
     let dtNascimento = document.getElementById('colDataNascimento').value;
     let dtAdmissao = document.getElementById('colDataAdmissao').value;
@@ -421,6 +432,13 @@ window.analisarVencimentosColaborador = function(c) {
             else if(dias <= 30) alertas.push({ nome: nomeDoAviso, status: `Vence em ${dias}d`, cor: '#f59e0b' });
         }
     });
+    
+    if(c.vencimento_experiencia && c.status === 'Ativo') {
+        let dias = window.diasParaVencer(c.vencimento_experiencia);
+        if(dias < 0) alertas.push({ nome: 'EXP. VENCIDA', status: 'Vencido', cor: '#ef4444' });
+        else if(dias <= 30) alertas.push({ nome: 'FIM EXPERIÊNCIA', status: `Vence em ${dias}d`, cor: '#f59e0b' });
+    }
+    
     if(c.cursos_vencimentos) {
         Object.keys(c.cursos_vencimentos).forEach(curso => {
             let dias = window.diasParaVencer(c.cursos_vencimentos[curso]);
@@ -482,7 +500,6 @@ window.limparValidacaoVisualFicha = function() {
     });
 };
 
-
 // ==================== TRANSIÇÃO E LÓGICA DA FICHA COMPLETA ====================
 window.voltarParaListagem = function() {
     document.getElementById('viewFichaColaborador').style.display = 'none';
@@ -527,6 +544,7 @@ window.abrirFichaCompleta = async function(id = null) {
         document.getElementById('colStatus').value = c.status || 'Ativo';
         window.atualizarBadgeStatusHeader();
         
+        document.getElementById('colTipoContrato').value = c.tipo_contrato || 'CLT';
         document.getElementById('colSetorId').value = c.setor_id || '';
         document.getElementById('colPlanoSaude').value = c.plano_saude || 'Não';
         document.getElementById('colSindicato').value = c.ativo_sindicato || 'Não';
@@ -539,6 +557,8 @@ window.abrirFichaCompleta = async function(id = null) {
         
         document.getElementById('colDataNascimento').value = c.data_nascimento || '';
         document.getElementById('colDataAdmissao').value = c.data_admissao || '';
+        document.getElementById('colVencimentoExperiencia').value = c.vencimento_experiencia || '';
+        document.getElementById('colDataDesligamento').value = c.data_desligamento || '';
         window.atualizarLabelsTempo(); 
         
         document.getElementById('colFuncao').value = c.funcao || '';
@@ -624,7 +644,8 @@ window.abrirFichaCompleta = async function(id = null) {
         const campos = ['colCpf', 'colRg', 'colNome', 'colDataNascimento', 'colDataAdmissao', 
                         'colFuncao', 'colTelefone', 'colSalario', 'colCep', 'colEndereco', 'colEmailCorp', 'colEmailPessoal',
                         'colContatoEmergenciaNome', 'colContatoEmergenciaTel', 'colBanco', 'colAgencia', 'colConta', 'colChavePix',
-                        'colCnhNumero', 'colCnhCategoria', 'colCnhVencimento', 'colExperiencia', 'colAsoVencimento', 'colToxicologico', 'colObservacoes'];
+                        'colCnhNumero', 'colCnhCategoria', 'colCnhVencimento', 'colExperiencia', 'colAsoVencimento', 'colToxicologico', 'colObservacoes',
+                        'colVencimentoExperiencia', 'colDataDesligamento'];
                         
         campos.forEach(el => document.getElementById(el).value = '');
         
@@ -633,6 +654,7 @@ window.abrirFichaCompleta = async function(id = null) {
         document.getElementById('colTamanhoCalcado').value = '';
         
         document.getElementById('colStatus').value = 'Ativo';
+        document.getElementById('colTipoContrato').value = 'CLT';
         window.atualizarBadgeStatusHeader();
         
         document.getElementById('colSetorId').value = '';
@@ -668,6 +690,7 @@ window.salvarColaboradorFicha = async function() {
     let dados = {
         setor_id: getValue('colSetorId') ? parseInt(getValue('colSetorId')) : null,
         status: getValue('colStatus'),
+        tipo_contrato: getValue('colTipoContrato'),
         plano_saude: getValue('colPlanoSaude'),
         ativo_sindicato: getValue('colSindicato'),
         nome: getValue('colNome'),
@@ -675,6 +698,8 @@ window.salvarColaboradorFicha = async function() {
         rg: getValue('colRg'),
         data_nascimento: getDateValue('colDataNascimento'),
         data_admissao: getDateValue('colDataAdmissao'),
+        vencimento_experiencia: getDateValue('colVencimentoExperiencia'),
+        data_desligamento: getDateValue('colDataDesligamento'),
         funcao: getValue('colFuncao'),
         telefone: getValue('colTelefone'),
         salario_base: window.parseMoeda(getValue('colSalario')),
@@ -939,6 +964,13 @@ window.gerarHtmlFichaColaborador = function(colaboradores) {
                 <div class="col"><span class="label">Data de Admissão</span><span class="val">${fmtDt(c.data_admissao)}</span></div>
                 <div class="col"><span class="label">Status</span><span class="val">${c.status || 'Ativo'}</span></div>
             </div>
+            
+            <div class="row">
+                <div class="col"><span class="label">Tipo de Contrato</span><span class="val">${c.tipo_contrato || '-'}</span></div>
+                <div class="col"><span class="label">Vencimento Experiência</span><span class="val">${fmtDt(c.vencimento_experiencia)}</span></div>
+                <div class="col"><span class="label">Data Desligamento</span><span class="val">${fmtDt(c.data_desligamento)}</span></div>
+            </div>
+            
             <div class="row">
                 <div class="col" style="flex:2"><span class="label">Endereço</span><span class="val">${c.endereco || '-'}</span></div>
                 <div class="col"><span class="label">CEP</span><span class="val">${c.cep || '-'}</span></div>
