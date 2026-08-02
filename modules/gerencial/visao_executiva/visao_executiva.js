@@ -96,6 +96,7 @@ window.atualizarDadosExecutivos = async function() {
 
         // =========================================================
         // 1. DADOS BASE (PROMISE.ALL PARA ALTA VELOCIDADE)
+        // Ignorando a Filial ID = 4 (Matriz) para não renderizar os cards e cálculos
         // =========================================================
         const [
             { data: filiaisDB },
@@ -104,7 +105,7 @@ window.atualizarDadosExecutivos = async function() {
             { data: frotaDB },
             { data: osDB }
         ] = await Promise.all([
-            window.supabaseClient.from('filiais').select('id, nome, cidade').order('nome', { ascending: true }),
+            window.supabaseClient.from('filiais').select('id, nome, cidade').neq('id', 4).order('nome', { ascending: true }),
             window.supabaseClient.from('config_gruas').select('codigos, tipo_frente'),
             window.supabaseClient.from('tarifadores').select('*').eq('ativo', true),
             window.supabaseClient.from('frotas_manutencao').select('cavalo, filial_id').eq('status', 'Ativo'),
@@ -225,6 +226,9 @@ window.atualizarDadosExecutivos = async function() {
         for (let i = 0; i < todasViagens.length; i++) {
             let v = todasViagens[i];
             
+            // Ignora processamento da filial 4 (Matriz) nos valores globais do DRE/Gráficos
+            if (v.filial_id === 4) continue;
+            
             // OTIMIZAÇÃO 2: A cada 5.000 viagens, libera a CPU por 5ms para o Google Chrome não travar a tela
             if (i % 5000 === 0 && i > 0) {
                 if (loadingText) loadingText.innerText = `Processando cálculos financeiros... (${i} de ${todasViagens.length})`;
@@ -335,16 +339,11 @@ window.atualizarDadosExecutivos = async function() {
         // 7. ATUALIZAR INTERFACE
         // =========================================================
         
-        let ticketMedio = totalProdGlobal > 0 ? (totalFatGlobal / totalProdGlobal) : 0;
-
         if (document.getElementById('kpiFatGlobal')) {
             document.getElementById('kpiFatGlobal').innerText = totalFatGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
         if (document.getElementById('kpiProdGlobal')) {
             document.getElementById('kpiProdGlobal').innerText = totalProdGlobal.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' m³';
-        }
-        if (document.getElementById('kpiTicketMedio')) {
-            document.getElementById('kpiTicketMedio').innerText = ticketMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
         if (document.getElementById('kpiDmGlobal')) {
             document.getElementById('kpiDmGlobal').innerText = dmGlobalMediaMes + '%'; 
