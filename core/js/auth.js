@@ -5,12 +5,21 @@ window.permissoesGlobais = null;
 
 window.fazerLogout = async function() {
     if(confirm('Deseja realmente sair do sistema?')) {
+        // 1. Tenta deslogar do servidor (Supabase), se houver sessão ativa
+        try {
+            await window.supabaseClient.auth.signOut();
+        } catch (e) {
+            console.error("Erro ao deslogar do servidor de autenticação:", e);
+        }
+
+        // 2. Registra na auditoria
         try {
             if (typeof window.registrarLogAuditoria === 'function') {
                 await window.registrarLogAuditoria('Autenticação', 'Logout', 'O usuário encerrou a sessão no sistema manualmente.', 'Info');
             }
         } catch (e) { console.error(e); }
         
+        // 3. Limpa o navegador e redireciona
         localStorage.removeItem('ccol_user_session');
         window.currentUser = null;
         window.location.href = 'login.html'; 
@@ -96,45 +105,51 @@ async function iniciarSistemaAutorizado() {
 document.addEventListener('DOMContentLoaded', async () => {
     const sessaoSalva = localStorage.getItem('ccol_user_session');
     
-    if (sessaoSalva) {
-        window.currentUser = JSON.parse(sessaoSalva);
+    // Sem LocalStorage? Redireciona na hora.
+    if (!sessaoSalva) {
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Carrega o usuário da sessão local (Permite o Plano B funcionar)
+    window.currentUser = JSON.parse(sessaoSalva);
+    
+    try {
+        // Validação de segurança legada contra a tabela
+        const dbUser = await db.getUsuarioByUsername(window.currentUser.username);
         
-        try {
-            const dbUser = await db.getUsuarioByUsername(window.currentUser.username);
-            
-            if (!dbUser) {
-                alert("🔒 Acesso revogado: Sua conta foi excluída ou desativada pelo administrador.");
-                if (typeof window.registrarLogAuditoria === 'function') {
-                    await window.registrarLogAuditoria('Autenticação', 'Acesso Negado', `Tentativa de login reprovada (Conta Inexistente): ${window.currentUser.username}`, 'Crítico');
-                }
-                localStorage.removeItem('ccol_user_session');
-                window.location.href = 'login.html';
-                return; 
+        if (!dbUser) {
+            alert("🔒 Acesso revogado: Sua conta foi excluída ou desativada pelo administrador.");
+            if (typeof window.registrarLogAuditoria === 'function') {
+                await window.registrarLogAuditoria('Autenticação', 'Acesso Negado', `Tentativa de login reprovada (Conta Inexistente): ${window.currentUser.username}`, 'Crítico');
             }
-
-            if (dbUser.status === 'Inativo') {
-                alert("🔒 Acesso revogado: Este usuário encontra-se inativo no sistema.");
-                if (typeof window.registrarLogAuditoria === 'function') {
-                    await window.registrarLogAuditoria('Autenticação', 'Acesso Negado', `Tentativa de login reprovada (Conta Inativa): ${window.currentUser.username}`, 'Crítico');
-                }
-                localStorage.removeItem('ccol_user_session');
-                window.location.href = 'login.html';
-                return;
-            }
-
-            window.currentUser.role = dbUser.role;
-            if (dbUser.cargo_id) window.currentUser.cargo_id = dbUser.cargo_id;
-            
-            localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
-
-        } catch (error) {
-            console.error("Erro ao validar credenciais no banco de dados:", error);
+            await window.supabaseClient.auth.signOut();
+            localStorage.removeItem('ccol_user_session');
+            window.location.href = 'login.html';
+            return; 
         }
 
-        iniciarSistemaAutorizado(); 
-    } else {
-        window.location.href = 'login.html';
+        if (dbUser.status === 'Inativo') {
+            alert("🔒 Acesso revogado: Este usuário encontra-se inativo no sistema.");
+            if (typeof window.registrarLogAuditoria === 'function') {
+                await window.registrarLogAuditoria('Autenticação', 'Acesso Negado', `Tentativa de login reprovada (Conta Inativa): ${window.currentUser.username}`, 'Crítico');
+            }
+            await window.supabaseClient.auth.signOut();
+            localStorage.removeItem('ccol_user_session');
+            window.location.href = 'login.html';
+            return;
+        }
+
+        window.currentUser.role = dbUser.role;
+        if (dbUser.cargo_id) window.currentUser.cargo_id = dbUser.cargo_id;
+        
+        localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
+
+    } catch (error) {
+        console.error("Erro ao validar credenciais no banco de dados:", error);
     }
+
+    iniciarSistemaAutorizado(); 
 });
 
 const permissoesPadrao = {

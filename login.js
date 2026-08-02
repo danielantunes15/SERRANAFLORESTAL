@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
 async function carregarFiliaisDoBanco() {
     const select = document.getElementById('loginFilial');
     if (!select) return;
-
     try {
         if (typeof db.getFiliais === 'function') {
             listaFiliais = await db.getFiliais();
@@ -28,7 +27,6 @@ async function carregarFiliaisDoBanco() {
             const { data } = await window.supabaseClient.from('filiais').select('*').eq('status', 'Ativa').order('nome', { ascending: true });
             listaFiliais = data || [];
         }
-
         select.innerHTML = '<option value="" disabled selected>Selecione a Base/Filial...</option>';
         
         listaFiliais.forEach(filial => {
@@ -43,16 +41,14 @@ async function carregarFiliaisDoBanco() {
         adminOption.textContent = 'ADMINISTRADOR';
         adminOption.style.fontWeight = 'bold';
         select.appendChild(adminOption);
-
     } catch (e) {
         console.error(e);
-        select.innerHTML = '<option value="" disabled selected>⚠️ Erro ao carregar filiais</option>';
+        select.innerHTML = '<option value="" disabled selected>  Erro ao carregar filiais</option>';
     }
 }
 
 window.realizarLogin = async function(event) {
     if (event) event.preventDefault();
-
     const filialId = document.getElementById('loginFilial').value;
     const userStr = document.getElementById('loginUser').value.trim().toUpperCase();
     const passStr = document.getElementById('loginPass').value;
@@ -66,36 +62,93 @@ window.realizarLogin = async function(event) {
     btn.disabled = true;
 
     try {
-        const hashedPass = await hashPassword(passStr);
-        const dbUser = await db.getUsuarioByUsername(userStr);
+        // 1. AJUSTADO PARA O SEU DOMÍNIO CORRETO
+        const emailFantasma = `${userStr.toLowerCase()}@serranalog.com`;
+        let dbUser = null;
+        let authIdSeguro = null;
 
-        if (dbUser && (dbUser.senha_hash === hashedPass || dbUser.senha_hash === passStr)) {
+        // 2. TENTA O LOGIN SEGURO VIA SUPABASE AUTH
+        const { data: authData, error: authError } = await window.supabaseClient.auth.signInWithPassword({
+            email: emailFantasma,
+            password: passStr
+        });
+
+        if (authError) {
+            console.warn("Login Auth falhou. Tentando validação legada para migração...");
+            const hashedPass = await hashPassword(passStr);
+            dbUser = await db.getUsuarioByUsername(userStr);
+
+            if (!dbUser || (dbUser.senha_hash !== hashedPass && dbUser.senha_hash !== passStr)) {
+                alert('Usuário ou senha incorretos.');
+                btn.innerHTML = prevText;
+                btn.disabled = false;
+                return;
+            }
+
+            // MIGRAÇÃO SILENCIOSA 
+            if (!dbUser.auth_id && !dbUser.primeiro_acesso) {
+                console.log("Migrando usuário antigo para autenticação segura...");
+                const { data: signUpData, error: signUpError } = await window.supabaseClient.auth.signUp({
+                    email: emailFantasma,
+                    password: passStr 
+                });
+
+                if (signUpError) {
+                    console.error("ERRO NO SUPABASE AUTH (signUp):", signUpError);
+                } else if (signUpData && signUpData.user) {
+                    console.log("Conta criada no Auth com sucesso! ID:", signUpData.user.id);
+                    authIdSeguro = signUpData.user.id;
+                    
+                    const { error: updateError } = await window.supabaseClient.from('usuarios')
+                        .update({ auth_id: authIdSeguro })
+                        .eq('id', dbUser.id);
+                        
+                    if (updateError) {
+                        console.error("ERRO AO ATUALIZAR TABELA (RLS/Permissão):", updateError);
+                    } else {
+                        console.log("Coluna auth_id preenchida com sucesso no banco!");
+                    }
+                }
+            }
+
+        } else {
+            // LOGIN SEGURO COM SUCESSO
+            authIdSeguro = authData.user.id;
+            dbUser = await db.getUsuarioByUsername(userStr);
             
+            // Verifica se a conta já existe no Supabase mas o banco ainda não sabe o ID
+            if (dbUser && !dbUser.auth_id) {
+                console.log("Sincronizando auth_id com o banco de dados...");
+                await window.supabaseClient.from('usuarios')
+                    .update({ auth_id: authIdSeguro })
+                    .eq('id', dbUser.id);
+            }
+        }
+
+        if (dbUser) {
             let nomeFilialFinal = "Base Geral";
             let filialIdFinal = filialId;
 
-            // Identifica se o usuário é um administrador geral (não está preso a uma filial)
             const isGlobalAdmin = (dbUser.role === 'SuperAdmin') || (dbUser.role === 'Admin' && dbUser.filial_id === null);
 
             // ================= REGRAS DE SEGURANÇA E BLOQUEIO =================
             if (filialId === 'CENTRAL') {
                 if (!isGlobalAdmin) {
-                    alert('❌ Acesso Negado! Esta área é estritamente reservada para a Administração do Sistema.');
+                    alert('Acesso Negado! Área reservada para a Administração.');
+                    await window.supabaseClient.auth.signOut();
                     btn.innerHTML = prevText; btn.disabled = false; return;
                 }
                 nomeFilialFinal = "Administrador Geral";
                 filialIdFinal = null; 
             } else {
-                // Se o usuário não é um Admin Global e está tentando logar em uma filial diferente da dele
                 if (!isGlobalAdmin && dbUser.filial_id != filialId) {
-                    alert('❌ Acesso Negado! Seu usuário não tem permissão para operar nesta filial.');
+                    alert('Acesso Negado! Seu usuário não tem permissão para esta filial.');
+                    await window.supabaseClient.auth.signOut();
                     btn.innerHTML = prevText; btn.disabled = false; return;
                 }
-
                 const filialSelecionada = listaFiliais.find(f => f.id == filialId);
                 if (filialSelecionada) nomeFilialFinal = filialSelecionada.nome;
             }
-            // =================================================================
 
             const sessaoData = {
                 id: dbUser.id,
@@ -103,7 +156,8 @@ window.realizarLogin = async function(event) {
                 role: dbUser.role || 'Operacional', 
                 filial_id: filialIdFinal,
                 filiais: { nome: nomeFilialFinal },
-                primeiro_acesso: dbUser.primeiro_acesso
+                primeiro_acesso: dbUser.primeiro_acesso,
+                auth_id: authIdSeguro || dbUser.auth_id
             };
 
             if (sessaoData.primeiro_acesso) {
@@ -115,12 +169,14 @@ window.realizarLogin = async function(event) {
                 window.location.href = 'index.html';
             }
         } else {
-            alert('❌ Usuário ou senha incorretos.');
+            alert('Perfil não encontrado no banco de dados da operação.');
             btn.innerHTML = prevText;
             btn.disabled = false;
         }
+
     } catch(e) {
-        alert('⚠️ Erro ao conectar com o banco de dados.');
+        console.error("Erro geral no login: ", e);
+        alert('Erro ao conectar com o banco de dados.');
         btn.innerHTML = prevText;
         btn.disabled = false;
     }
@@ -131,20 +187,55 @@ window.salvarNovaSenha = async function() {
     const p2 = document.getElementById('newPass2').value;
     const btn = document.getElementById('btnSalvarSenha');
     
-    if(p1.length < 5) { alert('⚠️ A nova senha deve ter no mínimo 5 caracteres.'); return; }
-    if(p1 !== p2) { alert('⚠️ As senhas digitadas não coincidem.'); return; }
+    if(p1.length < 5) { alert('A nova senha deve ter no mínimo 5 caracteres.'); return; }
+    if(p1 !== p2) { alert('As senhas digitadas não coincidem.'); return; }
 
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Criando credencial segura...';
     btn.disabled = true;
 
     try {
+        // AJUSTADO PARA O SEU DOMÍNIO AQUI TAMBÉM
+        const emailFantasma = `${usuarioTemporario.username.toLowerCase()}@serranalog.com`;
+        let authIdSeguro = usuarioTemporario.auth_id;
+
+        if (!authIdSeguro) {
+            const { data: signUpData, error: signUpError } = await window.supabaseClient.auth.signUp({
+                email: emailFantasma,
+                password: p1
+            });
+
+            if (signUpError) {
+                console.error("Erro ao registrar no Supabase Auth:", signUpError);
+                alert("Erro de segurança ao gerar sua credencial. Verifique as permissões de confirmação de e-mail no painel.");
+                btn.innerHTML = 'Salvar e Acessar';
+                btn.disabled = false;
+                return;
+            }
+            authIdSeguro = signUpData.user.id;
+        } else {
+            await window.supabaseClient.auth.updateUser({ password: p1 });
+        }
+
         const hashedNewPass = await hashPassword(p1);
-        await db.updateUsuarioSenha(usuarioTemporario.id, hashedNewPass);
+        
+        const { error: dbError } = await window.supabaseClient.from('usuarios')
+            .update({ 
+                senha_hash: hashedNewPass, 
+                primeiro_acesso: false, 
+                auth_id: authIdSeguro 
+            })
+            .eq('id', usuarioTemporario.id);
+
+        if (dbError) throw dbError;
+
         usuarioTemporario.primeiro_acesso = false;
+        usuarioTemporario.auth_id = authIdSeguro;
         localStorage.setItem('ccol_user_session', JSON.stringify(usuarioTemporario));
         window.location.href = 'index.html';
+
     } catch(e) {
-        alert('⚠️ Erro ao salvar a nova senha.');
+        console.error("Erro fatal ao salvar senha:", e);
+        alert('Falha na comunicação com o servidor.');
         btn.innerHTML = 'Salvar e Acessar';
         btn.disabled = false;
     }
