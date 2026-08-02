@@ -4,11 +4,11 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm gap-4">
         <div class="flex items-center gap-4">
             <div class="w-14 h-14 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.2)]">
-                <i class="fas fa-globe-americas text-3xl"></i>
+                <i class="fas fa-globe-americas text-3xl" id="iconVisao"></i>
             </div>
             <div>
-                <h2 class="text-2xl md:text-3xl font-black text-white tracking-wide">Visão Executiva Global</h2>
-                <p class="text-slate-400 text-sm mt-1 font-medium">Consolidação automática de Faturamento (Transporte + Carregamento), Produção e DM</p>
+                <h2 class="text-2xl md:text-3xl font-black text-white tracking-wide" id="tituloVisao">Visão Executiva</h2>
+                <p class="text-slate-400 text-sm mt-1 font-medium" id="subtituloVisao">Consolidação automática de Faturamento, Produção e DM</p>
             </div>
         </div>
         <div class="flex items-center gap-3">
@@ -22,7 +22,7 @@
         </div>
     </div>
 
-    <!-- KPIs Globais (Voltando para 4 colunas após a remoção do Ticket Médio) -->
+    <!-- KPIs -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         
         <div class="bg-slate-800/60 rounded-xl border border-emerald-500/30 p-5 shadow-[0_0_20px_rgba(16,185,129,0.1)] relative overflow-hidden group">
@@ -34,14 +34,14 @@
 
         <div class="bg-slate-800/60 rounded-xl border border-sky-500/30 p-5 shadow-[0_0_20px_rgba(14,165,233,0.1)] relative overflow-hidden group">
             <div class="absolute -right-4 -top-4 text-sky-500/10 group-hover:text-sky-500/20 transition-colors"><i class="fas fa-cube text-8xl"></i></div>
-            <div class="kpi-title text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Volume Produzido Global</div>
+            <div class="kpi-title text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Volume Produzido</div>
             <div class="kpi-value text-3xl font-black text-sky-400 font-mono mb-2" id="kpiProdGlobal">0 m³</div>
-            <div class="kpi-trend text-xs font-semibold text-sky-300 flex items-center gap-1"><i class="fas fa-truck-loading"></i> Todas as Operações</div>
+            <div class="kpi-trend text-xs font-semibold text-sky-300 flex items-center gap-1" id="kpiSubProd"><i class="fas fa-truck-loading"></i> Todas as Operações</div>
         </div>
 
         <div class="bg-slate-800/60 rounded-xl border border-amber-500/30 p-5 shadow-[0_0_20px_rgba(245,158,11,0.1)] relative overflow-hidden group">
             <div class="absolute -right-4 -top-4 text-amber-500/10 group-hover:text-amber-500/20 transition-colors"><i class="fas fa-tools text-8xl"></i></div>
-            <div class="kpi-title text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">DM Médio Global (Oficina)</div>
+            <div class="kpi-title text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">DM Médio (Oficina)</div>
             <div class="kpi-value text-3xl font-black text-amber-400 font-mono mb-2" id="kpiDmGlobal">0%</div>
             <div class="kpi-trend text-xs font-semibold text-amber-300 flex items-center gap-1"><i class="fas fa-cogs"></i> Disponibilidade Mecânica</div>
         </div>
@@ -59,13 +59,13 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
         <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50 shadow-xl">
             <h3 class="text-sm font-bold uppercase tracking-widest mb-4 text-white flex items-center gap-2 border-b border-slate-700/50 pb-2">
-                <i class="fas fa-chart-bar text-sky-400"></i> Faturamento vs Produção (Por Filial)
+                <i class="fas fa-chart-bar text-sky-400"></i> Faturamento vs Produção
             </h3>
             <div id="graficoComparativoFiliais" class="w-full h-[350px]"></div>
         </div>
         <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50 shadow-xl">
-            <h3 class="text-sm font-bold uppercase tracking-widest mb-4 text-white flex items-center gap-2 border-b border-slate-700/50 pb-2">
-                <i class="fas fa-chart-area text-purple-400"></i> Evolução Faturamento Global (Últimos 6 Meses)
+            <h3 class="text-sm font-bold uppercase tracking-widest mb-4 text-white flex items-center gap-2 border-b border-slate-700/50 pb-2" id="tituloGraficoEvolucao">
+                <i class="fas fa-chart-area text-purple-400"></i> Evolução Faturamento (Últimos 6 Meses)
             </h3>
             <div id="graficoEvolucaoGlobal" class="w-full h-[350px]"></div>
         </div>
@@ -74,10 +74,9 @@
     <!-- Cards Individuais por Filial -->
     <div>
         <h3 class="text-lg font-black mb-6 border-b border-slate-700 pb-3 flex items-center gap-3 text-white uppercase tracking-wider">
-            <i class="fas fa-building text-slate-400"></i> DRE Resumido por Filial
+            <i class="fas fa-building text-slate-400"></i> DRE Resumido
         </h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="containerCardsFiliais">
-            <!-- Renderizado dinamicamente via JS -->
             <div class="col-span-full text-center text-slate-500 py-10 font-bold">
                 <i class="fas fa-spinner fa-spin mr-2"></i> Aguardando dados...
             </div>

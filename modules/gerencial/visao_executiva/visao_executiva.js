@@ -2,7 +2,7 @@
 
 var execChartComparativo = null;
 var execChartEvolucao = null;
-const tarifaCache = new Map(); // OTIMIZAÇÃO: Cache em memória para cálculos pesados
+const tarifaCache = new Map(); 
 
 window.initVisaoExecutiva = function() {
     const inputMes = document.getElementById('execFiltroMes');
@@ -29,20 +29,18 @@ function converterDataExcel(dataStr) {
     return new Date(str);
 }
 
-// Função Original de Cálculo
 function calcularTarifaExata(tarifador, asfalto, terra) {
-    if (!tarifador || !tarifador.dados) return 0;
+    if (!tarifador || !tarifador.dados || !Array.isArray(tarifador.dados)) return 0;
     
     let asf = parseFloat(String(asfalto).replace(',','.')) || 0;
     let ter = parseFloat(String(terra).replace(',','.')) || 0;
     
     const exato = tarifador.dados.find(t => Math.abs(t.asfalto - asf) < 0.001 && Math.abs(t.terra - ter) < 0.001);
-    if (exato) return exato.tarifa;
+    if (exato) return parseFloat(exato.tarifa) || 0;
     
     let maisProximo = null;
     let menorDistancia = Infinity;
     
-    // Matemática pesada (Evitaremos rodar isso milhares de vezes usando o Cache)
     tarifador.dados.forEach(t => {
         const dist = Math.sqrt(Math.pow(t.asfalto - asf, 2) + Math.pow(t.terra - ter, 2));
         if (dist < menorDistancia) {
@@ -51,21 +49,17 @@ function calcularTarifaExata(tarifador, asfalto, terra) {
         }
     });
 
-    return maisProximo ? maisProximo.tarifa : 0;
+    return maisProximo ? (parseFloat(maisProximo.tarifa) || 0) : 0;
 }
 
-// OTIMIZAÇÃO 1: Função Inteligente que usa o Cache para evitar congelamento de tela
 function getTarifaRapida(tarifador, asfalto, terra) {
     if (!tarifador || !tarifador.dados) return 0;
     
-    // Cria uma chave única baseada nos valores exatos
     const key = `${tarifador.id}_${asfalto}_${terra}`;
-    
     if (tarifaCache.has(key)) {
-        return tarifaCache.get(key); // Retorna instantaneamente se já calculou antes
+        return tarifaCache.get(key); 
     }
     
-    // Se for a primeira vez, calcula e salva na memória
     const tarifa = calcularTarifaExata(tarifador, asfalto, terra);
     tarifaCache.set(key, tarifa);
     return tarifa;
@@ -73,9 +67,30 @@ function getTarifaRapida(tarifador, asfalto, terra) {
 
 window.atualizarDadosExecutivos = async function() {
     const inputMes = document.getElementById('execFiltroMes');
-    const mesFiltro = inputMes ? inputMes.value : ''; // Formato: "YYYY-MM"
+    const mesFiltro = inputMes ? inputMes.value : ''; 
     const containerCards = document.getElementById('containerCardsFiliais');
     const btnRefresh = document.getElementById('btnAtualizarExec');
+
+    const currentUser = window.currentUser || {};
+    const isGlobalAdmin = (currentUser.role === 'SuperAdmin' || currentUser.filial_id == 4 || currentUser.filial_id === null);
+    const userFilialId = currentUser.filial_id;
+
+    if (document.getElementById('tituloVisao')) {
+        document.getElementById('tituloVisao').innerText = isGlobalAdmin ? 'Visão Executiva Global' : 'Visão Executiva Local';
+    }
+    if (document.getElementById('iconVisao')) {
+        document.getElementById('iconVisao').className = isGlobalAdmin ? 'fas fa-globe-americas text-3xl' : 'fas fa-map-marked-alt text-3xl';
+    }
+    if (document.getElementById('tituloGraficoEvolucao')) {
+        document.getElementById('tituloGraficoEvolucao').innerHTML = isGlobalAdmin 
+            ? '<i class="fas fa-chart-area text-purple-400"></i> Evolução Faturamento Global (Últimos 6 Meses)'
+            : '<i class="fas fa-chart-area text-purple-400"></i> Evolução Faturamento da Filial (Últimos 6 Meses)';
+    }
+    if (document.getElementById('kpiSubProd')) {
+        document.getElementById('kpiSubProd').innerHTML = isGlobalAdmin 
+            ? '<i class="fas fa-truck-loading"></i> Todas as Operações'
+            : '<i class="fas fa-truck-loading"></i> Operação Local';
+    }
     
     if (btnRefresh) {
         btnRefresh.disabled = true;
@@ -86,18 +101,23 @@ window.atualizarDadosExecutivos = async function() {
         containerCards.innerHTML = `
             <div class="col-span-full text-center text-slate-400 py-10 flex flex-col items-center justify-center">
                 <i class="fas fa-circle-notch fa-spin fa-3x mb-4 text-purple-500"></i>
-                <p class="font-bold tracking-wide text-lg" id="execLoadingText">Mapeando base de dados corporativa...</p>
-                <p class="text-sm mt-2 text-slate-500">Isso pode levar alguns segundos dependendo do volume de dados.</p>
+                <p class="font-bold tracking-wide text-lg" id="execLoadingText">Mapeando base de dados...</p>
             </div>`;
     }
 
     try {
         const loadingText = document.getElementById('execLoadingText');
 
-        // =========================================================
-        // 1. DADOS BASE (PROMISE.ALL PARA ALTA VELOCIDADE)
-        // Ignorando a Filial ID = 4 (Matriz) para não renderizar os cards e cálculos
-        // =========================================================
+        // 1. Consultas com filtro restrito ou global
+        let qFiliais = window.supabaseClient.from('filiais').select('id, nome, cidade').neq('id', 4).order('nome', { ascending: true });
+        if (!isGlobalAdmin && userFilialId) qFiliais = qFiliais.eq('id', userFilialId);
+
+        let qFrota = window.supabaseClient.from('frotas_manutencao').select('cavalo, filial_id').eq('status', 'Ativo');
+        if (!isGlobalAdmin && userFilialId) qFrota = qFrota.eq('filial_id', userFilialId);
+
+        let qOS = window.supabaseClient.from('ordens_servico').select('placa, filial_id, status, tipo').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']);
+        if (!isGlobalAdmin && userFilialId) qOS = qOS.eq('filial_id', userFilialId);
+
         const [
             { data: filiaisDB },
             { data: gruasData },
@@ -105,16 +125,15 @@ window.atualizarDadosExecutivos = async function() {
             { data: frotaDB },
             { data: osDB }
         ] = await Promise.all([
-            window.supabaseClient.from('filiais').select('id, nome, cidade').neq('id', 4).order('nome', { ascending: true }),
+            qFiliais,
             window.supabaseClient.from('config_gruas').select('codigos, tipo_frente'),
             window.supabaseClient.from('tarifadores').select('*').eq('ativo', true),
-            window.supabaseClient.from('frotas_manutencao').select('cavalo, filial_id').eq('status', 'Ativo'),
-            window.supabaseClient.from('ordens_servico').select('placa, filial_id, status, tipo').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado'])
+            qFrota,
+            qOS
         ]);
 
-        if (!filiaisDB || filiaisDB.length === 0) throw new Error("Nenhuma filial encontrada no sistema.");
+        if (!filiaisDB || filiaisDB.length === 0) throw new Error("Nenhuma filial encontrada para a sua permissão.");
 
-        // MAPEAMENTO DAS GRUAS (PROPRIAS = Receita de Carregamento)
         let gruasPropriasCache = new Set();
         if (gruasData) {
             gruasData.forEach(g => {
@@ -124,11 +143,7 @@ window.atualizarDadosExecutivos = async function() {
             });
         }
 
-        // =========================================================
-        // 2. BUSCAR DM OPERACIONAL DAQUELE MÊS ESPECÍFICO
-        // =========================================================
-        if (loadingText) loadingText.innerText = "Processando indicadores de oficina...";
-        
+        // 2. DM Operacional
         let dmGlobalMediaMes = 0;
         if (mesFiltro) {
             const anoMes = mesFiltro.split('-'); 
@@ -136,8 +151,10 @@ window.atualizarDadosExecutivos = async function() {
             const dataInicioDM = `${mesFiltro}-01`;
             const dataFimDM = `${mesFiltro}-${String(ultimoDia).padStart(2,'0')}`;
             
-            const { data: dmDB } = await window.supabaseClient.from('dm_operacional').select('carros_rodaram, total_frota').gte('data_registro', dataInicioDM).lte('data_registro', dataFimDM);
-            
+            let qDM = window.supabaseClient.from('dm_operacional').select('carros_rodaram, total_frota').gte('data_registro', dataInicioDM).lte('data_registro', dataFimDM);
+            if (!isGlobalAdmin && userFilialId) qDM = qDM.eq('filial_id', userFilialId);
+
+            const { data: dmDB } = await qDM;
             if (dmDB && dmDB.length > 0) {
                 let totalPerc = 0; let validDays = 0;
                 dmDB.forEach(reg => {
@@ -149,9 +166,7 @@ window.atualizarDadosExecutivos = async function() {
             }
         }
 
-        // =========================================================
-        // 3. PREPARAR LINHA DO TEMPO DOS ÚLTIMOS 6 MESES
-        // =========================================================
+        // 3. Montar Linha do Tempo (6 Meses)
         let anoAtual = parseInt(mesFiltro.split('-')[0]);
         let mesAtual = parseInt(mesFiltro.split('-')[1]);
         
@@ -165,51 +180,43 @@ window.atualizarDadosExecutivos = async function() {
             arrayMeses.push({ key: key, label: label, totalFat: 0 });
         }
 
-        // =========================================================
-        // 4. OTIMIZAÇÃO EXTREMA: BUSCA PARALELA DE VIAGENS (MULTITHREADING)
-        // =========================================================
-        if (loadingText) loadingText.innerText = "Preparando extração em massa do histórico...";
-        
+        // 4. Busca de Viagens em Paralelo
         let dataInicioHist = new Date(anoAtual, mesAtual - 6, 1);
         let strInicioHist = `${dataInicioHist.getFullYear()}-${String(dataInicioHist.getMonth() + 1).padStart(2, '0')}-01T00:00:00`;
 
         let todasViagens = [];
+        let qViagensCount = window.supabaseClient.from('historico_viagens').select('*', { count: 'exact', head: true }).gte('created_at', strInicioHist);
         
-        // 4.1 Primeiro, descobre exatamente quantas viagens existem para não fazer requests cegos
-        const { count, error: countError } = await window.supabaseClient.from('historico_viagens')
-            .select('*', { count: 'exact', head: true })
-            .gte('created_at', strInicioHist);
-            
+        if (!isGlobalAdmin && userFilialId) {
+            qViagensCount = qViagensCount.eq('filial_id', userFilialId);
+        }
+
+        const { count, error: countError } = await qViagensCount;
         if (countError) throw countError;
 
         if (count && count > 0) {
-            if (loadingText) loadingText.innerText = `Baixando pacote de ${count.toLocaleString('pt-BR')} viagens em paralelo...`;
-            
             const step = 1000;
             const promessasFetch = [];
             
-            // 4.2 Lança todas as requisições ao mesmo tempo em direção ao servidor
             for (let from = 0; from <= count; from += step) {
-                promessasFetch.push(
-                    window.supabaseClient.from('historico_viagens')
+                let qViagens = window.supabaseClient.from('historico_viagens')
                     .select('filial_id, volumeReal, dtFimDescarFabrica, dataDaBaseExcel, transportadora, grua, distanciaAsfalto, distanciaTerra, created_at')
                     .gte('created_at', strInicioHist)
-                    .range(from, from + step - 1)
-                );
+                    .range(from, from + step - 1);
+                
+                if (!isGlobalAdmin && userFilialId) {
+                    qViagens = qViagens.eq('filial_id', userFilialId);
+                }
+
+                promessasFetch.push(qViagens);
             }
             
-            // 4.3 Espera todas as páginas terminarem juntas
             const resultados = await Promise.all(promessasFetch);
             resultados.forEach(res => {
                 if (res.data) todasViagens = todasViagens.concat(res.data);
             });
         }
 
-        // =========================================================
-        // 5. CÁLCULO GIGANTE DE DADOS EM MEMÓRIA (Com Anti-Travamento)
-        // =========================================================
-        if (loadingText) loadingText.innerText = "Cruzando Tarifador com Distâncias. Por favor, aguarde...";
-        
         let filiaisDataMap = {}; 
         
         function getTarifador(filialId) {
@@ -221,17 +228,13 @@ window.atualizarDadosExecutivos = async function() {
             return tarifadoresAtivos[0]; 
         }
 
-        tarifaCache.clear(); // Limpa a memória RAM velha antes do loop pesado
+        tarifaCache.clear(); 
 
         for (let i = 0; i < todasViagens.length; i++) {
             let v = todasViagens[i];
-            
-            // Ignora processamento da filial 4 (Matriz) nos valores globais do DRE/Gráficos
             if (v.filial_id === 4) continue;
             
-            // OTIMIZAÇÃO 2: A cada 5.000 viagens, libera a CPU por 5ms para o Google Chrome não travar a tela
             if (i % 5000 === 0 && i > 0) {
-                if (loadingText) loadingText.innerText = `Processando cálculos financeiros... (${i} de ${todasViagens.length})`;
                 await new Promise(resolve => setTimeout(resolve, 5));
             }
 
@@ -262,7 +265,7 @@ window.atualizarDadosExecutivos = async function() {
             
             let recTransp = 0;
             if (isSerrana) {
-                // Utiliza a função inteligente com memória Cache
+                // CORREÇÃO: Chamando corretamente a função getTarifaRapida
                 let tarifa = getTarifaRapida(tarifador, asfalto, terra);
                 recTransp = vol * tarifa;
             }
@@ -283,12 +286,6 @@ window.atualizarDadosExecutivos = async function() {
             }
         }
 
-        // =========================================================
-        // 6. MONTAR DADOS DAS FILIAIS E KPIs
-        // =========================================================
-        if (loadingText) loadingText.innerText = "Finalizando e renderizando painéis...";
-        await new Promise(resolve => setTimeout(resolve, 5)); // Último fôlego para a UI
-
         let filiaisData = [];
         let totalFatGlobal = 0;
         let totalProdGlobal = 0;
@@ -296,7 +293,6 @@ window.atualizarDadosExecutivos = async function() {
         for (let filial of filiaisDB) {
             let metricas = filiaisDataMap[filial.id] || { producao: 0, faturamento: 0 };
             
-            // Calculo DM
             let dmReal = dmGlobalMediaMes; 
             if (frotaDB && frotaDB.length > 0) {
                 const frotaFilial = frotaDB.filter(f => String(f.filial_id) === String(filial.id));
@@ -335,10 +331,6 @@ window.atualizarDadosExecutivos = async function() {
 
         filiaisData.sort((a,b) => b.faturamento - a.faturamento);
 
-        // =========================================================
-        // 7. ATUALIZAR INTERFACE
-        // =========================================================
-        
         if (document.getElementById('kpiFatGlobal')) {
             document.getElementById('kpiFatGlobal').innerText = totalFatGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
@@ -352,7 +344,6 @@ window.atualizarDadosExecutivos = async function() {
             document.getElementById('kpiFiliaisAtivas').innerText = filiaisData.length.toString();
         }
 
-        // HTML dos Cards das Filiais
         let cardsHtml = '';
         filiaisData.forEach(filial => {
             let statusBadge = filial.status === 'Operacional' 
@@ -390,7 +381,6 @@ window.atualizarDadosExecutivos = async function() {
         });
         if (containerCards) containerCards.innerHTML = cardsHtml;
 
-        // Renderizar Gráficos
         let mesesParaGrafico = arrayMeses.map(m => m.label);
         let valoresFaturamentoHist = arrayMeses.map(m => parseFloat(m.totalFat.toFixed(2)));
         
@@ -408,7 +398,6 @@ window.atualizarDadosExecutivos = async function() {
                 </div>`;
         }
     } finally {
-        // Restaura o botão de Atualizar
         if (btnRefresh) {
             btnRefresh.disabled = false;
             btnRefresh.innerHTML = '<i class="fas fa-sync-alt"></i> Atualizar';
@@ -423,7 +412,6 @@ function renderizarGraficoComparativo(dados) {
     if (execChartComparativo) execChartComparativo.dispose();
     execChartComparativo = echarts.init(chartDom);
     
-    // Mostraremos até 8 filiais para o gráfico não espremer
     const dadosTop = dados.slice(0, 8);
     const nomesEixoX = dadosTop.map(d => d.cidade);
     const faturamentos = dadosTop.map(d => d.faturamento);
@@ -481,7 +469,7 @@ function renderizarGraficoEvolucao(meses, valores) {
         },
         series: [
             {
-                name: 'Faturamento Global', type: 'line', data: valores, smooth: true, symbol: 'circle', symbolSize: 8,
+                name: 'Faturamento', type: 'line', data: valores, smooth: true, symbol: 'circle', symbolSize: 8,
                 itemStyle: { color: '#a855f7' },
                 areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(168, 85, 247, 0.4)' }, { offset: 1, color: 'rgba(168, 85, 247, 0.0)' }]) },
                 lineStyle: { width: 3, shadowColor: 'rgba(168,85,247, 0.5)', shadowBlur: 10 }
