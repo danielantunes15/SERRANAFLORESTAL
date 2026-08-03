@@ -2,18 +2,21 @@
 
 window.carregarAlocacaoCampo = async function() {
     if (typeof window.supabaseClient === 'undefined') return;
+    
+    // TRAVA DE SEGURANÇA: Impede o erro de "innerHTML null" se a tela for fechada
+    const container = document.getElementById('alocacaoCampoCards');
+    if (!container) return; 
+
     try {
-        document.getElementById('alocacaoCampoCards').innerHTML = '<div style="color:#fff; text-align:center;">Carregando painel de máquinas...</div>';
+        container.innerHTML = '<div style="color:#fff; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando painel de máquinas...</div>';
         
         const pMaquinas = window.supabaseClient.from('maquinas_campo').select('*').order('id');
         
-        // Puxando da nova tabela rh_colaboradores, filtrando por funcao e filial alocada
         let queryEquipe = window.supabaseClient.from('rh_colaboradores')
             .select('*')
             .in('funcao', ['Líder de Campo', 'OPERADOR MANTENEDOR'])
             .order('nome');
 
-        // Se a função aplicarFiltroFilial existir, usa para limitar a filial correta
         if (typeof window.aplicarFiltroFilial === 'function') {
             queryEquipe = window.aplicarFiltroFilial(queryEquipe);
         } else if (window.currentUser && window.currentUser.filial_id) {
@@ -32,18 +35,27 @@ window.carregarAlocacaoCampo = async function() {
 };
 
 window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
-    let frontSel = selectFrentes.replace(`value="${op.conjuntoId||''}"`, `value="${op.conjuntoId||''}" selected`);
+    let frontSel = selectFrentes.replace(`value="${op.maquina_id||''}"`, `value="${op.maquina_id||''}" selected`);
     let dataAncoraValor = op.data_ancora ? op.data_ancora.split('T')[0] : '';
+    let tipoEscalaAtual = op.tipo_escala || '4x2';
     
     return `
     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);" id="row_aloc_${op.id}">
-        <td style="padding: 10px; text-align: left; font-weight: 800; color: #fff; width: 20%;">
+        <td style="padding: 10px; text-align: left; font-weight: 800; color: #fff; width: 18%;">
             ${op.funcao === 'Líder de Campo' ? '<i class="fas fa-crown" style="color:#fbbf24;"></i> ' : ''}${op.nome}
         </td>
         <td style="padding: 5px;">
             <select class="dark-select" id="aloc_funcao_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem;">
                 <option value="OPERADOR MANTENEDOR" ${op.funcao==='OPERADOR MANTENEDOR'?'selected':''}>Operador</option>
                 <option value="Líder de Campo" ${op.funcao==='Líder de Campo'?'selected':''}>Líder</option>
+            </select>
+        </td>
+        <td style="padding: 5px;">
+            <select class="dark-select" id="aloc_tipoescala_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem; border-color: #10b981; color: #10b981;">
+                <option value="4x2" ${tipoEscalaAtual==='4x2'?'selected':''}>4x2</option>
+                <option value="4x4" ${tipoEscalaAtual==='4x4'?'selected':''}>4x4</option>
+                <option value="5x2" ${tipoEscalaAtual==='5x2'?'selected':''}>5x2</option>
+                <option value="6x1" ${tipoEscalaAtual==='6x1'?'selected':''}>6x1</option>
             </select>
         </td>
         <td style="padding: 5px;">
@@ -74,7 +86,7 @@ window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
         <td style="padding: 5px;">
             <input type="date" class="dark-select" id="aloc_data_${op.id}" value="${dataAncoraValor}" style="padding: 4px 8px; width: 120px; font-size: 0.8rem; border-color: #f59e0b; background: transparent; color: #fff; color-scheme: dark;" title="Data Inicial do Ciclo">
         </td>
-        <td style="padding: 5px; text-align: center;">
+        <td style="padding: 5px; text-align: center; white-space: nowrap;">
             <button class="btn-primary-green" style="padding: 5px 12px; font-size: 0.8rem; font-weight: bold;" onclick="window.salvarAlocacaoLinha('${op.id}')"><i class="fas fa-save"></i> Salvar</button>
             <button class="btn-primary-blue" style="padding: 5px 12px; font-size: 0.8rem; font-weight: bold; margin-left: 5px;" onclick="window.abrirModalAlocacaoRapida('${op.id}')"><i class="fas fa-bolt"></i> Rápida</button>
         </td>
@@ -91,45 +103,44 @@ window.renderizarPainelMaquinasCampo = function() {
     let html = '';
     
     window.maquinasCampo.forEach(frente => {
-        const membrosFrente = window.equipeCampo.filter(op => String(op.conjuntoId) === String(frente.id));
+        const membrosFrente = window.equipeCampo.filter(op => String(op.maquina_id) === String(frente.id));
         if (membrosFrente.length === 0) return;
         
         html += `<div style="background: rgba(15, 23, 42, 0.8); border: 2px solid #3b82f6; border-radius: 10px; padding: 15px;">`;
         html += `<h2 style="color: #3b82f6; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(59, 130, 246, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-network-wired"></i> ${frente.nome || `Frente ${frente.id}`}</h2>`;
         
-        // ---- 1. LÍDERES ----
+        const theadGeral = `<thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Ciclo</th><th>Papel</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Início</th><th>Ação</th></tr></thead>`;
+
         const lideres = membrosFrente.filter(op => op.funcao === 'Líder de Campo');
         if (lideres.length > 0) {
             html += `<div style="margin-bottom: 20px; background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; border-radius: 8px; padding: 10px;">
                 <h4 style="color: #fbbf24; margin: 0 0 10px 0;"><i class="fas fa-crown"></i> Líderes da Frente</h4>
                 <table style="width: 100%; border-collapse: collapse;">
-                    <thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Regime</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Inicial</th><th>Ação</th></tr></thead>
+                    ${theadGeral}
                 <tbody>`;
             lideres.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
             html += `</tbody></table></div>`;
         }
         
-        // ---- 2. MÁQUINAS (1 a 3) ----
         ['Máquina 1', 'Máquina 2', 'Máquina 3'].forEach(nomeMaq => {
             const numFrota = frente[nomeMaq === 'Máquina 1' ? 'numero_frota_1' : (nomeMaq === 'Máquina 2' ? 'numero_frota_2' : 'numero_frota_3')];
-            if (!numFrota && membrosFrente.filter(o => o.maquina_especifica === nomeMaq).length === 0) return; // Se a máquina não existe e não tem ngm, pula.
+            if (!numFrota && membrosFrente.filter(o => o.maquina_especifica === nomeMaq).length === 0) return; 
             
             const operadores = membrosFrente.filter(op => op.maquina_especifica === nomeMaq && op.funcao === 'OPERADOR MANTENEDOR');
             
-            // Ordenar logicamente os 4 operadores: Fixo Dia, Folguista Dia, Fixo Noite, Folguista Noite
             operadores.sort((a,b) => {
                 const peso = o => ((o.turno || '').includes('06:00') ? 0 : 10) + (o.equipe === 'Fixo' ? 1 : 2);
                 return peso(a) - peso(b);
             });
             
             html += `<div style="margin-bottom: 15px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 10px;">
-                <h4 style="color: #34d399; margin: 0 0 10px 0;"><i class="fas fa-tractor"></i> ${nomeMaq} (Frota: ${numFrota || 'S/N'}) - <span style="font-size: 0.8rem; color:#94a3b8;">4 Operadores Ideais</span></h4>
+                <h4 style="color: #34d399; margin: 0 0 10px 0;"><i class="fas fa-tractor"></i> ${nomeMaq} (Frota: ${numFrota || 'S/N'})</h4>
                 <table style="width: 100%; border-collapse: collapse;">
-                    <thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Regime</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Inicial</th><th>Ação</th></tr></thead>
+                    ${theadGeral}
                     <tbody>`;
             
             if (operadores.length === 0) {
-                html += `<tr><td colspan="8" style="padding: 10px; color:#9ca3af; text-align:center;">Nenhum operador alocado nesta máquina.</td></tr>`;
+                html += `<tr><td colspan="9" style="padding: 10px; color:#9ca3af; text-align:center;">Nenhum operador alocado nesta máquina.</td></tr>`;
             } else {
                 operadores.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
             }
@@ -139,13 +150,13 @@ window.renderizarPainelMaquinasCampo = function() {
         html += `</div>`;
     });
     
-    // ---- 3. RESERVAS ----
-    const reservas = window.equipeCampo.filter(op => !op.conjuntoId);
+    const reservas = window.equipeCampo.filter(op => !op.maquina_id);
     if (reservas.length > 0) {
+        const theadGeral = `<thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Ciclo</th><th>Papel</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Início</th><th>Ação</th></tr></thead>`;
         html += `<div style="background: rgba(239, 68, 68, 0.1); border: 2px solid #ef4444; border-radius: 10px; padding: 15px;">
             <h2 style="color: #ef4444; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(239, 68, 68, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-exclamation-triangle"></i> Sem Frente Definida (Reservas)</h2>
             <table style="width: 100%; border-collapse: collapse;">
-                <thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Regime</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Inicial</th><th>Ação</th></tr></thead>
+                ${theadGeral}
             <tbody>`;
         reservas.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
         html += `</tbody></table></div>`;
@@ -156,6 +167,7 @@ window.renderizarPainelMaquinasCampo = function() {
 
 window.salvarAlocacaoLinha = async function(id) {
     const funcao = document.getElementById(`aloc_funcao_${id}`).value;
+    const tipoEscala = document.getElementById(`aloc_tipoescala_${id}`).value;
     const equipe = document.getElementById(`aloc_equipe_${id}`).value;
     const turno = document.getElementById(`aloc_turno_${id}`).value;
     const frente = document.getElementById(`aloc_frente_${id}`).value;
@@ -164,35 +176,37 @@ window.salvarAlocacaoLinha = async function(id) {
     
     const payload = {
         funcao: funcao,
+        tipo_escala: tipoEscala,
         equipe: equipe,
         turno: turno,
-        "conjuntoId": frente ? Number(frente) : null,
+        maquina_id: frente ? Number(frente) : null,
         maquina_especifica: maqEspec,
         data_ancora: dataAncora || null
     };
     
     try {
-        await window.supabaseClient.from('rh_colaboradores').update(payload).eq('id', id);
+        const { error } = await window.supabaseClient.from('rh_colaboradores').update(payload).eq('id', id);
+        if (error) {
+            console.error("Erro no Banco de Dados:", error);
+            alert(`Falha ao salvar! Detalhe: ${error.message}\nVocê rodou o script SQL no Supabase?`);
+            return;
+        }
         
-        // Efeito visual de sucesso na linha
         const row = document.getElementById(`row_aloc_${id}`);
         if(row) {
             row.style.backgroundColor = 'rgba(16, 185, 129, 0.4)';
             setTimeout(() => { row.style.backgroundColor = 'transparent'; }, 1200);
         }
         
-        // Atualiza a memória local silenciosamente
         const opIndex = window.equipeCampo.findIndex(x => String(x.id) === String(id));
         if (opIndex > -1) {
             window.equipeCampo[opIndex] = { ...window.equipeCampo[opIndex], ...payload };
         }
         
-        // Recarrega dinamicamente para agrupar na máquina certa
         setTimeout(() => { window.renderizarPainelMaquinasCampo(); }, 1200);
-        
     } catch (e) {
         console.error("Erro ao salvar:", e);
-        alert("Erro ao salvar a alocação.");
+        alert("Erro ao tentar salvar a alocação.");
     }
 };
 
@@ -215,7 +229,8 @@ window.abrirModalAlocacaoRapida = function(id) {
     document.getElementById('alocFormId').value = op.id;
     document.getElementById('alocNomeExibicao').innerText = op.nome;
     document.getElementById('alocFormFuncao').value = op.funcao || 'OPERADOR MANTENEDOR';
-    document.getElementById('alocFormMaquina').value = op.conjuntoId || '';
+    document.getElementById('alocFormTipoEscala').value = op.tipo_escala || '4x2';
+    document.getElementById('alocFormMaquina').value = op.maquina_id || '';
     document.getElementById('alocFormMaquinaEspecifica').value = op.maquina_especifica || '';
     document.getElementById('alocFormEquipe').value = op.equipe || 'Fixo';
     document.getElementById('alocFormTurno').value = op.turno || '06:00 - 18:00';
@@ -231,6 +246,7 @@ window.fecharModalAlocacaoRapida = function() {
 window.salvarAlocacaoRapida = async function() {
     const id = document.getElementById('alocFormId').value;
     const funcao = document.getElementById('alocFormFuncao').value;
+    const tipoEscala = document.getElementById('alocFormTipoEscala').value;
     const maqId = document.getElementById('alocFormMaquina').value;
     const maqEspec = document.getElementById('alocFormMaquinaEspecifica').value;
     const equipe = document.getElementById('alocFormEquipe').value;
@@ -239,7 +255,8 @@ window.salvarAlocacaoRapida = async function() {
     
     const payload = {
         funcao: funcao,
-        "conjuntoId": maqId ? Number(maqId) : null,
+        tipo_escala: tipoEscala,
+        maquina_id: maqId ? Number(maqId) : null,
         maquina_especifica: maqEspec,
         equipe: equipe,
         turno: turno,
@@ -247,12 +264,19 @@ window.salvarAlocacaoRapida = async function() {
     };
     
     try {
-        await window.supabaseClient.from('rh_colaboradores').update(payload).eq('id', id);
+        const { error } = await window.supabaseClient.from('rh_colaboradores').update(payload).eq('id', id);
+        if (error) {
+            console.error("Erro no Banco de Dados:", error);
+            alert(`Falha ao salvar! Detalhe: ${error.message}\nVocê rodou o script SQL no Supabase?`);
+            return;
+        }
+
         window.fecharModalAlocacaoRapida();
         
-        // Recarrega Alocação e a Escala Semanal dinamicamente 
         await window.carregarAlocacaoCampo();
-        if(typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
+        if(typeof window.iniciarEscalaCampo === 'function') {
+            window._dadosEscalaCarregados = false; // Força a escala a recarregar no background
+        }
         
     } catch (error) {
         console.error("Erro ao salvar alocação rápida", error);

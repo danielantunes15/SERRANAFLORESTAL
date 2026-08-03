@@ -1,31 +1,32 @@
 <div class="action-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 15px; flex-wrap: nowrap; overflow-x: auto; background-color: rgba(30, 41, 59, 0.5); border-bottom: 1px solid rgba(255,255,255,0.05);">
     <div class="filter-group" style="display: flex; align-items: center; gap: 10px; white-space: nowrap;">
-        <h2 style="color: var(--ccol-blue-bright); margin-right: 10px; font-size: 1.1rem; margin-top: 0; margin-bottom: 0;"><i class="fas fa-calendar-alt"></i> Escala Semanal (4x2)</h2>
+        <h2 style="color: var(--ccol-blue-bright); margin-right: 10px; font-size: 1.1rem; margin-top: 0; margin-bottom: 0;"><i class="fas fa-calendar-alt"></i> Escala Semanal Dinâmica</h2>
         
         <div style="display: flex; align-items: center; background: rgba(0, 0, 0, 0.25); border-radius: 6px; padding: 2px 10px; border: 1px solid #4b5563; transition: border-color 0.2s;">
-            <span style="margin-right: 8px; font-size: 1rem; opacity: 0.8;">📅</span>
+            <span style="margin-right: 8px; font-size: 1rem; opacity: 0.8;"><i class="fas fa-search"></i></span>
             <input type="date" id="campoDataEscala" title="Data de Início da Escala (Semana)" style="background: transparent; border: none; color: #f8fafc; outline: none; font-family: inherit; font-size: 0.85rem; padding: 4px 0; cursor: pointer; color-scheme: dark;" onchange="window.renderizarEscalaCampo()">
         </div>
         
-        <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 2px;"></div> 
+        <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 2px;"></div>
+        
         <label for="campoFiltroFrente" style="font-size: 0.8rem; color: #9ca3af; font-weight: 600; text-transform: uppercase;">Frente:</label>
         <select id="campoFiltroFrente" class="dark-select" style="padding: 2px 8px; font-size: 0.85rem; border-radius: 6px; height: 30px;" onchange="window.renderizarEscalaCampo()">
             <option value="Todos">Todas as Frentes</option>
         </select>
         
-        <button class="btn-icon-only" style="height: 30px; width: 30px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Atualizar Escala" onclick="window.atualizarEscalaCampo()">🔄</button>
+        <button class="btn-icon-only" style="height: 30px; width: 30px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Atualizar Escala" onclick="window.atualizarEscalaCampo()"><i class="fas fa-sync-alt"></i></button>
     </div>
     
     <div class="button-group" style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-        <button class="btn-primary-blue" style="background-color: #8b5cf6; border-color: #7c3aed; padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.abrirModalImpressaoCampo()">🖨️ Imprimir Diária</button>
-        <button class="btn-primary-blue" style="padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.imprimirRelatorioEscalaSemanalCampo()">🖨️ Imprimir Semanal</button>
-        <button class="btn-primary-green" style="background-color: #10b981; padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.exportarEscalaCampoExcel()">📊 Exportar Excel</button>
+        <button class="btn-primary-blue" style="background-color: #8b5cf6; border-color: #7c3aed; padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.abrirModalImpressaoCampo()"><i class="fas fa-print"></i> Imprimir Diária</button>
+        <button class="btn-primary-blue" style="padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.imprimirRelatorioEscalaSemanalCampo()"><i class="fas fa-file-pdf"></i> Imprimir Semanal</button>
+        <button class="btn-primary-green" style="background-color: #10b981; padding: 4px 12px; font-size: 0.8rem; height: 30px; font-weight: bold;" onclick="window.exportarEscalaCampoExcel()"><i class="fas fa-file-excel"></i> Exportar Excel</button>
     </div>
 </div>
 
 <div class="system-note">
-    <span class="note-icon">✅</span>
-    <p>O ciclo é de 4 dias trabalhados e 2 de folga. O <b>Folguista</b> trabalha nos exatos 2 dias de folga do <b>Fixo</b>. É só garantir que ambos tenham a mesma <b>Data Âncora</b> no cadastro.</p>
+    <span class="note-icon"><i class="fas fa-info-circle"></i></span>
+    <p>A escala agora é <b>Dinâmica</b>. O sistema renderiza as folgas matematicamente com base no <b>Ciclo (4x2, 4x4, 5x2, 6x1)</b> e na <b>Data Âncora</b> de cada colaborador, definidos na Alocação.</p>
 </div>
 
 <div id="campoGridEscala" class="escala-viz-container" style="padding: 15px;">

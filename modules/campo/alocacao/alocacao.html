@@ -1,7 +1,7 @@
 <div class="content-panel" style="margin-bottom: 25px; border: 1px solid #3b82f6; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);">
     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px 20px; background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(15, 23, 42, 0) 100%);">
         <h3 style="color: #3b82f6; margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: 0.5px;">
-            <i class="fas fa-users-cog"></i> Alocação (4 Operadores por Máquina)
+            <i class="fas fa-users-cog"></i> Central de Alocação de Escalas
         </h3>
         <button class="btn-primary-blue" onclick="window.carregarAlocacaoCampo()" style="padding: 5px 15px; font-size: 0.85rem; font-weight: bold;"><i class="fas fa-sync-alt"></i> Recarregar</button>
     </div>
@@ -14,7 +14,7 @@
 <div id="modalAlocacaoRapida" class="modal-overlay">
     <div class="custom-modal">
         <div class="modal-header">
-            <h3><i class="fas fa-bolt"></i> Configuração Rápida</h3>
+            <h3><i class="fas fa-bolt"></i> Configuração Rápida de Escala</h3>
             <button class="close-modal" onclick="window.fecharModalAlocacaoRapida()">&times;</button>
         </div>
         <div class="modal-body">
@@ -43,9 +43,19 @@
                     <option value="Máquina 3">Máquina 3</option>
                 </select>
             </div>
+
+            <div class="form-group-dark" style="background: rgba(16, 185, 129, 0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                <label style="color: #10b981;">Tipo de Escala (Ciclo)</label>
+                <select id="alocFormTipoEscala" class="dark-select" style="border-color: #10b981;">
+                    <option value="4x2">4x2 (4 Dias Trab / 2 Folgas)</option>
+                    <option value="4x4">4x4 (4 Dias Trab / 4 Folgas)</option>
+                    <option value="5x2">5x2 (5 Dias Trab / 2 Folgas)</option>
+                    <option value="6x1">6x1 (6 Dias Trab / 1 Folga)</option>
+                </select>
+            </div>
             
             <div class="form-group-dark">
-                <label>Regime (Ciclo 4x2)</label>
+                <label>Papel no Ciclo</label>
                 <select id="alocFormEquipe" class="dark-select">
                     <option value="Fixo">Fixo</option>
                     <option value="Folguista">Folguista</option>
@@ -61,13 +71,13 @@
             </div>
             
             <div class="form-group-dark" style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.3);">
-                <label style="color: #f59e0b;"><i class="fas fa-calendar-day"></i> Data Inicial (Início da escala 4x2)</label>
+                <label style="color: #f59e0b;"><i class="fas fa-calendar-day"></i> Data Inicial (Início do ciclo base)</label>
                 <input type="date" id="alocFormDataAncora" class="dark-select" style="border-color: #f59e0b; background: transparent; color: #fff; color-scheme: dark;">
             </div>
         </div>
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="window.fecharModalAlocacaoRapida()">Cancelar</button>
-            <button class="btn-primary-green" onclick="window.salvarAlocacaoRapida()"><i class="fas fa-check"></i> Aplicar na Escala</button>
+            <button class="btn-primary-green" onclick="window.salvarAlocacaoRapida()"><i class="fas fa-check"></i> Aplicar Alocação</button>
         </div>
     </div>
 </div>
