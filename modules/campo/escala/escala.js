@@ -4,15 +4,16 @@ window.equipeCampo = window.equipeCampo || [];
 window.maquinasCampo = window.maquinasCampo || [];
 window.escalasCampoExcecoes = window.escalasCampoExcecoes || {}; 
 window.currentDatasCampo = [];
+window._dadosEscalaCarregados = false; // Controle de Inteligência para não perder dados no F5
 
-// ==========================================
-// 1. CARREGAR DADOS DO BANCO
-// ==========================================
+// =======================================================
+// 1. CARREGAR DADOS DO BANCO (SOBREVIVE AO RECARREGAMENTO)
+// =======================================================
 window.carregarDadosEscalaCampo = async function() {
     if (typeof window.supabaseClient === 'undefined') return;
 
     const container = document.getElementById('campoGridEscala');
-    if (!container) return; // Trava de segurança para não dar erro em outras telas
+    if (!container) return; // Trava de segurança
 
     try {
         container.innerHTML = '<p class="loading-text" style="padding: 20px; text-align: center; color: #fff;"><i class="fas fa-spinner fa-spin"></i> Carregando dados da escala...</p>';
@@ -23,7 +24,7 @@ window.carregarDadosEscalaCampo = async function() {
             .in('funcao', ['Líder de Campo', 'OPERADOR MANTENEDOR'])
             .order('nome');
 
-        // Filtro de filial
+        // Filtro para não vazar dados de outras filiais
         if (typeof window.aplicarFiltroFilial === 'function') {
             queryEquipe = window.aplicarFiltroFilial(queryEquipe);
         } else if (window.currentUser && window.currentUser.filial_id) {
@@ -35,9 +36,11 @@ window.carregarDadosEscalaCampo = async function() {
         window.maquinasCampo = resMaquinas.data || [];
         window.equipeCampo = resEquipe.data || [];
 
-        // Carrega as exceções salvas na tabela escala_campo
+        // Carrega as modificações manuais da escala (Tabela escala_campo)
         await window.carregarExcecoesEscalaCampo();
         
+        // Avisa o sistema que os dados já chegaram
+        window._dadosEscalaCarregados = true;
         window.renderizarEscalaCampo();
 
     } catch (error) {
@@ -144,11 +147,17 @@ window.getEscalaCampoDiaComputada = function(operador, dateKey) {
 };
 
 // ==========================================
-// 3. RENDERIZAÇÃO DA TABELA
+// 3. RENDERIZAÇÃO DA TABELA 
 // ==========================================
 window.renderizarEscalaCampo = function() {
     const container = document.getElementById('campoGridEscala');
     if (!container) return;
+
+    // INTELIGÊNCIA: Se os dados sumiram por causa do F5, busca de novo!
+    if (!window._dadosEscalaCarregados) {
+        window.carregarDadosEscalaCampo();
+        return;
+    }
 
     if (!window.equipeCampo || window.equipeCampo.length === 0) {
         container.innerHTML = '<p style="padding: 20px; text-align: center; color:#94a3b8;">Nenhum operador do campo localizado nesta filial.</p>';
@@ -322,11 +331,13 @@ window.renderizarEscalaCampo = function() {
 };
 
 window.atualizarEscalaCampo = async function() { 
+    window._dadosEscalaCarregados = false; // Força a buscar no banco ao clicar em Atualizar
     await window.carregarDadosEscalaCampo();
 };
 
+
 // ==========================================
-// 4. TABELA ESCALA_CAMPO (EXCEÇÕES MANUAIS)
+// 4. TABELA ESCALA_CAMPO (SALVA EXCEÇÕES MANUAIS)
 // ==========================================
 window.carregarExcecoesEscalaCampo = async function() {
     if (typeof window.supabaseClient === 'undefined') return;
@@ -392,12 +403,14 @@ async function handleEscalaCampoChange(e) {
                 status: 'manual' 
             };
             
+            // Injeta a filial antes de salvar na Tabela Exclusiva da Escala
             if (typeof window.injetarFilial === 'function') {
                 payload = window.injetarFilial(payload);
             } else if (window.currentUser && window.currentUser.filial_id) {
                 payload.filial_id = window.currentUser.filial_id;
             }
             
+            // SALVA DIRETO NA TABELA DE ESCALA CAMPO!
             const { error } = await window.supabaseClient.from('escala_campo').upsert([payload]);
             if (error) throw error;
             
@@ -429,18 +442,13 @@ window.fecharModalImpressaoCampo = function() { document.getElementById('modalIm
 
 window.imprimirRelatorioEscalaSemanalCampo = function() {
     if (!window.currentDatasCampo || window.currentDatasCampo.length === 0) return alert("Nenhuma escala visível.");
-    
     let html = `<html><head><title>Escala Semanal Dinâmica</title><style>@page { size: A4 landscape; margin: 10mm; } body { font-family: Arial; font-size: 11px; } .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 15px; } h1 { margin: 0; font-size: 18px; } table { width: 100%; border-collapse: collapse; text-align: center; } th, td { border: 1px solid #000; padding: 4px; font-size: 10px; } th { background-color: #d1d5db; } .f { background-color: #f8d7da; font-weight: bold; } .t { background-color: #d4edda; font-weight: bold; }</style></head><body>`;
     html += `<div class="header"><h1>Escala Semanal de Frentes e Colaboradores</h1></div>`;
-    
     window.maquinasCampo.forEach(maq => {
         let ops = window.equipeCampo.filter(op => String(op.maquina_id) === String(maq.id));
         if (ops.length === 0) return;
-        
         let isFolguistasFrente = maq.nome && maq.nome.toUpperCase().includes('FOLGUISTA');
-        
         html += `<h3>${maq.nome || `Frente ${maq.id}`}</h3><table><thead><tr><th style="width:12%;">Máquina/Liderança</th><th style="width:8%;">Ciclo</th><th style="width:8%;">Regime</th><th style="width:8%;">Turno</th><th style="text-align:left;">Nome</th>${window.currentDatasCampo.map(d => `<th style="width:7%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
-        
         ops.sort((a,b) => {
             if(a.funcao === 'Líder de Campo' && b.funcao !== 'Líder de Campo') return -1;
             if(a.funcao !== 'Líder de Campo' && b.funcao === 'Líder de Campo') return 1;
@@ -449,14 +457,10 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
             let eqA = a.equipe === 'Fixo' ? 1 : 2; let eqB = b.equipe === 'Fixo' ? 1 : 2;
             return eqA - eqB;
         });
-        
         ops.forEach(op => {
             let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-            if (isFolguistasFrente && op.funcao !== 'Líder de Campo') {
-                nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5';
-            } else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) {
-                nomeMaqVisual = 'Cobrir M1/M2';
-            }
+            if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; } 
+            else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) { nomeMaqVisual = 'Cobrir M1/M2'; }
             html += `<tr><td>${nomeMaqVisual}</td><td>${op.tipo_escala || '4x2'}</td><td>${op.equipe||'-'}</td><td>${op.turno||'-'}</td><td style="text-align:left;"><b>${op.nome}</b></td>`;
             window.currentDatasCampo.forEach(d => {
                 const esc = window.getEscalaCampoDiaComputada(op, d.dateKey);
@@ -467,7 +471,6 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
         });
         html += `</tbody></table><br>`;
     });
-    
     html += `<script>window.print();</script></body></html>`;
     const w = window.open('', '', 'width=1200,height=800'); w.document.write(html); w.document.close();
 };
@@ -476,11 +479,9 @@ window.exportarEscalaCampoExcel = function() {
     const inputData = document.getElementById('campoDataEscala');
     let dataBase = inputData && inputData.value ? new Date(inputData.value + 'T00:00:00') : new Date();
     const ano = dataBase.getFullYear(), mes = dataBase.getMonth(), diasNoMes = new Date(ano, mes + 1, 0).getDate();
-    
     let csvContent = "\uFEFFFrente;Máquina;Ciclo;Turno;Regime;Operador";
     for (let dia = 1; dia <= diasNoMes; dia++) csvContent += `;${dia.toString().padStart(2, '0')}/${(mes + 1).toString().padStart(2, '0')}`;
     csvContent += "\n";
-    
     let excelOps = [...window.equipeCampo];
     excelOps.sort((a,b) => {
         if(a.maquina_id !== b.maquina_id) return (a.maquina_id || 0) - (b.maquina_id || 0);
@@ -491,7 +492,6 @@ window.exportarEscalaCampoExcel = function() {
         let eqA = a.equipe === 'Fixo' ? 1 : 2; let eqB = b.equipe === 'Fixo' ? 1 : 2;
         return eqA - eqB;
     });
-
     excelOps.forEach(op => {
         let nomeFrente = "Reserva", mq = window.maquinasCampo.find(m => String(m.id) === String(op.maquina_id));
         let isFolguistasFrente = false;
@@ -499,14 +499,9 @@ window.exportarEscalaCampoExcel = function() {
             nomeFrente = mq.nome || `Frente ${mq.id}`;
             if (mq.nome && mq.nome.toUpperCase().includes('FOLGUISTA')) isFolguistasFrente = true;
         }
-        
         let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-        if (isFolguistasFrente && op.funcao !== 'Líder de Campo') {
-            nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5';
-        } else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) {
-            nomeMaqVisual = 'Cobrir M1/M2';
-        }
-        
+        if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; } 
+        else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) { nomeMaqVisual = 'Cobrir M1/M2'; }
         let linha = `${nomeFrente};${nomeMaqVisual};${op.tipo_escala||'4x2'};${op.turno||'-'};${op.equipe||'-'};${op.nome}`;
         for (let dia = 1; dia <= diasNoMes; dia++) {
             const dStr = `${ano}-${(mes + 1).toString().padStart(2, '0')}-${dia.toString().padStart(2, '0')}`;
@@ -515,7 +510,6 @@ window.exportarEscalaCampoExcel = function() {
         }
         csvContent += linha + "\n";
     });
-    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Escala_Campo_${ano}_${mes+1}.csv`; document.body.appendChild(link); link.click(); document.body.removeChild(link);
 };
@@ -524,39 +518,25 @@ window.gerarRelatorioImpressaoCampo = function() {
     const dStr = document.getElementById('printDataCampo').value;
     if (!dStr) return alert('Selecione uma data.');
     const dForm = `${dStr.split('-')[2]}/${dStr.split('-')[1]}/${dStr.split('-')[0]}`;
-    
     let html = `<html><head><title>Escala Diária Campo</title><style>@page { size: A4 portrait; margin: 15mm; } body { font-family: Arial; font-size: 12px; } .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; } table { width: 100%; border-collapse: collapse; text-align: center; } th, td { border: 1px solid #000; padding: 6px; } th { background-color: #d1d5db; } .t { background-color: #d4edda; font-weight: bold; }</style></head><body>`;
     html += `<div class="header"><h1>Diária Campo - ${dForm}</h1></div>`;
-    
     const trabs = [];
     window.equipeCampo.forEach(op => {
         const esc = window.getEscalaCampoDiaComputada(op, dStr);
         if (esc.statusEscala !== 'FOLGA' && esc.statusEscala !== 'F') {
             let m = window.maquinasCampo.find(x => String(x.id) === String(op.maquina_id));
-            let isFolguistasFrente = false;
-            let nFront = "Reserva";
-            if (m) {
-                nFront = m.nome;
-                if (m.nome && m.nome.toUpperCase().includes('FOLGUISTA')) isFolguistasFrente = true;
-            }
-            
+            let isFolguistasFrente = false; let nFront = "Reserva";
+            if (m) { nFront = m.nome; if (m.nome && m.nome.toUpperCase().includes('FOLGUISTA')) isFolguistasFrente = true; }
             let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-            if (isFolguistasFrente && op.funcao !== 'Líder de Campo') {
-                nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5';
-            } else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) {
-                nomeMaqVisual = 'Cobrir M1/M2';
-            }
-            
+            if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; } 
+            else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) { nomeMaqVisual = 'Cobrir M1/M2'; }
             trabs.push({ n: op.nome, f: nFront, m: nomeMaqVisual, c: op.tipo_escala||'4x2', t: op.turno||'-', v: esc.statusEscala });
         }
     });
-    
     if (trabs.length === 0) html += '<p>Ninguém escalado.</p>';
     else {
         html += `<table><thead><tr><th>Frente</th><th>Máquina/Líder</th><th>Ciclo</th><th>Turno</th><th style="text-align:left;">Operador</th><th>Alocação</th></tr></thead><tbody>`;
-        trabs.sort((a,b) => a.f.localeCompare(b.f) || a.m.localeCompare(b.m)).forEach(l => {
-            html += `<tr><td>${l.f}</td><td>${l.m}</td><td>${l.c}</td><td>${l.t}</td><td style="text-align:left;"><b>${l.n}</b></td><td class="t">${l.v}</td></tr>`;
-        });
+        trabs.sort((a,b) => a.f.localeCompare(b.f) || a.m.localeCompare(b.m)).forEach(l => { html += `<tr><td>${l.f}</td><td>${l.m}</td><td>${l.c}</td><td>${l.t}</td><td style="text-align:left;"><b>${l.n}</b></td><td class="t">${l.v}</td></tr>`; });
         html += `</tbody></table>`;
     }
     html += `<script>window.onload = function() { window.print(); }</script></body></html>`;
@@ -564,7 +544,11 @@ window.gerarRelatorioImpressaoCampo = function() {
     window.fecharModalImpressaoCampo();
 };
 
-// Start automático
+// ==========================================
+// START AUTOMÁTICO (TODA VEZ QUE ABRIR A TELA)
+// ==========================================
 setTimeout(() => {
-    if (typeof window.carregarDadosEscalaCampo === 'function') window.carregarDadosEscalaCampo();
+    if (typeof window.carregarDadosEscalaCampo === 'function') {
+        window.carregarDadosEscalaCampo();
+    }
 }, 500);
