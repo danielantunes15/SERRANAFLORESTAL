@@ -326,6 +326,8 @@ window.renderizarAlocacao = function() {
             for (let m of motsToUpdate) {
                 let historico = Array.isArray(m.historico_alocacao) ? [...m.historico_alocacao] : [];
                 
+                const dataAncoraMantida = m.data_ancora || hojeStr;
+
                 if (historico.length === 0) {
                     historico.push({
                         data_inicio: '2020-01-01',
@@ -333,29 +335,33 @@ window.renderizarAlocacao = function() {
                         equipe: m.equipe || '-',
                         turno: m.turno || '-',
                         conjuntoId: m.conjuntoId || null,
-                        data_ancora: m.data_ancora || null
+                        data_ancora: dataAncoraMantida
                     });
                 }
                 
-                // Adiciona o novo evento de mudança sem apagar os anteriores (preserva o histórico completo)
                 historico.push({
                     data_inicio: hojeStr,
                     timestamp: timestampAtual,
                     equipe: m.equipe,
                     turno: novoTurnoDbValue,
                     conjuntoId: m.conjuntoId,
-                    data_ancora: hojeStr 
+                    data_ancora: dataAncoraMantida
                 });
                 
                 m.turno = novoTurnoDbValue;
-                m.data_ancora = hojeStr;
+                m.data_ancora = dataAncoraMantida;
                 m.historico_alocacao = historico;
 
-                await window.supabaseClient.from('rh_colaboradores').update({
+                const { error } = await window.supabaseClient.from('rh_colaboradores').update({
                     turno: novoTurnoDbValue,
-                    data_ancora: hojeStr,
+                    data_ancora: dataAncoraMantida,
                     historico_alocacao: historico
                 }).eq('id', m.id);
+
+                if (error) {
+                    console.error("Erro do Supabase na atualização global:", error);
+                    alert("Erro ao salvar no banco. Veja o F12.");
+                }
             }
             
             alert("Turno atualizado em lote com sucesso!");
@@ -383,6 +389,8 @@ window.updateAlocacao = async function(e) {
     const timestampAtual = new Date().toISOString();
     let historico = Array.isArray(m.historico_alocacao) ? [...m.historico_alocacao] : [];
 
+    const dataAncoraMantida = m.data_ancora || hojeStr;
+
     if (historico.length === 0) {
         historico.push({
             data_inicio: '2020-01-01',
@@ -390,36 +398,43 @@ window.updateAlocacao = async function(e) {
             equipe: m.equipe || '-',
             turno: m.turno || '-',
             conjuntoId: m.conjuntoId || null,
-            data_ancora: m.data_ancora || null
+            data_ancora: dataAncoraMantida
         });
     }
 
-    // ADICIONA O NOVO REGISTRO SEM APAGAR O ANTERIOR (MESMO NO MESMO DIA OU VOLTANDO AO ESTADO ANTIGO)
     historico.push({
         data_inicio: hojeStr,
         timestamp: timestampAtual,
         equipe: novaEquipe,
         turno: novoTurno,
         conjuntoId: novoConjuntoId,
-        data_ancora: hojeStr 
+        data_ancora: dataAncoraMantida
     });
 
     m.equipe = novaEquipe;
     m.turno = novoTurno;
     m.conjuntoId = novoConjuntoId;
-    m.data_ancora = hojeStr;
+    m.data_ancora = dataAncoraMantida;
     m.historico_alocacao = historico;
 
     select.disabled = true;
 
     try {
-        await window.supabaseClient.from('rh_colaboradores').update({
+        // CORREÇÃO: Nome da coluna alterado de conjunto_id para conjuntoId para bater com o banco de dados
+        const { error } = await window.supabaseClient.from('rh_colaboradores').update({
             equipe: novaEquipe,
             turno: novoTurno,
-            conjunto_id: novoConjuntoId ? parseInt(novoConjuntoId) : null,
-            data_ancora: hojeStr,
+            conjuntoId: novoConjuntoId ? novoConjuntoId : null, 
+            data_ancora: dataAncoraMantida,
             historico_alocacao: historico
         }).eq('id', motoristaId);
+
+        if (error) {
+            console.error("ERRO DO SUPABASE:", error);
+            alert("Erro ao salvar no banco de dados!\nMotivo: " + error.message);
+            select.disabled = false;
+            return;
+        }
 
         if (typeof window.registrarLogAuditoria === 'function') {
             window.registrarLogAuditoria('Logística', 'Alocação', `Alocação atualizada: ${m.nome} (Eq:${novaEquipe} / T:${novoTurno} / Cj:${novoConjuntoId || 'S/F'})`, 'Info');
@@ -429,8 +444,8 @@ window.updateAlocacao = async function(e) {
         window.renderizarAlocacao();
         if(typeof window.renderizarEscala === 'function') window.renderizarEscala();
     } catch(error) {
-        console.error(error);
-        alert("Erro ao atualizar alocação.");
+        console.error("Erro inesperado no Javascript:", error);
+        alert("Erro ao atualizar alocação. Verifique o console.");
         select.disabled = false;
     }
 };
