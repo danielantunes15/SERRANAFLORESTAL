@@ -12,7 +12,6 @@ window.MAPA_MENUS = [
     // --- MÓDULO: CAMPO (ATUALIZADO) ---
     { id: 'campo_escala', label: 'Escala Semanal', setor: 'Campo', icon: 'fas fa-calendar-alt' },
     { id: 'alocacao_campo', label: 'Alocação Geral', setor: 'Campo', icon: 'fas fa-users-cog' },
-    { id: 'campo_equipe', label: 'Cadastro de Equipe', setor: 'Campo', icon: 'fas fa-users' },
     { id: 'campo_maquinas', label: 'Máquinas (Frentes)', setor: 'Campo', icon: 'fas fa-tractor' },
     
     { id: 'os', label: 'Gestão de O.S.', setor: 'Manutenção', icon: 'fas fa-clipboard-list' },
@@ -36,12 +35,12 @@ window.MAPA_MENUS = [
     { id: 'rh_absenteismo', label: 'Absenteísmo', setor: 'RH', icon: 'fas fa-user-clock' },
     { id: 'rh_banco_horas', label: 'Banco de Horas', setor: 'RH', icon: 'fas fa-business-time' },
     { id: 'rh_sorteio', label: 'Sorteio de Colaboradores', setor: 'RH', icon: 'fas fa-random' },
-    { id: 'rh_relatorios', label: 'Relatórios', setor: 'RH', icon: 'fas fa-file-invoice' }, // NOVO MENU ADICIONADO AQUI
+    { id: 'rh_relatorios', label: 'Relatórios', setor: 'RH', icon: 'fas fa-file-invoice' },
     { id: 'rh_configuracoes', label: 'Configurações Base', setor: 'RH', icon: 'fas fa-cogs' },
     
     { id: 'centro_custo', label: 'Gestão de Custos', setor: 'Controladoria', icon: 'fas fa-sitemap' },
     { id: 'ocorrencias', label: 'Registrar Ocorrência', setor: 'Controladoria', icon: 'fas fa-exclamation-triangle' },
-    { id: 'historico_ocorrencias', label: 'Histórico de Ocrrências', setor: 'Controladoria', icon: 'fas fa-history' },
+    { id: 'historico_ocorrencias', label: 'Histórico de Ocorrências', setor: 'Controladoria', icon: 'fas fa-history' },
     { id: 'relatorio_ocorrencias', label: 'Relatório de Avarias', setor: 'Controladoria', icon: 'fas fa-chart-bar' },
     
     { id: 'relatorio_gerencial', label: 'Relatório Gerencial', setor: 'Indicadores', icon: 'fas fa-chart-pie' },
@@ -75,6 +74,7 @@ window.MAPA_MENUS = [
 ];
 
 const pageCache = {};
+
 const ROTAS = {
     'escala': 'modules/logistica/escala/escala.html',
     'troca_turno': 'modules/logistica/troca_turno/troca_turno.html',
@@ -85,7 +85,6 @@ const ROTAS = {
     
     'campo_escala': 'modules/campo/escala/escala.html',
     'alocacao_campo': 'modules/campo/alocacao/alocacao.html',
-    'campo_equipe': 'modules/campo/equipe/equipe.html',
     'campo_maquinas': 'modules/campo/maquinas/maquinas.html',
     
     'os': 'modules/manutencao/ordem_servico/os.html',
@@ -101,7 +100,7 @@ const ROTAS = {
     'rh_absenteismo': 'modules/rh/absenteismo/absenteismo.html',
     'rh_banco_horas': 'modules/rh/banco_horas/banco_horas.html',
     'rh_sorteio': 'modules/rh/sorteio/sorteio.html',
-    'rh_relatorios': 'modules/rh/relatorios/relatorios.html', // NOVA ROTA ADICIONADA AQUI
+    'rh_relatorios': 'modules/rh/relatorios/relatorios.html',
     'rh_configuracoes': 'modules/rh/configuracoes/rh_configuracoes.html',
     
     'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', 
@@ -181,8 +180,9 @@ window.renderizarMenu = async function() {
     const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
 
     let navHtml = '<nav class="main-nav">';
+    
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
-
+    
     setores.forEach(setor => {
         if (isSessaoCentral) {
             if (setor !== 'Global' && setor !== 'Controladoria' && setor !== 'Configurações') return;
@@ -295,6 +295,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
             const response = await fetch(`${caminhoArquivo}?v=${VERSAO_SISTEMA}`);
             if (!response.ok) throw new Error('Página não encontrada');
+
             pageCache[pagina] = await response.text();
         }
         
@@ -317,7 +318,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
         if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
         if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();
-        if (pagina === 'campo_equipe' && typeof window.renderizarEquipeCampo === 'function') window.renderizarEquipeCampo();
         if (pagina === 'campo_maquinas' && typeof window.renderizarMaquinasCampo === 'function') window.renderizarMaquinasCampo();
 
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
@@ -339,7 +339,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'rh_banco_horas' && typeof window.initRHBancoHoras === 'function') window.initRHBancoHoras();
         
         if (pagina === 'rh_sorteio' && typeof window.initRHSorteio === 'function') window.initRHSorteio();
-        // INICIALIZADOR DO NOVO MÓDULO (opcional, caso você tenha criado uma função init no seu js)
         if (pagina === 'rh_relatorios' && typeof window.initRHRelatorios === 'function') window.initRHRelatorios();
         if (pagina === 'rh_configuracoes' && typeof window.initRHConfiguracoes === 'function') window.initRHConfiguracoes();
         
