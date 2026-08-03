@@ -2,14 +2,25 @@
 
 window.carregarAlocacaoCampo = async function() {
     if (typeof window.supabaseClient === 'undefined') return;
-
     try {
         document.getElementById('alocacaoCampoCards').innerHTML = '<div style="color:#fff; text-align:center;">Carregando painel de máquinas...</div>';
         
         const pMaquinas = window.supabaseClient.from('maquinas_campo').select('*').order('id');
-        const pEquipe = window.supabaseClient.from('equipe_campo').select('*').order('nome');
         
-        const [resMaquinas, resEquipe] = await Promise.all([pMaquinas, pEquipe]);
+        // Puxando da nova tabela rh_colaboradores, filtrando por funcao e filial alocada
+        let queryEquipe = window.supabaseClient.from('rh_colaboradores')
+            .select('*')
+            .in('funcao', ['Líder de Campo', 'OPERADOR MANTENEDOR'])
+            .order('nome');
+
+        // Se a função aplicarFiltroFilial existir, usa para limitar a filial correta
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            queryEquipe = window.aplicarFiltroFilial(queryEquipe);
+        } else if (window.currentUser && window.currentUser.filial_id) {
+            queryEquipe = queryEquipe.eq('filial_id', window.currentUser.filial_id);
+        }
+        
+        const [resMaquinas, resEquipe] = await Promise.all([pMaquinas, queryEquipe]);
         
         window.maquinasCampo = resMaquinas.data || [];
         window.equipeCampo = resEquipe.data || [];
@@ -21,7 +32,7 @@ window.carregarAlocacaoCampo = async function() {
 };
 
 window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
-    let frontSel = selectFrentes.replace(`value="${op.maquina_id||''}"`, `value="${op.maquina_id||''}" selected`);
+    let frontSel = selectFrentes.replace(`value="${op.conjuntoId||''}"`, `value="${op.conjuntoId||''}" selected`);
     let dataAncoraValor = op.data_ancora ? op.data_ancora.split('T')[0] : '';
     
     return `
@@ -31,7 +42,7 @@ window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
         </td>
         <td style="padding: 5px;">
             <select class="dark-select" id="aloc_funcao_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem;">
-                <option value="Operador de Máquina" ${op.funcao==='Operador de Máquina'?'selected':''}>Operador</option>
+                <option value="OPERADOR MANTENEDOR" ${op.funcao==='OPERADOR MANTENEDOR'?'selected':''}>Operador</option>
                 <option value="Líder de Campo" ${op.funcao==='Líder de Campo'?'selected':''}>Líder</option>
             </select>
         </td>
@@ -64,7 +75,8 @@ window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
             <input type="date" class="dark-select" id="aloc_data_${op.id}" value="${dataAncoraValor}" style="padding: 4px 8px; width: 120px; font-size: 0.8rem; border-color: #f59e0b; background: transparent; color: #fff; color-scheme: dark;" title="Data Inicial do Ciclo">
         </td>
         <td style="padding: 5px; text-align: center;">
-            <button class="btn-primary-green" style="padding: 5px 12px; font-size: 0.8rem; font-weight: bold;" onclick="window.salvarAlocacaoLinha(${op.id})">💾 Salvar</button>
+            <button class="btn-primary-green" style="padding: 5px 12px; font-size: 0.8rem; font-weight: bold;" onclick="window.salvarAlocacaoLinha('${op.id}')"><i class="fas fa-save"></i> Salvar</button>
+            <button class="btn-primary-blue" style="padding: 5px 12px; font-size: 0.8rem; font-weight: bold; margin-left: 5px;" onclick="window.abrirModalAlocacaoRapida('${op.id}')"><i class="fas fa-bolt"></i> Rápida</button>
         </td>
     </tr>`;
 };
@@ -72,16 +84,16 @@ window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
 window.renderizarPainelMaquinasCampo = function() {
     const container = document.getElementById('alocacaoCampoCards');
     if (!container) return;
-
+    
     let optionsFrentes = '<option value="">Reserva / Sem Frente</option>';
     window.maquinasCampo.forEach(m => { optionsFrentes += `<option value="${m.id}">${m.nome || `Frente ${m.id}`}</option>`; });
-
+    
     let html = '';
-
+    
     window.maquinasCampo.forEach(frente => {
-        const membrosFrente = window.equipeCampo.filter(op => String(op.maquina_id) === String(frente.id));
+        const membrosFrente = window.equipeCampo.filter(op => String(op.conjuntoId) === String(frente.id));
         if (membrosFrente.length === 0) return;
-
+        
         html += `<div style="background: rgba(15, 23, 42, 0.8); border: 2px solid #3b82f6; border-radius: 10px; padding: 15px;">`;
         html += `<h2 style="color: #3b82f6; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(59, 130, 246, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-network-wired"></i> ${frente.nome || `Frente ${frente.id}`}</h2>`;
         
@@ -96,20 +108,20 @@ window.renderizarPainelMaquinasCampo = function() {
             lideres.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
             html += `</tbody></table></div>`;
         }
-
+        
         // ---- 2. MÁQUINAS (1 a 3) ----
         ['Máquina 1', 'Máquina 2', 'Máquina 3'].forEach(nomeMaq => {
             const numFrota = frente[nomeMaq === 'Máquina 1' ? 'numero_frota_1' : (nomeMaq === 'Máquina 2' ? 'numero_frota_2' : 'numero_frota_3')];
             if (!numFrota && membrosFrente.filter(o => o.maquina_especifica === nomeMaq).length === 0) return; // Se a máquina não existe e não tem ngm, pula.
-
-            const operadores = membrosFrente.filter(op => op.maquina_especifica === nomeMaq && op.funcao !== 'Líder de Campo');
+            
+            const operadores = membrosFrente.filter(op => op.maquina_especifica === nomeMaq && op.funcao === 'OPERADOR MANTENEDOR');
             
             // Ordenar logicamente os 4 operadores: Fixo Dia, Folguista Dia, Fixo Noite, Folguista Noite
             operadores.sort((a,b) => {
-                const peso = o => (o.turno.includes('06:00') ? 0 : 10) + (o.equipe==='Fixo' ? 1 : 2);
+                const peso = o => ((o.turno || '').includes('06:00') ? 0 : 10) + (o.equipe === 'Fixo' ? 1 : 2);
                 return peso(a) - peso(b);
             });
-
+            
             html += `<div style="margin-bottom: 15px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 10px;">
                 <h4 style="color: #34d399; margin: 0 0 10px 0;"><i class="fas fa-tractor"></i> ${nomeMaq} (Frota: ${numFrota || 'S/N'}) - <span style="font-size: 0.8rem; color:#94a3b8;">4 Operadores Ideais</span></h4>
                 <table style="width: 100%; border-collapse: collapse;">
@@ -123,12 +135,12 @@ window.renderizarPainelMaquinasCampo = function() {
             }
             html += `</tbody></table></div>`;
         });
-
+        
         html += `</div>`;
     });
-
+    
     // ---- 3. RESERVAS ----
-    const reservas = window.equipeCampo.filter(op => !op.maquina_id);
+    const reservas = window.equipeCampo.filter(op => !op.conjuntoId);
     if (reservas.length > 0) {
         html += `<div style="background: rgba(239, 68, 68, 0.1); border: 2px solid #ef4444; border-radius: 10px; padding: 15px;">
             <h2 style="color: #ef4444; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(239, 68, 68, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-exclamation-triangle"></i> Sem Frente Definida (Reservas)</h2>
@@ -138,7 +150,7 @@ window.renderizarPainelMaquinasCampo = function() {
         reservas.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
         html += `</tbody></table></div>`;
     }
-
+    
     container.innerHTML = html;
 };
 
@@ -149,18 +161,18 @@ window.salvarAlocacaoLinha = async function(id) {
     const frente = document.getElementById(`aloc_frente_${id}`).value;
     const maqEspec = document.getElementById(`aloc_maqesp_${id}`).value;
     const dataAncora = document.getElementById(`aloc_data_${id}`).value;
-
+    
     const payload = {
         funcao: funcao,
         equipe: equipe,
         turno: turno,
-        maquina_id: frente ? Number(frente) : null,
+        "conjuntoId": frente ? Number(frente) : null,
         maquina_especifica: maqEspec,
         data_ancora: dataAncora || null
     };
-
+    
     try {
-        await window.supabaseClient.from('equipe_campo').update(payload).eq('id', id);
+        await window.supabaseClient.from('rh_colaboradores').update(payload).eq('id', id);
         
         // Efeito visual de sucesso na linha
         const row = document.getElementById(`row_aloc_${id}`);
@@ -168,7 +180,7 @@ window.salvarAlocacaoLinha = async function(id) {
             row.style.backgroundColor = 'rgba(16, 185, 129, 0.4)';
             setTimeout(() => { row.style.backgroundColor = 'transparent'; }, 1200);
         }
-
+        
         // Atualiza a memória local silenciosamente
         const opIndex = window.equipeCampo.findIndex(x => String(x.id) === String(id));
         if (opIndex > -1) {
@@ -197,18 +209,18 @@ window.popularFrentesAlocacao = function() {
 window.abrirModalAlocacaoRapida = function(id) {
     const op = window.equipeCampo.find(x => String(x.id) === String(id));
     if (!op) return;
-
+    
     window.popularFrentesAlocacao();
-
+    
     document.getElementById('alocFormId').value = op.id;
     document.getElementById('alocNomeExibicao').innerText = op.nome;
-    document.getElementById('alocFormFuncao').value = op.funcao || 'Operador de Máquina';
-    document.getElementById('alocFormMaquina').value = op.maquina_id || '';
+    document.getElementById('alocFormFuncao').value = op.funcao || 'OPERADOR MANTENEDOR';
+    document.getElementById('alocFormMaquina').value = op.conjuntoId || '';
     document.getElementById('alocFormMaquinaEspecifica').value = op.maquina_especifica || '';
     document.getElementById('alocFormEquipe').value = op.equipe || 'Fixo';
     document.getElementById('alocFormTurno').value = op.turno || '06:00 - 18:00';
     document.getElementById('alocFormDataAncora').value = op.data_ancora ? op.data_ancora.split('T')[0] : '';
-
+    
     document.getElementById('modalAlocacaoRapida').classList.add('show');
 };
 
@@ -224,18 +236,18 @@ window.salvarAlocacaoRapida = async function() {
     const equipe = document.getElementById('alocFormEquipe').value;
     const turno = document.getElementById('alocFormTurno').value;
     const dataAncora = document.getElementById('alocFormDataAncora').value;
-
+    
     const payload = {
         funcao: funcao,
-        maquina_id: maqId ? Number(maqId) : null,
+        "conjuntoId": maqId ? Number(maqId) : null,
         maquina_especifica: maqEspec,
         equipe: equipe,
         turno: turno,
         data_ancora: dataAncora || null
     };
-
+    
     try {
-        await window.supabaseClient.from('equipe_campo').update(payload).eq('id', id);
+        await window.supabaseClient.from('rh_colaboradores').update(payload).eq('id', id);
         window.fecharModalAlocacaoRapida();
         
         // Recarrega Alocação e a Escala Semanal dinamicamente 
