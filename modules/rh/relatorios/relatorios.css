@@ -1,0 +1,53 @@
+.relatorio-card {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.dark-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #e2e8f0;
+    font-size: 0.85rem;
+}
+
+.dark-table th {
+    background-color: rgba(0, 0, 0, 0.2);
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+}
+
+.dark-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: middle;
+}
+
+.dark-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.btn-primary-blue {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-primary-blue:hover {
+    background-color: #2563eb;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

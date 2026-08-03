@@ -1,0 +1,73 @@
+<div style="padding: 20px; animation: fadeIn 0.3s ease;" id="modulo-relatorios-rh">
+    <div style="margin-bottom: 25px;">
+        <h2 style="color: #3b82f6; margin-bottom: 5px; font-weight: 600;"><i class="fas fa-file-alt"></i> Relatórios de Recursos Humanos</h2>
+        <p style="color: #94a3b8; font-size: 0.95rem;">Gere, visualize e exporte os relatórios operacionais e financeiros do setor de RH.</p>
+    </div>
+
+    <!-- Filtros -->
+    <div class="relatorio-card">
+        <h4 style="margin-top: 0; color: #f8fafc; margin-bottom: 15px; font-size: 1.1rem;"><i class="fas fa-filter"></i> Filtros do Relatório</h4>
+        <form id="formFiltrosRelatorio" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+            
+            <div class="form-group-dark" style="flex: 1; min-width: 250px; margin-bottom: 0;">
+                <label style="display: block; color: #94a3b8; margin-bottom: 5px; font-size: 0.85rem;">Tipo de Relatório</label>
+                <select id="tipoRelatorio" class="dark-select" required>
+                    <option value="" selected disabled>Selecione um relatório...</option>
+                    <option value="sindicato">Desconto de Sindicato</option>
+                    <option value="plano_saude">Plano de Saúde</option>
+                    <option value="atestados">Controle de Atestados</option>
+                    <option value="ferias">Férias Programadas</option>
+                </select>
+            </div>
+
+            <div class="form-group-dark" style="margin-bottom: 0;">
+                <label style="display: block; color: #94a3b8; margin-bottom: 5px; font-size: 0.85rem;">Data Início</label>
+                <input type="date" id="dataInicio" class="dark-select" required>
+            </div>
+
+            <div class="form-group-dark" style="margin-bottom: 0;">
+                <label style="display: block; color: #94a3b8; margin-bottom: 5px; font-size: 0.85rem;">Data Fim</label>
+                <input type="date" id="dataFim" class="dark-select" required>
+            </div>
+
+            <div>
+                <button type="submit" class="btn-primary-green" style="padding: 10px 20px; height: 38px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-search"></i> Gerar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Resultados -->
+    <div class="relatorio-card" id="cardResultados" style="display: none; margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 15px;">
+            <h4 style="margin: 0; color: #f8fafc; font-size: 1.1rem;" id="tituloResultado"><i class="fas fa-table"></i> Resultados</h4>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary-blue" onclick="exportarExcel()" style="padding: 6px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 5px;">
+                    <i class="fas fa-file-excel"></i> Excel
+                </button>
+                <button class="btn-secondary-dark" onclick="exportarPDF()" style="padding: 6px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 5px;">
+                    <i class="fas fa-file-pdf text-danger"></i> PDF
+                </button>
+            </div>
+        </div>
+        
+        <div style="overflow-x: auto; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;">
+            <table class="dark-table" id="tabelaRelatorios">
+                <thead id="tabelaCabecalho">
+                    <!-- Gerado via JS -->
+                </thead>
+                <tbody id="tabelaCorpo">
+                    <!-- Gerado via JS -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="margin-top: 15px; text-align: right; color: #94a3b8; font-size: 0.85rem;">
+            Total de registros: <strong id="totalRegistros" style="color: #10b981;">0</strong>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="modules/rh/relatorios/relatorios.css">
+<script src="modules/rh/relatorios/relatorios.js"></script>

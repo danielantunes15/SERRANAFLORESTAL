@@ -36,6 +36,7 @@ window.MAPA_MENUS = [
     { id: 'rh_absenteismo', label: 'Absenteísmo', setor: 'RH', icon: 'fas fa-user-clock' },
     { id: 'rh_banco_horas', label: 'Banco de Horas', setor: 'RH', icon: 'fas fa-business-time' },
     { id: 'rh_sorteio', label: 'Sorteio de Colaboradores', setor: 'RH', icon: 'fas fa-random' },
+    { id: 'rh_relatorios', label: 'Relatórios', setor: 'RH', icon: 'fas fa-file-invoice' }, // NOVO MENU ADICIONADO AQUI
     { id: 'rh_configuracoes', label: 'Configurações Base', setor: 'RH', icon: 'fas fa-cogs' },
     
     { id: 'centro_custo', label: 'Gestão de Custos', setor: 'Controladoria', icon: 'fas fa-sitemap' },
@@ -100,6 +101,7 @@ const ROTAS = {
     'rh_absenteismo': 'modules/rh/absenteismo/absenteismo.html',
     'rh_banco_horas': 'modules/rh/banco_horas/banco_horas.html',
     'rh_sorteio': 'modules/rh/sorteio/sorteio.html',
+    'rh_relatorios': 'modules/rh/relatorios/relatorios.html', // NOVA ROTA ADICIONADA AQUI
     'rh_configuracoes': 'modules/rh/configuracoes/rh_configuracoes.html',
     
     'centro_custo': 'modules/controladoria/centro_custo/centro_custo.html', 
@@ -337,6 +339,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'rh_banco_horas' && typeof window.initRHBancoHoras === 'function') window.initRHBancoHoras();
         
         if (pagina === 'rh_sorteio' && typeof window.initRHSorteio === 'function') window.initRHSorteio();
+        // INICIALIZADOR DO NOVO MÓDULO (opcional, caso você tenha criado uma função init no seu js)
+        if (pagina === 'rh_relatorios' && typeof window.initRHRelatorios === 'function') window.initRHRelatorios();
         if (pagina === 'rh_configuracoes' && typeof window.initRHConfiguracoes === 'function') window.initRHConfiguracoes();
         
         if (pagina === 'centro_custo' && typeof window.initControladoria === 'function') window.initControladoria();
