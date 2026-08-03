@@ -4,10 +4,9 @@ window.maquinasCampo = [];
 window.carregarMaquinasCampo = async function() {
     if (typeof window.supabaseClient === 'undefined') return;
     try {
-        // Inicia a query
         let query = window.supabaseClient.from('maquinas_campo').select('*').order('id');
         
-        // Aplica o filtro de filial global para não vazar dados de outras filiais
+        // FILTRO DE FILIAL: Apenas as máquinas desta filial
         if (typeof window.aplicarFiltroFilial === 'function') {
             query = window.aplicarFiltroFilial(query);
         } else if (window.currentUser && window.currentUser.filial_id) {
@@ -29,7 +28,7 @@ window.renderizarMaquinasCampo = function() {
     if (!tbody) return;
     
     if (window.maquinasCampo.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">Nenhuma Frente/Conjunto cadastrado. Clique em "Cadastrar Frente" para adicionar.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #94a3b8;">Nenhuma Frente/Conjunto cadastrado nesta filial. Clique em "Cadastrar Frente" para adicionar.</td></tr>`;
         return;
     }
     
@@ -90,13 +89,10 @@ window.abrirModalEditarMaquinaCampo = function(id) {
     
     document.getElementById('formMaquinaId').value = maq.id;
     document.getElementById('formMaquinaNomeFrente').value = maq.nome || '';
-    
     document.getElementById('formMaquinaModelo1').value = maq.modelo_1 || maq.modelo || '';
     document.getElementById('formMaquinaFrota1').value = maq.numero_frota_1 || maq.numero_frota || '';
-    
     document.getElementById('formMaquinaModelo2').value = maq.modelo_2 || '';
     document.getElementById('formMaquinaFrota2').value = maq.numero_frota_2 || '';
-    
     document.getElementById('formMaquinaModelo3').value = maq.modelo_3 || '';
     document.getElementById('formMaquinaFrota3').value = maq.numero_frota_3 || '';
     
@@ -110,7 +106,6 @@ window.fecharModalMaquinaCampo = function() {
 window.salvarMaquinaCampo = async function() {
     const id = document.getElementById('formMaquinaId').value;
     const nomeFrente = document.getElementById('formMaquinaNomeFrente').value.trim();
-    
     const mod1 = document.getElementById('formMaquinaModelo1').value.trim();
     const frota1 = document.getElementById('formMaquinaFrota1').value.trim();
     const mod2 = document.getElementById('formMaquinaModelo2').value.trim();
@@ -140,21 +135,19 @@ window.salvarMaquinaCampo = async function() {
         if (id) {
             await window.supabaseClient.from('maquinas_campo').update(payload).eq('id', id);
         } else {
-            // Garante que o ID da Filial atual seja salvo no banco junto com a máquina nova
+            // GRAVAÇÃO DA FILIAL: Associa a nova máquina à filial do usuário
             let payloadFinal = payload;
             if (typeof window.injetarFilial === 'function') {
                 payloadFinal = window.injetarFilial(payload);
             } else if (window.currentUser && window.currentUser.filial_id) {
                 payloadFinal.filial_id = window.currentUser.filial_id;
             }
-            
             await window.supabaseClient.from('maquinas_campo').insert([payloadFinal]);
         }
         
         window.fecharModalMaquinaCampo();
         await window.carregarMaquinasCampo();
         
-        // Se a tela de alocação estiver aberta/cacheada, avisa para ela atualizar o select
         if (typeof window.popularSelectMaquinas === 'function') window.popularSelectMaquinas();
         
     } catch (e) {
@@ -165,7 +158,6 @@ window.salvarMaquinaCampo = async function() {
 
 window.excluirMaquinaCampo = async function(id) {
     if (!confirm("Tem certeza que deseja remover esta Frente permanentemente?")) return;
-    
     try {
         await window.supabaseClient.from('maquinas_campo').delete().eq('id', id);
         await window.carregarMaquinasCampo();
@@ -175,7 +167,6 @@ window.excluirMaquinaCampo = async function(id) {
     }
 };
 
-// Auto-inicialização
 setTimeout(() => {
     if (typeof window.carregarMaquinasCampo === 'function') window.carregarMaquinasCampo();
 }, 500);

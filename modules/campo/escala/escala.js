@@ -4,7 +4,7 @@ window.equipeCampo = window.equipeCampo || [];
 window.maquinasCampo = window.maquinasCampo || [];
 window.escalasCampoExcecoes = window.escalasCampoExcecoes || {}; 
 window.currentDatasCampo = [];
-window._dadosEscalaCarregados = false; // Controle de Inteligência para não perder dados no F5
+window._dadosEscalaCarregados = false; 
 
 // =======================================================
 // 1. CARREGAR DADOS DO BANCO (SOBREVIVE AO RECARREGAMENTO)
@@ -13,18 +13,25 @@ window.carregarDadosEscalaCampo = async function() {
     if (typeof window.supabaseClient === 'undefined') return;
 
     const container = document.getElementById('campoGridEscala');
-    if (!container) return; // Trava de segurança
+    if (!container) return; 
 
     try {
         container.innerHTML = '<p class="loading-text" style="padding: 20px; text-align: center; color: #fff;"><i class="fas fa-spinner fa-spin"></i> Carregando dados da escala...</p>';
 
-        const pMaquinas = window.supabaseClient.from('maquinas_campo').select('*').order('id');
+        // FILTRO DE FILIAL NA ESCALA
+        let queryMaquinas = window.supabaseClient.from('maquinas_campo').select('*').order('id');
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            queryMaquinas = window.aplicarFiltroFilial(queryMaquinas);
+        } else if (window.currentUser && window.currentUser.filial_id) {
+            queryMaquinas = queryMaquinas.eq('filial_id', window.currentUser.filial_id);
+        }
+        const pMaquinas = queryMaquinas;
+
         let queryEquipe = window.supabaseClient.from('rh_colaboradores')
             .select('*')
             .in('funcao', ['Líder de Campo', 'OPERADOR MANTENEDOR'])
             .order('nome');
 
-        // Filtro para não vazar dados de outras filiais
         if (typeof window.aplicarFiltroFilial === 'function') {
             queryEquipe = window.aplicarFiltroFilial(queryEquipe);
         } else if (window.currentUser && window.currentUser.filial_id) {
@@ -36,10 +43,8 @@ window.carregarDadosEscalaCampo = async function() {
         window.maquinasCampo = resMaquinas.data || [];
         window.equipeCampo = resEquipe.data || [];
 
-        // Carrega as modificações manuais da escala (Tabela escala_campo)
         await window.carregarExcecoesEscalaCampo();
         
-        // Avisa o sistema que os dados já chegaram
         window._dadosEscalaCarregados = true;
         window.renderizarEscalaCampo();
 
@@ -64,7 +69,7 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
     const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
     const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
     
-    let cicloTotal = 6;     // Padrão 4x2
+    let cicloTotal = 6;     
     let diasTrabalho = 4;
     
     if (operador.tipo_escala === '4x4') { cicloTotal = 8; diasTrabalho = 4; }
@@ -153,7 +158,6 @@ window.renderizarEscalaCampo = function() {
     const container = document.getElementById('campoGridEscala');
     if (!container) return;
 
-    // INTELIGÊNCIA: Se os dados sumiram por causa do F5, busca de novo!
     if (!window._dadosEscalaCarregados) {
         window.carregarDadosEscalaCampo();
         return;
@@ -331,13 +335,13 @@ window.renderizarEscalaCampo = function() {
 };
 
 window.atualizarEscalaCampo = async function() { 
-    window._dadosEscalaCarregados = false; // Força a buscar no banco ao clicar em Atualizar
+    window._dadosEscalaCarregados = false; // Força a buscar no banco ao clicar no botão recarregar
     await window.carregarDadosEscalaCampo();
 };
 
 
 // ==========================================
-// 4. TABELA ESCALA_CAMPO (SALVA EXCEÇÕES MANUAIS)
+// 4. TABELA ESCALA_CAMPO (EXCEÇÕES MANUAIS)
 // ==========================================
 window.carregarExcecoesEscalaCampo = async function() {
     if (typeof window.supabaseClient === 'undefined') return;
@@ -403,14 +407,12 @@ async function handleEscalaCampoChange(e) {
                 status: 'manual' 
             };
             
-            // Injeta a filial antes de salvar na Tabela Exclusiva da Escala
             if (typeof window.injetarFilial === 'function') {
                 payload = window.injetarFilial(payload);
             } else if (window.currentUser && window.currentUser.filial_id) {
                 payload.filial_id = window.currentUser.filial_id;
             }
             
-            // SALVA DIRETO NA TABELA DE ESCALA CAMPO!
             const { error } = await window.supabaseClient.from('escala_campo').upsert([payload]);
             if (error) throw error;
             
@@ -544,9 +546,7 @@ window.gerarRelatorioImpressaoCampo = function() {
     window.fecharModalImpressaoCampo();
 };
 
-// ==========================================
-// START AUTOMÁTICO (TODA VEZ QUE ABRIR A TELA)
-// ==========================================
+// Start automático após injetar no HTML
 setTimeout(() => {
     if (typeof window.carregarDadosEscalaCampo === 'function') {
         window.carregarDadosEscalaCampo();

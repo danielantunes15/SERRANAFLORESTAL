@@ -3,14 +3,20 @@
 window.carregarAlocacaoCampo = async function() {
     if (typeof window.supabaseClient === 'undefined') return;
     
-    // TRAVA DE SEGURANÇA: Impede o erro de "innerHTML null" se a tela for fechada
     const container = document.getElementById('alocacaoCampoCards');
     if (!container) return; 
 
     try {
         container.innerHTML = '<div style="color:#fff; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando painel de máquinas...</div>';
         
-        const pMaquinas = window.supabaseClient.from('maquinas_campo').select('*').order('id');
+        // FILTRO DE FILIAL TAMBÉM NAS MÁQUINAS NA ALOCAÇÃO
+        let queryMaquinas = window.supabaseClient.from('maquinas_campo').select('*').order('id');
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            queryMaquinas = window.aplicarFiltroFilial(queryMaquinas);
+        } else if (window.currentUser && window.currentUser.filial_id) {
+            queryMaquinas = queryMaquinas.eq('filial_id', window.currentUser.filial_id);
+        }
+        const pMaquinas = queryMaquinas;
         
         let queryEquipe = window.supabaseClient.from('rh_colaboradores')
             .select('*')
@@ -267,7 +273,7 @@ window.salvarAlocacaoRapida = async function() {
         const { error } = await window.supabaseClient.from('rh_colaboradores').update(payload).eq('id', id);
         if (error) {
             console.error("Erro no Banco de Dados:", error);
-            alert(`Falha ao salvar! Detalhe: ${error.message}\nVocê rodou o script SQL no Supabase?`);
+            alert(`Falha ao salvar! Detalhe: ${error.message}`);
             return;
         }
 
@@ -275,7 +281,7 @@ window.salvarAlocacaoRapida = async function() {
         
         await window.carregarAlocacaoCampo();
         if(typeof window.iniciarEscalaCampo === 'function') {
-            window._dadosEscalaCarregados = false; // Força a escala a recarregar no background
+            window._dadosEscalaCarregados = false;
         }
         
     } catch (error) {
