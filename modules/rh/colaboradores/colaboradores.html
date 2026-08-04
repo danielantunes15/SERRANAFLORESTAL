@@ -199,14 +199,16 @@
         <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button id="btnFiltroPendencias" class="btn-danger-outline" onclick="window.toggleFiltroPendencias()"><i class="fas fa-exclamation-triangle"></i> Pendências</button>
             
-            <!-- MENU SUSPENSO DE EXPORTAÇÃO ADICIONADO AQUI -->
+            <!-- MENU SUSPENSO DE EXPORTAÇÃO -->
             <div class="action-menu-container" style="position: relative; display: inline-block; text-align: left;">
                 <button class="btn-secondary-dark" onclick="window.toggleActionMenu('export-lote')">
                     <i class="fas fa-download"></i> Exportar <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 5px;"></i>
                 </button>
                 <div id="action-menu-export-lote" class="action-dropdown-menu">
                     <button onclick="window.exportarTodasFichas()"><i class="fas fa-file-pdf" style="color: #ef4444; width: 15px;"></i> Fichas PDF (Lote)</button>
-                    <button onclick="window.exportarExcelColaboradores()"><i class="fas fa-file-excel" style="color: #10b981; width: 15px;"></i> Planilha Excel</button>
+                    <button onclick="window.exportarExcelColaboradores('todos')"><i class="fas fa-file-excel" style="color: #10b981; width: 15px;"></i> Planilha Excel (Todos)</button>
+                    <button onclick="window.exportarExcelColaboradores('ativos')"><i class="fas fa-file-excel" style="color: #10b981; width: 15px;"></i> Planilha Excel (Ativos)</button>
+                    <button onclick="window.exportarExcelColaboradores('inativos')"><i class="fas fa-file-excel" style="color: #10b981; width: 15px;"></i> Planilha Excel (Inativos)</button>
                 </div>
             </div>
             

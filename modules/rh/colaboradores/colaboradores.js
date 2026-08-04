@@ -1274,14 +1274,23 @@ window.exportarTodasFichasEPI = async function() {
 };
 
 // ==================== EXPORTAÇÃO EXCEL (NOVA FUNÇÃO) ====================
-window.exportarExcelColaboradores = function() {
-    // Exporta baseado no que está aparecendo na tela atualmente após os filtros
-    const colaboradores = window.colaboradoresFiltradosRH && window.colaboradoresFiltradosRH.length > 0 
+window.exportarExcelColaboradores = function(statusExportacao = 'todos') {
+    // Base de dados a ser exportada
+    let baseDados = window.colaboradoresFiltradosRH && window.colaboradoresFiltradosRH.length > 0 
                           ? window.colaboradoresFiltradosRH 
                           : window.listaColaboradoresDb;
 
+    // Aplica o filtro de status (Ativos, Inativos, ou Todos) de acordo com o botão clicado
+    let colaboradores = baseDados;
+    
+    if (statusExportacao === 'ativos') {
+        colaboradores = baseDados.filter(c => c.status !== 'Inativo' && c.status !== 'Desligado');
+    } else if (statusExportacao === 'inativos') {
+        colaboradores = baseDados.filter(c => c.status === 'Inativo' || c.status === 'Desligado');
+    }
+
     if (!colaboradores || colaboradores.length === 0) {
-        alert("Não há colaboradores para exportar.");
+        alert("Não há colaboradores para exportar com o filtro selecionado.");
         return;
     }
 
@@ -1331,7 +1340,7 @@ window.exportarExcelColaboradores = function() {
     link.setAttribute("href", encodedUri);
     
     const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
-    link.setAttribute("download", `Relatorio_Colaboradores_${dataAtual}.csv`);
+    link.setAttribute("download", `Relatorio_Colaboradores_${statusExportacao}_${dataAtual}.csv`);
     
     document.body.appendChild(link);
     link.click();
