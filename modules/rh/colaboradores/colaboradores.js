@@ -1272,3 +1272,72 @@ window.exportarTodasFichasEPI = async function() {
     
     setTimeout(() => { win.print(); win.close(); }, 1500);
 };
+
+// ==================== EXPORTAÇÃO EXCEL (NOVA FUNÇÃO) ====================
+window.exportarExcelColaboradores = function() {
+    // Exporta baseado no que está aparecendo na tela atualmente após os filtros
+    const colaboradores = window.colaboradoresFiltradosRH && window.colaboradoresFiltradosRH.length > 0 
+                          ? window.colaboradoresFiltradosRH 
+                          : window.listaColaboradoresDb;
+
+    if (!colaboradores || colaboradores.length === 0) {
+        alert("Não há colaboradores para exportar.");
+        return;
+    }
+
+    // Função auxiliar para resgatar o nome do setor
+    const getNomeSetor = (setor_id) => {
+        if (!setor_id) return 'Sem Setor';
+        const selectSetor = document.getElementById('filtroSetorLista');
+        if (selectSetor) {
+            const option = Array.from(selectSetor.options).find(opt => opt.value == setor_id);
+            if (option) return option.text;
+        }
+        return 'Sem Setor';
+    };
+
+    // Função auxiliar para formatar a data
+    const formatarData = (dataIso) => {
+        return dataIso ? dataIso.split('-').reverse().join('/') : '-';
+    };
+
+    // Mapeando as colunas solicitadas
+    const dadosMapeados = colaboradores.map(c => {
+        return {
+            "Nome do Colaborador": c.nome || "",
+            "Cargo": c.funcao || "Função não informada",
+            "Setor": getNomeSetor(c.setor_id),
+            "Data de Admissão": formatarData(c.data_admissao)
+        };
+    });
+
+    // Construção do arquivo CSV (com marcação UTF-8 BOM para garantir o suporte de acentuação no Excel)
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+    csvContent += "Nome do Colaborador;Cargo;Setor;Data de Admissao\n"; 
+
+    dadosMapeados.forEach(row => {
+        // Limpa possíveis ponto e vírgulas já existentes nos textos para não quebrar as colunas no Excel
+        const nome = String(row["Nome do Colaborador"]).replace(/;/g, ",");
+        const cargo = String(row["Cargo"]).replace(/;/g, ",");
+        const setor = String(row["Setor"]).replace(/;/g, ",");
+        const admissao = String(row["Data de Admissão"]).replace(/;/g, ",");
+        
+        csvContent += `${nome};${cargo};${setor};${admissao}\n`;
+    });
+
+    // Cria um link invisível e força o Download
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    
+    const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    link.setAttribute("download", `Relatorio_Colaboradores_${dataAtual}.csv`);
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Fecha o menu suspenso de exportação após o clique
+    const menuExport = document.getElementById('action-menu-export-lote');
+    if (menuExport) menuExport.style.display = 'none';
+};
