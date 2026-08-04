@@ -15,7 +15,7 @@ window.carregarDadosRelatorio = async function() {
     if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Carregando dados do servidor...</td></tr>';
     
     try {
-        // Agora busca a tabela principal junto com os terceiros cadastrados
+        // Agora busca a tabela principal junto com os terceiros cadastrados[cite: 5]
         let query = supabaseClient.from('ocorrencias')
                                   .select('*, ocorrencia_outros_envolvidos(*)')
                                   .order('data_ocorrido', { ascending: false });
@@ -29,7 +29,7 @@ window.carregarDadosRelatorio = async function() {
         
         window.dadosOcorrenciasRelatorio = data || [];
         
-        // Mantém os selects como estão e força o primeiro filtro
+        // Mantém os selects como estão e força o primeiro filtro[cite: 5]
         window.filtrarEAtualizarDashboard(); 
     } catch (error) {
         console.error("Erro ao carregar relatório:", error);
@@ -40,7 +40,7 @@ window.carregarDadosRelatorio = async function() {
 window.limparFiltrosRelatorio = function() {
     document.getElementById('filtroMesRel').value = '';
     
-    // Deixa o ano atual
+    // Deixa o ano atual[cite: 5]
     const anoAtual = new Date().getFullYear().toString();
     const selectAno = document.getElementById('filtroAnoRel');
     if(selectAno) selectAno.value = anoAtual;
@@ -59,22 +59,22 @@ window.filtrarEAtualizarDashboard = function() {
 
     window.dadosFiltradosRelatorio = window.dadosOcorrenciasRelatorio.filter(o => {
         
-        // Filtro Data (YYYY-MM-DD)
+        // Filtro Data (YYYY-MM-DD)[cite: 5]
         if (o.data_ocorrido) {
-            const partes = o.data_ocorrido.split('-'); // [0] = YYYY, [1] = MM, [2] = DD
+            const partes = o.data_ocorrido.split('-'); // [0] = YYYY, [1] = MM, [2] = DD[cite: 5]
             if (anoFiltro && partes[0] !== anoFiltro) return false;
             if (mesFiltro && partes[1] !== mesFiltro) return false;
         } else if (anoFiltro || mesFiltro) {
-            return false; // Se tiver filtro e a ocorrencia nao tiver data, esconde
+            return false; // Se tiver filtro e a ocorrencia nao tiver data, esconde[cite: 5]
         }
 
-        // Filtro Status
+        // Filtro Status[cite: 5]
         if (statusFiltro !== 'Todos') {
             const st = o.status || 'Aberta';
             if (st !== statusFiltro) return false;
         }
         
-        // Filtro Busca
+        // Filtro Busca[cite: 5]
         if (busca) {
             const idStr = String(o.id).padStart(4, '0');
             const placa = (o.placa || '').toLowerCase();
@@ -91,19 +91,19 @@ window.filtrarEAtualizarDashboard = function() {
 };
 
 // =========================================================
-// LÓGICA DE DETECÇÃO DO CAUSADOR (Principal ou Terceiros)
+// LÓGICA DE DETECÇÃO DO CAUSADOR (Principal ou Terceiros)[cite: 5]
 // =========================================================
 window.determinarCausador = function(oco) {
     let causadorReal = oco.nome_envolvido || 'Não Identificado';
     let setorReal = oco.setor || '-';
     let isExterno = false;
 
-    // 1. O envolvido principal na página de registro foi marcado como causador?
+    // 1. O envolvido principal na página de registro foi marcado como causador?[cite: 5]
     if (oco.is_responsavel === true) {
         return { nome: causadorReal, setor: setorReal, isExterno: false };
     }
 
-    // 2. Se não, verifica a lista da tabela de 'outros_envolvidos'
+    // 2. Se não, verifica a lista da tabela de 'outros_envolvidos'[cite: 5]
     if (oco.ocorrencia_outros_envolvidos && Array.isArray(oco.ocorrencia_outros_envolvidos)) {
         const causadorOutro = oco.ocorrencia_outros_envolvidos.find(e => e.is_responsavel === true);
         if (causadorOutro) {
@@ -118,7 +118,7 @@ window.determinarCausador = function(oco) {
         }
     }
 
-    // Se ninguém foi marcado como causador, assume que o envolvido principal (o relator) é o dono do evento.
+    // Se ninguém foi marcado como causador, assume que o envolvido principal (o relator) é o dono do evento.[cite: 5]
     return { nome: causadorReal, setor: setorReal, isExterno: isExterno };
 };
 
@@ -195,11 +195,11 @@ window.renderizarGraficosRelatorio = function() {
     
     const dados = window.dadosFiltradosRelatorio;
     
-    // --- Gráfico de Meses ---
+    // --- Gráfico de Meses (Com número em cima das colunas) ---
     const mesesCount = {};
     dados.forEach(o => {
         if (!o.data_ocorrido) return;
-        const mesKey = o.data_ocorrido.substring(0, 7); // YYYY-MM
+        const mesKey = o.data_ocorrido.substring(0, 7); // YYYY-MM[cite: 5]
         mesesCount[mesKey] = (mesesCount[mesKey] || 0) + 1;
     });
     const mesesLabels = Object.keys(mesesCount).sort();
@@ -208,26 +208,52 @@ window.renderizarGraficosRelatorio = function() {
     const chartMeses = echarts.init(document.getElementById('chartMeses'));
     chartMeses.setOption({
         tooltip: { trigger: 'axis' },
+        grid: { top: '15%', bottom: '15%', left: '10%', right: '5%' },
         xAxis: { type: 'category', data: mesesLabels.map(m => m.split('-').reverse().join('/')), axisLabel: { color: '#94a3b8' } },
         yAxis: { type: 'value', splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: '#94a3b8' } },
-        series: [{ data: mesesData, type: 'bar', itemStyle: { color: '#3b82f6', borderRadius: [4,4,0,0] } }]
+        series: [{ 
+            data: mesesData, 
+            type: 'bar', 
+            itemStyle: { color: '#3b82f6', borderRadius: [4,4,0,0] },
+            label: {
+                show: true,
+                position: 'top',
+                color: '#f8fafc',
+                fontWeight: 'bold'
+            }
+        }]
     });
 
-    // --- Gráfico de Tipos ---
+    // --- Gráfico de Tipos (Com valor total centralizado) ---
     const tiposCount = {};
     dados.forEach(o => {
         const t = o.tipo_ocorrencia || 'Não Informado';
         tiposCount[t] = (tiposCount[t] || 0) + 1;
     });
     const pieTipos = Object.keys(tiposCount).map(k => ({ name: k, value: tiposCount[k] }));
+    const totalTipos = pieTipos.reduce((sum, item) => sum + item.value, 0);
 
     const chartTipos = echarts.init(document.getElementById('chartTipos'));
     chartTipos.setOption({
         tooltip: { trigger: 'item' },
-        series: [{ type: 'pie', radius: ['40%', '70%'], itemStyle: { borderRadius: 5, borderColor: '#1f2937', borderWidth: 2 }, label: { color: '#fff' }, data: pieTipos }]
+        title: {
+            text: 'Total',
+            subtext: totalTipos.toString(),
+            left: 'center',
+            top: 'center',
+            textStyle: { color: '#94a3b8', fontSize: 11 },
+            subtextStyle: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' }
+        },
+        series: [{ 
+            type: 'pie', 
+            radius: ['40%', '70%'], 
+            itemStyle: { borderRadius: 5, borderColor: '#1f2937', borderWidth: 2 }, 
+            label: { color: '#fff', formatter: '{b}: {c}' }, 
+            data: pieTipos 
+        }]
     });
 
-    // --- Gráfico Top 10 Causadores ---
+    // --- Gráfico Top 10 Causadores (Com valor em frente às barras) ---
     const causadoresCount = {};
     let internosCount = 0;
     let externosCount = 0;
@@ -245,12 +271,21 @@ window.renderizarGraficosRelatorio = function() {
     const chartCausadores = echarts.init(document.getElementById('chartCausadores'));
     chartCausadores.setOption({
         tooltip: { trigger: 'axis' },
-        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        grid: { left: '3%', right: '12%', bottom: '3%', containLabel: true },
         xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#94a3b8' } },
         yAxis: { type: 'category', data: causadoresSorted.map(c => c.name).reverse(), axisLabel: { color: '#f8fafc', width: 120, overflow: 'truncate' } },
-        series: [{ type: 'bar', data: causadoresSorted.map(c => {
-            return { value: c.value, itemStyle: { color: c.name.includes('Outros') ? '#a855f7' : '#10b981' } };
-        }).reverse() }]
+        series: [{ 
+            type: 'bar', 
+            data: causadoresSorted.map(c => {
+                return { value: c.value, itemStyle: { color: c.name.includes('Outros') ? '#a855f7' : '#10b981' } };
+            }).reverse(),
+            label: {
+                show: true,
+                position: 'right',
+                color: '#f8fafc',
+                fontWeight: 'bold'
+            }
+        }]
     });
 
     // --- Gráfico Origem (Interno vs Externo) ---
