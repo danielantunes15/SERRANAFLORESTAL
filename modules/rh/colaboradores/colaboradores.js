@@ -8,14 +8,18 @@ window.filtroPendenciasAtivo = false;
 window.paginaAtualRH = 1;
 window.itensPorPaginaRH = 15;
 
+// Campos Base Obrigatórios (Incluindo Setor, Função, ASO e Toxicológico)
 window.camposBaseObrigatorios = [
     { key: 'cpf', id: 'colCpf' },
     { key: 'rg', id: 'colRg' },
     { key: 'data_nascimento', id: 'colDataNascimento' },
     { key: 'data_admissao', id: 'colDataAdmissao' },
     { key: 'funcao', id: 'colFuncao' },
+    { key: 'setor_id', id: 'colSetorId' },
     { key: 'telefone', id: 'colTelefone' },
-    { key: 'endereco', id: 'colEndereco' }
+    { key: 'endereco', id: 'colEndereco' },
+    { key: 'aso_vencimento', id: 'colAsoVencimento' },
+    { key: 'toxicologico_vencimento', id: 'colToxicologico' }
 ];
 
 window.initRHColaboradores = async function() {
@@ -177,7 +181,8 @@ window.renderizarTabelaPaginadaRH = function() {
         const pendencias = window.verificarPendenciasCadastro(c);
         let badgeAlertaFaltando = '';
         if (pendencias.length > 0 && c.status !== 'Inativo' && c.status !== 'Desligado') {
-            badgeAlertaFaltando = `<span title="Cadastro Incompleto ou Inválido (${pendencias.length} informações pendentes)" style="color: #ef4444; margin-right: 8px; font-size: 1.1rem; cursor: help;"><i class="fas fa-exclamation-triangle"></i></span>`;
+            let desc = pendencias.map(p => p.nome || p.key).join(', ');
+            badgeAlertaFaltando = `<span title="Cadastro / Documentação Incompleta (${pendencias.length} pendências):\n${desc}" style="color: #ef4444; margin-right: 8px; font-size: 1.1rem; cursor: help;"><i class="fas fa-exclamation-triangle"></i></span>`;
         }
 
         let badgeVencimentos = '';
@@ -537,9 +542,11 @@ window.analisarVencimentosColaborador = function(c) {
     
     if(c.cursos_vencimentos) {
         Object.keys(c.cursos_vencimentos).forEach(curso => {
-            let dias = window.diasParaVencer(c.cursos_vencimentos[curso]);
-            if(dias < 0) alertas.push({ nome: curso, status: 'Vencido', cor: '#ef4444' });
-            else if(dias <= 30) alertas.push({ nome: curso, status: `Vence em ${dias}d`, cor: '#f59e0b' });
+            if (c.cursos_vencimentos[curso]) {
+                let dias = window.diasParaVencer(c.cursos_vencimentos[curso]);
+                if(dias < 0) alertas.push({ nome: curso, status: 'Vencido', cor: '#ef4444' });
+                else if(dias <= 30) alertas.push({ nome: curso, status: `Vence em ${dias}d`, cor: '#f59e0b' });
+            }
         });
     }
     return alertas;
@@ -574,12 +581,40 @@ window.carregarCargosControladoria = async function() {
 
 window.verificarPendenciasCadastro = function(colaborador) {
     let camposFaltando = [];
+    
+    // Verificação de campos cadastrais base
     window.camposBaseObrigatorios.forEach(campo => {
         if (!colaborador[campo.key] || String(colaborador[campo.key]).trim() === '') {
-            camposFaltando.push(campo);
+            camposFaltando.push({
+                key: campo.key,
+                id: campo.id,
+                nome: campo.key.replace('_', ' ').toUpperCase()
+            });
         }
     });
-    if (colaborador.cpf && !window.validarCPF(colaborador.cpf)) camposFaltando.push({ key: 'cpf', id: 'colCpf' });
+
+    // Validação de CPF
+    if (colaborador.cpf && !window.validarCPF(colaborador.cpf)) {
+        camposFaltando.push({ key: 'cpf', id: 'colCpf', nome: 'CPF Inválido' });
+    }
+
+    // Validação de Cursos Globais Dinâmicos (Data Pendente)
+    if (window.listaCursosAtivos && window.listaCursosAtivos.length > 0) {
+        const cursosSalvos = colaborador.cursos_vencimentos || {};
+        window.listaCursosAtivos.forEach(curso => {
+            const dataCurso = cursosSalvos[curso.nome];
+            if (!dataCurso || String(dataCurso).trim() === '') {
+                const inputId = `curso_input_${curso.id || curso.nome.replace(/\s+/g, '_')}`;
+                camposFaltando.push({
+                    key: `curso_${curso.nome}`,
+                    id: inputId,
+                    nome: `Curso Pendente: ${curso.nome}`,
+                    tipo: 'curso'
+                });
+            }
+        });
+    }
+
     return camposFaltando;
 };
 
@@ -592,6 +627,13 @@ window.limparValidacaoVisualFicha = function() {
             if (el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL') {
                 el.previousElementSibling.classList.remove('label-pendente');
             }
+        }
+    });
+
+    document.querySelectorAll('.input-curso-dinamico').forEach(el => {
+        el.classList.remove('campo-pendente');
+        if (el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL') {
+            el.previousElementSibling.classList.remove('label-pendente');
         }
     });
 };
@@ -717,11 +759,13 @@ window.abrirFichaCompleta = async function(id = null) {
         if (pendencias.length > 0) {
             document.getElementById('alertaCamposPendentes').style.display = 'flex';
             pendencias.forEach(p => {
-                const el = document.getElementById(p.id);
-                if (el) {
-                    el.classList.add('campo-pendente');
-                    if (el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL') {
-                        el.previousElementSibling.classList.add('label-pendente');
+                if (p.id) {
+                    const el = document.getElementById(p.id);
+                    if (el) {
+                        el.classList.add('campo-pendente');
+                        if (el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL') {
+                            el.previousElementSibling.classList.add('label-pendente');
+                        }
                     }
                 }
             });
@@ -923,11 +967,12 @@ window.montarCamposCursosDinamicosFull = function(vencimentosSalvos = {}) {
 
     window.listaCursosAtivos.forEach(curso => {
         const valorData = vencimentosSalvos[curso.nome] || '';
+        const inputId = `curso_input_${curso.id || curso.nome.replace(/\s+/g, '_')}`;
         const div = document.createElement('div');
         div.className = 'form-group-dark';
         div.innerHTML = `
-            <label>${curso.nome}</label>
-            <input type="date" class="input-curso-dinamico" data-cursonome="${curso.nome}" value="${valorData}">
+            <label>${curso.nome} *</label>
+            <input type="date" id="${inputId}" class="input-curso-dinamico" data-cursonome="${curso.nome}" value="${valorData}">
         `;
         container.appendChild(div);
     });
@@ -1273,7 +1318,7 @@ window.exportarTodasFichasEPI = async function() {
     setTimeout(() => { win.print(); win.close(); }, 1500);
 };
 
-// ==================== EXPORTAÇÃO EXCEL (NOVA FUNÇÃO) ====================
+// ==================== EXPORTAÇÃO EXCEL ====================
 window.exportarExcelColaboradores = function(statusExportacao = 'todos') {
     // Base de dados a ser exportada
     let baseDados = window.colaboradoresFiltradosRH && window.colaboradoresFiltradosRH.length > 0 
@@ -1316,22 +1361,28 @@ window.exportarExcelColaboradores = function(statusExportacao = 'todos') {
             "Nome do Colaborador": c.nome || "",
             "Cargo": c.funcao || "Função não informada",
             "Setor": getNomeSetor(c.setor_id),
-            "Data de Admissão": formatarData(c.data_admissao)
+            "Status": c.status || "Ativo",
+            "Data de Admissão": formatarData(c.data_admissao),
+            "Vencimento ASO": formatarData(c.aso_vencimento),
+            "Vencimento Toxicológico": formatarData(c.toxicologico_vencimento)
         };
     });
 
     // Construção do arquivo CSV (com marcação UTF-8 BOM para garantir o suporte de acentuação no Excel)
     let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
-    csvContent += "Nome do Colaborador;Cargo;Setor;Data de Admissao\n"; 
+    csvContent += "Nome do Colaborador;Cargo;Setor;Status;Data de Admissao;Vencimento ASO;Vencimento Toxicologico\n"; 
 
     dadosMapeados.forEach(row => {
         // Limpa possíveis ponto e vírgulas já existentes nos textos para não quebrar as colunas no Excel
         const nome = String(row["Nome do Colaborador"]).replace(/;/g, ",");
         const cargo = String(row["Cargo"]).replace(/;/g, ",");
         const setor = String(row["Setor"]).replace(/;/g, ",");
+        const status = String(row["Status"]).replace(/;/g, ",");
         const admissao = String(row["Data de Admissão"]).replace(/;/g, ",");
+        const aso = String(row["Vencimento ASO"]).replace(/;/g, ",");
+        const tox = String(row["Vencimento Toxicológico"]).replace(/;/g, ",");
         
-        csvContent += `${nome};${cargo};${setor};${admissao}\n`;
+        csvContent += `${nome};${cargo};${setor};${status};${admissao};${aso};${tox}\n`;
     });
 
     // Cria um link invisível e força o Download
