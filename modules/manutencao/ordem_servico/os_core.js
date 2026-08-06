@@ -2,6 +2,7 @@
 // Módulo Principal: Variáveis globais, carregamento de dados e navegação
 
 var ordensServico = [];
+var ordensServicoTodas = []; // Nova variável para guardar todas as O.S, inclusive inativas, para garantir a numeração
 var frotasManutencao = [];
 var tvInterval = null;
 var osSelecionadaParaConclusao = null; 
@@ -17,7 +18,11 @@ async function carregarDadosOS() {
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData, error: osError } = await queryOS;
         
-        if (!osError && osData) ordensServico = osData;
+        if (!osError && osData) {
+            ordensServicoTodas = osData; // Guarda a lista completa para o sequenciador de números não se perder
+            // Filtra as inativadas (excluídas logicamente) para sumirem das tabelas e gráficos automaticamente
+            ordensServico = osData.filter(os => os.inativa !== 1 && os.inativa !== true);
+        }
 
         let queryFrota = supabaseClient.from('frotas_manutencao').select('*').order('cavalo', { ascending: true });
         if (typeof window.aplicarFiltroFilial === 'function') queryFrota = window.aplicarFiltroFilial(queryFrota);

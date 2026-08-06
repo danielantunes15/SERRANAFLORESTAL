@@ -167,7 +167,6 @@ window.carregarMotoristasSelectOS = async function() {
     try {
         let options = '<option value="">Selecione...</option>';
 
-        // ---> ALTERAÇÃO AQUI: Agora busca de rh_colaboradores para TODAS as categorias sem filtro de "GRUA" <---
         let query = supabaseClient.from('rh_colaboradores').select('nome').order('nome', { ascending: true });
         
         if (typeof window.aplicarFiltroFilial === 'function') {
@@ -184,7 +183,7 @@ window.carregarMotoristasSelectOS = async function() {
         }
 
         select.innerHTML = options;
-        select.dataset.categoriaCarregada = categoriaSelecionada; // Salva o estado para evitar loop desnecessário
+        select.dataset.categoriaCarregada = categoriaSelecionada; 
     } catch (error) {
         console.error("Erro ao carregar colaboradores para OS:", error);
         select.innerHTML = '<option value="">Erro ao carregar</option>';
@@ -200,7 +199,6 @@ window.mudarTipoReferenciaOS = function() {
     const wrapperMotorista = document.getElementById('wrapperMotorista');
     const wrapperHodometro = document.getElementById('wrapperHodometro');
     
-    // Garante que a lista de motoristas/operadores esteja de acordo com a Categoria
     if (typeof window.carregarMotoristasSelectOS === 'function') {
         window.carregarMotoristasSelectOS();
     }
@@ -274,14 +272,11 @@ window.carregarTiposOS = async function(categoriaSelecionada) {
         
         let options = '<option value="">Selecione a Classificação do Serviço...</option>';
         
-        // Formata a categoria selecionada (remove espaços e deixa tudo maiúsculo)
         const catSel = (categoriaSelecionada || '').trim().toUpperCase();
         
         classificacoes.forEach(c => {
-            // Formata a categoria vinda do banco de dados (remove espaços e deixa maiúsculo)
             const catDb = (c.categoria_veiculo || 'TODAS').trim().toUpperCase();
             
-            // Verifica se a categoria do banco é TODAS ou se é exatamente igual à selecionada
             if (catDb === 'TODAS' || catDb === catSel) {
                 let style = '';
                 if (c.nome.toUpperCase().includes('SINISTRO')) {
@@ -292,7 +287,7 @@ window.carregarTiposOS = async function(categoriaSelecionada) {
         });
         
         selectTipo.innerHTML = options;
-        tratarCamposDinamicos(); // re-checa caso S.O.S ou Borracharia mude
+        tratarCamposDinamicos(); 
     } catch (error) {
         console.error("Erro ao carregar tipos de O.S:", error);
         selectTipo.innerHTML = '<option value="">Erro ao carregar opções</option>';
@@ -434,8 +429,12 @@ window.salvarNovaOS = async function() {
     // --- LÓGICA DE SEQUÊNCIA POR FILIAL BASEADA ESTRITAMENTE NA COLUNA numero_os ---
     let maxNum = 0;
     
-    if (typeof ordensServico !== 'undefined' && ordensServico && ordensServico.length > 0) {
-        ordensServico.forEach(os => {
+    // ALTERAÇÃO: Utilizamos a lista 'ordensServicoTodas' para validar, 
+    // assim os números das O.S inativadas continuarão segurando a ordem numérica
+    let listaParaNum = (typeof ordensServicoTodas !== 'undefined' && ordensServicoTodas.length > 0) ? ordensServicoTodas : ordensServico;
+    
+    if (typeof listaParaNum !== 'undefined' && listaParaNum && listaParaNum.length > 0) {
+        listaParaNum.forEach(os => {
             // Puxa apenas a coluna numero_os. O id foi completamente ignorado.
             let num = parseInt(os.numero_os);
             if (!isNaN(num) && num > maxNum) {
@@ -468,11 +467,17 @@ window.salvarNovaOS = async function() {
 
 window.excluirOS = async function(id) {
     if(confirm("Excluir esta O.S.?")) {
-        // NOTA: O 'delete' via Supabase continua precisando do 'id' (Primary Key) para saber qual linha do banco excluir,
-        // mas isso não afeta a numeração sequencial (numero_os) que o usuário vê.
-        await supabaseClient.from('ordens_servico').delete().eq('id', id);
+        // ALTERAÇÃO PARA SOFT DELETE: Não executa delete(), executa um update() inativando a linha
+        const { error } = await supabaseClient.from('ordens_servico').update({ inativa: 1 }).eq('id', id);
+        
+        if(error) {
+            alert("Erro ao inativar O.S: " + error.message);
+            return;
+        }
+
         await carregarDadosOS();
         if(typeof renderizarTabelaHistoricoOS === 'function') renderizarTabelaHistoricoOS();
+        if(typeof renderizarTabelaOS === 'function') renderizarTabelaOS();
     }
 };
 
@@ -502,7 +507,7 @@ window.aceitarOS = async function(id) {
                     status: 'Em Manutenção',
                     mecanico: nomeMecanico
                 })
-                .eq('id', id); // O update usa o id primário, mas não altera o numero_os
+                .eq('id', id); 
 
             if (error) throw error;
 
