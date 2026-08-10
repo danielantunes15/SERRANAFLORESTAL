@@ -52,8 +52,8 @@ async function atualizarPonteiros() {
     let cavalosSinistrados = 0; 
 
     try {
-        // FILTRO OTIMIZADO: Busca apenas O.S. em andamento para não estourar limite do banco e evitar quebra por O.S. antigas
-        let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']);
+        // FILTRO OTIMIZADO: Busca apenas O.S. em andamento e ativas (inativa = 0)
+        let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']).eq('inativa', 0);
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData, error: osError } = await queryOS;
             
@@ -238,8 +238,8 @@ async function carregarFrotasParadas() {
         
         const listaCavalos = frotaData ? frotaData.map(f => f.cavalo.trim().toUpperCase()) : [];
 
-        // Incluído 'Sinistrado' para que ele entre na contagem visual também
-        let queryOS = supabaseClient.from('ordens_servico').select('placa, tipo, status').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']); 
+        // Incluído filtro de inativa = 0
+        let queryOS = supabaseClient.from('ordens_servico').select('placa, tipo, status').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']).eq('inativa', 0); 
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data, error } = await queryOS;
 

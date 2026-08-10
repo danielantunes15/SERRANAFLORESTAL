@@ -79,7 +79,8 @@ async function atualizarPonteirosSerrana() {
     let cavalosSinistrados = 0;
 
     try {
-        let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']);
+        // FILTRO OTIMIZADO: eq('inativa', 0) adicionado
+        let queryOS = supabaseClient.from('ordens_servico').select('placa, status, tipo').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']).eq('inativa', 0);
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData, error: osError } = await queryOS;
             
@@ -151,7 +152,8 @@ async function carregarFrotasParadasSerrana() {
         
         const listaCavalos = frotaData ? frotaData.map(f => f.cavalo.trim().toUpperCase()) : [];
 
-        let queryOS = supabaseClient.from('ordens_servico').select('placa, problema, status, tipo, data_abertura').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']);
+        // FILTRO OTIMIZADO: eq('inativa', 0) adicionado
+        let queryOS = supabaseClient.from('ordens_servico').select('placa, problema, status, tipo, data_abertura').in('status', ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado']).eq('inativa', 0);
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         const { data: osData } = await queryOS;
             
@@ -359,8 +361,10 @@ async function renderizarGraficoEvolucaoDmSerrana() {
             return;
         }
 
+        // FILTRO OTIMIZADO: eq('inativa', 0) adicionado
         let queryOS = supabaseClient.from('ordens_servico')
             .select('placa, data_abertura, data_conclusao, status, tipo')
+            .eq('inativa', 0)
             .neq('status', 'Agendada')
             .order('data_abertura', { ascending: false })
             .limit(5000);
