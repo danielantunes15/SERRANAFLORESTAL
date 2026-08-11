@@ -110,10 +110,11 @@ const ROTAS = {
     
     'recados': 'modules/ssma/recados/recados.html',
     
-    'relatorio_gerencial': 'modules/monitoramento/painel/relatorio_gerencial.html',
-    'indicadores': 'modules/indicadores/indicadores.html',
-    'indicadores_serrana': 'modules/indicadores/indicadores_serrana.html',
-    'cadastro_indicadores': 'modules/indicadores/cadastro_indicadores.html',
+    // ATUALIZAÇÃO: Caminhos das novas pastas do módulo de indicadores
+    'relatorio_gerencial': 'modules/indicadores/relatorio_gerencial/relatorio_gerencial.html',
+    'indicadores': 'modules/indicadores/painel_cliente/indicadores.html',
+    'indicadores_serrana': 'modules/indicadores/painel_serrana/indicadores_serrana.html',
+    'cadastro_indicadores': 'modules/indicadores/configuracoes/cadastro_indicadores.html',
     
     'gestao_filiais': 'modules/global/gestao_filiais.html',
     'auditoria_logs': 'modules/global/auditoria_logs.html',
@@ -366,7 +367,9 @@ window.navegarPara = async function(pagina, elementoClicado) {
             if (typeof window.renderizarGraficoEvolucaoDM === 'function') window.renderizarGraficoEvolucaoDM();
             if (typeof window.renderizarGraficoStatusFrotaHorario === 'function') window.renderizarGraficoStatusFrotaHorario();
             if (typeof window.renderizarGraficoEvolucaoDMDiaria === 'function') window.renderizarGraficoEvolucaoDMDiaria();
+            if (typeof window.renderizarGraficoEvolucaoDMDiariaGrua === 'function') window.renderizarGraficoEvolucaoDMDiariaGrua();
             if (typeof window.renderizarDMIndividual === 'function') window.renderizarDMIndividual();
+            if (typeof window.renderizarDMIndividualGrua === 'function') window.renderizarDMIndividualGrua();
         }
 
         if (pagina === 'visao_geral' && typeof window.carregarDadosDashboardAnalitico === 'function') window.carregarDadosDashboardAnalitico();
