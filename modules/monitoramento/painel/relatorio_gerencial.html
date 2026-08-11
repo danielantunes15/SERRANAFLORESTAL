@@ -28,6 +28,7 @@
         if(typeof renderizarGraficoEvolucaoDM === 'function') renderizarGraficoEvolucaoDM();
         if(typeof renderizarGraficoStatusFrotaHorario === 'function') renderizarGraficoStatusFrotaHorario();
         if(typeof renderizarGraficoEvolucaoDMDiaria === 'function') renderizarGraficoEvolucaoDMDiaria();
+        if(typeof renderizarGraficoEvolucaoDMDiariaGrua === 'function') renderizarGraficoEvolucaoDMDiariaGrua();
         if(typeof renderizarDMIndividual === 'function') renderizarDMIndividual();
         
         const hiddenFiltroTabela = document.getElementById('filtroPeriodoDM');
@@ -114,7 +115,7 @@
     <div style="width: 100%; height: 350px; padding: 20px;" id="graficoEvolucaoDM"></div>
 </div>
 
-<!-- ================= PAINEL MODIFICADO: DM DIÁRIA COM MINI-KPIS ================= -->
+<!-- ================= PAINEL MODIFICADO: DM DIÁRIA TRITREM ================= -->
 <div class="content-panel" style="grid-column: 1 / -1; margin-bottom: 25px; border: 1px solid rgba(16, 185, 129, 0.3); background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border-radius: 16px; overflow: hidden;">
     <div class="panel-header" style="padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; gap: 10px;">
         <h3 style="color: #10b981; margin: 0; display: flex; align-items: center; gap: 10px;">
@@ -152,6 +153,45 @@
 
     <!-- Gráfico com altura de 400px para ficar mais alto -->
     <div style="width: 100%; height: 400px; padding: 20px;" id="graficoEvolucaoDMDiaria"></div>
+</div>
+
+<!-- ================= PAINEL NOVO: DM DIÁRIA GRUA ================= -->
+<div class="content-panel" style="grid-column: 1 / -1; margin-bottom: 25px; border: 1px solid rgba(234, 179, 8, 0.3); background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border-radius: 16px; overflow: hidden;">
+    <div class="panel-header" style="padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; gap: 10px;">
+        <h3 style="color: #eab308; margin: 0; display: flex; align-items: center; gap: 10px;">
+            <span style="width: 8px; height: 8px; background: #eab308; border-radius: 50%;"></span>
+            Evolução Diária da Disponibilidade Mecânica - GRUA (Média DM/Dia)
+        </h3>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <span style="color: #94a3b8; font-size: 0.85rem; font-weight: 600;">Filtrar Mês:</span>
+            <select id="filtroMesEvolucaoDMDiariaGrua" class="dark-select" onchange="if(typeof renderizarGraficoEvolucaoDMDiariaGrua === 'function') renderizarGraficoEvolucaoDMDiariaGrua()" style="background: #1e293b; border: 1px solid #334155; color: white; padding: 5px 12px; border-radius: 6px; height: 34px; font-size: 0.9rem; outline: none; cursor: pointer;">
+                <!-- Preenchido via JS -->
+            </select>
+            <button class="btn-secondary-dark" onclick="exportarGraficoPNG('graficoEvolucaoDMDiariaGrua', 'Evolucao_DM_Diaria_Grua')" style="border-radius: 6px; background: #334155; padding: 5px 12px; font-size: 0.8rem; height: 32px;">Exportar</button>
+        </div>
+    </div>
+    
+    <!-- BARRA DE MINI KPIs DO MÊS SELECIONADO -->
+    <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; padding: 15px 20px; background: rgba(0,0,0,0.25); border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <div style="text-align: center; flex: 1; min-width: 150px;">
+            <span style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold;">Média DM do Período</span><br>
+            <span id="kpiMiniDMGrua" style="color: #eab308; font-size: 1.5rem; font-weight: 900;">0%</span>
+        </div>
+        <div style="text-align: center; flex: 1; min-width: 150px; border-left: 1px dashed rgba(255,255,255,0.1);">
+            <span style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold;">Total de O.S. (Período)</span><br>
+            <span id="kpiMiniTotalOSGrua" style="color: #fff; font-size: 1.5rem; font-weight: 900;">0</span>
+        </div>
+        <div style="text-align: center; flex: 1; min-width: 150px; border-left: 1px dashed rgba(255,255,255,0.1);">
+            <span style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold;">O.S. Concluídas</span><br>
+            <span id="kpiMiniConcluidasGrua" style="color: #3b82f6; font-size: 1.5rem; font-weight: 900;">0</span>
+        </div>
+        <div style="text-align: center; flex: 1; min-width: 150px; border-left: 1px dashed rgba(255,255,255,0.1);">
+            <span style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold;">Tempo Médio Conclusão</span><br>
+            <span id="kpiMiniTempoGrua" style="color: #a855f7; font-size: 1.5rem; font-weight: 900;">0h 0m</span>
+        </div>
+    </div>
+
+    <div style="width: 100%; height: 400px; padding: 20px;" id="graficoEvolucaoDMDiariaGrua"></div>
 </div>
 
 <div class="content-panel" style="grid-column: 1 / -1; margin-bottom: 25px; border: 1px solid rgba(245, 158, 11, 0.5); background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-radius: 16px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);">
