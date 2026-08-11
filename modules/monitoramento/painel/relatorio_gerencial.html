@@ -30,6 +30,7 @@
         if(typeof renderizarGraficoEvolucaoDMDiaria === 'function') renderizarGraficoEvolucaoDMDiaria();
         if(typeof renderizarGraficoEvolucaoDMDiariaGrua === 'function') renderizarGraficoEvolucaoDMDiariaGrua();
         if(typeof renderizarDMIndividual === 'function') renderizarDMIndividual();
+        if(typeof renderizarDMIndividualGrua === 'function') renderizarDMIndividualGrua();
         
         const hiddenFiltroTabela = document.getElementById('filtroPeriodoDM');
         if(hiddenFiltroTabela) {
@@ -115,7 +116,7 @@
     <div style="width: 100%; height: 350px; padding: 20px;" id="graficoEvolucaoDM"></div>
 </div>
 
-<!-- ================= PAINEL MODIFICADO: DM DIÁRIA TRITREM ================= -->
+<!-- ================= PAINEL DM DIÁRIA TRITREM ================= -->
 <div class="content-panel" style="grid-column: 1 / -1; margin-bottom: 25px; border: 1px solid rgba(16, 185, 129, 0.3); background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border-radius: 16px; overflow: hidden;">
     <div class="panel-header" style="padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; gap: 10px;">
         <h3 style="color: #10b981; margin: 0; display: flex; align-items: center; gap: 10px;">
@@ -131,7 +132,6 @@
         </div>
     </div>
     
-    <!-- BARRA DE MINI KPIs DO MÊS SELECIONADO -->
     <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; padding: 15px 20px; background: rgba(0,0,0,0.25); border-bottom: 1px solid rgba(255,255,255,0.05);">
         <div style="text-align: center; flex: 1; min-width: 150px;">
             <span style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold;">Média DM do Período</span><br>
@@ -151,11 +151,10 @@
         </div>
     </div>
 
-    <!-- Gráfico com altura de 400px para ficar mais alto -->
     <div style="width: 100%; height: 400px; padding: 20px;" id="graficoEvolucaoDMDiaria"></div>
 </div>
 
-<!-- ================= PAINEL NOVO: DM DIÁRIA GRUA ================= -->
+<!-- ================= PAINEL DM DIÁRIA GRUA ================= -->
 <div class="content-panel" style="grid-column: 1 / -1; margin-bottom: 25px; border: 1px solid rgba(234, 179, 8, 0.3); background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border-radius: 16px; overflow: hidden;">
     <div class="panel-header" style="padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; gap: 10px;">
         <h3 style="color: #eab308; margin: 0; display: flex; align-items: center; gap: 10px;">
@@ -171,7 +170,6 @@
         </div>
     </div>
     
-    <!-- BARRA DE MINI KPIs DO MÊS SELECIONADO -->
     <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; padding: 15px 20px; background: rgba(0,0,0,0.25); border-bottom: 1px solid rgba(255,255,255,0.05);">
         <div style="text-align: center; flex: 1; min-width: 150px;">
             <span style="color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; font-weight: bold;">Média DM do Período</span><br>
@@ -249,6 +247,7 @@
     <div style="width: 100%; height: 350px; padding: 20px;" id="graficoStatusFrotaHorario"></div>
 </div>
 
+<!-- ================= PAINEL DM INDIVIDUAL TRITREM ================= -->
 <div class="content-panel" style="grid-column: 1 / -1; margin-bottom: 20px; border: 1px solid #a855f7; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-radius: 16px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);">
     <div class="panel-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
         <h3 style="color: #a855f7; margin: 0; display: flex; align-items: center; gap: 10px;">
@@ -278,6 +277,39 @@
     </div>
     <div style="width: 100%; height: 350px; padding: 20px;" id="graficoDmIndividual">
         <div style="color:#94a3b8; display:flex; justify-content:center; align-items:center; height:100%; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; text-align:center;">Selecione um veículo para visualizar a DM no período global.</div>
+    </div>
+</div>
+
+<!-- ================= PAINEL DM INDIVIDUAL GRUA ================= -->
+<div class="content-panel" style="grid-column: 1 / -1; margin-bottom: 20px; border: 1px solid #eab308; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-radius: 16px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);">
+    <div class="panel-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <h3 style="color: #eab308; margin: 0; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-chart-area"></i> DM Específica por Frota - GRUA (Veículo)
+        </h3>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 5px; border-right: 1px solid rgba(255,255,255,0.1); padding-right: 10px;">
+                <span style="color: #94a3b8; font-size: 0.85rem;">De:</span>
+                <input type="date" id="dataInicioDMIndGrua" class="dark-select" style="background: #1e293b; border: 1px solid #334155; color: white; padding: 5px 8px; border-radius: 6px; height: 34px; font-size: 0.85rem; outline: none; cursor: pointer;">
+                <span style="color: #94a3b8; font-size: 0.85rem; margin-left: 5px;">Até:</span>
+                <input type="date" id="dataFimDMIndGrua" class="dark-select" style="background: #1e293b; border: 1px solid #334155; color: white; padding: 5px 8px; border-radius: 6px; height: 34px; font-size: 0.85rem; outline: none; cursor: pointer;">
+                <button class="btn-primary-blue" onclick="if(typeof renderizarDMIndividualGrua === 'function') renderizarDMIndividualGrua()" style="border-radius: 6px; background: #3b82f6; color: #fff; padding: 0 12px; font-size: 0.85rem; height: 34px; margin-left: 5px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s;" title="Filtrar por data" onmouseover="this.style.background='#2563eb';" onmouseout="this.style.background='#3b82f6';">
+                    <i class="fas fa-search"></i> Filtrar
+                </button>
+                <button class="btn-secondary-dark" onclick="document.getElementById('dataInicioDMIndGrua').value=''; document.getElementById('dataFimDMIndGrua').value=''; if(typeof renderizarDMIndividualGrua === 'function') renderizarDMIndividualGrua();" style="border-radius: 6px; background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 0 10px; font-size: 0.85rem; height: 34px; margin-left: 5px; border: 1px solid rgba(239, 68, 68, 0.5); cursor: pointer; transition: 0.3s;" title="Limpar Filtro de Datas" onmouseover="this.style.background='#ef4444'; this.style.color='#fff';" onmouseout="this.style.background='rgba(239, 68, 68, 0.2)'; this.style.color='#ef4444';">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <select id="filtroPlacaDMIndGrua" class="dark-select" style="background: #1e293b; border: 1px solid #334155; color: white; padding: 5px 12px; border-radius: 6px; height: 34px; font-size: 0.9rem;" onchange="if(typeof renderizarDMIndividualGrua === 'function') renderizarDMIndividualGrua()">
+                <option value="">Selecione uma GRUA...</option>
+            </select>
+            <div style="display: flex; gap: 5px;">
+                <button class="btn-secondary-dark" onclick="exportarGraficoPNG('graficoDmIndividualGrua', 'DM_Individual_Frota_Grua')" style="border-radius: 6px; background: #334155; padding: 6px 14px; font-size: 0.85rem; height: 34px; font-weight: 600;">Exportar PNG</button>
+                <button class="btn-primary-green" onclick="if(typeof exportarDMIndividualExcelGrua === 'function') exportarDMIndividualExcelGrua()" style="border-radius: 6px; padding: 6px 14px; font-size: 0.85rem; height: 34px; font-weight: 600;">Exportar Excel</button>
+            </div>
+        </div>
+    </div>
+    <div style="width: 100%; height: 350px; padding: 20px;" id="graficoDmIndividualGrua">
+        <div style="color:#94a3b8; display:flex; justify-content:center; align-items:center; height:100%; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; text-align:center;">Selecione uma GRUA para visualizar a DM no período global.</div>
     </div>
 </div>
 

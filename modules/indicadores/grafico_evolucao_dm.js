@@ -189,6 +189,7 @@ window.dispararFiltrosGlobais = function() {
     try { if(typeof renderizarGraficoEvolucaoDMDiariaGrua === 'function') renderizarGraficoEvolucaoDMDiariaGrua(); } catch(e){}
     try { if(typeof renderizarGraficoDMOperacional === 'function') renderizarGraficoDMOperacional(); } catch(e){}
     try { if(typeof renderizarDMIndividual === 'function') renderizarDMIndividual(); } catch(e){}
+    try { if(typeof renderizarDMIndividualGrua === 'function') renderizarDMIndividualGrua(); } catch(e){}
     
     const hiddenFiltroTabela = document.getElementById('filtroPeriodoDM');
     if(hiddenFiltroTabela) {
@@ -1169,6 +1170,22 @@ window.preencherSelectPlacasDM = function() {
     });
 };
 
+window.preencherSelectPlacasDMGrua = function() {
+    const select = document.getElementById('filtroPlacaDMIndGrua');
+    if (!select || !frotasManutencao || frotasManutencao.length === 0) return;
+    
+    if (select.options.length > 1) return;
+    // FILTRO GRUA E ATIVO APLICADO AO COMBOBOX
+    const placas = [...new Set(frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'GRUA').map(f => f.cavalo))].sort();
+    
+    placas.forEach(placa => {
+        const opt = document.createElement('option');
+        opt.value = placa;
+        opt.textContent = placa;
+        select.appendChild(opt);
+    });
+};
+
 window.renderizarDMIndividual = function() {
     try {
         const placa = document.getElementById('filtroPlacaDMInd').value;
@@ -1303,6 +1320,140 @@ window.renderizarDMIndividual = function() {
     }
 };
 
+window.renderizarDMIndividualGrua = function() {
+    try {
+        const placa = document.getElementById('filtroPlacaDMIndGrua').value;
+        const chartDom = document.getElementById('graficoDmIndividualGrua');
+        if(!chartDom) return;
+        if (!placa) {
+            chartDom.innerHTML = '<div style="color:#94a3b8; display:flex; justify-content:center; align-items:center; height:100%; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; text-align:center;">Selecione uma GRUA para visualizar a DM no período global.</div>';
+            if(chartDom.getAttribute('_echarts_instance_')) {
+                echarts.dispose(chartDom);
+            }
+            return;
+        }
+        let dataInicio, dataFim;
+        const inpInicio = document.getElementById('dataInicioDMIndGrua').value;
+        const inpFim = document.getElementById('dataFimDMIndGrua').value;
+        
+        const hoje = new Date();
+        hoje.setHours(23, 59, 59, 999);
+        if (inpInicio && inpFim) {
+            dataInicio = new Date(inpInicio + 'T00:00:00');
+            dataFim = new Date(inpFim + 'T23:59:59');
+        } else {
+            const globalFilter = window.getDatasFiltroGlobal ? window.getDatasFiltroGlobal() : { inicio: new Date(hoje.getFullYear(), hoje.getMonth(), 1), fim: hoje };
+            dataInicio = globalFilter.inicio;
+            dataFim = globalFilter.fim;
+        }
+        const labelsDias = [];
+        const dadosDM = [];
+        let atual = new Date(dataInicio);
+        const todasOSCavalo = ordensServico.filter(o => o.placa === placa && o.status !== 'Agendada' && o.tipo !== 'Cavalo Disponível S/ Carreta');
+        
+        // Pega a data de entrada do veículo selecionado
+        const infoFrota = frotasManutencao.find(f => f.cavalo === placa);
+        let frotaInicioStr = (infoFrota && infoFrota.data_inicial) ? infoFrota.data_inicial : '2026-04-01';
+        let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
+
+        while (atual <= dataFim) {
+            const inicioDia = new Date(atual.getFullYear(), atual.getMonth(), atual.getDate(), 0, 0, 0);
+            const fimDia = new Date(atual.getFullYear(), atual.getMonth(), atual.getDate(), 23, 59, 59, 999);
+            
+            let msTotalDia = 24 * 60 * 60 * 1000;
+            let fimParaCalculo = fimDia;
+            const ehHoje = (atual.toDateString() === new Date().toDateString());
+            if (ehHoje) {
+                const agora = new Date();
+                msTotalDia = agora - inicioDia;
+                fimParaCalculo = agora;
+            }
+            
+            // Só calcula se o caminhão já existia neste dia
+            if (dtEntradaVeiculo <= fimParaCalculo && msTotalDia > 0) {
+                let overlapDispInicio = dtEntradaVeiculo > inicioDia ? dtEntradaVeiculo : inicioDia;
+                let msValidoDia = fimParaCalculo - overlapDispInicio;
+
+                let msManutencaoDia = 0;
+                todasOSCavalo.forEach(os => {
+                    const osInicio = window.corrigirDataSupabase(os.data_abertura);
+                    if (!osInicio) return;
+                    
+                    let osFim = os.data_conclusao ? window.corrigirDataSupabase(os.data_conclusao) : new Date();
+                    
+                    let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
+                    const overlapInicio = inicioValido > inicioDia ? inicioValido : inicioDia;
+                    const overlapFim = osFim < fimParaCalculo ? osFim : fimParaCalculo;
+                    if (overlapInicio < overlapFim) {
+                        msManutencaoDia += (overlapFim - overlapInicio);
+                    }
+                });
+                if (msManutencaoDia > msValidoDia) msManutencaoDia = msValidoDia;
+                
+                let dispNoDiaMs = msValidoDia - msManutencaoDia;
+                if (dispNoDiaMs < 0) dispNoDiaMs = 0;
+                let percentDM = msValidoDia > 0 ? (dispNoDiaMs / msValidoDia) * 100 : 100;
+                
+                const diaStr = String(atual.getDate()).padStart(2, '0') + '/' + String(atual.getMonth() + 1).padStart(2, '0');
+                labelsDias.push(diaStr);
+                dadosDM.push(percentDM.toFixed(2));
+            } else {
+                // Caminhão não existia nesse dia
+                const diaStr = String(atual.getDate()).padStart(2, '0') + '/' + String(atual.getMonth() + 1).padStart(2, '0');
+                labelsDias.push(diaStr);
+                dadosDM.push(0); 
+            }
+            atual.setDate(atual.getDate() + 1);
+        }
+        if (typeof echarts === 'undefined') return;
+        let myChart = echarts.getInstanceByDom(chartDom);
+        if (!myChart) {
+            chartDom.innerHTML = ''; 
+            myChart = echarts.init(chartDom);
+        }
+        const option = {
+            backgroundColor: 'transparent',
+            tooltip: { trigger: 'axis', formatter: '{b} <br/> DM: <b>{c}%</b>' },
+            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+            xAxis: {
+                type: 'category',
+                boundaryGap: false,
+                data: labelsDias,
+                axisLabel: { color: '#ffffff', fontWeight: 'bold' }
+            },
+            yAxis: {
+                type: 'value',
+                min: 0,
+                max: 100,
+                axisLabel: { formatter: '{value}%', color: '#ffffff', fontWeight: 'bold' },
+                splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
+            },
+            series: [{
+                name: 'DM GRUA ' + placa,
+                type: 'line',
+                data: dadosDM,
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 8,
+                label: { show: true, position: 'top', formatter: '{c}%', color: '#eab308', fontSize: 13, fontWeight: 'bold' },
+                itemStyle: { color: '#eab308' }, 
+                lineStyle: { width: 4 },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(234, 179, 8, 0.4)' },
+                        { offset: 1, color: 'rgba(234, 179, 8, 0)' }
+                    ])
+                }
+            }]
+        };
+        myChart.setOption(option);
+        window.removeEventListener('resize', myChart.resize);
+        window.addEventListener('resize', () => myChart.resize());
+    } catch(e) {
+        console.error("Erro ao renderizar DM Individual Grua:", e);
+    }
+};
+
 window.exportarDMIndividualExcel = function() {
     const placa = document.getElementById('filtroPlacaDMInd').value;
     if (!placa) {
@@ -1334,6 +1485,37 @@ window.exportarDMIndividualExcel = function() {
     document.body.removeChild(link);
 };
 
+window.exportarDMIndividualExcelGrua = function() {
+    const placa = document.getElementById('filtroPlacaDMIndGrua').value;
+    if (!placa) {
+        alert('Selecione uma Grua primeiro no filtro para exportar.');
+        return;
+    }
+    
+    const chartDom = document.getElementById('graficoDmIndividualGrua');
+    const myChart = echarts.getInstanceByDom(chartDom);
+    
+    if (!myChart) {
+        alert('Nenhum dado disponível no gráfico para exportar.');
+        return;
+    }
+    const option = myChart.getOption();
+    const dias = option.xAxis[0].data;
+    const valores = option.series[0].data;
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Veiculo,Data,DM (%)\n";
+    for (let i = 0; i < dias.length; i++) {
+        csvContent += `${placa},${dias[i]},${valores[i]}\n`;
+    }
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `DM_GRUA_${placa}_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
 // =================================================================
 // INICIALIZAÇÃO E ATUALIZAÇÃO AUTOMÁTICA DOS GRÁFICOS
 // =================================================================
@@ -1341,6 +1523,9 @@ setInterval(() => {
     if (typeof frotasManutencao === 'undefined' || frotasManutencao.length === 0) return;
     if (typeof window.preencherSelectPlacasDM === 'function') {
         window.preencherSelectPlacasDM();
+    }
+    if (typeof window.preencherSelectPlacasDMGrua === 'function') {
+        window.preencherSelectPlacasDMGrua();
     }
     if (typeof window.preencherMesesDMDiaria === 'function') {
         window.preencherMesesDMDiaria();
@@ -1362,6 +1547,22 @@ setInterval(() => {
         chartDomDiariaGrua.setAttribute('data-rendered', 'true');
         if (typeof window.renderizarGraficoEvolucaoDMDiariaGrua === 'function') {
             window.renderizarGraficoEvolucaoDMDiariaGrua();
+        }
+    }
+
+    const chartDomInd = document.getElementById('graficoDmIndividual');
+    if (chartDomInd && chartDomInd.offsetWidth > 0 && !chartDomInd.getAttribute('data-rendered') && document.getElementById('filtroPlacaDMInd').value) {
+        chartDomInd.setAttribute('data-rendered', 'true');
+        if (typeof window.renderizarDMIndividual === 'function') {
+            window.renderizarDMIndividual();
+        }
+    }
+
+    const chartDomIndGrua = document.getElementById('graficoDmIndividualGrua');
+    if (chartDomIndGrua && chartDomIndGrua.offsetWidth > 0 && !chartDomIndGrua.getAttribute('data-rendered') && document.getElementById('filtroPlacaDMIndGrua').value) {
+        chartDomIndGrua.setAttribute('data-rendered', 'true');
+        if (typeof window.renderizarDMIndividualGrua === 'function') {
+            window.renderizarDMIndividualGrua();
         }
     }
     
