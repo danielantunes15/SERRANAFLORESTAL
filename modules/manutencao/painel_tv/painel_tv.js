@@ -263,8 +263,10 @@ window.iniciarRelogioTV = function() {
                 
                 // Busca APENAS O.S abertas OU as fechadas no dia de hoje (ignora o histórico pesado de meses)
                 // Busca APENAS as colunas vitais que a TV precisa mostrar para economizar bytes
+                // FILTRO INCLUÍDO AQUI: .eq('inativa', 0)
                 let query = window.supabaseClient.from('ordens_servico')
                     .select('id, numero_os, placa, tipo, status, prioridade, data_abertura, data_conclusao, previsao_entrega, previsao, mecanico_responsavel, mecanico, problema, motorista')
+                    .eq('inativa', 0)
                     .or(`status.neq.Concluída,data_conclusao.gte.${dataHojeStr}`);
 
                 if (typeof window.aplicarFiltroFilial === 'function') {
