@@ -27,8 +27,10 @@ async function carregarFiliaisDoBanco() {
              const { data } = await window.supabaseClient.from('filiais').select('*').eq('status', 'Ativa').order('nome', { ascending: true });
             listaFiliais = data || [];
         }
+        
         select.innerHTML = '<option value="" disabled selected>Selecione a Base/Filial...</option>';
         
+        // Adiciona as filiais normais primeiro
         listaFiliais.forEach(filial => {
             const option = document.createElement('option');
             option.value = filial.id;
@@ -36,7 +38,13 @@ async function carregarFiliaisDoBanco() {
             select.appendChild(option);
         });
 
-        // A OPÇÃO FIXA "ADMINISTRADOR" FOI REMOVIDA DAQUI PARA SEGURANÇA E CAMUFLAGEM
+        // ADICIONA A OPÇÃO GLOBAL PARA O SUPERADMIN NA TELA DE LOGIN POR ÚLTIMO
+        const optionGlobal = document.createElement('option');
+        optionGlobal.value = 'CENTRAL';
+        optionGlobal.textContent = 'ADMINISTRADOR';
+        optionGlobal.style.fontWeight = 'bold';
+        optionGlobal.style.color = '#ffffff'; // Letra branca
+        select.appendChild(optionGlobal);
 
     } catch (e) {
         console.error(e);
@@ -51,7 +59,6 @@ window.realizarLogin = async function(event) {
     const passStr = document.getElementById('loginPass').value;
     const btn = document.getElementById('btnLogin');
 
-    // A trava da filial continua ativa aqui
     if (!filialId) { alert('Por favor, selecione uma filial válida.'); return; }
     if(!userStr || !passStr) { alert('Preencha seu usuário e senha.'); return; }
 
@@ -122,20 +129,27 @@ window.realizarLogin = async function(event) {
         }
 
         if (dbUser) {
-            let nomeFilialFinal = "Base Geral";
-            let filialIdFinal = filialId;
-            const isGlobalAdmin = (dbUser.role === 'SuperAdmin') || (dbUser.role === 'Admin' && dbUser.filial_id === null);
-
             // ================= REGRAS DE SEGURANÇA E BLOQUEIO =================
-            // O isGlobalAdmin IGNORA ESSE BLOQUEIO (Permite logar camuflado em qualquer filial).
+            // Apenas o SuperAdmin é considerado global.
+            const isGlobalAdmin = (dbUser.role === 'SuperAdmin');
+
             if (!isGlobalAdmin && dbUser.filial_id != filialId) {
                 alert('Acesso Negado! Seu usuário não tem permissão para a filial selecionada.');
                 await window.supabaseClient.auth.signOut();
                 btn.innerHTML = prevText; btn.disabled = false; return;
             }
 
-            const filialSelecionada = listaFiliais.find(f => f.id == filialId);
-            if (filialSelecionada) nomeFilialFinal = filialSelecionada.nome;
+            let nomeFilialFinal = "Base Geral";
+            let filialIdFinal = filialId;
+
+            // Configura o acesso caso tenha escolhido a opção ADMINISTRADOR
+            if (filialId === 'CENTRAL') {
+                filialIdFinal = null; // null representa a visão global no sistema
+                nomeFilialFinal = "ADMINISTRADOR";
+            } else {
+                const filialSelecionada = listaFiliais.find(f => f.id == filialId);
+                if (filialSelecionada) nomeFilialFinal = filialSelecionada.nome;
+            }
 
             const sessaoData = {
                 id: dbUser.id,
