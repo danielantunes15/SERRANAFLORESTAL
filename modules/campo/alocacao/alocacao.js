@@ -117,6 +117,7 @@ window.renderizarPainelMaquinasCampo = function() {
         
         const theadGeral = `<thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Ciclo</th><th>Papel</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Início</th><th>Ação</th></tr></thead>`;
 
+        // 1. Renderiza os Líderes
         const lideres = membrosFrente.filter(op => op.funcao === 'Líder de Campo');
         if (lideres.length > 0) {
             html += `<div style="margin-bottom: 20px; background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; border-radius: 8px; padding: 10px;">
@@ -128,11 +129,15 @@ window.renderizarPainelMaquinasCampo = function() {
             html += `</tbody></table></div>`;
         }
         
+        // 2. Renderiza os Operadores por Máquina
         ['Máquina 1', 'Máquina 2', 'Máquina 3'].forEach(nomeMaq => {
             const numFrota = frente[nomeMaq === 'Máquina 1' ? 'numero_frota_1' : (nomeMaq === 'Máquina 2' ? 'numero_frota_2' : 'numero_frota_3')];
-            if (!numFrota && membrosFrente.filter(o => o.maquina_especifica === nomeMaq).length === 0) return; 
             
-            const operadores = membrosFrente.filter(op => op.maquina_especifica === nomeMaq && op.funcao === 'OPERADOR MANTENEDOR');
+            // Busca quem é desta máquina e NÃO é líder
+            const operadores = membrosFrente.filter(op => op.maquina_especifica === nomeMaq && op.funcao !== 'Líder de Campo');
+            
+            // Oculta a máquina apenas se não tiver frota E não tiver ninguém alocado (corrige sumiço)
+            if (!numFrota && operadores.length === 0) return; 
             
             operadores.sort((a,b) => {
                 const peso = o => ((o.turno || '').includes('06:00') ? 0 : 10) + (o.equipe === 'Fixo' ? 1 : 2);
@@ -152,15 +157,34 @@ window.renderizarPainelMaquinasCampo = function() {
             }
             html += `</tbody></table></div>`;
         });
+
+        // 3. O SEGREDO REVELADO: Operadores vinculados à Frente, mas sem Máquina (Nenhuma)
+        const operadoresSemMaquina = membrosFrente.filter(op => 
+            op.funcao !== 'Líder de Campo' && 
+            op.maquina_especifica !== 'Máquina 1' && 
+            op.maquina_especifica !== 'Máquina 2' && 
+            op.maquina_especifica !== 'Máquina 3'
+        );
+
+        if (operadoresSemMaquina.length > 0) {
+            html += `<div style="margin-bottom: 15px; background: rgba(249, 115, 22, 0.05); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: 8px; padding: 10px;">
+                <h4 style="color: #f97316; margin: 0 0 10px 0;"><i class="fas fa-exclamation-triangle"></i> Operadores nesta Frente sem Máquina (Selecione a Máquina ao lado)</h4>
+                <table style="width: 100%; border-collapse: collapse;">
+                    ${theadGeral}
+                    <tbody>`;
+            operadoresSemMaquina.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
+            html += `</tbody></table></div>`;
+        }
         
         html += `</div>`;
     });
     
+    // 4. Reservas Totais (Sem nenhuma frente)
     const reservas = window.equipeCampo.filter(op => !op.maquina_id);
     if (reservas.length > 0) {
         const theadGeral = `<thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Ciclo</th><th>Papel</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Início</th><th>Ação</th></tr></thead>`;
         html += `<div style="background: rgba(239, 68, 68, 0.1); border: 2px solid #ef4444; border-radius: 10px; padding: 15px;">
-            <h2 style="color: #ef4444; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(239, 68, 68, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-exclamation-triangle"></i> Sem Frente Definida (Reservas)</h2>
+            <h2 style="color: #ef4444; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(239, 68, 68, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-users-slash"></i> Sem Frente Definida (Reservas Globais)</h2>
             <table style="width: 100%; border-collapse: collapse;">
                 ${theadGeral}
             <tbody>`;
@@ -180,6 +204,16 @@ window.salvarAlocacaoLinha = async function(id) {
     const maqEspec = document.getElementById(`aloc_maqesp_${id}`).value;
     const dataAncora = document.getElementById(`aloc_data_${id}`).value;
     
+    if (!dataAncora) {
+        alert("Atenção: A 'Data Início' é obrigatória para calcular a Escala corretamente.\nPor favor, preencha o campo de Data antes de salvar.");
+        return; 
+    }
+    
+    if (!frente) {
+        const confirmar = confirm("Aviso: Nenhuma 'Frente' foi selecionada.\n\nEste colaborador será movido para o quadro de 'Reservas / Sem Frente Definida' no final da página.\nDeseja continuar?");
+        if (!confirmar) return; 
+    }
+
     const payload = {
         funcao: funcao,
         tipo_escala: tipoEscala,
@@ -259,6 +293,16 @@ window.salvarAlocacaoRapida = async function() {
     const turno = document.getElementById('alocFormTurno').value;
     const dataAncora = document.getElementById('alocFormDataAncora').value;
     
+    if (!dataAncora) {
+        alert("Atenção: A 'Data Inicial' (Data Âncora) é obrigatória para calcular a Escala corretamente.\nPor favor, informe a data.");
+        return; 
+    }
+
+    if (!maqId) {
+        const confirmar = confirm("Aviso: Nenhuma 'Frente Vinculada' foi selecionada.\n\nEste colaborador será salvo como 'Reserva' (Sem Frente).\nDeseja continuar?");
+        if (!confirmar) return; 
+    }
+
     const payload = {
         funcao: funcao,
         tipo_escala: tipoEscala,
