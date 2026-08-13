@@ -5,21 +5,18 @@ window.permissoesGlobais = null;
 
 window.fazerLogout = async function() {
     if(confirm('Deseja realmente sair do sistema?')) {
-        // 1. Tenta deslogar do servidor (Supabase), se houver sessão ativa
         try {
             await window.supabaseClient.auth.signOut();
         } catch (e) {
             console.error("Erro ao deslogar do servidor de autenticação:", e);
         }
 
-        // 2. Registra na auditoria
         try {
             if (typeof window.registrarLogAuditoria === 'function') {
                 await window.registrarLogAuditoria('Autenticação', 'Logout', 'O usuário encerrou a sessão no sistema manualmente.', 'Info');
             }
         } catch (e) { console.error(e); }
         
-        // 3. Limpa o navegador e redireciona
         localStorage.removeItem('ccol_user_session');
         window.currentUser = null;
         window.location.href = 'login.html'; 
@@ -37,11 +34,13 @@ window.trocarFilialSuperAdmin = async function(novoFilialIdRaw) {
     }
 
     if (typeof window.registrarLogAuditoria === 'function') {
-        await window.registrarLogAuditoria('Sistema', 'Troca de Contexto', `O SuperAdmin trocou o acesso para a visualização da: ${nomeFilial}`, 'Alerta');
+        await window.registrarLogAuditoria('Sistema', 'Troca de Contexto', `O Administrador trocou o acesso para a visualização da: ${nomeFilial}`, 'Alerta');
     }
 
     window.currentUser.filial_id = filial_id;
     window.currentUser.filiais = { nome: nomeFilial };
+    // Preserva o poder global mesmo após mudar de filial
+    window.currentUser.is_global_session = true; 
     localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
     window.location.reload();
 }
@@ -55,7 +54,15 @@ async function iniciarSistemaAutorizado() {
     
     const roleSpan = document.getElementById('loggedUserRole');
 
-    if (window.currentUser.role === 'SuperAdmin') {
+    // Libera o seletor para Admin, SuperAdmin ou qualquer usuário criado na base Corporativa (null)
+    const isGlobalUser = (
+        window.currentUser.role === 'SuperAdmin' || 
+        window.currentUser.role === 'Admin' || 
+        window.currentUser.filial_id === null || 
+        window.currentUser.is_global_session === true
+    );
+
+    if (isGlobalUser) {
         db.getFiliais().then(filiais => {
             let options = `<option value="CENTRAL" ${window.currentUser.filial_id === null ? 'selected' : ''}>ADMINISTRADOR</option>`;
             filiais.forEach(f => {
@@ -84,7 +91,6 @@ async function iniciarSistemaAutorizado() {
     const permissoesDoBanco = await db.getPermissoesDB();
     window.permissoesGlobais = { ...permissoesPadrao, ...permissoesDoBanco };
 
-    // --- REGISTRO DE LOGIN NA AUDITORIA (CAPTURA DE IP) ---
     try {
         const resp = await fetch('https://api.ipify.org?format=json');
         const data = await resp.json();
@@ -96,7 +102,6 @@ async function iniciarSistemaAutorizado() {
             window.registrarLogAuditoria('Autenticação', 'Login de Acesso', 'Usuário iniciou uma nova sessão no sistema (IP bloqueado pelo firewall).', 'Info');
         }
     }
-    // -----------------------------------------------------
 
     if (typeof initDashboard === 'function') { await initDashboard(); }
     if (typeof window.iniciarSistema === 'function') { window.iniciarSistema(); }
@@ -105,17 +110,14 @@ async function iniciarSistemaAutorizado() {
 document.addEventListener('DOMContentLoaded', async () => {
     const sessaoSalva = localStorage.getItem('ccol_user_session');
     
-    // Sem LocalStorage? Redireciona na hora.
     if (!sessaoSalva) {
         window.location.href = 'login.html';
         return;
     }
 
-    // Carrega o usuário da sessão local (Permite o Plano B funcionar)
     window.currentUser = JSON.parse(sessaoSalva);
     
     try {
-        // Validação de segurança legada contra a tabela
         const dbUser = await db.getUsuarioByUsername(window.currentUser.username);
         
         if (!dbUser) {

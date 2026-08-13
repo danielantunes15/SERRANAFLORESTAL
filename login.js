@@ -130,21 +130,23 @@ window.realizarLogin = async function(event) {
 
         if (dbUser) {
             // ================= REGRAS DE SEGURANÇA E BLOQUEIO =================
-            // Apenas o SuperAdmin é considerado global.
             const isGlobalAdmin = (dbUser.role === 'SuperAdmin');
+            
+            // CONVERSÃO DE ACESSO CORPORATIVO:
+            // Transforma o 'CENTRAL' da tela em null para bater perfeitamente com o banco de dados
+            const filialIdComparacao = (filialId === 'CENTRAL') ? null : filialId;
 
-            if (!isGlobalAdmin && dbUser.filial_id != filialId) {
+            // A trava agora entende que um usuário global pode entrar na base global
+            if (!isGlobalAdmin && dbUser.filial_id != filialIdComparacao) {
                 alert('Acesso Negado! Seu usuário não tem permissão para a filial selecionada.');
                 await window.supabaseClient.auth.signOut();
                 btn.innerHTML = prevText; btn.disabled = false; return;
             }
 
             let nomeFilialFinal = "Base Geral";
-            let filialIdFinal = filialId;
+            let filialIdFinal = filialIdComparacao; 
 
-            // Configura o acesso caso tenha escolhido a opção ADMINISTRADOR
             if (filialId === 'CENTRAL') {
-                filialIdFinal = null; // null representa a visão global no sistema
                 nomeFilialFinal = "ADMINISTRADOR";
             } else {
                 const filialSelecionada = listaFiliais.find(f => f.id == filialId);

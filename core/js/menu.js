@@ -110,7 +110,6 @@ const ROTAS = {
     
     'recados': 'modules/ssma/recados/recados.html',
     
-    // ATUALIZAÇÃO: Caminhos das novas pastas do módulo de indicadores
     'relatorio_gerencial': 'modules/indicadores/relatorio_gerencial/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/painel_cliente/indicadores.html',
     'indicadores_serrana': 'modules/indicadores/painel_serrana/indicadores_serrana.html',
@@ -158,7 +157,7 @@ window.renderizarMenu = async function() {
         permissoesAtuais = window.getPermissoes();
     }
 
-    const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
+    const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Operacional';
     const userKey = currentUser ? 'user_' + currentUser.id : '';
     const cargoKey = (currentUser && currentUser.cargo_id) ? currentUser.cargo_id.toString() : null;
 
@@ -173,13 +172,15 @@ window.renderizarMenu = async function() {
         meusMenus = permissoesAtuais[userKey];
     }
     
-    if (userRole === 'Admin' || userRole === 'SuperAdmin') {
+    // NOVA LÓGICA DE SUPERADMIN / GLOBAL - Libera acesso a tudo para a base matriz
+    const isGlobalAdmin = (currentUser && (currentUser.role === 'SuperAdmin' || currentUser.filial_id === null || currentUser.is_global_session === true));
+    const isAdmin = isGlobalAdmin || userRole === 'Admin';
+    const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
+
+    if (isAdmin) {
         if (!meusMenus.includes('tarifador')) meusMenus.push('tarifador');
     }
     
-    const isAdmin = userRole === 'Admin' || userRole === 'SuperAdmin';
-    const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
-
     let navHtml = '<nav class="main-nav">';
     
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
@@ -265,7 +266,8 @@ window.fecharDropdown = function(dropdownElement) {
 };
 
 window.navegarPara = async function(pagina, elementoClicado) {
-    const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Admin';
+    const isGlobalAdmin = (currentUser && (currentUser.role === 'SuperAdmin' || currentUser.filial_id === null || currentUser.is_global_session === true));
+    const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Operacional';
 
     if (elementoClicado) {
         document.querySelectorAll('.nav-item, .dropdown-item').forEach(el => el.classList.remove('active'));
