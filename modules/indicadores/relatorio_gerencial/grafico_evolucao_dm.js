@@ -19,7 +19,7 @@ window.corrigirDataSupabase = window.corrigirDataSupabase || function(dateStr) {
     
     const d = new Date(str);
     return isNaN(d.getTime()) ? null : d;
-};
+}
 
 window.getDatasFiltroGlobal = function() {
     const selectFiltro = document.getElementById('filtroGlobalPeriodo');
@@ -30,8 +30,9 @@ window.getDatasFiltroGlobal = function() {
     
     let fim = new Date();
     fim.setHours(23,59,59,999);
+
     if (filtro === 'dia_atual') {
-        // inicio já é hoje às 00:00
+        // início já hoje às 00:00
     } else if (filtro === 'semana_atual') {
         inicio.setDate(inicio.getDate() - inicio.getDay());
     } else if (filtro === 'mes_atual') {
@@ -40,8 +41,9 @@ window.getDatasFiltroGlobal = function() {
         let d = parseInt(filtro) || 30;
         inicio.setDate(inicio.getDate() - d + 1);
     }
+
     return { inicio: inicio, fim: fim, valorBruto: filtro };
-};
+}
 
 window.atualizarKPIsGlobais = function() {
     try {
@@ -87,6 +89,7 @@ window.atualizarKPIsGlobais = function() {
         
         let taxaConclusao = totalOS > 0 ? ((concluidasOS / totalOS) * 100).toFixed(1) : 0;
         let tempoMedioStr = '0h 0m';
+
         if (osComTempo > 0) {
             let mediaMs = msTotalTempo / osComTempo;
             let mediaHoras = Math.floor(mediaMs / (1000 * 60 * 60));
@@ -99,6 +102,7 @@ window.atualizarKPIsGlobais = function() {
         const elKpiConcluidas = document.getElementById('kpiConcluidasOS');
         const elKpiTaxa = document.getElementById('kpiTaxaOS');
         const elKpiTempo = document.getElementById('kpiTempoMedioOS');
+
         if(elKpiTotal) elKpiTotal.innerText = totalOS;
         if(elKpiAbertas) elKpiAbertas.innerText = abertasOS;
         if(elKpiConcluidas) elKpiConcluidas.innerText = concluidasOS;
@@ -129,6 +133,7 @@ window.atualizarKPIsGlobais = function() {
             }
             
             const todasOSCavalo = ordensServico.filter(o => o.placa === frota.cavalo && o.status !== 'Agendada' && o.tipo !== 'Cavalo Disponível S/ Carreta');
+
             todasOSCavalo.forEach(os => {
                 const osInicio = window.corrigirDataSupabase(os.data_abertura);
                 if (!osInicio) return;
@@ -145,6 +150,7 @@ window.atualizarKPIsGlobais = function() {
                     const tipoOS = (os.tipo || os.tipo_manutencao || '').toUpperCase();
                     const descOS = (os.descricao || '').toUpperCase();
                     const prioridadeOS = (os.prioridade || '').toUpperCase();
+
                     if (
                         tipoOS.includes('S.O.S') || tipoOS.includes('SOS') || tipoOS.includes('SOCORRO') ||
                         descOS.includes('S.O.S') || descOS.includes('SOS') || descOS.includes('SOCORRO') ||
@@ -165,6 +171,7 @@ window.atualizarKPIsGlobais = function() {
         const mediaAtivosReal = Math.round(dispNoPeriodoMs / msTotalPeriodo);
         const mediaManutReal = Math.round(msManutencaoComum / msTotalPeriodo);
         const mediaSOSReal = Math.round(msSOS / msTotalPeriodo);
+
         const percentDMReal = totalMsDisponivelPeriodo > 0 ? (dispNoPeriodoMs / totalMsDisponivelPeriodo) * 100 : 100;
         
         const elAvgDM = document.getElementById('avgDM');
@@ -176,10 +183,11 @@ window.atualizarKPIsGlobais = function() {
         if(elAvgAtivos) elAvgAtivos.innerText = mediaAtivosReal;
         if(elAvgManut) elAvgManut.innerText = mediaManutReal;
         if(elAvgSOS) elAvgSOS.innerText = mediaSOSReal;
+
     } catch(e) {
         console.error("Erro ao atualizar KPIs Globais:", e);
     }
-};
+}
 
 window.dispararFiltrosGlobais = function() {
     try { if(typeof atualizarKPIsGlobais === 'function') atualizarKPIsGlobais(); } catch(e){}
@@ -200,7 +208,7 @@ window.dispararFiltrosGlobais = function() {
         hiddenFiltroTabela.value = val;
         try { if(typeof renderizarRelatorioDM === 'function') renderizarRelatorioDM(); } catch(e){}
     }
-};
+}
 
 window.preencherMesesDMDiaria = function() {
     const select = document.getElementById('filtroMesEvolucaoDMDiaria');
@@ -217,7 +225,6 @@ window.preencherMesesDMDiaria = function() {
 
     ordensServico.forEach(os => {
         if (!os.placa || !cavalosValidos.includes(os.placa)) return; // FILTRO TRITREM
-
         if (os.data_abertura && os.status !== 'Agendada') {
             const data = window.corrigirDataSupabase(os.data_abertura);
             if (data && !isNaN(data.getTime())) {
@@ -229,6 +236,7 @@ window.preencherMesesDMDiaria = function() {
     });
 
     mesesDisponiveis.add(mesAtualKey); 
+
     const mesesOrdenados = Array.from(mesesDisponiveis).sort((a, b) => b.localeCompare(a)); 
     const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
@@ -251,7 +259,7 @@ window.preencherMesesDMDiaria = function() {
             select.value = valAnterior;
         }
     }
-};
+}
 
 window.preencherMesesDMDiariaGrua = function() {
     const select = document.getElementById('filtroMesEvolucaoDMDiariaGrua');
@@ -268,7 +276,6 @@ window.preencherMesesDMDiariaGrua = function() {
 
     ordensServico.forEach(os => {
         if (!os.placa || !cavalosValidos.includes(os.placa)) return; // FILTRO GRUA
-
         if (os.data_abertura && os.status !== 'Agendada') {
             const data = window.corrigirDataSupabase(os.data_abertura);
             if (data && !isNaN(data.getTime())) {
@@ -280,6 +287,7 @@ window.preencherMesesDMDiariaGrua = function() {
     });
 
     mesesDisponiveis.add(mesAtualKey); 
+
     const mesesOrdenados = Array.from(mesesDisponiveis).sort((a, b) => b.localeCompare(a)); 
     const nomesMeses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
@@ -302,7 +310,7 @@ window.preencherMesesDMDiariaGrua = function() {
             select.value = valAnterior;
         }
     }
-};
+}
 
 window.renderizarGraficoEvolucaoDM = function() {
     try {
@@ -311,14 +319,17 @@ window.renderizarGraficoEvolucaoDM = function() {
         const agora = new Date();
         let dataBase = new Date(); 
         let ehHoje = true;
+
         const labelsX = [];
         const dadosLinhaDM = [];
+
         const msPorHora = 60 * 60 * 1000;
         
         let horaLimite = 23;
         if (ehHoje) {
             horaLimite = agora.getHours();
         }
+
         for (let i = 0; i <= horaLimite; i++) {
             const inicioHora = new Date(dataBase.getFullYear(), dataBase.getMonth(), dataBase.getDate(), i, 0, 0, 0);
             const fimHora = new Date(dataBase.getFullYear(), dataBase.getMonth(), dataBase.getDate(), i, 59, 59, 999);
@@ -350,6 +361,7 @@ window.renderizarGraficoEvolucaoDM = function() {
                     let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
                     const overlapInicio = inicioValido > inicioHora ? inicioValido : inicioHora;
                     const overlapFim = osFim < fimHora ? osFim : fimHora;
+
                     if (overlapInicio < overlapFim) {
                         manutencaoCavalo += (overlapFim - overlapInicio);
                     }
@@ -363,14 +375,17 @@ window.renderizarGraficoEvolucaoDM = function() {
             if(dispNestaHora < 0) dispNestaHora = 0;
             
             let percentDM = totalMsDisponivelNestaHora > 0 ? (dispNestaHora / totalMsDisponivelNestaHora) * 100 : 100;
+
             labelsX.push(`${String(i).padStart(2,'0')}:00`);
             dadosLinhaDM.push(percentDM.toFixed(2));
         }
+
         if (typeof echarts === 'undefined') return;
         const chartDomLinha = document.getElementById('graficoEvolucaoDM');
         if (chartDomLinha) {
             let myChartLinha = echarts.getInstanceByDom(chartDomLinha);
             if (!myChartLinha) myChartLinha = echarts.init(chartDomLinha);
+
             const optionLinha = {
                 backgroundColor: 'transparent',
                 tooltip: { trigger: 'axis', formatter: '{b} <br/> DM Geral: {c}%' },
@@ -406,13 +421,14 @@ window.renderizarGraficoEvolucaoDM = function() {
                     }
                 }]
             };
+
             myChartLinha.setOption(optionLinha);
             window.addEventListener('resize', () => myChartLinha.resize());
         }
     } catch(e) {
         console.error("Erro na DM Evolução Diária:", e);
     }
-};
+}
 
 window.renderizarGraficoStatusFrotaHorario = function() {
     try {
@@ -421,6 +437,7 @@ window.renderizarGraficoStatusFrotaHorario = function() {
         const agora = new Date();
         let dataBase = new Date(); 
         let ehHoje = true;
+
         const inputData = document.getElementById('filtroDataEspecificaHoraria');
         if (inputData && inputData.value) {
             const partesData = inputData.value.split('-');
@@ -435,14 +452,18 @@ window.renderizarGraficoStatusFrotaHorario = function() {
             const diaStr = String(agora.getDate()).padStart(2, '0');
             inputData.value = `${agora.getFullYear()}-${mesStr}-${diaStr}`;
         }
+
         const labelsX = [];
         const dadosBarraAtivos = [];
         const dadosBarraManut = [];
         const dadosBarraSOS = [];
+        const dadosBarraGruaDisp = []; // NOVAS GRUAS
+
         let horaLimite = 23;
         if (ehHoje) {
             horaLimite = agora.getHours();
         }
+
         for (let i = 0; i <= horaLimite; i++) {
             const inicioHora = new Date(dataBase.getFullYear(), dataBase.getMonth(), dataBase.getDate(), i, 0, 0, 0);
             const fimHora = new Date(dataBase.getFullYear(), dataBase.getMonth(), dataBase.getDate(), i, 59, 59, 999);
@@ -451,18 +472,21 @@ window.renderizarGraficoStatusFrotaHorario = function() {
             let qtdEmManutencao = 0;
             let qtdEmSOS = 0;
             
+            let qtdGruaDisp = 0;
+            
             frotasManutencao.forEach(frota => {
-                // FILTRO TRITREM E ATIVO
-                if(frota.status !== 'Ativo' || !frota.categoria || frota.categoria.toUpperCase() !== 'TRITREM') return;
+                // FILTRO TRITREM E GRUA ATIVOS
+                if(frota.status !== 'Ativo' || !frota.categoria) return;
+                const cat = frota.categoria.toUpperCase();
+                if(cat !== 'TRITREM' && cat !== 'GRUA') return;
                 
                 let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
                 let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
                 if (dtEntradaVeiculo > fimHora) return; // Não existia ainda
                 
-                qtdFrotaAtivaHora++;
-                
                 let teveManutencaoComum = false;
                 let teveSOS = false;
+
                 const todasOSCavalo = ordensServico.filter(o => o.placa === frota.cavalo && o.tipo !== 'Cavalo Disponível S/ Carreta');
                 
                 todasOSCavalo.forEach(os => {
@@ -474,10 +498,12 @@ window.renderizarGraficoStatusFrotaHorario = function() {
                     let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
                     const overlapInicio = inicioValido > inicioHora ? inicioValido : inicioHora;
                     const overlapFim = osFim < fimHora ? osFim : fimHora;
+
                     if (overlapInicio < overlapFim && os.status !== 'Agendada') {
                         const tipoOS = (os.tipo || os.tipo_manutencao || '').toUpperCase();
                         const descOS = (os.descricao || '').toUpperCase();
                         const prioridadeOS = (os.prioridade || '').toUpperCase();
+
                         if (
                             tipoOS.includes('S.O.S') || tipoOS.includes('SOS') || tipoOS.includes('SOCORRO') ||
                             descOS.includes('S.O.S') || descOS.includes('SOS') || descOS.includes('SOCORRO') ||
@@ -489,23 +515,35 @@ window.renderizarGraficoStatusFrotaHorario = function() {
                         }
                     }
                 });
-                if (teveSOS) {
-                    qtdEmSOS++;
-                } else if (teveManutencaoComum) {
-                    qtdEmManutencao++;
+
+                if (cat === 'TRITREM') {
+                    qtdFrotaAtivaHora++;
+                    if (teveSOS) {
+                        qtdEmSOS++;
+                    } else if (teveManutencaoComum) {
+                        qtdEmManutencao++;
+                    }
+                } else if (cat === 'GRUA') {
+                    if (!teveSOS && !teveManutencaoComum) {
+                        qtdGruaDisp++;
+                    }
                 }
             });
+
             let qtdAtivos = qtdFrotaAtivaHora - qtdEmManutencao - qtdEmSOS;
             if (qtdAtivos < 0) qtdAtivos = 0;
+
             labelsX.push(`${String(i).padStart(2,'0')}:00`);
             dadosBarraAtivos.push(qtdAtivos);
             dadosBarraManut.push(qtdEmManutencao);
             dadosBarraSOS.push(qtdEmSOS);
+            dadosBarraGruaDisp.push(qtdGruaDisp);
         }
         
         let msTotalDiaCalc = 24 * 60 * 60 * 1000;
         let inicioDiaCalc = new Date(dataBase.getFullYear(), dataBase.getMonth(), dataBase.getDate(), 0, 0, 0, 0);
         let fimParaCalculoTotal = new Date(dataBase.getFullYear(), dataBase.getMonth(), dataBase.getDate(), 23, 59, 59, 999);
+        
         if (ehHoje) {
             msTotalDiaCalc = agora - inicioDiaCalc;
             fimParaCalculoTotal = agora;
@@ -516,20 +554,25 @@ window.renderizarGraficoStatusFrotaHorario = function() {
             let msManutencaoComumDia = 0;
             let msSOSDia = 0;
             
-            // Variáveis para contar os veículos totais (ao invés de médias)
             let totalVeiculosManutencaoDia = 0;
             let totalVeiculosSOSDia = 0;
+
+            // Para as gruas
+            let totalMsDisponivelDiaGrua = 0;
+            let msManutencaoGruaDia = 0;
             
             frotasManutencao.forEach(frota => {
-                // FILTRO TRITREM E ATIVO
-                if(frota.status !== 'Ativo' || !frota.categoria || frota.categoria.toUpperCase() !== 'TRITREM') return;
+                if(frota.status !== 'Ativo' || !frota.categoria) return;
+                const cat = frota.categoria.toUpperCase();
+                if(cat !== 'TRITREM' && cat !== 'GRUA') return;
                 
                 let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
                 let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
                 
                 let overlapDispInicio = dtEntradaVeiculo > inicioDiaCalc ? dtEntradaVeiculo : inicioDiaCalc;
+                let tempoDisp = 0;
                 if (overlapDispInicio < fimParaCalculoTotal) {
-                    totalMsDisponivelDia += (fimParaCalculoTotal - overlapDispInicio);
+                    tempoDisp = (fimParaCalculoTotal - overlapDispInicio);
                 }
 
                 let manutComumCavalo = 0;
@@ -545,10 +588,12 @@ window.renderizarGraficoStatusFrotaHorario = function() {
                     let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
                     const overlapInicio = inicioValido > inicioDiaCalc ? inicioValido : inicioDiaCalc;
                     const overlapFim = osFim < fimParaCalculoTotal ? osFim : fimParaCalculoTotal;
+
                     if (overlapInicio < overlapFim) {
                         const tipoOS = (os.tipo || os.tipo_manutencao || '').toUpperCase();
                         const descOS = (os.descricao || '').toUpperCase();
                         const prioridadeOS = (os.prioridade || '').toUpperCase();
+
                         if (
                             tipoOS.includes('S.O.S') || tipoOS.includes('SOS') || tipoOS.includes('SOCORRO') ||
                             descOS.includes('S.O.S') || descOS.includes('SOS') || descOS.includes('SOCORRO') ||
@@ -566,30 +611,69 @@ window.renderizarGraficoStatusFrotaHorario = function() {
                     manutComumCavalo *= proporcao;
                     sosCavalo *= proporcao;
                 }
-                msManutencaoComumDia += manutComumCavalo;
-                msSOSDia += sosCavalo;
-                
-                // Soma como +1 equipamento se ele ficou algum milissegundo no dia nas respectivas paradas
-                if (manutComumCavalo > 0) totalVeiculosManutencaoDia++;
-                if (sosCavalo > 0) totalVeiculosSOSDia++;
+
+                if (cat === 'TRITREM') {
+                    totalMsDisponivelDia += tempoDisp;
+                    msManutencaoComumDia += manutComumCavalo;
+                    msSOSDia += sosCavalo;
+                    
+                    if (manutComumCavalo > 0) totalVeiculosManutencaoDia++;
+                    if (sosCavalo > 0) totalVeiculosSOSDia++;
+                } else if (cat === 'GRUA') {
+                    totalMsDisponivelDiaGrua += tempoDisp;
+                    msManutencaoGruaDia += (manutComumCavalo + sosCavalo);
+                }
             });
             
             let msManutTotal = msManutencaoComumDia + msSOSDia;
             let dispNoDiaMs = totalMsDisponivelDia - msManutTotal;
             if (dispNoDiaMs < 0) dispNoDiaMs = 0;
             
+            let dispNoDiaMsGrua = totalMsDisponivelDiaGrua - msManutencaoGruaDia;
+            if (dispNoDiaMsGrua < 0) dispNoDiaMsGrua = 0;
+            
             const mediaAtivosReal = Math.round(dispNoDiaMs / msTotalDiaCalc);
+            const mediaAtivosGruaReal = Math.round(dispNoDiaMsGrua / msTotalDiaCalc);
             
             const elAvgAtivosInterno = document.getElementById('avgAtivosInterno');
             const elAvgManutInterno = document.getElementById('avgManutInterno');
             const elAvgSOSInterno = document.getElementById('avgSOSInterno');
             
-            if(elAvgAtivosInterno) elAvgAtivosInterno.innerText = mediaAtivosReal;
+            if(elAvgAtivosInterno) {
+                elAvgAtivosInterno.innerText = mediaAtivosReal;
+                
+                // Lógica de injeção exata e com design separado
+                let cardCaminhoes = elAvgAtivosInterno.closest('div[style*="min-width: 200px"]'); 
+                if (cardCaminhoes && cardCaminhoes.parentElement) {
+                    let mainRowContainer = cardCaminhoes.parentElement;
+                    let cardGrua = document.getElementById('cardGruaMediaInterno');
+                    
+                    if (!cardGrua) {
+                        cardGrua = document.createElement('div');
+                        cardGrua.id = 'cardGruaMediaInterno';
+                        cardGrua.style.cssText = "display: flex; align-items: center; gap: 12px; background: rgba(59, 130, 246, 0.05); padding: 10px 20px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2); flex: 1; min-width: 200px; justify-content: center;";
+                        cardGrua.innerHTML = `
+                            <div style="background: rgba(59, 130, 246, 0.2); padding: 12px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-truck-loading" style="color: #3b82f6; font-size: 1.4rem;"></i>
+                            </div>
+                            <div style="display: flex; flex-direction: column;">
+                                <span style="color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Média Gruas Disp.</span>
+                                <div style="display: flex; align-items: baseline; gap: 4px;">
+                                    <span id="avgGruasInterno" style="color: #3b82f6; font-size: 1.8rem; font-weight: 900; line-height: 1;">0</span>
+                                    <span style="color: #64748b; font-size: 0.8rem; font-weight: 600;">gruas</span>
+                                </div>
+                            </div>
+                        `;
+                        mainRowContainer.insertBefore(cardGrua, cardCaminhoes.nextSibling); 
+                    }
+                    
+                    const spanGrua = document.getElementById('avgGruasInterno');
+                    if (spanGrua) spanGrua.innerText = mediaAtivosGruaReal;
+                }
+            }
             
             if(elAvgManutInterno) {
-                // Altera o texto para o Total de Equipamentos parados hoje
                 elAvgManutInterno.innerText = totalVeiculosManutencaoDia;
-                // Altera o rótulo do HTML ativamente
                 try {
                     let container = elAvgManutInterno.parentElement;
                     if (container) {
@@ -604,9 +688,7 @@ window.renderizarGraficoStatusFrotaHorario = function() {
             }
             
             if(elAvgSOSInterno) {
-                // Altera o texto para o Total de Equipamentos em SOS hoje
                 elAvgSOSInterno.innerText = totalVeiculosSOSDia;
-                // Altera o rótulo do HTML ativamente
                 try {
                     let container = elAvgSOSInterno.parentElement;
                     if (container) {
@@ -620,12 +702,13 @@ window.renderizarGraficoStatusFrotaHorario = function() {
                 } catch(e) {}
             }
         }
-        
+
         if (typeof echarts === 'undefined') return;
         const chartDomBarras = document.getElementById('graficoStatusFrotaHorario');
         if (chartDomBarras) {
             let myChartBarras = echarts.getInstanceByDom(chartDomBarras);
             if (!myChartBarras) myChartBarras = echarts.init(chartDomBarras);
+
             const optionBarras = {
                 backgroundColor: 'transparent',
                 tooltip: { 
@@ -633,7 +716,7 @@ window.renderizarGraficoStatusFrotaHorario = function() {
                     axisPointer: { type: 'shadow' } 
                 },
                 legend: { 
-                    data: ['Disponível', 'Manutenção', 'SOS'], 
+                    data: ['Disponível', 'Manutenção', 'SOS', 'GRUA Disp.'], 
                     textStyle: { color: '#ffffff', fontWeight: 'bold' }, 
                     top: 0 
                 },
@@ -673,16 +756,24 @@ window.renderizarGraficoStatusFrotaHorario = function() {
                         itemStyle: { color: '#ef4444' }, 
                         data: dadosBarraSOS,
                         label: { show: true, position: 'top', color: '#ef4444', fontWeight: 'bold', formatter: (p) => p.value > 0 ? p.value : '', fontSize: 12 }
+                    },
+                    { 
+                        name: 'GRUA Disp.', 
+                        type: 'bar', 
+                        itemStyle: { color: '#3b82f6' }, 
+                        data: dadosBarraGruaDisp,
+                        label: { show: true, position: 'top', color: '#3b82f6', fontWeight: 'bold', formatter: (p) => p.value > 0 ? p.value : '', fontSize: 12 }
                     }
                 ]
             };
+
             myChartBarras.setOption(optionBarras);
             window.addEventListener('resize', () => myChartBarras.resize());
         }
     } catch(e) {
         console.error("Erro na DM Status Frota Horário:", e);
     }
-};
+}
 
 window.renderizarGraficoEvolucaoDMDiaria = function() {
     try {
@@ -716,6 +807,7 @@ window.renderizarGraficoEvolucaoDMDiaria = function() {
             
             dataInicio = new Date(hoje);
             dataInicio.setHours(0, 0, 0, 0);
+
             if (filtroVal === 'dia_atual') {
             } else if (filtroVal === 'semana_atual') {
                 const diaSemana = dataInicio.getDay(); 
@@ -742,11 +834,13 @@ window.renderizarGraficoEvolucaoDMDiaria = function() {
             let msTotalDia = 24 * 60 * 60 * 1000;
             let fimParaCalculo = fimDia;
             const ehHoje = (atual.toDateString() === new Date().toDateString());
+
             if (ehHoje) {
                 const agora = new Date();
                 msTotalDia = agora - inicioDia;
                 fimParaCalculo = agora;
             }
+
             if (msTotalDia > 0) {
                 let qtdFrotaDia = 0;
                 let totalMsDisponivelDia = 0;
@@ -777,17 +871,22 @@ window.renderizarGraficoEvolucaoDMDiaria = function() {
                         let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
                         const overlapInicio = inicioValido > inicioDia ? inicioValido : inicioDia;
                         const overlapFim = osFim < fimParaCalculo ? osFim : fimParaCalculo;
+
                         if (overlapInicio < overlapFim) {
                             manutencaoCavalo += (overlapFim - overlapInicio);
                         }
                     });
+
                     if (manutencaoCavalo > msTotalDia) manutencaoCavalo = msTotalDia;
                     msManutencaoDia += manutencaoCavalo;
                 });
+
                 let dispNoDiaMs = totalMsDisponivelDia - msManutencaoDia;
                 if (dispNoDiaMs < 0) dispNoDiaMs = 0;
+
                 let percentDM = totalMsDisponivelDia > 0 ? (dispNoDiaMs / totalMsDisponivelDia) * 100 : 100;
                 let mediaCavalosDisp = msTotalDia > 0 ? Math.round(dispNoDiaMs / msTotalDia) : 0;
+
                 const diaStr = String(atual.getDate()).padStart(2, '0') + '/' + String(atual.getMonth() + 1).padStart(2, '0');
                 labelsDias.push(diaStr);
                 
@@ -854,6 +953,7 @@ window.renderizarGraficoEvolucaoDMDiaria = function() {
         if (chartDom) {
             let myChart = echarts.getInstanceByDom(chartDom);
             if (!myChart) myChart = echarts.init(chartDom);
+
             const option = {
                 backgroundColor: 'transparent',
                 tooltip: { 
@@ -910,6 +1010,7 @@ window.renderizarGraficoEvolucaoDMDiaria = function() {
                     }
                 }]
             };
+
             myChart.setOption(option);
             window.removeEventListener('resize', myChart.resize);
             window.addEventListener('resize', () => myChart.resize());
@@ -917,7 +1018,7 @@ window.renderizarGraficoEvolucaoDMDiaria = function() {
     } catch(e) {
         console.error("Erro na DM Evolução Diária Geral:", e);
     }
-};
+}
 
 window.renderizarGraficoEvolucaoDMDiariaGrua = function() {
     try {
@@ -951,6 +1052,7 @@ window.renderizarGraficoEvolucaoDMDiariaGrua = function() {
             
             dataInicio = new Date(hoje);
             dataInicio.setHours(0, 0, 0, 0);
+
             if (filtroVal === 'dia_atual') {
             } else if (filtroVal === 'semana_atual') {
                 const diaSemana = dataInicio.getDay(); 
@@ -977,11 +1079,13 @@ window.renderizarGraficoEvolucaoDMDiariaGrua = function() {
             let msTotalDia = 24 * 60 * 60 * 1000;
             let fimParaCalculo = fimDia;
             const ehHoje = (atual.toDateString() === new Date().toDateString());
+
             if (ehHoje) {
                 const agora = new Date();
                 msTotalDia = agora - inicioDia;
                 fimParaCalculo = agora;
             }
+
             if (msTotalDia > 0) {
                 let qtdFrotaDia = 0;
                 let totalMsDisponivelDia = 0;
@@ -1012,17 +1116,22 @@ window.renderizarGraficoEvolucaoDMDiariaGrua = function() {
                         let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
                         const overlapInicio = inicioValido > inicioDia ? inicioValido : inicioDia;
                         const overlapFim = osFim < fimParaCalculo ? osFim : fimParaCalculo;
+
                         if (overlapInicio < overlapFim) {
                             manutencaoCavalo += (overlapFim - overlapInicio);
                         }
                     });
+
                     if (manutencaoCavalo > msTotalDia) manutencaoCavalo = msTotalDia;
                     msManutencaoDia += manutencaoCavalo;
                 });
+
                 let dispNoDiaMs = totalMsDisponivelDia - msManutencaoDia;
                 if (dispNoDiaMs < 0) dispNoDiaMs = 0;
+
                 let percentDM = totalMsDisponivelDia > 0 ? (dispNoDiaMs / totalMsDisponivelDia) * 100 : 100;
                 let mediaCavalosDisp = msTotalDia > 0 ? Math.round(dispNoDiaMs / msTotalDia) : 0;
+
                 const diaStr = String(atual.getDate()).padStart(2, '0') + '/' + String(atual.getMonth() + 1).padStart(2, '0');
                 labelsDias.push(diaStr);
                 
@@ -1089,6 +1198,7 @@ window.renderizarGraficoEvolucaoDMDiariaGrua = function() {
         if (chartDom) {
             let myChart = echarts.getInstanceByDom(chartDom);
             if (!myChart) myChart = echarts.init(chartDom);
+
             const option = {
                 backgroundColor: 'transparent',
                 tooltip: { 
@@ -1145,6 +1255,7 @@ window.renderizarGraficoEvolucaoDMDiariaGrua = function() {
                     }
                 }]
             };
+
             myChart.setOption(option);
             window.removeEventListener('resize', myChart.resize);
             window.addEventListener('resize', () => myChart.resize());
@@ -1152,13 +1263,14 @@ window.renderizarGraficoEvolucaoDMDiariaGrua = function() {
     } catch(e) {
         console.error("Erro na DM Evolução Diária Grua:", e);
     }
-};
+}
 
 window.preencherSelectPlacasDM = function() {
     const select = document.getElementById('filtroPlacaDMInd');
     if (!select || !frotasManutencao || frotasManutencao.length === 0) return;
     
     if (select.options.length > 1) return;
+
     // FILTRO TRITREM E ATIVO APLICADO AO COMBOBOX
     const placas = [...new Set(frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM').map(f => f.cavalo))].sort();
     
@@ -1168,13 +1280,14 @@ window.preencherSelectPlacasDM = function() {
         opt.textContent = placa;
         select.appendChild(opt);
     });
-};
+}
 
 window.preencherSelectPlacasDMGrua = function() {
     const select = document.getElementById('filtroPlacaDMIndGrua');
     if (!select || !frotasManutencao || frotasManutencao.length === 0) return;
     
     if (select.options.length > 1) return;
+
     // FILTRO GRUA E ATIVO APLICADO AO COMBOBOX
     const placas = [...new Set(frotasManutencao.filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'GRUA').map(f => f.cavalo))].sort();
     
@@ -1184,13 +1297,14 @@ window.preencherSelectPlacasDMGrua = function() {
         opt.textContent = placa;
         select.appendChild(opt);
     });
-};
+}
 
 window.renderizarDMIndividual = function() {
     try {
         const placa = document.getElementById('filtroPlacaDMInd').value;
         const chartDom = document.getElementById('graficoDmIndividual');
         if(!chartDom) return;
+
         if (!placa) {
             chartDom.innerHTML = '<div style="color:#94a3b8; display:flex; justify-content:center; align-items:center; height:100%; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; text-align:center;">Selecione um veículo para visualizar a DM no período global.</div>';
             if(chartDom.getAttribute('_echarts_instance_')) {
@@ -1198,12 +1312,14 @@ window.renderizarDMIndividual = function() {
             }
             return;
         }
+
         let dataInicio, dataFim;
         const inpInicio = document.getElementById('dataInicioDMInd').value;
         const inpFim = document.getElementById('dataFimDMInd').value;
         
         const hoje = new Date();
         hoje.setHours(23, 59, 59, 999);
+
         if (inpInicio && inpFim) {
             dataInicio = new Date(inpInicio + 'T00:00:00');
             dataFim = new Date(inpFim + 'T23:59:59');
@@ -1212,9 +1328,11 @@ window.renderizarDMIndividual = function() {
             dataInicio = globalFilter.inicio;
             dataFim = globalFilter.fim;
         }
+
         const labelsDias = [];
         const dadosDM = [];
         let atual = new Date(dataInicio);
+
         const todasOSCavalo = ordensServico.filter(o => o.placa === placa && o.status !== 'Agendada' && o.tipo !== 'Cavalo Disponível S/ Carreta');
         
         // Pega a data de entrada do veículo selecionado
@@ -1229,18 +1347,20 @@ window.renderizarDMIndividual = function() {
             let msTotalDia = 24 * 60 * 60 * 1000;
             let fimParaCalculo = fimDia;
             const ehHoje = (atual.toDateString() === new Date().toDateString());
+
             if (ehHoje) {
                 const agora = new Date();
                 msTotalDia = agora - inicioDia;
                 fimParaCalculo = agora;
             }
             
-            // Só calcula se o caminhão já existia neste dia
+            // Só calcula se o caminhão existia neste dia
             if (dtEntradaVeiculo <= fimParaCalculo && msTotalDia > 0) {
                 let overlapDispInicio = dtEntradaVeiculo > inicioDia ? dtEntradaVeiculo : inicioDia;
                 let msValidoDia = fimParaCalculo - overlapDispInicio;
 
                 let msManutencaoDia = 0;
+
                 todasOSCavalo.forEach(os => {
                     const osInicio = window.corrigirDataSupabase(os.data_abertura);
                     if (!osInicio) return;
@@ -1250,33 +1370,39 @@ window.renderizarDMIndividual = function() {
                     let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
                     const overlapInicio = inicioValido > inicioDia ? inicioValido : inicioDia;
                     const overlapFim = osFim < fimParaCalculo ? osFim : fimParaCalculo;
+
                     if (overlapInicio < overlapFim) {
                         msManutencaoDia += (overlapFim - overlapInicio);
                     }
                 });
+
                 if (msManutencaoDia > msValidoDia) msManutencaoDia = msValidoDia;
                 
                 let dispNoDiaMs = msValidoDia - msManutencaoDia;
                 if (dispNoDiaMs < 0) dispNoDiaMs = 0;
+
                 let percentDM = msValidoDia > 0 ? (dispNoDiaMs / msValidoDia) * 100 : 100;
                 
                 const diaStr = String(atual.getDate()).padStart(2, '0') + '/' + String(atual.getMonth() + 1).padStart(2, '0');
                 labelsDias.push(diaStr);
                 dadosDM.push(percentDM.toFixed(2));
             } else {
-                // Caminhão não existia nesse dia
+                // Caminhão existia nesse dia
                 const diaStr = String(atual.getDate()).padStart(2, '0') + '/' + String(atual.getMonth() + 1).padStart(2, '0');
                 labelsDias.push(diaStr);
                 dadosDM.push(0); 
             }
+
             atual.setDate(atual.getDate() + 1);
         }
+
         if (typeof echarts === 'undefined') return;
         let myChart = echarts.getInstanceByDom(chartDom);
         if (!myChart) {
             chartDom.innerHTML = ''; 
             myChart = echarts.init(chartDom);
         }
+
         const option = {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', formatter: '{b} <br/> DM: <b>{c}%</b>' },
@@ -1312,19 +1438,22 @@ window.renderizarDMIndividual = function() {
                 }
             }]
         };
+
         myChart.setOption(option);
         window.removeEventListener('resize', myChart.resize);
         window.addEventListener('resize', () => myChart.resize());
+
     } catch(e) {
         console.error("Erro ao renderizar DM Individual:", e);
     }
-};
+}
 
 window.renderizarDMIndividualGrua = function() {
     try {
         const placa = document.getElementById('filtroPlacaDMIndGrua').value;
         const chartDom = document.getElementById('graficoDmIndividualGrua');
         if(!chartDom) return;
+
         if (!placa) {
             chartDom.innerHTML = '<div style="color:#94a3b8; display:flex; justify-content:center; align-items:center; height:100%; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; text-align:center;">Selecione uma GRUA para visualizar a DM no período global.</div>';
             if(chartDom.getAttribute('_echarts_instance_')) {
@@ -1332,12 +1461,14 @@ window.renderizarDMIndividualGrua = function() {
             }
             return;
         }
+
         let dataInicio, dataFim;
         const inpInicio = document.getElementById('dataInicioDMIndGrua').value;
         const inpFim = document.getElementById('dataFimDMIndGrua').value;
         
         const hoje = new Date();
         hoje.setHours(23, 59, 59, 999);
+
         if (inpInicio && inpFim) {
             dataInicio = new Date(inpInicio + 'T00:00:00');
             dataFim = new Date(inpFim + 'T23:59:59');
@@ -1346,9 +1477,11 @@ window.renderizarDMIndividualGrua = function() {
             dataInicio = globalFilter.inicio;
             dataFim = globalFilter.fim;
         }
+
         const labelsDias = [];
         const dadosDM = [];
         let atual = new Date(dataInicio);
+
         const todasOSCavalo = ordensServico.filter(o => o.placa === placa && o.status !== 'Agendada' && o.tipo !== 'Cavalo Disponível S/ Carreta');
         
         // Pega a data de entrada do veículo selecionado
@@ -1363,18 +1496,20 @@ window.renderizarDMIndividualGrua = function() {
             let msTotalDia = 24 * 60 * 60 * 1000;
             let fimParaCalculo = fimDia;
             const ehHoje = (atual.toDateString() === new Date().toDateString());
+
             if (ehHoje) {
                 const agora = new Date();
                 msTotalDia = agora - inicioDia;
                 fimParaCalculo = agora;
             }
             
-            // Só calcula se o caminhão já existia neste dia
+            // Só calcula se o caminhão existia neste dia
             if (dtEntradaVeiculo <= fimParaCalculo && msTotalDia > 0) {
                 let overlapDispInicio = dtEntradaVeiculo > inicioDia ? dtEntradaVeiculo : inicioDia;
                 let msValidoDia = fimParaCalculo - overlapDispInicio;
 
                 let msManutencaoDia = 0;
+
                 todasOSCavalo.forEach(os => {
                     const osInicio = window.corrigirDataSupabase(os.data_abertura);
                     if (!osInicio) return;
@@ -1384,33 +1519,39 @@ window.renderizarDMIndividualGrua = function() {
                     let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
                     const overlapInicio = inicioValido > inicioDia ? inicioValido : inicioDia;
                     const overlapFim = osFim < fimParaCalculo ? osFim : fimParaCalculo;
+
                     if (overlapInicio < overlapFim) {
                         msManutencaoDia += (overlapFim - overlapInicio);
                     }
                 });
+
                 if (msManutencaoDia > msValidoDia) msManutencaoDia = msValidoDia;
                 
                 let dispNoDiaMs = msValidoDia - msManutencaoDia;
                 if (dispNoDiaMs < 0) dispNoDiaMs = 0;
+
                 let percentDM = msValidoDia > 0 ? (dispNoDiaMs / msValidoDia) * 100 : 100;
                 
                 const diaStr = String(atual.getDate()).padStart(2, '0') + '/' + String(atual.getMonth() + 1).padStart(2, '0');
                 labelsDias.push(diaStr);
                 dadosDM.push(percentDM.toFixed(2));
             } else {
-                // Caminhão não existia nesse dia
+                // Caminhão existia nesse dia
                 const diaStr = String(atual.getDate()).padStart(2, '0') + '/' + String(atual.getMonth() + 1).padStart(2, '0');
                 labelsDias.push(diaStr);
                 dadosDM.push(0); 
             }
+
             atual.setDate(atual.getDate() + 1);
         }
+
         if (typeof echarts === 'undefined') return;
         let myChart = echarts.getInstanceByDom(chartDom);
         if (!myChart) {
             chartDom.innerHTML = ''; 
             myChart = echarts.init(chartDom);
         }
+
         const option = {
             backgroundColor: 'transparent',
             tooltip: { trigger: 'axis', formatter: '{b} <br/> DM: <b>{c}%</b>' },
@@ -1446,13 +1587,15 @@ window.renderizarDMIndividualGrua = function() {
                 }
             }]
         };
+
         myChart.setOption(option);
         window.removeEventListener('resize', myChart.resize);
         window.addEventListener('resize', () => myChart.resize());
+
     } catch(e) {
         console.error("Erro ao renderizar DM Individual Grua:", e);
     }
-};
+}
 
 window.exportarDMIndividualExcel = function() {
     const placa = document.getElementById('filtroPlacaDMInd').value;
@@ -1468,14 +1611,18 @@ window.exportarDMIndividualExcel = function() {
         alert('Nenhum dado disponível no gráfico para exportar.');
         return;
     }
+
     const option = myChart.getOption();
     const dias = option.xAxis[0].data;
     const valores = option.series[0].data;
+
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += "Veiculo,Data,DM (%)\n";
+
     for (let i = 0; i < dias.length; i++) {
         csvContent += `${placa},${dias[i]},${valores[i]}\n`;
     }
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -1483,7 +1630,7 @@ window.exportarDMIndividualExcel = function() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-};
+}
 
 window.exportarDMIndividualExcelGrua = function() {
     const placa = document.getElementById('filtroPlacaDMIndGrua').value;
@@ -1499,14 +1646,18 @@ window.exportarDMIndividualExcelGrua = function() {
         alert('Nenhum dado disponível no gráfico para exportar.');
         return;
     }
+
     const option = myChart.getOption();
     const dias = option.xAxis[0].data;
     const valores = option.series[0].data;
+
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += "Veiculo,Data,DM (%)\n";
+
     for (let i = 0; i < dias.length; i++) {
         csvContent += `${placa},${dias[i]},${valores[i]}\n`;
     }
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -1514,13 +1665,14 @@ window.exportarDMIndividualExcelGrua = function() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-};
+}
 
 // =================================================================
 // INICIALIZAÇÃO E ATUALIZAÇÃO AUTOMÁTICA DOS GRÁFICOS
 // =================================================================
 setInterval(() => {
     if (typeof frotasManutencao === 'undefined' || frotasManutencao.length === 0) return;
+
     if (typeof window.preencherSelectPlacasDM === 'function') {
         window.preencherSelectPlacasDM();
     }
@@ -1573,6 +1725,7 @@ setInterval(() => {
             window.renderizarGraficoStatusFrotaHorario();
         }
     }
+
     const chartDomLinha = document.getElementById('graficoEvolucaoDM');
     if (chartDomLinha && chartDomLinha.offsetWidth > 0 && !chartDomLinha.getAttribute('data-rendered')) {
         chartDomLinha.setAttribute('data-rendered', 'true');
