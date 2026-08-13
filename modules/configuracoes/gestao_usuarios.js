@@ -2,16 +2,22 @@
 
 let listaUsuarios = [];
 
+// NOVA FUNÇÃO: Reconhece o Administrador Global independente do nome do cargo
+window.isUsuarioGlobal = function() {
+    if (!window.currentUser) return false;
+    return (window.currentUser.role === 'SuperAdmin' || window.currentUser.filial_id === null || window.currentUser.is_global_session === true);
+};
+
 // Função global de segurança para checar se a ação é permitida (caso tentem forçar via console)
 window.verificarPermissaoAcao = function(targetUser) {
     if (!window.currentUser) return false;
-    // SuperAdmin pode tudo
-    if (window.currentUser.role === 'SuperAdmin') return true;
+    // Administrador Global pode tudo
+    if (window.isUsuarioGlobal()) return true;
     
     // Trava 1: Ninguém mexe no SuperAdmin, exceto ele mesmo
     const isTargetSuperAdmin = (targetUser.role === 'SuperAdmin' || (targetUser.cargos && targetUser.cargos.nivel_acesso === 'SuperAdmin'));
     if (isTargetSuperAdmin) {
-        alert('⚠️ Acesso Negado: Apenas um Administrador Global (SuperAdmin) pode modificar outro SuperAdmin.');
+        alert('⚠️ Acesso Negado: Apenas um Administrador Global pode modificar outro Administrador.');
         return false;
     }
     
@@ -29,7 +35,7 @@ window.carregarFiliaisFormulario = async function() {
     const selectFilial = document.getElementById('novoUserFilial');
     if (!selectFilial) return;
 
-    if (window.currentUser && window.currentUser.role === 'SuperAdmin') {
+    if (window.isUsuarioGlobal()) {
         try {
             const filiais = await db.getTodasFiliaisAdmin();
             let options = '<option value="" disabled selected>-- Selecione a Filial --</option>';
@@ -106,7 +112,7 @@ window.renderizarUsuarios = async function() {
 
         const todosUsuarios = await db.getUsuarios('TODAS'); 
         
-        if (window.currentUser && window.currentUser.role !== 'SuperAdmin') {
+        if (!window.isUsuarioGlobal()) {
             const filialAtiva = window.currentUser.filial_id;
             
             // 1. Isola apenas a filial de quem está acessando
@@ -123,7 +129,7 @@ window.renderizarUsuarios = async function() {
             });
 
         } else {
-            // Se for SuperAdmin logado, ele vê todo mundo
+            // Se for Administrador Global logado, ele vê todo mundo
             listaUsuarios = todosUsuarios; 
         }
 
@@ -133,7 +139,7 @@ window.renderizarUsuarios = async function() {
 
         tbody.innerHTML = listaUsuarios.map(u => {
             const isCurrent = u.id === window.currentUser.id;
-            const amISuperAdmin = window.currentUser.role === 'SuperAdmin';
+            const amISuperAdmin = window.isUsuarioGlobal();
             
             // Verificação de bloqueio para exibição dos botões
             const lockedByBranch = !amISuperAdmin && (u.filial_id != window.currentUser.filial_id);
@@ -218,7 +224,7 @@ window.adicionarUsuario = async function() {
     const centroCustoId = cargoOption.getAttribute('data-cc');
     const cargoId = parseInt(selectCargo.value);
 
-    if ((systemRole === 'Gerente' || systemRole === 'SuperAdmin') && (!window.currentUser || window.currentUser.role !== 'SuperAdmin')) {
+    if ((systemRole === 'Gerente' || systemRole === 'SuperAdmin') && !window.isUsuarioGlobal()) {
         alert('⚠️ Acesso Negado: Somente o Administrador Global pode criar acessos neste nível hierárquico.');
         return;
     }
@@ -307,7 +313,7 @@ window.abrirModalEdicaoUsuario = async function(id) {
     const selectFilial = document.getElementById('editUserFilial');
     if (!selectFilial) return;
 
-    if (window.currentUser && window.currentUser.role === 'SuperAdmin') {
+    if (window.isUsuarioGlobal()) {
         try {
             const filiais = await db.getTodasFiliaisAdmin();
             let options = '<option value="" disabled>-- Selecione a Filial --</option>';
@@ -396,7 +402,7 @@ window.salvarEdicaoUsuario = async function() {
     const cargoId = parseInt(selectCargo.value);
     const cargoNome = cargoOption.text;
 
-    if ((systemRole === 'Gerente' || systemRole === 'SuperAdmin') && (!window.currentUser || window.currentUser.role !== 'SuperAdmin')) {
+    if ((systemRole === 'Gerente' || systemRole === 'SuperAdmin') && !window.isUsuarioGlobal()) {
         alert('⚠️ Acesso Negado: Apenas Administradores Globais podem promover ou conceder acessos para cargos deste nível.');
         return;
     }

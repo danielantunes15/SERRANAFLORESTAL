@@ -1,5 +1,11 @@
 // ==================== MÓDULO: GESTÃO DE ACESSOS E MENUS ====================
 
+// Reconhece o Administrador Global independente do nome do cargo
+window.isUsuarioGlobalAcessos = function() {
+    if (!window.currentUser) return false;
+    return (window.currentUser.role === 'SuperAdmin' || window.currentUser.filial_id === null || window.currentUser.is_global_session === true);
+};
+
 window.mudarFilialContexto = async function() {
     const selectFilialContexto = document.getElementById('selectFilialContextoPermissao');
     if (!selectFilialContexto || !selectFilialContexto.value) return;
@@ -105,7 +111,7 @@ window.carregarSelectUsuariosPermissoes = async function() {
             usuariosFiltrados = todosUsuarios.filter(u => u.filial_id === null);
         }
 
-        if (window.currentUser && window.currentUser.role !== 'SuperAdmin') {
+        if (!window.isUsuarioGlobalAcessos()) {
             usuariosFiltrados = usuariosFiltrados.filter(u => {
                 const isTargetSuperAdmin = (u.role === 'SuperAdmin' || (u.cargos && u.cargos.nivel_acesso === 'SuperAdmin'));
                 return !isTargetSuperAdmin;
@@ -137,7 +143,7 @@ window.carregarCheckboxesPermissoes = async function() {
     const selectPerfil = document.getElementById('selectPerfilPermissao');
     const selectUsuario = document.getElementById('selectUsuarioPermissao');
 
-    const isSuperOuMatriz4 = (window.currentUser && (window.currentUser.role === 'SuperAdmin' || window.currentUser.filial_id == 4));
+    const isSuperOuMatriz4 = (window.currentUser && (window.isUsuarioGlobalAcessos() || window.currentUser.filial_id == 4));
 
     // 1. INICIALIZAÇÃO DINÂMICA: Intercepta o primeiro carregamento feito pelo menu.js
     if (containerFilial && selectFilialContexto && selectFilialContexto.options.length <= 1) {
@@ -231,7 +237,7 @@ window.carregarCheckboxesPermissoes = async function() {
         }
     }
 
-    const isSuperAdmin = (window.currentUser && window.currentUser.role === 'SuperAdmin');
+    const isSuperAdmin = window.isUsuarioGlobalAcessos();
     let html = '';
 
     if (!alvo) {
