@@ -155,15 +155,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 const permissoesPadrao = {
-    "Admin": ["escala", "alocacao", "motoristas", "caminhoes", "os", "troca", "jornada", "treinamento", "indicadores", "indicadores_serrana", "servicos", "cadastro_frota", "almoxarifado"],
+    "Admin": ["escala", "alocacao", "motoristas", "caminhoes", "os", "troca", "jornada", "indicadores", "indicadores_serrana", "servicos", "cadastro_frota", "almoxarifado"],
     "Gerente": [
         "escala", "troca_turno", "alocacao", "recados", "motoristas", "caminhoes", "documentos_frota",
-        "os", "servicos", "cadastro_frota", "os_apoio", "almoxarifado", "treinamento",
+        "os", "servicos", "cadastro_frota", "os_apoio", "almoxarifado", 
         "relatorio_gerencial", "indicadores", "indicadores_serrana", "cadastro_indicadores",
         "visao_geral", "operacional", "desempenho_frota", "jornadas", "historico_producao", "historico_jornadas", "configuracoes_gerencial"
     ],
     "Controlador de Tráfego": ["escala", "alocacao", "troca", "jornada"],
-    "SSMA": ["motoristas", "treinamento", "jornada"],
     "Controle de Manutencao": ["caminhoes", "os", "cadastro_frota", "almoxarifado"],
     "Almoxarifado": ["os", "almoxarifado"],
     "Mecanico": ["servicos"]

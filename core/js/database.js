@@ -131,9 +131,8 @@ const db = {
             if (filtros.modulo && filtros.modulo !== 'TODOS') {
                 let chaves = '';
                 switch(filtros.modulo) {
-                    case 'Logistica': chaves = 'acao.ilike.%motorista%,acao.ilike.%conjunto%,acao.ilike.%escala%,acao.ilike.%frota%,acao.ilike.%documento%,detalhes.ilike.%motorista%,detalhes.ilike.%escala%'; break;
+                    case 'Logistica': chaves = 'acao.ilike.%motorista%,acao.ilike.%conjunto%,acao.ilike.%escala%,acao.ilike.%frota%,acao.ilike.%documento%,acao.ilike.%recado%,detalhes.ilike.%motorista%,detalhes.ilike.%escala%'; break;
                     case 'Manutencao': chaves = 'acao.ilike.%os%,acao.ilike.%ordem%,acao.ilike.%serviço%,acao.ilike.%peça%,acao.ilike.%almoxarifado%,detalhes.ilike.%os%,detalhes.ilike.%ordem%'; break;
-                    case 'SSMA': chaves = 'acao.ilike.%treinamento%,acao.ilike.%instrutor%,acao.ilike.%recado%,detalhes.ilike.%treinamento%'; break;
                     case 'Indicadores': chaves = 'acao.ilike.%indicador%,acao.ilike.%relatório%,detalhes.ilike.%painel%'; break;
                     case 'Configuracoes': chaves = 'acao.ilike.%usuário%,acao.ilike.%filial%,acao.ilike.%permiss%,detalhes.ilike.%usuário%'; break;
                 }
@@ -223,36 +222,6 @@ const db = {
     async limparApenasEscalas() {
         const query = supabaseClient.from('escalas').delete().neq('id', '0');
         await aplicarFiltroFilial(query);
-    },
-    
-    // --- TREINAMENTOS ---
-    async getInstrutores() {
-        try {
-            const query = supabaseClient.from('instrutores').select('*');
-            const { data, error } = await aplicarFiltroFilial(query);
-            if(error) throw error;
-            return data || [];
-        } catch(e) { console.error("Erro getInstrutores:", e); return []; }
-    },
-    async addInstrutor(instrutor) {
-        await supabaseClient.from('instrutores').insert([injetarFilial(instrutor)]);
-    },
-    async deleteInstrutor(nome) {
-        await supabaseClient.from('instrutores').delete().eq('nome', nome);
-    },
-    async getTreinamentos() {
-        try {
-            const query = supabaseClient.from('treinamentos').select('*');
-            const { data, error } = await aplicarFiltroFilial(query);
-            if(error) throw error;
-            return data || [];
-        } catch(e) { console.error("Erro getTreinamentos:", e); return []; }
-    },
-    async upsertTreinamento(treinamento) {
-        await supabaseClient.from('treinamentos').upsert([injetarFilial(treinamento)]);
-    },
-    async deleteTreinamento(id) {
-        await supabaseClient.from('treinamentos').delete().eq('id', id);
     },
 
     // --- PERMISSÕES DE ACESSO ---

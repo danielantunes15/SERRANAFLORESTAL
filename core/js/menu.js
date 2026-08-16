@@ -29,7 +29,6 @@ window.MAPA_MENUS = [
     { id: 'almoxarifado_relatorios', label: 'Painel de Relatórios', setor: 'Almoxarifado', icon: 'fas fa-chart-pie' },
     { id: 'almoxarifado_cadastros', label: 'Cadastros Almoxarifado', setor: 'Almoxarifado', icon: 'fas fa-list-alt' },
     
-    { id: 'treinamento', label: 'Treinamento', setor: 'SSMA', icon: 'fas fa-graduation-cap' },
     { id: 'rh_painel', label: 'Painel de RH', setor: 'RH', icon: 'fas fa-users' },
     { id: 'rh_colaboradores', label: 'Colaboradores', setor: 'RH', icon: 'fas fa-id-badge' },
     { id: 'rh_absenteismo', label: 'Absenteísmo', setor: 'RH', icon: 'fas fa-user-clock' },
@@ -94,7 +93,6 @@ const ROTAS = {
     'borracharia': 'modules/manutencao/borracharia/borracharia.html',
     'cadastro_os_classificacoes': 'modules/manutencao/cadastros/classificacoes.html',
     
-    'treinamento': 'modules/ssma/treinamento/treinamento.html',
     'rh_painel': 'modules/rh/painel/rh_painel.html',
     'rh_colaboradores': 'modules/rh/colaboradores/colaboradores.html',
     'rh_absenteismo': 'modules/rh/absenteismo/absenteismo.html',
@@ -108,7 +106,7 @@ const ROTAS = {
     'historico_ocorrencias': 'modules/controladoria/ocorrencias/historico_ocorrencias.html',
     'relatorio_ocorrencias': 'modules/controladoria/ocorrencias/relatorio_ocorrencias.html',
     
-    'recados': 'modules/ssma/recados/recados.html',
+    'recados': 'modules/logistica/recados/recados.html',
     
     'relatorio_gerencial': 'modules/indicadores/relatorio_gerencial/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/painel_cliente/indicadores.html',
@@ -242,7 +240,6 @@ window.getIconSetor = function(setor) {
         'Campo': 'fas fa-tractor',
         'Manutenção': 'fas fa-tools',
         'Almoxarifado': 'fas fa-boxes', 
-        'SSMA': 'fas fa-hard-hat',
         'RH': 'fas fa-users', 
         'Controladoria': 'fas fa-sitemap',
         'Indicadores': 'fas fa-chart-line',
@@ -351,7 +348,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'relatorio_ocorrencias' && typeof window.initRelatorioOcorrencias === 'function') window.initRelatorioOcorrencias();
         
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
-        if (pagina === 'treinamento' && typeof window.renderizarPaginaTreinamento === 'function') window.renderizarPaginaTreinamento();
 
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
         if (pagina === 'indicadores_serrana' && typeof window.carregarDadosDashboardSerrana === 'function') window.carregarDadosDashboardSerrana();
