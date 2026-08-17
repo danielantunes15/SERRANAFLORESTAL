@@ -9,7 +9,9 @@ window.imprimirOS = async function(osId) {
     const frota = frotasManutencao.find(f => f.cavalo === os.placa || f.go === os.placa) || {};
     const infoAbertoPor = os.aberto_por || os.usuario || 'Não Informado';
     
-    const numeroOSFormatado = String(os.id).padStart(4, '0');
+    // CORREÇÃO: Utiliza o numero_os (visual) prioritariamente, caindo para o id como fallback
+    const numeroOSFormatado = String(os.numero_os || os.id).padStart(4, '0');
+    
     let dataAberturaFormatada = os.data_abertura;
     let dataConclusaoFormatada = os.data_conclusao || 'Em andamento';
     
@@ -277,7 +279,10 @@ window.imprimirTodasOSFiltradas = async function() {
         const os = osParaImprimir[index];
         const frota = frotasManutencao.find(f => f.cavalo === os.placa || f.go === os.placa) || {};
         const infoAbertoPor = os.aberto_por || os.usuario || 'Não Informado';
-        const numeroOSFormatado = String(os.id).padStart(4, '0');
+        
+        // CORREÇÃO: Aplicado na impressão em lote também
+        const numeroOSFormatado = String(os.numero_os || os.id).padStart(4, '0');
+        
         let dataAberturaFormatada = os.data_abertura;
         let dataConclusaoFormatada = os.data_conclusao || 'Em andamento';
 
