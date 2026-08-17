@@ -1,5 +1,7 @@
-<!-- Importando SweetAlert2 para os modais modernos -->
+<!-- Importando SweetAlert2 para os modais modernos e HTML5-QRCode para a Câmera -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="modules/almoxarifado/almoxarifado_leitor_camera.js"></script>
 
 <style>
     .almo-container { font-family: 'Segoe UI', system-ui, sans-serif; color: #e2e8f0; animation: fadeIn 0.4s ease-in-out; }
@@ -48,11 +50,23 @@
     /* Paginação */
     .almo-pagination { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px; }
     .almo-pagination span { color: #cbd5e1; font-weight: 600; font-size: 0.9rem; }
+
+    /* Modificações Entrega Expressa (Efeito do Leitor) */
+    .express-input { width: 100%; padding: 15px; font-size: 1.2rem; background: #0f172a; color: #fff; border-radius: 8px; outline: none; transition: 0.2s; font-family: monospace; font-weight: bold; text-align: center; }
+    .express-input:disabled { background: #1e293b; color: #64748b; border-color: #334155; cursor: not-allowed; }
+    
+    .camera-wrapper { position: relative; width: 100%; max-width: 400px; margin: 0 auto; border-radius: 12px; overflow: hidden; border: 4px solid #1e293b; }
+    .scanner-line { position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: #10b981; box-shadow: 0 0 20px #10b981; animation: scanAnim 2.5s infinite linear; z-index: 10; pointer-events: none; }
+    @keyframes scanAnim { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
 </style>
 
 <div class="almo-container">
     <div class="almo-header">
         <h2><i class="fas fa-clipboard-check"></i> Gestão de Entregas & Requisições</h2>
+        <!-- BOTÃO PARA O MODO EXPRESSO (LEITOR DE QR/BARRAS) -->
+        <button class="btn-modern btn-warning" onclick="abrirEntregaExpressa()" style="font-size: 1.05rem; padding: 12px 20px; background: #f59e0b; color: #fff; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);">
+            <i class="fas fa-qrcode"></i> Modo Entrega Expressa (Leitor)
+        </button>
     </div>
     
     <!-- Submenu -->
@@ -107,6 +121,71 @@
         <button class="btn-modern btn-dark" id="btnPaginaAnt" onclick="mudarPaginaEntregas(-1)"><i class="fas fa-chevron-left"></i> Anterior</button>
         <span id="textoPaginacao">Página 1 de 1</span>
         <button class="btn-modern btn-dark" id="btnPaginaProx" onclick="mudarPaginaEntregas(1)">Próxima <i class="fas fa-chevron-right"></i></button>
+    </div>
+</div>
+
+<!-- MODAL ENTREGA EXPRESSA (LEITOR BARCODE/QRCODE COM CÂMERA) -->
+<div id="modalEntregaExpressa" class="almo-modal">
+    <div class="almo-modal-content" style="max-width: 900px; text-align: center;">
+        <span class="almo-close" onclick="fecharModalEntregas('modalEntregaExpressa')">&times;</span>
+        <h3 style="color: #f59e0b; margin-top:0; font-size: 1.8rem;"><i class="fas fa-qrcode"></i> Separação e Entrega Expressa</h3>
+        <p style="color: #94a3b8; margin-bottom: 25px; font-size: 1rem;">1º Bipe a folha da O.S. para carregar o pedido. 2º Bipe os produtos para confirmar a separação.</p>
+
+        <!-- Container de Câmera Oculto (Layout Profissional) -->
+        <div id="containerLeitorCamera" style="display: none; margin-bottom: 25px; background: #0f172a; padding: 25px; border-radius: 16px; border: 2px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h4 id="labelCameraAlvo" style="color: #60a5fa; margin-top: 0; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <i class="fas fa-camera"></i> Preparando Câmera...
+            </h4>
+            <div class="camera-wrapper">
+                <div id="boxLeitorCamera" style="width: 100%;"></div>
+                <div class="scanner-line" id="scannerLineEffect"></div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn-modern btn-dark" onclick="pararLeituraCamera()" style="font-size: 1.1rem; padding: 10px 25px; display: inline-flex;"><i class="fas fa-times"></i> Fechar Leitor</button>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+            <div style="background: rgba(59, 130, 246, 0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                <label style="color: #60a5fa; font-weight: bold; font-size: 0.95rem; display: block; margin-bottom: 10px; text-transform: uppercase;">1. Ler QR Code da O.S.</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="inputExpressOS" placeholder="Ex: OS-2323" class="express-input" style="border: 2px solid #3b82f6;" onkeyup="verificarLeituraOS(event)" autocomplete="off">
+                    <button class="btn-modern btn-primary" onclick="abrirCameraLeitor('OS')" title="Ligar Câmera para O.S" style="padding: 0 20px;"><i class="fas fa-camera fa-lg"></i></button>
+                </div>
+            </div>
+            <div style="background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                <label style="color: #34d399; font-weight: bold; font-size: 0.95rem; display: block; margin-bottom: 10px; text-transform: uppercase;">2. Ler Cód. Barras da Peça</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="inputExpressPeca" placeholder="Aguardando O.S..." class="express-input" style="border: 2px solid #64748b;" disabled onkeyup="verificarLeituraPeca(event)" autocomplete="off">
+                    <!-- Botão grandão e destacado para a câmera de peças -->
+                    <button id="btnCameraPeca" class="btn-modern btn-success" onclick="abrirCameraLeitor('PECA')" disabled title="Ligar Câmera Modo Contínuo" style="padding: 0 20px; background: #10b981; border: 2px solid #059669;">
+                        <i class="fas fa-barcode fa-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="almo-table-container" style="background:#0f172a; border-radius:8px; border:1px solid #334155; overflow:hidden; min-height: 250px;">
+            <table class="almo-table" style="width:100%; text-align:left; border-collapse:collapse;">
+                <thead style="background:#1e293b;">
+                    <tr>
+                        <th style="padding:15px; color:#94a3b8; text-align: center; width: 60px;">Status</th>
+                        <th style="padding:15px; color:#94a3b8;">Código Barras</th>
+                        <th style="padding:15px; color:#94a3b8;">Produto Solicitado</th>
+                        <th style="padding:15px; text-align:center; color:#94a3b8;">Qtd.</th>
+                        <th style="padding:15px; text-align:center; color:#94a3b8; width: 120px;">Ação Manual</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyExpressPecas">
+                    <tr><td colspan="5" style="text-align: center; color: #64748b; padding: 40px; font-style: italic;">Aguardando leitura do QR Code da O.S...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin-top:30px; display:flex; gap:15px; justify-content:flex-end;">
+            <button class="btn-modern btn-dark" onclick="fecharModalEntregas('modalEntregaExpressa')" style="font-size: 1.1rem; padding: 12px 25px;">Cancelar</button>
+            <button class="btn-modern btn-success" id="btnConfirmarExpress" onclick="confirmarEntregaExpressa()" disabled style="font-size: 1.1rem; padding: 12px 25px;"><i class="fas fa-check-double"></i> Confirmar Baixa e Entrega</button>
+        </div>
     </div>
 </div>
 

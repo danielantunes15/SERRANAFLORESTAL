@@ -9,7 +9,7 @@ window.imprimirOS = async function(osId) {
     const frota = frotasManutencao.find(f => f.cavalo === os.placa || f.go === os.placa) || {};
     const infoAbertoPor = os.aberto_por || os.usuario || 'Não Informado';
     
-    // CORREÇÃO: Utiliza o numero_os (visual) prioritariamente, caindo para o id como fallback
+    // Utiliza o numero_os (visual) prioritariamente, caindo para o id como fallback
     const numeroOSFormatado = String(os.numero_os || os.id).padStart(4, '0');
     
     let dataAberturaFormatada = os.data_abertura;
@@ -51,7 +51,6 @@ window.imprimirOS = async function(osId) {
         const resServ = await window.supabaseClient.from('os_servicos_executados').select('*').eq('os_id', os.id).order('id');
         if (resServ.data) servicos = resServ.data;
 
-        // ====== CORREÇÃO DO ERRO 400 (BUSCA SIMPLES SEM O JOIN) ======
         const resPecas = await window.supabaseClient.from('os_pecas_utilizadas').select('*').eq('os_id', os.id).order('id');
         if (resPecas.data) pecas = resPecas.data;
     } catch (e) { 
@@ -97,7 +96,6 @@ window.imprimirOS = async function(osId) {
     for(let i=0; i<5; i++) {
         const peca = pecas[i];
         if (peca) {
-            // CRUZAMENTO MANUAL DA PEÇA NO CACHE
             const pecaDb = (window.pecasAlmoxarifadoCache || []).find(x => x.id == peca.peca_id);
             const compRaw = (peca.compartimento || '').toUpperCase();
             
@@ -151,8 +149,15 @@ window.imprimirOS = async function(osId) {
                 .header-center { flex: 1; text-align: center; padding: 10px; }
                 .header-center h1 { margin: 0; font-size: 16px; text-transform: uppercase; }
                 .header-center h2 { margin: 2px 0 0 0; font-size: 12px; font-weight: normal; }
-                .header-right { padding: 10px; border-left: 2px solid #000; text-align: center; display: flex; flex-direction: column; justify-content: center; background: #f0f0f0; }
-                .header-right strong { font-size: 18px; color: red; }
+                
+                /* Layout Ajustado: QR Code e Número OS */
+                .header-right { padding: 5px 15px; border-left: 2px solid #000; display: flex; align-items: center; justify-content: center; background: #f0f0f0; min-width: 200px; }
+                .qr-container { display: flex; align-items: center; justify-content: center; padding-right: 15px; border-right: 2px solid #bbb; }
+                .header-right img.qr-code { width: 55px; height: 55px; mix-blend-mode: multiply; }
+                .header-right .os-info { display: flex; flex-direction: column; text-align: center; padding-left: 15px; justify-content: center; }
+                .header-right .os-info span { font-size: 12px; font-weight: bold; color: #444; }
+                .header-right .os-info strong { font-size: 24px; color: #dc2626; line-height: 1; margin-top: 4px; }
+                
                 table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
                 th, td { border: 1px solid #000; padding: 3px 5px; font-size: 11px; text-align: left; }
                 th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
@@ -170,7 +175,15 @@ window.imprimirOS = async function(osId) {
                     <h1>ORDEM DE SERVIÇO DE MANUTENÇÃO E FROTAS</h1>
                     <h2>CCOL - Centro de Controle Operacional Logístico</h2>
                 </div>
-                <div class="header-right">O.S. Nº<br><strong>${numeroOSFormatado}</strong></div>
+                <div class="header-right">
+                    <div class="qr-container">
+                        <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=OS-${numeroOSFormatado}" alt="QR Code">
+                    </div>
+                    <div class="os-info">
+                        <span>O.S. Nº</span>
+                        <strong>${numeroOSFormatado}</strong>
+                    </div>
+                </div>
             </div>
             <table class="info-table">
                 <tr>
@@ -223,7 +236,7 @@ window.imprimirOS = async function(osId) {
                 <div class="linha-ass">Mecânico / Oficina</div>
                 <div class="linha-ass">CCOL / Gestor</div>
             </div>
-            <script>window.onload = function() { setTimeout(() => { window.print(); }, 250); }</script>
+            <script>window.onload = function() { setTimeout(() => { window.print(); }, 800); }</script>
         </body>
         </html>
     `);
@@ -280,7 +293,6 @@ window.imprimirTodasOSFiltradas = async function() {
         const frota = frotasManutencao.find(f => f.cavalo === os.placa || f.go === os.placa) || {};
         const infoAbertoPor = os.aberto_por || os.usuario || 'Não Informado';
         
-        // CORREÇÃO: Aplicado na impressão em lote também
         const numeroOSFormatado = String(os.numero_os || os.id).padStart(4, '0');
         
         let dataAberturaFormatada = os.data_abertura;
@@ -322,7 +334,6 @@ window.imprimirTodasOSFiltradas = async function() {
             const resServ = await window.supabaseClient.from('os_servicos_executados').select('*').eq('os_id', os.id).order('id');
             if (resServ.data) servicos = resServ.data;
             
-            // ====== CORREÇÃO DO ERRO 400 EM LOTE ======
             const resPecas = await window.supabaseClient.from('os_pecas_utilizadas').select('*').eq('os_id', os.id).order('id');
             if (resPecas.data) pecas = resPecas.data;
         } catch (e) { 
@@ -418,8 +429,13 @@ window.imprimirTodasOSFiltradas = async function() {
                         <h2>CCOL - Centro de Controle Operacional Logístico</h2>
                     </div>
                     <div class="header-right">
-                        O.S. Nº<br>
-                        <strong>${numeroOSFormatado}</strong>
+                        <div class="qr-container">
+                            <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=OS-${numeroOSFormatado}" alt="QR Code">
+                        </div>
+                        <div class="os-info">
+                            <span>O.S. Nº</span>
+                            <strong>${numeroOSFormatado}</strong>
+                        </div>
                     </div>
                 </div>
                 
@@ -521,8 +537,15 @@ window.imprimirTodasOSFiltradas = async function() {
                 .header-center { flex: 1; text-align: center; padding: 10px; }
                 .header-center h1 { margin: 0; font-size: 16px; text-transform: uppercase; }
                 .header-center h2 { margin: 2px 0 0 0; font-size: 12px; font-weight: normal; }
-                .header-right { padding: 10px; border-left: 2px solid #000; text-align: center; display: flex; flex-direction: column; justify-content: center; background: #f0f0f0; }
-                .header-right strong { font-size: 18px; color: red; }
+                
+                /* Layout Ajustado: QR Code e Número OS */
+                .header-right { padding: 5px 15px; border-left: 2px solid #000; display: flex; align-items: center; justify-content: center; background: #f0f0f0; min-width: 200px; }
+                .qr-container { display: flex; align-items: center; justify-content: center; padding-right: 15px; border-right: 2px solid #bbb; }
+                .header-right img.qr-code { width: 55px; height: 55px; mix-blend-mode: multiply; }
+                .header-right .os-info { display: flex; flex-direction: column; text-align: center; padding-left: 15px; justify-content: center; }
+                .header-right .os-info span { font-size: 12px; font-weight: bold; color: #444; }
+                .header-right .os-info strong { font-size: 24px; color: #dc2626; line-height: 1; margin-top: 4px; }
+
                 table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
                 th, td { border: 1px solid #000; padding: 3px 5px; font-size: 11px; text-align: left; }
                 th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
@@ -539,7 +562,7 @@ window.imprimirTodasOSFiltradas = async function() {
         <body>
             ${conteudoImpressao}
             <script>
-                window.onload = function() { setTimeout(() => { window.print(); }, 500); }
+                window.onload = function() { setTimeout(() => { window.print(); }, 1000); }
             </script>
         </body>
         </html>

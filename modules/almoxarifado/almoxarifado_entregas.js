@@ -5,10 +5,14 @@ let requisicoesEstoqueEntregas = [];
 let grupoAvaliacaoAtualEntregas = [];
 let itensPendentesParaAssinaturaEntregas = [];
 
+// Variáveis Modo Expresso
+let itensExpressosAtuais = [];
+let osExpressaLida = null;
+
 // Controle de Abas e Paginação
 let abaAtualEntregas = 'hoje';
 let paginaAtualHistorico = 1;
-const itensPorPagina = 10; // Você pode aumentar ou diminuir a quantidade de requisições por página
+const itensPorPagina = 10; 
 
 // Variáveis para as duas assinaturas
 let canvasColab, ctxColab, isDrawingColab = false, hasColabSig = false;
@@ -50,11 +54,286 @@ function injetarModalAprovacaoEntregas() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
+// ==================== LÓGICA MODO EXPRESSO (QR CODE / BARRAS / CAMERA) ====================
+
+window.abrirEntregaExpressa = function() {
+    // Reseta todo o estado e UI do modal
+    document.getElementById('inputExpressOS').value = '';
+    document.getElementById('inputExpressOS').disabled = false;
+    document.getElementById('inputExpressOS').style.borderColor = '#3b82f6';
+    
+    document.getElementById('inputExpressPeca').value = '';
+    document.getElementById('inputExpressPeca').disabled = true;
+    document.getElementById('inputExpressPeca').style.borderColor = '#64748b';
+    document.getElementById('inputExpressPeca').placeholder = 'Aguardando O.S...';
+    document.getElementById('btnCameraPeca').disabled = true;
+    
+    document.getElementById('btnConfirmarExpress').disabled = true;
+    document.getElementById('tbodyExpressPecas').innerHTML = '<tr><td colspan="5" style="text-align: center; color: #64748b; padding: 40px; font-style: italic;">Aguardando leitura do QR Code da O.S...</td></tr>';
+    
+    itensExpressosAtuais = [];
+    osExpressaLida = null;
+
+    document.getElementById('modalEntregaExpressa').style.display = 'flex';
+    
+    setTimeout(() => {
+        const inputOs = document.getElementById('inputExpressOS');
+        if(inputOs) inputOs.focus();
+    }, 300);
+};
+
+window.processarLeituraOS = async function(valorLido) {
+    let val = valorLido.trim().toUpperCase();
+    
+    let osIdStr = val.replace('OS-', '').replace(/^0+/, ''); 
+    
+    const inputOS = document.getElementById('inputExpressOS');
+    inputOS.value = val;
+
+    if(!osIdStr) {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Código Inválido', showConfirmButton: false, timer: 2000 });
+        inputOS.value = '';
+        return;
+    }
+
+    const numeroLido = parseInt(osIdStr, 10);
+
+    Swal.fire({ title: 'Buscando...', text: 'Sincronizando com a Oficina...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+    
+    try {
+        const { data: osData, error: errOs } = await window.supabaseClient
+            .from('ordens_servico')
+            .select('id, numero_os')
+            .or(`id.eq.${numeroLido},numero_os.eq.${numeroLido}`);
+
+        if (errOs || !osData || osData.length === 0) {
+            Swal.fire('Erro', `A O.S. #${numeroLido} não existe no banco de dados.`, 'error');
+            inputOS.value = '';
+            return;
+        }
+
+        const idsReais = osData.map(o => String(o.id));
+
+        await carregarDadosEntregas();
+        Swal.close();
+
+        let pendentes = requisicoesEstoqueEntregas.filter(r => 
+            idsReais.includes(String(r.os_id)) &&
+            (r.status === 'Pendente' || !r.status)
+        );
+
+        if(pendentes.length === 0) {
+            Swal.fire('Concluída ou Sem Pedidos', `A O.S. #${numeroLido} não possui peças pendentes de entrega no momento.`, 'warning');
+            inputOS.value = '';
+            return;
+        }
+
+        osExpressaLida = pendentes[0].os_id;
+
+        itensExpressosAtuais = pendentes.map(req => {
+            const peca = pecasEstoqueEntregas.find(p => String(p.id) === String(req.peca_id));
+            return {
+                ...req,
+                peca_nome: peca ? peca.nome : 'Peça Desconhecida / Excluída',
+                peca_codigo: peca ? (peca.codigo || 'S/N') : 'S/N',
+                estoque_atual: peca ? peca.quantidade : 0,
+                falta_estoque: peca ? peca.quantidade < req.quantidade : true,
+                checked: false
+            };
+        });
+
+        renderizarTabelaModoExpresso();
+
+        inputOS.disabled = true;
+        inputOS.style.borderColor = '#10b981'; 
+        
+        const inputPeca = document.getElementById('inputExpressPeca');
+        const btnCamPeca = document.getElementById('btnCameraPeca');
+        inputPeca.disabled = false;
+        inputPeca.style.borderColor = '#3b82f6';
+        inputPeca.placeholder = 'Bipe o Cód. de Barras da peça...';
+        btnCamPeca.disabled = false;
+        inputPeca.focus();
+        
+    } catch (e) {
+        Swal.fire('Erro', 'Falha na conexão com o banco de dados.', 'error');
+        console.error(e);
+    }
+};
+
+window.verificarLeituraOS = function(event) {
+    if (event.key === 'Enter') {
+        window.processarLeituraOS(event.target.value);
+    }
+};
+
+window.processarLeituraPeca = function(valorLido) {
+    let val = valorLido.trim().toUpperCase();
+    if(!val) return;
+
+    const inputPeca = document.getElementById('inputExpressPeca');
+
+    let indexItem = itensExpressosAtuais.findIndex(i => !i.checked && i.peca_codigo.toUpperCase() === val);
+
+    if (indexItem === -1) {
+        let jaChecado = itensExpressosAtuais.findIndex(i => i.checked && i.peca_codigo.toUpperCase() === val);
+        if (jaChecado !== -1) {
+            Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Peça já conferida!', text: val, showConfirmButton: false, timer: 2000 });
+        } else {
+            Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Código Inválido', text: 'Esta peça não está no pedido.', showConfirmButton: false, timer: 3000 });
+        }
+    } else {
+        if (itensExpressosAtuais[indexItem].falta_estoque) {
+            Swal.fire('Estoque Insuficiente', `O item ${itensExpressosAtuais[indexItem].peca_nome} não tem saldo.`, 'error');
+        } else {
+            itensExpressosAtuais[indexItem].checked = true;
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Peça Confirmada!', text: itensExpressosAtuais[indexItem].peca_nome, showConfirmButton: false, timer: 1500 });
+            renderizarTabelaModoExpresso();
+
+            // Verifica se TODAS as peças foram checadas
+            const todosChecados = itensExpressosAtuais.every(i => i.checked || i.falta_estoque);
+            if (todosChecados) {
+                if (typeof window.pararLeituraCamera === 'function') window.pararLeituraCamera();
+                Swal.fire({ toast: true, position: 'center', icon: 'success', title: 'Todas as peças separadas!', text: 'A câmera foi fechada automaticamente. Clique em Confirmar Baixa para finalizar.', showConfirmButton: false, timer: 4000 });
+            }
+        }
+    }
+
+    inputPeca.value = '';
+    inputPeca.focus();
+};
+
+window.verificarLeituraPeca = function(event) {
+    if (event.key === 'Enter') {
+        window.processarLeituraPeca(event.target.value);
+    }
+};
+
+window.toggleCheckManualExpresso = function(index) {
+    if (!itensExpressosAtuais[index].checked && itensExpressosAtuais[index].falta_estoque) {
+        Swal.fire('Estoque Insuficiente', `Item sem saldo suficiente no estoque.`, 'error');
+        return;
+    }
+    itensExpressosAtuais[index].checked = !itensExpressosAtuais[index].checked;
+    renderizarTabelaModoExpresso();
+    
+    // Verifica se TODAS as peças foram checadas manualmente também
+    const todosChecados = itensExpressosAtuais.every(i => i.checked || i.falta_estoque);
+    if (todosChecados) {
+        if (typeof window.pararLeituraCamera === 'function') window.pararLeituraCamera();
+    }
+
+    const inputPeca = document.getElementById('inputExpressPeca');
+    if(inputPeca && !inputPeca.disabled) inputPeca.focus();
+};
+
+window.renderizarTabelaModoExpresso = function() {
+    const tbody = document.getElementById('tbodyExpressPecas');
+    tbody.innerHTML = '';
+    let todosChecados = true;
+
+    itensExpressosAtuais.forEach((item, index) => {
+        let iconeCheck = item.checked 
+            ? '<i class="fas fa-check-circle" style="color: #10b981; font-size: 1.8rem; text-shadow: 0 0 10px rgba(16,185,129,0.5);"></i>' 
+            : '<i class="far fa-circle" style="color: #475569; font-size: 1.8rem;"></i>';
+        
+        let linhaEstilo = item.checked ? 'background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10b981;' : 'border-left: 4px solid transparent;';
+        
+        let btnManual = item.checked 
+            ? `<button class="btn-action-sm btn-dark" onclick="toggleCheckManualExpresso(${index})" title="Desmarcar"><i class="fas fa-undo"></i></button>`
+            : `<button class="btn-action-sm btn-success" onclick="toggleCheckManualExpresso(${index})" title="Marcar Manualmente"><i class="fas fa-check"></i> Manual</button>`;
+
+        let infoEstoque = item.falta_estoque 
+            ? `<br><span style="color:#ef4444; font-size:0.8rem; font-weight:bold;"><i class="fas fa-exclamation-triangle"></i> Sem saldo</span>` 
+            : '';
+
+        if(!item.checked) todosChecados = false;
+
+        tbody.innerHTML += `
+            <tr style="border-bottom:1px solid #334155; ${linhaEstilo} transition: all 0.3s ease;">
+                <td style="text-align: center; vertical-align: middle;">${iconeCheck}</td>
+                <td style="vertical-align: middle; color: #60a5fa; font-family: monospace; font-size: 1.1rem;">${item.peca_codigo}</td>
+                <td style="vertical-align: middle; color: #f8fafc; font-weight: 500;">${item.peca_nome} ${infoEstoque}</td>
+                <td style="text-align: center; vertical-align: middle; font-weight: 900; font-size: 1.2rem; color: #fff;">${item.quantidade}</td>
+                <td style="text-align: center; vertical-align: middle;">${btnManual}</td>
+            </tr>
+        `;
+    });
+
+    const btnConfirmar = document.getElementById('btnConfirmarExpress');
+    
+    const algumChecado = itensExpressosAtuais.some(i => i.checked);
+    btnConfirmar.disabled = !algumChecado;
+};
+
+window.confirmarEntregaExpressa = async function() {
+    const itensParaBaixar = itensExpressosAtuais.filter(i => i.checked);
+    
+    if(itensParaBaixar.length === 0) return;
+
+    if(itensParaBaixar.length < itensExpressosAtuais.length) {
+        const conf = await Swal.fire({
+            title: 'Entrega Parcial',
+            text: 'Você não separou todas as peças solicitadas. Deseja entregar apenas os itens confirmados?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#10b981',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Sim, finalizar assim'
+        });
+        if(!conf.isConfirmed) return;
+    }
+
+    const btn = document.getElementById('btnConfirmarExpress');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...'; 
+    btn.disabled = true;
+
+    try {
+        const username = window.currentUser ? window.currentUser.username : 'Almoxarifado';
+        const dataBaixa = new Date().toISOString();
+
+        for(let req of itensParaBaixar) {
+            const tabelaBase = req.source_table === 'almoxarifado_requisicoes' ? 'almoxarifado_requisicoes' : 'os_pecas_utilizadas';
+            
+            await window.supabaseClient.from(tabelaBase).update({ status: 'Aprovado' }).eq('id', req.id);
+            
+            const pecaObj = pecasEstoqueEntregas.find(p => String(p.id) === String(req.peca_id));
+            const precoMedio = pecaObj ? pecaObj.preco_medio : 0;
+
+            let movSaida = {
+                peca_id: req.peca_id, 
+                tipo: 'saida', 
+                quantidade: req.quantidade, 
+                valor_unitario: req.valor_unitario || precoMedio,
+                usuario: username, 
+                data_movimentacao: dataBaixa,
+                cavalo: req.placa || 'Oficina',
+                os_id: req.os_id,
+                nota_fiscal: `O.S #${req.os_id} (Expresso)`
+            };
+
+            await db.addMovimentacao(movSaida);
+        }
+
+        fecharModalEntregas('modalEntregaExpressa');
+        Swal.fire('Baixa Concluída!', 'Os produtos separados foram baixados do estoque com sucesso.', 'success');
+        
+        await carregarDadosEntregas();
+
+    } catch(e) {
+        console.error("Erro na entrega expressa: ", e);
+        Swal.fire('Erro', 'Ocorreu um erro de conexão ao tentar baixar os itens.', 'error');
+    } finally {
+        btn.innerHTML = '<i class="fas fa-check-double"></i> Confirmar Baixa e Entrega';
+        btn.disabled = false;
+    }
+};
+
 // ==================== LÓGICA DAS ABAS, FILTROS E PAGINAÇÃO ====================
 
 window.trocarAbaEntregas = function(aba) {
     abaAtualEntregas = aba;
-    paginaAtualHistorico = 1; // Reseta a paginação ao trocar de aba
+    paginaAtualHistorico = 1; 
     
     document.getElementById('tab-hoje').classList.toggle('active', aba === 'hoje');
     document.getElementById('tab-historico').classList.toggle('active', aba === 'historico');
@@ -67,7 +346,7 @@ window.trocarAbaEntregas = function(aba) {
 }
 
 window.filtrarHistoricoEntregas = function() {
-    paginaAtualHistorico = 1; // Reseta a paginação ao filtrar
+    paginaAtualHistorico = 1; 
     renderizarTabelaPorAba();
 }
 
@@ -92,7 +371,6 @@ window.mudarPaginaEntregas = function(direcao) {
 window.renderizarTabelaPorAba = function() {
     let dados = [...requisicoesEstoqueEntregas];
 
-    // Aplicar Filtros Iniciais Baseados na Aba
     if(abaAtualEntregas === 'hoje') {
         const hojeStr = new Date().toLocaleDateString('pt-BR');
         dados = dados.filter(req => {
@@ -122,7 +400,6 @@ window.renderizarTabelaPorAba = function() {
         }
     }
 
-    // 1. Agrupar os Itens (Para não quebrar um pedido no meio da paginação)
     const gruposReq = {};
     dados.forEach(req => {
         let chave = req.source_table === 'almoxarifado_requisicoes' ? `${req.created_at}_${req.colaborador_nome}` : `${req.created_at}_${req.os_id || req.centro_custo}`;
@@ -146,7 +423,6 @@ window.renderizarTabelaPorAba = function() {
         gruposReq[chave].itens.push(req);
     });
 
-    // Filtra Status do Grupo (só aplicável no Histórico)
     let gruposArray = Object.values(gruposReq);
     if (abaAtualEntregas === 'historico') {
         const fStatus = document.getElementById('filtroStatus').value;
@@ -169,7 +445,6 @@ window.renderizarTabelaPorAba = function() {
         }
     }
 
-    // 2. Aplicar Paginação APENAS se for Aba Histórico
     if (abaAtualEntregas === 'historico') {
         const totalPaginas = Math.ceil(gruposArray.length / itensPorPagina) || 1;
         
@@ -185,7 +460,6 @@ window.renderizarTabelaPorAba = function() {
         gruposArray = gruposArray.slice(inicio, fim);
     }
 
-    // 3. Renderizar o HTML da Tabela
     const tbody = document.getElementById('tabelaEntregasBody');
     if (!tbody) return;
     tbody.innerHTML = '';
@@ -264,7 +538,6 @@ window.renderizarTabelaPorAba = function() {
         tbody.appendChild(tr);
     });
 }
-
 
 // ==================== LÓGICA DAS ASSINATURAS (PASSOS E CANVAS) ====================
 
@@ -370,15 +643,11 @@ window.voltarParaPassoColab = function() {
     document.getElementById('passoAssinaturaColab').style.display = 'block';
 }
 
-// ==================== FIM LÓGICA ASSINATURAS ====================
-
 async function carregarDadosEntregas() {
     try {
         pecasEstoqueEntregas = await db.getPecas();
         
         if (window.supabaseClient) {
-            // OBS: Removi o .limit(100) para permitir que o histórico completo seja buscado
-            // e paginado. Caso comece a travar no futuro, limite a 500, 1000 ou aplique paginação direto na API
             let queryReqsOS = window.supabaseClient.from('os_pecas_utilizadas').select('*').order('id', { ascending: false });
             if (typeof window.aplicarFiltroFilial === 'function') queryReqsOS = window.aplicarFiltroFilial(queryReqsOS);
             const { data: reqsOS } = await queryReqsOS;
@@ -398,7 +667,6 @@ async function carregarDadosEntregas() {
         renderizarTabelaPorAba();
     } catch (e) { console.error("Erro ao carregar requisições para entregas", e); }
 }
-
 
 window.abrirModalAprovacaoGrupoEntregas = function(dataReq, sourceTable, identificador) {
     grupoAvaliacaoAtualEntregas = requisicoesEstoqueEntregas.filter(r => 
@@ -760,5 +1028,8 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
 }
 
 window.fecharModalEntregas = function(id) { 
+    if (id === 'modalEntregaExpressa' && typeof window.pararLeituraCamera === 'function') {
+        window.pararLeituraCamera();
+    }
     document.getElementById(id).style.display = 'none'; 
 }

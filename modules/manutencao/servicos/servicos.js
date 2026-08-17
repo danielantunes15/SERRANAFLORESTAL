@@ -26,8 +26,8 @@ window.renderizarTelaServicos = async function() {
         const osEmExecucao = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção').map(os => os.id);
         
         if (osEmExecucao.length > 0) {
-            // Alterado para usar a tabela almoxarifado_requisicoes
-            let queryReq = window.supabaseClient.from('almoxarifado_requisicoes').select(`*`).in('os_id', osEmExecucao).order('id', { ascending: false });
+            // Requisições de O.S vêm da tabela 'os_pecas_utilizadas'
+            let queryReq = window.supabaseClient.from('os_pecas_utilizadas').select(`*`).in('os_id', osEmExecucao).order('id', { ascending: false });
             if (typeof window.aplicarFiltroFilial === 'function') queryReq = window.aplicarFiltroFilial(queryReq);
             const { data: reqData } = await queryReq;
             mOS_Requisicoes = reqData || [];
@@ -74,7 +74,7 @@ window.mecanicoInicializarMapaSOS = function() {
             let match = parts[0].trim().match(/(-?\d+\.\d+),(-?\d+\.\d+)/);
             if (match) {
                 let lat = parseFloat(match[1]); let lng = parseFloat(match[2]);
-                let popupMsg = `<div style="text-align:center;"><b>🚨 S.O.S O.S #${os.id}</b><br><b>Placa:</b> ${os.placa}<br><a href="${parts[0].trim()}" target="_blank">Abrir GPS</a></div>`;
+                let popupMsg = `<div style="text-align:center;"><b>🚨 S.O.S O.S #${os.numero_os || os.id}</b><br><b>Placa:</b> ${os.placa}<br><a href="${parts[0].trim()}" target="_blank">Abrir GPS</a></div>`;
                 L.marker([lat, lng]).addTo(mapaSOSMecanicoInstance).bindPopup(popupMsg);
                 bounds.push([lat, lng]);
             }
@@ -87,7 +87,7 @@ window.mecanicoInicializarMapaSOS = function() {
 function mecanicoAtualizarContadores() {
     document.getElementById('countAceite').innerText = mOS_ListaGeral.filter(os => os.status === 'Aguardando Oficina' && !(os.tipo && os.tipo.startsWith('S.O.S'))).length;
     document.getElementById('countAbertas').innerText = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção').length;
-    document.getElementById('countRequisicoes').innerText = mOS_Requisicoes.filter(r => r.status === 'Pendente').length;
+    document.getElementById('countRequisicoes').innerText = mOS_Requisicoes.filter(r => r.status === 'Pendente' || !r.status).length;
     document.getElementById('countSOS').innerText = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S')).length;
 }
 
@@ -104,7 +104,7 @@ function mecanicoRenderizarTabelas() {
         container.innerHTML = osDisp.map(os => `
             <div class="tablet-card" style="border-left: 5px solid #3b82f6;">
                 <div class="card-header-flex">
-                    <span class="card-badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">#${os.id}</span>
+                    <span class="card-badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">#${os.numero_os || os.id}</span>
                     <span style="color:#94a3b8; font-size:0.85rem;"><i class="fas fa-clock"></i> ${formatarDataHoraBrasil(os.data_abertura)}</span>
                 </div>
                 <div class="card-placa">${os.placa}</div>
@@ -133,7 +133,7 @@ function mecanicoRenderizarTabelas() {
             return `
             <div class="tablet-card" style="border-left: 6px solid ${colorBorder}; ${meucard ? 'background: rgba(16, 185, 129, 0.05);' : ''}">
                 <div class="card-header-flex">
-                    <span class="card-badge" style="background: ${colorBorder};">#${os.id} ${isSOS ? 'S.O.S' : 'EM EXECUÇÃO'}</span>
+                    <span class="card-badge" style="background: ${colorBorder};">#${os.numero_os || os.id} ${isSOS ? 'S.O.S' : 'EM EXECUÇÃO'}</span>
                     <span style="color:#94a3b8; font-size:0.85rem;">Mecânico: <strong style="color:#fff;">${os.mecanico_responsavel}</strong></span>
                 </div>
                 <div class="card-placa" style="color: ${colorBorder};">${os.placa}</div>
@@ -162,7 +162,7 @@ function mecanicoRenderizarTabelas() {
             return `
             <div class="tablet-card" style="background: ${bgCor}; border-color: ${borderCor}; padding: 12px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
-                    <strong style="color:#fff;">O.S. #${r.os_id || 'N/A'}</strong>
+                    <strong style="color:#fff;">Ref. ID OS: #${r.os_id || 'N/A'}</strong>
                     <span style="background:${borderCor}; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">${r.status || 'Pendente'}</span>
                 </div>
                 <div style="color:var(--ccol-blue-bright); font-size:1.1rem; font-weight:bold; margin-bottom:5px;">${pecaNome}</div>
@@ -201,7 +201,7 @@ function mecanicoRenderizarTabelas() {
             return `
             <div class="tablet-card" style="border-left: 5px solid #f97316; background: #1e293b;">
                 <div class="card-header-flex">
-                    <span class="card-badge" style="background: #f97316;">S.O.S #${os.id}</span>
+                    <span class="card-badge" style="background: #f97316;">S.O.S #${os.numero_os || os.id}</span>
                     <span style="color:#94a3b8; font-size:0.85rem;">${formatarDataHoraBrasil(os.data_abertura)}</span>
                 </div>
                 <div class="card-placa" style="color: #f97316;">${os.placa}</div>
@@ -262,7 +262,7 @@ window.mecanicoAceitarOS = async function(id, placa) {
 };
 
 window.mecanicoDevolverOS = async function(id, placa) {
-    if (!confirm(`Deseja DEVOLVER a O.S. #${id} para disponíveis?`)) return;
+    if (!confirm(`Deseja DEVOLVER a O.S. para disponíveis?`)) return;
     try {
         await window.supabaseClient.from('ordens_servico').update({ 
             status: 'Aguardando Oficina', mecanico_responsavel: null, data_inicio_manutencao: null
@@ -342,32 +342,22 @@ window.mecanicoAddPeca = async function() {
     const pecaIdVal = document.getElementById('aponPeca').value;
     const comp = document.getElementById('aponCompartimentoPeca').value;
     const qtd = parseFloat(document.getElementById('aponQtdPeca').value);
-    const mecanicoAtual = mecanicoPegarUsuario();
 
     if (!pecaIdVal || qtd <= 0) return alert("Selecione a peça e quantidade.");
     const pecaId = isNaN(pecaIdVal) ? pecaIdVal : Number(pecaIdVal);
-    const pecaDb = mOS_PecasCache.find(p => p.id == pecaId);
 
-    // Alterado para bater com os campos exatos da sua tabela almoxarifado_requisicoes
+    // CORREÇÃO AQUI: removido mecanico_responsavel pois essa coluna não existe na tabela os_pecas_utilizadas
     let insertPeca = { 
         os_id: mOS_Atual, 
         peca_id: pecaId, 
         quantidade: qtd, 
-        valor_unitario: pecaDb ? (pecaDb.preco_medio || 0) : 0, 
         compartimento: comp, 
-        status: 'Pendente',
-        colaborador_nome: mecanicoAtual,
-        usuario_solicitante: mecanicoAtual
+        status: 'Pendente'
     };
     
     if (typeof window.injetarFilial === 'function') insertPeca = window.injetarFilial(insertPeca);
 
-    let res = await window.supabaseClient.from('almoxarifado_requisicoes').insert([insertPeca]);
-    
-    if(res.error && res.error.message && res.error.message.includes('column')) {
-        delete insertPeca.valor_unitario;
-        res = await window.supabaseClient.from('almoxarifado_requisicoes').insert([insertPeca]);
-    }
+    let res = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
 
     if(res.error) return alert("Erro ao requisitar peça. Mensagem do BD: " + res.error.message);
 
@@ -400,8 +390,7 @@ async function mecanicoAtualizarTabelasModal() {
         </div>
     `).join('') : '<p style="padding:15px; text-align:center; color:#94a3b8;">Nenhum serviço lançado.</p>';
 
-    // Alterado para buscar os lançamentos da tabela certa
-    const { data: p } = await window.supabaseClient.from('almoxarifado_requisicoes').select(`*`).eq('os_id', mOS_Atual);
+    const { data: p } = await window.supabaseClient.from('os_pecas_utilizadas').select(`*`).eq('os_id', mOS_Atual);
     document.getElementById('tabelaPecasLancadas').innerHTML = (p && p.length > 0) ? p.map(item => {
         const pecaObj = mOS_PecasCache.find(x => x.id == item.peca_id);
         const pNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
