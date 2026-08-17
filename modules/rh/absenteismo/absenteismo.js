@@ -84,13 +84,32 @@ window.carregarListaBaseColaboradores = async function() {
         window.colaboradoresAtivos = dados.filter(c => c.status !== 'Inativo' && c.status !== 'Desligado');
         window.listaParaSelectColaboradores = window.colaboradoresAtivos;
         
-        const selRel = document.getElementById('relColaborador');
-        if(selRel) {
-            selRel.innerHTML = '<option value="TODOS">Todos os Colaboradores</option>';
-            window.colaboradoresAtivos.forEach(c => {
-                selRel.innerHTML += `<option value="${c.id}">[${String(c.cod_funcionario).padStart(4,'0')}] ${c.nome}</option>`;
+        // CORREÇÃO: Tenta buscar 'setor', se não tiver, busca 'departamento' ou 'cargo'
+        const setoresUnicos = [...new Set(window.colaboradoresAtivos.map(c => c.setor || c.departamento || c.cargo).filter(Boolean))].sort();
+        const selSetor = document.getElementById('filtroRapidoSetor');
+        
+        if (selSetor) {
+            let optionsSetor = '<option value="" style="background: #1e293b; color: #fff;">Todos os Setores</option>';
+            setoresUnicos.forEach(s => {
+                optionsSetor += `<option value="${s}" style="background: #1e293b; color: #fff;">${s}</option>`;
             });
+            selSetor.innerHTML = optionsSetor;
         }
+
+        const selRel = document.getElementById('relColaborador');
+        const selRapido = document.getElementById('filtroRapidoColab');
+        
+        let optionsHTML = '<option value="TODOS" style="background: #1e293b; color: #fff;">Todos os Colaboradores</option>';
+        let optionsRapidoHTML = '<option value="" style="background: #1e293b; color: #fff;">Todos os Colaboradores</option>';
+        
+        window.colaboradoresAtivos.forEach(c => {
+            const mat = c.cod_funcionario ? String(c.cod_funcionario).padStart(4,'0') : '-';
+            optionsHTML += `<option value="${c.id}" style="background: #1e293b; color: #fff;">${c.nome} [${mat}]</option>`;
+            optionsRapidoHTML += `<option value="${c.id}" style="background: #1e293b; color: #fff;">${c.nome} [${mat}]</option>`;
+        });
+
+        if(selRel) selRel.innerHTML = optionsHTML;
+        if(selRapido) selRapido.innerHTML = optionsRapidoHTML;
     } catch(e) {
         console.error("Erro ao puxar colaboradores:", e);
     }
@@ -106,7 +125,7 @@ window.carregarAbsenteismo = async function() {
         
         try {
             const { data } = await window.supabaseClient.from('rh_banco_horas')
-                .select('id, data_extra, caminhao_placa, turno, created_at, rh_colaboradores(nome, cod_funcionario)')
+                .select('id, data_extra, caminhao_placa, turno, created_at, motorista_id, rh_colaboradores(nome, cod_funcionario)')
                 .order('created_at', { ascending: false });
             window.listaConvocadosExtraBH = data || [];
         } catch(errBH) {
@@ -388,7 +407,7 @@ window.renderizarTabelaAbsenteismo = function() {
     } else if(window.abaAtualAbsenteismo === 'BANCO_HORAS') {
         htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Data Referência</th><th>Horas Lançadas</th><th>Motivo Lançamento</th><th>Anexo</th><th>Ações</th>`;
     } else if(window.abaAtualAbsenteismo === 'CONVOCADOS_EXTRA') {
-        htmlHead = `<th>Criado em</th><th>Colaborador</th><th>Data da Extra</th><th>Veículo Assumido</th><th>Turno Realizado</th><th style="text-align: right;">Ações</th>`;
+        htmlHead = `<th>Criado em</th><th>Colaborador</th><th>Data da Extra</th><th>Veículo Assumido</th><th>Turno Realizado</th><th>Anexo</th><th style="text-align: right;">Ações</th>`;
     }
     
     thead.innerHTML = htmlHead;
@@ -396,7 +415,7 @@ window.renderizarTabelaAbsenteismo = function() {
 
     if (window.abaAtualAbsenteismo === 'CONVOCADOS_EXTRA') {
         if (window.listaConvocadosExtraBH.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum motorista convocado em dia de folga localizado.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum motorista convocado em dia de folga localizado.</td></tr>`;
             return;
         }
         
@@ -411,6 +430,10 @@ window.renderizarTabelaAbsenteismo = function() {
             const mat = item.rh_colaboradores && item.rh_colaboradores.cod_funcionario ? `[${String(item.rh_colaboradores.cod_funcionario).padStart(4, '0')}]` : '';
             const dataExtraFmt = item.data_extra ? item.data_extra.split('-').reverse().join('/') : '-';
             
+            const btnAnexoExtra = item.anexo_url 
+                ? `<a href="${item.anexo_url}" target="_blank" class="btn-primary-blue" style="padding:4px 8px; font-size:0.75rem; text-decoration:none; border-radius:4px;"><i class="fas fa-paperclip"></i> Ver</a>` 
+                : `<button class="btn-secondary-dark" onclick="window.abrirModalAnexoAbs('${item.id}', true)" style="padding:4px 8px; font-size:0.75rem; border-radius:4px;"><i class="fas fa-paperclip"></i> Anexar</button>`;
+
             tbody.innerHTML += `
                 <tr>
                     <td style="font-size: 0.8rem; color: #94a3b8;">${dataCriacao}</td>
@@ -418,7 +441,9 @@ window.renderizarTabelaAbsenteismo = function() {
                     <td><span style="background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85rem;"><i class="fas fa-calendar-day"></i> ${dataExtraFmt}</span></td>
                     <td><strong style="color: var(--ccol-blue-bright); font-size: 1.05rem;">${item.caminhao_placa || '-'}</strong></td>
                     <td><span class="search-input-dark" style="padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-dim);">${item.turno || '-'}</span></td>
-                    <td style="text-align: right;">
+                    <td>${btnAnexoExtra}</td>
+                    <td style="text-align: right; display:flex; justify-content: flex-end; gap:5px;">
+                        <button class="btn-icon-only" onclick="window.editarBancoHorasAbs('${item.id}')" title="Editar Convocação"><i class="fas fa-edit" style="color:#3b82f6;"></i></button>
                         <button class="btn-icon-only" onclick="window.excluirConvocadoExtra('${item.id}', '${item.data_extra}', '${colabNome}')" title="Excluir Convocação"><i class="fas fa-trash" style="color:#ef4444;"></i></button>
                     </td>
                 </tr>
@@ -448,7 +473,14 @@ window.renderizarTabelaAbsenteismo = function() {
 
         const nomeColaborador = item.rh_colaboradores ? item.rh_colaboradores.nome : '<span style="color:#ef4444;">Removido</span>';
         const mat = item.rh_colaboradores ? `[${String(item.rh_colaboradores.cod_funcionario).padStart(4, '0')}]` : '';
-        const btnExcluir = `<button class="btn-icon-only" onclick="window.excluirAbsenteismo('${item.id}', '${item.anexo_url}')" title="Excluir"><i class="fas fa-trash" style="color:#ef4444;"></i></button>`;
+        
+        const btnAcoes = `
+            <div style="display:flex; gap:5px; justify-content: flex-end;">
+                <button class="btn-icon-only" onclick="window.editarAbsenteismo('${item.id}')" title="Editar"><i class="fas fa-edit" style="color:#3b82f6;"></i></button>
+                <button class="btn-icon-only" onclick="window.excluirAbsenteismo('${item.id}', '${item.anexo_url}')" title="Excluir"><i class="fas fa-trash" style="color:#ef4444;"></i></button>
+            </div>
+        `;
+
         const btnAnexo = item.anexo_url 
             ? `<a href="${item.anexo_url}" target="_blank" class="btn-primary-blue" style="padding:4px 8px; font-size:0.75rem; text-decoration:none; border-radius:4px;"><i class="fas fa-paperclip"></i> Ver</a>` 
             : `<button class="btn-secondary-dark" onclick="window.abrirModalAnexoAbs('${item.id}')" style="padding:4px 8px; font-size:0.75rem; border-radius:4px;"><i class="fas fa-paperclip"></i> Anexar</button>`;
@@ -482,7 +514,7 @@ window.renderizarTabelaAbsenteismo = function() {
                 <td style="text-align:left;">${detalhesHTML}</td>
                 <td>${periodoHTML}</td>
                 <td>${btnAnexo}</td>
-                <td>${btnExcluir}</td>
+                <td>${btnAcoes}</td>
             `;
         } else if (window.abaAtualAbsenteismo === 'ATESTADO') {
             tr.innerHTML = `
@@ -492,7 +524,7 @@ window.renderizarTabelaAbsenteismo = function() {
                 <td style="text-align:left;"><strong style="color:#f59e0b;">CID: ${item.cid || 'N/A'}</strong><br>${item.medico_nome || '-'}</td>
                 <td>${item.motivo || '-'}</td>
                 <td>${btnAnexo}</td>
-                <td>${btnExcluir}</td>
+                <td>${btnAcoes}</td>
             `;
         } else if (window.abaAtualAbsenteismo === 'FALTA') {
             let statusRh = item.status_rh || 'Pendente';
@@ -510,7 +542,7 @@ window.renderizarTabelaAbsenteismo = function() {
                 <td>${item.motivo || '-'}</td>
                 <td>${selectStatus}</td>
                 <td>${btnAnexo}</td>
-                <td>${btnExcluir}</td>
+                <td>${btnAcoes}</td>
             `;
         } else if (window.abaAtualAbsenteismo === 'BANCO_HORAS') {
             tr.innerHTML = `
@@ -520,7 +552,7 @@ window.renderizarTabelaAbsenteismo = function() {
                 <td><span style="color:var(--ccol-green-bright); font-weight:bold;">${item.quantidade_horas} hrs</span></td>
                 <td>${item.motivo || '-'}</td>
                 <td>${btnAnexo}</td>
-                <td>${btnExcluir}</td>
+                <td>${btnAcoes}</td>
             `;
         }
 
@@ -530,6 +562,8 @@ window.renderizarTabelaAbsenteismo = function() {
 
 window.filtrarAbsenteismo = function() {
     const termo = document.getElementById('buscaAbsenteismo').value.toLowerCase();
+    const filtroColabId = document.getElementById('filtroRapidoColab') ? document.getElementById('filtroRapidoColab').value : '';
+    const filtroSetor = document.getElementById('filtroRapidoSetor') ? document.getElementById('filtroRapidoSetor').value : '';
     
     if (window.abaAtualAbsenteismo === 'relatorio') {
         alert("Na aba de Relatórios, utilize os filtros de Colaborador e Datas acima da tabela.");
@@ -540,7 +574,15 @@ window.filtrarAbsenteismo = function() {
         const filtradosBH = window.listaConvocadosExtraBH.filter(b => {
             const nome = b.rh_colaboradores ? b.rh_colaboradores.nome.toLowerCase() : '';
             const placa = b.caminhao_placa ? b.caminhao_placa.toLowerCase() : '';
-            return nome.includes(termo) || placa.includes(termo);
+            
+            let passaTexto = nome.includes(termo) || placa.includes(termo);
+            let passaColab = filtroColabId === '' || String(b.motorista_id) === String(filtroColabId);
+            
+            const colabInfo = window.colaboradoresAtivos.find(c => String(c.id) === String(b.motorista_id));
+            const setorObj = colabInfo ? (colabInfo.setor || colabInfo.departamento || colabInfo.cargo) : '';
+            let passaSetor = filtroSetor === '' || setorObj === filtroSetor;
+            
+            return passaTexto && passaColab && passaSetor;
         });
         const backupBH = window.listaConvocadosExtraBH;
         window.listaConvocadosExtraBH = filtradosBH;
@@ -554,7 +596,15 @@ window.filtrarAbsenteismo = function() {
         const cid = a.cid ? a.cid.toLowerCase() : '';
         const motivo = a.motivo ? a.motivo.toLowerCase() : '';
         const medico = a.medico_nome ? a.medico_nome.toLowerCase() : '';
-        return nome.includes(termo) || cid.includes(termo) || motivo.includes(termo) || medico.includes(termo);
+        
+        let passaTexto = nome.includes(termo) || cid.includes(termo) || motivo.includes(termo) || medico.includes(termo);
+        let passaColab = filtroColabId === '' || String(a.colaborador_id) === String(filtroColabId);
+        
+        const colabInfo = window.colaboradoresAtivos.find(c => String(c.id) === String(a.colaborador_id));
+        const setorObj = colabInfo ? (colabInfo.setor || colabInfo.departamento || colabInfo.cargo) : '';
+        let passaSetor = filtroSetor === '' || setorObj === filtroSetor;
+        
+        return passaTexto && passaColab && passaSetor;
     });
     
     const backupLista = window.listaAbsenteismo;
@@ -610,9 +660,10 @@ window.abrirModalAbsenteismo = function(tipo) {
     selectColaborador.innerHTML = '<option value="">Selecione um colaborador...</option>';
     window.listaParaSelectColaboradores.forEach(c => {
         const matricula = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
-        selectColaborador.innerHTML += `<option value="${c.id}">[${matricula}] ${c.nome}</option>`;
+        selectColaborador.innerHTML += `<option value="${c.id}" style="background: #1e293b; color: #fff;">${c.nome} [${matricula}]</option>`;
     });
 
+    document.getElementById('absEditId').value = '';
     document.getElementById('absTipoRegistro').value = tipo;
     document.getElementById('absDataInicio').value = '';
     document.getElementById('absDias').value = '';
@@ -695,6 +746,56 @@ window.abrirModalAbsenteismo = function(tipo) {
     document.getElementById('modalAbsenteismo').classList.add('show');
 };
 
+window.editarAbsenteismo = function(id) {
+    const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    const isRH = userRole && typeof userRole === 'string' && userRole.toUpperCase().includes('RH');
+    const allowedRoles = ['Supervisor', 'Admin', 'SuperAdmin'];
+    
+    if (!isRH && !allowedRoles.includes(userRole)) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ icon: 'error', title: 'Acesso Negado', text: 'Apenas usuários do RH, Supervisor ou Admin podem editar registros.', background: '#1e293b', color: '#fff' });
+        } else alert('Acesso Negado: Apenas a função ligada ao RH ou Supervisor pode editar registros.');
+        return;
+    }
+
+    const item = window.listaAbsenteismo.find(x => String(x.id) === String(id));
+    if(!item) return;
+
+    window.abrirModalAbsenteismo(item.tipo_registro); 
+    
+    document.getElementById('absModalTitulo').innerHTML = '<i class="fas fa-edit" style="color:var(--ccol-blue-bright);"></i> Editar Registro';
+    document.getElementById('absEditId').value = item.id;
+    
+    document.getElementById('absColaborador').value = item.colaborador_id || '';
+    document.getElementById('absDataInicio').value = item.data_inicio || '';
+    document.getElementById('absDias').value = item.dias_afastamento || '';
+    document.getElementById('absHoras').value = item.quantidade_horas || '';
+    document.getElementById('absDataRetorno').value = item.data_retorno || '';
+    document.getElementById('absCid').value = item.cid || '';
+    document.getElementById('absMotivo').value = item.motivo || '';
+    document.getElementById('absMedicoNome').value = item.medico_nome || '';
+    document.getElementById('absMedicoCrm').value = item.medico_crm || '';
+    document.getElementById('absObservacoes').value = item.observacoes || '';
+
+    if (item.tipo_registro === 'FALTA') {
+        const selectClass = document.getElementById('absClassificacaoSelect');
+        if(selectClass) {
+            const motivosPadrao = ['Falta Injustificada', 'Falta Justificada', 'Troca de dia', 'Licença Paternidade', 'Licença Maternidade', 'Licença Óbito', 'Licença Casamento', 'Doação de Sangue', 'Alistamento Militar', 'Suspensão Disciplinar'];
+            if (motivosPadrao.includes(item.motivo)) {
+                selectClass.value = item.motivo;
+                document.getElementById('grupoMotivo').style.display = 'none';
+            } else {
+                selectClass.value = 'Outros';
+                document.getElementById('grupoMotivo').style.display = 'block';
+            }
+        }
+        document.getElementById('btnAdicionarMultiData').style.display = 'none';
+        document.getElementById('containerMultiDatas').style.display = 'none';
+    }
+
+    window.buscarDescricaoCidAbs(); 
+};
+
 window.fecharModalAbsenteismo = function() {
     document.getElementById('modalAbsenteismo').classList.remove('show');
 };
@@ -736,11 +837,12 @@ window.salvarAbsenteismo = async function() {
     const colaboradorId = document.getElementById('absColaborador').value;
     const tipo = document.getElementById('absTipoRegistro').value;
     const motivo = document.getElementById('absMotivo').value;
+    const editId = document.getElementById('absEditId').value;
 
     let datasParaSalvar = [];
     const dataInputVal = document.getElementById('absDataInicio').value;
 
-    if (tipo === 'FALTA') {
+    if (tipo === 'FALTA' && !editId) {
         if (dataInputVal && !window.datasMultiplasFalta.includes(dataInputVal)) {
             datasParaSalvar.push(dataInputVal);
         }
@@ -784,28 +886,51 @@ window.salvarAbsenteismo = async function() {
             anexoUrlFinal = publicUrlData.publicUrl;
         }
 
-        for (const dataOcorrencia of datasParaSalvar) {
-            const dados = {
+        if (editId) {
+            const dadosUpdate = {
                 colaborador_id: colaboradorId,
                 tipo_registro: tipo,
-                data_inicio: dataOcorrencia,
+                data_inicio: dataInputVal,
                 dias_afastamento: tipo === 'ATESTADO' ? (parseInt(document.getElementById('absDias').value) || 1) : null,
                 data_retorno: tipo === 'ATESTADO' ? document.getElementById('absDataRetorno').value : null,
                 quantidade_horas: tipo !== 'ATESTADO' ? (parseFloat(document.getElementById('absHoras').value) || 0) : 0,
                 cid: tipo === 'ATESTADO' ? document.getElementById('absCid').value.toUpperCase() : null,
                 motivo: motivo,
-                status_rh: tipo === 'FALTA' ? 'Pendente' : null,
                 observacoes: document.getElementById('absObservacoes').value,
                 medico_nome: tipo === 'ATESTADO' ? document.getElementById('absMedicoNome').value : null,
-                medico_crm: tipo === 'ATESTADO' ? document.getElementById('absMedicoCrm').value : null,
-                anexo_url: anexoUrlFinal
+                medico_crm: tipo === 'ATESTADO' ? document.getElementById('absMedicoCrm').value : null
             };
+            if (anexoUrlFinal) dadosUpdate.anexo_url = anexoUrlFinal;
 
-            await db.addAbsenteismo(dados);
-        }
-        
-        if (typeof window.registrarLogAuditoria === 'function') {
-            window.registrarLogAuditoria('RH', 'Absenteísmo', `Lançamento de ${tipo} efetuado para ${datasParaSalvar.length} dia(s)`, 'Alerta');
+            await window.supabaseClient.from('rh_absenteismo').update(dadosUpdate).eq('id', editId);
+            
+            if (typeof window.registrarLogAuditoria === 'function') {
+                window.registrarLogAuditoria('RH', 'Absenteísmo', `Edição de registro (ID: ${editId})`, 'Info');
+            }
+        } else {
+            for (const dataOcorrencia of datasParaSalvar) {
+                const dados = {
+                    colaborador_id: colaboradorId,
+                    tipo_registro: tipo,
+                    data_inicio: dataOcorrencia,
+                    dias_afastamento: tipo === 'ATESTADO' ? (parseInt(document.getElementById('absDias').value) || 1) : null,
+                    data_retorno: tipo === 'ATESTADO' ? document.getElementById('absDataRetorno').value : null,
+                    quantidade_horas: tipo !== 'ATESTADO' ? (parseFloat(document.getElementById('absHoras').value) || 0) : 0,
+                    cid: tipo === 'ATESTADO' ? document.getElementById('absCid').value.toUpperCase() : null,
+                    motivo: motivo,
+                    status_rh: tipo === 'FALTA' ? 'Pendente' : null,
+                    observacoes: document.getElementById('absObservacoes').value,
+                    medico_nome: tipo === 'ATESTADO' ? document.getElementById('absMedicoNome').value : null,
+                    medico_crm: tipo === 'ATESTADO' ? document.getElementById('absMedicoCrm').value : null,
+                    anexo_url: anexoUrlFinal
+                };
+
+                await db.addAbsenteismo(dados);
+            }
+            
+            if (typeof window.registrarLogAuditoria === 'function') {
+                window.registrarLogAuditoria('RH', 'Absenteísmo', `Lançamento de ${tipo} efetuado para ${datasParaSalvar.length} dia(s)`, 'Alerta');
+            }
         }
         
         window.fecharModalAbsenteismo();
@@ -921,6 +1046,61 @@ window.excluirAbsenteismo = async function(id, anexoUrl) {
             console.error(e);
             alert('Erro ao excluir o registro do banco de dados.');
         }
+    }
+};
+
+window.editarBancoHorasAbs = async function(id) {
+    const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    const isRH = userRole && typeof userRole === 'string' && userRole.toUpperCase().includes('RH');
+    const allowedRoles = ['Supervisor', 'Admin', 'SuperAdmin'];
+    
+    if (!isRH && !allowedRoles.includes(userRole)) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ icon: 'error', title: 'Acesso Negado', text: 'Apenas usuários do RH, Supervisor ou Admin podem editar registros.', background: '#1e293b', color: '#fff' });
+        } else alert('Acesso Negado: Apenas a função ligada ao RH ou Supervisor pode editar registros.');
+        return;
+    }
+
+    const item = window.listaConvocadosExtraBH.find(x => String(x.id) === String(id));
+    if(!item) return;
+
+    if (typeof Swal !== 'undefined') {
+        const { value: formValues } = await Swal.fire({
+            title: 'Editar Extra (Rapido)',
+            background: '#1e293b',
+            color: '#fff',
+            html:
+                `<label style="text-align:left; display:block; margin-top:10px; color:#94a3b8;">Data da Extra:</label>` +
+                `<input id="swal-data" type="date" class="swal2-input" style="width: 80%; background:#0f172a; color:#fff;" value="${item.data_extra || ''}">` +
+                `<label style="text-align:left; display:block; margin-top:10px; color:#94a3b8;">Veículo / Atividade:</label>` +
+                `<input id="swal-ativ" type="text" class="swal2-input" style="width: 80%; background:#0f172a; color:#fff;" placeholder="Veículo/Atividade" value="${item.caminhao_placa || ''}">` +
+                `<label style="text-align:left; display:block; margin-top:10px; color:#94a3b8;">Turno Realizado:</label>` +
+                `<input id="swal-turno" type="text" class="swal2-input" style="width: 80%; background:#0f172a; color:#fff;" placeholder="Turno" value="${item.turno || ''}">`,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Salvar',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                return {
+                    data_extra: document.getElementById('swal-data').value,
+                    caminhao_placa: document.getElementById('swal-ativ').value,
+                    turno: document.getElementById('swal-turno').value
+                }
+            }
+        });
+
+        if (formValues) {
+            try {
+                await window.supabaseClient.from('rh_banco_horas').update(formValues).eq('id', id);
+                await window.carregarAbsenteismo();
+                Swal.fire({ icon: 'success', title: 'Atualizado!', text: 'Registro atualizado com sucesso.', background: '#1e293b', color: '#fff', timer: 1500 });
+            } catch (e) {
+                console.error(e);
+                Swal.fire({ icon: 'error', title: 'Erro', text: 'Falha ao atualizar o banco de dados.', background: '#1e293b', color: '#fff' });
+            }
+        }
+    } else {
+        alert("Para uma edição completa das Convocações Extras, por favor acesse o menu de Banco de Horas.");
     }
 };
 

@@ -1,12 +1,30 @@
-<div class="action-bar" style="animation: terminalFadeIn 0.3s ease-out;">
-    <div class="filter-group">
-        <h2 style="color: #fff; margin-right: 20px;"><i class="fas fa-user-clock"></i> Absenteísmo e Histórico</h2>
-        <input type="text" id="buscaAbsenteismo" class="search-input-dark" placeholder="Buscar por colaborador, motivo ou CID..." onkeyup="window.filtrarAbsenteismo()">
+<div class="action-bar" style="animation: terminalFadeIn 0.3s ease-out; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
+    
+    <!-- Título -->
+    <h2 style="color: #fff; margin: 0; white-space: nowrap; font-size: 1.6rem;">
+        <i class="fas fa-user-clock" style="color: var(--ccol-blue-bright);"></i> Absenteísmo
+    </h2>
+    
+    <!-- Grupo de Filtros na Mesma Linha -->
+    <div class="filter-group" style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 350px;">
+        
+        <select id="filtroRapidoSetor" class="search-input-dark" style="flex: 1; min-width: 120px; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; height: 38px; border-color: #334155;" onchange="window.filtrarAbsenteismo()">
+            <option value="" style="background: #1e293b; color: #fff;">Todos os Setores</option>
+        </select>
+
+        <select id="filtroRapidoColab" class="search-input-dark" style="flex: 1.5; min-width: 150px; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; height: 38px; border-color: #334155;" onchange="window.filtrarAbsenteismo()">
+            <option value="" style="background: #1e293b; color: #fff;">Todos os Colaboradores</option>
+        </select>
+        
+        <input type="text" id="buscaAbsenteismo" class="search-input-dark" placeholder="Buscar motivo ou CID..." onkeyup="window.filtrarAbsenteismo()" style="flex: 1.5; min-width: 150px; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; height: 38px; border-color: #334155;">
+        
     </div>
-    <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button class="btn-primary-blue" onclick="window.abrirModalAbsenteismo('ATESTADO')"><i class="fas fa-notes-medical"></i> Lançar Atestado</button>
-        <button class="btn-danger-outline" onclick="window.abrirModalAbsenteismo('FALTA')"><i class="fas fa-user-times"></i> Lançar Falta/Ausência</button>
-        <button class="btn-primary-green" onclick="window.abrirModalAbsenteismo('BANCO_HORAS')"><i class="fas fa-business-time"></i> Banco de Horas</button>
+
+    <!-- Botões Menores e Alinhados -->
+    <div class="button-group" style="display: flex; gap: 8px;">
+        <button class="btn-primary-blue" onclick="window.abrirModalAbsenteismo('ATESTADO')" style="padding: 8px 12px; font-size: 0.85rem;"><i class="fas fa-notes-medical"></i> Lançar Atestado</button>
+        <button class="btn-danger-outline" onclick="window.abrirModalAbsenteismo('FALTA')" style="padding: 8px 12px; font-size: 0.85rem;"><i class="fas fa-user-times"></i> Lançar Falta</button>
+        <button class="btn-primary-green" onclick="window.abrirModalAbsenteismo('BANCO_HORAS')" style="padding: 8px 12px; font-size: 0.85rem;"><i class="fas fa-business-time"></i> Banco Horas</button>
     </div>
 </div>
 
@@ -57,12 +75,12 @@
         </div>
     </div>
     
-    <!-- Painel de Filtros para Relatório (Oculto por padrão) -->
+    <!-- Painel de Filtros para Relatório -->
     <div id="painelFiltrosRelatorio" style="display: none; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border-dim); padding: 15px 20px; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
         <div class="form-group-dark" style="flex: 1; min-width: 250px; margin: 0;">
             <label>Filtrar por Colaborador</label>
             <select id="relColaborador" class="dark-select" onchange="window.gerarRelatorioAbsenteismo()">
-                <option value="TODOS">Todos os Colaboradores</option>
+                <option value="TODOS" style="background: #1e293b; color: #fff;">Todos os Colaboradores</option>
             </select>
         </div>
         <div class="form-group-dark" style="width: 150px; margin: 0;">
@@ -76,10 +94,10 @@
         <div class="form-group-dark" style="width: 170px; margin: 0;">
             <label>Tipo de Registro</label>
             <select id="relTipo" class="dark-select" onchange="window.gerarRelatorioAbsenteismo()">
-                <option value="TODOS">Todos</option>
-                <option value="ATESTADO">Somente Atestados</option>
-                <option value="FALTA">Somente Faltas</option>
-                <option value="BANCO_HORAS">Banco de Horas</option>
+                <option value="TODOS" style="background: #1e293b; color: #fff;">Todos</option>
+                <option value="ATESTADO" style="background: #1e293b; color: #fff;">Somente Atestados</option>
+                <option value="FALTA" style="background: #1e293b; color: #fff;">Somente Faltas</option>
+                <option value="BANCO_HORAS" style="background: #1e293b; color: #fff;">Banco de Horas</option>
             </select>
         </div>
         <div style="margin: 0;">
@@ -106,7 +124,7 @@
     </div>
 </div>
 
-<!-- Modal Unificado de Lançamento -->
+<!-- Modal Unificado de Lançamento / Edição -->
 <div id="modalAbsenteismo" class="modal-overlay">
     <div class="custom-modal" style="max-width: 700px;">
         <div class="modal-header">
@@ -116,12 +134,14 @@
         
         <div class="modal-body">
             <input type="hidden" id="absTipoRegistro">
+            <input type="hidden" id="absEditId">
+            
             <div class="form-grid-conjunto" style="grid-template-columns: 1fr 1fr; gap: 15px;">
                 
                 <div class="form-group-dark" style="grid-column: 1 / -1;">
                     <label>Colaborador *</label>
                     <select id="absColaborador" class="dark-select">
-                        <option value="">Selecione um colaborador do RH...</option>
+                        <option value="" style="background: #1e293b; color: #fff;">Selecione um colaborador do RH...</option>
                     </select>
                 </div>
                 
@@ -168,9 +188,17 @@
                 <div class="form-group-dark" id="grupoClassificacao" style="display: none;">
                     <label>Classificação da Ausência *</label>
                     <select id="absClassificacaoSelect" class="dark-select" onchange="window.verificarClassificacaoOutros()">
-                        <option value="Falta Injustificada">Falta Injustificada</option>
-                        <option value="Troca de dia">Troca de dia</option>
-                        <option value="Outros">Outros</option>
+                        <option value="Falta Injustificada" style="background: #1e293b; color: #fff;">Falta Injustificada</option>
+                        <option value="Falta Justificada" style="background: #1e293b; color: #fff;">Falta Justificada</option>
+                        <option value="Troca de dia" style="background: #1e293b; color: #fff;">Troca de dia</option>
+                        <option value="Licença Paternidade" style="background: #1e293b; color: #fff;">Licença Paternidade</option>
+                        <option value="Licença Maternidade" style="background: #1e293b; color: #fff;">Licença Maternidade</option>
+                        <option value="Licença Óbito" style="background: #1e293b; color: #fff;">Licença Óbito</option>
+                        <option value="Licença Casamento" style="background: #1e293b; color: #fff;">Licença Casamento</option>
+                        <option value="Doação de Sangue" style="background: #1e293b; color: #fff;">Doação de Sangue</option>
+                        <option value="Alistamento Militar" style="background: #1e293b; color: #fff;">Alistamento Militar</option>
+                        <option value="Suspensão Disciplinar" style="background: #1e293b; color: #fff;">Suspensão Disciplinar</option>
+                        <option value="Outros" style="background: #1e293b; color: #fff;">Outros</option>
                     </select>
                 </div>
 

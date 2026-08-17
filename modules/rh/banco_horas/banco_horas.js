@@ -37,7 +37,7 @@ window.carregarBancoHorasRH = async function() {
     try {
         let query = window.supabaseClient
             .from('rh_banco_horas')
-            .select('id, data_extra, caminhao_placa, turno, created_at, rh_colaboradores(nome, cod_funcionario)')
+            .select('id, data_extra, caminhao_placa, turno, motorista_id, created_at, rh_colaboradores(nome, cod_funcionario)')
             .order('data_extra', { ascending: false });
 
         if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
@@ -238,7 +238,8 @@ window.renderizarTabelaBancoHorasRH = function() {
                 <td><strong style="color: var(--ccol-blue-bright); font-size: 1.05rem;">${item.caminhao_placa || '-'}</strong></td>
                 <td><span style="padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; border: 1px solid var(--border-dim); background: rgba(0,0,0,0.2);">${item.turno || '-'}</span></td>
                 <td style="font-size: 0.8rem; color: #94a3b8;">${dataCriacao}</td>
-                <td style="text-align: right;">
+                <td style="text-align: right; display:flex; justify-content: flex-end; gap:5px;">
+                    <button class="btn-icon-only" onclick="window.editarBancoHorasRHTela('${item.id}')" title="Editar Convocação"><i class="fas fa-edit" style="color:#3b82f6;"></i></button>
                     <button class="btn-icon-only" onclick="window.excluirBancoHorasRHTela('${item.id}', '${item.data_extra}', '${colabNome}')" title="Excluir Convocação"><i class="fas fa-trash" style="color:#ef4444;"></i></button>
                 </td>
             </tr>
@@ -252,12 +253,47 @@ window.abrirModalLancamentoExtraRH = function() {
     select.innerHTML = '<option value="">Selecione o Colaborador...</option>';
     window.colaboradoresAtivosBH.forEach(c => {
         const mat = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
-        select.innerHTML += `<option value="${c.id}">[${mat}] ${c.nome}</option>`;
+        select.innerHTML += `<option value="${c.id}">${c.nome} [${mat}]</option>`;
     });
 
+    document.getElementById('modalLancarExtraRHTitulo').innerHTML = '<i class="fas fa-plus-circle" style="color: var(--ccol-blue-bright);"></i> Lançar Extra / Banco de Horas';
+    document.getElementById('modalExtraEditId').value = '';
     document.getElementById('modalExtraData').value = '';
     document.getElementById('modalExtraAtividade').value = '';
     document.getElementById('modalExtraTurno').value = '';
+
+    document.getElementById('modalLancarExtraRH').classList.add('show');
+    document.getElementById('modalLancarExtraRH').style.display = 'flex';
+};
+
+window.editarBancoHorasRHTela = function(id) {
+    const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    const isRH = userRole && typeof userRole === 'string' && userRole.toUpperCase().includes('RH');
+    const allowedRoles = ['Supervisor', 'Admin', 'SuperAdmin'];
+    
+    if (!isRH && !allowedRoles.includes(userRole)) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ icon: 'error', title: 'Acesso Negado', text: 'Apenas usuários do RH, Supervisor ou Admin podem editar registros.', background: '#1e293b', color: '#fff' });
+        } else alert('Acesso Negado: Apenas a função ligada ao RH ou Supervisor pode editar registros.');
+        return;
+    }
+
+    const item = window.listaBancoHorasRH.find(x => String(x.id) === String(id));
+    if(!item) return;
+
+    const select = document.getElementById('modalExtraColaborador');
+    select.innerHTML = '<option value="">Selecione o Colaborador...</option>';
+    window.colaboradoresAtivosBH.forEach(c => {
+        const mat = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
+        const isSelected = (item.motorista_id === c.id) ? 'selected' : '';
+        select.innerHTML += `<option value="${c.id}" ${isSelected}>${c.nome} [${mat}]</option>`;
+    });
+
+    document.getElementById('modalLancarExtraRHTitulo').innerHTML = '<i class="fas fa-edit" style="color: var(--ccol-blue-bright);"></i> Editar Registro de Extra';
+    document.getElementById('modalExtraEditId').value = item.id;
+    document.getElementById('modalExtraData').value = item.data_extra || '';
+    document.getElementById('modalExtraAtividade').value = item.caminhao_placa || '';
+    document.getElementById('modalExtraTurno').value = item.turno || '';
 
     document.getElementById('modalLancarExtraRH').classList.add('show');
     document.getElementById('modalLancarExtraRH').style.display = 'flex';
@@ -273,6 +309,7 @@ window.salvarLancamentoExtraRH = async function() {
     const dataExtra = document.getElementById('modalExtraData').value;
     const atividade = document.getElementById('modalExtraAtividade').value;
     const turno = document.getElementById('modalExtraTurno').value;
+    const editId = document.getElementById('modalExtraEditId').value;
 
     if (!motId || !dataExtra || !atividade || !turno) {
         alert("Por favor, preencha todos os campos obrigatórios.");
@@ -291,20 +328,27 @@ window.salvarLancamentoExtraRH = async function() {
             caminhao_placa: atividade,
             turno: turno
         };
-        if (typeof window.injetarFilial === 'function') payloadExtra = window.injetarFilial(payloadExtra);
+        if (typeof window.injetarFilial === 'function' && !editId) payloadExtra = window.injetarFilial(payloadExtra);
 
-        await window.supabaseClient.from('rh_banco_horas').insert([payloadExtra]);
-
-        if (typeof window.registrarLogAuditoria === 'function') {
-            window.registrarLogAuditoria('RH', 'Banco de Horas', `Lançamento avulso de extra em ${dataExtra.split('-').reverse().join('/')}`, 'Info');
+        if (editId) {
+            await window.supabaseClient.from('rh_banco_horas').update(payloadExtra).eq('id', editId);
+            if (typeof window.registrarLogAuditoria === 'function') {
+                window.registrarLogAuditoria('RH', 'Banco de Horas', `Edição de extra (ID: ${editId})`, 'Info');
+            }
+            alert("Registro atualizado com sucesso!");
+        } else {
+            await window.supabaseClient.from('rh_banco_horas').insert([payloadExtra]);
+            if (typeof window.registrarLogAuditoria === 'function') {
+                window.registrarLogAuditoria('RH', 'Banco de Horas', `Lançamento avulso de extra em ${dataExtra.split('-').reverse().join('/')}`, 'Info');
+            }
+            alert("Registro de horas adicionado com sucesso!");
         }
 
-        alert("Registro de horas adicionado com sucesso!");
         window.fecharModalLancamentoExtraRH();
         await window.carregarBancoHorasRH(); 
 
     } catch (e) {
-        console.error("Erro ao inserir extra RH:", e);
+        console.error("Erro ao salvar extra RH:", e);
         alert("Falha de conexão. Tente novamente.");
     } finally {
         btn.innerHTML = oriTxt;
