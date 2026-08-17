@@ -58,12 +58,13 @@
         
         <div class="modal-body">
             <input type="hidden" id="absTipoRegistro">
+            <input type="hidden" id="absEditId">
             <div class="form-grid-conjunto" style="grid-template-columns: 1fr 1fr; gap: 15px;">
                 
                 <div class="form-group-dark" style="grid-column: 1 / -1;">
                     <label>Colaborador *</label>
                     <select id="absColaborador" class="dark-select">
-                        <option value="">Selecione um colaborador do RH...</option>
+                        <option value="" style="background: #1e293b; color: #fff;">Selecione um colaborador do RH...</option>
                     </select>
                 </div>
                 
@@ -111,7 +112,15 @@
                     <label>Classificação da Ausência *</label>
                     <select id="absClassificacaoSelect" class="dark-select" onchange="window.verificarClassificacaoOutros()">
                         <option value="Falta Injustificada" style="background-color: #1e293b; color: #ffffff;">Falta Injustificada</option>
+                        <option value="Falta Justificada" style="background-color: #1e293b; color: #ffffff;">Falta Justificada</option>
                         <option value="Troca de dia" style="background-color: #1e293b; color: #ffffff;">Troca de dia</option>
+                        <option value="Licença Paternidade" style="background-color: #1e293b; color: #ffffff;">Licença Paternidade</option>
+                        <option value="Licença Maternidade" style="background-color: #1e293b; color: #ffffff;">Licença Maternidade</option>
+                        <option value="Licença Óbito" style="background-color: #1e293b; color: #ffffff;">Licença Óbito</option>
+                        <option value="Licença Casamento" style="background-color: #1e293b; color: #ffffff;">Licença Casamento</option>
+                        <option value="Doação de Sangue" style="background-color: #1e293b; color: #ffffff;">Doação de Sangue</option>
+                        <option value="Alistamento Militar" style="background-color: #1e293b; color: #ffffff;">Alistamento Militar</option>
+                        <option value="Suspensão Disciplinar" style="background-color: #1e293b; color: #ffffff;">Suspensão Disciplinar</option>
                         <option value="Outros" style="background-color: #1e293b; color: #ffffff;">Outros</option>
                     </select>
                 </div>

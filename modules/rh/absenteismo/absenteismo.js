@@ -461,7 +461,7 @@ window.renderizarTabelaAbsenteismo = function() {
     }
 
     if (lista.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#9ca3af; padding: 20px;">Nenhum registro encontrado nesta visualização.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding: 20px;">Nenhum registro encontrado nesta visualização.</td></tr>`;
         return;
     }
 
@@ -473,7 +473,7 @@ window.renderizarTabelaAbsenteismo = function() {
         }
 
         const nomeColaborador = item.rh_colaboradores ? item.rh_colaboradores.nome : '<span style="color:#ef4444;">Removido</span>';
-        const mat = item.rh_colaboradores && item.rh_colaboradores.cod_funcionario ? `[${String(item.rh_colaboradores.cod_funcionario).padStart(4, '0')}]` : '';
+        const mat = item.rh_colaboradores ? `[${String(item.rh_colaboradores.cod_funcionario).padStart(4, '0')}]` : '';
         
         const btnAcoes = `
             <div style="display:flex; gap:5px; justify-content: flex-end;">
@@ -660,16 +660,14 @@ window.renderizarMultiDatas = function() {
 window.abrirModalAbsenteismo = function(tipo) {
     const selectColaborador = document.getElementById('absColaborador');
     if (selectColaborador) {
-        selectColaborador.innerHTML = '<option value="">Selecione um colaborador...</option>';
+        selectColaborador.innerHTML = '<option value="" style="background: #1e293b; color: #fff;">Selecione um colaborador...</option>';
         window.listaParaSelectColaboradores.forEach(c => {
             const matricula = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
             selectColaborador.innerHTML += `<option value="${c.id}" style="background: #1e293b; color: #fff;">${c.nome} [${matricula}]</option>`;
         });
     }
 
-    // Usando funções seguras para manipular o DOM e evitar "Cannot set properties of null"
     const setValueSafe = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-    const setHtmlSafe = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
     const setDisplaySafe = (id, val) => { const el = document.getElementById(id); if (el) el.style.display = val; };
     const setTextSafe = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
 
@@ -810,7 +808,10 @@ window.editarAbsenteismo = function(id) {
 
 window.fecharModalAbsenteismo = function() {
     const modal = document.getElementById('modalAbsenteismo');
-    if(modal) modal.classList.remove('show');
+    if(modal) {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+    }
 };
 
 window.verificarClassificacaoOutros = function() {
@@ -983,7 +984,6 @@ window.salvarAbsenteismo = async function() {
             await window.carregarAbsenteismo();
         } else {
             alert('Registro salvo com sucesso!');
-            // Caso tenha sido acionado pelo Módulo de Escala
             if (typeof window.renderizarTabelaEscala === 'function') {
                 window.renderizarTabelaEscala();
             }
