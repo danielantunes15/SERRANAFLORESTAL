@@ -384,9 +384,9 @@ window.renderizarTabelaAbsenteismo = function() {
     } else if(window.abaAtualAbsenteismo === 'ATESTADO') {
         htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Período / Data Retorno</th><th>Médico e CID</th><th>Motivo</th><th>Anexo</th><th>Ações</th>`;
     } else if(window.abaAtualAbsenteismo === 'FALTA') {
-        htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Data da Falta</th><th>Classificação</th><th>Status RH</th><th>Ações</th>`;
+        htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Data da Falta</th><th>Classificação</th><th>Status RH</th><th>Anexo</th><th>Ações</th>`;
     } else if(window.abaAtualAbsenteismo === 'BANCO_HORAS') {
-        htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Data Referência</th><th>Horas Lançadas</th><th>Motivo Lançamento</th><th>Ações</th>`;
+        htmlHead = `<th>Lançado em</th><th>Colaborador</th><th>Data Referência</th><th>Horas Lançadas</th><th>Motivo Lançamento</th><th>Anexo</th><th>Ações</th>`;
     } else if(window.abaAtualAbsenteismo === 'CONVOCADOS_EXTRA') {
         htmlHead = `<th>Criado em</th><th>Colaborador</th><th>Data da Extra</th><th>Veículo Assumido</th><th>Turno Realizado</th><th style="text-align: right;">Ações</th>`;
     }
@@ -419,7 +419,7 @@ window.renderizarTabelaAbsenteismo = function() {
                     <td><strong style="color: var(--ccol-blue-bright); font-size: 1.05rem;">${item.caminhao_placa || '-'}</strong></td>
                     <td><span class="search-input-dark" style="padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; border: 1px solid var(--border-dim);">${item.turno || '-'}</span></td>
                     <td style="text-align: right;">
-                        <button class="btn-icon-only" onclick="window.excluirBancoHorasRHTela('${item.id}', '${item.data_extra}', '${colabNome}')" title="Excluir Convocação"><i class="fas fa-trash" style="color:#ef4444;"></i></button>
+                        <button class="btn-icon-only" onclick="window.excluirConvocadoExtra('${item.id}', '${item.data_extra}', '${colabNome}')" title="Excluir Convocação"><i class="fas fa-trash" style="color:#ef4444;"></i></button>
                     </td>
                 </tr>
             `;
@@ -449,7 +449,9 @@ window.renderizarTabelaAbsenteismo = function() {
         const nomeColaborador = item.rh_colaboradores ? item.rh_colaboradores.nome : '<span style="color:#ef4444;">Removido</span>';
         const mat = item.rh_colaboradores ? `[${String(item.rh_colaboradores.cod_funcionario).padStart(4, '0')}]` : '';
         const btnExcluir = `<button class="btn-icon-only" onclick="window.excluirAbsenteismo('${item.id}', '${item.anexo_url}')" title="Excluir"><i class="fas fa-trash" style="color:#ef4444;"></i></button>`;
-        const btnAnexo = item.anexo_url ? `<a href="${item.anexo_url}" target="_blank" class="btn-primary-blue" style="padding:4px 8px; font-size:0.75rem; text-decoration:none; border-radius:4px;"><i class="fas fa-paperclip"></i> Ver</a>` : '<span style="color:#64748b; font-size:0.8rem;">-</span>';
+        const btnAnexo = item.anexo_url 
+            ? `<a href="${item.anexo_url}" target="_blank" class="btn-primary-blue" style="padding:4px 8px; font-size:0.75rem; text-decoration:none; border-radius:4px;"><i class="fas fa-paperclip"></i> Ver</a>` 
+            : `<button class="btn-secondary-dark" onclick="window.abrirModalAnexoAbs('${item.id}')" style="padding:4px 8px; font-size:0.75rem; border-radius:4px;"><i class="fas fa-paperclip"></i> Anexar</button>`;
 
         let tr = document.createElement('tr');
         if(window.abaAtualAbsenteismo === 'todos' || window.abaAtualAbsenteismo === 'relatorio') {
@@ -507,6 +509,7 @@ window.renderizarTabelaAbsenteismo = function() {
                 <td>${formatarData(item.data_inicio)}</td>
                 <td>${item.motivo || '-'}</td>
                 <td>${selectStatus}</td>
+                <td>${btnAnexo}</td>
                 <td>${btnExcluir}</td>
             `;
         } else if (window.abaAtualAbsenteismo === 'BANCO_HORAS') {
@@ -516,6 +519,7 @@ window.renderizarTabelaAbsenteismo = function() {
                 <td>${formatarData(item.data_inicio)}</td>
                 <td><span style="color:var(--ccol-green-bright); font-weight:bold;">${item.quantidade_horas} hrs</span></td>
                 <td>${item.motivo || '-'}</td>
+                <td>${btnAnexo}</td>
                 <td>${btnExcluir}</td>
             `;
         }
@@ -821,22 +825,75 @@ window.salvarAbsenteismo = async function() {
     }
 };
 
+window.abrirModalAnexoAbs = function(id) {
+    document.getElementById('absAnexoId').value = id;
+    document.getElementById('fileAnexoAbs').value = '';
+    document.getElementById('modalAnexoAbs').classList.add('show');
+    document.getElementById('modalAnexoAbs').style.display = 'flex';
+};
+
+window.fecharModalAnexoAbs = function() {
+    document.getElementById('modalAnexoAbs').classList.remove('show');
+    document.getElementById('modalAnexoAbs').style.display = 'none';
+};
+
+window.salvarAnexoAbs = async function() {
+    const id = document.getElementById('absAnexoId').value;
+    const fileInput = document.getElementById('fileAnexoAbs');
+    
+    if (fileInput.files.length === 0) {
+        alert('Selecione um arquivo (PDF ou Imagem) para anexar.');
+        return;
+    }
+    
+    const btnSalvar = document.getElementById('btnSalvarAnexoAbs');
+    const txtOriginal = btnSalvar.innerHTML;
+    btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+    btnSalvar.disabled = true;
+
+    try {
+        const file = fileInput.files[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_abs_${id}.${fileExt}`;
+        
+        const { error: uploadError } = await window.supabaseClient.storage.from('atestados').upload(fileName, file, { upsert: true });
+        if (uploadError) throw uploadError;
+        
+        const { data: publicUrlData } = window.supabaseClient.storage.from('atestados').getPublicUrl(fileName);
+        const anexoUrlFinal = publicUrlData.publicUrl;
+
+        const { error: updateError } = await window.supabaseClient.from('rh_absenteismo').update({ anexo_url: anexoUrlFinal }).eq('id', id);
+        if (updateError) throw updateError;
+
+        alert('Anexo salvo com sucesso!');
+        window.fecharModalAnexoAbs();
+        await window.carregarAbsenteismo();
+    } catch (e) {
+        console.error("Erro ao enviar anexo:", e);
+        alert('Erro ao enviar o anexo. Tente novamente.');
+    } finally {
+        btnSalvar.innerHTML = txtOriginal;
+        btnSalvar.disabled = false;
+    }
+};
+
 window.excluirAbsenteismo = async function(id, anexoUrl) {
     const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
-    const allowedRoles = ['RH', 'Supervisor', 'Admin', 'SuperAdmin'];
+    const isRH = userRole && typeof userRole === 'string' && userRole.toUpperCase().includes('RH');
+    const allowedRoles = ['Supervisor', 'Admin', 'SuperAdmin'];
     
-    if (!allowedRoles.includes(userRole)) {
+    if (!isRH && !allowedRoles.includes(userRole)) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: 'error',
                 title: 'Acesso Negado',
-                text: 'Apenas usuários com a função RH ou Supervisor podem excluir registros de absenteísmo.',
+                text: 'Apenas usuários com a função relacionada ao RH, Supervisor ou Admin podem excluir registros de absenteísmo.',
                 confirmButtonColor: '#ef4444',
                 background: '#1e293b',
                 color: '#fff'
             });
         } else {
-            alert('Acesso Negado: Apenas a função RH ou Supervisor pode excluir registros.');
+            alert('Acesso Negado: Apenas a função ligada ao RH ou Supervisor pode excluir registros.');
         }
         return;
     }
@@ -869,20 +926,21 @@ window.excluirAbsenteismo = async function(id, anexoUrl) {
 
 window.excluirConvocadoExtra = async function(id, dataBH, colabNome) {
     const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
-    const allowedRoles = ['RH', 'Supervisor', 'Admin', 'SuperAdmin'];
+    const isRH = userRole && typeof userRole === 'string' && userRole.toUpperCase().includes('RH');
+    const allowedRoles = ['Supervisor', 'Admin', 'SuperAdmin'];
     
-    if (!allowedRoles.includes(userRole)) {
+    if (!isRH && !allowedRoles.includes(userRole)) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: 'error',
                 title: 'Acesso Negado',
-                text: 'Apenas usuários com a função RH ou Supervisor podem excluir registros do banco de horas/extras.',
+                text: 'Apenas usuários com a função relacionada ao RH, Supervisor ou Admin podem excluir registros do banco de horas/extras.',
                 confirmButtonColor: '#ef4444',
                 background: '#1e293b',
                 color: '#fff'
             });
         } else {
-            alert('Acesso Negado: Apenas a função RH ou Supervisor pode excluir registros.');
+            alert('Acesso Negado: Apenas a função ligada ao RH ou Supervisor pode excluir registros.');
         }
         return;
     }

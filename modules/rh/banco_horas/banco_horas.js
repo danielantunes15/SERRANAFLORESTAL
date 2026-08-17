@@ -314,14 +314,15 @@ window.salvarLancamentoExtraRH = async function() {
 
 window.excluirBancoHorasRHTela = async function(id, dataExtra, colabNome) {
     const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
-    const allowedRoles = ['RH', 'Supervisor', 'Admin', 'SuperAdmin'];
+    const isRH = userRole && typeof userRole === 'string' && userRole.toUpperCase().includes('RH');
+    const allowedRoles = ['Supervisor', 'Admin', 'SuperAdmin'];
     
-    if (!allowedRoles.includes(userRole)) {
+    if (!isRH && !allowedRoles.includes(userRole)) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: 'error',
                 title: 'Acesso Negado',
-                text: 'Apenas usuários com a função RH ou Supervisor podem excluir registros no banco de horas.',
+                text: 'Apenas usuários com a função relacionada ao RH, Supervisor ou Admin podem excluir registros no banco de horas.',
                 confirmButtonColor: '#ef4444',
                 background: '#1e293b',
                 color: '#fff',
@@ -331,7 +332,7 @@ window.excluirBancoHorasRHTela = async function(id, dataExtra, colabNome) {
                 }
             });
         } else {
-            alert('Acesso Negado: Apenas a função RH ou Supervisor pode excluir registros.');
+            alert('Acesso Negado: Apenas a função ligada ao RH ou Supervisor pode excluir registros.');
         }
         return;
     }
