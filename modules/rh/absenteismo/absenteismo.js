@@ -38,6 +38,8 @@ window.buscarDescricaoCidAbs = function() {
     const labelDesc = document.getElementById('absCidDescricao');
     const inputMotivo = document.getElementById('absMotivo');
     
+    if (!inputCid || !labelDesc || !inputMotivo) return;
+    
     let val = inputCid.value.toUpperCase().trim();
     if (val.length < 3) {
         labelDesc.innerText = '';
@@ -84,7 +86,6 @@ window.carregarListaBaseColaboradores = async function() {
         window.colaboradoresAtivos = dados.filter(c => c.status !== 'Inativo' && c.status !== 'Desligado');
         window.listaParaSelectColaboradores = window.colaboradoresAtivos;
         
-        // CORREÇÃO: Tenta buscar 'setor', se não tiver, busca 'departamento' ou 'cargo'
         const setoresUnicos = [...new Set(window.colaboradoresAtivos.map(c => c.setor || c.departamento || c.cargo).filter(Boolean))].sort();
         const selSetor = document.getElementById('filtroRapidoSetor');
         
@@ -472,7 +473,7 @@ window.renderizarTabelaAbsenteismo = function() {
         }
 
         const nomeColaborador = item.rh_colaboradores ? item.rh_colaboradores.nome : '<span style="color:#ef4444;">Removido</span>';
-        const mat = item.rh_colaboradores ? `[${String(item.rh_colaboradores.cod_funcionario).padStart(4, '0')}]` : '';
+        const mat = item.rh_colaboradores && item.rh_colaboradores.cod_funcionario ? `[${String(item.rh_colaboradores.cod_funcionario).padStart(4, '0')}]` : '';
         
         const btnAcoes = `
             <div style="display:flex; gap:5px; justify-content: flex-end;">
@@ -561,7 +562,7 @@ window.renderizarTabelaAbsenteismo = function() {
 };
 
 window.filtrarAbsenteismo = function() {
-    const termo = document.getElementById('buscaAbsenteismo').value.toLowerCase();
+    const termo = document.getElementById('buscaAbsenteismo') ? document.getElementById('buscaAbsenteismo').value.toLowerCase() : '';
     const filtroColabId = document.getElementById('filtroRapidoColab') ? document.getElementById('filtroRapidoColab').value : '';
     const filtroSetor = document.getElementById('filtroRapidoSetor') ? document.getElementById('filtroRapidoSetor').value : '';
     
@@ -615,8 +616,9 @@ window.filtrarAbsenteismo = function() {
 
 window.adicionarDataFalta = function() {
     const inputData = document.getElementById('absDataInicio');
+    if (!inputData) return;
+
     const dataVal = inputData.value;
-    
     if (!dataVal) {
         alert('Selecione uma data no calendário antes de clicar no "+".');
         return;
@@ -657,93 +659,97 @@ window.renderizarMultiDatas = function() {
 
 window.abrirModalAbsenteismo = function(tipo) {
     const selectColaborador = document.getElementById('absColaborador');
-    selectColaborador.innerHTML = '<option value="">Selecione um colaborador...</option>';
-    window.listaParaSelectColaboradores.forEach(c => {
-        const matricula = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
-        selectColaborador.innerHTML += `<option value="${c.id}" style="background: #1e293b; color: #fff;">${c.nome} [${matricula}]</option>`;
-    });
+    if (selectColaborador) {
+        selectColaborador.innerHTML = '<option value="">Selecione um colaborador...</option>';
+        window.listaParaSelectColaboradores.forEach(c => {
+            const matricula = c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-';
+            selectColaborador.innerHTML += `<option value="${c.id}" style="background: #1e293b; color: #fff;">${c.nome} [${matricula}]</option>`;
+        });
+    }
 
-    document.getElementById('absEditId').value = '';
-    document.getElementById('absTipoRegistro').value = tipo;
-    document.getElementById('absDataInicio').value = '';
-    document.getElementById('absDias').value = '';
-    document.getElementById('absHoras').value = '';
-    document.getElementById('absDataRetorno').value = '';
-    document.getElementById('absCid').value = '';
-    document.getElementById('absMotivo').value = '';
-    document.getElementById('absMedicoNome').value = '';
-    document.getElementById('absMedicoCrm').value = '';
-    document.getElementById('absAnexo').value = '';
-    document.getElementById('absObservacoes').value = '';
-    document.getElementById('absCidDescricao').innerText = '';
+    // Usando funções seguras para manipular o DOM e evitar "Cannot set properties of null"
+    const setValueSafe = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    const setHtmlSafe = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
+    const setDisplaySafe = (id, val) => { const el = document.getElementById(id); if (el) el.style.display = val; };
+    const setTextSafe = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+
+    setValueSafe('absEditId', '');
+    setValueSafe('absTipoRegistro', tipo);
+    setValueSafe('absDataInicio', '');
+    setValueSafe('absDias', '');
+    setValueSafe('absHoras', '');
+    setValueSafe('absDataRetorno', '');
+    setValueSafe('absCid', '');
+    setValueSafe('absMotivo', '');
+    setValueSafe('absMedicoNome', '');
+    setValueSafe('absMedicoCrm', '');
+    setValueSafe('absAnexo', '');
+    setValueSafe('absObservacoes', '');
+    setTextSafe('absCidDescricao', '');
 
     window.datasMultiplasFalta = [];
     const containerMultiDatas = document.getElementById('containerMultiDatas');
     const btnAddMulti = document.getElementById('btnAdicionarMultiData');
     const labelDataInicio = document.getElementById('labelDataInicio');
+    
     if (containerMultiDatas) {
         containerMultiDatas.innerHTML = '';
         containerMultiDatas.style.display = tipo === 'FALTA' ? 'flex' : 'none';
     }
     if (btnAddMulti) btnAddMulti.style.display = tipo === 'FALTA' ? 'block' : 'none';
 
-    const gDias = document.getElementById('grupoDiasAtestado');
-    const gHoras = document.getElementById('grupoHorasAusencia');
-    const gRetorno = document.getElementById('grupoDataRetorno');
-    const gMedico = document.getElementById('grupoMedicoNome');
-    const gCrm = document.getElementById('grupoMedicoCrm');
-    const gCid = document.getElementById('grupoCid');
-    const gAnexo = document.getElementById('grupoAnexo');
-    const gClassificacao = document.getElementById('grupoClassificacao');
-    const gMotivo = document.getElementById('grupoMotivo');
-    const lblMotivo = document.getElementById('labelMotivoDinamico');
+    setDisplaySafe('grupoClassificacao', 'none');
+
     const tituloModal = document.getElementById('absModalTitulo');
-    
-    if (gClassificacao) gClassificacao.style.display = 'none';
+    const lblMotivo = document.getElementById('labelMotivoDinamico');
 
     if (tipo === 'ATESTADO') {
-        tituloModal.innerHTML = '<i class="fas fa-notes-medical" style="color:var(--ccol-blue-bright);"></i> Lançar Atestado';
-        labelDataInicio.innerText = 'Data de Início *';
-        gDias.style.display = 'block';
-        gHoras.style.display = 'none';
-        gRetorno.style.display = 'block';
-        gMedico.style.display = 'block';
-        gCrm.style.display = 'block';
-        gCid.style.display = 'block';
-        gAnexo.style.display = 'block';
-        gMotivo.style.display = 'block';
-        lblMotivo.innerText = 'Motivo / Resumo *';
+        if (tituloModal) tituloModal.innerHTML = '<i class="fas fa-notes-medical" style="color:var(--ccol-blue-bright);"></i> Lançar Atestado';
+        if (labelDataInicio) labelDataInicio.innerText = 'Data de Início *';
+        setDisplaySafe('grupoDiasAtestado', 'block');
+        setDisplaySafe('grupoHorasAusencia', 'none');
+        setDisplaySafe('grupoDataRetorno', 'block');
+        setDisplaySafe('grupoMedicoNome', 'block');
+        setDisplaySafe('grupoMedicoCrm', 'block');
+        setDisplaySafe('grupoCid', 'block');
+        setDisplaySafe('grupoAnexo', 'block');
+        setDisplaySafe('grupoMotivo', 'block');
+        if (lblMotivo) lblMotivo.innerText = 'Motivo / Resumo *';
     } else if (tipo === 'FALTA') {
-        tituloModal.innerHTML = '<i class="fas fa-user-times" style="color:#ef4444;"></i> Lançar Falta / Ausência';
-        labelDataInicio.innerText = 'Selecione a(s) Data(s) da Falta *';
-        gDias.style.display = 'none';
-        gHoras.style.display = 'none';
-        gRetorno.style.display = 'none';
-        gMedico.style.display = 'none';
-        gCrm.style.display = 'none';
-        gCid.style.display = 'none';
-        gAnexo.style.display = 'none';
+        if (tituloModal) tituloModal.innerHTML = '<i class="fas fa-user-times" style="color:#ef4444;"></i> Lançar Falta / Ausência';
+        if (labelDataInicio) labelDataInicio.innerText = 'Selecione a(s) Data(s) da Falta *';
+        setDisplaySafe('grupoDiasAtestado', 'none');
+        setDisplaySafe('grupoHorasAusencia', 'none');
+        setDisplaySafe('grupoDataRetorno', 'none');
+        setDisplaySafe('grupoMedicoNome', 'none');
+        setDisplaySafe('grupoMedicoCrm', 'none');
+        setDisplaySafe('grupoCid', 'none');
+        setDisplaySafe('grupoAnexo', 'none');
         
-        if (gClassificacao) gClassificacao.style.display = 'block';
-        document.getElementById('absClassificacaoSelect').value = 'Falta Injustificada';
+        setDisplaySafe('grupoClassificacao', 'block');
+        setValueSafe('absClassificacaoSelect', 'Falta Injustificada');
         window.verificarClassificacaoOutros();
 
-        lblMotivo.innerText = 'Descreva o Motivo *';
+        if (lblMotivo) lblMotivo.innerText = 'Descreva o Motivo *';
     } else if (tipo === 'BANCO_HORAS') {
-        tituloModal.innerHTML = '<i class="fas fa-business-time" style="color:var(--ccol-green-bright);"></i> Lançar Banco de Horas';
-        labelDataInicio.innerText = 'Data de Ocorrência *';
-        gDias.style.display = 'none';
-        gHoras.style.display = 'block';
-        gRetorno.style.display = 'none';
-        gMedico.style.display = 'none';
-        gCrm.style.display = 'none';
-        gCid.style.display = 'none';
-        gAnexo.style.display = 'none';
-        gMotivo.style.display = 'block';
-        lblMotivo.innerText = 'Motivo (Crédito ou Débito) *';
+        if (tituloModal) tituloModal.innerHTML = '<i class="fas fa-business-time" style="color:var(--ccol-green-bright);"></i> Lançar Banco de Horas';
+        if (labelDataInicio) labelDataInicio.innerText = 'Data de Ocorrência *';
+        setDisplaySafe('grupoDiasAtestado', 'none');
+        setDisplaySafe('grupoHorasAusencia', 'block');
+        setDisplaySafe('grupoDataRetorno', 'none');
+        setDisplaySafe('grupoMedicoNome', 'none');
+        setDisplaySafe('grupoMedicoCrm', 'none');
+        setDisplaySafe('grupoCid', 'none');
+        setDisplaySafe('grupoAnexo', 'none');
+        setDisplaySafe('grupoMotivo', 'block');
+        if (lblMotivo) lblMotivo.innerText = 'Motivo (Crédito ou Débito) *';
     }
 
-    document.getElementById('modalAbsenteismo').classList.add('show');
+    const modal = document.getElementById('modalAbsenteismo');
+    if (modal) {
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+    }
 };
 
 window.editarAbsenteismo = function(id) {
@@ -763,19 +769,21 @@ window.editarAbsenteismo = function(id) {
 
     window.abrirModalAbsenteismo(item.tipo_registro); 
     
-    document.getElementById('absModalTitulo').innerHTML = '<i class="fas fa-edit" style="color:var(--ccol-blue-bright);"></i> Editar Registro';
-    document.getElementById('absEditId').value = item.id;
-    
-    document.getElementById('absColaborador').value = item.colaborador_id || '';
-    document.getElementById('absDataInicio').value = item.data_inicio || '';
-    document.getElementById('absDias').value = item.dias_afastamento || '';
-    document.getElementById('absHoras').value = item.quantidade_horas || '';
-    document.getElementById('absDataRetorno').value = item.data_retorno || '';
-    document.getElementById('absCid').value = item.cid || '';
-    document.getElementById('absMotivo').value = item.motivo || '';
-    document.getElementById('absMedicoNome').value = item.medico_nome || '';
-    document.getElementById('absMedicoCrm').value = item.medico_crm || '';
-    document.getElementById('absObservacoes').value = item.observacoes || '';
+    const setValueSafe = (elementId, val) => { const el = document.getElementById(elementId); if (el) el.value = val; };
+    const setHtmlSafe = (elementId, val) => { const el = document.getElementById(elementId); if (el) el.innerHTML = val; };
+
+    setHtmlSafe('absModalTitulo', '<i class="fas fa-edit" style="color:var(--ccol-blue-bright);"></i> Editar Registro');
+    setValueSafe('absEditId', item.id);
+    setValueSafe('absColaborador', item.colaborador_id || '');
+    setValueSafe('absDataInicio', item.data_inicio || '');
+    setValueSafe('absDias', item.dias_afastamento || '');
+    setValueSafe('absHoras', item.quantidade_horas || '');
+    setValueSafe('absDataRetorno', item.data_retorno || '');
+    setValueSafe('absCid', item.cid || '');
+    setValueSafe('absMotivo', item.motivo || '');
+    setValueSafe('absMedicoNome', item.medico_nome || '');
+    setValueSafe('absMedicoCrm', item.medico_crm || '');
+    setValueSafe('absObservacoes', item.observacoes || '');
 
     if (item.tipo_registro === 'FALTA') {
         const selectClass = document.getElementById('absClassificacaoSelect');
@@ -783,21 +791,26 @@ window.editarAbsenteismo = function(id) {
             const motivosPadrao = ['Falta Injustificada', 'Falta Justificada', 'Troca de dia', 'Licença Paternidade', 'Licença Maternidade', 'Licença Óbito', 'Licença Casamento', 'Doação de Sangue', 'Alistamento Militar', 'Suspensão Disciplinar'];
             if (motivosPadrao.includes(item.motivo)) {
                 selectClass.value = item.motivo;
-                document.getElementById('grupoMotivo').style.display = 'none';
+                const gMot = document.getElementById('grupoMotivo');
+                if (gMot) gMot.style.display = 'none';
             } else {
                 selectClass.value = 'Outros';
-                document.getElementById('grupoMotivo').style.display = 'block';
+                const gMot = document.getElementById('grupoMotivo');
+                if (gMot) gMot.style.display = 'block';
             }
         }
-        document.getElementById('btnAdicionarMultiData').style.display = 'none';
-        document.getElementById('containerMultiDatas').style.display = 'none';
+        const btnAdd = document.getElementById('btnAdicionarMultiData');
+        if (btnAdd) btnAdd.style.display = 'none';
+        const cntMulti = document.getElementById('containerMultiDatas');
+        if (cntMulti) cntMulti.style.display = 'none';
     }
 
     window.buscarDescricaoCidAbs(); 
 };
 
 window.fecharModalAbsenteismo = function() {
-    document.getElementById('modalAbsenteismo').classList.remove('show');
+    const modal = document.getElementById('modalAbsenteismo');
+    if(modal) modal.classList.remove('show');
 };
 
 window.verificarClassificacaoOutros = function() {
@@ -805,6 +818,8 @@ window.verificarClassificacaoOutros = function() {
     const grupoMotivo = document.getElementById('grupoMotivo');
     const inputMotivo = document.getElementById('absMotivo');
     
+    if (!select || !grupoMotivo || !inputMotivo) return;
+
     if (select.value === 'Outros') {
         grupoMotivo.style.display = 'block';
         inputMotivo.value = '';
@@ -815,8 +830,14 @@ window.verificarClassificacaoOutros = function() {
 };
 
 window.calcularDataRetornoAbs = function() {
-    const dataStr = document.getElementById('absDataInicio').value;
-    const dias = parseInt(document.getElementById('absDias').value);
+    const dataEl = document.getElementById('absDataInicio');
+    const diasEl = document.getElementById('absDias');
+    const retEl = document.getElementById('absDataRetorno');
+
+    if (!dataEl || !diasEl || !retEl) return;
+
+    const dataStr = dataEl.value;
+    const dias = parseInt(diasEl.value);
 
     if (dataStr && !isNaN(dias) && dias > 0) {
         const [anoStr, mesStr, diaStr] = dataStr.split('-');
@@ -827,20 +848,33 @@ window.calcularDataRetornoAbs = function() {
         const mes = String(dataIncial.getMonth() + 1).padStart(2, '0');
         const dia = String(dataIncial.getDate()).padStart(2, '0');
         
-        document.getElementById('absDataRetorno').value = `${ano}-${mes}-${dia}`;
+        retEl.value = `${ano}-${mes}-${dia}`;
     } else {
-        document.getElementById('absDataRetorno').value = '';
+        retEl.value = '';
     }
 };
 
 window.salvarAbsenteismo = async function() {
-    const colaboradorId = document.getElementById('absColaborador').value;
-    const tipo = document.getElementById('absTipoRegistro').value;
-    const motivo = document.getElementById('absMotivo').value;
-    const editId = document.getElementById('absEditId').value;
+    const colabEl = document.getElementById('absColaborador');
+    const tipoEl = document.getElementById('absTipoRegistro');
+    const motivoEl = document.getElementById('absMotivo');
+    
+    if (!colabEl || !tipoEl || !motivoEl) {
+        alert('Erro: Formulário não carregado corretamente no módulo atual.');
+        return;
+    }
+
+    const colaboradorId = colabEl.value;
+    const tipo = tipoEl.value;
+    const motivo = motivoEl.value;
+    
+    const editIdEl = document.getElementById('absEditId');
+    const editId = editIdEl ? editIdEl.value : '';
+
+    const dataIniEl = document.getElementById('absDataInicio');
+    const dataInputVal = dataIniEl ? dataIniEl.value : '';
 
     let datasParaSalvar = [];
-    const dataInputVal = document.getElementById('absDataInicio').value;
 
     if (tipo === 'FALTA' && !editId) {
         if (dataInputVal && !window.datasMultiplasFalta.includes(dataInputVal)) {
@@ -866,15 +900,17 @@ window.salvarAbsenteismo = async function() {
     }
 
     const btnSalvar = document.getElementById('btnSalvarAbsenteismo');
-    const txtOriginal = btnSalvar.innerHTML;
-    btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...';
-    btnSalvar.disabled = true;
+    const txtOriginal = btnSalvar ? btnSalvar.innerHTML : 'Gravar';
+    if(btnSalvar) {
+        btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...';
+        btnSalvar.disabled = true;
+    }
 
     let anexoUrlFinal = null;
     const fileInput = document.getElementById('absAnexo');
 
     try {
-        if (tipo === 'ATESTADO' && fileInput.files.length > 0) {
+        if (tipo === 'ATESTADO' && fileInput && fileInput.files.length > 0) {
             const file = fileInput.files[0];
             const fileExt = file.name.split('.').pop();
             const fileName = `${Date.now()}_colab${colaboradorId}.${fileExt}`;
@@ -886,19 +922,27 @@ window.salvarAbsenteismo = async function() {
             anexoUrlFinal = publicUrlData.publicUrl;
         }
 
+        const getValSafe = (id, isNum = false, isFloat = false) => {
+            const el = document.getElementById(id);
+            if(!el) return isNum || isFloat ? (isFloat ? 0 : null) : null;
+            if(isNum) return parseInt(el.value) || null;
+            if(isFloat) return parseFloat(el.value) || 0;
+            return el.value;
+        };
+
         if (editId) {
             const dadosUpdate = {
                 colaborador_id: colaboradorId,
                 tipo_registro: tipo,
                 data_inicio: dataInputVal,
-                dias_afastamento: tipo === 'ATESTADO' ? (parseInt(document.getElementById('absDias').value) || 1) : null,
-                data_retorno: tipo === 'ATESTADO' ? document.getElementById('absDataRetorno').value : null,
-                quantidade_horas: tipo !== 'ATESTADO' ? (parseFloat(document.getElementById('absHoras').value) || 0) : 0,
-                cid: tipo === 'ATESTADO' ? document.getElementById('absCid').value.toUpperCase() : null,
+                dias_afastamento: tipo === 'ATESTADO' ? getValSafe('absDias', true) || 1 : null,
+                data_retorno: tipo === 'ATESTADO' ? getValSafe('absDataRetorno') : null,
+                quantidade_horas: tipo !== 'ATESTADO' ? getValSafe('absHoras', false, true) : 0,
+                cid: tipo === 'ATESTADO' ? (getValSafe('absCid') || '').toUpperCase() : null,
                 motivo: motivo,
-                observacoes: document.getElementById('absObservacoes').value,
-                medico_nome: tipo === 'ATESTADO' ? document.getElementById('absMedicoNome').value : null,
-                medico_crm: tipo === 'ATESTADO' ? document.getElementById('absMedicoCrm').value : null
+                observacoes: getValSafe('absObservacoes') || '',
+                medico_nome: tipo === 'ATESTADO' ? getValSafe('absMedicoNome') : null,
+                medico_crm: tipo === 'ATESTADO' ? getValSafe('absMedicoCrm') : null
             };
             if (anexoUrlFinal) dadosUpdate.anexo_url = anexoUrlFinal;
 
@@ -913,15 +957,15 @@ window.salvarAbsenteismo = async function() {
                     colaborador_id: colaboradorId,
                     tipo_registro: tipo,
                     data_inicio: dataOcorrencia,
-                    dias_afastamento: tipo === 'ATESTADO' ? (parseInt(document.getElementById('absDias').value) || 1) : null,
-                    data_retorno: tipo === 'ATESTADO' ? document.getElementById('absDataRetorno').value : null,
-                    quantidade_horas: tipo !== 'ATESTADO' ? (parseFloat(document.getElementById('absHoras').value) || 0) : 0,
-                    cid: tipo === 'ATESTADO' ? document.getElementById('absCid').value.toUpperCase() : null,
+                    dias_afastamento: tipo === 'ATESTADO' ? getValSafe('absDias', true) || 1 : null,
+                    data_retorno: tipo === 'ATESTADO' ? getValSafe('absDataRetorno') : null,
+                    quantidade_horas: tipo !== 'ATESTADO' ? getValSafe('absHoras', false, true) : 0,
+                    cid: tipo === 'ATESTADO' ? (getValSafe('absCid') || '').toUpperCase() : null,
                     motivo: motivo,
                     status_rh: tipo === 'FALTA' ? 'Pendente' : null,
-                    observacoes: document.getElementById('absObservacoes').value,
-                    medico_nome: tipo === 'ATESTADO' ? document.getElementById('absMedicoNome').value : null,
-                    medico_crm: tipo === 'ATESTADO' ? document.getElementById('absMedicoCrm').value : null,
+                    observacoes: getValSafe('absObservacoes') || '',
+                    medico_nome: tipo === 'ATESTADO' ? getValSafe('absMedicoNome') : null,
+                    medico_crm: tipo === 'ATESTADO' ? getValSafe('absMedicoCrm') : null,
                     anexo_url: anexoUrlFinal
                 };
 
@@ -939,42 +983,61 @@ window.salvarAbsenteismo = async function() {
             await window.carregarAbsenteismo();
         } else {
             alert('Registro salvo com sucesso!');
+            // Caso tenha sido acionado pelo Módulo de Escala
+            if (typeof window.renderizarTabelaEscala === 'function') {
+                window.renderizarTabelaEscala();
+            }
         }
 
     } catch (e) {
         console.error(e);
         alert('Erro ao salvar registro. Verifique os campos e conexão.');
     } finally {
-        btnSalvar.innerHTML = txtOriginal;
-        btnSalvar.disabled = false;
+        if(btnSalvar) {
+            btnSalvar.innerHTML = txtOriginal;
+            btnSalvar.disabled = false;
+        }
     }
 };
 
 window.abrirModalAnexoAbs = function(id) {
-    document.getElementById('absAnexoId').value = id;
-    document.getElementById('fileAnexoAbs').value = '';
-    document.getElementById('modalAnexoAbs').classList.add('show');
-    document.getElementById('modalAnexoAbs').style.display = 'flex';
+    const inputAnexoId = document.getElementById('absAnexoId');
+    const inputAnexoFile = document.getElementById('fileAnexoAbs');
+    const modalAnexo = document.getElementById('modalAnexoAbs');
+
+    if (inputAnexoId) inputAnexoId.value = id;
+    if (inputAnexoFile) inputAnexoFile.value = '';
+    if (modalAnexo) {
+        modalAnexo.classList.add('show');
+        modalAnexo.style.display = 'flex';
+    }
 };
 
 window.fecharModalAnexoAbs = function() {
-    document.getElementById('modalAnexoAbs').classList.remove('show');
-    document.getElementById('modalAnexoAbs').style.display = 'none';
+    const modal = document.getElementById('modalAnexoAbs');
+    if(modal) {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+    }
 };
 
 window.salvarAnexoAbs = async function() {
-    const id = document.getElementById('absAnexoId').value;
+    const inputId = document.getElementById('absAnexoId');
     const fileInput = document.getElementById('fileAnexoAbs');
     
-    if (fileInput.files.length === 0) {
+    if (!inputId || !fileInput || fileInput.files.length === 0) {
         alert('Selecione um arquivo (PDF ou Imagem) para anexar.');
         return;
     }
     
+    const id = inputId.value;
     const btnSalvar = document.getElementById('btnSalvarAnexoAbs');
-    const txtOriginal = btnSalvar.innerHTML;
-    btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
-    btnSalvar.disabled = true;
+    const txtOriginal = btnSalvar ? btnSalvar.innerHTML : 'Salvar Anexo';
+    
+    if (btnSalvar) {
+        btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+        btnSalvar.disabled = true;
+    }
 
     try {
         const file = fileInput.files[0];
@@ -992,13 +1055,17 @@ window.salvarAnexoAbs = async function() {
 
         alert('Anexo salvo com sucesso!');
         window.fecharModalAnexoAbs();
-        await window.carregarAbsenteismo();
+        if (typeof window.carregarAbsenteismo === 'function') {
+            await window.carregarAbsenteismo();
+        }
     } catch (e) {
         console.error("Erro ao enviar anexo:", e);
         alert('Erro ao enviar o anexo. Tente novamente.');
     } finally {
-        btnSalvar.innerHTML = txtOriginal;
-        btnSalvar.disabled = false;
+        if(btnSalvar) {
+            btnSalvar.innerHTML = txtOriginal;
+            btnSalvar.disabled = false;
+        }
     }
 };
 
@@ -1040,7 +1107,7 @@ window.excluirAbsenteismo = async function(id, anexoUrl) {
             if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Absenteísmo', `Registro de ausência/falta excluído do sistema (ID ${id})`, 'Crítico');
             
             if (typeof window.carregarAbsenteismo === 'function') await window.carregarAbsenteismo();
-            if (document.getElementById('escalaContainer')) window.renderizarEscala();
+            if (document.getElementById('escalaContainer') && typeof window.renderizarEscala === 'function') window.renderizarEscala();
             
         } catch (e) {
             console.error(e);
@@ -1133,7 +1200,7 @@ window.excluirConvocadoExtra = async function(id, dataBH, colabNome) {
         if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Banco de Horas', `Convocação Extra excluída do sistema para ${colabNome} (ID ${id})`, 'Crítico');
         
         alert('Convocação extra removida com sucesso. Observação: A exclusão na tabela não altera escalas manuais já consolidadas na folha operacional da logística.');
-        await window.carregarAbsenteismo();
+        if (typeof window.carregarAbsenteismo === 'function') await window.carregarAbsenteismo();
     } catch(e) {
         console.error(e);
         alert('Erro ao excluir registro de banco de horas.');
