@@ -63,16 +63,6 @@ window.MAPA_MENUS = [
     { id: 'tarifador', label: 'Tarifador', setor: 'Gerencial', icon: 'fas fa-calculator' },
     { id: 'configuracoes_gerenciais', label: 'Configurações Gerenciais', setor: 'Gerencial', icon: 'fas fa-cog' },
     
-    // --- MÓDULO: PERFORMANCE & PREMIAÇÃO ---
-    { id: 'performance_dashboard', label: 'Visão Geral (Dashboard)', setor: 'Performance', icon: 'fas fa-chart-line' },
-    { id: 'performance_ranking', label: 'Hall da Fama (Mensal)', setor: 'Performance', icon: 'fas fa-trophy' },
-    { id: 'performance_ranking_geral', label: 'Ranking Geral', setor: 'Performance', icon: 'fas fa-globe' },
-    { id: 'performance_auditoria', label: 'Auditoria de Pontos', setor: 'Performance', icon: 'fas fa-user-tie' },
-    { id: 'performance_importar', label: 'Importar Viagens', setor: 'Performance', icon: 'fas fa-file-excel' },
-    { id: 'performance_historico', label: 'Histórico de Viagens', setor: 'Performance', icon: 'fas fa-history' },
-    { id: 'performance_ocorrencias', label: 'Ocorrências & Infrações', setor: 'Performance', icon: 'fas fa-exclamation-triangle' },
-    { id: 'performance_configuracoes', label: 'Parâmetros de Premiação', setor: 'Performance', icon: 'fas fa-sliders-h' },
-
     // --- MÓDULO GLOBAL ---
     { id: 'gestao_filiais', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
     { id: 'auditoria_logs', label: 'Auditoria de Sistema', setor: 'Global', icon: 'fas fa-shield-alt' },
@@ -123,6 +113,9 @@ const ROTAS = {
     'indicadores_serrana': 'modules/indicadores/painel_serrana/indicadores_serrana.html',
     'cadastro_indicadores': 'modules/indicadores/configuracoes/cadastro_indicadores.html',
     
+    'gestao_filiais': 'modules/global/gestao_filiais.html',
+    'auditoria_logs': 'modules/global/auditoria_logs.html',
+    
     'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
     'operacional': 'modules/monitoramento/operacional/operacional.html',
     'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
@@ -139,19 +132,6 @@ const ROTAS = {
     'configuracoes_gerencial': 'modules/monitoramento/configuracoes/configuracoes_gerencial.html',
     'cadastro_up': 'modules/monitoramento/cadastro_up/cadastro_up.html',
     
-    // --- ROTAS DO MÓDULO PERFORMANCE ---
-    'performance_dashboard': 'modules/performance/dashboard/dashboard.html',
-    'performance_ranking': 'modules/performance/ranking/ranking.html',
-    'performance_ranking_geral': 'modules/performance/ranking_geral/ranking_geral.html',
-    'performance_auditoria': 'modules/performance/auditoria/auditoria.html',
-    'performance_importar': 'modules/performance/importar/importar.html',
-    'performance_historico': 'modules/performance/historico/historico.html',
-    'performance_ocorrencias': 'modules/performance/ocorrencias/ocorrencias.html',
-    'performance_configuracoes': 'modules/performance/configuracoes/configuracoes.html',
-
-    'gestao_filiais': 'modules/global/gestao_filiais.html',
-    'auditoria_logs': 'modules/global/auditoria_logs.html',
-    
     'gestao_usuarios': 'modules/configuracoes/gestao_usuarios.html',
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
     
@@ -162,7 +142,7 @@ const ROTAS = {
     'almoxarifado_relatorios': 'modules/almoxarifado/almoxarifado_relatorios.html'
 };
 
-const VERSAO_SISTEMA = "1.0.22";
+const VERSAO_SISTEMA = "1.0.21";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -190,6 +170,7 @@ window.renderizarMenu = async function() {
         meusMenus = permissoesAtuais[userKey];
     }
     
+    // NOVA LÓGICA DE SUPERADMIN / GLOBAL - Libera acesso a tudo para a base matriz
     const isGlobalAdmin = (currentUser && (currentUser.role === 'SuperAdmin' || currentUser.filial_id === null || currentUser.is_global_session === true));
     const isAdmin = isGlobalAdmin || userRole === 'Admin';
     const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
@@ -199,6 +180,7 @@ window.renderizarMenu = async function() {
     }
     
     let navHtml = '<nav class="main-nav">';
+    
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
     
     setores.forEach(setor => {
@@ -255,7 +237,6 @@ window.renderizarMenu = async function() {
 window.getIconSetor = function(setor) {
     const icones = {
         'Logística': 'fas fa-truck',
-        'Performance': 'fas fa-award',
         'Campo': 'fas fa-tractor',
         'Manutenção': 'fas fa-tools',
         'Almoxarifado': 'fas fa-boxes', 
@@ -320,23 +301,15 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         mainContent.innerHTML = pageCache[pagina];
 
-        // Inicializadores de rotas de Performance
-        if (pagina === 'performance_dashboard' && window.app && typeof window.app.updateDashboard === 'function') window.app.updateDashboard();
-        if (pagina === 'performance_ranking' && window.rankingModule && typeof window.rankingModule.render === 'function') window.rankingModule.render();
-        if (pagina === 'performance_ranking_geral' && window.rankingGeralModule && typeof window.rankingGeralModule.render === 'function') window.rankingGeralModule.render();
-        if (pagina === 'performance_auditoria' && window.auditoriaModule && typeof window.auditoriaModule.render === 'function') window.auditoriaModule.render();
-        if (pagina === 'performance_importar' && window.tripsModule && typeof window.tripsModule.setupUpload === 'function') window.tripsModule.setupUpload();
-        if (pagina === 'performance_historico' && window.tripsModule && typeof window.tripsModule.loadTrips === 'function') window.tripsModule.loadTrips();
-        if (pagina === 'performance_ocorrencias' && window.ocorrenciasModule && typeof window.ocorrenciasModule.load === 'function') window.ocorrenciasModule.load();
-        if (pagina === 'performance_configuracoes' && window.settingsModule && typeof window.settingsModule.load === 'function') window.settingsModule.load();
-
-        // Demais inicializadores do sistema principal...
+        // Inicializadores
+        if (pagina === 'gestao_filiais' && typeof window.renderizarGestaoFiliais === 'function') window.renderizarGestaoFiliais();
+        if (pagina === 'auditoria_logs' && typeof window.renderizarAuditoriaLogs === 'function') window.renderizarAuditoriaLogs();
+        
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
         if (pagina === 'troca_turno' && typeof window.renderizarTrocaTurno === 'function') window.renderizarTrocaTurno();
         if (pagina === 'alocacao' && typeof window.renderizarAlocacao === 'function') window.renderizarAlocacao();
         if (pagina === 'caminhoes' && typeof window.renderizarConjuntos === 'function') window.renderizarConjuntos();
-        if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
-
+        
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
         if (pagina === 'almoxarifado_entregas' && typeof window.renderizarAlmoxarifadoEntregas === 'function') window.renderizarAlmoxarifadoEntregas();
         if (pagina === 'almoxarifado_cadastros' && typeof window.renderizarCadastrosAlmox === 'function') window.renderizarCadastrosAlmox();
@@ -374,6 +347,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'historico_ocorrencias' && typeof window.initHistoricoOcorrencias === 'function') window.initHistoricoOcorrencias();
         if (pagina === 'relatorio_ocorrencias' && typeof window.initRelatorioOcorrencias === 'function') window.initRelatorioOcorrencias();
         
+        if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
+
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
         if (pagina === 'indicadores_serrana' && typeof window.carregarDadosDashboardSerrana === 'function') window.carregarDadosDashboardSerrana();
         if (pagina === 'cadastro_indicadores' && typeof window.initCadastroIndicadores === 'function') window.initCadastroIndicadores();
@@ -413,8 +388,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         
         if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
         if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
-        if (pagina === 'gestao_filiais' && typeof window.renderizarGestaoFiliais === 'function') window.renderizarGestaoFiliais();
-        if (pagina === 'auditoria_logs' && typeof window.renderizarAuditoriaLogs === 'function') window.renderizarAuditoriaLogs();
 
     } catch (error) {
         console.error('Erro ao carregar página:', error);

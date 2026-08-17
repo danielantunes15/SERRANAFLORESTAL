@@ -26,9 +26,6 @@
     <link rel="stylesheet" href="modules/monitoramento/painel/dashboard.css">
     <link rel="stylesheet" href="modules/rh/relatorios/relatorios.css">
     
-    <!-- Novo CSS para o módulo de Performance (Opcional se precisar de estilos específicos) -->
-    <link rel="stylesheet" href="modules/performance/performance.css">
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -288,52 +285,6 @@
         </div>
     </div>
 
-    <!-- Modal Específico para Cadastro de Ocorrências (Módulo Performance) -->
-    <div id="ocorrencia-modal" class="modal-overlay" style="display: none;">
-        <div class="custom-modal">
-            <div class="modal-header">
-                <h3 id="ocorrencia-modal-title">Nova Ocorrência</h3>
-                <button class="close-modal" onclick="window.ocorrenciasModule.closeModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="ocorrencia-form">
-                    <div class="form-group-dark">
-                        <label>Data</label>
-                        <input type="date" id="oc-data" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group-dark" style="margin-top: 15px;">
-                        <label>Hora</label>
-                        <input type="time" id="oc-hora" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group-dark" style="margin-top: 15px;">
-                        <label>Motorista</label>
-                        <select id="oc-motorista" class="form-control filter-input" style="width: 100%;">
-                            <option value="">Selecione o motorista...</option>
-                        </select>
-                    </div>
-                    <div class="form-group-dark" style="margin-top: 15px;">
-                        <label>Placa (Cavalo)</label>
-                        <select id="oc-placa" required class="form-control filter-input" style="width: 100%;">
-                            <option value="">Selecione a placa...</option>
-                        </select>
-                    </div>
-                    <div class="form-group-dark" style="margin-top: 15px;">
-                        <label>Local</label>
-                        <input type="text" id="oc-local" required class="form-control filter-input" style="width: 100%;">
-                    </div>
-                    <div class="form-group-dark" style="margin-top: 15px;">
-                        <label>Descrição dos Fatos</label>
-                        <textarea id="oc-descricao" required class="form-control filter-input" style="width: 100%; height: 100px; padding-top: 10px; resize: vertical;"></textarea>
-                    </div>
-                    <div class="modal-footer" style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
-                        <button type="button" class="btn-secondary-dark" onclick="window.ocorrenciasModule.closeModal()">Cancelar</button>
-                        <button type="submit" class="btn-primary-green">Salvar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -359,7 +310,6 @@
     <script src="modules/logistica/escala/escala.js"></script>
     <script src="modules/logistica/alocacao/alocacao.js"></script>
     <script src="modules/logistica/troca_turno/troca_turno.js"></script>
-    <script src="modules/logistica/recados/recados.js"></script>
     
     <script src="modules/campo/maquinas/maquinas.js"></script>
     <script src="modules/campo/escala/escala.js"></script>
@@ -386,6 +336,8 @@
     <script src="modules/almoxarifado/requisicao_materiais.js"></script>
     <script src="modules/almoxarifado/almoxarifado_relatorios.js"></script>
     <script src="modules/almoxarifado/almoxarifado_relatorios_impressao.js"></script>
+    
+    <script src="modules/logistica/recados/recados.js"></script>
 
     <script src="modules/rh/painel/rh_painel.js"></script>
     <script src="modules/rh/colaboradores/colaboradores.js"></script>
@@ -430,16 +382,8 @@
     <script src="modules/gerencial/evolucao_fazendas/evolucao_fazendas.js"></script>
     <script src="modules/gerencial/configuracoes_gerenciais/configuracoes_gerenciais.js"></script>
 
+    <!-- Script do Tarifador -->
     <script src="modules/gerencial/tarifador/tarifador.js"></script>
-
-    <!-- Scripts do Módulo de Performance / Premiação -->
-    <script src="modules/performance/performance_utils.js"></script>
-    <script src="modules/performance/dashboard/dashboard.js"></script>
-    <script src="modules/performance/ranking/ranking.js"></script>
-    <script src="modules/performance/ranking_geral/ranking_geral.js"></script>
-    <script src="modules/performance/importar/importar.js"></script>
-    <script src="modules/performance/historico/historico.js"></script>
-    <script src="modules/performance/ocorrencias/ocorrencias.js"></script>
 
 </body>
 </html>
