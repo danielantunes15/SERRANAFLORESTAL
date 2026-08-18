@@ -5,6 +5,12 @@ let cacheFazendas = [];
 let cacheUPs = [];
 let cacheUPsPendentes = new Map(); // Armazena as UPs vindas das viagens e suas distâncias
 
+// Função auxiliar para resgatar a filial do usuário logado
+function obterFilialUsuarioLogadoUP() {
+    return (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') 
+        ? parseInt(window.currentUser.filial_id) : null;
+}
+
 window.initCadastroUP = async function() {
     try {
         await window.carregarDadosCadastroUP();
@@ -20,22 +26,34 @@ window.carregarDadosCadastroUP = async function() {
     }
 
     try {
-        // 1. Busca as fazendas cadastradas
-        const { data: fazendas, error: errFazendas } = await supabaseClient
+        const filialLogada = obterFilialUsuarioLogadoUP();
+
+        // 1. Busca as fazendas cadastradas (Filtro Estrito por Filial)
+        let queryFazendas = supabaseClient
             .from('monitoramento_fazendas')
             .select('*')
             .order('nome', { ascending: true });
+            
+        if (filialLogada !== null) {
+            queryFazendas = queryFazendas.eq('filial_id', filialLogada);
+        }
 
+        const { data: fazendas, error: errFazendas } = await queryFazendas;
         if (errFazendas) throw errFazendas;
         cacheFazendas = fazendas || [];
         window.atualizarSelectFazendas();
 
-        // 2. Busca as UPs cadastradas
-        const { data: ups, error: errUps } = await supabaseClient
+        // 2. Busca as UPs cadastradas (Filtro Estrito por Filial)
+        let queryUps = supabaseClient
             .from('monitoramento_ups')
-            .select(`id, codigo, fazenda_id, distancia_asfalto, distancia_terra, dmt_medio`)
+            .select(`id, codigo, fazenda_id, distancia_asfalto, distancia_terra, dmt_medio, filial_id`)
             .order('codigo', { ascending: true });
 
+        if (filialLogada !== null) {
+            queryUps = queryUps.eq('filial_id', filialLogada);
+        }
+
+        const { data: ups, error: errUps } = await queryUps;
         if (errUps) throw errUps;
         cacheUPs = ups || [];
         
@@ -75,6 +93,7 @@ window.carregarUPsPendentes = async function() {
         const dataHoje = formatarData(hoje);
         const dataOntem = formatarData(ontem);
 
+        const filialLogada = obterFilialUsuarioLogadoUP();
         let dadosViagens = [];
         let start = 0; 
         const step = 2000; 
@@ -91,8 +110,8 @@ window.carregarUPsPendentes = async function() {
                 .in('dataDaBaseExcel', [dataHoje, dataOntem]) // Filtra estritamente hoje e ontem
                 .range(start, start + step - 1);
                 
-            if (window.currentUser && window.currentUser.filial_id !== null && window.currentUser.filial_id !== 'CENTRAL') {
-                query = query.eq('filial_id', window.currentUser.filial_id);
+            if (filialLogada !== null) {
+                query = query.eq('filial_id', filialLogada);
             }
 
             const { data, error } = await query;
@@ -115,8 +134,8 @@ window.carregarUPsPendentes = async function() {
                 .neq('up', 'NULL')
                 .limit(2000);
                 
-            if (window.currentUser && window.currentUser.filial_id !== null && window.currentUser.filial_id !== 'CENTRAL') {
-                queryFb = queryFb.eq('filial_id', window.currentUser.filial_id);
+            if (filialLogada !== null) {
+                queryFb = queryFb.eq('filial_id', filialLogada);
             }
             
             const { data: fbData } = await queryFb;
@@ -230,7 +249,15 @@ window.salvarFazenda = async function() {
     if (!nome) { alert("Digite o nome da fazenda."); return; }
 
     try {
-        const { error } = await supabaseClient.from('monitoramento_fazendas').insert([{ nome: nome }]);
+        const filialLogada = obterFilialUsuarioLogadoUP();
+        const payload = { nome: nome };
+        
+        // Atrela a fazenda à filial do usuário
+        if (filialLogada !== null) {
+            payload.filial_id = filialLogada;
+        }
+
+        const { error } = await supabaseClient.from('monitoramento_fazendas').insert([payload]);
         if (error) {
             if (error.code === '23505') alert("Fazenda já cadastrada.");
             else throw error;
@@ -263,10 +290,22 @@ window.salvarUP = async function() {
     if (!codigo) { alert("Selecione a UP na lista."); return; }
 
     try {
-        const { error } = await supabaseClient.from('monitoramento_ups').insert([{
-            codigo: codigo, fazenda_id: parseInt(fazendaId), distancia_asfalto: distAsfalto,
-            distancia_terra: distTerra, dmt_medio: dmtMedio
-        }]);
+        const filialLogada = obterFilialUsuarioLogadoUP();
+        
+        const payload = {
+            codigo: codigo, 
+            fazenda_id: parseInt(fazendaId), 
+            distancia_asfalto: distAsfalto,
+            distancia_terra: distTerra, 
+            dmt_medio: dmtMedio
+        };
+
+        // Atrela a UP à filial do usuário
+        if (filialLogada !== null) {
+            payload.filial_id = filialLogada;
+        }
+
+        const { error } = await supabaseClient.from('monitoramento_ups').insert([payload]);
 
         if (error) {
             if (error.code === '23505') alert("UP já cadastrada no sistema.");
