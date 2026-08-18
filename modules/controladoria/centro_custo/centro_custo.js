@@ -45,7 +45,7 @@ window.initControladoria = async function() {
     await carregarAtividades();
     await carregarSetores();
     await carregarCargos();
-    await carregarResponsaveis(); // <--- NOVA CHAMADA
+    await carregarResponsaveis(); 
 };
 
 window.switchTabControladoria = function(tabId, btnElement) {
@@ -71,6 +71,13 @@ window.carregarCentrosCusto = async function() {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>';
     try {
         let query = supabaseClient.from('centro_custo').select('*').order('codigo', { ascending: true });
+        
+        // Filtro de filial estrito
+        const filialLogada = obterFilialUsuarioLogado();
+        if (filialLogada !== null) {
+            query = query.eq('filial_id', filialLogada);
+        }
+
         const { data, error } = await query;
         if (error) throw error;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8;">Nenhum Centro de Custo cadastrado.</td></tr>';
@@ -84,7 +91,7 @@ window.carregarCentrosCusto = async function() {
         });
 
         data.forEach(cc => {
-            const fKey = cc.filial_id === null ? 'CENTRAL' : cc.filial_id;
+            const fKey = cc.filial_id === null ? 'CENTRAL' : Number(cc.filial_id);
             if (!filiaisMap.has(fKey)) filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, items: [] });
             filiaisMap.get(fKey).items.push(cc);
         });
@@ -181,11 +188,13 @@ window.carregarOpcoesCentroCusto = async function() {
     
     let query = supabaseClient.from('centro_custo').select('id, codigo, nome, filial_id').eq('status', 'Ativo');
     
+    // Filtro estrito por filial no modal
     if (filialId !== 'CENTRAL' && filialId !== '') {
-        query = query.or(`filial_id.eq.${parseInt(filialId)},filial_id.is.null`);
+        query = query.eq('filial_id', parseInt(filialId));
     } else {
         query = query.is('filial_id', null);
     }
+    
     const { data } = await query;
     if (!data || data.length === 0) return select.innerHTML = '<option value="">Nenhum Centro Ativo nesta Filial</option>';
     select.innerHTML = '<option value="">Selecione...</option>' + data.map(cc => {
@@ -201,6 +210,13 @@ window.carregarObjetosCusto = async function() {
     
     try {
         let query = supabaseClient.from('objetos_custo').select('*, centro_custo(codigo, nome)').order('codigo');
+        
+        // Filtro de filial estrito
+        const filialLogada = obterFilialUsuarioLogado();
+        if (filialLogada !== null) {
+            query = query.eq('filial_id', filialLogada);
+        }
+
         const { data } = await query;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8;">Nenhum Objeto de Custo.</td></tr>';
         
@@ -213,7 +229,7 @@ window.carregarObjetosCusto = async function() {
         });
 
         data.forEach(obj => {
-            const fKey = obj.filial_id === null ? 'CENTRAL' : obj.filial_id;
+            const fKey = obj.filial_id === null ? 'CENTRAL' : Number(obj.filial_id);
             if (!filiaisMap.has(fKey)) filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, items: [] });
             filiaisMap.get(fKey).items.push(obj);
         });
@@ -318,8 +334,9 @@ window.carregarOpcoesObjetoCustoAtiv = async function() {
     
     let query = supabaseClient.from('objetos_custo').select('id, nome, filial_id, centro_custo(nome)').eq('status', 'Ativo');
     
+    // Filtro estrito por filial
     if (filialId !== 'CENTRAL' && filialId !== '') {
-        query = query.or(`filial_id.eq.${parseInt(filialId)},filial_id.is.null`);
+        query = query.eq('filial_id', parseInt(filialId));
     } else {
         query = query.is('filial_id', null);
     }
@@ -338,6 +355,13 @@ window.carregarAtividades = async function() {
     
     try {
         let query = supabaseClient.from('atividades_processos').select('*, objetos_custo(codigo, nome, centro_custo(nome))').order('codigo');
+        
+        // Filtro de filial estrito
+        const filialLogada = obterFilialUsuarioLogado();
+        if (filialLogada !== null) {
+            query = query.eq('filial_id', filialLogada);
+        }
+
         const { data } = await query;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8;">Nenhuma Atividade.</td></tr>';
         
@@ -350,7 +374,7 @@ window.carregarAtividades = async function() {
         });
 
         data.forEach(ativ => {
-            const fKey = ativ.filial_id === null ? 'CENTRAL' : ativ.filial_id;
+            const fKey = ativ.filial_id === null ? 'CENTRAL' : Number(ativ.filial_id);
             if (!filiaisMap.has(fKey)) filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, items: [] });
             filiaisMap.get(fKey).items.push(ativ);
         });
@@ -453,6 +477,13 @@ window.carregarSetores = async function() {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>';
     try {
         let query = supabaseClient.from('setores').select('*').order('nome');
+        
+        // Filtro de filial estrito
+        const filialLogada = obterFilialUsuarioLogado();
+        if (filialLogada !== null) {
+            query = query.eq('filial_id', filialLogada);
+        }
+
         const { data, error } = await query;
         if (error) throw error;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8;">Nenhum Setor cadastrado.</td></tr>';
@@ -466,7 +497,7 @@ window.carregarSetores = async function() {
         });
 
         data.forEach(setor => {
-            const fKey = setor.filial_id === null ? 'CENTRAL' : setor.filial_id;
+            const fKey = setor.filial_id === null ? 'CENTRAL' : Number(setor.filial_id);
             if (!filiaisMap.has(fKey)) filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, items: [] });
             filiaisMap.get(fKey).items.push(setor);
         });
@@ -562,8 +593,9 @@ window.carregarOpcoesCargoSuperior = async function() {
     if (!select) return;
     let query = supabaseClient.from('cargos').select('id, nome, filial_id').eq('status', 'Ativo');
     
+    // Filtro estrito
     if (filialId !== 'CENTRAL' && filialId !== '') {
-        query = query.or(`filial_id.eq.${parseInt(filialId)},filial_id.is.null`);
+        query = query.eq('filial_id', parseInt(filialId));
     } else {
         query = query.is('filial_id', null);
     }
@@ -586,8 +618,14 @@ window.carregarOpcoesSetorParaCargo = async function() {
     const filialId = document.getElementById('cargoFilialId').value;
     if (!select) return;
     let query = supabaseClient.from('setores').select('id, nome, filial_id').eq('status', 'Ativo');
-    if (filialId !== 'CENTRAL' && filialId !== '') { query = query.or(`filial_id.eq.${parseInt(filialId)},filial_id.is.null`); } 
-    else { query = query.is('filial_id', null); }
+    
+    // Filtro estrito
+    if (filialId !== 'CENTRAL' && filialId !== '') { 
+        query = query.eq('filial_id', parseInt(filialId)); 
+    } else { 
+        query = query.is('filial_id', null); 
+    }
+    
     const { data } = await query;
     if (!data || data.length === 0) return select.innerHTML = '<option value="">Nenhum Setor Ativo nesta Filial</option>';
     
@@ -603,8 +641,14 @@ window.carregarOpcoesCentroCustoParaCargo = async function() {
     if (!select) return;
     
     let query = supabaseClient.from('centro_custo').select('id, codigo, nome, filial_id').eq('status', 'Ativo');
-    if (filialId !== 'CENTRAL' && filialId !== '') { query = query.or(`filial_id.eq.${parseInt(filialId)},filial_id.is.null`); } 
-    else { query = query.is('filial_id', null); }
+    
+    // Filtro estrito
+    if (filialId !== 'CENTRAL' && filialId !== '') { 
+        query = query.eq('filial_id', parseInt(filialId)); 
+    } else { 
+        query = query.is('filial_id', null); 
+    }
+    
     const { data } = await query;
     if (!data || data.length === 0) return select.innerHTML = '<option value="">Nenhum CC Ativo nesta Filial</option>';
     
@@ -620,6 +664,13 @@ window.carregarCargos = async function() {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>';
     try {
         let query = supabaseClient.from('cargos').select('*, setores(nome), centro_custo(nome)').order('nivel_hierarquico');
+        
+        // Filtro de filial estrito
+        const filialLogada = obterFilialUsuarioLogado();
+        if (filialLogada !== null) {
+            query = query.eq('filial_id', filialLogada);
+        }
+
         const { data, error } = await query;
         if (error) throw error;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8;">Nenhum Cargo cadastrado.</td></tr>';
@@ -633,7 +684,7 @@ window.carregarCargos = async function() {
         });
 
         data.forEach(cargo => {
-            const fKey = cargo.filial_id === null ? 'CENTRAL' : cargo.filial_id;
+            const fKey = cargo.filial_id === null ? 'CENTRAL' : Number(cargo.filial_id);
             if (!filiaisMap.has(fKey)) {
                 filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, cargos: [] });
             }
@@ -799,8 +850,14 @@ window.carregarOpcoesSetorParaResponsavel = async function() {
     const filialId = document.getElementById('respFilialId').value;
     if (!select) return;
     let query = supabaseClient.from('setores').select('id, nome, filial_id').eq('status', 'Ativo');
-    if (filialId !== 'CENTRAL' && filialId !== '') { query = query.or(`filial_id.eq.${parseInt(filialId)},filial_id.is.null`); } 
-    else { query = query.is('filial_id', null); }
+    
+    // Filtro estrito
+    if (filialId !== 'CENTRAL' && filialId !== '') { 
+        query = query.eq('filial_id', parseInt(filialId)); 
+    } else { 
+        query = query.is('filial_id', null); 
+    }
+    
     const { data } = await query;
     if (!data || data.length === 0) return select.innerHTML = '<option value="">Nenhum Setor Ativo nesta Filial</option>';
     
@@ -816,6 +873,13 @@ window.carregarResponsaveis = async function() {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Carregando dados...</td></tr>';
     try {
         let query = supabaseClient.from('responsaveis_setor').select('*, setores(nome)').order('nome_responsavel');
+        
+        // Filtro de filial estrito
+        const filialLogada = obterFilialUsuarioLogado();
+        if (filialLogada !== null) {
+            query = query.eq('filial_id', filialLogada);
+        }
+
         const { data, error } = await query;
         if (error) throw error;
         if (!data || data.length === 0) return tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #94a3b8;">Nenhum Responsável cadastrado.</td></tr>';
@@ -830,7 +894,7 @@ window.carregarResponsaveis = async function() {
         });
         
         data.forEach(resp => {
-            const fKey = resp.filial_id === null ? 'CENTRAL' : resp.filial_id;
+            const fKey = resp.filial_id === null ? 'CENTRAL' : Number(resp.filial_id);
             if (!filiaisMap.has(fKey)) filiaisMap.set(fKey, { nome: `Filial ID: ${fKey}`, items: [] });
             filiaisMap.get(fKey).items.push(resp);
         });
