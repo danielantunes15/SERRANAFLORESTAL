@@ -79,6 +79,7 @@
             <button class="btn-modern btn-primary" onclick="prepararModalMovimentacao('entrada')"><i class="fas fa-arrow-down"></i> Lançar NF</button>
             <button class="btn-modern btn-warning" onclick="prepararModalMovimentacao('saida')"><i class="fas fa-arrow-up"></i> Saída Estoque</button>
             <button class="btn-modern btn-dark" onclick="prepararModalMovimentacao('ajuste')"><i class="fas fa-balance-scale"></i> Ajuste Balanço</button>
+            <button class="btn-modern" style="background:#8b5cf6; color:white;" onclick="abrirModalQrLote()"><i class="fas fa-qrcode"></i> QRs em Lote</button>
         </div>
     </div>
     <div class="almo-kpi-grid">
@@ -438,5 +439,28 @@
                 <tbody id="tabelaDetalhesNotaBody"></tbody>
             </table>
         </div>
+    </div>
+</div>
+
+<!-- MODAL GERAR QR CODE -->
+<div id="modalQr" class="almo-modal">
+    <div class="almo-modal-content" style="max-width: 500px;">
+        <span class="almo-close" onclick="fecharModalAlmox('modalQr')">&times;</span>
+        <h3 id="modalQrTitulo"><i class="fas fa-qrcode" style="color:#8b5cf6;"></i> Gerador de QR Code</h3>
+        <div class="almo-form-group">
+            <label>Tamanho do QR Code</label>
+            <select id="qrTamanho">
+                <option value="128">Pequeno (128x128)</option>
+                <option value="256" selected>Médio (256x256)</option>
+                <option value="512">Grande (512x512)</option>
+            </select>
+        </div>
+        <div id="qrItemUnicoContainer" style="display:none; text-align:center; margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+            <h4 id="qrItemNome" style="color:#f8fafc; margin-bottom:5px; font-size: 1.1rem;"></h4>
+            <p id="qrItemCodigo" style="color:#94a3b8; font-family:monospace; margin-top:0; font-size: 1.2rem; font-weight: bold;"></p>
+        </div>
+        <button type="button" class="btn-modern" style="background:#8b5cf6; color:white; width: 100%; justify-content: center; padding: 12px; font-size: 1.05rem;" onclick="executarGeracaoQr()">
+            <i class="fas fa-print"></i> Gerar e Imprimir
+        </button>
     </div>
 </div>

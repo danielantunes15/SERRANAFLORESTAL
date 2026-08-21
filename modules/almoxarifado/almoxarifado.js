@@ -69,7 +69,6 @@ function atualizarTabelaPecas(listaPecas) {
 
     let valorTotalGlobal = 0;
 
-    // Prepara os dados calculando os totais individuais para a Curva ABC
     const itensProcessados = listaPecas.map(peca => {
         let qtd = parseFloat(peca.quantidade) || 0;
         let preco = parseFloat(peca.preco_medio || 0);
@@ -78,7 +77,6 @@ function atualizarTabelaPecas(listaPecas) {
         return { ...peca, valor_total: valTotal, quantidade_numerica: qtd };
     });
 
-    // Ordena do maior valor financeiro para o menor (Curva ABC)
     itensProcessados.sort((a,b) => b.valor_total - a.valor_total);
 
     let somaAcumulada = 0;
@@ -764,10 +762,79 @@ window.executarAcaoPneu = async function(e) {
 
 window.fecharModalAlmox = function(id) { document.getElementById(id).style.display = 'none'; }
 
+// ================= LÓGICA DO QR CODE (ATUALIZADA) =================
+window.qrModoAtual = null;
+window.qrPecaAtual = null;
+
 window.imprimirQRCode = function(peca) {
-    if (!peca.codigo) { alert("Sem código!"); return; }
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(peca.codigo)}`;
-    const win = window.open('', '_blank', 'width=400,height=500');
-    win.document.write(`<html><head><title>Etiqueta QR Code - ${peca.codigo}</title><style>body { font-family: sans-serif; text-align: center; } .etiqueta { border: 2px dashed #000; padding: 20px; display: inline-block; width: 250px; border-radius: 8px; } .titulo { font-size: 16px; font-weight: bold; margin-bottom: 15px; } .codigo { font-size: 22px; margin: 10px 0; font-family: monospace; font-weight: bold; } </style></head><body><div class="etiqueta"><div class="titulo">${peca.nome}</div><img src="${qrUrl}" alt="QR Code" style="border: 1px solid #ccc; padding: 5px; border-radius: 5px;"><div class="codigo">${peca.codigo}</div><div class="local">📍 Local: ${peca.localizacao || 'S/N'}</div></div><script>setTimeout(() => { window.print(); window.close(); }, 500);</script></body></html>`);
+    if (!peca.codigo) { alert("Esta peça não possui um código/SKU cadastrado para gerar o QR Code!"); return; }
+    window.qrModoAtual = 'unico';
+    window.qrPecaAtual = peca;
+    document.getElementById('modalQrTitulo').innerHTML = '<i class="fas fa-qrcode" style="color:#8b5cf6;"></i> Imprimir QR Code (Único)';
+    document.getElementById('qrItemUnicoContainer').style.display = 'block';
+    document.getElementById('qrItemNome').innerText = peca.nome;
+    document.getElementById('qrItemCodigo').innerText = peca.codigo;
+    document.getElementById('modalQr').style.display = 'flex';
+}
+
+window.abrirModalQrLote = function() {
+    if (!pecasEstoque || pecasEstoque.length === 0) { alert("Não há peças cadastradas para gerar em lote."); return; }
+    window.qrModoAtual = 'lote';
+    window.qrPecaAtual = null;
+    document.getElementById('modalQrTitulo').innerHTML = '<i class="fas fa-qrcode" style="color:#8b5cf6;"></i> Imprimir QR Codes (Em Lote)';
+    document.getElementById('qrItemUnicoContainer').style.display = 'none';
+    document.getElementById('modalQr').style.display = 'flex';
+}
+
+window.executarGeracaoQr = function() {
+    const tamanho = document.getElementById('qrTamanho').value;
+    const win = window.open('', '_blank', 'width=800,height=600');
+    
+    if (!win) {
+        alert("O navegador bloqueou a janela de impressão. Por favor, permita os pop-ups para este site.");
+        return;
+    }
+    
+    let html = `<html><head><title>Etiquetas QR Code</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; padding: 20px; background: #fff; color: #000; } 
+        .etiqueta { border: 2px dashed #000; padding: 20px; display: inline-block; border-radius: 8px; page-break-inside: avoid; background: #fff; min-width: 250px; } 
+        .titulo { font-size: 16px; font-weight: bold; margin-bottom: 15px; max-width: ${tamanho}px; word-wrap: break-word; margin-left: auto; margin-right: auto; } 
+        .codigo { font-size: 22px; margin: 10px 0; font-family: monospace; font-weight: bold; }
+        .local { font-size: 14px; }
+        @media print { body { padding: 0; } }
+    </style></head><body>`;
+
+    const gerarHtmlEtiqueta = (peca, size) => {
+        if (!peca.codigo) return '';
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(peca.codigo)}`;
+        return `<div class="etiqueta">
+            <div class="titulo">${peca.nome}</div>
+            <img src="${qrUrl}" alt="QR Code" width="${size}" height="${size}" style="border: 1px solid #ccc; padding: 5px; border-radius: 5px;">
+            <div class="codigo">${peca.codigo}</div>
+            <div class="local">📍 Local: ${peca.localizacao || 'S/N'}</div>
+        </div>`;
+    };
+
+    if (window.qrModoAtual === 'unico') {
+        html += gerarHtmlEtiqueta(window.qrPecaAtual, tamanho);
+    } else if (window.qrModoAtual === 'lote') {
+        // Filtra para garantir que apenas itens com código vão para impressão
+        const pecasComCodigo = pecasEstoque.filter(p => p.codigo && p.codigo.trim() !== '');
+        if(pecasComCodigo.length === 0) {
+            win.close();
+            alert("Nenhuma peça com código/SKU foi encontrada para gerar o lote.");
+            return;
+        }
+        pecasComCodigo.forEach(peca => {
+            html += gerarHtmlEtiqueta(peca, tamanho);
+        });
+    }
+
+    // Aumentado o tempo de espera para garantir o carregamento das imagens antes do print
+    html += `<script>setTimeout(() => { window.print(); window.close(); }, 1500);</script></body></html>`;
+    
+    win.document.write(html);
     win.document.close();
+    fecharModalAlmox('modalQr');
 }
