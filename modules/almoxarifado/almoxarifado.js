@@ -762,7 +762,7 @@ window.executarAcaoPneu = async function(e) {
 
 window.fecharModalAlmox = function(id) { document.getElementById(id).style.display = 'none'; }
 
-// ================= LÓGICA DO QR CODE (ATUALIZADA) =================
+// ================= LÓGICA DO QR CODE (ATUALIZADA E REDIMENSIONADA) =================
 window.qrModoAtual = null;
 window.qrPecaAtual = null;
 
@@ -795,11 +795,12 @@ window.executarGeracaoQr = function() {
         return;
     }
     
+    // Na regra do CSS da impressão alterei o max-width para 100% garantindo que se o QR code for 80x80 a fonte se acomode no bloco
     let html = `<html><head><title>Etiquetas QR Code</title>
     <style>
         body { font-family: sans-serif; text-align: center; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; padding: 20px; background: #fff; color: #000; } 
         .etiqueta { border: 2px dashed #000; padding: 20px; display: inline-block; border-radius: 8px; page-break-inside: avoid; background: #fff; min-width: 250px; } 
-        .titulo { font-size: 16px; font-weight: bold; margin-bottom: 15px; max-width: ${tamanho}px; word-wrap: break-word; margin-left: auto; margin-right: auto; } 
+        .titulo { font-size: 16px; font-weight: bold; margin-bottom: 15px; max-width: 100%; word-wrap: break-word; margin-left: auto; margin-right: auto; } 
         .codigo { font-size: 22px; margin: 10px 0; font-family: monospace; font-weight: bold; }
         .local { font-size: 14px; }
         @media print { body { padding: 0; } }
@@ -819,7 +820,6 @@ window.executarGeracaoQr = function() {
     if (window.qrModoAtual === 'unico') {
         html += gerarHtmlEtiqueta(window.qrPecaAtual, tamanho);
     } else if (window.qrModoAtual === 'lote') {
-        // Filtra para garantir que apenas itens com código vão para impressão
         const pecasComCodigo = pecasEstoque.filter(p => p.codigo && p.codigo.trim() !== '');
         if(pecasComCodigo.length === 0) {
             win.close();
@@ -831,7 +831,6 @@ window.executarGeracaoQr = function() {
         });
     }
 
-    // Aumentado o tempo de espera para garantir o carregamento das imagens antes do print
     html += `<script>setTimeout(() => { window.print(); window.close(); }, 1500);</script></body></html>`;
     
     win.document.write(html);
