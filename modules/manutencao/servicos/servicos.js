@@ -6,11 +6,11 @@ let mOS_ListaGeral = [];
 let mOS_Requisicoes = []; 
 let mOS_AbaAtiva = 'aceite';
 let mapaSOSMecanicoInstance = null;
-window.mecanicoNomeCompletoCache = null; // Variável para armazenar o nome verdadeiro
+window.mecanicoNomeCompletoCache = null; 
+let mMecanicosCache = []; // Cache com os mecânicos da filial
 
 window.renderizarTelaServicos = async function() {
     try {
-        // Busca o nome completo do mecânico direto do banco de dados na primeira vez
         if (!window.mecanicoNomeCompletoCache) {
             const s = localStorage.getItem('ccol_user_session');
             if (s) {
@@ -23,6 +23,25 @@ window.renderizarTelaServicos = async function() {
                         window.mecanicoNomeCompletoCache = sessObj.nome_completo || sessObj.nome || sessObj.username;
                     }
                 }
+            }
+        }
+
+        // Cache Inteligente: Busca apenas usuários ATIVOS, da MESMA FILIAL, que tenham a ROLE "Mecânico"
+        if (mMecanicosCache.length === 0) {
+            let queryUsuarios = window.supabaseClient.from('usuarios').select('username, nome_completo, role').eq('status', 'Ativo');
+            
+            // Aplica a restrição de filial do sistema
+            if (typeof window.aplicarFiltroFilial === 'function') {
+                queryUsuarios = window.aplicarFiltroFilial(queryUsuarios);
+            }
+            
+            const { data: usersData } = await queryUsuarios;
+            if (usersData) {
+                mMecanicosCache = usersData
+                    // Filtra apenas quem tem "mecanico" ou "mecânico" no cargo/role
+                    .filter(u => u.role && (u.role.toLowerCase().includes('mecanico') || u.role.toLowerCase().includes('mecânico')))
+                    .map(u => (u.nome_completo && u.nome_completo.trim() !== '') ? u.nome_completo : u.username)
+                    .sort();
             }
         }
 
@@ -165,7 +184,7 @@ function mecanicoRenderizarTabelas() {
             <div class="tablet-card" style="border-left: 6px solid ${colorBorder}; ${meucard ? 'background: rgba(16, 185, 129, 0.05);' : ''}">
                 <div class="card-header-flex">
                     <span class="card-badge" style="background: ${colorBorder};">#${os.numero_os || os.id} ${isSOS ? 'S.O.S' : 'EM EXECUÇÃO'}</span>
-                    <span style="color:#94a3b8; font-size:0.85rem;">Mecânico: <strong style="color:#fff;">${os.mecanico_responsavel}</strong></span>
+                    <span style="color:#94a3b8; font-size:0.85rem;">Responsável: <strong style="color:#fff;">${os.mecanico_responsavel}</strong></span>
                 </div>
                 <div class="card-placa" style="color: ${colorBorder};">${os.placa}</div>
                 <div class="card-info-text" style="height: 40px; overflow: hidden; text-overflow: ellipsis;">${os.problema}</div>
@@ -205,6 +224,7 @@ function mecanicoRenderizarTabelas() {
                     <span>Qtd: <strong>${r.quantidade}</strong></span>
                     <span>Local: <strong>${r.compartimento || 'GERAL'}</strong></span>
                 </div>
+                <div style="color:#94a3b8; font-size:0.8rem; margin-top:5px;"><i class="fas fa-user"></i> Solicitante: ${r.mecanico || 'Não registrado'}</div>
             </div>`;
         }).join('');
         
@@ -315,7 +335,29 @@ window.mecanicoDevolverOS = async function(id, placa) {
 window.mecanicoAbrirApontamento = async function(id, placa, previsao) {
     mOS_Atual = id;
     document.getElementById('apontPlaca').innerText = placa;
-    document.getElementById('nomeMecanicoLabel').value = mecanicoPegarUsuario();
+    
+    // Configura os Dropdowns de Mecânicos Executantes e Solicitantes
+    let optionsHtml = '';
+    const userAtual = mecanicoPegarUsuario();
+    let listaMecs = [...mMecanicosCache];
+    
+    // Garante que o próprio usuário logado esteja na lista, mesmo se não for cadastrado como 'mecanico'
+    if (!listaMecs.includes(userAtual)) {
+        listaMecs.push(userAtual);
+        listaMecs.sort();
+    }
+
+    listaMecs.forEach(nome => {
+        optionsHtml += `<option value="${nome}">${nome}</option>`;
+    });
+
+    const selectServico = document.getElementById('aponMecanicoServico');
+    const selectPeca = document.getElementById('aponMecanicoPeca');
+    
+    selectServico.innerHTML = optionsHtml;
+    selectServico.value = userAtual;
+    selectPeca.innerHTML = optionsHtml;
+    selectPeca.value = userAtual;
     
     const inputPrev = document.getElementById('aponPrevisaoGlobal');
     if (previsao && previsao !== 'null' && previsao !== 'undefined') {
@@ -371,6 +413,8 @@ window.mecanicoAddTextoServico = function(texto) {
 window.mecanicoAddServico = async function() {
     const desc = document.getElementById('aponDescServico').value.trim();
     const previsao = document.getElementById('aponPrevisaoGlobal').value;
+    const mecExecutante = document.getElementById('aponMecanicoServico').value;
+    
     if (!previsao) return alert("Defina a Previsão no topo antes de adicionar serviços.");
     const checks = document.querySelectorAll('.chk-comp-servico:checked');
     if (!desc) return alert("Descreva o serviço ou selecione um atalho.");
@@ -379,7 +423,12 @@ window.mecanicoAddServico = async function() {
     const comps = Array.from(checks).map(c => c.value).join(' / ');
     const descricaoFinal = `[${comps}] ${desc}`;
     
-    let insertData = { os_id: mOS_Atual, descricao: descricaoFinal, tempo_gasto: 'Ver Previsão Global' };
+    let insertData = { 
+        os_id: mOS_Atual, 
+        descricao: descricaoFinal, 
+        tempo_gasto: 'Ver Previsão Global',
+        mecanico: mecExecutante
+    };
     if (typeof window.injetarFilial === 'function') insertData = window.injetarFilial(insertData);
     
     await window.supabaseClient.from('os_servicos_executados').insert([insertData]);
@@ -479,6 +528,7 @@ document.addEventListener('click', function(e) {
 window.mecanicoAddPeca = async function() {
     const pecaIdVal = document.getElementById('aponPecaId').value;
     const comp = document.getElementById('aponCompartimentoPeca').value;
+    const mecSolicitante = document.getElementById('aponMecanicoPeca').value;
     const qtd = parseFloat(document.getElementById('aponQtdPeca').value);
 
     if (!pecaIdVal || qtd <= 0) {
@@ -492,7 +542,8 @@ window.mecanicoAddPeca = async function() {
         peca_id: pecaId, 
         quantidade: qtd, 
         compartimento: comp, 
-        status: 'Pendente'
+        status: 'Pendente',
+        mecanico: mecSolicitante
     };
     
     if (typeof window.injetarFilial === 'function') insertPeca = window.injetarFilial(insertPeca);
@@ -512,20 +563,26 @@ async function mecanicoAtualizarTabelasModal() {
     const { data: s } = await window.supabaseClient.from('os_servicos_executados').select('*').eq('os_id', mOS_Atual).order('id');
     document.getElementById('tabelaServicosLancados').innerHTML = (s && s.length > 0) ? s.map(item => `
         <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
-            <strong style="color:#fff; font-size: 0.95rem;">${item.descricao}</strong>
+            <div style="flex: 1; padding-right: 10px;">
+                <strong style="color:#fff; font-size: 0.95rem;">${item.descricao}</strong>
+                <span style="color:#94a3b8; font-size:0.8rem; display:block; margin-top:4px;"><i class="fas fa-user-wrench"></i> ${item.mecanico || mecanicoPegarUsuario()}</span>
+            </div>
             <button onclick="mecanicoRemoverServico(${item.id})" style="background:transparent; border:none; color:#ef4444; font-size:1.4rem; padding:5px;"><i class="fas fa-trash"></i></button>
         </div>
     `).join('') : '<p style="padding:15px; text-align:center; color:#94a3b8;">Nenhum serviço lançado.</p>';
 
-    const { data: p } = await window.supabaseClient.from('os_pecas_utilizadas').select(`*`).eq('os_id', mOS_Atual);
+    const { data: p } = await window.supabaseClient.from('os_pecas_utilizadas').select(`*`).eq('os_id', mOS_Atual).order('id');
     document.getElementById('tabelaPecasLancadas').innerHTML = (p && p.length > 0) ? p.map(item => {
         const pecaObj = mOS_PecasCache.find(x => x.id == item.peca_id);
         const pNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
         const pCodigo = (pecaObj && pecaObj.codigo) ? `[${pecaObj.codigo}] ` : '';
         return `
         <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
-            <div><span style="color:#10b981; font-weight:bold; font-size:0.8rem;">[${item.compartimento||'GERAL'}]</span> <strong style="color:#fff;">${item.quantidade}x ${pCodigo}${pNome}</strong></div>
-            <span style="background:${(item.status==='Pendente'||!item.status)?'#f59e0b':(item.status==='Aprovado'?'#10b981':'#ef4444')}; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">${item.status || 'Pendente'}</span>
+            <div style="flex: 1; padding-right: 10px;">
+                <span style="color:#10b981; font-weight:bold; font-size:0.8rem;">[${item.compartimento||'GERAL'}]</span> <strong style="color:#fff;">${item.quantidade}x ${pCodigo}${pNome}</strong>
+                <span style="color:#94a3b8; font-size:0.8rem; display:block; margin-top:4px;"><i class="fas fa-user"></i> Solicitado por: ${item.mecanico || mecanicoPegarUsuario()}</span>
+            </div>
+            <span style="background:${(item.status==='Pendente'||!item.status)?'#f59e0b':(item.status==='Aprovado'?'#10b981':'#ef4444')}; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold; height: fit-content;">${item.status || 'Pendente'}</span>
         </div>`;
     }).join('') : '<p style="padding:15px; text-align:center; color:#94a3b8;">Nenhuma peça requisitada.</p>';
 }
@@ -549,7 +606,6 @@ async function mecanicoCarregarPecas() {
 
 window.mecanicoFecharModal = () => { document.getElementById('modalApontamentoOS').style.display = 'none'; mOS_Atual = null; renderizarTelaServicos(); };
 
-// Nova Lógica: Pega a variável com o nome correto validado pelo banco de dados
 function mecanicoPegarUsuario() { 
     if (window.mecanicoNomeCompletoCache) {
         return window.mecanicoNomeCompletoCache;

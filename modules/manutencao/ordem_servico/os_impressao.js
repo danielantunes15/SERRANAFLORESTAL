@@ -70,7 +70,7 @@ window.imprimirOS = async function(osId) {
             const c3 = descUpper.includes('3ª') ? 'X' : '&nbsp;&nbsp;';
             
             const descricaoLimpa = descRaw.replace(/\[.*?\]\s*/, '');
-            const mecanico = os.mecanico_responsavel || ''; 
+            const mecanicoLinha = serv.mecanico || os.mecanico_responsavel || ''; 
             
             linhasServicos += `
             <tr style="height: 25px;">
@@ -78,7 +78,7 @@ window.imprimirOS = async function(osId) {
                 <td style="text-align:center; font-size:9px; font-weight:bold; white-space: nowrap;">FROTA (${cFrota})&nbsp; 1ª (${c1})&nbsp; 2ª (${c2})&nbsp; 3ª (${c3})</td>
                 <td></td>
                 <td></td>
-                <td style="text-align:center; font-size:10px;">${mecanico}</td>
+                <td style="text-align:center; font-size:10px;">${mecanicoLinha}</td>
             </tr>`;
         } else {
             linhasServicos += `
@@ -108,7 +108,7 @@ window.imprimirOS = async function(osId) {
             const descricao = pecaDb?.nome || 'Peça não identificada no sistema';
             const qtd = `${peca.quantidade} ${pecaDb?.unidade || 'UN'}`;
             
-            const solicitante = os.mecanico_responsavel || 'Mecânico';
+            const solicitante = peca.mecanico || os.mecanico_responsavel || 'Mecânico';
             const dataSolicitacao = peca.created_at ? new Date(peca.created_at).toLocaleDateString('pt-BR') : '';
 
             linhasPecas += `
@@ -203,7 +203,7 @@ window.imprimirOS = async function(osId) {
                     <td colspan="3" style="background-color: #f9fafb;">
                         <strong>Composição Vinculada:</strong> 
                         Frota: <b>${frota.go || '-'}</b> &nbsp;|&nbsp; Carretas: <b>${frota.carreta1 || '-'} / ${frota.carreta2 || '-'} / ${frota.carreta3 || '-'}</b> &nbsp;|&nbsp; 
-                        <strong>Mecânico:</strong> <b>${os.mecanico_responsavel || os.mecanico || '-'}</b>
+                        <strong>Mecânico Resp:</strong> <b>${os.mecanico_responsavel || os.mecanico || '-'}</b>
                     </td>
                 </tr>
             </table>
@@ -354,7 +354,7 @@ window.imprimirTodasOSFiltradas = async function() {
                 const c3 = descUpper.includes('3ª') ? 'X' : '&nbsp;&nbsp;';
                 
                 const descricaoLimpa = descRaw.replace(/\[.*?\]\s*/, '');
-                const mecanico = os.mecanico_responsavel || ''; 
+                const mecanicoLinha = serv.mecanico || os.mecanico_responsavel || ''; 
                 
                 linhasServicos += `
                 <tr style="height: 25px;">
@@ -362,7 +362,7 @@ window.imprimirTodasOSFiltradas = async function() {
                     <td style="text-align:center; font-size:9px; font-weight:bold; white-space: nowrap;">FROTA (${cFrota})&nbsp; 1ª (${c1})&nbsp; 2ª (${c2})&nbsp; 3ª (${c3})</td>
                     <td></td>
                     <td></td>
-                    <td style="text-align:center; font-size:10px;">${mecanico}</td>
+                    <td style="text-align:center; font-size:10px;">${mecanicoLinha}</td>
                 </tr>`;
             } else {
                 linhasServicos += `
@@ -392,7 +392,7 @@ window.imprimirTodasOSFiltradas = async function() {
                 const descricao = pecaDb?.nome || 'Peça não identificada';
                 const qtd = `${peca.quantidade} ${pecaDb?.unidade || 'UN'}`;
                 
-                const solicitante = os.mecanico_responsavel || 'Mecânico';
+                const solicitante = peca.mecanico || os.mecanico_responsavel || 'Mecânico';
                 const dataSolicitacao = peca.created_at ? new Date(peca.created_at).toLocaleDateString('pt-BR') : '';
 
                 linhasPecas += `
@@ -458,7 +458,7 @@ window.imprimirTodasOSFiltradas = async function() {
                         <td colspan="3" style="background-color: #f9fafb;">
                             <strong>Composição Vinculada:</strong> 
                             Frota: <b>${frota.go || '-'}</b> &nbsp;|&nbsp; Carretas: <b>${frota.carreta1 || '-'} / ${frota.carreta2 || '-'} / ${frota.carreta3 || '-'}</b> &nbsp;|&nbsp; 
-                            <strong>Mecânico:</strong> <b>${os.mecanico_responsavel || os.mecanico || '-'}</b>
+                            <strong>Mecânico Resp:</strong> <b>${os.mecanico_responsavel || os.mecanico || '-'}</b>
                         </td>
                     </tr>
                 </table>
