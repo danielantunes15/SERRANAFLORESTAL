@@ -194,7 +194,7 @@ window.imprimirOS = async function(osId) {
                 </tr>
                 <tr>
                     <td><strong>Motorista Solicitante:</strong> ${os.motorista || '-'}</td>
-                    <td><strong>Conclusão:</strong> ${dataConclusaoFormatada}</td>
+                    <td><strong>Data/Hora Conclusão:</strong> ${dataConclusaoFormatada}</td>
                     <td><strong>Prioridade:</strong> ${os.prioridade || '-'}</td>
                     <td><strong>Tipo de Serviço:</strong> ${os.tipo || '-'}</td>
                 </tr>
@@ -202,7 +202,8 @@ window.imprimirOS = async function(osId) {
                     <td><strong>Hodômetro:</strong> ${os.hodometro || '-'}</td>
                     <td colspan="3" style="background-color: #f9fafb;">
                         <strong>Composição Vinculada:</strong> 
-                        Frota: <b>${frota.go || '-'}</b> &nbsp;|&nbsp; Carretas: <b>${frota.carreta1 || '-'} / ${frota.carreta2 || '-'} / ${frota.carreta3 || '-'}</b>
+                        Frota: <b>${frota.go || '-'}</b> &nbsp;|&nbsp; Carretas: <b>${frota.carreta1 || '-'} / ${frota.carreta2 || '-'} / ${frota.carreta3 || '-'}</b> &nbsp;|&nbsp; 
+                        <strong>Mecânico:</strong> <b>${os.mecanico_responsavel || os.mecanico || '-'}</b>
                     </td>
                 </tr>
             </table>
@@ -448,7 +449,7 @@ window.imprimirTodasOSFiltradas = async function() {
                     </tr>
                     <tr>
                         <td><strong>Motorista Solicitante:</strong> ${os.motorista || '-'}</td>
-                        <td><strong>Conclusão:</strong> ${dataConclusaoFormatada}</td>
+                        <td><strong>Data/Hora Conclusão:</strong> ${dataConclusaoFormatada}</td>
                         <td><strong>Prioridade:</strong> ${os.prioridade || '-'}</td>
                         <td><strong>Tipo de Serviço:</strong> ${os.tipo || '-'}</td>
                     </tr>
@@ -456,7 +457,8 @@ window.imprimirTodasOSFiltradas = async function() {
                         <td><strong>Hodômetro:</strong> ${os.hodometro || '-'}</td>
                         <td colspan="3" style="background-color: #f9fafb;">
                             <strong>Composição Vinculada:</strong> 
-                            Frota: <b>${frota.go || '-'}</b> &nbsp;|&nbsp; Carretas: <b>${frota.carreta1 || '-'} / ${frota.carreta2 || '-'} / ${frota.carreta3 || '-'}</b>
+                            Frota: <b>${frota.go || '-'}</b> &nbsp;|&nbsp; Carretas: <b>${frota.carreta1 || '-'} / ${frota.carreta2 || '-'} / ${frota.carreta3 || '-'}</b> &nbsp;|&nbsp; 
+                            <strong>Mecânico:</strong> <b>${os.mecanico_responsavel || os.mecanico || '-'}</b>
                         </td>
                     </tr>
                 </table>

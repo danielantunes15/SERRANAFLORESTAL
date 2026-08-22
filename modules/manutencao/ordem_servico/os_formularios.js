@@ -362,18 +362,22 @@ window.salvarNovaOS = async function() {
         status: statusInicial
     };
 
+    // INTEGRAÇÃO: Busca o Nome Completo antes de salvar
     try {
-        if (typeof currentUser !== 'undefined' && currentUser && currentUser.username) {
-            pacoteDadosOS.aberto_por = currentUser.username;
-        } else {
-            const sessaoSalva = localStorage.getItem('ccol_user_session');
-            if (sessaoSalva) {
-                const userObj = JSON.parse(sessaoSalva);
-                if (userObj && userObj.username) {
-                    pacoteDadosOS.aberto_por = userObj.username;
+        let nomeAbertura = 'Não Identificado';
+        const sessaoSalva = localStorage.getItem('ccol_user_session');
+        if (sessaoSalva) {
+            const userObj = JSON.parse(sessaoSalva);
+            if (userObj.username) {
+                const { data: uData } = await window.supabaseClient.from('usuarios').select('nome_completo').eq('username', userObj.username).maybeSingle();
+                if (uData && uData.nome_completo && uData.nome_completo.trim() !== '') {
+                    nomeAbertura = uData.nome_completo;
+                } else {
+                    nomeAbertura = userObj.nome_completo || userObj.nome || userObj.username;
                 }
             }
         }
+        pacoteDadosOS.aberto_por = nomeAbertura;
     } catch (e) {
         console.warn("Não foi possível capturar o usuário logado automaticamente.", e);
     }
@@ -429,13 +433,10 @@ window.salvarNovaOS = async function() {
     // --- LÓGICA DE SEQUÊNCIA POR FILIAL BASEADA ESTRITAMENTE NA COLUNA numero_os ---
     let maxNum = 0;
     
-    // ALTERAÇÃO: Utilizamos a lista 'ordensServicoTodas' para validar, 
-    // assim os números das O.S inativadas continuarão segurando a ordem numérica
     let listaParaNum = (typeof ordensServicoTodas !== 'undefined' && ordensServicoTodas.length > 0) ? ordensServicoTodas : ordensServico;
     
     if (typeof listaParaNum !== 'undefined' && listaParaNum && listaParaNum.length > 0) {
         listaParaNum.forEach(os => {
-            // Puxa apenas a coluna numero_os. O id foi completamente ignorado.
             let num = parseInt(os.numero_os);
             if (!isNaN(num) && num > maxNum) {
                 maxNum = num;
@@ -443,7 +444,6 @@ window.salvarNovaOS = async function() {
         });
     }
 
-    // Se maxNum for maior que 0, soma 1. Se for 0 (filial nova), começa do número 1.
     pacoteDadosOS.numero_os = maxNum > 0 ? maxNum + 1 : 1;
     // --- FIM DA LÓGICA ---
 
@@ -467,7 +467,6 @@ window.salvarNovaOS = async function() {
 
 window.excluirOS = async function(id) {
     if(confirm("Excluir esta O.S.?")) {
-        // ALTERAÇÃO PARA SOFT DELETE: Não executa delete(), executa um update() inativando a linha
         const { error } = await supabaseClient.from('ordens_servico').update({ inativa: 1 }).eq('id', id);
         
         if(error) {
@@ -484,14 +483,15 @@ window.excluirOS = async function(id) {
 window.aceitarOS = async function(id) {
     let nomeMecanico = 'Mecânico Não Identificado';
     try {
-        if (typeof currentUser !== 'undefined' && currentUser && currentUser.username) {
-            nomeMecanico = currentUser.username;
-        } else {
-            const sessaoSalva = localStorage.getItem('ccol_user_session');
-            if (sessaoSalva) {
-                const userObj = JSON.parse(sessaoSalva);
-                if (userObj && userObj.username) {
-                    nomeMecanico = userObj.username;
+        const sessaoSalva = localStorage.getItem('ccol_user_session');
+        if (sessaoSalva) {
+            const userObj = JSON.parse(sessaoSalva);
+            if (userObj.username) {
+                const { data: uData } = await window.supabaseClient.from('usuarios').select('nome_completo').eq('username', userObj.username).maybeSingle();
+                if (uData && uData.nome_completo && uData.nome_completo.trim() !== '') {
+                    nomeMecanico = uData.nome_completo;
+                } else {
+                    nomeMecanico = userObj.nome_completo || userObj.nome || userObj.username;
                 }
             }
         }
