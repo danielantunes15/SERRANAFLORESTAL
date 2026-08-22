@@ -1,0 +1,349 @@
+/* ==================== core/css/responsividade.css ==================== */
+/* Arquivo Global de Responsividade para Celulares e Tablets (Mobile First App UI) */
+
+/* 1. OTIMIZAÇÕES GERAIS DE TOQUE E TELA */
+html, body {
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+    overscroll-behavior-y: none;
+    overflow-x: hidden;
+}
+
+/* ==================== SMARTPHONES E TABLETS (Até 768px) ==================== */
+@media (max-width: 768px) {
+
+    /* 2. CABEÇALHO (HEADER) E BOTÃO HAMBÚRGUER */
+    .main-header {
+        flex-direction: column !important;
+        padding: 10px 15px !important;
+        gap: 10px !important;
+        height: auto !important;
+        background: #0f172a !important;
+        border-bottom: none !important;
+    }
+
+    .header-left {
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important; /* Agora alinhado à esquerda para dar espaço ao menu */
+        gap: 10px !important;
+    }
+
+    #btnMobileMenu {
+        display: block !important;
+    }
+
+    .ccol-logo-modern {
+        font-size: 0.9rem !important;
+        padding: 4px 8px !important;
+    }
+
+    .header-titles h1 {
+        font-size: 1.2rem !important;
+        margin: 0 !important;
+    }
+
+    /* Esconde elementos gigantes que quebram a tela */
+    .header-titles p, 
+    .company-logo-img, 
+    .quick-stats-header {
+        display: none !important; 
+    }
+
+    .header-right {
+        width: 100% !important;
+        justify-content: space-between !important;
+        flex-direction: row !important;
+        gap: 5px !important;
+    }
+
+    .user-badge {
+        width: 100% !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 8px 12px !important;
+        border-radius: 12px !important;
+        background: rgba(255,255,255,0.03) !important;
+    }
+
+    #loggedUserName { font-size: 0.85rem !important; }
+    #loggedUserRole { font-size: 0.7rem !important; }
+
+    .user-badge select {
+        padding: 6px !important;
+        font-size: 0.8rem !important;
+        height: 32px !important;
+        border-radius: 6px !important;
+        max-width: 180px;
+        margin-top: 5px;
+    }
+
+    /* 3. MENU DE NAVEGAÇÃO OFF-CANVAS (GAVETA LATERAL OCULTA) */
+    .menu-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 99998;
+        backdrop-filter: blur(3px);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    .menu-overlay.ativo {
+        display: block;
+        opacity: 1;
+    }
+
+    #menu-container {
+        position: fixed !important;
+        top: 0 !important;
+        left: -320px !important; /* Escondido por padrão na lateral esquerda */
+        width: 280px !important;
+        height: 100vh !important;
+        background: #0f172a !important;
+        z-index: 99999 !important;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        overflow-y: auto !important;
+        padding: 20px 10px !important;
+        box-shadow: 5px 0 25px rgba(0,0,0,0.8) !important;
+        margin: 0 !important;
+        border: none !important;
+        border-right: 1px solid #1e293b !important;
+    }
+
+    #menu-container.menu-aberto {
+        transform: translateX(320px) !important; /* Traz o menu para a tela */
+    }
+
+    #menu-container > ul {
+        display: flex !important;
+        flex-direction: column !important; /* Itens um embaixo do outro */
+        padding: 0 !important;
+        margin: 0 !important;
+        gap: 12px !important;
+    }
+
+    #menu-container > ul > li {
+        width: 100% !important;
+        display: block !important;
+    }
+
+    #menu-container > ul > li > a,
+    #menu-container > ul > li > div {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important; /* Alinha os textos e ícones à esquerda */
+        padding: 14px 20px !important;
+        background: rgba(255,255,255,0.03) !important;
+        border-radius: 10px !important;
+        font-size: 1rem !important;
+        color: #cbd5e1 !important;
+        border: 1px solid #1e293b !important;
+        margin: 0 !important;
+    }
+
+    #menu-container > ul > li.active > a,
+    #menu-container > ul > li > a.active,
+    #menu-container > ul > li:has(.active) > a,
+    #menu-container > ul > li:has(.active) > div {
+        background: #10b981 !important;
+        color: #fff !important;
+        border-color: #059669 !important;
+        font-weight: bold;
+    }
+
+    /* Formatação de Submenus dentro da Gaveta Lateral */
+    #menu-container > ul > li > ul {
+        display: block !important;
+        position: static !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        padding-left: 15px !important;
+        margin-top: 5px !important;
+        border: none !important;
+    }
+
+    #menu-container > ul > li > ul li a {
+        padding: 12px 15px !important;
+        font-size: 0.95rem !important;
+        color: #94a3b8 !important;
+        background: transparent !important;
+        border: none !important;
+    }
+    
+    #menu-container > ul > li > ul li a:hover,
+    #menu-container > ul > li > ul li a.active {
+        color: #10b981 !important;
+        background: rgba(16, 185, 129, 0.1) !important;
+        border-radius: 8px !important;
+    }
+
+    /* 4. CORPO PRINCIPAL E PAINÉIS */
+    .main-content {
+        padding: 10px !important;
+    }
+
+    .content-panel {
+        padding: 12px !important;
+        border-radius: 12px !important;
+        margin-bottom: 10px !important;
+        box-shadow: none !important;
+        border: 1px solid #1e293b !important;
+    }
+
+    /* 5. BOTÕES DE AÇÃO (Nova OS, Painel SOS, etc) - Em Fita Rolável */
+    .action-bar {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+        padding-bottom: 10px !important;
+    }
+    
+    .action-bar h3 {
+        font-size: 1.1rem !important;
+        padding-left: 5px;
+    }
+
+    .action-bar .button-group {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        width: calc(100vw - 20px) !important;
+        padding-bottom: 10px !important;
+        margin: 0 !important;
+        gap: 10px !important;
+        scrollbar-width: none;
+    }
+    
+    .action-bar .button-group::-webkit-scrollbar { display: none; }
+
+    .action-bar .button-group button {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        padding: 10px 16px !important;
+        font-size: 0.85rem !important;
+        border-radius: 8px !important;
+        margin: 0 !important;
+        white-space: nowrap !important;
+    }
+
+    /* 6. ABAS DE SERVIÇOS DO MECÂNICO */
+    .serv-tabs {
+        margin-left: -12px !important;
+        margin-right: -12px !important;
+        padding: 0 12px 10px 12px !important;
+        width: 100vw !important;
+    }
+    
+    .serv-tab-btn {
+        padding: 10px 15px !important;
+        font-size: 0.9rem !important;
+        min-width: auto !important;
+        flex: 0 0 auto !important;
+        border-radius: 8px !important;
+        border: 1px solid #334155 !important;
+        background: #1e293b !important;
+    }
+
+    .serv-tab-btn.active {
+        background: rgba(99, 102, 241, 0.1) !important;
+        border-color: #6366f1 !important;
+    }
+
+    /* 7. MODAIS NO ESTILO APP (Bottom Sheet) */
+    .modal-overlay, .modal-overlay-fullscreen {
+        padding: 0 !important;
+        align-items: flex-end !important;
+    }
+
+    .custom-modal, .custom-modal-responsive, .modal-pequeno {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 92vh !important;
+        max-height: 92vh !important;
+        border-radius: 20px 20px 0 0 !important;
+        border: none !important;
+        border-top: 4px solid var(--ccol-blue-bright, #3b82f6) !important;
+        margin: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        animation: slideUpMobile 0.35s cubic-bezier(0.1, 0.8, 0.2, 1);
+    }
+
+    .modal-header, .modal-header-responsive {
+        padding: 15px 20px !important;
+        border-radius: 20px 20px 0 0 !important;
+    }
+
+    .modal-body, .modal-body-scroll {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        padding: 15px !important;
+        gap: 15px !important;
+    }
+    
+    .modal-footer {
+        padding: 15px !important;
+        padding-bottom: env(safe-area-inset-bottom, 20px) !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .modal-footer button {
+        width: 100% !important;
+        margin: 0 !important;
+        min-height: 48px !important;
+    }
+
+    /* 8. TABELAS RESPONSIVAS */
+    .table-modern-wrapper {
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        box-shadow: inset -10px 0 10px -10px rgba(0,0,0,0.5) !important;
+        margin-bottom: 10px !important;
+        border-radius: 8px !important;
+    }
+    .data-table-modern {
+        min-width: 800px !important;
+    }
+
+    /* 9. FORMULÁRIOS E GRIDS EM 1 COLUNA */
+    .form-group-dark, .box-apontamento, .tablet-card {
+        width: 100% !important;
+    }
+    
+    .apontamento-grid, .grid-cards-container {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    input[type="text"], input[type="number"], input[type="date"], input[type="datetime-local"], select.dark-select, select.input-otimizado {
+        min-height: 44px !important;
+        font-size: 16px !important; 
+        padding: 10px 12px !important;
+    }
+}
+
+@keyframes slideUpMobile {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* ==================== TABLETS E IPADS (768px a 1024px) ==================== */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .grid-cards-container {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .apontamento-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .table-modern-wrapper {
+        overflow-x: auto;
+    }
+}

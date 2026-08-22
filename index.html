@@ -26,6 +26,9 @@
     <link rel="stylesheet" href="modules/monitoramento/painel/dashboard.css">
     <link rel="stylesheet" href="modules/rh/relatorios/relatorios.css">
     
+    <!-- Novo arquivo CSS para Responsividade Global (Mobile e Tablets) -->
+    <link rel="stylesheet" href="core/css/responsividade.css">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -63,9 +66,14 @@
             document.getElementById('telaManutencao').style.display = 'flex';
         }
     </script>
+    
     <div id="appLayout" class="app-layout" style="display: none;">
         <header class="main-header">
             <div class="header-left">
+                <!-- BOTÃO HAMBÚRGUER (Adicionado para exibir menu no Mobile) -->
+                <button id="btnMobileMenu" onclick="toggleMobileMenu()" style="display: none; background: transparent; border: none; color: #fff; font-size: 1.6rem; cursor: pointer; padding: 5px 10px; margin-right: 5px; border-radius: 6px;">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <div class="ccol-logo-modern">SISF</div>
                 <div class="header-titles">
                     <h1>Serrana Florestal</h1>
@@ -94,6 +102,9 @@
             </div>
         </header>
 
+        <!-- SOMBRA DE FUNDO PARA O MENU GAVETA -->
+        <div id="menuOverlay" class="menu-overlay" onclick="toggleMobileMenu()"></div>
+        
         <div id="menu-container"></div>
         <main id="conteudo-principal" class="main-content"></main>
         
@@ -284,6 +295,30 @@
             </div>
         </div>
     </div>
+
+    <!-- Script Responsável pelo Menu Off-Canvas no Mobile -->
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('menu-container');
+            const overlay = document.getElementById('menuOverlay');
+            if(menu && overlay) {
+                menu.classList.toggle('menu-aberto');
+                overlay.classList.toggle('ativo');
+            }
+        }
+        
+        // Auto fecha o menu ao clicar num link (apenas no celular)
+        document.addEventListener('click', function(e) {
+            if(window.innerWidth <= 768) {
+                if(e.target.closest('#menu-container a')) {
+                    const menu = document.getElementById('menu-container');
+                    const overlay = document.getElementById('menuOverlay');
+                    if(menu) menu.classList.remove('menu-aberto');
+                    if(overlay) overlay.classList.remove('ativo');
+                }
+            }
+        });
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
