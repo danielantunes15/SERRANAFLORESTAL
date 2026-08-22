@@ -80,44 +80,61 @@
                     
                     <div>
                         <label class="label-oficina">Serviço Realizado</label>
-                        <input type="text" id="aponDescServico" class="input-otimizado" placeholder="Ex: Troca de lona...">
+                        <div class="quick-tags">
+                            <button class="quick-tag" onclick="mecanicoAddTextoServico('Troca de Óleo')"><i class="fas fa-bolt"></i> Troca de Óleo</button>
+                            <button class="quick-tag" onclick="mecanicoAddTextoServico('Troca de Lona')"><i class="fas fa-bolt"></i> Lona de Freio</button>
+                            <button class="quick-tag" onclick="mecanicoAddTextoServico('Revisão Elétrica')"><i class="fas fa-bolt"></i> Elétrica</button>
+                            <button class="quick-tag" onclick="mecanicoAddTextoServico('Solda')"><i class="fas fa-bolt"></i> Solda</button>
+                            <button class="quick-tag" onclick="mecanicoAddTextoServico('Troca de Pneu')"><i class="fas fa-bolt"></i> Troca Pneu</button>
+                        </div>
+                        <input type="text" id="aponDescServico" class="input-otimizado" placeholder="Descreva o serviço manual..." autocomplete="off">
                     </div>
                     
                     <button class="btn-acao-grande" style="background: #3b82f6; color: white; min-height: 45px;" onclick="mecanicoAddServico()"><i class="fas fa-plus"></i> Lançar Serviço</button>
                     
-                    <div class="lista-lancamentos" style="margin-top:10px;" id="tabelaServicosLancados"></div>
+                    <div class="lista-lancamentos" style="margin-top:15px;" id="tabelaServicosLancados"></div>
                 </div>
 
                 <div class="box-apontamento">
                     <h4 style="color:#10b981; margin-top:0; border-bottom:1px solid #334155; padding-bottom:8px; font-size: 1.1rem;"><i class="fas fa-cubes"></i> Requisitar Peças</h4>
                     
-                    <div style="display: flex; gap: 10px;">
-                        <div style="flex: 1;">
-                            <label class="label-oficina">Onde vai a peça?</label>
-                            <select id="aponCompartimentoPeca" class="input-otimizado" style="padding: 12px;"></select>
-                        </div>
-                        <div style="width: 100px;">
-                            <label class="label-oficina">Qtd</label>
-                            <input type="number" step="0.01" id="aponQtdPeca" value="1" class="input-otimizado" style="padding: 12px;">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="label-oficina">Categoria da Peça</label>
-                        <select id="filtroCategoriaPeca" class="input-otimizado" style="margin-bottom: 8px; padding: 12px;" onchange="mecanicoFiltrarPecas()">
-                            <option value="">Todas as Categorias</option>
+                    <div style="margin-top: 10px;">
+                        <label class="label-oficina">Categoria da Peça (Opcional)</label>
+                        <select id="filtroCategoriaPeca" class="input-otimizado" style="margin-bottom: 12px; padding: 12px;" onchange="mecanicoFiltrarPecas(true)">
+                            <option value="">Buscar em Todas</option>
                         </select>
                     </div>
 
-                    <div>
-                        <label class="label-oficina">Pesquisar e Selecionar Peça</label>
-                        <input type="text" id="pesquisaPeca" class="input-otimizado" style="margin-bottom: 8px; padding: 12px;" placeholder="Digite o nome..." onkeyup="mecanicoFiltrarPecas()">
-                        <select id="aponPeca" class="input-otimizado" style="padding: 12px;"></select>
+                    <div style="position: relative;">
+                        <label class="label-oficina">Selecionar ou Pesquisar Peça</label>
+                        <div class="input-com-icone">
+                            <i class="fas fa-search icone-busca"></i>
+                            <input type="text" id="pesquisaPeca" class="input-otimizado" style="margin-bottom: 12px; padding-top: 13px; padding-bottom: 13px;" placeholder="Digite ou clique na seta..." onkeyup="mecanicoFiltrarPecas()" onclick="mecanicoFiltrarPecas(true)" autocomplete="off">
+                            <div style="position: absolute; right: 8px; top: 12px; display: flex; gap: 5px;">
+                                <button id="btnLimparPesquisa" class="btn-icone-input" style="color: #ef4444; display:none;" onclick="mecanicoLimparPesquisaPeca()"><i class="fas fa-times"></i></button>
+                                <button id="btnMostrarLista" class="btn-icone-input" style="color: #3b82f6;" onclick="mecanicoToggleLista()"><i class="fas fa-chevron-down"></i></button>
+                            </div>
+                        </div>
+                        
+                        <!-- Lista Customizada de Peças -->
+                        <div id="listaPecasCustom" class="pecas-autocomplete-container"></div>
+                        <input type="hidden" id="aponPecaId" value="">
                     </div>
-                    
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <div style="flex: 1;">
+                            <label class="label-oficina">Onde vai a peça?</label>
+                            <select id="aponCompartimentoPeca" class="input-otimizado" style="margin-bottom: 0; padding: 12px;"></select>
+                        </div>
+                        <div style="width: 100px;">
+                            <label class="label-oficina">Qtd</label>
+                            <input type="number" step="0.01" id="aponQtdPeca" value="1" class="input-otimizado" style="margin-bottom: 0; padding: 12px;" min="0.01">
+                        </div>
+                    </div>
+
                     <button class="btn-acao-grande" style="background: #10b981; color: white; min-height: 45px;" onclick="mecanicoAddPeca()"><i class="fas fa-paper-plane"></i> Pedir ao Almoxarifado</button>
                     
-                    <div class="lista-lancamentos" style="margin-top:10px;" id="tabelaPecasLancadas"></div>
+                    <div class="lista-lancamentos" style="margin-top:15px;" id="tabelaPecasLancadas"></div>
                 </div>
             </div>
             
