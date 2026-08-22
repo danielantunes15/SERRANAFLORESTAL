@@ -57,8 +57,10 @@ window.imprimirOS = async function(osId) {
         console.error("Erro ao buscar dados para impressão:", e); 
     }
 
+    // Calcula o tamanho dinâmico (mantém mínimo de 5 para não quebrar o layout padrão)
+    let maxServicos = Math.max(5, servicos.length);
     let linhasServicos = '';
-    for(let i=0; i<5; i++) {
+    for(let i=0; i<maxServicos; i++) {
         const serv = servicos[i];
         if (serv) {
             const descRaw = serv.descricao || '';
@@ -92,8 +94,9 @@ window.imprimirOS = async function(osId) {
         }
     }
 
+    let maxPecas = Math.max(5, pecas.length);
     let linhasPecas = '';
-    for(let i=0; i<5; i++) {
+    for(let i=0; i<maxPecas; i++) {
         const peca = pecas[i];
         if (peca) {
             const pecaDb = (window.pecasAlmoxarifadoCache || []).find(x => x.id == peca.peca_id);
@@ -150,7 +153,6 @@ window.imprimirOS = async function(osId) {
                 .header-center h1 { margin: 0; font-size: 16px; text-transform: uppercase; }
                 .header-center h2 { margin: 2px 0 0 0; font-size: 12px; font-weight: normal; }
                 
-                /* Layout Ajustado: QR Code e Número OS */
                 .header-right { padding: 5px 15px; border-left: 2px solid #000; display: flex; align-items: center; justify-content: center; background: #f0f0f0; min-width: 200px; }
                 .qr-container { display: flex; align-items: center; justify-content: center; padding-right: 15px; border-right: 2px solid #bbb; }
                 .header-right img.qr-code { width: 55px; height: 55px; mix-blend-mode: multiply; }
@@ -158,13 +160,16 @@ window.imprimirOS = async function(osId) {
                 .header-right .os-info span { font-size: 12px; font-weight: bold; color: #444; }
                 .header-right .os-info strong { font-size: 24px; color: #dc2626; line-height: 1; margin-top: 4px; }
                 
-                table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 5px; page-break-inside: auto; }
+                thead { display: table-header-group; }
+                tr { page-break-inside: avoid; page-break-after: auto; }
                 th, td { border: 1px solid #000; padding: 3px 5px; font-size: 11px; text-align: left; }
                 th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
                 .info-table td { width: 25%; }
+                
                 .section-title { font-weight: bold; background-color: #f0f0f0; border: 1px solid #000; border-bottom: none; padding: 4px; font-size: 11px; text-align: center; text-transform: uppercase; margin-bottom: 0; }
                 .box-content { border: 1px solid #000; padding: 5px; font-size: 11px; min-height: 35px; margin-bottom: 5px; }
-                .assinaturas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; margin-top: 20px; padding: 0 20px; text-align: center; }
+                .assinaturas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; margin-top: 20px; padding: 0 20px; text-align: center; page-break-inside: avoid; }
                 .linha-ass { border-top: 1px solid #000; padding-top: 4px; font-weight: bold; font-size: 11px; }
             </style>
         </head>
@@ -341,8 +346,10 @@ window.imprimirTodasOSFiltradas = async function() {
             console.error("Erro ao buscar dados em lote:", e); 
         }
 
+        // Calcula o tamanho dinâmico (mantém mínimo de 5 para não quebrar o layout padrão)
+        let maxServicos = Math.max(5, servicos.length);
         let linhasServicos = '';
-        for(let i=0; i<5; i++) {
+        for(let i=0; i<maxServicos; i++) {
             const serv = servicos[i];
             if (serv) {
                 const descRaw = serv.descricao || '';
@@ -376,8 +383,9 @@ window.imprimirTodasOSFiltradas = async function() {
             }
         }
 
+        let maxPecas = Math.max(5, pecas.length);
         let linhasPecas = '';
-        for(let i=0; i<5; i++) {
+        for(let i=0; i<maxPecas; i++) {
             const peca = pecas[i];
             if (peca) {
                 const pecaDb = (window.pecasAlmoxarifadoCache || []).find(x => x.id == peca.peca_id);
@@ -548,7 +556,9 @@ window.imprimirTodasOSFiltradas = async function() {
                 .header-right .os-info span { font-size: 12px; font-weight: bold; color: #444; }
                 .header-right .os-info strong { font-size: 24px; color: #dc2626; line-height: 1; margin-top: 4px; }
 
-                table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 5px; page-break-inside: auto; }
+                thead { display: table-header-group; }
+                tr { page-break-inside: avoid; page-break-after: auto; }
                 th, td { border: 1px solid #000; padding: 3px 5px; font-size: 11px; text-align: left; }
                 th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
 
@@ -557,7 +567,7 @@ window.imprimirTodasOSFiltradas = async function() {
                 .section-title { font-weight: bold; background-color: #f0f0f0; border: 1px solid #000; border-bottom: none; padding: 4px; font-size: 11px; text-align: center; text-transform: uppercase; margin-bottom: 0; }
                 .box-content { border: 1px solid #000; padding: 5px; font-size: 11px; min-height: 35px; margin-bottom: 5px; }
 
-                .assinaturas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; margin-top: 20px; padding: 0 20px; text-align: center; }
+                .assinaturas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; margin-top: 20px; padding: 0 20px; text-align: center; page-break-inside: avoid; }
                 .linha-ass { border-top: 1px solid #000; padding-top: 4px; font-weight: bold; font-size: 11px; }
             </style>
         </head>
