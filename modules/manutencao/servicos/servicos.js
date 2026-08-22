@@ -7,7 +7,7 @@ let mOS_Requisicoes = [];
 let mOS_AbaAtiva = 'aceite';
 let mapaSOSMecanicoInstance = null;
 window.mecanicoNomeCompletoCache = null; 
-let mMecanicosCache = []; // Cache com os mecânicos da filial
+let mMecanicosCache = []; 
 
 window.renderizarTelaServicos = async function() {
     try {
@@ -26,11 +26,9 @@ window.renderizarTelaServicos = async function() {
             }
         }
 
-        // Cache Inteligente: Busca apenas usuários ATIVOS, da MESMA FILIAL, que tenham a ROLE "Mecânico"
         if (mMecanicosCache.length === 0) {
             let queryUsuarios = window.supabaseClient.from('usuarios').select('username, nome_completo, role').eq('status', 'Ativo');
             
-            // Aplica a restrição de filial do sistema
             if (typeof window.aplicarFiltroFilial === 'function') {
                 queryUsuarios = window.aplicarFiltroFilial(queryUsuarios);
             }
@@ -38,7 +36,6 @@ window.renderizarTelaServicos = async function() {
             const { data: usersData } = await queryUsuarios;
             if (usersData) {
                 mMecanicosCache = usersData
-                    // Filtra apenas quem tem "mecanico" ou "mecânico" no cargo/role
                     .filter(u => u.role && (u.role.toLowerCase().includes('mecanico') || u.role.toLowerCase().includes('mecânico')))
                     .map(u => (u.nome_completo && u.nome_completo.trim() !== '') ? u.nome_completo : u.username)
                     .sort();
@@ -334,14 +331,14 @@ window.mecanicoDevolverOS = async function(id, placa) {
 
 window.mecanicoAbrirApontamento = async function(id, placa, previsao) {
     mOS_Atual = id;
-    document.getElementById('apontPlaca').innerText = placa;
+    const elPlaca = document.getElementById('apontPlaca');
+    if (elPlaca) elPlaca.innerText = placa;
     
-    // Configura os Dropdowns de Mecânicos Executantes e Solicitantes
+    // Configura os Dropdowns com TRAVA ANTI-ERRO
     let optionsHtml = '';
     const userAtual = mecanicoPegarUsuario();
     let listaMecs = [...mMecanicosCache];
     
-    // Garante que o próprio usuário logado esteja na lista, mesmo se não for cadastrado como 'mecanico'
     if (!listaMecs.includes(userAtual)) {
         listaMecs.push(userAtual);
         listaMecs.sort();
@@ -354,17 +351,27 @@ window.mecanicoAbrirApontamento = async function(id, placa, previsao) {
     const selectServico = document.getElementById('aponMecanicoServico');
     const selectPeca = document.getElementById('aponMecanicoPeca');
     
-    selectServico.innerHTML = optionsHtml;
-    selectServico.value = userAtual;
-    selectPeca.innerHTML = optionsHtml;
-    selectPeca.value = userAtual;
+    // VERIFICA SE OS CAMPOS EXISTEM ANTES DE PREENCHER
+    if (selectServico) {
+        selectServico.innerHTML = optionsHtml;
+        selectServico.value = userAtual;
+    }
+    if (selectPeca) {
+        selectPeca.innerHTML = optionsHtml;
+        selectPeca.value = userAtual;
+    }
     
     const inputPrev = document.getElementById('aponPrevisaoGlobal');
-    if (previsao && previsao !== 'null' && previsao !== 'undefined') {
-        inputPrev.value = new Date(new Date(previsao).getTime() - (3 * 3600000)).toISOString().slice(0, 16);
-    } else { inputPrev.value = ''; }
+    if (inputPrev) {
+        if (previsao && previsao !== 'null' && previsao !== 'undefined') {
+            inputPrev.value = new Date(new Date(previsao).getTime() - (3 * 3600000)).toISOString().slice(0, 16);
+        } else { 
+            inputPrev.value = ''; 
+        }
+    }
     
-    document.getElementById('modalApontamentoOS').style.display = 'flex';
+    const modal = document.getElementById('modalApontamentoOS');
+    if (modal) modal.style.display = 'flex';
     
     await mecanicoCarregarPecas();
     await mecanicoMontarPlacasTritrem(placa);
@@ -390,12 +397,14 @@ async function mecanicoMontarPlacasTritrem(placaPrincipal) {
         if (data.carreta3) { htmlChecks += `<label style="${baseStyle}"><input type="checkbox" class="chk-comp-servico" value="3ª C (${data.carreta3})" style="transform: scale(1.5);"> 🔗 3ª C</label>`; optsPeca += `<option value="3ª C - ${data.carreta3}">3ª C</option>`; }
     }
     
-    divChecks.innerHTML = htmlChecks;
-    selP.innerHTML = optsPeca;
+    if (divChecks) divChecks.innerHTML = htmlChecks;
+    if (selP) selP.innerHTML = optsPeca;
 }
 
 window.mecanicoSalvarPrevisaoOS = async function() {
-    const novaPrev = document.getElementById('aponPrevisaoGlobal').value;
+    const inputPrev = document.getElementById('aponPrevisaoGlobal');
+    if (!inputPrev) return;
+    const novaPrev = inputPrev.value;
     if(!novaPrev) return alert("Defina a data prevista.");
     await window.supabaseClient.from('ordens_servico').update({ previsao_entrega: novaPrev }).eq('id', mOS_Atual);
     alert("Previsão salva!");
@@ -403,19 +412,28 @@ window.mecanicoSalvarPrevisaoOS = async function() {
 
 window.mecanicoAddTextoServico = function(texto) {
     const input = document.getElementById('aponDescServico');
-    if (input.value) {
-        input.value = input.value + ", " + texto;
-    } else {
-        input.value = texto;
+    if (input) {
+        if (input.value) {
+            input.value = input.value + ", " + texto;
+        } else {
+            input.value = texto;
+        }
     }
 };
 
 window.mecanicoAddServico = async function() {
-    const desc = document.getElementById('aponDescServico').value.trim();
-    const previsao = document.getElementById('aponPrevisaoGlobal').value;
-    const mecExecutante = document.getElementById('aponMecanicoServico').value;
+    const elDesc = document.getElementById('aponDescServico');
+    const elPrev = document.getElementById('aponPrevisaoGlobal');
+    const elMecServ = document.getElementById('aponMecanicoServico');
+
+    if (!elDesc) return;
     
-    if (!previsao) return alert("Defina a Previsão no topo antes de adicionar serviços.");
+    const desc = elDesc.value.trim();
+    const previsao = elPrev ? elPrev.value : 'Ver Previsão Global';
+    const mecExecutante = elMecServ ? elMecServ.value : mecanicoPegarUsuario();
+    
+    if (elPrev && !elPrev.value) return alert("Defina a Previsão no topo antes de adicionar serviços.");
+    
     const checks = document.querySelectorAll('.chk-comp-servico:checked');
     if (!desc) return alert("Descreva o serviço ou selecione um atalho.");
     if (checks.length === 0) return alert("Marque ao menos um compartimento.");
@@ -432,31 +450,38 @@ window.mecanicoAddServico = async function() {
     if (typeof window.injetarFilial === 'function') insertData = window.injetarFilial(insertData);
     
     await window.supabaseClient.from('os_servicos_executados').insert([insertData]);
-    document.getElementById('aponDescServico').value = '';
+    elDesc.value = '';
     mecanicoAtualizarTabelasModal();
 };
 
 /* --- Controle Inteligente da Lista de Peças --- */
 window.mecanicoToggleLista = function() {
     const container = document.getElementById('listaPecasCustom');
+    const inputPeca = document.getElementById('pesquisaPeca');
+    if (!container || !inputPeca) return;
+
     if (container.style.display === 'block') {
         container.style.display = 'none';
     } else {
-        document.getElementById('pesquisaPeca').focus();
+        inputPeca.focus();
         mecanicoFiltrarPecas(true);
     }
 };
 
 window.mecanicoFiltrarPecas = function(forcarMostrar = false) {
     const input = document.getElementById('pesquisaPeca');
-    const termo = input.value.trim().toLowerCase();
-    const cat = document.getElementById('filtroCategoriaPeca').value;
+    const elCat = document.getElementById('filtroCategoriaPeca');
     const container = document.getElementById('listaPecasCustom');
     const btnLimpar = document.getElementById('btnLimparPesquisa');
 
-    if (termo.length > 0) {
+    if (!input || !container) return;
+
+    const termo = input.value.trim().toLowerCase();
+    const cat = elCat ? elCat.value : '';
+
+    if (termo.length > 0 && btnLimpar) {
         btnLimpar.style.display = 'flex';
-    } else {
+    } else if (btnLimpar) {
         btnLimpar.style.display = 'none';
     }
 
@@ -499,37 +524,57 @@ window.mecanicoFiltrarPecas = function(forcarMostrar = false) {
 };
 
 window.mecanicoSelecionarPecaCustom = function(id, nome, codigo) {
-    document.getElementById('aponPecaId').value = id;
-    const desc = codigo ? `[${codigo}] ${nome}` : nome;
-    document.getElementById('pesquisaPeca').value = desc;
-    document.getElementById('listaPecasCustom').style.display = 'none';
+    const inputId = document.getElementById('aponPecaId');
+    const inputPesquisa = document.getElementById('pesquisaPeca');
+    const listCustom = document.getElementById('listaPecasCustom');
+    const inputQtd = document.getElementById('aponQtdPeca');
+
+    if(inputId) inputId.value = id;
     
-    document.getElementById('aponQtdPeca').focus();
-    document.getElementById('aponQtdPeca').select();
+    const desc = codigo ? `[${codigo}] ${nome}` : nome;
+    if(inputPesquisa) inputPesquisa.value = desc;
+    
+    if(listCustom) listCustom.style.display = 'none';
+    
+    if(inputQtd) {
+        inputQtd.focus();
+        inputQtd.select();
+    }
 };
 
 window.mecanicoLimparPesquisaPeca = function() {
-    document.getElementById('pesquisaPeca').value = '';
-    document.getElementById('aponPecaId').value = '';
-    document.getElementById('listaPecasCustom').style.display = 'none';
-    document.getElementById('btnLimparPesquisa').style.display = 'none';
+    const inputPeca = document.getElementById('pesquisaPeca');
+    const inputId = document.getElementById('aponPecaId');
+    const listaCustom = document.getElementById('listaPecasCustom');
+    const btnLimpar = document.getElementById('btnLimparPesquisa');
+
+    if(inputPeca) inputPeca.value = '';
+    if(inputId) inputId.value = '';
+    if(listaCustom) listaCustom.style.display = 'none';
+    if(btnLimpar) btnLimpar.style.display = 'none';
 };
 
-// Esconde a lista ao clicar fora
 document.addEventListener('click', function(e) {
     const searchBox = document.getElementById('pesquisaPeca');
     const list = document.getElementById('listaPecasCustom');
     const btnShow = document.getElementById('btnMostrarLista');
-    if(searchBox && list && e.target !== searchBox && !list.contains(e.target) && e.target !== btnShow && !btnShow.contains(e.target)) {
+    if(searchBox && list && e.target !== searchBox && !list.contains(e.target) && e.target !== btnShow && !(btnShow && btnShow.contains(e.target))) {
         list.style.display = 'none';
     }
 });
 
 window.mecanicoAddPeca = async function() {
-    const pecaIdVal = document.getElementById('aponPecaId').value;
-    const comp = document.getElementById('aponCompartimentoPeca').value;
-    const mecSolicitante = document.getElementById('aponMecanicoPeca').value;
-    const qtd = parseFloat(document.getElementById('aponQtdPeca').value);
+    const elPecaId = document.getElementById('aponPecaId');
+    const elComp = document.getElementById('aponCompartimentoPeca');
+    const elMecPeca = document.getElementById('aponMecanicoPeca');
+    const elQtd = document.getElementById('aponQtdPeca');
+
+    if (!elPecaId || !elQtd) return;
+
+    const pecaIdVal = elPecaId.value;
+    const comp = elComp ? elComp.value : 'GERAL';
+    const mecSolicitante = elMecPeca ? elMecPeca.value : mecanicoPegarUsuario();
+    const qtd = parseFloat(elQtd.value);
 
     if (!pecaIdVal || qtd <= 0) {
         return alert("Por favor, pesquise e SELECIONE a peça clicando nela na lista, e informe a quantidade.");
@@ -552,7 +597,7 @@ window.mecanicoAddPeca = async function() {
 
     if(res.error) return alert("Erro ao requisitar peça. Mensagem do BD: " + res.error.message);
 
-    document.getElementById('aponQtdPeca').value = '1';
+    elQtd.value = '1';
     mecanicoLimparPesquisaPeca();
     
     renderizarTelaServicos();
@@ -561,30 +606,38 @@ window.mecanicoAddPeca = async function() {
 
 async function mecanicoAtualizarTabelasModal() {
     const { data: s } = await window.supabaseClient.from('os_servicos_executados').select('*').eq('os_id', mOS_Atual).order('id');
-    document.getElementById('tabelaServicosLancados').innerHTML = (s && s.length > 0) ? s.map(item => `
-        <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
-            <div style="flex: 1; padding-right: 10px;">
-                <strong style="color:#fff; font-size: 0.95rem;">${item.descricao}</strong>
-                <span style="color:#94a3b8; font-size:0.8rem; display:block; margin-top:4px;"><i class="fas fa-user-wrench"></i> ${item.mecanico || mecanicoPegarUsuario()}</span>
+    const tabelaServicos = document.getElementById('tabelaServicosLancados');
+    
+    if (tabelaServicos) {
+        tabelaServicos.innerHTML = (s && s.length > 0) ? s.map(item => `
+            <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex: 1; padding-right: 10px;">
+                    <strong style="color:#fff; font-size: 0.95rem;">${item.descricao}</strong>
+                    <span style="color:#94a3b8; font-size:0.8rem; display:block; margin-top:4px;"><i class="fas fa-user-wrench"></i> ${item.mecanico || mecanicoPegarUsuario()}</span>
+                </div>
+                <button onclick="mecanicoRemoverServico(${item.id})" style="background:transparent; border:none; color:#ef4444; font-size:1.4rem; padding:5px;"><i class="fas fa-trash"></i></button>
             </div>
-            <button onclick="mecanicoRemoverServico(${item.id})" style="background:transparent; border:none; color:#ef4444; font-size:1.4rem; padding:5px;"><i class="fas fa-trash"></i></button>
-        </div>
-    `).join('') : '<p style="padding:15px; text-align:center; color:#94a3b8;">Nenhum serviço lançado.</p>';
+        `).join('') : '<p style="padding:15px; text-align:center; color:#94a3b8;">Nenhum serviço lançado.</p>';
+    }
 
     const { data: p } = await window.supabaseClient.from('os_pecas_utilizadas').select(`*`).eq('os_id', mOS_Atual).order('id');
-    document.getElementById('tabelaPecasLancadas').innerHTML = (p && p.length > 0) ? p.map(item => {
-        const pecaObj = mOS_PecasCache.find(x => x.id == item.peca_id);
-        const pNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
-        const pCodigo = (pecaObj && pecaObj.codigo) ? `[${pecaObj.codigo}] ` : '';
-        return `
-        <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
-            <div style="flex: 1; padding-right: 10px;">
-                <span style="color:#10b981; font-weight:bold; font-size:0.8rem;">[${item.compartimento||'GERAL'}]</span> <strong style="color:#fff;">${item.quantidade}x ${pCodigo}${pNome}</strong>
-                <span style="color:#94a3b8; font-size:0.8rem; display:block; margin-top:4px;"><i class="fas fa-user"></i> Solicitado por: ${item.mecanico || mecanicoPegarUsuario()}</span>
-            </div>
-            <span style="background:${(item.status==='Pendente'||!item.status)?'#f59e0b':(item.status==='Aprovado'?'#10b981':'#ef4444')}; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold; height: fit-content;">${item.status || 'Pendente'}</span>
-        </div>`;
-    }).join('') : '<p style="padding:15px; text-align:center; color:#94a3b8;">Nenhuma peça requisitada.</p>';
+    const tabelaPecas = document.getElementById('tabelaPecasLancadas');
+
+    if (tabelaPecas) {
+        tabelaPecas.innerHTML = (p && p.length > 0) ? p.map(item => {
+            const pecaObj = mOS_PecasCache.find(x => x.id == item.peca_id);
+            const pNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
+            const pCodigo = (pecaObj && pecaObj.codigo) ? `[${pecaObj.codigo}] ` : '';
+            return `
+            <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex: 1; padding-right: 10px;">
+                    <span style="color:#10b981; font-weight:bold; font-size:0.8rem;">[${item.compartimento||'GERAL'}]</span> <strong style="color:#fff;">${item.quantidade}x ${pCodigo}${pNome}</strong>
+                    <span style="color:#94a3b8; font-size:0.8rem; display:block; margin-top:4px;"><i class="fas fa-user"></i> Solicitado por: ${item.mecanico || mecanicoPegarUsuario()}</span>
+                </div>
+                <span style="background:${(item.status==='Pendente'||!item.status)?'#f59e0b':(item.status==='Aprovado'?'#10b981':'#ef4444')}; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold; height: fit-content;">${item.status || 'Pendente'}</span>
+            </div>`;
+        }).join('') : '<p style="padding:15px; text-align:center; color:#94a3b8;">Nenhuma peça requisitada.</p>';
+    }
 }
 
 async function mecanicoCarregarPecas() {
@@ -604,7 +657,12 @@ async function mecanicoCarregarPecas() {
     mecanicoLimparPesquisaPeca(); 
 }
 
-window.mecanicoFecharModal = () => { document.getElementById('modalApontamentoOS').style.display = 'none'; mOS_Atual = null; renderizarTelaServicos(); };
+window.mecanicoFecharModal = () => { 
+    const modal = document.getElementById('modalApontamentoOS');
+    if(modal) modal.style.display = 'none'; 
+    mOS_Atual = null; 
+    renderizarTelaServicos(); 
+};
 
 function mecanicoPegarUsuario() { 
     if (window.mecanicoNomeCompletoCache) {
