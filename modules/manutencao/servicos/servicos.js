@@ -6,9 +6,26 @@ let mOS_ListaGeral = [];
 let mOS_Requisicoes = []; 
 let mOS_AbaAtiva = 'aceite';
 let mapaSOSMecanicoInstance = null;
+window.mecanicoNomeCompletoCache = null; // Variável para armazenar o nome verdadeiro
 
 window.renderizarTelaServicos = async function() {
     try {
+        // Busca o nome completo do mecânico direto do banco de dados na primeira vez
+        if (!window.mecanicoNomeCompletoCache) {
+            const s = localStorage.getItem('ccol_user_session');
+            if (s) {
+                const sessObj = JSON.parse(s);
+                if (sessObj.username) {
+                    const { data: userData } = await window.supabaseClient.from('usuarios').select('nome_completo').eq('username', sessObj.username).maybeSingle();
+                    if (userData && userData.nome_completo && userData.nome_completo.trim() !== '') {
+                        window.mecanicoNomeCompletoCache = userData.nome_completo;
+                    } else {
+                        window.mecanicoNomeCompletoCache = sessObj.nome_completo || sessObj.nome || sessObj.username;
+                    }
+                }
+            }
+        }
+
         if (mOS_PecasCache.length === 0) {
             let qPecas = window.supabaseClient.from('almoxarifado_pecas').select('*');
             if (typeof window.aplicarFiltroFilial === 'function') qPecas = window.aplicarFiltroFilial(qPecas);
@@ -16,12 +33,18 @@ window.renderizarTelaServicos = async function() {
             mOS_PecasCache = cachePecas || [];
         }
 
-        let queryOS = window.supabaseClient.from('ordens_servico').select('*').in('status', ['Aguardando Oficina', 'Em Manutenção']).order('data_abertura', { ascending: false });
+        let queryOS = window.supabaseClient.from('ordens_servico')
+            .select('*')
+            .neq('status', 'Concluída')
+            .neq('status', 'Cancelada')
+            .order('data_abertura', { ascending: false });
+            
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
         
         const { data: osData, error: osError } = await queryOS;
         if (osError) throw osError;
-        mOS_ListaGeral = osData || [];
+        
+        mOS_ListaGeral = (osData || []).filter(os => os.inativa !== 1 && os.inativa !== true);
         
         const osEmExecucao = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção').map(os => os.id);
         
@@ -84,7 +107,12 @@ window.mecanicoInicializarMapaSOS = function() {
 };
 
 function mecanicoAtualizarContadores() {
-    document.getElementById('countAceite').innerText = mOS_ListaGeral.filter(os => os.status === 'Aguardando Oficina' && !(os.tipo && os.tipo.startsWith('S.O.S'))).length;
+    document.getElementById('countAceite').innerText = mOS_ListaGeral.filter(os => 
+        os.status !== 'Em Manutenção' && 
+        os.status !== 'Agendada' && 
+        !(os.tipo && os.tipo.startsWith('S.O.S'))
+    ).length;
+    
     document.getElementById('countAbertas').innerText = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção').length;
     document.getElementById('countRequisicoes').innerText = mOS_Requisicoes.filter(r => r.status === 'Pendente' || !r.status).length;
     document.getElementById('countSOS').innerText = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S')).length;
@@ -93,7 +121,11 @@ function mecanicoAtualizarContadores() {
 function mecanicoRenderizarTabelas() {
     if (mOS_AbaAtiva === 'aceite') {
         const container = document.getElementById('tabelaServicosDisponiveis');
-        const osDisp = mOS_ListaGeral.filter(os => os.status === 'Aguardando Oficina' && !(os.tipo && os.tipo.startsWith('S.O.S')));
+        const osDisp = mOS_ListaGeral.filter(os => 
+            os.status !== 'Em Manutenção' && 
+            os.status !== 'Agendada' &&
+            !(os.tipo && os.tipo.startsWith('S.O.S'))
+        );
         
         if (osDisp.length === 0) {
             container.innerHTML = '<p style="text-align:center; color:#94a3b8; width:100%; grid-column:1/-1;">Nenhuma O.S. aguardando aceite.</p>';
@@ -106,7 +138,7 @@ function mecanicoRenderizarTabelas() {
                     <span class="card-badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">#${os.numero_os || os.id}</span>
                     <span style="color:#94a3b8; font-size:0.85rem;"><i class="fas fa-clock"></i> ${formatarDataHoraBrasil(os.data_abertura)}</span>
                 </div>
-                <div class="card-placa">${os.placa}</div>
+                <div class="card-placa">${os.placa} <span style="font-size:0.85rem; color:#94a3b8; font-weight:normal; vertical-align:middle;">(${os.status})</span></div>
                 <div class="card-info-text"><strong style="color:#fff;">Mot:</strong> ${os.motorista || '-'}</div>
                 <div class="card-info-text" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;"><strong>Problema:</strong> ${os.problema || 'Sem descrição'}</div>
                 <div class="card-actions">
@@ -195,7 +227,7 @@ function mecanicoRenderizarTabelas() {
             }
 
             let acaoHTML = '';
-            if (os.status === 'Aguardando Oficina') {
+            if (os.status === 'Aguardando Oficina' || os.status === 'Aberta' || os.status === 'Pendente') {
                 acaoHTML = `<button class="btn-acao-grande" style="background: #10b981; color: white;" onclick="mecanicoAceitarOS(${os.id}, '${os.placa}')">🚗 ASSUMIR SOCORRO</button>`;
             } else if (os.status === 'Em Manutenção') {
                 acaoHTML = `<div style="background:#3b82f6; color:#fff; padding:10px; border-radius:8px; text-align:center; font-weight:bold;">EM ATEND. (${os.mecanico_responsavel})</div>`;
@@ -207,7 +239,7 @@ function mecanicoRenderizarTabelas() {
                     <span class="card-badge" style="background: #f97316;">S.O.S #${os.numero_os || os.id}</span>
                     <span style="color:#94a3b8; font-size:0.85rem;">${formatarDataHoraBrasil(os.data_abertura)}</span>
                 </div>
-                <div class="card-placa" style="color: #f97316;">${os.placa}</div>
+                <div class="card-placa" style="color: #f97316;">${os.placa} <span style="font-size:0.85rem; color:#94a3b8; font-weight:normal;">(${os.status})</span></div>
                 <div class="card-info-text"><strong>Problema:</strong> ${os.problema}</div>
                 ${ref ? `<div class="card-info-text"><strong>Ref:</strong> ${ref}</div>` : ''}
                 ${linkMapa ? `<a href="${linkMapa}" target="_blank" style="background:rgba(59,130,246,0.1); color:#60a5fa; padding:10px; border-radius:8px; text-align:center; text-decoration:none; font-weight:bold; margin: 10px 0; display:block;"><i class="fas fa-map-marker-alt"></i> ABRIR GPS NO CELULAR</a>` : ''}
@@ -256,9 +288,14 @@ window.mecanicoConfirmarFinalizacao = async function(e) {
 window.mecanicoAceitarOS = async function(id, placa) {
     if (!confirm(`Deseja assumir o Conjunto ${placa}?`)) return;
     try {
+        const nomeParaSalvar = mecanicoPegarUsuario();
+        
         await window.supabaseClient.from('ordens_servico').update({ 
-            status: 'Em Manutenção', mecanico_responsavel: mecanicoPegarUsuario(), data_inicio_manutencao: new Date().toISOString()
+            status: 'Em Manutenção', 
+            mecanico_responsavel: nomeParaSalvar, 
+            data_inicio_manutencao: new Date().toISOString()
         }).eq('id', id);
+        
         await renderizarTelaServicos();
         mecanicoMudarAba('abertas'); 
     } catch (e) { alert("Erro ao aceitar OS."); }
@@ -511,7 +548,19 @@ async function mecanicoCarregarPecas() {
 }
 
 window.mecanicoFecharModal = () => { document.getElementById('modalApontamentoOS').style.display = 'none'; mOS_Atual = null; renderizarTelaServicos(); };
-function mecanicoPegarUsuario() { const s = localStorage.getItem('ccol_user_session'); return s ? JSON.parse(s).nome || JSON.parse(s).username : 'Mecânico'; }
+
+// Nova Lógica: Pega a variável com o nome correto validado pelo banco de dados
+function mecanicoPegarUsuario() { 
+    if (window.mecanicoNomeCompletoCache) {
+        return window.mecanicoNomeCompletoCache;
+    }
+    const s = localStorage.getItem('ccol_user_session'); 
+    if (s) {
+        const sessionObj = JSON.parse(s);
+        return sessionObj.nome_completo || sessionObj.nome || sessionObj.username;
+    }
+    return 'Mecânico'; 
+}
 
 window.mecanicoRemoverServico = async (id) => { 
     if(confirm("Deseja remover esta Mão de Obra?")) { 
