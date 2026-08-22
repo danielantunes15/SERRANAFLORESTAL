@@ -774,6 +774,12 @@ window.imprimirQRCode = function(peca) {
     document.getElementById('qrItemUnicoContainer').style.display = 'block';
     document.getElementById('qrItemNome').innerText = peca.nome;
     document.getElementById('qrItemCodigo').innerText = peca.codigo;
+    
+    // Esconde o filtro de categoria por que vai imprimir só um
+    if (document.getElementById('qrFiltroCategoriaContainer')) {
+        document.getElementById('qrFiltroCategoriaContainer').style.display = 'none';
+    }
+
     document.getElementById('modalQr').style.display = 'flex';
 }
 
@@ -783,6 +789,21 @@ window.abrirModalQrLote = function() {
     window.qrPecaAtual = null;
     document.getElementById('modalQrTitulo').innerHTML = '<i class="fas fa-qrcode" style="color:#8b5cf6;"></i> Imprimir QR Codes (Em Lote)';
     document.getElementById('qrItemUnicoContainer').style.display = 'none';
+
+    // Popula o select com as categorias dinamicamente
+    const selectCat = document.getElementById('qrCategoriaFiltro');
+    if (selectCat) {
+        const categorias = [...new Set(pecasEstoque.map(p => p.categoria).filter(Boolean))].sort();
+        selectCat.innerHTML = '<option value="">Todas as Categorias</option>' + 
+            categorias.map(c => `<option value="${c}">${c}</option>`).join('');
+        selectCat.value = '';
+    }
+    
+    // Mostra o container do filtro
+    if (document.getElementById('qrFiltroCategoriaContainer')) {
+        document.getElementById('qrFiltroCategoriaContainer').style.display = 'block';
+    }
+
     document.getElementById('modalQr').style.display = 'flex';
 }
 
@@ -795,7 +816,6 @@ window.executarGeracaoQr = function() {
         return;
     }
     
-    // Na regra do CSS da impressão alterei o max-width para 100% garantindo que se o QR code for 80x80 a fonte se acomode no bloco
     let html = `<html><head><title>Etiquetas QR Code</title>
     <style>
         body { font-family: sans-serif; text-align: center; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; padding: 20px; background: #fff; color: #000; } 
@@ -820,10 +840,17 @@ window.executarGeracaoQr = function() {
     if (window.qrModoAtual === 'unico') {
         html += gerarHtmlEtiqueta(window.qrPecaAtual, tamanho);
     } else if (window.qrModoAtual === 'lote') {
-        const pecasComCodigo = pecasEstoque.filter(p => p.codigo && p.codigo.trim() !== '');
+        const catFiltro = document.getElementById('qrCategoriaFiltro') ? document.getElementById('qrCategoriaFiltro').value : '';
+        let pecasComCodigo = pecasEstoque.filter(p => p.codigo && p.codigo.trim() !== '');
+        
+        // Aplica o filtro de categoria
+        if (catFiltro !== '') {
+            pecasComCodigo = pecasComCodigo.filter(p => p.categoria === catFiltro);
+        }
+
         if(pecasComCodigo.length === 0) {
             win.close();
-            alert("Nenhuma peça com código/SKU foi encontrada para gerar o lote.");
+            alert("Nenhuma peça com código/SKU foi encontrada na categoria selecionada.");
             return;
         }
         pecasComCodigo.forEach(peca => {

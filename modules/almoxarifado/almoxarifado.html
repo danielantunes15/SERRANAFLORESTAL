@@ -447,6 +447,14 @@
     <div class="almo-modal-content" style="max-width: 500px;">
         <span class="almo-close" onclick="fecharModalAlmox('modalQr')">&times;</span>
         <h3 id="modalQrTitulo"><i class="fas fa-qrcode" style="color:#8b5cf6;"></i> Gerador de QR Code</h3>
+        
+        <div id="qrFiltroCategoriaContainer" class="almo-form-group" style="display:none;">
+            <label>Filtrar por Categoria</label>
+            <select id="qrCategoriaFiltro">
+                <option value="">Todas as Categorias</option>
+            </select>
+        </div>
+
         <div class="almo-form-group">
             <label>Tamanho do QR Code</label>
             <select id="qrTamanho">
