@@ -414,7 +414,7 @@ window.adicionarOutroEnvolvido = function() {
                     <option value="GRUA">GRUA</option>
                     <option value="COMBOIO">COMBOIO</option>
                     <option value="CARRETA">CARRETA</option>
-                    <option value="FROTA LEVE">FROTA LEVE</option>
+                    <option value="Frota Leve">Frota Leve</option>
                     <option value="TERCEIRO">VEÍCULO DE TERCEIRO</option>
                 </select>
             </div>
