@@ -1,0 +1,101 @@
+<!-- ==================== modules/manutencao/relatorios/relatorios.html ==================== -->
+<style>
+    @import url('modules/manutencao/relatorios/relatorios.css');
+</style>
+
+<div class="manut-rel-container">
+    
+    <div class="manut-header-title">
+        <i class="fas fa-chart-line"></i> Dashboard de Manutenção
+    </div>
+
+    <!-- Barra de Filtros -->
+    <div class="manut-filters-bar">
+        <div class="manut-filter-group">
+            <label>Data Início</label>
+            <input type="date" id="relManutDataInicio">
+        </div>
+        <div class="manut-filter-group" style="flex: 0; align-items: center; justify-content: center; padding-bottom: 10px;">
+            <span style="color: #64748b; font-weight: bold;">até</span>
+        </div>
+        <div class="manut-filter-group">
+            <label>Data Fim</label>
+            <input type="date" id="relManutDataFim">
+        </div>
+        <button class="btn-acao-grande" style="background: #3b82f6; color: white; width: auto; min-height: 42px; padding: 0 25px; border-radius: 8px; font-size: 1rem;" onclick="carregarDadosRelatorioManutencao()">
+            <i class="fas fa-search"></i> Gerar Relatório
+        </button>
+    </div>
+
+    <!-- Indicadores Principais (KPIs) -->
+    <div class="manut-kpi-grid">
+        <div class="manut-kpi-card">
+            <div class="manut-icon-wrapper manut-icon-blue"><i class="fas fa-tools"></i></div>
+            <div class="manut-kpi-info">
+                <span>O.S Trabalhadas</span>
+                <strong id="kpiTotalOS">0</strong>
+            </div>
+        </div>
+        
+        <div class="manut-kpi-card">
+            <div class="manut-icon-wrapper manut-icon-orange"><i class="fas fa-cubes"></i></div>
+            <div class="manut-kpi-info">
+                <span>Peças Requisitadas</span>
+                <strong id="kpiTotalPecas">0</strong>
+            </div>
+        </div>
+        
+        <div class="manut-kpi-card">
+            <div class="manut-icon-wrapper manut-icon-green"><i class="fas fa-dollar-sign"></i></div>
+            <div class="manut-kpi-info">
+                <span>Custo Estimado</span>
+                <strong id="kpiCustoTotal">R$ 0,00</strong>
+            </div>
+        </div>
+        
+        <div class="manut-kpi-card">
+            <div class="manut-icon-wrapper manut-icon-purple"><i class="fas fa-wrench"></i></div>
+            <div class="manut-kpi-info">
+                <span>Serviços Executados</span>
+                <strong id="kpiTotalServicos">0</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos ECharts -->
+    <div class="manut-charts-grid">
+        <div class="manut-chart-box">
+            <h3>Custo em Peças por Frota / Caminhão</h3>
+            <div id="chartCustoFrota" style="width: 100%; height: 350px;"></div>
+        </div>
+        
+        <div class="manut-chart-box">
+            <h3>Requisições por Compartimento</h3>
+            <div id="chartCompartimentos" style="width: 100%; height: 350px;"></div>
+        </div>
+        
+        <div class="manut-chart-box">
+            <h3>Volume de Requisições por Mecânico</h3>
+            <div id="chartPecasMecanico" style="width: 100%; height: 350px;"></div>
+        </div>
+        
+        <div class="manut-chart-box">
+            <h3>Mão de Obra (Serviços Assumidos por Mecânico)</h3>
+            <div id="chartServicosMecanico" style="width: 100%; height: 350px;"></div>
+        </div>
+    </div>
+
+    <!-- Tabela Detalhada -->
+    <div class="manut-top-table">
+        <h3><i class="fas fa-list-ol"></i> Top Peças Mais Solicitadas no Período</h3>
+        <div style="display: flex; justify-content: space-between; padding: 0 15px 10px 15px; color: #94a3b8; font-weight: bold; font-size: 0.85rem; text-transform: uppercase;">
+            <span style="flex: 2;">Nome da Peça</span>
+            <span style="flex: 1; text-align: center;">Quantidade</span>
+            <span style="flex: 1; text-align: right;">Custo Acumulado</span>
+        </div>
+        <div id="tabelaTopPecas" style="max-height: 400px; overflow-y: auto; padding-right: 5px;">
+            <p style="padding: 15px; text-align: center; color: #64748b;">Gere o relatório para visualizar os dados.</p>
+        </div>
+    </div>
+
+</div>

@@ -21,6 +21,7 @@ window.MAPA_MENUS = [
     { id: 'borracharia', label: 'Borracharia', setor: 'Manutenção', icon: 'fas fa-life-ring' },
     { id: 'cadastro_frota', label: 'Cadastro Frota (O.S.)', setor: 'Manutenção', icon: 'fas fa-truck-moving' },
     { id: 'cadastro_os_classificacoes', label: 'Cadastro Básico (Tipos)', setor: 'Manutenção', icon: 'fas fa-list' },
+    { id: 'relatorios_manutencao', label: 'Painel de Relatórios', setor: 'Manutenção', icon: 'fas fa-chart-line' },
     
     // --- MÓDULO INDEPENDENTE: ALMOXARIFADO ---
     { id: 'almoxarifado', label: 'Gestão de Estoque', setor: 'Almoxarifado', icon: 'fas fa-boxes' },
@@ -92,6 +93,7 @@ const ROTAS = {
     'servicos': 'modules/manutencao/servicos/servicos.html',
     'borracharia': 'modules/manutencao/borracharia/borracharia.html',
     'cadastro_os_classificacoes': 'modules/manutencao/cadastros/classificacoes.html',
+    'relatorios_manutencao': 'modules/manutencao/relatorios/relatorios.html',
     
     'rh_painel': 'modules/rh/painel/rh_painel.html',
     'rh_colaboradores': 'modules/rh/colaboradores/colaboradores.html',
@@ -357,6 +359,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'cadastro_frota' && typeof window.renderizarTelaCadastroFrota === 'function') window.renderizarTelaCadastroFrota();
         if (pagina === 'documentos_frota' && typeof window.renderizarTelaDocumentosFrota === 'function') window.renderizarTelaDocumentosFrota();
         if (pagina === 'borracharia' && typeof window.initBorracharia === 'function') window.initBorracharia();
+        if (pagina === 'relatorios_manutencao' && typeof window.renderizarTelaRelatoriosManutencao === 'function') window.renderizarTelaRelatoriosManutencao();
 
         if (pagina === 'relatorio_gerencial') {
             try { if (typeof carregarDadosOS === 'function') await carregarDadosOS(); } catch(e) {}
