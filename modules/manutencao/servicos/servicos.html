@@ -152,6 +152,35 @@
     </div>
 </div>
 
+<!-- MODAL ASSUMIR SERVIÇO -->
+<div id="modalAssumirOS" class="modal-overlay-fullscreen" style="display: none;">
+    <div class="custom-modal-responsive modal-pequeno">
+        <div class="modal-header-responsive">
+            <h3 style="color: #3b82f6;"><i class="fas fa-hand-holding-medical"></i> Assumir Serviço</h3>
+            <button class="close-btn-responsive" onclick="fecharModalAssumirOS()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body-scroll">
+            <form onsubmit="confirmarAssumirOS(event)" style="display: flex; flex-direction: column; height: 100%;">
+                <input type="hidden" id="assumirOsId">
+                
+                <div class="box-apontamento" style="background: rgba(59, 130, 246, 0.1); border-color: #3b82f6; text-align: center;">
+                    <h4 style="color:#fff; margin-top:0; font-size: 1.4rem;">Placa: <span id="assumirOsPlaca" style="color: #3b82f6;"></span></h4>
+                </div>
+
+                <div style="margin-top: 20px; flex: 1;">
+                    <label class="label-oficina">Profissional (Mecânico/Borracheiro)</label>
+                    <select id="selMecanicoAssumir" class="input-otimizado" required></select>
+                </div>
+
+                <button type="submit" class="btn-acao-grande" style="background: #3b82f6; color: white; margin-top: auto;">
+                    <i class="fas fa-check"></i> CONFIRMAR E ASSUMIR
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL FINALIZAR OS -->
 <div id="modalFinalizarOS" class="modal-overlay-fullscreen" style="display: none;">
     <div class="custom-modal-responsive modal-pequeno">
         <div class="modal-header-responsive">

@@ -36,7 +36,7 @@ window.renderizarTelaServicos = async function() {
             const { data: usersData } = await queryUsuarios;
             if (usersData) {
                 mMecanicosCache = usersData
-                    .filter(u => u.role && (u.role.toLowerCase().includes('mecanico') || u.role.toLowerCase().includes('mecânico')))
+                    .filter(u => u.role && (u.role.toLowerCase().includes('mecanico') || u.role.toLowerCase().includes('mecânico') || u.role.toLowerCase().includes('borracheiro')))
                     .map(u => (u.nome_completo && u.nome_completo.trim() !== '') ? u.nome_completo : u.username)
                     .sort();
             }
@@ -158,7 +158,7 @@ function mecanicoRenderizarTabelas() {
                 <div class="card-info-text"><strong style="color:#fff;">Mot:</strong> ${os.motorista || '-'}</div>
                 <div class="card-info-text" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;"><strong>Problema:</strong> ${os.problema || 'Sem descrição'}</div>
                 <div class="card-actions">
-                    <button class="btn-acao-grande" style="background: #10b981; color: white;" onclick="mecanicoAceitarOS(${os.id}, '${os.placa}')"><i class="fas fa-hand-holding-medical"></i> Assumir Serviço</button>
+                    <button class="btn-acao-grande" style="background: #10b981; color: white;" onclick="abrirModalAssumirOS(${os.id}, '${os.placa}')"><i class="fas fa-hand-holding-medical"></i> Assumir Serviço</button>
                 </div>
             </div>
         `).join('');
@@ -245,7 +245,7 @@ function mecanicoRenderizarTabelas() {
 
             let acaoHTML = '';
             if (os.status === 'Aguardando Oficina' || os.status === 'Aberta' || os.status === 'Pendente') {
-                acaoHTML = `<button class="btn-acao-grande" style="background: #10b981; color: white;" onclick="mecanicoAceitarOS(${os.id}, '${os.placa}')">🚗 ASSUMIR SOCORRO</button>`;
+                acaoHTML = `<button class="btn-acao-grande" style="background: #10b981; color: white;" onclick="abrirModalAssumirOS(${os.id}, '${os.placa}')">🚗 ASSUMIR SOCORRO</button>`;
             } else if (os.status === 'Em Manutenção') {
                 acaoHTML = `<div style="background:#3b82f6; color:#fff; padding:10px; border-radius:8px; text-align:center; font-weight:bold;">EM ATEND. (${os.mecanico_responsavel})</div>`;
             }
@@ -265,6 +265,72 @@ function mecanicoRenderizarTabelas() {
         }).join('');
     }
 }
+
+// ==========================================
+// FUNÇÕES PARA ASSUMIR SERVIÇO COM MODAL
+// ==========================================
+window.abrirModalAssumirOS = function(id, placa) {
+    const inputId = document.getElementById('assumirOsId');
+    const spanPlaca = document.getElementById('assumirOsPlaca');
+    const select = document.getElementById('selMecanicoAssumir');
+    const modal = document.getElementById('modalAssumirOS');
+
+    if (!inputId || !select || !modal) {
+        alert("Erro: O layout do Modal não foi encontrado. Atualize a página (pressione F5 ou limpe o cache) e verifique o arquivo servicos.html.");
+        return;
+    }
+
+    inputId.value = id;
+    if (spanPlaca) spanPlaca.innerText = placa;
+    
+    let optionsHtml = '';
+    const userAtual = mecanicoPegarUsuario();
+    let listaMecs = [...mMecanicosCache];
+    
+    if (!listaMecs.includes(userAtual)) {
+        listaMecs.push(userAtual);
+        listaMecs.sort();
+    }
+
+    listaMecs.forEach(nome => {
+        optionsHtml += `<option value="${nome}">${nome}</option>`;
+    });
+    
+    select.innerHTML = optionsHtml;
+    select.value = userAtual; 
+
+    modal.style.display = 'flex';
+};
+
+window.fecharModalAssumirOS = () => {
+    const modal = document.getElementById('modalAssumirOS');
+    if(modal) modal.style.display = 'none';
+};
+
+window.confirmarAssumirOS = async function(e) {
+    e.preventDefault();
+    const id = document.getElementById('assumirOsId').value;
+    const nomeParaSalvar = document.getElementById('selMecanicoAssumir').value;
+    
+    if (!confirm(`Deseja assumir esta O.S. como ${nomeParaSalvar}?`)) return;
+    
+    try {
+        const { error } = await window.supabaseClient.from('ordens_servico').update({ 
+            status: 'Em Manutenção', 
+            mecanico_responsavel: nomeParaSalvar, 
+            data_inicio_manutencao: new Date().toISOString()
+        }).eq('id', id);
+        
+        if (error) throw error;
+        
+        alert('O.S. Assumida com sucesso!');
+        fecharModalAssumirOS();
+        await renderizarTelaServicos();
+        mecanicoMudarAba('abertas'); 
+    } catch (err) { 
+        alert("Erro ao tentar assumir a O.S."); 
+    }
+};
 
 window.abrirModalFinalizarOS = function(id, placa) {
     document.getElementById('finOsId').value = id;
@@ -302,22 +368,6 @@ window.mecanicoConfirmarFinalizacao = async function(e) {
     } catch(err) { alert('Erro ao tentar finalizar a O.S.'); }
 };
 
-window.mecanicoAceitarOS = async function(id, placa) {
-    if (!confirm(`Deseja assumir o Conjunto ${placa}?`)) return;
-    try {
-        const nomeParaSalvar = mecanicoPegarUsuario();
-        
-        await window.supabaseClient.from('ordens_servico').update({ 
-            status: 'Em Manutenção', 
-            mecanico_responsavel: nomeParaSalvar, 
-            data_inicio_manutencao: new Date().toISOString()
-        }).eq('id', id);
-        
-        await renderizarTelaServicos();
-        mecanicoMudarAba('abertas'); 
-    } catch (e) { alert("Erro ao aceitar OS."); }
-};
-
 window.mecanicoDevolverOS = async function(id, placa) {
     if (!confirm(`Deseja DEVOLVER a O.S. para disponíveis?`)) return;
     try {
@@ -334,7 +384,6 @@ window.mecanicoAbrirApontamento = async function(id, placa, previsao) {
     const elPlaca = document.getElementById('apontPlaca');
     if (elPlaca) elPlaca.innerText = placa;
     
-    // Configura os Dropdowns com TRAVA ANTI-ERRO
     let optionsHtml = '';
     const userAtual = mecanicoPegarUsuario();
     let listaMecs = [...mMecanicosCache];
@@ -351,7 +400,6 @@ window.mecanicoAbrirApontamento = async function(id, placa, previsao) {
     const selectServico = document.getElementById('aponMecanicoServico');
     const selectPeca = document.getElementById('aponMecanicoPeca');
     
-    // VERIFICA SE OS CAMPOS EXISTEM ANTES DE PREENCHER
     if (selectServico) {
         selectServico.innerHTML = optionsHtml;
         selectServico.value = userAtual;
@@ -454,7 +502,6 @@ window.mecanicoAddServico = async function() {
     mecanicoAtualizarTabelasModal();
 };
 
-/* --- Controle Inteligente da Lista de Peças --- */
 window.mecanicoToggleLista = function() {
     const container = document.getElementById('listaPecasCustom');
     const inputPeca = document.getElementById('pesquisaPeca');
