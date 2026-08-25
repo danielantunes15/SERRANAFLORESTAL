@@ -14,8 +14,11 @@ window.renderizarTelaRelatoriosManutencao = async function() {
         return `${ano}-${mes}-${dia}`;
     };
     
-    document.getElementById('relManutDataInicio').value = formatData(dataInicio);
-    document.getElementById('relManutDataFim').value = formatData(dataFim);
+    const inputInicio = document.getElementById('relManutDataInicio');
+    const inputFim = document.getElementById('relManutDataFim');
+
+    if (inputInicio) inputInicio.value = formatData(dataInicio);
+    if (inputFim) inputFim.value = formatData(dataFim);
 
     window.addEventListener('resize', resizeChartsManutencao);
     
@@ -30,8 +33,14 @@ window.resizeChartsManutencao = function() {
 };
 
 window.carregarDadosRelatorioManutencao = async function() {
-    const dataInicioStr = document.getElementById('relManutDataInicio').value;
-    const dataFimStr = document.getElementById('relManutDataFim').value;
+    const inputInicio = document.getElementById('relManutDataInicio');
+    const inputFim = document.getElementById('relManutDataFim');
+
+    // Se os inputs não estiverem na tela, aborta a execução silenciosamente
+    if(!inputInicio || !inputFim) return;
+
+    const dataInicioStr = inputInicio.value;
+    const dataFimStr = inputFim.value;
 
     if(!dataInicioStr || !dataFimStr) {
         return alert("Por favor, selecione as datas de início e fim.");
@@ -48,7 +57,8 @@ window.carregarDadosRelatorioManutencao = async function() {
 
         if (errOS) throw errOS;
 
-        document.getElementById('kpiTotalOS').innerText = ordens ? ordens.length : '0';
+        const kpiTotalOS = document.getElementById('kpiTotalOS');
+        if (kpiTotalOS) kpiTotalOS.innerText = ordens ? ordens.length : '0';
 
         if (!ordens || ordens.length === 0) {
             limparDashboardManutencao();
@@ -128,14 +138,21 @@ window.carregarDadosRelatorioManutencao = async function() {
             aggMecanicoServicos[mecanico] = (aggMecanicoServicos[mecanico] || 0) + 1;
         });
 
-        // Atualizar KPIs globais
-        document.getElementById('kpiTotalPecas').innerText = totalPecasGlobal.toFixed(0);
-        document.getElementById('kpiCustoTotal').innerText = totalCustoGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('kpiTotalServicos').innerText = (servicosExec || []).length;
+        // Atualizar KPIs globais com proteção
+        const elTotalPecas = document.getElementById('kpiTotalPecas');
+        if (elTotalPecas) elTotalPecas.innerText = totalPecasGlobal.toFixed(0);
+
+        const elCustoTotal = document.getElementById('kpiCustoTotal');
+        if (elCustoTotal) elCustoTotal.innerText = totalCustoGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        const elTotalServicos = document.getElementById('kpiTotalServicos');
+        if (elTotalServicos) elTotalServicos.innerText = (servicosExec || []).length;
 
         // Atualizar painel do Tritrem com os dados do período todo
         atualizarPainelTritrem(totalCavaloMes, totalComp1Mes, totalComp2Mes, totalComp3Mes, totalCustoGlobal);
-        document.getElementById('lbl-total-tritrem').innerText = "Custo Total do Período:";
+        
+        const elLblTotal = document.getElementById('lbl-total-tritrem');
+        if (elLblTotal) elLblTotal.innerText = "Custo Total do Período:";
 
         // ECharts Rendering
         renderChartBarras(
@@ -172,27 +189,35 @@ window.carregarDadosRelatorioManutencao = async function() {
         topPecasArray.sort((a, b) => b.qtd - a.qtd);
 
         const containerTabela = document.getElementById('tabelaTopPecas');
-        if (topPecasArray.length === 0) {
-            containerTabela.innerHTML = '<p style="padding: 15px; text-align: center; color: #64748b;">Nenhuma peça liberada pelo almoxarifado no período.</p>';
-        } else {
-            containerTabela.innerHTML = topPecasArray.map(p => `
-                <div class="manut-rel-row">
-                    <span class="peca-nome">${p.nome}</span>
-                    <span class="peca-qtd">${p.qtd}</span>
-                    <span class="peca-custo">${p.custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                </div>
-            `).join('');
+        if (containerTabela) {
+            if (topPecasArray.length === 0) {
+                containerTabela.innerHTML = '<p style="padding: 15px; text-align: center; color: #64748b;">Nenhuma peça liberada pelo almoxarifado no período.</p>';
+            } else {
+                containerTabela.innerHTML = topPecasArray.map(p => `
+                    <div class="manut-rel-row">
+                        <span class="peca-nome">${p.nome}</span>
+                        <span class="peca-qtd">${p.qtd}</span>
+                        <span class="peca-custo">${p.custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    </div>
+                `).join('');
+            }
         }
 
     } catch (e) {
         console.error("Erro ao gerar relatórios:", e);
-        alert("Ocorreu um erro ao buscar os dados do relatório.");
+        // Só alerta se a tela estiver ativamente aberta
+        if(document.getElementById('relManutDataInicio')) {
+            alert("Ocorreu um erro ao buscar os dados do relatório.");
+        }
     }
 };
 
 // ==================== Lógica Visual Tritrem ====================
 window.buscarDadosTritrem = async function() {
-    const osIdStr = document.getElementById('filtroOSTritrem').value.trim();
+    const inputFiltro = document.getElementById('filtroOSTritrem');
+    if (!inputFiltro) return;
+
+    const osIdStr = inputFiltro.value.trim();
     if(!osIdStr) {
         alert('Por favor, digite o número/ID da O.S. (Ou clique em "Limpar O.S" para voltar ao período)');
         return;
@@ -209,10 +234,12 @@ window.buscarDadosTritrem = async function() {
 
         if (error) throw error;
         
+        const elLblTotal = document.getElementById('lbl-total-tritrem');
+
         if(!pecas || pecas.length === 0) {
             alert('Nenhuma peça aprovada (com saída de almoxarifado) encontrada para a O.S ' + osId + '.');
             atualizarPainelTritrem(0, 0, 0, 0, 0);
-            document.getElementById('lbl-total-tritrem').innerText = `Custo Total da O.S ${osId}:`;
+            if (elLblTotal) elLblTotal.innerText = `Custo Total da O.S ${osId}:`;
             return;
         }
 
@@ -240,7 +267,7 @@ window.buscarDadosTritrem = async function() {
 
         let total = custoCavalo + custoComp1 + custoComp2 + custoComp3;
         atualizarPainelTritrem(custoCavalo, custoComp1, custoComp2, custoComp3, total);
-        document.getElementById('lbl-total-tritrem').innerText = `Custo Total da O.S ${osId}:`;
+        if (elLblTotal) elLblTotal.innerText = `Custo Total da O.S ${osId}:`;
 
     } catch (e) {
         console.error('Erro ao buscar dados do tritrem:', e);
@@ -249,17 +276,28 @@ window.buscarDadosTritrem = async function() {
 };
 
 window.limparBuscaOSTritrem = function() {
-    document.getElementById('filtroOSTritrem').value = '';
+    const inputFiltro = document.getElementById('filtroOSTritrem');
+    if(inputFiltro) inputFiltro.value = '';
     window.carregarDadosRelatorioManutencao(); 
 };
 
 function atualizarPainelTritrem(cavalo, comp1, comp2, comp3, total) {
     const format = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    document.getElementById('ui-cavalo').innerText = format(cavalo);
-    document.getElementById('ui-comp1').innerText = format(comp1);
-    document.getElementById('ui-comp2').innerText = format(comp2);
-    document.getElementById('ui-comp3').innerText = format(comp3);
-    document.getElementById('total-os-tritrem').innerText = format(total);
+    
+    const elCavalo = document.getElementById('ui-cavalo');
+    if (elCavalo) elCavalo.innerText = format(cavalo);
+    
+    const elComp1 = document.getElementById('ui-comp1');
+    if (elComp1) elComp1.innerText = format(comp1);
+    
+    const elComp2 = document.getElementById('ui-comp2');
+    if (elComp2) elComp2.innerText = format(comp2);
+    
+    const elComp3 = document.getElementById('ui-comp3');
+    if (elComp3) elComp3.innerText = format(comp3);
+    
+    const elTotal = document.getElementById('total-os-tritrem');
+    if (elTotal) elTotal.innerText = format(total);
 }
 
 function renderChartBarras(elementId, dicionarioDados, nomeSerie, coresGradiente, formatador = null) {
@@ -385,15 +423,25 @@ function renderChartDonut(elementId, dicionarioDados, nomeSerie) {
 }
 
 function limparDashboardManutencao() {
-    document.getElementById('kpiTotalOS').innerText = '0';
-    document.getElementById('kpiTotalPecas').innerText = '0';
-    document.getElementById('kpiCustoTotal').innerText = 'R$ 0,00';
-    document.getElementById('kpiTotalServicos').innerText = '0';
+    const elKpiOS = document.getElementById('kpiTotalOS');
+    if (elKpiOS) elKpiOS.innerText = '0';
     
-    document.getElementById('tabelaTopPecas').innerHTML = '<p style="padding: 15px; text-align: center; color: #64748b;">Nenhum dado encontrado para as datas.</p>';
+    const elKpiPecas = document.getElementById('kpiTotalPecas');
+    if (elKpiPecas) elKpiPecas.innerText = '0';
+    
+    const elKpiCusto = document.getElementById('kpiCustoTotal');
+    if (elKpiCusto) elKpiCusto.innerText = 'R$ 0,00';
+    
+    const elKpiServ = document.getElementById('kpiTotalServicos');
+    if (elKpiServ) elKpiServ.innerText = '0';
+    
+    const containerTabela = document.getElementById('tabelaTopPecas');
+    if (containerTabela) containerTabela.innerHTML = '<p style="padding: 15px; text-align: center; color: #64748b;">Nenhum dado encontrado para as datas.</p>';
 
     atualizarPainelTritrem(0,0,0,0,0);
-    document.getElementById('lbl-total-tritrem').innerText = "Custo Total do Período:";
+    
+    const elLblTotal = document.getElementById('lbl-total-tritrem');
+    if (elLblTotal) elLblTotal.innerText = "Custo Total do Período:";
 
     Object.values(relManutCharts).forEach(chart => {
         if(chart) chart.clear();
