@@ -13,7 +13,7 @@
     <div class="panel-header">
         <h3>Acompanhamento de O.S. (Somente Abertas/Andamento)</h3>
         <div class="panel-controls">
-            <input type="text" id="searchOS" placeholder="Buscar placa ou motorista..." class="search-input-dark" onkeyup="renderizarTabelaOS()">
+            <input type="text" id="searchOS" placeholder="Buscar placa, motorista ou mecânico..." class="search-input-dark" onkeyup="renderizarTabelaOS()">
         </div>
     </div>
     <div class="table-modern-wrapper">
@@ -25,6 +25,7 @@
                     <th>Previsão de Entrega</th>
                     <th>Placa (Cavalo/GO)</th>
                     <th>Motorista</th>
+                    <th>Mecânico Resp.</th>
                     <th>Tipo</th>
                     <th>Status</th>
                     <th>Ações</th>
@@ -39,7 +40,7 @@
     <div class="panel-header" style="background: rgba(249, 115, 22, 0.1);">
         <h3 style="color: #f97316;">🚨 Acompanhamento de S.O.S (Socorro na Estrada)</h3>
         <div class="panel-controls">
-            <input type="text" id="searchSOS" placeholder="Buscar placa ou motorista..." class="search-input-dark" onkeyup="renderizarTabelaSOS()">
+            <input type="text" id="searchSOS" placeholder="Buscar placa, motorista ou mecânico..." class="search-input-dark" onkeyup="renderizarTabelaSOS()">
         </div>
     </div>
     <div class="table-modern-wrapper">
@@ -50,6 +51,7 @@
                     <th>Abertura</th>
                     <th>Placa (Cavalo)</th>
                     <th>Motorista</th>
+                    <th>Mecânico Resp.</th>
                     <th>Tipo de S.O.S</th>
                     <th>Localização / Mapa</th>
                     <th>Status</th>
@@ -65,7 +67,7 @@
     <div class="panel-header">
         <h3 style="color: #ef4444;">  Acompanhamento de Veículos Sinistrados (Frota Inativa)</h3>
         <div class="panel-controls">
-            <input type="text" id="searchSinistro" placeholder="Buscar placa ou motorista..." class="search-input-dark" onkeyup="renderizarTabelaSinistro()">
+            <input type="text" id="searchSinistro" placeholder="Buscar placa, motorista ou mecânico..." class="search-input-dark" onkeyup="renderizarTabelaSinistro()">
         </div>
     </div>
     <div class="table-modern-wrapper">
@@ -77,6 +79,7 @@
                     <th>Previsão de Retorno</th>
                     <th>Placa (Cavalo/GO)</th>
                     <th>Motorista</th>
+                    <th>Mecânico Resp.</th>
                     <th>Tipo</th>
                     <th>Status</th>
                     <th>Ações</th>
@@ -367,6 +370,7 @@
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
                 <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid var(--border-dim);">
                     <p style="margin: 0 0 5px 0;"><strong style="color: var(--text-secondary);">Motorista:</strong> <span id="visOSMotorista" style="color: #fff;"></span></p>
+                    <p style="margin: 0 0 5px 0;"><strong style="color: var(--text-secondary);">Mecânico:</strong> <span id="visOSMecanico" style="color: #34d399; font-weight: bold;"></span></p>
                     <p style="margin: 0 0 5px 0;"><strong style="color: var(--text-secondary);">Tipo de Serviço:</strong> <span id="visOSTipo" style="color: #fff;"></span></p>
                     <p style="margin: 0 0 5px 0;"><strong style="color: var(--text-secondary);">Prioridade:</strong> <span id="visOSPrioridade" style="color: #fff;"></span></p>
                     <p style="margin: 0 0 5px 0;"><strong style="color: var(--text-secondary);">Hodômetro:</strong> <span id="visOSHodometro" style="color: #fff;"></span></p>

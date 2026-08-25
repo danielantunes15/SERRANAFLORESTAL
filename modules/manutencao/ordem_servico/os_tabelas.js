@@ -12,7 +12,8 @@ function renderizarTabelaOS() {
     if (termo) {
         filtradas = filtradas.filter(o => 
             (o.placa && o.placa.toLowerCase().includes(termo)) ||
-            (o.motorista && o.motorista.toLowerCase().includes(termo))
+            (o.motorista && o.motorista.toLowerCase().includes(termo)) ||
+            (o.mecanico_responsavel && o.mecanico_responsavel.toLowerCase().includes(termo))
         );
     }
 
@@ -37,22 +38,25 @@ function renderizarTabelaOS() {
         let iconeAtraso = isVencida ? `<span title="⚠️ SERVIÇO EM ATRASO!&#10;A previsão era para ${previsaoStr} e já foi ultrapassada." style="cursor: help; margin-left: 5px; font-size: 1.1rem;">⚠️</span>` : '';
         
         const numeroExibicao = os.numero_os || os.id;
+        const mecanicoExibicao = os.mecanico_responsavel ? `<span style="color: #34d399; font-weight: bold;">${os.mecanico_responsavel}</span>` : `<span style="color: #64748b; font-size: 0.8rem; font-weight: normal;">Não atribuído</span>`;
 
+        // Adicionado white-space: nowrap nas colunas que não devem quebrar e os textos dos botões foram reduzidos
         return `
             <tr style="${linhaStyle}">
-                <td><strong>#${numeroExibicao}</strong></td>
-                <td>${modoIcon} ${inicioStr}</td>
-                <td><div style="display: flex; align-items: center;">${previsaoStr} ${iconeAtraso}</div></td>
-                <td style="color: var(--ccol-blue-bright); font-weight: bold;">${os.placa || '-'}</td>
+                <td style="white-space: nowrap;"><strong>#${numeroExibicao}</strong></td>
+                <td style="white-space: nowrap;">${modoIcon} ${inicioStr}</td>
+                <td style="white-space: nowrap;"><div style="display: flex; align-items: center;">${previsaoStr} ${iconeAtraso}</div></td>
+                <td style="color: var(--ccol-blue-bright); font-weight: bold; white-space: nowrap;">${os.placa || '-'}</td>
                 <td>${os.motorista || '-'}</td>
+                <td>${mecanicoExibicao}</td>
                 <td>${os.tipo}</td>
-                <td><span style="color: ${corStatus}; font-weight: bold;">${os.status}</span></td>
-                <td>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; align-items: center;">
-                        <button class="btn-primary-blue" onclick="abrirModalServicoExtra(${os.id})" title="Adicionar Serviço e Prorrogar Prazo" style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; border-radius: 4px;">➕ Serviço Extra</button>
-                        <button class="btn-primary-green" onclick="abrirModalConclusaoOS(${os.id})" style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; border-radius: 4px;">✅ Concluir OS</button>
-                        <button class="btn-secondary-dark" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 6px 10px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
-                        <button class="btn-secondary-dark" onclick="imprimirOS(${os.id})" title="Imprimir" style="padding: 6px 10px; font-size: 0.8rem; border-radius: 4px;">🖨️</button>
+                <td style="white-space: nowrap;"><span style="color: ${corStatus}; font-weight: bold;">${os.status}</span></td>
+                <td style="white-space: nowrap;">
+                    <div style="display: flex; gap: 6px; flex-wrap: nowrap; justify-content: flex-start; align-items: center;">
+                        <button class="btn-primary-blue" onclick="abrirModalServicoExtra(${os.id})" title="Adicionar Serviço e Prorrogar Prazo" style="padding: 6px 10px; font-size: 0.75rem; white-space: nowrap; border-radius: 4px;">➕ Extra</button>
+                        <button class="btn-primary-green" onclick="abrirModalConclusaoOS(${os.id})" style="padding: 6px 10px; font-size: 0.75rem; white-space: nowrap; border-radius: 4px;">✅ Concluir</button>
+                        <button class="btn-secondary-dark" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 6px 8px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
+                        <button class="btn-secondary-dark" onclick="imprimirOS(${os.id})" title="Imprimir" style="padding: 6px 8px; font-size: 0.8rem; border-radius: 4px;">🖨️</button>
                     </div>
                 </td>
             </tr>
@@ -71,7 +75,8 @@ window.renderizarTabelaSOS = function() {
     if (termo) {
         filtradas = filtradas.filter(o => 
             (o.placa && o.placa.toLowerCase().includes(termo)) ||
-            (o.motorista && o.motorista.toLowerCase().includes(termo))
+            (o.motorista && o.motorista.toLowerCase().includes(termo)) ||
+            (o.mecanico_responsavel && o.mecanico_responsavel.toLowerCase().includes(termo))
         );
     }
 
@@ -104,6 +109,7 @@ window.renderizarTabelaSOS = function() {
         }
 
         const numeroExibicao = os.numero_os || os.id;
+        const mecanicoExibicao = os.mecanico_responsavel ? `<span style="color: #34d399; font-weight: bold;">${os.mecanico_responsavel}</span>` : `<span style="color: #64748b; font-size: 0.8rem; font-weight: normal;">Não atribuído</span>`;
 
         let mensagemZap = `🚨 *NOVO CHAMADO DE S.O.S* 🚨\n`;
         mensagemZap += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -144,21 +150,22 @@ window.renderizarTabelaSOS = function() {
 
         return `
             <tr style="background: rgba(249, 115, 22, 0.05); border-left: 4px solid #f97316;">
-                <td><strong>#${numeroExibicao}</strong></td>
-                <td>🚨 ${inicioStr}</td>
-                <td style="color: #f97316; font-weight: bold; font-size: 1.1rem;">${os.placa || '-'}</td>
+                <td style="white-space: nowrap;"><strong>#${numeroExibicao}</strong></td>
+                <td style="white-space: nowrap;">🚨 ${inicioStr}</td>
+                <td style="color: #f97316; font-weight: bold; font-size: 1.1rem; white-space: nowrap;">${os.placa || '-'}</td>
                 <td>${os.motorista || '-'}</td>
+                <td>${mecanicoExibicao}</td>
                 <td style="font-weight: bold;">${os.tipo}</td>
                 <td style="font-size: 0.85rem;">
                     <div style="margin-bottom: 5px; color: #d1d5db;">${ref ? '<strong>Ref:</strong> ' + ref : (linkMapa ? 'Localização informada' : 'Sem local')}</div>
                     ${btnMapa}
                 </td>
-                <td><span style="color: ${corStatus}; font-weight: bold;">${os.status}</span></td>
-                <td>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; align-items: center;">
-                        <a href="${urlZap}" target="_blank" class="btn-primary-green" style="padding: 6px 12px; font-size: 0.8rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; background-color: #22c55e;"><i class="fab fa-whatsapp"></i> Enviar a Mecânicos</a>
-                        <button class="btn-primary-blue" onclick="abrirModalConclusaoOS(${os.id})" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 4px;">✅ Finalizar S.O.S</button>
-                        <button class="btn-secondary-dark" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 6px 10px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
+                <td style="white-space: nowrap;"><span style="color: ${corStatus}; font-weight: bold;">${os.status}</span></td>
+                <td style="white-space: nowrap;">
+                    <div style="display: flex; gap: 6px; flex-wrap: nowrap; justify-content: flex-start; align-items: center;">
+                        <a href="${urlZap}" target="_blank" class="btn-primary-green" style="padding: 6px 10px; font-size: 0.75rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 5px; background-color: #22c55e; white-space: nowrap;"><i class="fab fa-whatsapp"></i> Enviar</a>
+                        <button class="btn-primary-blue" onclick="abrirModalConclusaoOS(${os.id})" style="padding: 6px 10px; font-size: 0.75rem; border-radius: 4px; white-space: nowrap;">✅ Finalizar</button>
+                        <button class="btn-secondary-dark" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 6px 8px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
                     </div>
                 </td>
             </tr>
@@ -176,7 +183,8 @@ function renderizarTabelaSinistro() {
     if (termo) {
         filtradas = filtradas.filter(o => 
             (o.placa && o.placa.toLowerCase().includes(termo)) ||
-            (o.motorista && o.motorista.toLowerCase().includes(termo))
+            (o.motorista && o.motorista.toLowerCase().includes(termo)) ||
+            (o.mecanico_responsavel && o.mecanico_responsavel.toLowerCase().includes(termo))
         );
     }
 
@@ -186,6 +194,7 @@ function renderizarTabelaSinistro() {
         const previsaoStr = os.previsao_entrega ? formatarDataHoraBrasil(os.previsao_entrega) : 'Indeterminada';
         
         const numeroExibicao = os.numero_os || os.id;
+        const mecanicoExibicao = os.mecanico_responsavel ? `<span style="color: #34d399; font-weight: bold;">${os.mecanico_responsavel}</span>` : `<span style="color: #64748b; font-size: 0.8rem; font-weight: normal;">Não atribuído</span>`;
         
         let isVencida = false;
         if (os.previsao_entrega) {
@@ -197,18 +206,19 @@ function renderizarTabelaSinistro() {
 
         return `
             <tr style="background: rgba(239, 68, 68, 0.05); border-left: 4px solid #ef4444;">
-                <td><strong>#${numeroExibicao}</strong></td>
-                <td>💥 ${inicioStr}</td>
-                <td><div style="display: flex; align-items: center;">${previsaoStr} ${iconeAtraso}</div></td>
-                <td style="color: #ef4444; font-weight: bold; font-size: 1.1rem;">${os.placa || '-'}</td>
+                <td style="white-space: nowrap;"><strong>#${numeroExibicao}</strong></td>
+                <td style="white-space: nowrap;">💥 ${inicioStr}</td>
+                <td style="white-space: nowrap;"><div style="display: flex; align-items: center;">${previsaoStr} ${iconeAtraso}</div></td>
+                <td style="color: #ef4444; font-weight: bold; font-size: 1.1rem; white-space: nowrap;">${os.placa || '-'}</td>
                 <td>${os.motorista || '-'}</td>
+                <td>${mecanicoExibicao}</td>
                 <td style="font-size: 0.85rem; color: #fca5a5;">${os.problema || 'Sinistro Reportado'}</td>
-                <td><span style="color: ${corStatus}; font-weight: bold; text-transform: uppercase;">Inativo (Sinistro)</span></td>
-                <td>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; align-items: center;">
-                        <button class="btn-primary-blue" onclick="abrirModalServicoExtra(${os.id})" title="Atualizar Previsão" style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; border-radius: 4px;">📅 Nova Previsão</button>
-                        <button class="btn-primary-green" onclick="abrirModalConclusaoOS(${os.id})" style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap; border-radius: 4px;">✅ Retorno</button>
-                        <button class="btn-secondary-dark" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 6px 10px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
+                <td style="white-space: nowrap;"><span style="color: ${corStatus}; font-weight: bold; text-transform: uppercase;">Inativo (Sinistro)</span></td>
+                <td style="white-space: nowrap;">
+                    <div style="display: flex; gap: 6px; flex-wrap: nowrap; justify-content: flex-start; align-items: center;">
+                        <button class="btn-primary-blue" onclick="abrirModalServicoExtra(${os.id})" title="Atualizar Previsão" style="padding: 6px 10px; font-size: 0.75rem; white-space: nowrap; border-radius: 4px;">📅 Previsão</button>
+                        <button class="btn-primary-green" onclick="abrirModalConclusaoOS(${os.id})" style="padding: 6px 10px; font-size: 0.75rem; white-space: nowrap; border-radius: 4px;">✅ Retorno</button>
+                        <button class="btn-secondary-dark" onclick="abrirVisualizacaoOS(${os.id})" title="Visualizar Detalhes" style="padding: 6px 8px; font-size: 0.8rem; border-radius: 4px;">👁️</button>
                     </div>
                 </td>
             </tr>
@@ -244,6 +254,8 @@ window.abrirVisualizacaoOS = async function(id) {
     document.getElementById('visOSConclusao').innerText = os.data_conclusao ? formatarDataHoraBrasil(os.data_conclusao) : 'Em Andamento';
     
     document.getElementById('visOSMotorista').innerText = os.motorista || '-';
+    // Mostra o Mecânico no modal de detalhes também
+    document.getElementById('visOSMecanico').innerText = os.mecanico_responsavel || 'Não atribuído';
     document.getElementById('visOSTipo').innerText = os.tipo || '-';
     
     let prioridadeBadge = `<span style="background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 4px; font-size: 0.85rem;">${os.prioridade || 'Normal'}</span>`;
