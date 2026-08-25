@@ -8,7 +8,7 @@ window.fecharModalFichaBorracharia = function() {
 }
 
 // ==============================================================================
-// FUN O AUXILIAR: CARREGAR A LOGO PARA O PDF
+// FUNÇÃO AUXILIAR: CARREGAR A LOGO PARA O PDF
 // ==============================================================================
 function carregarLogoBorracharia(callback) {
     const logoUrl = 'assets/logoverde.png';
@@ -22,7 +22,7 @@ function carregarLogoBorracharia(callback) {
             ctx.drawImage(img, 0, 0);
             callback(canvas.toDataURL('image/png'));
         } catch(e) {
-            console.warn("Seguran a do navegador bloqueou a imagem local. PDF sair  sem logo.");
+            console.warn("Segurança do navegador bloqueou a imagem local. PDF sairá sem logo.");
             callback(null);
         }
     };
@@ -31,7 +31,7 @@ function carregarLogoBorracharia(callback) {
 }
 
 // ==============================================================================
-// GERA O DA FICHA SIMPLES (AVULSA)
+// GERAÇÃO DA FICHA SIMPLES (AVULSA)
 // ==============================================================================
 window.gerarPDFBorracharia = function() {
     const categoria = document.getElementById('printFichaCategoria').value;
@@ -45,7 +45,7 @@ window.gerarPDFBorracharia = function() {
     });
     
     if (frotasCategoria.length === 0) {
-        alert('Nenhum ve culo encontrado para a sele o.');
+        alert('Nenhum veículo encontrado para a seleção.');
         return;
     }
 
@@ -53,7 +53,7 @@ window.gerarPDFBorracharia = function() {
 
     carregarLogoBorracharia((logoDataUrl) => {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF(); // Padr  A4 Retrato (Vertical)
+        const doc = new jsPDF(); // Padrão A4 Retrato (Vertical)
 
         const tableCols = ["Cavalo", "GO / Carretas (Marque com X)", "Data", "KM", "Lbs", "Troca", "Assinatura", "Obs."];
         const tableRows = [];
@@ -82,7 +82,7 @@ window.gerarPDFBorracharia = function() {
             ]);
         });
 
-        // Tabela Auto-ajust vel com repeti o de cabe alho em cada p gina
+        // Tabela Auto-ajustável com repetição de cabeçalho em cada página
         doc.autoTable({
             startY: 40,
             head: [tableCols],
@@ -108,11 +108,11 @@ window.gerarPDFBorracharia = function() {
                 
                 doc.setFontSize(10);
                 doc.setFont("helvetica", "normal");
-                doc.text(`Data de Impress o: ${new Date().toLocaleDateString('pt-BR')}`, 10, 25);
+                doc.text(`Data de Impressão: ${new Date().toLocaleDateString('pt-BR')}`, 10, 25);
                 doc.text(`Data do Controle a Campo: ____/____/202___`, 120, 25);
                 
                 doc.setFontSize(9);
-                doc.text(`Instru es: Marque o [ X ] na carreta atendida. Preencha a data, KM, pressão (Lbs) e trocas.`, 10, 32);
+                doc.text(`Instruções: Marque o [ X ] na carreta atendida. Preencha a data, KM, pressão (Lbs) e trocas.`, 10, 32);
 
                 if (logoDataUrl) {
                     const pageWidth = doc.internal.pageSize.getWidth();
@@ -127,18 +127,18 @@ window.gerarPDFBorracharia = function() {
 }
 
 // ==============================================================================
-// GERA O DO LIVRO MENSAL OFICIAL (CAPA COM ASSINATURAS DIN MICAS, FOLHAS DI RIAS)
+// GERAÇÃO DO LIVRO MENSAL OFICIAL (CAPA COM ASSINATURAS DINÂMICAS, FOLHAS DIÁRIAS)
 // ==============================================================================
 window.gerarLivroBorrachariaPDF = function() {
     const categoria = document.getElementById('livroCategoria').value;
     const mesAno = document.getElementById('livroMesAno').value; 
 
-    if (!categoria || !mesAno) return alert('Selecione a categoria e o m s de refer ncia.');
+    if (!categoria || !mesAno) return alert('Selecione a categoria e o mês de referência.');
 
     const [ano, mesNum] = mesAno.split('-');
-    const diasNoMes = new Date(ano, parseInt(mesNum), 0).getDate(); // Retorna o  ltimo dia do m
+    const diasNoMes = new Date(ano, parseInt(mesNum), 0).getDate(); // Retorna o último dia do mês
     
-    const mesesExtenso = ['Janeiro', 'Fevereiro', 'Mar o', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const mesesExtenso = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const nomeMes = mesesExtenso[parseInt(mesNum) - 1].toUpperCase();
 
     const frotasCategoria = (window.frotasManutencao || []).filter(f => {
@@ -149,7 +149,7 @@ window.gerarLivroBorrachariaPDF = function() {
     });
 
     if (frotasCategoria.length === 0) {
-        alert('Nenhum ve culo encontrado para a sele o no m s especificado.');
+        alert('Nenhum veículo encontrado para a seleção no mês especificado.');
         return;
     }
 
@@ -161,7 +161,7 @@ window.gerarLivroBorrachariaPDF = function() {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        // ================= P GINA 1: CAPA =================
+        // ================= PÁGINA 1: CAPA =================
         if (logoDataUrl) {
             doc.addImage(logoDataUrl, 'PNG', pageWidth - 55, 15, 40, 13);
         }
@@ -174,11 +174,11 @@ window.gerarLivroBorrachariaPDF = function() {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(30);
         doc.text("LIVRO DE CONTROLE", pageWidth / 2, 100, { align: "center" });
-        doc.text("DI RIO DE BORRACHARIA", pageWidth / 2, 115, { align: "center" });
+        doc.text("DIÁRIO DE BORRACHARIA", pageWidth / 2, 115, { align: "center" });
 
         doc.setFontSize(16);
         doc.setFont("helvetica", "normal");
-        doc.text(`M S REFER NCIA: ${nomeMes} / ${ano}`, pageWidth / 2, 140, { align: "center" });
+        doc.text(`MÊS REFERÊNCIA: ${nomeMes} / ${ano}`, pageWidth / 2, 140, { align: "center" });
         doc.text(`CATEGORIA: ${categoria === 'TODAS' ? 'FROTA GERAL' : categoria}`, pageWidth / 2, 150, { align: "center" });
 
         const borracheiros = window.borracheirosList || [];
@@ -198,10 +198,10 @@ window.gerarLivroBorrachariaPDF = function() {
         } else {
             doc.line(50, 240, pageWidth - 50, 240);
             doc.setFontSize(12);
-            doc.text("Assinatura do Borracheiro / Respons vel T tico", pageWidth / 2, 248, { align: "center" });
+            doc.text("Assinatura do Borracheiro / Responsável Tático", pageWidth / 2, 248, { align: "center" });
         }
 
-        // ================= P GINAS INTERNAS: UM DIA POR VEZ =================
+        // ================= PÁGINAS INTERNAS: UM DIA POR VEZ =================
         const tableCols = ["Cavalo", "GO / Carretas (Marque com X)", "KM Atual", "Lbs", "Troca (Posição)", "Assinatura", "Obs."];
         const tableRows = [];
 
@@ -249,11 +249,11 @@ window.gerarLivroBorrachariaPDF = function() {
                 didDrawPage: function(data) {
                     doc.setFontSize(14);
                     doc.setFont("helvetica", "bold");
-                    doc.text(`CONTROLE DI RIO - ${categoria === 'TODAS' ? 'GERAL' : categoria}`, 10, 15);
+                    doc.text(`CONTROLE DIÁRIO - ${categoria === 'TODAS' ? 'GERAL' : categoria}`, 10, 15);
                     
                     doc.setFontSize(11);
                     doc.setFont("helvetica", "normal");
-                    doc.text(`Data da Medi o: ${dataFormatada}`, 10, 23);
+                    doc.text(`Data da Medição: ${dataFormatada}`, 10, 23);
                     doc.text(`Visto do Supervisor: _______________________`, 95, 23);
 
                     if (logoDataUrl) {
@@ -263,7 +263,7 @@ window.gerarLivroBorrachariaPDF = function() {
             });
         }
 
-        // =================  LTIMA P GINA: CONTRA-CAPA =================
+        // ================= ÚLTIMA PÁGINA: CONTRA-CAPA =================
         doc.addPage();
         
         doc.setLineWidth(1.5);
@@ -277,18 +277,18 @@ window.gerarLivroBorrachariaPDF = function() {
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(26);
-        doc.text("FECHAMENTO DO M S", pageWidth / 2, 110, { align: "center" });
+        doc.text("FECHAMENTO DO MÊS", pageWidth / 2, 110, { align: "center" });
 
         doc.setFontSize(16);
         doc.setFont("helvetica", "normal");
-        doc.text(`Refer ncia: ${nomeMes} / ${ano}`, pageWidth / 2, 130, { align: "center" });
+        doc.text(`Referência: ${nomeMes} / ${ano}`, pageWidth / 2, 130, { align: "center" });
         
-        doc.text("Atesto que as informa es registradas nestas folhas", pageWidth / 2, 145, { align: "center" });
+        doc.text("Atesto que as informações registradas nestas folhas", pageWidth / 2, 145, { align: "center" });
         doc.text("foram conferidas e transferidas para o sistema digital.", pageWidth / 2, 153, { align: "center" });
 
         doc.line(50, 230, pageWidth - 50, 230);
         doc.setFontSize(12);
-        doc.text("Assinatura do Gestor de Manuten o / CCOL", pageWidth / 2, 238, { align: "center" });
+        doc.text("Assinatura do Gestor de Manutenção / CCOL", pageWidth / 2, 238, { align: "center" });
 
         doc.save(`Livro_Mensal_Borracharia_${categoria}_${nomeMes}_${ano}.pdf`);
         
