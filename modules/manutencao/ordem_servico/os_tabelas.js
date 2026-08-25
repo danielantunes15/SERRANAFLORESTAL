@@ -34,13 +34,15 @@ function renderizarTabelaOS() {
 
         const linhaStyle = isVencida ? 'background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444;' : '';
         
+        let iconeAtraso = isVencida ? `<span title="⚠️ SERVIÇO EM ATRASO!&#10;A previsão era para ${previsaoStr} e já foi ultrapassada." style="cursor: help; margin-left: 5px; font-size: 1.1rem;">⚠️</span>` : '';
+        
         const numeroExibicao = os.numero_os || os.id;
 
         return `
             <tr style="${linhaStyle}">
                 <td><strong>#${numeroExibicao}</strong></td>
                 <td>${modoIcon} ${inicioStr}</td>
-                <td>${previsaoStr} ${isVencida ? '⚠️' : ''}</td>
+                <td><div style="display: flex; align-items: center;">${previsaoStr} ${iconeAtraso}</div></td>
                 <td style="color: var(--ccol-blue-bright); font-weight: bold;">${os.placa || '-'}</td>
                 <td>${os.motorista || '-'}</td>
                 <td>${os.tipo}</td>
@@ -184,12 +186,20 @@ function renderizarTabelaSinistro() {
         const previsaoStr = os.previsao_entrega ? formatarDataHoraBrasil(os.previsao_entrega) : 'Indeterminada';
         
         const numeroExibicao = os.numero_os || os.id;
+        
+        let isVencida = false;
+        if (os.previsao_entrega) {
+            const previsao = new Date(os.previsao_entrega.replace('Z', '').replace('+00:00', ''));
+            if (new Date() > previsao) isVencida = true;
+        }
+        
+        let iconeAtraso = isVencida ? `<span title="⚠️ PREVISÃO ATRASADA!&#10;A data esperada de retorno era ${previsaoStr} e já passou." style="cursor: help; margin-left: 5px; font-size: 1.1rem;">⚠️</span>` : '';
 
         return `
             <tr style="background: rgba(239, 68, 68, 0.05); border-left: 4px solid #ef4444;">
                 <td><strong>#${numeroExibicao}</strong></td>
                 <td>💥 ${inicioStr}</td>
-                <td>${previsaoStr}</td>
+                <td><div style="display: flex; align-items: center;">${previsaoStr} ${iconeAtraso}</div></td>
                 <td style="color: #ef4444; font-weight: bold; font-size: 1.1rem;">${os.placa || '-'}</td>
                 <td>${os.motorista || '-'}</td>
                 <td style="font-size: 0.85rem; color: #fca5a5;">${os.problema || 'Sinistro Reportado'}</td>
