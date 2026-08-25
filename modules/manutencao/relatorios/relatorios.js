@@ -3,12 +3,19 @@
 let relManutCharts = {};
 
 window.renderizarTelaRelatoriosManutencao = async function() {
-    const dataFim = new Date();
-    const dataInicio = new Date();
-    dataInicio.setDate(dataInicio.getDate() - 30);
+    const dataAtual = new Date();
+    const dataInicio = new Date(dataAtual.getFullYear(), dataAtual.getMonth(), 1);
+    const dataFim = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1, 0);
     
-    document.getElementById('relManutDataInicio').value = dataInicio.toISOString().split('T')[0];
-    document.getElementById('relManutDataFim').value = dataFim.toISOString().split('T')[0];
+    const formatData = (d) => {
+        const ano = d.getFullYear();
+        const mes = String(d.getMonth() + 1).padStart(2, '0');
+        const dia = String(d.getDate()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}`;
+    };
+    
+    document.getElementById('relManutDataInicio').value = formatData(dataInicio);
+    document.getElementById('relManutDataFim').value = formatData(dataFim);
 
     window.addEventListener('resize', resizeChartsManutencao);
     
@@ -41,6 +48,8 @@ window.carregarDadosRelatorioManutencao = async function() {
 
         if (errOS) throw errOS;
 
+        document.getElementById('kpiTotalOS').innerText = ordens ? ordens.length : '0';
+
         if (!ordens || ordens.length === 0) {
             limparDashboardManutencao();
             return; 
@@ -70,14 +79,16 @@ window.carregarDadosRelatorioManutencao = async function() {
         let aggTopPecas = {};
         let aggMecanicoServicos = {};
 
+        // Variáveis para somar tudo do período no visual do Tritrem
+        let totalCavaloMes = 0, totalComp1Mes = 0, totalComp2Mes = 0, totalComp3Mes = 0;
+
         (pecasUsadas || []).forEach(p => {
-            // TRAVA DE SEGURANÇA: Só contabiliza peças que realmente saíram do Almoxarifado (Aprovado)
             if (p.status !== 'Aprovado') return;
 
             let osRel = ordens.find(o => o.id === p.os_id);
             let catRel = (catalogo || []).find(c => String(c.id) === String(p.peca_id));
             
-            let placa = osRel && osRel.placa ? osRel.placa : 'Desconhecida';
+            let placa = osRel && osRel.placa ? osRel.placa : 'S/ Placa (Não Ident.)';
             let mecanico = p.mecanico || (osRel ? osRel.mecanico_responsavel : 'Não Informado') || 'Não Informado';
             let comp = p.compartimento || 'Geral';
             
@@ -98,6 +109,18 @@ window.carregarDadosRelatorioManutencao = async function() {
             if(!aggTopPecas[nomeFinal]) aggTopPecas[nomeFinal] = { qtd: 0, custo: 0 };
             aggTopPecas[nomeFinal].qtd += parseFloat(p.quantidade || 0);
             aggTopPecas[nomeFinal].custo += custoLinha;
+
+            // Lógica para acumular no visual do Tritrem durante todo o período
+            let compLower = (comp || '').toLowerCase();
+            if (compLower.includes('1') || compLower.includes('comp 1') || compLower.includes('comp1')) {
+                totalComp1Mes += custoLinha;
+            } else if (compLower.includes('2') || compLower.includes('comp 2') || compLower.includes('comp2')) {
+                totalComp2Mes += custoLinha;
+            } else if (compLower.includes('3') || compLower.includes('comp 3') || compLower.includes('comp3')) {
+                totalComp3Mes += custoLinha;
+            } else {
+                totalCavaloMes += custoLinha;
+            }
         });
 
         (servicosExec || []).forEach(s => {
@@ -105,18 +128,21 @@ window.carregarDadosRelatorioManutencao = async function() {
             aggMecanicoServicos[mecanico] = (aggMecanicoServicos[mecanico] || 0) + 1;
         });
 
-        // Atualizar KPIs
-        document.getElementById('kpiTotalOS').innerText = ordens.length;
+        // Atualizar KPIs globais
         document.getElementById('kpiTotalPecas').innerText = totalPecasGlobal.toFixed(0);
         document.getElementById('kpiCustoTotal').innerText = totalCustoGlobal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         document.getElementById('kpiTotalServicos').innerText = (servicosExec || []).length;
+
+        // Atualizar painel do Tritrem com os dados do período todo
+        atualizarPainelTritrem(totalCavaloMes, totalComp1Mes, totalComp2Mes, totalComp3Mes, totalCustoGlobal);
+        document.getElementById('lbl-total-tritrem').innerText = "Custo Total do Período:";
 
         // ECharts Rendering
         renderChartBarras(
             'chartCustoFrota', 
             aggFrota, 
             'Custo R$', 
-            ['#34d399', '#059669'], // Gradiente Verde
+            ['#34d399', '#059669'], 
             val => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
         );
 
@@ -126,14 +152,14 @@ window.carregarDadosRelatorioManutencao = async function() {
             'chartPecasMecanico', 
             aggMecanicoPecas, 
             'Qtd Peças', 
-            ['#fbbf24', '#d97706'] // Gradiente Laranja
+            ['#fbbf24', '#d97706'] 
         );
         
         renderChartBarras(
             'chartServicosMecanico', 
             aggMecanicoServicos, 
             'Serviços', 
-            ['#c084fc', '#9333ea'] // Gradiente Roxo
+            ['#c084fc', '#9333ea'] 
         );
 
         // Tabela Top Peças
@@ -164,7 +190,78 @@ window.carregarDadosRelatorioManutencao = async function() {
     }
 };
 
-// Funções Auxiliares Premium ECharts
+// ==================== Lógica Visual Tritrem ====================
+window.buscarDadosTritrem = async function() {
+    const osIdStr = document.getElementById('filtroOSTritrem').value.trim();
+    if(!osIdStr) {
+        alert('Por favor, digite o número/ID da O.S. (Ou clique em "Limpar O.S" para voltar ao período)');
+        return;
+    }
+    
+    try {
+        const osId = isNaN(osIdStr) ? osIdStr : parseInt(osIdStr);
+
+        let { data: pecas, error } = await window.supabaseClient
+            .from('os_pecas_utilizadas')
+            .select('valor_unitario, quantidade, compartimento, status, peca_id')
+            .eq('os_id', osId)
+            .eq('status', 'Aprovado');
+
+        if (error) throw error;
+        
+        if(!pecas || pecas.length === 0) {
+            alert('Nenhuma peça aprovada (com saída de almoxarifado) encontrada para a O.S ' + osId + '.');
+            atualizarPainelTritrem(0, 0, 0, 0, 0);
+            document.getElementById('lbl-total-tritrem').innerText = `Custo Total da O.S ${osId}:`;
+            return;
+        }
+
+        let { data: catalogo } = await window.supabaseClient.from('almoxarifado_pecas').select('id, preco_medio');
+
+        let custoCavalo = 0, custoComp1 = 0, custoComp2 = 0, custoComp3 = 0;
+
+        pecas.forEach(p => {
+            let catRel = (catalogo || []).find(c => String(c.id) === String(p.peca_id));
+            let custoUnitario = parseFloat(p.valor_unitario) || (catRel ? parseFloat(catRel.preco_medio || 0) : 0);
+            let custoTotalLinha = custoUnitario * parseFloat(p.quantidade || 0);
+
+            let comp = (p.compartimento || '').toLowerCase();
+            
+            if (comp.includes('1') || comp.includes('comp 1') || comp.includes('comp1')) {
+                custoComp1 += custoTotalLinha;
+            } else if (comp.includes('2') || comp.includes('comp 2') || comp.includes('comp2')) {
+                custoComp2 += custoTotalLinha;
+            } else if (comp.includes('3') || comp.includes('comp 3') || comp.includes('comp3')) {
+                custoComp3 += custoTotalLinha;
+            } else {
+                custoCavalo += custoTotalLinha;
+            }
+        });
+
+        let total = custoCavalo + custoComp1 + custoComp2 + custoComp3;
+        atualizarPainelTritrem(custoCavalo, custoComp1, custoComp2, custoComp3, total);
+        document.getElementById('lbl-total-tritrem').innerText = `Custo Total da O.S ${osId}:`;
+
+    } catch (e) {
+        console.error('Erro ao buscar dados do tritrem:', e);
+        alert('Erro ao buscar a O.S. Verifique se o ID está correto.');
+    }
+};
+
+window.limparBuscaOSTritrem = function() {
+    document.getElementById('filtroOSTritrem').value = '';
+    window.carregarDadosRelatorioManutencao(); 
+};
+
+function atualizarPainelTritrem(cavalo, comp1, comp2, comp3, total) {
+    const format = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    document.getElementById('ui-cavalo').innerText = format(cavalo);
+    document.getElementById('ui-comp1').innerText = format(comp1);
+    document.getElementById('ui-comp2').innerText = format(comp2);
+    document.getElementById('ui-comp3').innerText = format(comp3);
+    document.getElementById('total-os-tritrem').innerText = format(total);
+}
+
 function renderChartBarras(elementId, dicionarioDados, nomeSerie, coresGradiente, formatador = null) {
     let el = document.getElementById(elementId);
     if (!el) return;
@@ -238,7 +335,6 @@ function renderChartDonut(elementId, dicionarioDados, nomeSerie) {
 
     let arrayDados = Object.keys(dicionarioDados).map(k => ({ name: k, value: dicionarioDados[k] }));
     
-    // Cores modernas para a rosca
     const colorPalette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
 
     let option = {
@@ -295,6 +391,9 @@ function limparDashboardManutencao() {
     document.getElementById('kpiTotalServicos').innerText = '0';
     
     document.getElementById('tabelaTopPecas').innerHTML = '<p style="padding: 15px; text-align: center; color: #64748b;">Nenhum dado encontrado para as datas.</p>';
+
+    atualizarPainelTritrem(0,0,0,0,0);
+    document.getElementById('lbl-total-tritrem').innerText = "Custo Total do Período:";
 
     Object.values(relManutCharts).forEach(chart => {
         if(chart) chart.clear();

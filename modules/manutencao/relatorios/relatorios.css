@@ -59,7 +59,7 @@
     border-radius: 8px;
     font-family: inherit;
     outline: none;
-    color-scheme: dark; /* Força o calendário a ficar escuro */
+    color-scheme: dark;
     transition: all 0.2s;
 }
 
@@ -191,6 +191,225 @@
 .manut-rel-row .peca-qtd { flex: 1; text-align: center; color: #fbbf24; font-weight: 800; font-size: 1.1rem; }
 .manut-rel-row .peca-custo { flex: 1; text-align: right; color: #34d399; font-weight: 800; font-size: 1.1rem; }
 
+/* ================= Tritrem Visualization (VETOR SUPER REALISTA) ================= */
+.painel-tritrem-container {
+    background: #1e293b;
+    border: 1px solid #334155;
+    padding: 25px;
+    border-radius: 12px;
+    margin-top: 30px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
+    color: #f8fafc;
+}
+.painel-tritrem-container h3 {
+    color: #818cf8;
+    margin-top: 0;
+    margin-bottom: 20px;
+    text-align: center;
+}
+.filtro-os {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+}
+.filtro-os input {
+    background: #0f172a;
+    border: 1px solid #475569;
+    color: #f8fafc;
+    padding: 12px 15px;
+    border-radius: 8px;
+    outline: none;
+    font-size: 1rem;
+    min-width: 250px;
+}
+.filtro-os button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1rem;
+    transition: 0.2s;
+}
+.filtro-os button:hover {
+    background: #2563eb;
+}
+.totais-os {
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 1.4rem;
+    color: #34d399;
+    font-weight: 900;
+}
+
+/* Base da Pista / Fundo */
+.ilustracao-tritrem {
+    display: flex;
+    align-items: flex-end; /* Alinha o chassi por baixo */
+    justify-content: center;
+    gap: 8px;
+    padding: 60px 20px 40px 20px; /* Espaço em baixo para as rodas */
+    background: #0f172a; 
+    border-radius: 12px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+    border-bottom: 8px solid #334155; /* Simula o asfalto/estrada */
+    overflow-x: auto;
+}
+
+/* ================= CAVALO MECÂNICO (TRATOR) ================= */
+.vetor-cavalo {
+    display: flex;
+    align-items: flex-end;
+    position: relative;
+}
+.cabine-trator {
+    width: 85px;
+    height: 110px;
+    background: linear-gradient(to bottom, #f1f5f9, #cbd5e1); /* Prata */
+    border-radius: 20px 8px 0 0; /* Frente arredondada (esquerda) */
+    position: relative;
+    border: 2px solid #64748b;
+    border-bottom: none;
+    z-index: 5;
+}
+.cabine-vidro {
+    position: absolute;
+    top: 15px; left: 10px; right: 25px; height: 35px;
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+    border-radius: 12px 0 0 0;
+    border: 2px solid #0f172a;
+}
+.cabine-grade {
+    position: absolute;
+    bottom: 20px; left: -2px; width: 18px; height: 40px;
+    background: repeating-linear-gradient(to bottom, #1e293b, #1e293b 4px, #334155 4px, #334155 8px);
+    border-radius: 4px 0 0 4px;
+}
+.chassi-trator {
+    width: 140px;
+    height: 16px;
+    background: #1e293b;
+    position: relative;
+    border-top: 2px solid #475569;
+    margin-left: -10px; /* Conecta o chassi atrás da cabine */
+    z-index: 4;
+}
+
+/* ================= CARRETAS FLORESTAIS ================= */
+.vetor-carreta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+.carga-madeira {
+    width: 180px;
+    height: 110px;
+    /* Textura de toras deitadas */
+    background: repeating-linear-gradient(to top, #78350f, #78350f 12px, #92400e 12px, #92400e 24px);
+    border-radius: 6px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 4px 10px rgba(0,0,0,0.4);
+}
+.fueiros {
+    position: absolute;
+    top: -15px; bottom: 0; left: 0; right: 0;
+    /* Barras de aço verticais segurando a madeira */
+    background: repeating-linear-gradient(90deg, transparent, transparent 40px, #475569 40px, #475569 46px);
+    pointer-events: none;
+    z-index: 2;
+}
+.chassi-carreta {
+    width: 100%;
+    height: 16px;
+    background: #1e293b;
+    position: relative;
+    border-top: 2px solid #475569;
+}
+
+/* ================= RODAS ================= */
+.roda {
+    width: 36px;
+    height: 36px;
+    background: #111;
+    border-radius: 50%;
+    border: 4px solid #333; /* Pneu grosso */
+    position: absolute;
+    bottom: -20px; /* Fica metade pra baixo do chassi */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 5px #000, 0 4px 6px rgba(0,0,0,0.6);
+    z-index: 10;
+}
+.calota {
+    width: 16px;
+    height: 16px;
+    background: radial-gradient(circle, #cbd5e1 30%, #64748b 100%); /* Centro prata */
+    border-radius: 50%;
+    border: 2px dashed #1e293b; /* Parafusos */
+}
+/* Posições das rodas */
+.cabine-trator .roda-frente { left: 15px; bottom: -20px;}
+.chassi-trator .roda-tracao1 { right: 55px; }
+.chassi-trator .roda-tracao2 { right: 10px; }
+.chassi-carreta .roda-carreta1 { right: 55px; }
+.chassi-carreta .roda-carreta2 { right: 10px; }
+
+/* ================= ENGATES ================= */
+.vetor-engate {
+    width: 35px;
+    height: 8px;
+    background: #64748b;
+    margin-bottom: 4px; /* Alinha com a altura do chassi */
+    position: relative;
+    z-index: 1;
+    border-radius: 4px;
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,0.5);
+}
+
+/* ================= PAINÉIS DE CUSTO (UI FLUTUANTE) ================= */
+.painel-custo {
+    background: rgba(15, 23, 42, 0.95);
+    border: 2px solid #3b82f6;
+    border-radius: 8px;
+    padding: 10px 15px;
+    text-align: center;
+    z-index: 15;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+}
+/* O painel do Cavalo fica em cima da quinta roda (chassi traseiro) */
+.chassi-trator .painel-custo {
+    position: absolute;
+    bottom: 35px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 130px;
+}
+.painel-custo h4 {
+    margin: 0 0 5px 0;
+    color: #cbd5e1;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.painel-custo p {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: #34d399;
+}
+
+@media(max-width: 1024px) {
+    .ilustracao-tritrem { justify-content: flex-start; }
+}
 @media(max-width: 768px) {
     .manut-charts-grid { grid-template-columns: 1fr; }
     .manut-filters-bar { flex-direction: column; align-items: stretch; }

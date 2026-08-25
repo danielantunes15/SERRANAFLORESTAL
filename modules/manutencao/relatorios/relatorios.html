@@ -98,4 +98,93 @@
         </div>
     </div>
 
+    <!-- Painel Visual do Tritrem (Design Vetorizado Avançado) -->
+    <div class="painel-tritrem-container">
+        <h3><i class="fas fa-truck-moving"></i> Custos Detalhados por Compartimento (Visão Tritrem)</h3>
+        
+        <div class="filtro-os">
+            <input type="text" id="filtroOSTritrem" placeholder="Filtrar por Número/ID de uma O.S (Opcional)">
+            <button onclick="buscarDadosTritrem()"><i class="fas fa-search"></i> Buscar O.S</button>
+            <button onclick="limparBuscaOSTritrem()" style="background: #475569;"><i class="fas fa-times"></i> Limpar O.S</button>
+        </div>
+
+        <div class="totais-os">
+            <span id="lbl-total-tritrem">Custo Total do Período:</span> <span id="total-os-tritrem">R$ 0,00</span>
+        </div>
+
+        <div class="ilustracao-tritrem">
+            
+            <!-- Cavalo Mecânico (Apenas Trator + Painel de Custo) -->
+            <div class="vetor-cavalo">
+                <div class="cabine-trator">
+                    <div class="cabine-vidro"></div>
+                    <div class="cabine-grade"></div>
+                    <div class="roda roda-frente"><div class="calota"></div></div>
+                </div>
+                <div class="chassi-trator">
+                    <div class="roda roda-tracao1"><div class="calota"></div></div>
+                    <div class="roda roda-tracao2"><div class="calota"></div></div>
+                    <!-- Painel de Custo Flutuando sobre o Cavalo -->
+                    <div class="painel-custo">
+                        <h4>Cavalo</h4>
+                        <p id="ui-cavalo">R$ 0,00</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vetor-engate"></div>
+
+            <!-- 1º Compartimento (Com Madeira) -->
+            <div class="vetor-carreta">
+                <div class="carga-madeira">
+                    <div class="fueiros"></div>
+                    <!-- Painel de Custo centralizado na Madeira -->
+                    <div class="painel-custo">
+                        <h4>1º Comp</h4>
+                        <p id="ui-comp1">R$ 0,00</p>
+                    </div>
+                </div>
+                <div class="chassi-carreta">
+                    <div class="roda roda-carreta1"><div class="calota"></div></div>
+                    <div class="roda roda-carreta2"><div class="calota"></div></div>
+                </div>
+            </div>
+
+            <div class="vetor-engate"></div>
+
+            <!-- 2º Compartimento (Com Madeira) -->
+            <div class="vetor-carreta">
+                <div class="carga-madeira">
+                    <div class="fueiros"></div>
+                    <div class="painel-custo">
+                        <h4>2º Comp</h4>
+                        <p id="ui-comp2">R$ 0,00</p>
+                    </div>
+                </div>
+                <div class="chassi-carreta">
+                    <div class="roda roda-carreta1"><div class="calota"></div></div>
+                    <div class="roda roda-carreta2"><div class="calota"></div></div>
+                </div>
+            </div>
+
+            <div class="vetor-engate"></div>
+
+            <!-- 3º Compartimento (Com Madeira) -->
+            <div class="vetor-carreta">
+                <div class="carga-madeira">
+                    <div class="fueiros"></div>
+                    <div class="painel-custo">
+                        <h4>3º Comp</h4>
+                        <p id="ui-comp3">R$ 0,00</p>
+                    </div>
+                </div>
+                <div class="chassi-carreta">
+                    <div class="roda roda-carreta1"><div class="calota"></div></div>
+                    <div class="roda roda-carreta2"><div class="calota"></div></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
 </div>
