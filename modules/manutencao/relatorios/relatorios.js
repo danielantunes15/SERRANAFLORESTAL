@@ -48,19 +48,23 @@ window.carregarDadosRelatorioManutencao = async function() {
 
     try {
         let queryOS = window.supabaseClient.from('ordens_servico')
-            .select('id, placa, mecanico_responsavel, data_abertura')
+            .select('id, placa, go, mecanico_responsavel, data_abertura')
             .gte('data_abertura', dataInicioStr + 'T00:00:00')
-            .lte('data_abertura', dataFimStr + 'T23:59:59');
+            .lte('data_abertura', dataFimStr + 'T23:59:59')
+            .eq('inativa', 0);
             
         if (typeof window.aplicarFiltroFilial === 'function') queryOS = window.aplicarFiltroFilial(queryOS);
-        const { data: ordens, error: errOS } = await queryOS;
+        const { data: ordensRaw, error: errOS } = await queryOS;
 
         if (errOS) throw errOS;
 
-        const kpiTotalOS = document.getElementById('kpiTotalOS');
-        if (kpiTotalOS) kpiTotalOS.innerText = ordens ? ordens.length : '0';
+        // Remove as O.S que não possuem mecânico responsável (apenas na fila/aguardando)
+        const ordens = (ordensRaw || []).filter(o => o.mecanico_responsavel && o.mecanico_responsavel.trim() !== '');
 
-        if (!ordens || ordens.length === 0) {
+        const kpiTotalOS = document.getElementById('kpiTotalOS');
+        if (kpiTotalOS) kpiTotalOS.innerText = ordens.length.toString();
+
+        if (ordens.length === 0) {
             limparDashboardManutencao();
             return; 
         }
@@ -92,13 +96,41 @@ window.carregarDadosRelatorioManutencao = async function() {
         // Variáveis para somar tudo do período no visual do Tritrem
         let totalCavaloMes = 0, totalComp1Mes = 0, totalComp2Mes = 0, totalComp3Mes = 0;
 
+        // 1. Contabiliza as Frotas Assumidas primeiro (Garante que todo mecânico apareça)
+        ordens.forEach(o => {
+            let mecanico = o.mecanico_responsavel;
+            if (mecanico && mecanico.trim() !== '') {
+                // +1 ponto por ter assumido a O.S (Frota)
+                aggMecanicoServicos[mecanico] = (aggMecanicoServicos[mecanico] || 0) + 1;
+            }
+        });
+
+        // 2. Contabiliza Serviços Executados detalhados
+        (servicosExec || []).forEach(s => {
+            // Convertendo IDs para String para garantir o cruzamento perfeito
+            let osRel = ordens.find(o => String(o.id) === String(s.os_id));
+            let mecanico = s.mecanico || (osRel ? osRel.mecanico_responsavel : null);
+            
+            if (mecanico && mecanico.trim() !== '') {
+                // +1 ponto para cada serviço extra detalhado
+                aggMecanicoServicos[mecanico] = (aggMecanicoServicos[mecanico] || 0) + 1;
+            }
+        });
+
+        // 3. Contabiliza as Peças Requisitadas
         (pecasUsadas || []).forEach(p => {
             if (p.status !== 'Aprovado') return;
 
-            let osRel = ordens.find(o => o.id === p.os_id);
+            // Cruzamento blindado forçando tipo de dado String
+            let osRel = ordens.find(o => String(o.id) === String(p.os_id));
             let catRel = (catalogo || []).find(c => String(c.id) === String(p.peca_id));
             
-            let placa = osRel && osRel.placa ? osRel.placa : 'S/ Placa (Não Ident.)';
+            // Lógica rigorosa para buscar a Placa do Cavalo
+            let placaCavalo = 'S/ PLACA (NÃO IDENT.)';
+            if (osRel && osRel.placa && osRel.placa.trim() !== '' && osRel.placa.trim() !== '-') {
+                placaCavalo = osRel.placa.toUpperCase().trim();
+            }
+
             let mecanico = p.mecanico || (osRel ? osRel.mecanico_responsavel : 'Não Informado') || 'Não Informado';
             let comp = p.compartimento || 'Geral';
             
@@ -108,7 +140,9 @@ window.carregarDadosRelatorioManutencao = async function() {
             totalCustoGlobal += custoLinha;
             totalPecasGlobal += parseFloat(p.quantidade || 0);
 
-            aggFrota[placa] = (aggFrota[placa] || 0) + custoLinha;
+            // Soma o custo obrigatoriamente na Placa do Cavalo
+            aggFrota[placaCavalo] = (aggFrota[placaCavalo] || 0) + custoLinha;
+            
             aggCompartimento[comp] = (aggCompartimento[comp] || 0) + parseFloat(p.quantidade || 0);
             aggMecanicoPecas[mecanico] = (aggMecanicoPecas[mecanico] || 0) + parseFloat(p.quantidade || 0);
 
@@ -131,11 +165,6 @@ window.carregarDadosRelatorioManutencao = async function() {
             } else {
                 totalCavaloMes += custoLinha;
             }
-        });
-
-        (servicosExec || []).forEach(s => {
-            let mecanico = s.mecanico || 'Não Informado';
-            aggMecanicoServicos[mecanico] = (aggMecanicoServicos[mecanico] || 0) + 1;
         });
 
         // Atualizar KPIs globais com proteção
@@ -175,7 +204,7 @@ window.carregarDadosRelatorioManutencao = async function() {
         renderChartBarras(
             'chartServicosMecanico', 
             aggMecanicoServicos, 
-            'Serviços', 
+            'O.S / Serviços', 
             ['#c084fc', '#9333ea'] 
         );
 
@@ -205,7 +234,6 @@ window.carregarDadosRelatorioManutencao = async function() {
 
     } catch (e) {
         console.error("Erro ao gerar relatórios:", e);
-        // Só alerta se a tela estiver ativamente aberta
         if(document.getElementById('relManutDataInicio')) {
             alert("Ocorreu um erro ao buscar os dados do relatório.");
         }
