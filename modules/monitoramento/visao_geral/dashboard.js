@@ -10,13 +10,14 @@ let fullHistoricoData = [];
 let metasGlobaisObj = null; 
 let configGruasObj = []; 
 
-let activeQuickFilter = 'ALL';
+// Força inicialização automática no Dia Anterior (D-1)
+let activeQuickFilter = 'D-1'; 
 let chartCiclo = null, chartTransp = null;
 let osParaMeta = [];
 let frotasParaMeta = [];
 
 let filterTransportadora, filterData, filterMes, filterDataInicio, filterDataFim, btnQFs;
-let chkKeysCache = null; // Cache para impedir travamento nas filtragens
+let chkKeysCache = null; 
 
 function corrigirDataSupabaseLocal(dateStr) {
     if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return null;
@@ -42,6 +43,10 @@ window.carregarDadosDashboardAnalitico = async function() {
     btnQFs = document.querySelectorAll('.btn-qf');
 
     setupDashboardFilters();
+    
+    // Ativa botão D-1 visualmente logo ao carregar a página
+    setQuickFilterUI('D-1'); 
+    
     await loadDashboardDataInit();
 
     const btnExportarComparativo = document.getElementById('btnExportarComparativo');
@@ -273,20 +278,44 @@ const centerTextPlugin = {
 
 async function loadDashboardDataInit() {
     try {
-        const osResp = await window.supabaseClient
-            .from('ordens_servico')
-            .select('*')
-            .neq('status', 'Agendada')
-            .order('data_abertura', { ascending: false })
-            .limit(5000);
-        if (osResp.data) osParaMeta = osResp.data;
-
-        let frotasResp = await window.supabaseClient.from('frotas_manutencao').select('*').limit(2000);
-        if (!frotasResp.data || frotasResp.data.length === 0) {
-            frotasResp = await window.supabaseClient.from('cadastro_frota').select('*').limit(2000);
+        // Tenta puxar a variável global primeiro (idêntico ao grafico_evolucao_dm.js)
+        if (window.ordensServico && window.ordensServico.length > 0) {
+            osParaMeta = window.ordensServico;
+        } else {
+            let allOS = [];
+            let fromOS = 0;
+            const stepOS = 1000;
+            let fetchMoreOS = true;
+            while (fetchMoreOS) {
+                const osResp = await window.supabaseClient
+                    .from('ordens_servico')
+                    .select('*')
+                    .neq('status', 'Agendada')
+                    .order('data_abertura', { ascending: false })
+                    .range(fromOS, fromOS + stepOS - 1);
+                    
+                if (osResp.error) {
+                    fetchMoreOS = false;
+                } else if (osResp.data && osResp.data.length > 0) {
+                    allOS = allOS.concat(osResp.data);
+                    fromOS += osResp.data.length;
+                    if (osResp.data.length < stepOS) fetchMoreOS = false;
+                } else {
+                    fetchMoreOS = false;
+                }
+            }
+            osParaMeta = allOS;
         }
-        
-        if (frotasResp.data) frotasParaMeta = frotasResp.data;
+
+        if (window.frotasManutencao && window.frotasManutencao.length > 0) {
+            frotasParaMeta = window.frotasManutencao;
+        } else {
+            let frotasResp = await window.supabaseClient.from('frotas_manutencao').select('*').limit(5000);
+            if (!frotasResp.data || frotasResp.data.length === 0) {
+                frotasResp = await window.supabaseClient.from('cadastro_frota').select('*').limit(5000);
+            }
+            if (frotasResp.data) frotasParaMeta = frotasResp.data;
+        }
     } catch (e) { console.error("Erro ao puxar dados da manutenção:", e); }
 
     try {
@@ -312,12 +341,9 @@ async function loadDashboardDataInit() {
         console.error("Erro ao puxar gruas cadastradas:", e);
     }
 
-    // =========================================================
-    // LOOP INTELIGENTE - PUXA TODAS AS 14.000+ VIAGENS SEM PARAR
-    // =========================================================
     let allData = [];
     let from = 0;
-    const step = 1000; // Limite padrão seguro do Supabase
+    const step = 1000;
     let fetchMore = true;
 
     const statusLabel = document.getElementById('dbStatusLabel');
@@ -346,13 +372,12 @@ async function loadDashboardDataInit() {
 
         if (data && data.length > 0) {
             allData = allData.concat(data);
-            from += data.length; // Avança baseado exatamente na quantidade de respostas do banco
+            from += data.length; 
 
             if (statusLabel) {
                 statusLabel.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Baixando: ${allData.length} viagens`;
             }
 
-            // Se o banco devolveu menos itens do que pedimos, significa que chegou no fim da tabela
             if (data.length < step) {
                 fetchMore = false;
             }
@@ -392,13 +417,9 @@ function calcStats(dataArr) {
     return { volTotal: vol, medVol, medCiclo, prod, medFilaCpo, medCarreg, medFilaFab, medAsfalto, medTerra };
 }
 
-// =========================================================
-// OTIMIZAÇÃO ANTI-TRAVAMENTO
-// =========================================================
 function checkLoaderDynamic(d, loaderArray) {
     if (!loaderArray || loaderArray.length === 0) return false;
     
-    // Calcula o Cache das chaves para não varrer o objeto 14.000 vezes e travar a tela
     if (chkKeysCache === null) {
         chkKeysCache = [];
         for (let key in d) {
@@ -408,7 +429,7 @@ function checkLoaderDynamic(d, loaderArray) {
             }
         }
         if (chkKeysCache.length === 0) {
-            chkKeysCache = ['grua', 'equipamento_carregamento', 'frente', 'loader']; // Fallback seguro
+            chkKeysCache = ['grua', 'equipamento_carregamento', 'frente', 'loader']; 
         }
     }
 
@@ -773,11 +794,6 @@ function loadDashboardData() {
     const elIconeMeta = document.getElementById('iconeMetaViagens');
 
     if (elMetaTexto && frotasParaMeta && osParaMeta) {
-        const frotasAtivas = frotasParaMeta.filter(f => 
-            f.status === 'Ativo' && 
-            f.categoria && 
-            f.categoria.toUpperCase() === 'TRITREM'
-        );
 
         let dataInicioCalc = new Date(); dataInicioCalc.setHours(0,0,0,0);
         let dataFimCalc = new Date(); dataFimCalc.setHours(23,59,59,999);
@@ -816,68 +832,103 @@ function loadDashboardData() {
             }
         }
 
-        let fimParaCalculo = dataFimCalc > new Date() ? new Date() : dataFimCalc;
-        let msTotalPeriodo = fimParaCalculo.getTime() - dataInicioCalc.getTime();
-        if (msTotalPeriodo <= 0) msTotalPeriodo = 86400000; 
-
+        // =========================================================================
+        // REPLICA EXATA DA "DISPONIBILIDADE HORÁRIA" (HORA A HORA TETO 24H)
+        // Utiliza exatamente `o.placa === frota.cavalo` e soma os registros pontuais
+        // =========================================================================
+        let somaDisponibilidadeHoraria = 0;
+        let horasContadas = 0;
         let totalMetaCalculadaExata = 0;
-        let totalDispNoPeriodoMs = 0;
 
-        frotasAtivas.forEach(frota => {
-            let dtEntradaVeiculo = new Date('2026-04-01T00:00:00');
-            if(frota.data_inicial) dtEntradaVeiculo = new Date(frota.data_inicial + 'T00:00:00');
+        const agora = new Date();
 
-            let overlapDispInicio = dtEntradaVeiculo > dataInicioCalc ? dtEntradaVeiculo : dataInicioCalc;
-            let totalMsDisponivelVeiculo = 0;
+        for (let d = 0; d < diasConsideradosCalc; d++) {
+            let currentDay = new Date(dataInicioCalc);
+            currentDay.setDate(currentDay.getDate() + d);
             
-            if (overlapDispInicio < fimParaCalculo) {
-                totalMsDisponivelVeiculo = (fimParaCalculo.getTime() - overlapDispInicio.getTime());
-            }
+            let ehHoje = (currentDay.getDate() === agora.getDate() && 
+                          currentDay.getMonth() === agora.getMonth() && 
+                          currentDay.getFullYear() === agora.getFullYear());
+                          
+            let horaLimite = ehHoje ? agora.getHours() : 23;
 
-            if (totalMsDisponivelVeiculo > 0) {
-                let msManutVeiculo = 0;
-                let placaFrota = frota.placa || frota.cavalo;
+            for (let i = 0; i <= horaLimite; i++) {
+                const inicioHora = new Date(currentDay.getFullYear(), currentDay.getMonth(), currentDay.getDate(), i, 0, 0, 0);
+                const fimHora = new Date(currentDay.getFullYear(), currentDay.getMonth(), currentDay.getDate(), i, 59, 59, 999);
                 
-                const todasOSCavalo = osParaMeta.filter(o => {
-                    if (o.placa !== placaFrota) return false;
-                    if (o.status === 'Agendada') return false;
-                    if (o.tipo && o.tipo.toUpperCase() === 'CAVALO DISPONÍVEL S/ CARRETA') return false;
-                    return true;
-                });
+                let qtdFrotaAtivaHora = 0;
+                let qtdEmManutencao = 0;
+                let qtdEmSOS = 0;
                 
-                todasOSCavalo.forEach(os => {
-                    let osInicio = corrigirDataSupabaseLocal(os.data_abertura);
-                    if (!osInicio) return;
+                frotasParaMeta.forEach(frota => {
+                    if(frota.status !== 'Ativo' || !frota.categoria) return;
+                    const cat = frota.categoria.toUpperCase();
+                    if(cat !== 'TRITREM') return;
                     
-                    let osFim = os.data_conclusao ? corrigirDataSupabaseLocal(os.data_conclusao) : new Date();
+                    let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
+                    let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
+                    if (dtEntradaVeiculo > fimHora) return; 
                     
-                    let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
-                    const overlapInicio = inicioValido > dataInicioCalc ? inicioValido : dataInicioCalc;
-                    const overlapFim = osFim < fimParaCalculo ? osFim : fimParaCalculo;
+                    let teveManutencaoComum = false;
+                    let teveSOS = false;
+
+                    // O SEGREDO ESTAVA AQUI: A filtragem na outra tela é "o.placa === frota.cavalo"
+                    const todasOSCavalo = osParaMeta.filter(o => o.placa === frota.cavalo && o.tipo !== 'Cavalo Disponível S/ Carreta');
                     
-                    if (overlapInicio < overlapFim) {
-                        msManutVeiculo += (overlapFim.getTime() - overlapInicio.getTime());
+                    todasOSCavalo.forEach(os => {
+                        const osInicio = corrigirDataSupabaseLocal(os.data_abertura);
+                        if (!osInicio) return;
+                        
+                        let osFim = os.data_conclusao ? corrigirDataSupabaseLocal(os.data_conclusao) : agora;
+                        
+                        let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
+                        const overlapInicio = inicioValido > inicioHora ? inicioValido : inicioHora;
+                        const overlapFim = osFim < fimHora ? osFim : fimHora;
+
+                        if (overlapInicio < overlapFim && os.status !== 'Agendada') {
+                            const tipoOS = (os.tipo || os.tipo_manutencao || '').toUpperCase();
+                            const descOS = (os.descricao || '').toUpperCase();
+                            const prioridadeOS = (os.prioridade || '').toUpperCase();
+
+                            if (
+                                tipoOS.includes('S.O.S') || tipoOS.includes('SOS') || tipoOS.includes('SOCORRO') ||
+                                descOS.includes('S.O.S') || descOS.includes('SOS') || descOS.includes('SOCORRO') ||
+                                prioridadeOS.includes('EMERGÊNCIA')
+                            ) {
+                                teveSOS = true;
+                            } else {
+                                teveManutencaoComum = true;
+                            }
+                        }
+                    });
+
+                    if (cat === 'TRITREM') {
+                        qtdFrotaAtivaHora++;
+                        if (teveSOS) {
+                            qtdEmSOS++;
+                        } else if (teveManutencaoComum) {
+                            qtdEmManutencao++;
+                        } else {
+                            let metaDiariaVeiculo = 2;
+                            if (frota.meta !== null && frota.meta !== undefined && frota.meta !== '') {
+                                let parsedMeta = parseFloat(frota.meta);
+                                if (!isNaN(parsedMeta) && parsedMeta > 0) metaDiariaVeiculo = parsedMeta;
+                            }
+                            totalMetaCalculadaExata += (metaDiariaVeiculo / 24);
+                        }
                     }
                 });
 
-                let dispVeiculoMs = totalMsDisponivelVeiculo - msManutVeiculo;
-                if (dispVeiculoMs < 0) dispVeiculoMs = 0;
-                totalDispNoPeriodoMs += dispVeiculoMs;
+                let qtdAtivos = qtdFrotaAtivaHora - qtdEmManutencao - qtdEmSOS;
+                if (qtdAtivos < 0) qtdAtivos = 0;
 
-                let metaDiariaVeiculo = 2;
-                if (frota.meta !== null && frota.meta !== undefined && frota.meta !== '') {
-                    let parsedMeta = parseFloat(frota.meta);
-                    if (!isNaN(parsedMeta) && parsedMeta > 0) {
-                        metaDiariaVeiculo = parsedMeta;
-                    }
-                }
-
-                let veiculoDiasDisponiveis = dispVeiculoMs / 86400000;
-                totalMetaCalculadaExata += (veiculoDiasDisponiveis * metaDiariaVeiculo);
+                somaDisponibilidadeHoraria += qtdAtivos;
+                horasContadas++;
             }
-        });
+        }
 
-        mediaAtivosReal = Math.round(totalDispNoPeriodoMs / msTotalPeriodo);
+        // Teto exato da matemática do gráfico da segunda tela
+        mediaAtivosReal = Math.ceil(somaDisponibilidadeHoraria / (horasContadas > 0 ? horasContadas : 1));
         
         let configTPropria = transpPropriaConfig ? transpPropriaConfig : 'SERRANALOG';
         if (activeT === 'ALL' || activeT.toUpperCase().includes(configTPropria)) {
