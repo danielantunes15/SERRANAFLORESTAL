@@ -28,6 +28,18 @@ window.carregarDadosCadastroUP = async function() {
     try {
         const filialLogada = obterFilialUsuarioLogadoUP();
 
+        // INICIA CAMPOS DE DATA COM PADRÃO (ÚLTIMOS 7 DIAS) SE ESTIVEREM VAZIOS
+        const inputInicio = document.getElementById('filtroDataInicialUp');
+        const inputFim = document.getElementById('filtroDataFinalUp');
+        if (inputInicio && inputFim && !inputInicio.value) {
+            const hoje = new Date();
+            const semanaPassada = new Date(hoje);
+            semanaPassada.setDate(semanaPassada.getDate() - 7);
+            
+            inputInicio.value = semanaPassada.toISOString().split('T')[0];
+            inputFim.value = hoje.toISOString().split('T')[0];
+        }
+
         // 1. Busca as fazendas cadastradas (Filtro Estrito por Filial)
         let queryFazendas = supabaseClient
             .from('monitoramento_fazendas')
@@ -74,31 +86,40 @@ window.carregarDadosCadastroUP = async function() {
 window.carregarUPsPendentes = async function() {
     const selectUp = document.getElementById('upCodigo');
     if(selectUp) {
-        selectUp.innerHTML = '<option value="">Buscando UPs recentes nas viagens...</option>';
+        selectUp.innerHTML = '<option value="">Buscando UPs no período selecionado...</option>';
     }
 
     try {
-        // Obter data de hoje e ontem no formato DD/MM/YYYY para filtrar
-        const hoje = new Date();
-        const ontem = new Date(hoje);
-        ontem.setDate(ontem.getDate() - 1);
+        // Obter datas dos inputs
+        const inputInicio = document.getElementById('filtroDataInicialUp');
+        const inputFim = document.getElementById('filtroDataFinalUp');
+        
+        let datasParaBuscar = [];
+        if (inputInicio && inputFim && inputInicio.value && inputFim.value) {
+            // Gera um array com todas as datas do período no formato 'DD/MM/YYYY' para casar com o banco de dados
+            let dataAtual = new Date(inputInicio.value + "T00:00:00");
+            const dataFinalObj = new Date(inputFim.value + "T00:00:00");
+            
+            while(dataAtual <= dataFinalObj) {
+                const dia = String(dataAtual.getDate()).padStart(2, '0');
+                const mes = String(dataAtual.getMonth() + 1).padStart(2, '0');
+                const ano = dataAtual.getFullYear();
+                datasParaBuscar.push(`${dia}/${mes}/${ano}`);
+                dataAtual.setDate(dataAtual.getDate() + 1);
+            }
+        }
 
-        const formatarData = (d) => {
-            const dia = String(d.getDate()).padStart(2, '0');
-            const mes = String(d.getMonth() + 1).padStart(2, '0');
-            const ano = d.getFullYear();
-            return `${dia}/${mes}/${ano}`;
-        };
-
-        const dataHoje = formatarData(hoje);
-        const dataOntem = formatarData(ontem);
+        if (datasParaBuscar.length === 0) {
+            if(selectUp) selectUp.innerHTML = '<option value="">Selecione um período válido.</option>';
+            return;
+        }
 
         const filialLogada = obterFilialUsuarioLogadoUP();
         let dadosViagens = [];
         let start = 0; 
         const step = 2000; 
 
-        // Tenta buscar as UPs faturadas no dia de Hoje e Ontem
+        // Busca as UPs faturadas no período filtrado
         while(true) {
             let query = supabaseClient
                 .from('historico_viagens')
@@ -107,7 +128,7 @@ window.carregarUPsPendentes = async function() {
                 .neq('up', '')
                 .neq('up', '-')
                 .neq('up', 'NULL')
-                .in('dataDaBaseExcel', [dataHoje, dataOntem]) // Filtra estritamente hoje e ontem
+                .in('dataDaBaseExcel', datasParaBuscar) // Agora utiliza o array inteiro de datas do filtro
                 .range(start, start + step - 1);
                 
             if (filialLogada !== null) {
@@ -121,25 +142,6 @@ window.carregarUPsPendentes = async function() {
             dadosViagens.push(...data);
             if(data.length < step) break;
             start += step;
-        }
-
-        // Fallback: se não houver registros nesses dois dias específicos, busca um pequeno volume dos últimos lançamentos
-        if (dadosViagens.length === 0) {
-            let queryFb = supabaseClient
-                .from('historico_viagens')
-                .select('up, distanciaAsfalto, distanciaTerra')
-                .not('up', 'is', null)
-                .neq('up', '')
-                .neq('up', '-')
-                .neq('up', 'NULL')
-                .limit(2000);
-                
-            if (filialLogada !== null) {
-                queryFb = queryFb.eq('filial_id', filialLogada);
-            }
-            
-            const { data: fbData } = await queryFb;
-            if (fbData && fbData.length > 0) dadosViagens = fbData;
         }
 
         cacheUPsPendentes.clear();
@@ -183,7 +185,7 @@ window.carregarUPsPendentes = async function() {
             });
             
             if(upsOrdenadas.length === 0) {
-                selectUp.innerHTML = '<option value="">Nenhuma UP pendente nos últimos dias.</option>';
+                selectUp.innerHTML = '<option value="">Nenhuma UP pendente encontrada no período.</option>';
             }
         }
 
