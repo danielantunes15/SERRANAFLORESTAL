@@ -7,12 +7,12 @@ var dadosViagensEvolucao = [];
 var dadosFiltradosEvolucao = [];
 var dicionarioUpFazenda = {}; 
 
-var tarifadorAtivoGlobalEvolucao = null; // Guarda o Tarifador
+var tarifadorAtivoGlobalEvolucao = null; 
+var gruasPropriasCacheEvolucao = new Map(); 
 
 var chartEvolucaoDiariaObj = null;
 var chartEvolucaoTopFazendasObj = null;
 
-// ==================== PARSERS E CLASSIFICADORES ====================
 function getSupabaseClientEvolucao() {
     return window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
 }
@@ -37,7 +37,6 @@ function toNumber(val) {
     return isNaN(num) ? 0 : num;
 }
 
-// Agrupa Transportadoras (Serrana vs Resto)
 function classificarTransportadora(nomeOriginal) {
     const nome = String(nomeOriginal || '').trim().toUpperCase();
     if (nome.includes('SERRANALOG') || nome.includes('SERRANA LOG')) {
@@ -46,7 +45,6 @@ function classificarTransportadora(nomeOriginal) {
     return 'OUTRAS TRANSPORTADORAS';
 }
 
-// ==================== MOTOR DO TARIFADOR ====================
 async function buscarTarifadorAtivoEvolucao() {
     const client = getSupabaseClientEvolucao();
     const badge = document.getElementById('badgeTarifadorAtivoEvolucao');
@@ -61,8 +59,9 @@ async function buscarTarifadorAtivoEvolucao() {
 
         if (data && data.length > 0) {
             tarifadorAtivoGlobalEvolucao = data[0];
+            const precoCarreg = parseFloat(tarifadorAtivoGlobalEvolucao.preco_carregamento) || 0;
             if(badge) {
-                badge.innerHTML = `<i class="fas fa-calculator"></i> Tarifador: ${tarifadorAtivoGlobalEvolucao.nome}`;
+                badge.innerHTML = `<i class="fas fa-calculator"></i> Tarifador: ${tarifadorAtivoGlobalEvolucao.nome} (Carreg: R$ ${precoCarreg.toFixed(2)})`;
                 badge.classList.replace('bg-indigo-600/20', 'bg-emerald-600/20');
                 badge.classList.replace('text-indigo-400', 'text-emerald-400');
                 badge.classList.replace('border-indigo-500/50', 'border-emerald-500/50');
@@ -78,6 +77,28 @@ async function buscarTarifadorAtivoEvolucao() {
         }
     } catch(err) {
         console.error("[EVOLUCAO] Erro ao buscar tarifador:", err);
+    }
+}
+
+async function buscarConfigGruasEvolucao() {
+    const client = getSupabaseClientEvolucao();
+    if (!client) return;
+    try {
+        const { data, error } = await client.from('config_gruas').select('codigos, tipo_frente');
+        if (error) throw error;
+        
+        gruasPropriasCacheEvolucao.clear();
+        if (data) {
+            data.forEach(g => {
+                if (g.tipo_frente && g.tipo_frente.trim().toUpperCase() === 'PROPRIA' && g.codigos) {
+                    g.codigos.split(',').forEach(c => {
+                        gruasPropriasCacheEvolucao.set(c.trim().toUpperCase(), true);
+                    });
+                }
+            });
+        }
+    } catch (e) {
+        console.error("[EVOLUCAO] Erro ao buscar gruas:", e);
     }
 }
 
@@ -102,14 +123,14 @@ function calcularTarifaTransporteEvolucao(asfalto, terra) {
     });
     return maisProximo ? maisProximo.tarifa : 0;
 }
-// ========================================================
 
 window.initEvolucaoFazendas = async function() {
     console.log("[EVOLUCAO_FAZENDAS] Módulo ativado.");
     configurarEventosEvolucao();
     definirDatasPadraoEvolucao();
     
-    await buscarTarifadorAtivoEvolucao(); // Busca Tarifador antes de renderizar
+    await buscarTarifadorAtivoEvolucao(); 
+    await buscarConfigGruasEvolucao();
     await mapearFazendasUPs();
     buscarDadosEvolucao();
 };
@@ -153,14 +174,6 @@ function configurarEventosEvolucao() {
     const btnPNG = document.getElementById('btnExportarPNG');
     if(btnPNG) btnPNG.addEventListener('click', exportarTelaParaPNG);
 
-    const filtroTransp = document.getElementById('filtroTransportadoraEvol');
-    if(filtroTransp) {
-        filtroTransp.addEventListener('change', () => {
-            atualizarDropdownFazenda();
-            processarFiltrosEExibirEvolucao();
-        });
-    }
-
     const filtroFazenda = document.getElementById('filtroFazenda');
     if(filtroFazenda) {
         filtroFazenda.addEventListener('change', processarFiltrosEExibirEvolucao);
@@ -176,19 +189,14 @@ async function exportarTelaParaPNG() {
     const btn = document.getElementById('btnExportarPNG');
     const originalText = btn.innerHTML;
     
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando Alta Qualidade...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...';
     btn.disabled = true;
 
     try {
         const areaPrint = document.getElementById('conteudoEvolucaoFazendas');
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        const canvas = await html2canvas(areaPrint, {
-            scale: 2, 
-            useCORS: true, 
-            backgroundColor: '#0f172a'
-        });
-
+        const canvas = await html2canvas(areaPrint, { scale: 2, useCORS: true, backgroundColor: '#0f172a' });
         const imagemDataUrl = canvas.toDataURL('image/png');
         
         const link = document.createElement('a');
@@ -207,8 +215,8 @@ async function exportarTelaParaPNG() {
 
 function definirDatasPadraoEvolucao() {
     const dataFim = new Date();
-    const dataInicio = new Date();
-    dataInicio.setMonth(dataFim.getMonth() - 4); 
+    // Início no dia 1º do mês atual
+    const dataInicio = new Date(dataFim.getFullYear(), dataFim.getMonth(), 1); 
     
     const elFim = document.getElementById('dataFimEvol');
     if(elFim) elFim.value = dataFim.toISOString().split('T')[0];
@@ -259,32 +267,22 @@ async function buscarDadosEvolucao() {
 }
 
 function popularDropdownsIniciais() {
-    const selectTransp = document.getElementById('filtroTransportadoraEvol');
-    if(!selectTransp) return;
-
-    // Filtro Injetado com as duas opções de Visão Gerencial Fixas
-    let html = '<option value="">Todas as Transportadoras</option>';
-    html += '<option value="SERRANALOG TRANSPORTES LTDA">SERRANALOG TRANSPORTES LTDA</option>';
-    html += '<option value="OUTRAS TRANSPORTADORAS">OUTRAS TRANSPORTADORAS</option>';
-    
-    selectTransp.innerHTML = html;
-
     atualizarDropdownFazenda();
 }
 
 function atualizarDropdownFazenda() {
-    const selectTransp = document.getElementById('filtroTransportadoraEvol');
     const selectFazenda = document.getElementById('filtroFazenda');
-    if(!selectTransp || !selectFazenda) return;
+    if(!selectFazenda) return;
 
-    const transpSelecionada = selectTransp.value;
     const fazendas = new Set();
 
     dadosViagensEvolucao.forEach(v => {
-        // Usa o classificador para saber de qual "balde" é a viagem
         const tClassificada = classificarTransportadora(getCampo(v, ['transportadora']));
-        
-        if(transpSelecionada === '' || tClassificada === transpSelecionada) {
+        const isSerrana = tClassificada === 'SERRANALOG TRANSPORTES LTDA';
+        const gruaReg = String(getCampo(v, ['grua'])).trim().toUpperCase();
+        const isNossaGrua = gruasPropriasCacheEvolucao.has(gruaReg);
+
+        if(isSerrana || isNossaGrua) {
             const codUp = String(getCampo(v, ['up'])).trim().toUpperCase();
             let nomeDaFazenda = dicionarioUpFazenda[codUp] || "NÃO VINCULADA";
             fazendas.add(nomeDaFazenda.toUpperCase());
@@ -313,8 +311,6 @@ function converterDataExcel(dataStr) {
 
 function processarFiltrosEExibirEvolucao() {
     const statusEl = document.getElementById('statusEvolucao');
-    
-    const transpFiltro = document.getElementById('filtroTransportadoraEvol') ? document.getElementById('filtroTransportadoraEvol').value : '';
     const fazendaFiltro = document.getElementById('filtroFazenda') ? document.getElementById('filtroFazenda').value : '';
     
     const strInicio = document.getElementById('dataInicioEvol') ? document.getElementById('dataInicioEvol').value : ''; 
@@ -330,9 +326,12 @@ function processarFiltrosEExibirEvolucao() {
         const timeV = converterDataExcel(dataV).getTime();
         if (timeV < timeInicio || timeV > timeFim) return false;
 
-        // Compara com a classificação Master (Serrana x Outras)
         const tClassificada = classificarTransportadora(getCampo(registro, ['transportadora']));
-        if (transpFiltro !== '' && tClassificada !== transpFiltro) return false;
+        const isSerrana = tClassificada === 'SERRANALOG TRANSPORTES LTDA';
+        const gruaReg = String(getCampo(registro, ['grua'])).trim().toUpperCase();
+        const isNossaGrua = gruasPropriasCacheEvolucao.has(gruaReg);
+
+        if (!isSerrana && !isNossaGrua) return false;
 
         const codUp = String(getCampo(registro, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
@@ -352,34 +351,43 @@ function processarFiltrosEExibirEvolucao() {
 }
 
 function calcularAgrupamentosERenderizar() {
-    let totVolumeGlobal = 0;
+    let totFaturamentoGlobal = 0;
     const agrupamentoDiario = {};
     const agrupamentoFazenda = {};
     const agrupamentoNaoVinculadas = {}; 
+    const agrupamentoCardsFazenda = {}; 
+
+    let precoCarregamentoBase = 0;
+    if (tarifadorAtivoGlobalEvolucao && tarifadorAtivoGlobalEvolucao.preco_carregamento) {
+        precoCarregamentoBase = parseFloat(tarifadorAtivoGlobalEvolucao.preco_carregamento) || 0;
+    }
 
     dadosFiltradosEvolucao.forEach(r => {
         const vol = toNumber(getCampo(r, ['volumeReal', 'pesoLiquido']));
-        const rpv = toNumber(getCampo(r, ['rpv']));
         const asfalto = toNumber(getCampo(r, ['distanciaAsfalto']));
         const terra = toNumber(getCampo(r, ['distanciaTerra']));
         const dmt = asfalto + terra;
         
         const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora']));
         const isSerrana = transpAgrupada === 'SERRANALOG TRANSPORTES LTDA';
+        
+        const gruaReg = String(getCampo(r, ['grua'])).trim().toUpperCase();
+        const isNossaGrua = gruasPropriasCacheEvolucao.has(gruaReg);
 
-        // INTEGRAÇÃO TARIFADOR
-        let tarifaCalc = 0;
-        let faturamentoCalc = 0;
+        let tarifaCalcT = 0;
+        let faturamentoCalcT = 0;
 
         if (isSerrana && tarifadorAtivoGlobalEvolucao) {
-            tarifaCalc = calcularTarifaTransporteEvolucao(asfalto, terra);
-            faturamentoCalc = tarifaCalc * vol;
-        } else {
-            // Se for Terceiro ou sem tarifador ativo, lê do banco
-            tarifaCalc = toNumber(getCampo(r, ['tarifa', 'valorTarifa', 'valortarifa', 'preco', 'valor_tarifa', 'tarifaAplicada']));
-            faturamentoCalc = toNumber(getCampo(r, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
-            if (faturamentoCalc === 0 && tarifaCalc > 0 && vol > 0) faturamentoCalc = tarifaCalc * vol;
+            tarifaCalcT = calcularTarifaTransporteEvolucao(asfalto, terra);
+            faturamentoCalcT = tarifaCalcT * vol;
+        } else if (isSerrana) {
+            tarifaCalcT = toNumber(getCampo(r, ['tarifa', 'valorTarifa', 'valortarifa', 'preco', 'valor_tarifa', 'tarifaAplicada']));
+            faturamentoCalcT = toNumber(getCampo(r, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
+            if (faturamentoCalcT === 0 && tarifaCalcT > 0 && vol > 0) faturamentoCalcT = tarifaCalcT * vol;
         }
+
+        let tarifaCalcC = isNossaGrua ? precoCarregamentoBase : 0;
+        let faturamentoCalcC = isNossaGrua ? (vol * tarifaCalcC) : 0;
 
         let dataStr = getCampo(r, ['dataDaBaseExcel', 'dataLancamento']);
         if (!dataStr || dataStr === '') {
@@ -391,7 +399,7 @@ function calcularAgrupamentosERenderizar() {
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
         const chaveGrupo = `${nomeDaFazenda} || ${transpAgrupada}`;
 
-        totVolumeGlobal += vol;
+        totFaturamentoGlobal += ((isSerrana ? faturamentoCalcT : 0) + (isNossaGrua ? faturamentoCalcC : 0));
 
         if(!agrupamentoDiario[dataStr]) {
             agrupamentoDiario[dataStr] = {};
@@ -403,57 +411,88 @@ function calcularAgrupamentosERenderizar() {
         agrupamentoDiario[dataStr][nomeDaFazenda].volume += vol;
 
         if(!agrupamentoFazenda[chaveGrupo]) {
-            agrupamentoFazenda[chaveGrupo] = { fazenda: nomeDaFazenda, transportadora: transpAgrupada, viagens: 0, volume: 0, faturamento: 0, scoreDMT: 0, scoreRPV: 0 };
+            agrupamentoFazenda[chaveGrupo] = { 
+                fazenda: nomeDaFazenda, transportadora: transpAgrupada, viagens: 0, volume: 0, 
+                faturamento: 0, faturamentoCarregamento: 0, scoreDMT: 0
+            };
         }
         agrupamentoFazenda[chaveGrupo].viagens += 1;
         agrupamentoFazenda[chaveGrupo].volume += vol;
-        agrupamentoFazenda[chaveGrupo].faturamento += faturamentoCalc;
+        agrupamentoFazenda[chaveGrupo].faturamento += (isSerrana ? faturamentoCalcT : 0); 
+        agrupamentoFazenda[chaveGrupo].faturamentoCarregamento += (isNossaGrua ? faturamentoCalcC : 0); 
         agrupamentoFazenda[chaveGrupo].scoreDMT += dmt;
-        agrupamentoFazenda[chaveGrupo].scoreRPV += rpv;
 
-        // Controle de UPs não cadastradas
+        if (!agrupamentoCardsFazenda[nomeDaFazenda]) {
+            agrupamentoCardsFazenda[nomeDaFazenda] = {
+                fazenda: nomeDaFazenda,
+                volumeSerrana: 0,
+                volumeCarregadoNossasGruas: 0,
+                viagensSerrana: 0,
+                viagensCarregado: 0,
+                faturamentoTransporteSerrana: 0,
+                faturamentoCarregamento: 0,
+                faturamentoTotalNosso: 0,
+                somaDmtSerrana: 0
+            };
+        }
+        
+        const cardFazenda = agrupamentoCardsFazenda[nomeDaFazenda];
+        
+        if (isSerrana) {
+            cardFazenda.volumeSerrana += vol;
+            cardFazenda.viagensSerrana += 1;
+            cardFazenda.somaDmtSerrana += dmt;
+            cardFazenda.faturamentoTransporteSerrana += faturamentoCalcT;
+        }
+        
+        if (isNossaGrua) {
+            cardFazenda.volumeCarregadoNossasGruas += vol;
+            cardFazenda.viagensCarregado += 1;
+            cardFazenda.faturamentoCarregamento += faturamentoCalcC;
+        }
+        
+        cardFazenda.faturamentoTotalNosso += (isSerrana ? faturamentoCalcT : 0) + (isNossaGrua ? faturamentoCalcC : 0);
+
         if (nomeDaFazenda === "NÃO VINCULADA" && codUp && codUp !== '' && codUp !== '-' && codUp !== 'NULL') {
             if (!agrupamentoNaoVinculadas[codUp]) {
                 agrupamentoNaoVinculadas[codUp] = { up: codUp, viagens: 0, volume: 0, faturamento: 0 };
             }
             agrupamentoNaoVinculadas[codUp].viagens += 1;
             agrupamentoNaoVinculadas[codUp].volume += vol;
-            agrupamentoNaoVinculadas[codUp].faturamento += faturamentoCalc;
+            agrupamentoNaoVinculadas[codUp].faturamento += faturamentoCalcT;
         }
     });
 
     const listaOrdenadaFazendas = Object.values(agrupamentoFazenda).sort((a,b) => b.volume - a.volume);
+    const listaCardsFazendas = Object.values(agrupamentoCardsFazenda).sort((a,b) => b.faturamentoTotalNosso - a.faturamentoTotalNosso);
     const listaUPsNaoVinculadas = Object.values(agrupamentoNaoVinculadas).sort((a,b) => b.volume - a.volume);
 
-    renderizarQuadroLadoALado(listaOrdenadaFazendas, totVolumeGlobal);
+    renderizarQuadroLadoALado(listaCardsFazendas, totFaturamentoGlobal, precoCarregamentoBase);
     renderizarGraficosEvolucao(agrupamentoDiario, listaOrdenadaFazendas);
     renderizarTabelaEvolucao(listaOrdenadaFazendas);
     renderizarUPsNaoVinculadas(listaUPsNaoVinculadas); 
 }
 
-function renderizarQuadroLadoALado(fazendas, totalVolumePeriodo) {
+function renderizarQuadroLadoALado(fazendasCards, totFaturamentoGlobal, precoCarregamentoBase) {
     const quadro = document.getElementById('quadroEvolucaoLadoALado');
     if(!quadro) return;
 
-    if(fazendas.length === 0) {
+    if(fazendasCards.length === 0) {
         quadro.innerHTML = `
             <div class="col-span-full text-center text-amber-400 py-8 border border-dashed border-slate-700 rounded-xl bg-slate-800/20 font-bold text-sm">
-                <i class="fas fa-exclamation-circle mr-2"></i>Nenhum registro encontrado nas datas selecionadas.
+                <i class="fas fa-exclamation-circle mr-2"></i>Nenhuma viagem da operação registrada nestas datas.
             </div>`;
         return;
     }
 
     let html = '';
-    fazendas.forEach(f => {
-        const dmtMedio = f.viagens > 0 ? (f.scoreDMT / f.viagens) : 0;
-        const tarifaMedia = f.volume > 0 ? (f.faturamento / f.volume) : 0;
-        const partVolume = totalVolumePeriodo > 0 ? ((f.volume / totalVolumePeriodo) * 100).toFixed(1) : 0;
+    fazendasCards.forEach(f => {
+        const partVolume = totFaturamentoGlobal > 0 ? ((f.faturamentoTotalNosso / totFaturamentoGlobal) * 100).toFixed(1) : 0;
+        
+        const tarifaMediaTransporte = f.volumeSerrana > 0 ? (f.faturamentoTransporteSerrana / f.volumeSerrana) : 0;
+        const dmtMedioSerrana = f.viagensSerrana > 0 ? (f.somaDmtSerrana / f.viagensSerrana) : 0;
         
         const colorTitle = f.fazenda === "NÃO VINCULADA" ? "text-rose-400" : "text-white";
-
-        // Cores Dinâmicas Baseadas na Transportadora (Serrana = Verde/Azul | Outras = Roxo/Amarelo)
-        const isSerrana = f.transportadora.includes('SERRANALOG');
-        const iconColor = isSerrana ? 'text-sky-500' : 'text-purple-400';
 
         html += `
             <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700/60 hover:border-emerald-500/50 hover:bg-slate-800 transition-all shadow-md flex flex-col justify-between group relative overflow-hidden">
@@ -462,44 +501,76 @@ function renderizarQuadroLadoALado(fazendas, totalVolumePeriodo) {
                 <div>
                     <div class="flex justify-between items-start gap-2 mb-2">
                         <span class="text-[10px] font-bold text-slate-400 font-mono flex items-center gap-1">
-                            <i class="fas fa-chart-pie text-emerald-500"></i> ${partVolume}% da Produção
+                            <i class="fas fa-chart-pie text-emerald-500"></i> ${partVolume}% da Receita
                         </span>
                     </div>
                     
-                    <h4 class="${colorTitle} font-black text-sm tracking-wide uppercase truncate mb-1" title="${f.fazenda}">
+                    <h4 class="${colorTitle} font-black text-sm tracking-wide uppercase truncate mb-3 border-b border-slate-700/50 pb-2" title="${f.fazenda}">
                         <i class="fas fa-tractor text-slate-500 text-xs mr-1"></i> ${f.fazenda}
                     </h4>
-                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-tight truncate border-b border-slate-700/50 pb-2 mb-3" title="${f.transportadora}">
-                        <i class="fas fa-truck ${iconColor} mr-1"></i> ${f.transportadora}
-                    </p>
                 </div>
 
                 <div class="space-y-2.5">
                     <div class="flex justify-between items-center">
-                        <span class="text-xs text-slate-400 flex items-center gap-1.5"><i class="fas fa-route text-sky-400 text-[10px]"></i> Viagens:</span>
-                        <span class="text-sm font-black text-white font-mono bg-slate-900/50 px-2 py-0.5 rounded border border-slate-700/30">${f.viagens}</span>
+                        <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5" title="Viagens de Transporte da Serrana">
+                            <i class="fas fa-truck text-sky-400 text-[10px]"></i> Viagens (Transp):
+                        </span>
+                        <span class="text-sm font-black text-white font-mono bg-slate-900/50 px-2 py-0.5 rounded border border-slate-700/30">${f.viagensSerrana}</span>
                     </div>
+
                     <div class="flex justify-between items-center">
-                        <span class="text-xs text-slate-400 flex items-center gap-1.5"><i class="fas fa-cube text-emerald-400 text-[10px]"></i> Volume:</span>
-                        <span class="text-sm font-black text-emerald-400 font-mono">${f.volume.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}<span class="text-[10px] text-slate-500 ml-0.5">m³</span></span>
+                        <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5" title="Viagens Carregadas por Gruas da Serrana">
+                            <i class="fas fa-tractor text-emerald-400 text-[10px]"></i> Viagens (Carreg):
+                        </span>
+                        <span class="text-sm font-black text-white font-mono bg-slate-900/50 px-2 py-0.5 rounded border border-slate-700/30">${f.viagensCarregado}</span>
                     </div>
                     
-                    <div class="flex justify-between items-center pt-1 border-t border-slate-700/30 mt-1">
-                        <span class="text-xs text-slate-400 flex items-center gap-1.5"><i class="fas fa-dollar-sign text-green-400 text-[10px]"></i> Faturado:</span>
-                        <span class="text-sm font-black text-green-400 font-mono">R$ ${f.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <div class="flex justify-between items-center pt-2 mt-2 border-t border-slate-700/30">
+                        <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5" title="Volume Exato Transportado">
+                            <i class="fas fa-dolly text-sky-400 text-[10px]"></i> Vol. Transportado:
+                        </span>
+                        <span class="text-sm font-black text-sky-400 font-mono">${f.volumeSerrana.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 6 })}<span class="text-[10px] text-slate-500 ml-0.5">m³</span></span>
                     </div>
+
                     <div class="flex justify-between items-center">
-                        <span class="text-[10px] text-slate-500">Tarifa Média:</span>
-                        <span class="text-xs font-bold text-emerald-300 font-mono">R$ ${tarifaMedia.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /m³</span>
+                        <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5" title="Volume Exato Carregado (Serrana + Outros)">
+                            <i class="fas fa-cubes text-emerald-400 text-[10px]"></i> Vol. Carregado:
+                        </span>
+                        <span class="text-sm font-black text-emerald-400 font-mono">${f.volumeCarregadoNossasGruas.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 6 })}<span class="text-[10px] text-slate-500 ml-0.5">m³</span></span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center pt-2 border-t border-slate-700/30 mt-2">
+                        <span class="text-[10px] text-slate-500 uppercase tracking-widest">Faturado (Transp):</span>
+                        <span class="text-xs font-bold text-sky-300 font-mono">R$ ${f.faturamentoTransporteSerrana.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-slate-500 uppercase tracking-widest">Faturado (Carreg):</span>
+                        <span class="text-xs font-bold text-emerald-300 font-mono">R$ ${f.faturamentoCarregamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center bg-slate-900/80 p-2 rounded border border-slate-700/50 shadow-inner mt-2 mb-2">
+                        <span class="text-xs text-amber-400 font-black uppercase tracking-widest">Faturado (Total):</span>
+                        <span class="text-sm font-black text-amber-400 font-mono">R$ ${f.faturamentoTotalNosso.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
 
                     <div class="flex justify-between items-center pt-1 border-t border-slate-700/30">
-                        <span class="text-[10px] text-slate-500">DMT Médio:</span>
-                        <span class="text-xs font-bold text-amber-400 font-mono">${dmtMedio.toFixed(1)} km</span>
+                        <span class="text-[10px] text-slate-500">Tarifa Transp. (Média):</span>
+                        <span class="text-xs font-bold text-slate-300 font-mono">R$ ${tarifaMediaTransporte.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /m³</span>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-slate-500">Tarifa Carreg. (Preço):</span>
+                        <span class="text-xs font-bold text-slate-300 font-mono">R$ ${precoCarregamentoBase.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /m³</span>
+                    </div>
+
+                    <div class="flex justify-between items-center pt-1 border-t border-slate-700/30">
+                        <span class="text-[10px] text-slate-500">DMT Médio (Transp):</span>
+                        <span class="text-xs font-bold text-slate-400 font-mono">${dmtMedioSerrana.toFixed(1)} km</span>
                     </div>
                 </div>
 
-                <div class="w-full bg-slate-950 h-1 rounded-full mt-4 overflow-hidden">
+                <div class="w-full bg-slate-950 h-1.5 rounded-full mt-4 overflow-hidden shadow-inner border border-slate-700/50">
                     <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500" style="width: ${partVolume}%"></div>
                 </div>
             </div>
@@ -619,7 +690,7 @@ function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
             type: 'bar',
             data: {
                 labels: labelsTop,
-                datasets: [{ label: 'Volume (m³)', data: volTop, backgroundColor: '#818cf8', borderRadius: 5 }]
+                datasets: [{ label: 'Volume Físico Total da Operação (m³)', data: volTop, backgroundColor: '#818cf8', borderRadius: 5 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
@@ -654,7 +725,6 @@ function renderizarTabelaEvolucao(dados) {
 
     dados.forEach(d => {
         const dmtMedio = d.viagens > 0 ? (d.scoreDMT / d.viagens) : 0;
-        const rpvMedio = d.viagens > 0 ? (d.scoreRPV / d.viagens) : 0;
         const tarifaMedia = d.volume > 0 ? (d.faturamento / d.volume) : 0;
         
         const corFazenda = d.fazenda === "NÃO VINCULADA" ? "text-rose-400" : "text-white";
@@ -668,10 +738,10 @@ function renderizarTabelaEvolucao(dados) {
             <td class="px-6 py-3 ${corTransportadora} text-xs uppercase">${d.transportadora}</td>
             <td class="px-6 py-3 text-center text-sky-400 font-black font-mono">${d.viagens}</td>
             <td class="px-6 py-3 text-right text-emerald-400 font-mono font-bold">${d.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-            <td class="px-6 py-3 text-right text-green-400 font-mono font-bold">R$ ${d.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td class="px-6 py-3 text-right text-emerald-300 font-mono">R$ ${tarifaMedia.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td class="px-6 py-3 text-right text-sky-300 font-mono font-bold">R$ ${d.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td class="px-6 py-3 text-right text-emerald-300 font-mono font-bold">R$ ${d.faturamentoCarregamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td class="px-6 py-3 text-right text-slate-300 font-mono">R$ ${tarifaMedia.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td class="px-6 py-3 text-right text-amber-400 font-mono">${dmtMedio.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-            <td class="px-6 py-3 text-right text-indigo-400 font-mono">${rpvMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -683,7 +753,7 @@ function renderizarUPsNaoVinculadas(ups) {
     tbody.innerHTML = '';
 
     if(ups.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center p-8 text-emerald-400 font-bold"><i class="fas fa-check-circle mr-2"></i>Todas as UPs do período estão cadastradas e vinculadas a uma Fazenda!</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center p-8 text-emerald-400 font-bold"><i class="fas fa-check-circle mr-2"></i>Todas as UPs da operação estão cadastradas e vinculadas a uma Fazenda!</td></tr>`;
         return;
     }
 
@@ -694,7 +764,7 @@ function renderizarUPsNaoVinculadas(ups) {
             <td class="px-6 py-3 text-rose-400 font-bold text-xs uppercase">${u.up}</td>
             <td class="px-6 py-3 text-center text-sky-400 font-black font-mono">${u.viagens}</td>
             <td class="px-6 py-3 text-right text-emerald-400 font-mono font-bold">${u.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-            <td class="px-6 py-3 text-right text-green-400 font-mono font-bold">R$ ${u.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td class="px-6 py-3 text-right text-sky-300 font-mono font-bold">R$ ${u.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -706,6 +776,11 @@ function exportarExcelEvolucao() {
     }
     if (typeof XLSX === 'undefined') {
         alert("Biblioteca XLSX não disponível."); return;
+    }
+
+    let precoCarregamentoBase = 0;
+    if (tarifadorAtivoGlobalEvolucao && tarifadorAtivoGlobalEvolucao.preco_carregamento) {
+        precoCarregamentoBase = parseFloat(tarifadorAtivoGlobalEvolucao.preco_carregamento) || 0;
     }
 
     const obj = {};
@@ -725,28 +800,34 @@ function exportarExcelEvolucao() {
         const asfalto = toNumber(getCampo(r, ['distanciaAsfalto']));
         const terra = toNumber(getCampo(r, ['distanciaTerra']));
         const dmt = asfalto + terra;
-        const rpv = toNumber(getCampo(r, ['rpv']));
         
-        let tarifaCalc = 0;
-        let faturamentoCalc = 0;
+        const gruaReg = String(getCampo(r, ['grua'])).trim().toUpperCase();
+        const isNossaGrua = gruasPropriasCacheEvolucao.has(gruaReg);
+        const isSerrana = transpAgrupada === 'SERRANALOG TRANSPORTES LTDA';
 
-        if (transpAgrupada === 'SERRANALOG TRANSPORTES LTDA' && tarifadorAtivoGlobalEvolucao) {
-            tarifaCalc = calcularTarifaTransporteEvolucao(asfalto, terra);
-            faturamentoCalc = tarifaCalc * vol;
-        } else {
-            tarifaCalc = toNumber(getCampo(r, ['tarifa', 'valorTarifa', 'valortarifa', 'preco', 'valor_tarifa', 'tarifaAplicada']));
-            faturamentoCalc = toNumber(getCampo(r, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
-            if (faturamentoCalc === 0 && tarifaCalc > 0 && vol > 0) faturamentoCalc = tarifaCalc * vol;
+        let tarifaCalcT = 0;
+        let faturamentoCalcT = 0;
+
+        if (isSerrana && tarifadorAtivoGlobalEvolucao) {
+            tarifaCalcT = calcularTarifaTransporteEvolucao(asfalto, terra);
+            faturamentoCalcT = tarifaCalcT * vol;
+        } else if (isSerrana) {
+            tarifaCalcT = toNumber(getCampo(r, ['tarifa', 'valorTarifa', 'valortarifa', 'preco', 'valor_tarifa', 'tarifaAplicada']));
+            faturamentoCalcT = toNumber(getCampo(r, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
+            if (faturamentoCalcT === 0 && tarifaCalcT > 0 && vol > 0) faturamentoCalcT = tarifaCalcT * vol;
         }
 
+        let tarifaCalcC = isNossaGrua ? precoCarregamentoBase : 0;
+        let faturamentoCalcC = isNossaGrua ? (vol * tarifaCalcC) : 0;
+
         if(!obj[ch]) {
-            obj[ch] = { Data: dataStr, Fazenda: nomeDaFazenda, Transportadora: transpAgrupada, Viagens: 0, Volume: 0, Faturamento: 0, SomaDMT: 0, SomaRPV: 0 };
+            obj[ch] = { Data: dataStr, Fazenda: nomeDaFazenda, Transportadora: transpAgrupada, Viagens: 0, Volume: 0, FaturamentoTransporte: 0, FaturamentoCarregamento: 0, SomaDMT: 0 };
         }
         obj[ch].Viagens += 1;
         obj[ch].Volume += vol;
-        obj[ch].Faturamento += faturamentoCalc;
+        obj[ch].FaturamentoTransporte += faturamentoCalcT;
+        obj[ch].FaturamentoCarregamento += faturamentoCalcC;
         obj[ch].SomaDMT += dmt;
-        obj[ch].SomaRPV += rpv;
     });
 
     const excelArr = Object.values(obj).map(i => ({
@@ -755,10 +836,11 @@ function exportarExcelEvolucao() {
         "Transportadora": i.Transportadora,
         "Nº Viagens": i.Viagens,
         "Volume Total (m³)": parseFloat(i.Volume.toFixed(1)),
-        "Faturamento Total (R$)": parseFloat(i.Faturamento.toFixed(2)),
-        "Tarifa Média (R$/m³)": parseFloat((i.Volume > 0 ? i.Faturamento/i.Volume : 0).toFixed(2)),
-        "DMT Médio (km)": parseFloat((i.Viagens > 0 ? i.SomaDMT/i.Viagens : 0).toFixed(1)),
-        "RPV Médio": parseFloat((i.Viagens > 0 ? i.SomaRPV/i.Viagens : 0).toFixed(2))
+        "Faturamento Transporte (R$)": parseFloat(i.FaturamentoTransporte.toFixed(2)),
+        "Faturamento Carregamento (R$)": parseFloat(i.FaturamentoCarregamento.toFixed(2)),
+        "Faturamento Total (R$)": parseFloat((i.FaturamentoTransporte + i.FaturamentoCarregamento).toFixed(2)),
+        "Tarifa Média Transp. (R$/m³)": parseFloat((i.Volume > 0 ? i.FaturamentoTransporte/i.Volume : 0).toFixed(2)),
+        "DMT Médio (km)": parseFloat((i.Viagens > 0 ? i.SomaDMT/i.Viagens : 0).toFixed(1))
     }));
 
     const wb = XLSX.utils.book_new();

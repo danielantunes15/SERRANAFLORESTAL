@@ -25,12 +25,6 @@
             
             <div class="flex flex-wrap items-end gap-4 w-full xl:w-auto">
                 <div class="flex flex-col">
-                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Transportadora</label>
-                    <select id="filtroTransportadoraEvol" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-emerald-500 shadow-inner cursor-pointer min-w-[200px]">
-                        <option value="">Todas</option>
-                    </select>
-                </div>
-                <div class="flex flex-col">
                     <label class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Filtrar por Fazenda</label>
                     <select id="filtroFazenda" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-emerald-500 shadow-inner cursor-pointer min-w-[200px]">
                         <option value="">Todas as Fazendas</option>
@@ -108,10 +102,10 @@
                             <th class="px-6 py-4">Transportadora</th>
                             <th class="px-6 py-4 text-center">Nº Viagens</th>
                             <th class="px-6 py-4 text-right">Volume (m³)</th>
-                            <th class="px-6 py-4 text-right">Faturado (R$)</th>
+                            <th class="px-6 py-4 text-right text-sky-400">Rec. Transp.</th>
+                            <th class="px-6 py-4 text-right text-emerald-400">Rec. Carreg.</th>
                             <th class="px-6 py-4 text-right">Tarifa Média</th>
                             <th class="px-6 py-4 text-right">DMT Médio (km)</th>
-                            <th class="px-6 py-4 text-right">RPV Médio</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyEvolucaoFazendas" class="divide-y divide-slate-800/80 text-slate-300">
@@ -137,7 +131,7 @@
                             <th class="px-6 py-4 text-rose-300">Código da UP</th>
                             <th class="px-6 py-4 text-center">Nº Viagens</th>
                             <th class="px-6 py-4 text-right">Volume (m³)</th>
-                            <th class="px-6 py-4 text-right text-green-400">Faturado (R$)</th>
+                            <th class="px-6 py-4 text-right text-sky-400">Faturado (R$)</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyUpsNaoVinculadas" class="divide-y divide-slate-800/80 text-slate-300">
