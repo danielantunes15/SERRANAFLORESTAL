@@ -7,6 +7,8 @@ var dadosViagensEvolucao = [];
 var dadosFiltradosEvolucao = [];
 var dicionarioUpFazenda = {}; 
 
+var tarifadorAtivoGlobalEvolucao = null; // Guarda o Tarifador
+
 var chartEvolucaoDiariaObj = null;
 var chartEvolucaoTopFazendasObj = null;
 
@@ -35,13 +37,70 @@ function toNumber(val) {
     return isNaN(num) ? 0 : num;
 }
 
-// NOVA FUNÇÃO: Agrupa Transportadoras (Serrana vs Resto)
+// Agrupa Transportadoras (Serrana vs Resto)
 function classificarTransportadora(nomeOriginal) {
     const nome = String(nomeOriginal || '').trim().toUpperCase();
     if (nome.includes('SERRANALOG') || nome.includes('SERRANA LOG')) {
         return 'SERRANALOG TRANSPORTES LTDA';
     }
     return 'OUTRAS TRANSPORTADORAS';
+}
+
+// ==================== MOTOR DO TARIFADOR ====================
+async function buscarTarifadorAtivoEvolucao() {
+    const client = getSupabaseClientEvolucao();
+    const badge = document.getElementById('badgeTarifadorAtivoEvolucao');
+
+    if (!client) return;
+    try {
+        let query = client.from('tarifadores').select('*').eq('ativo', true).limit(1);
+        if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+            tarifadorAtivoGlobalEvolucao = data[0];
+            if(badge) {
+                badge.innerHTML = `<i class="fas fa-calculator"></i> Tarifador: ${tarifadorAtivoGlobalEvolucao.nome}`;
+                badge.classList.replace('bg-indigo-600/20', 'bg-emerald-600/20');
+                badge.classList.replace('text-indigo-400', 'text-emerald-400');
+                badge.classList.replace('border-indigo-500/50', 'border-emerald-500/50');
+            }
+        } else {
+            tarifadorAtivoGlobalEvolucao = null;
+            if(badge) {
+                badge.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Nenhum Tarifador Ativo`;
+                badge.classList.replace('bg-indigo-600/20', 'bg-rose-600/20');
+                badge.classList.replace('text-indigo-400', 'text-rose-400');
+                badge.classList.replace('border-indigo-500/50', 'border-rose-500/50');
+            }
+        }
+    } catch(err) {
+        console.error("[EVOLUCAO] Erro ao buscar tarifador:", err);
+    }
+}
+
+function calcularTarifaTransporteEvolucao(asfalto, terra) {
+    if (!tarifadorAtivoGlobalEvolucao || !tarifadorAtivoGlobalEvolucao.dados) return 0;
+    let asfaltoVal = parseFloat(String(asfalto).replace(',','.')) || 0;
+    let terraVal = parseFloat(String(terra).replace(',','.')) || 0;
+    const dadosMatriz = tarifadorAtivoGlobalEvolucao.dados;
+
+    const exato = dadosMatriz.find(t => Math.abs(t.asfalto - asfaltoVal) < 0.001 && Math.abs(t.terra - terraVal) < 0.001);
+    if (exato) return exato.tarifa;
+
+    let maisProximo = null;
+    let menorDistancia = Infinity;
+
+    dadosMatriz.forEach(t => {
+        const distancia = Math.sqrt(Math.pow(t.asfalto - asfaltoVal, 2) + Math.pow(t.terra - terraVal, 2));
+        if (distancia < menorDistancia) {
+            menorDistancia = distancia;
+            maisProximo = t;
+        }
+    });
+    return maisProximo ? maisProximo.tarifa : 0;
 }
 // ========================================================
 
@@ -50,6 +109,7 @@ window.initEvolucaoFazendas = async function() {
     configurarEventosEvolucao();
     definirDatasPadraoEvolucao();
     
+    await buscarTarifadorAtivoEvolucao(); // Busca Tarifador antes de renderizar
     await mapearFazendasUPs();
     buscarDadosEvolucao();
 };
@@ -295,20 +355,37 @@ function calcularAgrupamentosERenderizar() {
     let totVolumeGlobal = 0;
     const agrupamentoDiario = {};
     const agrupamentoFazenda = {};
+    const agrupamentoNaoVinculadas = {}; 
 
     dadosFiltradosEvolucao.forEach(r => {
         const vol = toNumber(getCampo(r, ['volumeReal', 'pesoLiquido']));
         const rpv = toNumber(getCampo(r, ['rpv']));
-        const dmt = toNumber(getCampo(r, ['distanciaAsfalto'])) + toNumber(getCampo(r, ['distanciaTerra']));
+        const asfalto = toNumber(getCampo(r, ['distanciaAsfalto']));
+        const terra = toNumber(getCampo(r, ['distanciaTerra']));
+        const dmt = asfalto + terra;
         
+        const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora']));
+        const isSerrana = transpAgrupada === 'SERRANALOG TRANSPORTES LTDA';
+
+        // INTEGRAÇÃO TARIFADOR
+        let tarifaCalc = 0;
+        let faturamentoCalc = 0;
+
+        if (isSerrana && tarifadorAtivoGlobalEvolucao) {
+            tarifaCalc = calcularTarifaTransporteEvolucao(asfalto, terra);
+            faturamentoCalc = tarifaCalc * vol;
+        } else {
+            // Se for Terceiro ou sem tarifador ativo, lê do banco
+            tarifaCalc = toNumber(getCampo(r, ['tarifa', 'valorTarifa', 'valortarifa', 'preco', 'valor_tarifa', 'tarifaAplicada']));
+            faturamentoCalc = toNumber(getCampo(r, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
+            if (faturamentoCalc === 0 && tarifaCalc > 0 && vol > 0) faturamentoCalc = tarifaCalc * vol;
+        }
+
         let dataStr = getCampo(r, ['dataDaBaseExcel', 'dataLancamento']);
         if (!dataStr || dataStr === '') {
             let crAt = getCampo(r, ['created_at']);
             dataStr = crAt ? String(crAt).split('T')[0] : 'S/D';
         }
-
-        // Aplica o Nome Classificado para a Transportadora
-        const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora']));
         
         const codUp = String(getCampo(r, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
@@ -326,19 +403,32 @@ function calcularAgrupamentosERenderizar() {
         agrupamentoDiario[dataStr][nomeDaFazenda].volume += vol;
 
         if(!agrupamentoFazenda[chaveGrupo]) {
-            agrupamentoFazenda[chaveGrupo] = { fazenda: nomeDaFazenda, transportadora: transpAgrupada, viagens: 0, volume: 0, scoreDMT: 0, scoreRPV: 0 };
+            agrupamentoFazenda[chaveGrupo] = { fazenda: nomeDaFazenda, transportadora: transpAgrupada, viagens: 0, volume: 0, faturamento: 0, scoreDMT: 0, scoreRPV: 0 };
         }
         agrupamentoFazenda[chaveGrupo].viagens += 1;
         agrupamentoFazenda[chaveGrupo].volume += vol;
+        agrupamentoFazenda[chaveGrupo].faturamento += faturamentoCalc;
         agrupamentoFazenda[chaveGrupo].scoreDMT += dmt;
         agrupamentoFazenda[chaveGrupo].scoreRPV += rpv;
+
+        // Controle de UPs não cadastradas
+        if (nomeDaFazenda === "NÃO VINCULADA" && codUp && codUp !== '' && codUp !== '-' && codUp !== 'NULL') {
+            if (!agrupamentoNaoVinculadas[codUp]) {
+                agrupamentoNaoVinculadas[codUp] = { up: codUp, viagens: 0, volume: 0, faturamento: 0 };
+            }
+            agrupamentoNaoVinculadas[codUp].viagens += 1;
+            agrupamentoNaoVinculadas[codUp].volume += vol;
+            agrupamentoNaoVinculadas[codUp].faturamento += faturamentoCalc;
+        }
     });
 
     const listaOrdenadaFazendas = Object.values(agrupamentoFazenda).sort((a,b) => b.volume - a.volume);
+    const listaUPsNaoVinculadas = Object.values(agrupamentoNaoVinculadas).sort((a,b) => b.volume - a.volume);
 
     renderizarQuadroLadoALado(listaOrdenadaFazendas, totVolumeGlobal);
     renderizarGraficosEvolucao(agrupamentoDiario, listaOrdenadaFazendas);
     renderizarTabelaEvolucao(listaOrdenadaFazendas);
+    renderizarUPsNaoVinculadas(listaUPsNaoVinculadas); 
 }
 
 function renderizarQuadroLadoALado(fazendas, totalVolumePeriodo) {
@@ -356,7 +446,9 @@ function renderizarQuadroLadoALado(fazendas, totalVolumePeriodo) {
     let html = '';
     fazendas.forEach(f => {
         const dmtMedio = f.viagens > 0 ? (f.scoreDMT / f.viagens) : 0;
+        const tarifaMedia = f.volume > 0 ? (f.faturamento / f.volume) : 0;
         const partVolume = totalVolumePeriodo > 0 ? ((f.volume / totalVolumePeriodo) * 100).toFixed(1) : 0;
+        
         const colorTitle = f.fazenda === "NÃO VINCULADA" ? "text-rose-400" : "text-white";
 
         // Cores Dinâmicas Baseadas na Transportadora (Serrana = Verde/Azul | Outras = Roxo/Amarelo)
@@ -391,6 +483,16 @@ function renderizarQuadroLadoALado(fazendas, totalVolumePeriodo) {
                         <span class="text-xs text-slate-400 flex items-center gap-1.5"><i class="fas fa-cube text-emerald-400 text-[10px]"></i> Volume:</span>
                         <span class="text-sm font-black text-emerald-400 font-mono">${f.volume.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}<span class="text-[10px] text-slate-500 ml-0.5">m³</span></span>
                     </div>
+                    
+                    <div class="flex justify-between items-center pt-1 border-t border-slate-700/30 mt-1">
+                        <span class="text-xs text-slate-400 flex items-center gap-1.5"><i class="fas fa-dollar-sign text-green-400 text-[10px]"></i> Faturado:</span>
+                        <span class="text-sm font-black text-green-400 font-mono">R$ ${f.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-slate-500">Tarifa Média:</span>
+                        <span class="text-xs font-bold text-emerald-300 font-mono">R$ ${tarifaMedia.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /m³</span>
+                    </div>
+
                     <div class="flex justify-between items-center pt-1 border-t border-slate-700/30">
                         <span class="text-[10px] text-slate-500">DMT Médio:</span>
                         <span class="text-xs font-bold text-amber-400 font-mono">${dmtMedio.toFixed(1)} km</span>
@@ -546,16 +648,16 @@ function renderizarTabelaEvolucao(dados) {
     tbody.innerHTML = '';
 
     if(dados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500">Nenhum registro encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center p-8 text-slate-500">Nenhum registro encontrado.</td></tr>`;
         return;
     }
 
     dados.forEach(d => {
         const dmtMedio = d.viagens > 0 ? (d.scoreDMT / d.viagens) : 0;
         const rpvMedio = d.viagens > 0 ? (d.scoreRPV / d.viagens) : 0;
+        const tarifaMedia = d.volume > 0 ? (d.faturamento / d.volume) : 0;
         
         const corFazenda = d.fazenda === "NÃO VINCULADA" ? "text-rose-400" : "text-white";
-        // Destaca a fonte da transportadora se for "OUTRAS" para fácil identificação
         const isSerrana = d.transportadora.includes('SERRANALOG');
         const corTransportadora = isSerrana ? "text-slate-300" : "text-purple-300 font-bold";
 
@@ -566,8 +668,33 @@ function renderizarTabelaEvolucao(dados) {
             <td class="px-6 py-3 ${corTransportadora} text-xs uppercase">${d.transportadora}</td>
             <td class="px-6 py-3 text-center text-sky-400 font-black font-mono">${d.viagens}</td>
             <td class="px-6 py-3 text-right text-emerald-400 font-mono font-bold">${d.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+            <td class="px-6 py-3 text-right text-green-400 font-mono font-bold">R$ ${d.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td class="px-6 py-3 text-right text-emerald-300 font-mono">R$ ${tarifaMedia.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td class="px-6 py-3 text-right text-amber-400 font-mono">${dmtMedio.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
             <td class="px-6 py-3 text-right text-indigo-400 font-mono">${rpvMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderizarUPsNaoVinculadas(ups) {
+    const tbody = document.getElementById('tbodyUpsNaoVinculadas');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+
+    if(ups.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center p-8 text-emerald-400 font-bold"><i class="fas fa-check-circle mr-2"></i>Todas as UPs do período estão cadastradas e vinculadas a uma Fazenda!</td></tr>`;
+        return;
+    }
+
+    ups.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-700/30 transition-colors";
+        tr.innerHTML = `
+            <td class="px-6 py-3 text-rose-400 font-bold text-xs uppercase">${u.up}</td>
+            <td class="px-6 py-3 text-center text-sky-400 font-black font-mono">${u.viagens}</td>
+            <td class="px-6 py-3 text-right text-emerald-400 font-mono font-bold">${u.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+            <td class="px-6 py-3 text-right text-green-400 font-mono font-bold">R$ ${u.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -595,14 +722,29 @@ function exportarExcelEvolucao() {
         
         const ch = `${dataStr}_${nomeDaFazenda}_${transpAgrupada}`;
         const vol = toNumber(getCampo(r, ['volumeReal', 'pesoLiquido']));
-        const dmt = toNumber(getCampo(r, ['distanciaAsfalto'])) + toNumber(getCampo(r, ['distanciaTerra']));
+        const asfalto = toNumber(getCampo(r, ['distanciaAsfalto']));
+        const terra = toNumber(getCampo(r, ['distanciaTerra']));
+        const dmt = asfalto + terra;
         const rpv = toNumber(getCampo(r, ['rpv']));
+        
+        let tarifaCalc = 0;
+        let faturamentoCalc = 0;
+
+        if (transpAgrupada === 'SERRANALOG TRANSPORTES LTDA' && tarifadorAtivoGlobalEvolucao) {
+            tarifaCalc = calcularTarifaTransporteEvolucao(asfalto, terra);
+            faturamentoCalc = tarifaCalc * vol;
+        } else {
+            tarifaCalc = toNumber(getCampo(r, ['tarifa', 'valorTarifa', 'valortarifa', 'preco', 'valor_tarifa', 'tarifaAplicada']));
+            faturamentoCalc = toNumber(getCampo(r, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
+            if (faturamentoCalc === 0 && tarifaCalc > 0 && vol > 0) faturamentoCalc = tarifaCalc * vol;
+        }
 
         if(!obj[ch]) {
-            obj[ch] = { Data: dataStr, Fazenda: nomeDaFazenda, Transportadora: transpAgrupada, Viagens: 0, Volume: 0, SomaDMT: 0, SomaRPV: 0 };
+            obj[ch] = { Data: dataStr, Fazenda: nomeDaFazenda, Transportadora: transpAgrupada, Viagens: 0, Volume: 0, Faturamento: 0, SomaDMT: 0, SomaRPV: 0 };
         }
         obj[ch].Viagens += 1;
         obj[ch].Volume += vol;
+        obj[ch].Faturamento += faturamentoCalc;
         obj[ch].SomaDMT += dmt;
         obj[ch].SomaRPV += rpv;
     });
@@ -613,6 +755,8 @@ function exportarExcelEvolucao() {
         "Transportadora": i.Transportadora,
         "Nº Viagens": i.Viagens,
         "Volume Total (m³)": parseFloat(i.Volume.toFixed(1)),
+        "Faturamento Total (R$)": parseFloat(i.Faturamento.toFixed(2)),
+        "Tarifa Média (R$/m³)": parseFloat((i.Volume > 0 ? i.Faturamento/i.Volume : 0).toFixed(2)),
         "DMT Médio (km)": parseFloat((i.Viagens > 0 ? i.SomaDMT/i.Viagens : 0).toFixed(1)),
         "RPV Médio": parseFloat((i.Viagens > 0 ? i.SomaRPV/i.Viagens : 0).toFixed(2))
     }));

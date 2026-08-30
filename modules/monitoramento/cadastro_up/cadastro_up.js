@@ -11,6 +11,34 @@ function obterFilialUsuarioLogadoUP() {
         ? parseInt(window.currentUser.filial_id) : null;
 }
 
+// Funções de formatação idênticas às da Evolução para evitar divergências de leitura
+function getCampoUP(obj, possiveisNomes) {
+    if (!obj) return '';
+    const chavesReais = Object.keys(obj);
+    for (let nomeProcurado of possiveisNomes) {
+        const chaveEncontrada = chavesReais.find(k => k.toLowerCase() === nomeProcurado.toLowerCase());
+        if (chaveEncontrada && obj[chaveEncontrada] !== null && obj[chaveEncontrada] !== undefined) {
+            return obj[chaveEncontrada];
+        }
+    }
+    return '';
+}
+
+function converterDataExcelUP(dataStr) { 
+    if (!dataStr) return new Date(0);
+    const str = String(dataStr).trim();
+    if(str.includes('T')) return new Date(str);
+    if(str.includes('/')) {
+        const p = str.split('/');
+        if (p.length === 3) return new Date(p[2], parseInt(p[1]) - 1, p[0]);
+    }
+    if(str.includes('-')) {
+        const p = str.split('-');
+        if(p.length >= 3) return new Date(p[0], parseInt(p[1]) - 1, p[2].substring(0,2));
+    }
+    return new Date(str); 
+}
+
 window.initCadastroUP = async function() {
     try {
         await window.carregarDadosCadastroUP();
@@ -28,19 +56,19 @@ window.carregarDadosCadastroUP = async function() {
     try {
         const filialLogada = obterFilialUsuarioLogadoUP();
 
-        // INICIA CAMPOS DE DATA COM PADRÃO (ÚLTIMOS 7 DIAS) SE ESTIVEREM VAZIOS
+        // INICIA CAMPOS DE DATA COM PADRÃO DE 4 MESES (IDÊNTICO AO MÓDULO DE EVOLUÇÃO)
         const inputInicio = document.getElementById('filtroDataInicialUp');
         const inputFim = document.getElementById('filtroDataFinalUp');
         if (inputInicio && inputFim && !inputInicio.value) {
             const hoje = new Date();
-            const semanaPassada = new Date(hoje);
-            semanaPassada.setDate(semanaPassada.getDate() - 7);
+            const dataPassada = new Date(hoje);
+            dataPassada.setMonth(dataPassada.getMonth() - 4);
             
-            inputInicio.value = semanaPassada.toISOString().split('T')[0];
+            inputInicio.value = dataPassada.toISOString().split('T')[0];
             inputFim.value = hoje.toISOString().split('T')[0];
         }
 
-        // 1. Busca as fazendas cadastradas (Filtro Estrito por Filial)
+        // 1. Busca as fazendas cadastradas
         let queryFazendas = supabaseClient
             .from('monitoramento_fazendas')
             .select('*')
@@ -55,7 +83,7 @@ window.carregarDadosCadastroUP = async function() {
         cacheFazendas = fazendas || [];
         window.atualizarSelectFazendas();
 
-        // 2. Busca as UPs cadastradas (Filtro Estrito por Filial)
+        // 2. Busca as UPs cadastradas
         let queryUps = supabaseClient
             .from('monitoramento_ups')
             .select(`id, codigo, fazenda_id, distancia_asfalto, distancia_terra, dmt_medio, filial_id`)
@@ -90,56 +118,52 @@ window.carregarUPsPendentes = async function() {
     }
 
     try {
-        // Obter datas dos inputs
         const inputInicio = document.getElementById('filtroDataInicialUp');
         const inputFim = document.getElementById('filtroDataFinalUp');
         
-        let datasParaBuscar = [];
-        if (inputInicio && inputFim && inputInicio.value && inputFim.value) {
-            // Gera um array com todas as datas do período no formato 'DD/MM/YYYY' para casar com o banco de dados
-            let dataAtual = new Date(inputInicio.value + "T00:00:00");
-            const dataFinalObj = new Date(inputFim.value + "T00:00:00");
-            
-            while(dataAtual <= dataFinalObj) {
-                const dia = String(dataAtual.getDate()).padStart(2, '0');
-                const mes = String(dataAtual.getMonth() + 1).padStart(2, '0');
-                const ano = dataAtual.getFullYear();
-                datasParaBuscar.push(`${dia}/${mes}/${ano}`);
-                dataAtual.setDate(dataAtual.getDate() + 1);
-            }
-        }
+        const strInicio = inputInicio ? inputInicio.value : '';
+        const strFim = inputFim ? inputFim.value : '';
 
-        if (datasParaBuscar.length === 0) {
-            if(selectUp) selectUp.innerHTML = '<option value="">Selecione um período válido.</option>';
-            return;
-        }
+        // Formatação de data idêntica à Evolução das Fazendas
+        let timeInicio = strInicio ? new Date(strInicio.split('-')[0], parseInt(strInicio.split('-')[1]) - 1, strInicio.split('-')[2]).getTime() : 0;
+        let timeFim = strFim ? new Date(strFim.split('-')[0], parseInt(strFim.split('-')[1]) - 1, strFim.split('-')[2], 23, 59, 59).getTime() : Infinity;
 
-        const filialLogada = obterFilialUsuarioLogadoUP();
         let dadosViagens = [];
         let start = 0; 
-        const step = 2000; 
+        const step = 1000; 
 
-        // Busca as UPs faturadas no período filtrado
+        // Remove a trava de filial rígida e usa a função global de filtro, assim como a Evolução faz
         while(true) {
             let query = supabaseClient
                 .from('historico_viagens')
-                .select('up, distanciaAsfalto, distanciaTerra')
-                .not('up', 'is', null)
-                .neq('up', '')
-                .neq('up', '-')
-                .neq('up', 'NULL')
-                .in('dataDaBaseExcel', datasParaBuscar) // Agora utiliza o array inteiro de datas do filtro
+                .select('*')
                 .range(start, start + step - 1);
                 
-            if (filialLogada !== null) {
-                query = query.eq('filial_id', filialLogada);
+            if (typeof window.aplicarFiltroLocal === 'function') {
+                query = window.aplicarFiltroLocal(query);
             }
 
             const { data, error } = await query;
-            if(error) break; 
+            if(error) {
+                console.error("Erro na consulta do banco:", error);
+                break; 
+            }
             if(!data || data.length === 0) break;
             
-            dadosViagens.push(...data);
+            const dataFiltrada = data.filter(r => {
+                let dataStr = getCampoUP(r, ['dataDaBaseExcel', 'dataLancamento']);
+                if (!dataStr || dataStr === '') dataStr = getCampoUP(r, ['created_at']);
+                
+                const timeV = converterDataExcelUP(dataStr).getTime();
+                
+                const upName = String(getCampoUP(r, ['up']) || '').trim().toUpperCase();
+                if (!upName || upName === '-' || upName === 'NULL' || upName === 'OUTRAS' || upName === 'OUTROS') return false;
+
+                return timeV >= timeInicio && timeV <= timeFim;
+            });
+
+            dadosViagens.push(...dataFiltrada);
+            
             if(data.length < step) break;
             start += step;
         }
@@ -147,18 +171,17 @@ window.carregarUPsPendentes = async function() {
         cacheUPsPendentes.clear();
 
         dadosViagens.forEach(v => {
-            const upName = String(v.up || '').trim().toUpperCase();
-            if (upName && upName !== '-' && upName !== 'NULL' && upName !== 'OUTRAS' && upName !== 'OUTROS') {
-                const asf = parseFloat(v.distanciaAsfalto || v['distanciaAsfalto']) || 0;
-                const ter = parseFloat(v.distanciaTerra || v['distanciaTerra']) || 0;
+            const upName = String(getCampoUP(v, ['up']) || '').trim().toUpperCase();
+            
+            const asf = parseFloat(getCampoUP(v, ['distanciaAsfalto', 'distanciaasfalto'])) || 0;
+            const ter = parseFloat(getCampoUP(v, ['distanciaTerra', 'distanciaterra'])) || 0;
 
-                if (!cacheUPsPendentes.has(upName)) {
-                    cacheUPsPendentes.set(upName, { asfalto: asf, terra: ter });
-                } else {
-                    const current = cacheUPsPendentes.get(upName);
-                    if (current.asfalto === 0 && asf > 0) current.asfalto = asf;
-                    if (current.terra === 0 && ter > 0) current.terra = ter;
-                }
+            if (!cacheUPsPendentes.has(upName)) {
+                cacheUPsPendentes.set(upName, { asfalto: asf, terra: ter });
+            } else {
+                const current = cacheUPsPendentes.get(upName);
+                if (current.asfalto === 0 && asf > 0) current.asfalto = asf;
+                if (current.terra === 0 && ter > 0) current.terra = ter;
             }
         });
 

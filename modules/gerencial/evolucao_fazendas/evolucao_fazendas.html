@@ -7,12 +7,17 @@
             </div>
             <div>
                 <h1 class="text-2xl font-extrabold text-white">Resumo e Evolução das Fazendas</h1>
-                <p class="text-sm text-slate-400 font-medium">Análise de produção e volume transportado agrupado pelo nome da Fazenda (via vínculo de UP).</p>
+                <p class="text-sm text-slate-400 font-medium">Análise de produção, faturamento e tarifas agrupados por Fazenda.</p>
             </div>
         </div>
-        <span id="statusEvolucao" class="text-xs font-bold bg-slate-900 border border-slate-700 text-sky-400 px-3 py-1 rounded-lg font-mono">
-            Conectando ao banco...
-        </span>
+        <div class="flex items-center gap-3">
+            <div id="badgeTarifadorAtivoEvolucao" class="bg-indigo-600/20 text-indigo-400 border border-indigo-500/50 font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-md text-sm">
+                <i class="fas fa-calculator"></i> Buscando Tarifador...
+            </div>
+            <span id="statusEvolucao" class="text-xs font-bold bg-slate-900 border border-slate-700 text-sky-400 px-3 py-1 rounded-lg font-mono">
+                Conectando...
+            </span>
+        </div>
     </div>
 
     <section class="animate-fade-in space-y-6">
@@ -103,17 +108,46 @@
                             <th class="px-6 py-4">Transportadora</th>
                             <th class="px-6 py-4 text-center">Nº Viagens</th>
                             <th class="px-6 py-4 text-right">Volume (m³)</th>
+                            <th class="px-6 py-4 text-right">Faturado (R$)</th>
+                            <th class="px-6 py-4 text-right">Tarifa Média</th>
                             <th class="px-6 py-4 text-right">DMT Médio (km)</th>
                             <th class="px-6 py-4 text-right">RPV Médio</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyEvolucaoFazendas" class="divide-y divide-slate-800/80 text-slate-300">
                         <tr>
-                            <td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Aguardando filtro...</td>
+                            <td colspan="8" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Aguardando filtro...</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
+
+        <!-- SESSÃO: UPS NÃO VINCULADAS -->
+        <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-rose-500/30 flex flex-col mt-6">
+            <div class="bg-rose-900/20 px-6 py-4 border-b border-rose-500/30 flex justify-between items-center">
+                <h3 class="font-bold text-rose-400 tracking-wide flex items-center text-[13px] uppercase">
+                    <i class="fas fa-exclamation-triangle mr-2 text-lg"></i> UPs Não Vinculadas (Pendentes de Cadastro na Fazenda)
+                </h3>
+            </div>
+            <div class="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
+                <table class="min-w-full text-sm text-left">
+                    <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-700 sticky top-0 z-10 shadow-md backdrop-blur-sm">
+                        <tr>
+                            <th class="px-6 py-4 text-rose-300">Código da UP</th>
+                            <th class="px-6 py-4 text-center">Nº Viagens</th>
+                            <th class="px-6 py-4 text-right">Volume (m³)</th>
+                            <th class="px-6 py-4 text-right text-green-400">Faturado (R$)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyUpsNaoVinculadas" class="divide-y divide-slate-800/80 text-slate-300">
+                        <tr>
+                            <td colspan="4" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Aguardando dados...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </section>
 </div>
