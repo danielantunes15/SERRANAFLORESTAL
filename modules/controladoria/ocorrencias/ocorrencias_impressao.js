@@ -24,23 +24,26 @@ window.imprimirFolhaOcorrencia = function(dados = {}) {
 
     // Formatar tabela de outros envolvidos
     let htmlOutrosEnvolvidos = '';
-    if (!isBlank && dados.outros_envolvidos && dados.outros_envolvidos.length > 0) {
+    // Aceita tanto a chave que vem do salvamento quanto a chave do relacionamento do banco
+    const listaOutros = dados.ocorrencia_outros_envolvidos || dados.outros_envolvidos; 
+
+    if (!isBlank && listaOutros && listaOutros.length > 0) {
         htmlOutrosEnvolvidos = `
             <div class="section-title">Outros Envolvidos / Equipamentos</div>
             <table>
                 <thead>
                     <tr>
                         <th style="width: 30%">Nome / Terceiro</th>
-                        <th style="width: 20%">Função</th>
+                        <th style="width: 20%">Função / Setor</th>
                         <th style="width: 25%">Categoria Equip.</th>
                         <th style="width: 25%">Placa</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${dados.outros_envolvidos.map(oe => `
+                    ${listaOutros.map(oe => `
                         <tr>
                             <td>${oe.nome || '-'} ${oe.is_responsavel ? '(Causador)' : ''}</td>
-                            <td>${oe.funcao || '-'}</td>
+                            <td>${oe.funcao || '-'}${oe.setor ? ' / ' + oe.setor : ''}</td>
                             <td>${oe.equipamento_categoria || '-'}</td>
                             <td>${oe.equipamento_placa || '-'}</td>
                         </tr>
@@ -55,7 +58,7 @@ window.imprimirFolhaOcorrencia = function(dados = {}) {
                 <thead>
                     <tr>
                         <th style="width: 30%">Nome / Terceiro</th>
-                        <th style="width: 20%">Função</th>
+                        <th style="width: 20%">Função / Setor</th>
                         <th style="width: 25%">Categoria Equip.</th>
                         <th style="width: 25%">Placa</th>
                     </tr>
@@ -137,26 +140,40 @@ window.imprimirFolhaOcorrencia = function(dados = {}) {
             <table>
                 <tr>
                     <th class="w-15">Nº O.S.</th><td class="w-35">${val(dados.numero_os)}</td>
+                    <th class="w-15">Data Abert. O.S.</th><td class="w-35">${val(dados.data_abertura_os ? dados.data_abertura_os.split('-').reverse().join('/') : '')}</td>
+                </tr>
+                <tr>
                     <th class="w-15">Data e Hora</th><td class="w-35">${dataFmt} ${isBlank ? '' : 'às'} ${val(dados.hora_ocorrido)}</td>
+                    <th class="w-15">Local/Projeto</th><td class="w-35">${val(dados.local_projeto)}</td>
                 </tr>
                 <tr>
-                    <th class="w-15">Local/Projeto</th><td colspan="3">${val(dados.local_projeto)}</td>
-                </tr>
-                <tr>
-                    <th class="w-15">Envolvido</th><td colspan="3">${val(dados.nome_envolvido)}</td>
+                    <th class="w-15">Envolvido</th><td class="w-35">${val(dados.nome_envolvido)}</td>
+                    <th class="w-15">Responsável?</th><td class="w-35">${isBlank ? '' : (dados.is_responsavel ? 'Sim (Causador)' : 'Não')}</td>
                 </tr>
                 <tr>
                     <th class="w-15">Função</th><td class="w-35">${val(dados.funcao)}</td>
-                    <th class="w-15">Tempo Emp.</th><td class="w-35">${val(dados.tempo_empresa)}</td>
+                    <th class="w-15">Setor</th><td class="w-35">${val(dados.setor)}</td>
                 </tr>
                 <tr>
-                    <th class="w-15">Escala</th><td colspan="3">${val(dados.escala)}</td>
+                    <th class="w-15">Tempo Emp.</th><td class="w-35">${val(dados.tempo_empresa)}</td>
+                    <th class="w-15">Escala</th><td class="w-35">${val(dados.escala)}</td>
+                </tr>
+            </table>
+
+            <div class="section-title">3. Classificação e Prejuízos</div>
+            <table>
+                <tr>
+                    <th class="w-15">Tipo Ocorrência</th><td class="w-35">${val(dados.tipo_ocorrencia)}</td>
+                    <th class="w-15">Status</th><td class="w-35">${val(dados.status)}</td>
+                </tr>
+                <tr>
+                    <th class="w-15">Prejuízo (R$)</th><td colspan="3">${val(dados.valor_prejuizo ? parseFloat(dados.valor_prejuizo).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}) : '')}</td>
                 </tr>
             </table>
 
             ${htmlOutrosEnvolvidos}
 
-            <div class="section-title">3. Relato dos Fatos e Pareceres</div>
+            <div class="section-title">4. Relato dos Fatos e Pareceres</div>
             <div class="text-box">
                 <span class="text-box-title">Descrição dos Fatos:</span>
                 ${val(dados.descricao_fatos)}

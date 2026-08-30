@@ -1,3 +1,22 @@
+<style>
+    /* CORREÇÃO DO FUNDO DO INPUT DE DATA NO HISTÓRICO */
+    input[type="date"], input[type="time"] {
+        background-color: rgba(15, 23, 42, 0.8) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 6px;
+        padding: 8px 12px;
+        color-scheme: dark;
+        font-family: inherit;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="time"]::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        cursor: pointer;
+        opacity: 0.7;
+    }
+</style>
+
 <div class="content-panel" style="animation: fadeIn 0.3s ease;">
     <div class="panel-header">
         <h3><i class="fas fa-history"></i> Histórico de Ocorrências</h3>
@@ -25,7 +44,7 @@
         </div>
         <div class="form-group-dark" style="flex: 1; min-width: 150px; margin-bottom: 0;">
             <label>Data do Ocorrido</label>
-            <input type="date" id="filtroData" class="input-moderno" onchange="renderizarHistoricoOcorrencias()">
+            <input type="date" id="filtroData" onchange="renderizarHistoricoOcorrencias()">
         </div>
     </div>
 
@@ -63,8 +82,8 @@
             <input type="hidden" id="edit_id">
 
             <!-- Linha 1 -->
-            <div class="form-group-dark"><label>Data Ocorrido</label><input type="date" id="edit_data_ocorrido" class="input-moderno"></div>
-            <div class="form-group-dark"><label>Hora Ocorrido</label><input type="time" id="edit_hora_ocorrido" class="input-moderno"></div>
+            <div class="form-group-dark"><label>Data Ocorrido</label><input type="date" id="edit_data_ocorrido"></div>
+            <div class="form-group-dark"><label>Hora Ocorrido</label><input type="time" id="edit_hora_ocorrido"></div>
             <div class="form-group-dark"><label>Local do Projeto</label><input type="text" id="edit_local_projeto" class="input-moderno"></div>
 
             <!-- Linha 2 -->
@@ -85,32 +104,40 @@
             </div>
 
             <!-- Linha 4 -->
-            <div class="form-group-dark"><label>Nome do Envolvido</label><input type="text" id="edit_nome_envolvido" class="input-moderno"></div>
+            <div class="form-group-dark"><label>Nome do Envolvido (Principal)</label><input type="text" id="edit_nome_envolvido" class="input-moderno"></div>
             <div class="form-group-dark"><label>Função</label><input type="text" id="edit_funcao" class="input-moderno"></div>
-            <div class="form-group-dark"><label>Tempo de Empresa</label><input type="text" id="edit_tempo_empresa" class="input-moderno"></div>
-
-            <!-- Linha 5 -->
-            <div class="form-group-dark"><label>Escala</label><input type="text" id="edit_escala" class="input-moderno"></div>
-            <div class="form-group-dark"><label>É Responsável?</label>
+            <div class="form-group-dark"><label>É Causador/Responsável?</label>
                 <select id="edit_is_responsavel" class="dark-select">
                     <option value="true">Sim</option>
                     <option value="false">Não</option>
                 </select>
             </div>
+
+            <!-- Linha 5 -->
+            <div class="form-group-dark"><label>Escala</label><input type="text" id="edit_escala" class="input-moderno"></div>
+            <div class="form-group-dark"><label>Tempo de Empresa</label><input type="text" id="edit_tempo_empresa" class="input-moderno"></div>
             <div class="form-group-dark"><label>Valor Prejuízo (R$)</label><input type="number" step="0.01" id="edit_valor_prejuizo" class="input-moderno"></div>
 
             <!-- Linha 6 -->
             <div class="form-group-dark"><label>Empresa</label><input type="text" id="edit_empresa" class="input-moderno"></div>
             <div class="form-group-dark"><label>Nº OS (Ordem Serviço)</label><input type="text" id="edit_numero_os" class="input-moderno"></div>
-            <div class="form-group-dark"><label>Data Abertura OS</label><input type="date" id="edit_data_abertura_os" class="input-moderno"></div>
+            <div class="form-group-dark"><label>Data Abertura OS</label><input type="date" id="edit_data_abertura_os"></div>
 
             <!-- Linha 7 -->
             <div class="form-group-dark"><label>Gestor Imediato</label><input type="text" id="edit_gestor_imediato" class="input-moderno"></div>
             <div class="form-group-dark"><label>Gerente</label><input type="text" id="edit_gerente" class="input-moderno"></div>
             <div></div> <!-- Espaço em branco para alinhar -->
 
+            <!-- Linha 8: Outros Envolvidos (Editáveis Dinamicamente) -->
+            <div class="form-group-dark" style="grid-column: 1 / -1; display: none;" id="div_edit_outros_envolvidos">
+                <label style="color: #60a5fa; font-weight: bold;"><i class="fas fa-users"></i> Outros Envolvidos / Equipamentos</label>
+                <div id="container_edit_outros_envolvidos" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                    <!-- Linhas geradas dinamicamente via JS -->
+                </div>
+            </div>
+
             <!-- Textareas de bloco inteiro -->
-            <div class="form-group-dark" style="grid-column: 1 / -1;">
+            <div class="form-group-dark" style="grid-column: 1 / -1; margin-top: 10px;">
                 <label>Descrição dos Fatos</label>
                 <textarea id="edit_descricao_fatos" class="input-moderno" rows="3" style="resize: vertical;"></textarea>
             </div>

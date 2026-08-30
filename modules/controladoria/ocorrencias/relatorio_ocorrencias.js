@@ -1,10 +1,14 @@
 // =========================================================================
-// Módulo: Controladoria -> Relatório de Ocorrências (Dashboard)
+// Módulo: Controladoria -> Relatório de Ocorrências (Dashboard Moderno)
 // Ficheiro: modules/controladoria/ocorrencias/relatorio_ocorrencias.js
 // =========================================================================
 
 window.dadosOcorrenciasRelatorio = [];
 window.dadosFiltradosRelatorio = [];
+
+// Variáveis de Paginação
+window.paginaAtualRel = 1;
+window.itensPorPaginaRel = 10;
 
 window.initRelatorioOcorrencias = async function() {
     await window.carregarDadosRelatorio();
@@ -12,10 +16,9 @@ window.initRelatorioOcorrencias = async function() {
 
 window.carregarDadosRelatorio = async function() {
     const tbody = document.getElementById('tbodyRelatorioOcorrencias');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Carregando dados do servidor...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 30px;"><i class="fas fa-spinner fa-spin"></i> Sincronizando dados com o servidor...</td></tr>';
     
     try {
-        // Agora busca a tabela principal junto com os terceiros cadastrados[cite: 5]
         let query = supabaseClient.from('ocorrencias')
                                   .select('*, ocorrencia_outros_envolvidos(*)')
                                   .order('data_ocorrido', { ascending: false });
@@ -28,23 +31,20 @@ window.carregarDadosRelatorio = async function() {
         if (error) throw error;
         
         window.dadosOcorrenciasRelatorio = data || [];
-        
-        // Mantém os selects como estão e força o primeiro filtro[cite: 5]
         window.filtrarEAtualizarDashboard(); 
     } catch (error) {
         console.error("Erro ao carregar relatório:", error);
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#ef4444;">Erro ao carregar dados.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#ef4444;">Erro ao carregar dados. Verifique sua conexão.</td></tr>';
     }
 };
 
 window.limparFiltrosRelatorio = function() {
     document.getElementById('filtroMesRel').value = '';
-    
-    // Deixa o ano atual[cite: 5]
     const anoAtual = new Date().getFullYear().toString();
     const selectAno = document.getElementById('filtroAnoRel');
     if(selectAno) selectAno.value = anoAtual;
     
+    document.getElementById('filtroDataEspecificaRel').value = '';
     document.getElementById('filtroStatusRel').value = 'Todos';
     document.getElementById('filtroBuscaRel').value = '';
     
@@ -54,56 +54,62 @@ window.limparFiltrosRelatorio = function() {
 window.filtrarEAtualizarDashboard = function() {
     const mesFiltro = document.getElementById('filtroMesRel').value; 
     const anoFiltro = document.getElementById('filtroAnoRel').value;
+    const dataEspecifica = document.getElementById('filtroDataEspecificaRel').value;
     const statusFiltro = document.getElementById('filtroStatusRel').value;
     const busca = document.getElementById('filtroBuscaRel').value.toLowerCase();
 
     window.dadosFiltradosRelatorio = window.dadosOcorrenciasRelatorio.filter(o => {
         
-        // Filtro Data (YYYY-MM-DD)[cite: 5]
-        if (o.data_ocorrido) {
-            const partes = o.data_ocorrido.split('-'); // [0] = YYYY, [1] = MM, [2] = DD[cite: 5]
-            if (anoFiltro && partes[0] !== anoFiltro) return false;
-            if (mesFiltro && partes[1] !== mesFiltro) return false;
-        } else if (anoFiltro || mesFiltro) {
-            return false; // Se tiver filtro e a ocorrencia nao tiver data, esconde[cite: 5]
+        // Filtro de Data (Prioriza data específica se preenchida)
+        if (dataEspecifica) {
+            if (o.data_ocorrido !== dataEspecifica) return false;
+        } else {
+            // Filtro normal por Mês/Ano
+            if (o.data_ocorrido) {
+                const partes = o.data_ocorrido.split('-'); 
+                if (anoFiltro && partes[0] !== anoFiltro) return false;
+                if (mesFiltro && partes[1] !== mesFiltro) return false;
+            } else if (anoFiltro || mesFiltro) {
+                return false; 
+            }
         }
 
-        // Filtro Status[cite: 5]
+        // Filtro de Status
         if (statusFiltro !== 'Todos') {
             const st = o.status || 'Aberta';
             if (st !== statusFiltro) return false;
         }
         
-        // Filtro Busca[cite: 5]
+        // Filtro de Busca Específica
         if (busca) {
             const idStr = String(o.id).padStart(4, '0');
             const placa = (o.placa || '').toLowerCase();
             const envolvido = (o.nome_envolvido || '').toLowerCase();
-            if (!idStr.includes(busca) && !placa.includes(busca) && !envolvido.includes(busca)) return false;
+            const causador = window.determinarCausador(o).nome.toLowerCase();
+            
+            if (!idStr.includes(busca) && !placa.includes(busca) && !envolvido.includes(busca) && !causador.includes(busca)) return false;
         }
 
         return true;
     });
+    
+    // Sempre que filtrar, volta para a página 1
+    window.paginaAtualRel = 1;
     
     window.atualizarKPIsRelatorio();
     window.renderizarTabelaRelatorio();
     window.renderizarGraficosRelatorio();
 };
 
-// =========================================================
-// LÓGICA DE DETECÇÃO DO CAUSADOR (Principal ou Terceiros)[cite: 5]
-// =========================================================
 window.determinarCausador = function(oco) {
     let causadorReal = oco.nome_envolvido || 'Não Identificado';
     let setorReal = oco.setor || '-';
     let isExterno = false;
 
-    // 1. O envolvido principal na página de registro foi marcado como causador?[cite: 5]
     if (oco.is_responsavel === true) {
         return { nome: causadorReal, setor: setorReal, isExterno: false };
     }
 
-    // 2. Se não, verifica a lista da tabela de 'outros_envolvidos'[cite: 5]
     if (oco.ocorrencia_outros_envolvidos && Array.isArray(oco.ocorrencia_outros_envolvidos)) {
         const causadorOutro = oco.ocorrencia_outros_envolvidos.find(e => e.is_responsavel === true);
         if (causadorOutro) {
@@ -115,10 +121,10 @@ window.determinarCausador = function(oco) {
             } else {
                 causadorReal = causadorOutro.nome;
             }
+            return { nome: causadorReal, setor: setorReal, isExterno: isExterno };
         }
     }
 
-    // Se ninguém foi marcado como causador, assume que o envolvido principal (o relator) é o dono do evento.[cite: 5]
     return { nome: causadorReal, setor: setorReal, isExterno: isExterno };
 };
 
@@ -132,7 +138,7 @@ window.atualizarKPIsRelatorio = function() {
 
     dados.forEach(o => {
         const t = (o.tipo_ocorrencia || '').toLowerCase();
-        if (t.includes('avaria') || t.includes('colisão') || t.includes('tombamento')) avarias++;
+        if (t.includes('avaria') || t.includes('colisão') || t.includes('tombamento') || t.includes('acidente')) avarias++;
         
         const valor = parseFloat(o.valor_prejuizo);
         if (!isNaN(valor) && valor > 0) {
@@ -142,22 +148,82 @@ window.atualizarKPIsRelatorio = function() {
     });
 
     document.getElementById('kpiTotalOcorrencias').innerText = total;
+    
     document.getElementById('kpiTotalAvarias').innerText = avarias;
+    const taxaAvarias = total > 0 ? ((avarias / total) * 100).toFixed(1) : 0;
+    document.getElementById('kpiTaxaAvarias').innerText = `${taxaAvarias}% do total`;
+
     document.getElementById('kpiComPrejuizo').innerText = comPrejuizo;
+    const mediaPrejuizo = comPrejuizo > 0 ? (prejuizoTotal / comPrejuizo) : 0;
+    document.getElementById('kpiMediaPrejuizo').innerText = `Média: ${mediaPrejuizo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/ocorrência`;
+
     document.getElementById('kpiPrejuizoTotal').innerText = prejuizoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+// Mudar a página na tabela
+window.mudarPaginaRel = function(novaPagina) {
+    window.paginaAtualRel = novaPagina;
+    window.renderizarTabelaRelatorio();
+};
+
+window.renderizarPaginacaoRelatorio = function() {
+    const totalItens = window.dadosFiltradosRelatorio.length;
+    const totalPaginas = Math.ceil(totalItens / window.itensPorPaginaRel);
+    const container = document.getElementById('paginacaoRelatorioOcorrencias');
+    
+    if (!container) return;
+    
+    if (totalPaginas <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '<div class="rel-pagination">';
+    
+    // Botão Anterior
+    html += `<button class="rel-page-btn" ${window.paginaAtualRel === 1 ? 'disabled' : ''} onclick="window.mudarPaginaRel(${window.paginaAtualRel - 1})"><i class="fas fa-chevron-left"></i></button>`;
+    
+    // Calcula as páginas para mostrar
+    let startPage = Math.max(1, window.paginaAtualRel - 2);
+    let endPage = Math.min(totalPaginas, startPage + 4);
+    
+    if (endPage - startPage < 4) {
+        startPage = Math.max(1, endPage - 4);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        const active = i === window.paginaAtualRel ? 'active' : '';
+        html += `<button class="rel-page-btn ${active}" onclick="window.mudarPaginaRel(${i})">${i}</button>`;
+    }
+    
+    // Botão Próximo
+    html += `<button class="rel-page-btn" ${window.paginaAtualRel === totalPaginas ? 'disabled' : ''} onclick="window.mudarPaginaRel(${window.paginaAtualRel + 1})"><i class="fas fa-chevron-right"></i></button>`;
+    
+    html += '</div>';
+    container.innerHTML = html;
 };
 
 window.renderizarTabelaRelatorio = function() {
     const tbody = document.getElementById('tbodyRelatorioOcorrencias');
+    const labelTotal = document.getElementById('labelTotalRegistrosTabela');
     if (!tbody) return;
 
     if (window.dadosFiltradosRelatorio.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 20px; color:#94a3b8;">Nenhum registo encontrado para os filtros selecionados.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 30px; color:#94a3b8;">Nenhum registo encontrado para os filtros selecionados.</td></tr>';
+        if (labelTotal) labelTotal.innerText = '0 registos';
+        document.getElementById('paginacaoRelatorioOcorrencias').innerHTML = '';
         return;
     }
 
+    if (labelTotal) labelTotal.innerText = `${window.dadosFiltradosRelatorio.length} registos encontrados`;
+
+    // Aplica a Paginação no array
+    const inicio = (window.paginaAtualRel - 1) * window.itensPorPaginaRel;
+    const fim = inicio + window.itensPorPaginaRel;
+    const itensPagina = window.dadosFiltradosRelatorio.slice(inicio, fim);
+
     let html = '';
-    window.dadosFiltradosRelatorio.forEach(o => {
+    itensPagina.forEach(o => {
         let dataFmt = '-';
         if (o.data_ocorrido) {
             const [ano, mes, dia] = o.data_ocorrido.split('-');
@@ -165,29 +231,45 @@ window.renderizarTabelaRelatorio = function() {
         }
         
         const causador = window.determinarCausador(o);
-        const valorFmt = parseFloat(o.valor_prejuizo) ? parseFloat(o.valor_prejuizo).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-';
-        const st = o.status || 'Aberta';
+        const valorNum = parseFloat(o.valor_prejuizo) || 0;
+        const valorFmt = valorNum > 0 ? `<span style="color:#ef4444; font-weight:700;">${valorNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>` : '<span style="color:#64748b;">-</span>';
         
-        let stColor = '#94a3b8';
-        if(st === 'Aberta') stColor = '#ef4444';
-        else if(st === 'Em Análise') stColor = '#f59e0b';
-        else if(st === 'Concluída') stColor = '#10b981';
+        const st = o.status || 'Aberta';
+        let badgeStatus = '';
+        if(st === 'Aberta') badgeStatus = `<span class="rel-badge rel-badge-danger">${st}</span>`;
+        else if(st === 'Em Análise') badgeStatus = `<span class="rel-badge rel-badge-warning">${st}</span>`;
+        else badgeStatus = `<span class="rel-badge rel-badge-success">${st}</span>`;
+
+        let badgeOrigem = causador.isExterno 
+            ? `<span class="rel-badge rel-badge-purple" style="font-size:0.65rem; margin-left:5px;">Terceiro</span>`
+            : `<span class="rel-badge rel-badge-info" style="font-size:0.65rem; margin-left:5px;">Interno</span>`;
 
         html += `
             <tr>
-                <td style="font-weight:bold; color:var(--ccol-blue-bright);">#${String(o.id).padStart(4,'0')}</td>
-                <td>${dataFmt}</td>
-                <td>${o.tipo_ocorrencia || 'Outros'}</td>
-                <td>${o.placa || '-'} <br><span style="font-size:0.7rem; color:#94a3b8;">${o.numero_frota || ''}</span></td>
-                <td style="font-weight:bold; color: ${causador.isExterno ? '#a855f7' : '#e2e8f0'};">${causador.nome}</td>
-                <td><span style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-dim); padding: 4px 8px; border-radius: 4px;">${causador.setor}</span></td>
-                <td style="color:#ef4444;">${valorFmt}</td>
-                <td><span style="background: rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 4px; color:${stColor}; font-size:0.8rem; font-weight:bold; border: 1px solid ${stColor};">${st}</span></td>
+                <td style="font-weight:bold; color:#f8fafc;">#${String(o.id).padStart(4,'0')}</td>
+                <td style="color:#94a3b8;">${dataFmt}</td>
+                <td>
+                    <div style="font-weight:600; color:#e2e8f0; margin-bottom:4px;">${o.tipo_ocorrencia || 'Outros'}</div>
+                    ${badgeStatus}
+                </td>
+                <td>
+                    <div style="font-weight:700; color:#60a5fa;">${o.placa || '-'}</div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">${o.numero_frota || ''}</div>
+                </td>
+                <td>
+                    <div style="display:flex; align-items:center;">
+                        <span style="font-weight:600; color: #f8fafc;">${causador.nome}</span>
+                        ${badgeOrigem}
+                    </div>
+                </td>
+                <td><span style="color:#cbd5e1;">${causador.setor}</span></td>
+                <td style="text-align: right;">${valorFmt}</td>
             </tr>
         `;
     });
 
     tbody.innerHTML = html;
+    window.renderizarPaginacaoRelatorio();
 };
 
 window.renderizarGraficosRelatorio = function() {
@@ -195,124 +277,193 @@ window.renderizarGraficosRelatorio = function() {
     
     const dados = window.dadosFiltradosRelatorio;
     
-    // --- Gráfico de Meses (Com número em cima das colunas) ---
-    const mesesCount = {};
+    const causadoresMap = {};
+    let internosCount = 0;
+    let externosCount = 0;
+
     dados.forEach(o => {
-        if (!o.data_ocorrido) return;
-        const mesKey = o.data_ocorrido.substring(0, 7); // YYYY-MM[cite: 5]
-        mesesCount[mesKey] = (mesesCount[mesKey] || 0) + 1;
+        const c = window.determinarCausador(o);
+        const valor = parseFloat(o.valor_prejuizo) || 0;
+        
+        if (!causadoresMap[c.nome]) {
+            causadoresMap[c.nome] = { qtd: 0, valor: 0, isExterno: c.isExterno };
+        }
+        causadoresMap[c.nome].qtd += 1;
+        causadoresMap[c.nome].valor += valor;
+        
+        if (c.isExterno || c.nome.includes('Outros')) externosCount++;
+        else internosCount++;
     });
-    const mesesLabels = Object.keys(mesesCount).sort();
-    const mesesData = mesesLabels.map(k => mesesCount[k]);
-    
-    const chartMeses = echarts.init(document.getElementById('chartMeses'));
-    chartMeses.setOption({
-        tooltip: { trigger: 'axis' },
-        grid: { top: '15%', bottom: '15%', left: '10%', right: '5%' },
-        xAxis: { type: 'category', data: mesesLabels.map(m => m.split('-').reverse().join('/')), axisLabel: { color: '#94a3b8' } },
-        yAxis: { type: 'value', splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: '#94a3b8' } },
-        series: [{ 
-            data: mesesData, 
-            type: 'bar', 
-            itemStyle: { color: '#3b82f6', borderRadius: [4,4,0,0] },
-            label: {
-                show: true,
-                position: 'top',
-                color: '#f8fafc',
-                fontWeight: 'bold'
+
+    const causadoresSorted = Object.keys(causadoresMap)
+        .map(k => ({ name: k, ...causadoresMap[k] }))
+        .sort((a,b) => {
+            if (b.valor !== a.valor) return b.valor - a.valor;
+            return b.qtd - a.qtd;
+        })
+        .slice(0, 10); 
+
+    const nomesCausadores = causadoresSorted.map(c => c.name);
+    const qtdCausadores = causadoresSorted.map(c => c.qtd);
+    const valorCausadores = causadoresSorted.map(c => c.valor);
+
+    const chartCausadores = echarts.init(document.getElementById('chartCausadores'));
+    chartCausadores.setOption({
+        tooltip: { 
+            trigger: 'axis',
+            axisPointer: { type: 'cross' },
+            formatter: function(params) {
+                let name = params[0].name;
+                let qtd = params[0].value;
+                let val = params[1] ? params[1].value : 0;
+                return `<b>${name}</b><br/>Ocorrências: ${qtd}<br/>Prejuízo: ${val.toLocaleString('pt-BR', {style: 'currency', currency:'BRL'})}`;
             }
+        },
+        legend: { data: ['Qtd Ocorrências', 'Prejuízo (R$)'], textStyle: { color: '#94a3b8' }, bottom: 0 },
+        grid: { left: '3%', right: '3%', bottom: '15%', containLabel: true },
+        xAxis: [
+            { type: 'category', data: nomesCausadores, axisLabel: { color: '#cbd5e1', interval: 0, rotate: 15, width: 90, overflow: 'truncate' } }
+        ],
+        yAxis: [
+            { type: 'value', name: 'Qtd', minInterval: 1, splitLine: { show: false }, axisLabel: { color: '#94a3b8' } },
+            { type: 'value', name: 'R$', splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)', type: 'dashed' } }, axisLabel: { color: '#ef4444', formatter: 'R$ {value}' } }
+        ],
+        series: [
+            { 
+                name: 'Qtd Ocorrências', 
+                type: 'bar', 
+                data: qtdCausadores,
+                itemStyle: { 
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: '#3b82f6' },
+                        { offset: 1, color: '#1e3a8a' }
+                    ]),
+                    borderRadius: [4, 4, 0, 0] 
+                },
+                label: { // Valor da quantidade acima da barra
+                    show: true, 
+                    position: 'top', 
+                    color: '#f8fafc', 
+                    fontWeight: 'bold',
+                    fontSize: 12
+                }
+            },
+            {
+                name: 'Prejuízo (R$)',
+                type: 'line',
+                yAxisIndex: 1,
+                data: valorCausadores,
+                smooth: true,
+                symbolSize: 8,
+                itemStyle: { color: '#ef4444' },
+                lineStyle: { width: 3, shadowColor: 'rgba(239, 68, 68, 0.5)', shadowBlur: 10 }
+            }
+        ]
+    });
+
+    const chartOrigem = echarts.init(document.getElementById('chartOrigem'));
+    chartOrigem.setOption({
+        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+        legend: { bottom: '5%', left: 'center', textStyle: { color: '#94a3b8' } },
+        series: [{ 
+            type: 'pie', 
+            radius: ['40%', '70%'], 
+            center: ['50%', '45%'],
+            avoidLabelOverlap: false,
+            itemStyle: { borderRadius: 10, borderColor: '#0f172a', borderWidth: 2 },
+            label: { show: false, position: 'center' },
+            emphasis: { label: { show: true, fontSize: '16', fontWeight: 'bold', color: '#fff' } },
+            labelLine: { show: false },
+            data: [
+                { name: 'Colaborador Interno', value: internosCount, itemStyle: { color: '#3b82f6' } },
+                { name: 'Empresa Terceira', value: externosCount, itemStyle: { color: '#a855f7' } }
+            ]
         }]
     });
 
-    // --- Gráfico de Tipos (Com valor total centralizado) ---
+    const mesesMap = {};
+    dados.forEach(o => {
+        if (!o.data_ocorrido) return;
+        const mesKey = o.data_ocorrido.substring(0, 7);
+        if (!mesesMap[mesKey]) mesesMap[mesKey] = { qtd: 0, valor: 0 };
+        mesesMap[mesKey].qtd += 1;
+        mesesMap[mesKey].valor += (parseFloat(o.valor_prejuizo) || 0);
+    });
+    const mesesLabels = Object.keys(mesesMap).sort();
+    const mesesQtd = mesesLabels.map(k => mesesMap[k].qtd);
+    const mesesValor = mesesLabels.map(k => mesesMap[k].valor);
+    
+    const chartMeses = echarts.init(document.getElementById('chartMeses'));
+    chartMeses.setOption({
+        tooltip: { 
+            trigger: 'axis',
+            formatter: function(params) {
+                let name = params[0].name;
+                let qtd = params[0] ? params[0].value : 0;
+                let val = params[1] ? params[1].value : 0;
+                return `<b>${name}</b><br/>Qtd: ${qtd}<br/>Custo: ${val.toLocaleString('pt-BR', {style: 'currency', currency:'BRL'})}`;
+            }
+        },
+        grid: { top: '15%', bottom: '15%', left: '10%', right: '10%' },
+        xAxis: { type: 'category', data: mesesLabels.map(m => m.split('-').reverse().join('/')), axisLabel: { color: '#94a3b8' } },
+        yAxis: [
+            { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: '#94a3b8' } },
+            { type: 'value', splitLine: { show: false }, axisLabel: { show: false } }
+        ],
+        series: [
+            { 
+                name: 'Volume',
+                data: mesesQtd, 
+                type: 'bar', 
+                barMaxWidth: 40,
+                itemStyle: { 
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: '#10b981' },
+                        { offset: 1, color: '#047857' }
+                    ]), 
+                    borderRadius: [4,4,0,0] 
+                },
+                label: { show: true, position: 'top', color: '#f8fafc', fontWeight: 'bold' }
+            },
+            {
+                name: 'Custo',
+                type: 'line',
+                yAxisIndex: 1,
+                data: mesesValor,
+                smooth: true,
+                symbol: 'none',
+                lineStyle: { width: 0 },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(239, 68, 68, 0.4)' },
+                        { offset: 1, color: 'rgba(239, 68, 68, 0.0)' }
+                    ])
+                }
+            }
+        ]
+    });
+
     const tiposCount = {};
     dados.forEach(o => {
         const t = o.tipo_ocorrencia || 'Não Informado';
         tiposCount[t] = (tiposCount[t] || 0) + 1;
     });
     const pieTipos = Object.keys(tiposCount).map(k => ({ name: k, value: tiposCount[k] }));
-    const totalTipos = pieTipos.reduce((sum, item) => sum + item.value, 0);
 
     const chartTipos = echarts.init(document.getElementById('chartTipos'));
     chartTipos.setOption({
-        tooltip: { trigger: 'item' },
-        title: {
-            text: 'Total',
-            subtext: totalTipos.toString(),
-            left: 'center',
-            top: 'center',
-            textStyle: { color: '#94a3b8', fontSize: 11 },
-            subtextStyle: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' }
-        },
+        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
         series: [{ 
             type: 'pie', 
-            radius: ['40%', '70%'], 
-            itemStyle: { borderRadius: 5, borderColor: '#1f2937', borderWidth: 2 }, 
-            label: { color: '#fff', formatter: '{b}: {c}' }, 
-            data: pieTipos 
+            radius: '60%', 
+            center: ['50%', '50%'],
+            itemStyle: { borderRadius: 5, borderColor: '#0f172a', borderWidth: 2 }, 
+            label: { color: '#cbd5e1', formatter: '{b}\n{c}' },
+            data: pieTipos.sort((a,b) => b.value - a.value)
         }]
-    });
-
-    // --- Gráfico Top 10 Causadores (Com valor em frente às barras) ---
-    const causadoresCount = {};
-    let internosCount = 0;
-    let externosCount = 0;
-
-    dados.forEach(o => {
-        const c = window.determinarCausador(o);
-        causadoresCount[c.nome] = (causadoresCount[c.nome] || 0) + 1;
-        
-        if (c.isExterno || c.nome.includes('Outros')) externosCount++;
-        else internosCount++;
-    });
-
-    const causadoresSorted = Object.keys(causadoresCount).map(k => ({ name: k, value: causadoresCount[k] })).sort((a,b) => b.value - a.value).slice(0, 10);
-
-    const chartCausadores = echarts.init(document.getElementById('chartCausadores'));
-    chartCausadores.setOption({
-        tooltip: { trigger: 'axis' },
-        grid: { left: '3%', right: '12%', bottom: '3%', containLabel: true },
-        xAxis: { type: 'value', splitLine: { show: false }, axisLabel: { color: '#94a3b8' } },
-        yAxis: { type: 'category', data: causadoresSorted.map(c => c.name).reverse(), axisLabel: { color: '#f8fafc', width: 120, overflow: 'truncate' } },
-        series: [{ 
-            type: 'bar', 
-            data: causadoresSorted.map(c => {
-                return { value: c.value, itemStyle: { color: c.name.includes('Outros') ? '#a855f7' : '#10b981' } };
-            }).reverse(),
-            label: {
-                show: true,
-                position: 'right',
-                color: '#f8fafc',
-                fontWeight: 'bold'
-            }
-        }]
-    });
-
-    // --- Gráfico Origem (Interno vs Externo) ---
-    const chartOrigem = echarts.init(document.getElementById('chartOrigem'));
-    chartOrigem.setOption({
-        tooltip: { trigger: 'item' },
-        series: [{ type: 'pie', radius: '80%', label: { show: false }, data: [
-            { name: 'Internos (Nossos Colab.)', value: internosCount, itemStyle: { color: '#10b981' } },
-            { name: 'Terceiros / Outros', value: externosCount, itemStyle: { color: '#a855f7' } }
-        ]}]
-    });
-
-    // --- Gráfico Status ---
-    const statusCount = {};
-    dados.forEach(o => {
-        const s = o.status || 'Aberta';
-        statusCount[s] = (statusCount[s] || 0) + 1;
-    });
-    const pieStatus = Object.keys(statusCount).map(k => ({ name: k, value: statusCount[k], itemStyle: { color: k === 'Aberta' ? '#ef4444' : (k === 'Em Análise' ? '#f59e0b' : '#10b981') } }));
-
-    const chartStatus = echarts.init(document.getElementById('chartStatus'));
-    chartStatus.setOption({
-        tooltip: { trigger: 'item' },
-        series: [{ type: 'pie', radius: '80%', label: { show: false }, data: pieStatus }]
     });
 
     window.addEventListener('resize', () => {
-        chartMeses.resize(); chartTipos.resize(); chartCausadores.resize(); chartOrigem.resize(); chartStatus.resize();
+        chartMeses.resize(); chartTipos.resize(); chartCausadores.resize(); chartOrigem.resize();
     });
 };

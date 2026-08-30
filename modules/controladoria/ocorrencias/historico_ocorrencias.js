@@ -1,5 +1,6 @@
 // ==================== MÓDULO: HISTÓRICO DE OCORRÊNCIAS ====================
 window.ocorrenciasCache = [];
+window.qtdOutrosEnvolvidosEdit = 0; // Controle de quantos campos extras existem no modal
 
 window.initHistoricoOcorrencias = async function() {
     await window.carregarHistoricoOcorrencias();
@@ -11,9 +12,8 @@ window.carregarHistoricoOcorrencias = async function() {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Buscando ocorrências no banco de dados...</td></tr>';
     
     try {
-        // Busca na tabela real de ocorrências ordenando pela data, hora e ID (mais recentes primeiro)
         let query = window.supabaseClient.from('ocorrencias')
-            .select('*')
+            .select('*, ocorrencia_outros_envolvidos(*)')
             .order('data_ocorrido', { ascending: false })
             .order('hora_ocorrido', { ascending: false })
             .order('id', { ascending: false });
@@ -85,7 +85,6 @@ window.renderizarHistoricoOcorrencias = function() {
         return match;
     });
 
-    // ORDENAÇÃO EXPLICITA: Mais recentes para os mais antigos (Data e Hora)
     filtrados.sort((a, b) => {
         const dataA = a.data_ocorrido || '1970-01-01';
         const horaA = a.hora_ocorrido ? a.hora_ocorrido.substring(0, 5) : '00:00';
@@ -116,7 +115,6 @@ window.renderizarHistoricoOcorrencias = function() {
             badgeStatus = `<span style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; border: 1px solid rgba(239, 68, 68, 0.3);">${o.status || 'Aberta'}</span>`;
         }
         
-        // Botões de ação na Horizontal (lado a lado) - Adicionado o Botão de Imprimir
         const acoesHtml = `
             <div style="display: flex; gap: 8px; justify-content: center;">
                 <button class="btn-action-sm btn-print" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #10b981; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: 0.2s;" onclick="imprimirOcorrencia(${o.id})" title="Imprimir"><i class="fas fa-print"></i></button>
@@ -147,7 +145,6 @@ window.imprimirOcorrencia = function(id) {
         return;
     }
     
-    // Chama a função global que está em ocorrencias_impressao.js
     if (typeof window.imprimirFolhaOcorrencia === 'function') {
         window.imprimirFolhaOcorrencia(o);
     } else {
@@ -159,7 +156,6 @@ window.abrirModalEdicaoOcorrencia = function(id) {
     const o = window.ocorrenciasCache.find(x => x.id === id);
     if (!o) return;
     
-    // Popula todos os campos mapeados do banco
     document.getElementById('edit_id').value = o.id;
     document.getElementById('edit_numero_frota').value = o.numero_frota || '';
     document.getElementById('edit_placa').value = o.placa || '';
@@ -182,7 +178,6 @@ window.abrirModalEdicaoOcorrencia = function(id) {
     document.getElementById('edit_setor').value = o.setor || '';
     document.getElementById('edit_tipo_ocorrencia').value = o.tipo_ocorrencia || '';
     
-    // Assegura o Status
     const statusSelect = document.getElementById('edit_status');
     if(!Array.from(statusSelect.options).some(opt => opt.value === o.status)) {
         if(o.status) statusSelect.innerHTML += `<option value="${o.status}">${o.status}</option>`;
@@ -192,7 +187,49 @@ window.abrirModalEdicaoOcorrencia = function(id) {
     document.getElementById('edit_valor_prejuizo').value = o.valor_prejuizo || '';
     document.getElementById('edit_is_responsavel').value = o.is_responsavel ? "true" : "false";
     
-    // Abre o Modal centralizado
+    // Geração dinâmica dos blocos de Outros Envolvidos permitindo edição
+    const containerOutros = document.getElementById('container_edit_outros_envolvidos');
+    const divOutros = document.getElementById('div_edit_outros_envolvidos');
+    
+    if (containerOutros && divOutros) {
+        if (o.ocorrencia_outros_envolvidos && o.ocorrencia_outros_envolvidos.length > 0) {
+            let htmlOutros = '';
+            window.qtdOutrosEnvolvidosEdit = o.ocorrencia_outros_envolvidos.length;
+            
+            o.ocorrencia_outros_envolvidos.forEach((oe, index) => {
+                htmlOutros += `
+                <div style="display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr; gap: 10px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); align-items: end;">
+                    <input type="hidden" id="edit_outro_id_${index}" value="${oe.id}">
+                    <div class="form-group-dark" style="margin: 0;">
+                        <label style="font-size: 0.75rem;">Nome / Terceiro</label>
+                        <input type="text" id="edit_outro_nome_${index}" class="input-moderno" value="${oe.nome || ''}">
+                    </div>
+                    <div class="form-group-dark" style="margin: 0;">
+                        <label style="font-size: 0.75rem;">Função / Setor</label>
+                        <input type="text" id="edit_outro_funcao_${index}" class="input-moderno" value="${oe.funcao || ''}">
+                    </div>
+                    <div class="form-group-dark" style="margin: 0;">
+                        <label style="font-size: 0.75rem;">Placa</label>
+                        <input type="text" id="edit_outro_placa_${index}" class="input-moderno" value="${oe.equipamento_placa || ''}">
+                    </div>
+                    <div class="form-group-dark" style="margin: 0;">
+                        <label style="font-size: 0.75rem; color: #ef4444;">É Causador?</label>
+                        <select id="edit_outro_resp_${index}" class="dark-select">
+                            <option value="true" ${oe.is_responsavel ? 'selected' : ''}>Sim</option>
+                            <option value="false" ${!oe.is_responsavel ? 'selected' : ''}>Não</option>
+                        </select>
+                    </div>
+                </div>`;
+            });
+            containerOutros.innerHTML = htmlOutros;
+            divOutros.style.display = 'block';
+        } else {
+            containerOutros.innerHTML = '';
+            divOutros.style.display = 'none';
+            window.qtdOutrosEnvolvidosEdit = 0;
+        }
+    }
+
     document.getElementById('modalEditarOcorrencia').style.display = 'flex';
 };
 
@@ -203,7 +240,6 @@ window.fecharModalEdicaoOcorrencia = function() {
 window.salvarEdicaoOcorrencia = async function() {
     const id = document.getElementById('edit_id').value;
     
-    // Captura os dados exatos como a tabela do banco requer
     const payload = {
         numero_frota: document.getElementById('edit_numero_frota').value,
         placa: document.getElementById('edit_placa').value.toUpperCase(),
@@ -222,7 +258,7 @@ window.salvarEdicaoOcorrencia = async function() {
         parecer_gestor: document.getElementById('edit_parecer_gestor').value,
         gestor_imediato: document.getElementById('edit_gestor_imediato').value,
         gerente: document.getElementById('edit_gerente').value,
-        data_abertura_os: document.getElementById('edit_data_abertura_os').value || null, // data pode ser null se vazia
+        data_abertura_os: document.getElementById('edit_data_abertura_os').value || null,
         setor: document.getElementById('edit_setor').value,
         tipo_ocorrencia: document.getElementById('edit_tipo_ocorrencia').value,
         status: document.getElementById('edit_status').value,
@@ -236,8 +272,27 @@ window.salvarEdicaoOcorrencia = async function() {
     }
     
     try {
+        // Atualiza a tabela principal
         const { error } = await window.supabaseClient.from('ocorrencias').update(payload).eq('id', id);
         if (error) throw error;
+        
+        // Atualiza as linhas secundárias de "Outros Envolvidos" que foram editadas
+        if (window.qtdOutrosEnvolvidosEdit > 0) {
+            for (let i = 0; i < window.qtdOutrosEnvolvidosEdit; i++) {
+                const oe_id = document.getElementById(`edit_outro_id_${i}`).value;
+                const oe_nome = document.getElementById(`edit_outro_nome_${i}`).value;
+                const oe_funcao = document.getElementById(`edit_outro_funcao_${i}`).value;
+                const oe_placa = document.getElementById(`edit_outro_placa_${i}`).value;
+                const oe_resp = document.getElementById(`edit_outro_resp_${i}`).value === 'true';
+                
+                await window.supabaseClient.from('ocorrencia_outros_envolvidos').update({
+                    nome: oe_nome,
+                    funcao: oe_funcao,
+                    equipamento_placa: oe_placa,
+                    is_responsavel: oe_resp
+                }).eq('id', oe_id);
+            }
+        }
         
         alert('Ocorrência atualizada com sucesso!');
         window.fecharModalEdicaoOcorrencia();
