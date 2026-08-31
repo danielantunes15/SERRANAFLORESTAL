@@ -70,11 +70,6 @@ window.gerarFormularioTrocaTurnoPDF = function(motoristaId) {
                 <div class="box"></div>
                 <div><strong>OPÇÃO 2:</strong> Desejo <strong>PERMANECER</strong> no meu turno de trabalho atual, continuando no horário das <strong>${turnoAtualStr}</strong>.</div>
             </div>
-
-            <div class="option-item">
-                <div class="box"></div>
-                <div><strong>OPÇÃO 3:</strong> Tenho preferência por outro horário (Sujeito à análise e viabilidade da operação): <br><br>__________________________________________________________________________________</div>
-            </div>
         </div>
 
         <div class="signatures">
@@ -170,11 +165,6 @@ window.gerarTodosFormulariosTrocaTurnoPDF = function() {
                 <div class="option-item">
                     <div class="box"></div>
                     <div><strong>OPÇÃO 2:</strong> Desejo <strong>PERMANECER</strong> no meu turno de trabalho atual, continuando no horário das <strong>${turnoAtualStr}</strong>.</div>
-                </div>
-
-                <div class="option-item">
-                    <div class="box"></div>
-                    <div><strong>OPÇÃO 3:</strong> Tenho preferência por outro horário (Sujeito à análise e viabilidade da operação): <br><br>__________________________________________________________________________________</div>
                 </div>
             </div>
 
