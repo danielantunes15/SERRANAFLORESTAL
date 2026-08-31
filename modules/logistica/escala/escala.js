@@ -244,6 +244,13 @@ window.renderizarEscala = async function() {
 
     let html = '';
 
+    // BOTÃO PARA GERAR TERMO DE TODOS OS MOTORISTAS
+    html += `<div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+                <button onclick="window.gerarTodosFormulariosTrocaTurnoPDF()" title="Imprimir Termo de Opção de Turno para todos os motoristas" style="background: #3b82f6; border: none; color: #fff; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 0.9rem; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;">
+                    <i class="fas fa-print"></i> Gerar Todos os Termos de Turno
+                </button>
+             </div>`;
+
     conjuntosRender.forEach(conj => {
         let motoristasDoConjunto = conj.isSemFrota 
             ? motoristas.filter(m => !m.conjuntoId) 
@@ -327,7 +334,14 @@ window.renderizarEscala = async function() {
                 rowsHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: bold; color: #93c5fd;">${goStr}</td>`;
                 rowsHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 800; color: #f8fafc;">${eq !== '-' ? eq : ''}</td>`;
                 rowsHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 600; color: #cbd5e1;">${posicaoStr}</td>`;
-                rowsHtml += `<td class="td-name" style="padding: 8px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; ${isBlocked ? 'color: #f87171;' : 'color: #fff;'} font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.nome}${flagStatusRH}</td>`;
+                
+                // --- BOTÃO DE GERAR TERMO INDIVIDUAL ---
+                rowsHtml += `<td class="td-name" style="padding: 8px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; ${isBlocked ? 'color: #f87171;' : 'color: #fff;'} font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="overflow: hidden; text-overflow: ellipsis;">${m.nome}${flagStatusRH}</span>
+                                    <button onclick="window.gerarFormularioTrocaTurnoPDF('${m.id}')" title="Gerar Termo de Opção de Turno" style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 0.65rem; margin-left: 8px; flex-shrink: 0;"><i class="fas fa-file-pdf"></i> Termo</button>
+                                </div>
+                             </td>`;
                 
                 diasRender.forEach(d => {
                     const ausencia = window.getAusenciaNoDia(m.id, d.dateKey);
