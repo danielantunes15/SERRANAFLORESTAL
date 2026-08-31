@@ -13,6 +13,7 @@ window.MAPA_MENUS = [
     { id: 'campo_escala', label: 'Escala Semanal', setor: 'Campo', icon: 'fas fa-calendar-alt' },
     { id: 'alocacao_campo', label: 'Alocação Geral', setor: 'Campo', icon: 'fas fa-users-cog' },
     { id: 'campo_maquinas', label: 'Máquinas (Frentes)', setor: 'Campo', icon: 'fas fa-tractor' },
+    { id: 'abastecimento_gruas', label: 'Abastecimento Gruas', setor: 'Campo', icon: 'fas fa-gas-pump' },
     
     { id: 'os', label: 'Gestão de O.S.', setor: 'Manutenção', icon: 'fas fa-clipboard-list' },
     { id: 'historico_os', label: 'Histórico de O.S.', setor: 'Manutenção', icon: 'fas fa-history' },
@@ -86,6 +87,7 @@ const ROTAS = {
     'campo_escala': 'modules/campo/escala/escala.html',
     'alocacao_campo': 'modules/campo/alocacao/alocacao.html',
     'campo_maquinas': 'modules/campo/maquinas/maquinas.html',
+    'abastecimento_gruas': 'modules/campo/abastecimento_gruas/abastecimento_gruas.html',
     
     'os': 'modules/manutencao/ordem_servico/os.html',
     'historico_os': 'modules/manutencao/historico_os/historico_os.html',
@@ -144,7 +146,7 @@ const ROTAS = {
     'almoxarifado_relatorios': 'modules/almoxarifado/almoxarifado_relatorios.html'
 };
 
-const VERSAO_SISTEMA = "1.0.21";
+const VERSAO_SISTEMA = "1.0.22";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -321,6 +323,9 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
         if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();
         if (pagina === 'campo_maquinas' && typeof window.renderizarMaquinasCampo === 'function') window.renderizarMaquinasCampo();
+        
+        // NOVO: Inicializador do módulo Abastecimento Gruas
+        if (pagina === 'abastecimento_gruas' && typeof window.initAbastecimentoGruas === 'function') window.initAbastecimentoGruas();
 
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
         if (pagina === 'historico_os' && typeof window.initHistoricoOS === 'function') window.initHistoricoOS();
