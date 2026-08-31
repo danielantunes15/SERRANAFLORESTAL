@@ -8,7 +8,7 @@
     </button>
 </div>
 
-<!-- NOVA SEÇÃO DE FILTROS DE DATA -->
+<!-- FILTROS DE DATA -->
 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 25px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
     <div class="form-group-dark" style="margin: 0; min-width: 150px;">
         <label style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px; display: block;">Data Inicial</label>
@@ -25,7 +25,7 @@
     </div>
 </div>
 
-<!-- SEÇÃO DE INDICADORES (KPIs) LTS / H MAQ -->
+<!-- INDICADORES (KPIs) LTS / H MAQ -->
 <div style="margin-bottom: 25px;">
     <h3 style="color: #fff; margin-bottom: 15px; font-size: 1.2rem; display: flex; align-items: center; gap: 10px;">
         <i class="fas fa-tachometer-alt" style="color: var(--ccol-blue-bright);"></i> 
@@ -33,10 +33,11 @@
         <span id="loadingKpiInfo" style="font-size:0.8rem; color: var(--text-secondary);"></span>
     </h3>
     <div id="kpiContainerMaquinas" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px;">
-        <!-- Os cards das máquinas serão renderizados aqui pelo JS -->
+        <!-- Os cards das máquinas serão renderizados aqui -->
     </div>
 </div>
 
+<!-- GRÁFICO (ANÁLISE COMPARATIVA) -->
 <div class="dashboard-grid" style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px;">
     <div class="dashboard-card" style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
         <h3 style="color: #fff; margin-bottom: 15px; font-size: 1.2rem;">Análise Comparativa <span id="loadingChartInfo" style="font-size:0.8rem; color: var(--ccol-blue-bright); margin-left:10px;"></span></h3>
@@ -44,6 +45,16 @@
     </div>
 </div>
 
+<!-- NOVO: MAPA DE CALOR E LOCALIZAÇÃO -->
+<div class="dashboard-card" style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px;">
+    <h3 style="color: #fff; margin-bottom: 15px; font-size: 1.2rem;">
+        <i class="fas fa-map-marked-alt" style="color: #ef4444; margin-right: 5px;"></i> Mapa de Abastecimentos 
+        <span id="loadingMapInfo" style="font-size:0.8rem; color: var(--text-secondary); margin-left:10px;"></span>
+    </h3>
+    <div id="mapaAbastecimento" style="width: 100%; height: 450px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); z-index: 1;"></div>
+</div>
+
+<!-- TABELA DE LOG DIÁRIO -->
 <div class="dashboard-card" style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
     <h3 style="color: #fff; margin-bottom: 15px; font-size: 1.2rem;">Log Diário da Planilha (Período Filtrado)</h3>
     <div style="overflow-x: auto;">
@@ -61,5 +72,10 @@
                 </tr>
             </tbody>
         </table>
+    </div>
+    
+    <!-- CONTROLES DE PAGINAÇÃO -->
+    <div id="paginacaoAbastecimento" style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; color: #94a3b8; font-size: 0.9rem; flex-wrap: wrap; gap: 10px;">
+        <!-- Gerado via JS -->
     </div>
 </div>

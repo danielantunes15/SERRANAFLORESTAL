@@ -2,15 +2,24 @@
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uQekwV3xaU-EIGikUaaeik_SdhtQLueaBPCVslUB3kY/export?format=csv&gid=1959920910";
 
 let chartAbastecimento = null;
-let dadosGlobaisAbastecimento = []; // Armazena os dados originais da planilha para filtrar localmente
+let dadosGlobaisAbastecimento = []; 
+let dadosParaTabela = []; 
+let paginaAtualAbast = 1;
+const itensPorPaginaAbast = 20; 
+
+// Variáveis do Mapa
+let mapAbastecimento = null;
+let mapMarkersLayer = null;
 
 window.initAbastecimentoGruas = async function() {
     const tbody = document.getElementById('tbodyAbastecimento');
     const infoLabelChart = document.getElementById('loadingChartInfo');
     const infoLabelKpi = document.getElementById('loadingKpiInfo');
+    const infoLabelMap = document.getElementById('loadingMapInfo');
     
     if(infoLabelChart) infoLabelChart.innerText = "(Sincronizando...)";
     if(infoLabelKpi) infoLabelKpi.innerText = "- Sincronizando Planilha...";
+    if(infoLabelMap) infoLabelMap.innerText = "(Aguardando dados...)";
 
     try {
         const response = await fetch(SHEET_CSV_URL);
@@ -54,10 +63,9 @@ window.initAbastecimentoGruas = async function() {
 };
 
 // ==========================================
-// FUNÇÕES DE FILTRO DE DATA
+// FUNÇÕES DE TRATAMENTO E FILTRO DE DATA
 // ==========================================
 
-// Função inteligente para ler a data independentemente se vem MM/DD/YYYY ou DD/MM/YYYY
 function parseDataPlanilha(strData) {
     if (!strData) return null;
     let partes = strData.trim().split(' ');
@@ -69,19 +77,12 @@ function parseDataPlanilha(strData) {
         let p2 = parseInt(dma[1]); 
         let p3 = parseInt(dma[2]);
         
-        // Verifica se é formato Americano (MM/DD/YYYY) ex: 8/28/2026
-        if (p2 > 12) {
-            return new Date(p3, p1 - 1, p2); // Mês(p1), Dia(p2), Ano(p3)
-        } 
-        // Verifica se é formato Brasileiro (DD/MM/YYYY) ex: 28/08/2026
-        else if (p1 > 12) {
-            return new Date(p3, p2 - 1, p1); // Dia(p1), Mês(p2), Ano(p3)
-        } 
-        // Se ambos forem <= 12, a conversão nativa resolve pelo padrão do navegador
+        if (p2 > 12) { return new Date(p3, p1 - 1, p2); } 
+        else if (p1 > 12) { return new Date(p3, p2 - 1, p1); } 
         else {
             let nativo = new Date(strData);
             if (!isNaN(nativo.getTime())) return nativo;
-            return new Date(p3, p1 - 1, p2); // Assume M/D/Y como fallback
+            return new Date(p3, p1 - 1, p2); 
         }
     }
     
@@ -90,11 +91,51 @@ function parseDataPlanilha(strData) {
     return null;
 }
 
+function obterDataDaLinha(row) {
+    const colunas = Object.keys(row);
+    const colData = colunas.find(c => c.toLowerCase().includes('data/hora') || c.toLowerCase() === 'data');
+    if (!colData || !row[colData]) return null;
+    
+    let dataParsed = parseDataPlanilha(row[colData]);
+    
+    if (dataParsed && row[colData].includes(':')) {
+        let partesTempo = row[colData].split(' ')[1]; 
+        if (partesTempo) {
+            let [h, m, s] = partesTempo.split(':');
+            dataParsed.setHours(parseInt(h)||0, parseInt(m)||0, parseInt(s)||0);
+        }
+    }
+    return dataParsed;
+}
+
+function formatarDataHoraBR(strData) {
+    if (!strData || strData === '-') return '-';
+    let partes = strData.toString().trim().split(' ');
+    let dataParte = partes[0];
+    let horaParte = partes[1] || '';
+    
+    if (!dataParte.includes('/')) return strData;
+
+    let dma = dataParte.split('/');
+    if (dma.length === 3) {
+        let p1 = parseInt(dma[0]); 
+        let p2 = parseInt(dma[1]); 
+        let p3 = parseInt(dma[2]);
+        
+        let dia, mes, ano;
+        if (p2 > 12) { dia = p2; mes = p1; ano = p3; } 
+        else if (p1 > 12) { dia = p1; mes = p2; ano = p3; } 
+        else { dia = p2; mes = p1; ano = p3; }
+        
+        let dataFormatada = `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
+        return horaParte ? `${dataFormatada} ${horaParte}` : dataFormatada;
+    }
+    return strData;
+}
+
 window.aplicarFiltroData = function(tipo, isInitialLoad = false) {
     const inputInicio = document.getElementById('filtroDataInicio');
     const inputFim = document.getElementById('filtroDataFim');
-    const thead = document.getElementById('theadAbastecimento');
-    const tbody = document.getElementById('tbodyAbastecimento');
     
     let inicio = null;
     let fim = null;
@@ -102,9 +143,8 @@ window.aplicarFiltroData = function(tipo, isInitialLoad = false) {
 
     if (tipo === 'mes_atual') {
         inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-        fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0); // Último dia do mês
+        fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0); 
         
-        // Atualiza os inputs para mostrar visualmente o período do mês atual
         if(inputInicio) inputInicio.value = inicio.toISOString().split('T')[0];
         if(inputFim) inputFim.value = fim.toISOString().split('T')[0];
     } 
@@ -113,17 +153,11 @@ window.aplicarFiltroData = function(tipo, isInitialLoad = false) {
         if(inputFim) inputFim.value = '';
     } 
     else if (tipo === 'custom') {
-        if (inputInicio && inputInicio.value) {
-            inicio = new Date(inputInicio.value + 'T00:00:00');
-        }
-        if (inputFim && inputFim.value) {
-            fim = new Date(inputFim.value + 'T23:59:59');
-        }
+        if (inputInicio && inputInicio.value) inicio = new Date(inputInicio.value + 'T00:00:00');
+        if (inputFim && inputFim.value) fim = new Date(inputFim.value + 'T23:59:59');
     }
 
-    // Filtrando o array original
     let dadosFiltrados = dadosGlobaisAbastecimento.filter(row => {
-        // Se for pra mostrar tudo, passa direto
         if (!inicio && !fim) return true;
 
         const colunas = Object.keys(row);
@@ -147,9 +181,16 @@ window.aplicarFiltroData = function(tipo, isInitialLoad = false) {
         return passaInicio && passaFim;
     });
 
-    // Atualiza a tela com os dados filtrados
-    renderizarTabelaGenerica(dadosFiltrados, thead, tbody);
+    dadosFiltrados.sort((a, b) => {
+        let dateA = obterDataDaLinha(a);
+        let dateB = obterDataDaLinha(b);
+        return (dateB ? dateB.getTime() : 0) - (dateA ? dateA.getTime() : 0);
+    });
+
+    // Chamadas de atualização visual
+    renderizarTabelaPaginada(dadosFiltrados);
     processarIndicadoresDashboard(dadosFiltrados);
+    renderizarMapaAbastecimento(dadosFiltrados);
 
     const infoLabelChart = document.getElementById('loadingChartInfo');
     const infoLabelKpi = document.getElementById('loadingKpiInfo');
@@ -172,33 +213,180 @@ window.aplicarFiltroData = function(tipo, isInitialLoad = false) {
 };
 
 // ==========================================
-// RENDERIZAÇÃO DA TABELA E GRÁFICOS
+// RENDERIZAÇÃO DO MAPA DE CALOR/DISPERSÃO
 // ==========================================
+function renderizarMapaAbastecimento(dados) {
+    const mapContainerId = 'mapaAbastecimento';
+    const mapContainer = document.getElementById(mapContainerId);
+    if (!mapContainer) return;
 
-function renderizarTabelaGenerica(dados, thead, tbody) {
+    // Inicializa o mapa caso ainda não exista, utilizando o modelo Híbrido Satélite do Google
+    if (!mapAbastecimento) {
+        mapAbastecimento = L.map(mapContainerId).setView([-18.05, -39.87], 9);
+        
+        L.tileLayer('https://mt0.google.com/vt/lyrs=y&hl=pt-BR&x={x}&y={y}&z={z}', { 
+            maxZoom: 21,
+            attribution: 'Map data &copy; Google'
+        }).addTo(mapAbastecimento);
+        
+        mapMarkersLayer = L.layerGroup().addTo(mapAbastecimento);
+    }
+
+    // Resolve problema de renderização de telas ocultas
+    setTimeout(() => { mapAbastecimento.invalidateSize(); }, 500);
+
+    // Limpa pontos antigos
+    mapMarkersLayer.clearLayers();
+
     if (!dados || dados.length === 0) {
-        thead.innerHTML = '';
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary);">Nenhum registro encontrado para este período.</td></tr>`;
+        document.getElementById('loadingMapInfo').innerText = "(Nenhum dado para mapear)";
         return;
     }
 
     const colunas = Object.keys(dados[0]);
+    const colunasNorm = colunas.map(c => c.toLowerCase().replace(/\s/g, ''));
     
-    thead.innerHTML = colunas.map(col => `<th style="padding: 12px; border-bottom: 1px solid var(--border-dim); color: var(--ccol-blue-bright);">${col}</th>`).join('');
+    // Identificadores de coluna flexíveis
+    const idxLoc = colunasNorm.findIndex(c => c.includes('localiza') || c.includes('gps') || c.includes('coordenada'));
+    const idxGrua = colunasNorm.findIndex(c => c.includes('grua') || c.includes('maquina') || c.includes('frota'));
+    const idxData = colunasNorm.findIndex(c => c.includes('data'));
+    const idxLts = colunasNorm.findIndex(c => c.includes('lts') || c.includes('litro'));
+
+    if (idxLoc === -1) {
+        document.getElementById('loadingMapInfo').innerText = "(Coluna 'Localização' não encontrada na planilha)";
+        return;
+    }
+
+    const colLoc = colunas[idxLoc];
+    const colGrua = idxGrua !== -1 ? colunas[idxGrua] : null;
+    const colData = idxData !== -1 ? colunas[idxData] : null;
+    const colLts = idxLts !== -1 ? colunas[idxLts] : null;
+
+    let latlngs = [];
+
+    dados.forEach(item => {
+        let loc = item[colLoc];
+        if (loc && loc.includes(',')) {
+            let parts = loc.split(',');
+            let lat = parseFloat(parts[0].trim());
+            let lng = parseFloat(parts[1].trim());
+            
+            if (!isNaN(lat) && !isNaN(lng)) {
+                latlngs.push([lat, lng]);
+                
+                let gruaNome = colGrua ? (item[colGrua] || 'N/A') : 'N/A';
+                let dataAbast = colData ? formatarDataHoraBR(item[colData]) : 'N/A';
+                let litrosAbast = colLts ? (item[colLts] || '0') : '0';
+
+                // Desenha o Ponto (Borda branca para destacar bem sobre a foto do satélite)
+                L.circleMarker([lat, lng], {
+                    radius: 8,
+                    fillColor: '#ef4444', // Vermelho "Calor"
+                    color: '#ffffff',     // Borda Branca para dar contraste com a floresta
+                    weight: 2,
+                    fillOpacity: 0.8
+                }).addTo(mapMarkersLayer)
+                  .bindPopup(`
+                    <div style="font-family: 'Inter', sans-serif; color: #1e293b;">
+                        <strong style="color: #0f172a; font-size: 1.1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; display: block; margin-bottom: 5px;">
+                            ${gruaNome}
+                        </strong>
+                        <b>Data:</b> ${dataAbast}<br>
+                        <b>Volume:</b> ${litrosAbast} L<br>
+                        <span style="font-size: 0.75rem; color: #64748b; margin-top: 5px; display:block;">📍 ${lat}, ${lng}</span>
+                    </div>
+                  `);
+            }
+        }
+    });
+
+    if (latlngs.length > 0) {
+        mapAbastecimento.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] });
+        document.getElementById('loadingMapInfo').innerText = `(${latlngs.length} pontos mapeados)`;
+    } else {
+        document.getElementById('loadingMapInfo').innerText = "(Nenhuma coordenada válida encontrada)";
+    }
+}
+
+// ==========================================
+// RENDERIZAÇÃO DA TABELA (COM PAGINAÇÃO) E GRÁFICOS
+// ==========================================
+
+function renderizarTabelaPaginada(dados) {
+    dadosParaTabela = dados;
+    paginaAtualAbast = 1; 
+    montarCabecalhoETabela();
+}
+
+window.mudarPaginaAbast = function(novaPagina) {
+    const totalPaginas = Math.ceil(dadosParaTabela.length / itensPorPaginaAbast);
+    if (novaPagina >= 1 && novaPagina <= totalPaginas) {
+        paginaAtualAbast = novaPagina;
+        montarCabecalhoETabela();
+    }
+};
+
+function montarCabecalhoETabela() {
+    const thead = document.getElementById('theadAbastecimento');
+    const tbody = document.getElementById('tbodyAbastecimento');
+    const paginacao = document.getElementById('paginacaoAbastecimento');
+
+    if (!dadosParaTabela || dadosParaTabela.length === 0) {
+        if(thead) thead.innerHTML = '';
+        if(tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary);">Nenhum registro encontrado para este período.</td></tr>`;
+        if(paginacao) paginacao.innerHTML = '';
+        return;
+    }
+
+    const colunas = Object.keys(dadosParaTabela[0]);
+    if(thead) thead.innerHTML = colunas.map(col => `<th style="padding: 12px; border-bottom: 1px solid var(--border-dim); color: var(--ccol-blue-bright);">${col}</th>`).join('');
+
+    const totalPaginas = Math.ceil(dadosParaTabela.length / itensPorPaginaAbast);
+    const inicio = (paginaAtualAbast - 1) * itensPorPaginaAbast;
+    const fim = inicio + itensPorPaginaAbast;
+    const dadosPagina = dadosParaTabela.slice(inicio, fim);
 
     let htmlCorpo = '';
-    dados.forEach(linha => {
+    dadosPagina.forEach(linha => {
         htmlCorpo += '<tr>';
         colunas.forEach(col => {
-            htmlCorpo += `<td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #e2e8f0;">${linha[col] || '-'}</td>`;
+            let valor = linha[col] || '-';
+            if (col.toLowerCase().includes('data')) {
+                valor = formatarDataHoraBR(valor);
+            }
+            htmlCorpo += `<td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #e2e8f0;">${valor}</td>`;
         });
         htmlCorpo += '</tr>';
     });
     
-    tbody.innerHTML = htmlCorpo;
+    if(tbody) tbody.innerHTML = htmlCorpo;
+
+    if (paginacao) {
+        let btnAnteriorDisabled = paginaAtualAbast === 1 ? 'disabled' : '';
+        let btnAnteriorColor = paginaAtualAbast === 1 ? '#475569' : '#fff';
+        let btnAnteriorCursor = paginaAtualAbast === 1 ? 'not-allowed' : 'pointer';
+
+        let btnProximaDisabled = paginaAtualAbast === totalPaginas ? 'disabled' : '';
+        let btnProximaColor = paginaAtualAbast === totalPaginas ? '#475569' : '#fff';
+        let btnProximaCursor = paginaAtualAbast === totalPaginas ? 'not-allowed' : 'pointer';
+
+        paginacao.innerHTML = `
+            <div>Mostrando ${inicio + 1} a ${Math.min(fim, dadosParaTabela.length)} de <b>${dadosParaTabela.length}</b> registros</div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button onclick="mudarPaginaAbast(${paginaAtualAbast - 1})" ${btnAnteriorDisabled} style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: ${btnAnteriorColor}; padding: 6px 12px; border-radius: 6px; cursor: ${btnAnteriorCursor}; font-weight: 600;">
+                    <i class="fas fa-chevron-left"></i> Anterior
+                </button>
+                <div style="padding: 6px 12px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); border-radius: 6px; color: #10b981; font-weight: bold;">
+                    Página ${paginaAtualAbast} de ${totalPaginas}
+                </div>
+                <button onclick="mudarPaginaAbast(${paginaAtualAbast + 1})" ${btnProximaDisabled} style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: ${btnProximaColor}; padding: 6px 12px; border-radius: 6px; cursor: ${btnProximaCursor}; font-weight: 600;">
+                    Próxima <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        `;
+    }
 }
 
-// Função para garantir a leitura correta de números com padrão Brasileiro
 function parseBR(str) {
     if (!str) return 0;
     let s = str.toString().trim();
@@ -219,8 +407,6 @@ function processarIndicadoresDashboard(dados) {
     }
 
     const colunas = Object.keys(dados[0]);
-    
-    // Normaliza os nomes das colunas
     const colunasNorm = colunas.map(c => c.toLowerCase().replace(/\s/g, ''));
     
     const idxGrua = colunasNorm.findIndex(c => c.includes('grua') || c.includes('maquina') || c.includes('frota'));
@@ -265,9 +451,6 @@ function processarIndicadoresDashboard(dados) {
         });
     }
 
-    // ==========================================
-    // 1. RENDERIZAR CARDS (KPIs) COM STATUS DA META
-    // ==========================================
     if (kpiContainer) {
         let htmlKpi = '';
         
@@ -291,7 +474,7 @@ function processarIndicadoresDashboard(dados) {
         }
 
         htmlKpi += `
-            <div style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 10px; border-left: 4px solid ${borderCorGlobal}; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); text-align: center; display: flex; flex-direction: column; justify-content: center;">
+            <div style="background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.02)); padding: 20px; border-radius: 10px; border-left: 4px solid ${borderCorGlobal}; border-top: 1px solid rgba(16,185,129,0.2); border-bottom: 1px solid rgba(16,185,129,0.2); border-right: 1px solid rgba(16,185,129,0.2); text-align: center; display: flex; flex-direction: column; justify-content: center;">
                 <div style="color: #94a3b8; font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Média Global (Todas)</div>
                 <div style="color: ${corGlobal}; font-size: 2.2rem; font-weight: 800; margin: 10px 0; display: flex; justify-content: center; align-items: center;">
                     ${mediaGlobal} <span style="font-size:1rem; color:#94a3b8; font-weight:600; margin-left: 5px;">LTS/H</span> ${iconeGlobal}
@@ -333,21 +516,11 @@ function processarIndicadoresDashboard(dados) {
             `;
         }
 
-        if (!colMediaLtsH && colGrua) {
-            htmlKpi += `<div style="grid-column: 1 / -1; color: #f59e0b; font-size: 0.9rem; padding: 10px; text-align:center; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">Aviso: A coluna 'LTS / H MAQ' não foi identificada na planilha. Certifique-se de que o nome no cabeçalho está correto.</div>`;
-        }
-
         kpiContainer.innerHTML = htmlKpi;
     }
 
-    // ==========================================
-    // 2. RENDERIZAR GRÁFICO COMBINADO (ECHARTS)
-    // ==========================================
     if (chartContainer) {
-        if (chartAbastecimento) {
-            chartAbastecimento.dispose();
-        }
-        
+        if (chartAbastecimento) chartAbastecimento.dispose();
         chartAbastecimento = echarts.init(chartContainer);
 
         const categorias = Object.keys(maquinas);
@@ -356,88 +529,35 @@ function processarIndicadoresDashboard(dados) {
 
         const option = {
             backgroundColor: 'transparent',
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: { type: 'cross' }
-            },
-            legend: {
-                data: ['Volume Total (LTS)', 'Média (LTS / H)'],
-                textStyle: { color: '#e2e8f0' },
-                bottom: 0
-            },
-            grid: {
-                left: '3%',
-                right: '3%',
-                bottom: '10%',
-                top: '15%',
-                containLabel: true
-            },
-            xAxis: [
-                {
-                    type: 'category',
-                    data: categorias,
-                    axisLabel: { color: '#94a3b8', interval: 0, rotate: 15 },
-                    axisPointer: { type: 'shadow' }
-                }
-            ],
+            tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+            legend: { data: ['Volume Total (LTS)', 'Média (LTS / H)'], textStyle: { color: '#e2e8f0' }, bottom: 0 },
+            grid: { left: '3%', right: '3%', bottom: '10%', top: '15%', containLabel: true },
+            xAxis: [{ type: 'category', data: categorias, axisLabel: { color: '#94a3b8', interval: 0, rotate: 15 }, axisPointer: { type: 'shadow' } }],
             yAxis: [
-                {
-                    type: 'value',
-                    name: 'Litros (L)',
-                    nameTextStyle: { color: '#94a3b8' },
-                    axisLabel: { color: '#94a3b8' },
-                    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }
-                },
-                {
-                    type: 'value',
-                    name: 'Média LTS/H',
-                    nameTextStyle: { color: '#94a3b8' },
-                    axisLabel: { color: '#94a3b8' },
-                    splitLine: { show: false },
-                    min: function(value) { return Math.max(0, Math.floor(value.min - 2)); }
-                }
+                { type: 'value', name: 'Litros (L)', nameTextStyle: { color: '#94a3b8' }, axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } } },
+                { type: 'value', name: 'Média LTS/H', nameTextStyle: { color: '#94a3b8' }, axisLabel: { color: '#94a3b8' }, splitLine: { show: false }, min: function(value) { return Math.max(0, Math.floor(value.min - 2)); } }
             ],
             series: [
                 {
-                    name: 'Volume Total (LTS)',
-                    type: 'bar',
-                    yAxisIndex: 0,
-                    barWidth: '40%',
+                    name: 'Volume Total (LTS)', type: 'bar', yAxisIndex: 0, barWidth: '40%',
                     itemStyle: {
                         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: '#3b82f6' }, 
-                            { offset: 1, color: '#1d4ed8' }
-                        ]),
-                        borderRadius: [4, 4, 0, 0]
+                            { offset: 0, color: '#3b82f6' }, { offset: 1, color: '#1d4ed8' }
+                        ]), borderRadius: [4, 4, 0, 0]
                     },
                     data: arrayLts
                 },
                 {
-                    name: 'Média (LTS / H)',
-                    type: 'line',
-                    yAxisIndex: 1,
-                    symbolSize: 8,
+                    name: 'Média (LTS / H)', type: 'line', yAxisIndex: 1, symbolSize: 8,
                     itemStyle: { color: '#10b981' },
                     lineStyle: { width: 3, shadowColor: 'rgba(16,185,129,0.4)', shadowBlur: 10 },
-                    label: {
-                        show: true,
-                        position: 'top',
-                        color: '#10b981',
-                        formatter: '{c}',
-                        fontWeight: 'bold',
-                        backgroundColor: 'rgba(0,0,0,0.6)',
-                        padding: [4, 6],
-                        borderRadius: 4
-                    },
+                    label: { show: true, position: 'top', color: '#10b981', formatter: '{c}', fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.6)', padding: [4, 6], borderRadius: 4 },
                     data: arrayLtsH
                 }
             ]
         };
 
         chartAbastecimento.setOption(option);
-
-        window.addEventListener('resize', function() {
-            if (chartAbastecimento) chartAbastecimento.resize();
-        });
+        window.addEventListener('resize', function() { if (chartAbastecimento) chartAbastecimento.resize(); });
     }
 }
