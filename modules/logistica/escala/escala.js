@@ -603,7 +603,7 @@ window.exportarEscalaMensalExcel = async function() {
     
     await window.carregarAusenciasGlobais();
 
-    let csvContent = "\uFEFFHorário;FROTA/Placa;EQUIPE;Posição;Colaborador";
+    let csvContent = "\uFEFFHorário;Conjunto;FROTA/Placa;EQUIPE;Posição;Colaborador";
     for (let dia = 1; dia <= diasNoMes; dia++) csvContent += `;${dia.toString().padStart(2, '0')}/${(mes + 1).toString().padStart(2, '0')}`;
     csvContent += "\n";
 
@@ -616,9 +616,36 @@ window.exportarEscalaMensalExcel = async function() {
     mOrdenados.forEach(m => {
         let eq = window.getEq(m);
         let posStr = '-';
-        if (eq === 'A' || eq === 'D') posStr = 'FROTA 1';
-        else if (eq === 'B' || eq === 'E') posStr = 'FROTA 2';
-        else if (eq === 'C' || eq === 'F') posStr = 'FOLGUISTA';
+        let goStr = '-';
+        let nomeConjunto = m.conjuntoId ? `Conjunto ${String(m.conjuntoId).padStart(2, '0')}` : 'S/F';
+
+        if (typeof conjuntos !== 'undefined') {
+            const conj = conjuntos.find(c => String(c.id) === String(m.conjuntoId));
+            if (conj && conj.caminhoes && conj.caminhoes.length > 0) {
+                let cam1 = conj.caminhoes[0];
+                let cam2 = conj.caminhoes.length > 1 ? conj.caminhoes[1] : cam1;
+                
+                let getCamId = (cam) => {
+                    if (typeof cam === 'string') return cam;
+                    return cam.frota || cam.go || cam.placa || '-';
+                };
+                
+                let go1 = getCamId(cam1);
+                let go2 = getCamId(cam2);
+                
+                if (eq === 'A' || eq === 'D') { goStr = go1; posStr = 'FROTA 1'; }
+                else if (eq === 'B' || eq === 'E') { goStr = go2; posStr = 'FROTA 2'; }
+                else if (eq === 'C' || eq === 'F') { goStr = (go1 !== '-' && go2 !== '-' && go1 !== go2) ? `${go1} / ${go2}` : go1; posStr = 'FOLGUISTA'; }
+            } else {
+                if (eq === 'A' || eq === 'D') posStr = 'FROTA 1';
+                else if (eq === 'B' || eq === 'E') posStr = 'FROTA 2';
+                else if (eq === 'C' || eq === 'F') posStr = 'FOLGUISTA';
+            }
+        } else {
+            if (eq === 'A' || eq === 'D') posStr = 'FROTA 1';
+            else if (eq === 'B' || eq === 'E') posStr = 'FROTA 2';
+            else if (eq === 'C' || eq === 'F') posStr = 'FOLGUISTA';
+        }
         
         let excelTurno = m.turno || '-';
         if (m.turno && m.turno !== '-') {
@@ -626,7 +653,8 @@ window.exportarEscalaMensalExcel = async function() {
             if (cMatch) excelTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
         }
 
-        let linha = `${excelTurno};-;${eq !== '-' ? eq : '-'};${posStr};${m.nome}`;
+        let linha = `${excelTurno};${nomeConjunto};${goStr};${eq !== '-' ? eq : '-'};${posStr};${m.nome}`;
+        
         for (let dia = 1; dia <= diasNoMes; dia++) {
             const dataAtualStr = `${ano}-${(mes + 1).toString().padStart(2, '0')}-${dia.toString().padStart(2, '0')}`;
             const ausencia = window.getAusenciaNoDia(m.id, dataAtualStr);
