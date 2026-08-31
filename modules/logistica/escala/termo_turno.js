@@ -9,11 +9,18 @@ window.gerarFormularioTrocaTurnoPDF = function(motoristaId) {
     let turnoAtual = motorista.turno && motorista.turno !== '-' ? motorista.turno : 'Não definido';
     let turnoAtualStr = turnoAtual;
     let turnoOpostoStr = 'Horário oposto';
+    let equipe = window.getEq(motorista);
 
     if (turnoAtual.includes('-')) {
         const partes = turnoAtual.split('-');
-        turnoAtualStr = `${partes[0]} às ${partes[1]}`;
-        turnoOpostoStr = `${partes[1]} às ${partes[0]}`;
+        // Se for equipe da noite (D, E, F), inverte a ordem de exibição do turno
+        if (['D', 'E', 'F'].includes(equipe)) {
+            turnoAtualStr = `${partes[1]} às ${partes[0]}`;
+            turnoOpostoStr = `${partes[0]} às ${partes[1]}`;
+        } else {
+            turnoAtualStr = `${partes[0]} às ${partes[1]}`;
+            turnoOpostoStr = `${partes[1]} às ${partes[0]}`;
+        }
     }
 
     let html = `
@@ -121,11 +128,18 @@ window.gerarTodosFormulariosTrocaTurnoPDF = function() {
         let turnoAtual = motorista.turno && motorista.turno !== '-' ? motorista.turno : 'Não definido';
         let turnoAtualStr = turnoAtual;
         let turnoOpostoStr = 'Horário oposto';
+        let equipe = window.getEq(motorista);
 
         if (turnoAtual.includes('-')) {
             const partes = turnoAtual.split('-');
-            turnoAtualStr = `${partes[0]} às ${partes[1]}`;
-            turnoOpostoStr = `${partes[1]} às ${partes[0]}`;
+            // Se for equipe da noite (D, E, F), inverte a ordem de exibição do turno
+            if (['D', 'E', 'F'].includes(equipe)) {
+                turnoAtualStr = `${partes[1]} às ${partes[0]}`;
+                turnoOpostoStr = `${partes[0]} às ${partes[1]}`;
+            } else {
+                turnoAtualStr = `${partes[0]} às ${partes[1]}`;
+                turnoOpostoStr = `${partes[1]} às ${partes[0]}`;
+            }
         }
 
         html += `
