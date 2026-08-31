@@ -13,10 +13,10 @@
                     <h2 class="text-2xl font-black text-white flex items-center gap-3 tracking-tight">
                         Desempenho de Gruas
                         <span class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2.5 py-1 rounded-md border border-emerald-500/30 uppercase tracking-widest font-bold shadow-sm flex items-center gap-1">
-                            <i class="fas fa-star text-[8px]"></i> Frota Própria
+                            <i class="fas fa-star text-[8px]"></i> Metas Integradas
                         </span>
                     </h2>
-                    <p class="text-slate-400 text-xs mt-1 font-medium">Monitoramento de viagens, tempo e produção volumétrica</p>
+                    <p class="text-slate-400 text-xs mt-1 font-medium">Monitoramento de viagens, produção volumétrica, tempo e consumo</p>
                 </div>
             </div>
         </div>
@@ -42,12 +42,13 @@
         </div>
     </div>
 
+    <!-- CARDS DE TOTAIS GLOBAIS -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 shrink-0">
         <div class="bg-slate-800/80 p-5 rounded-2xl border border-slate-700/60 shadow-xl relative overflow-hidden group hover:border-sky-500/40 transition-all hover:shadow-sky-900/20 backdrop-blur-sm">
             <div class="absolute -right-6 -top-6 w-24 h-24 bg-sky-500/10 rounded-full blur-2xl group-hover:bg-sky-500/20 transition-all pointer-events-none"></div>
             <div class="flex justify-between items-start relative z-10">
                 <div>
-                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Gruas Próprias</p>
+                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Gruas Operando</p>
                     <h3 class="text-4xl font-black text-white tracking-tight drop-shadow-md" id="cardTotalGruas">0</h3>
                 </div>
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-900/80 to-slate-800 flex items-center justify-center text-sky-400 text-xl border border-sky-500/30 shadow-inner">
@@ -100,8 +101,21 @@
         </div>
     </div>
 
+    <!-- NOVA SEÇÃO: INDICADORES INTEGRADOS (METAS) -->
+    <div class="shrink-0 mt-2">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wide">
+                <i class="fas fa-medal text-amber-400"></i> Desempenho Integrado por Grua (Metas)
+                <span id="loadingKpiInfoAbast" class="text-xs text-slate-400 font-normal normal-case ml-2">- Sincronizando dados...</span>
+            </h3>
+        </div>
+        <div id="kpiContainerIntegrado" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <!-- Cards Integrados gerados via JS -->
+        </div>
+    </div>
+
+    <!-- GRAFICOS E TABELA -->
     <div class="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
-        
         <div class="w-full lg:w-2/5 bg-slate-800/80 rounded-2xl shadow-2xl border border-slate-700/60 flex flex-col backdrop-blur-sm overflow-hidden min-h-[350px]">
             <div class="p-4 bg-slate-900/40 border-b border-slate-700/80 flex justify-between items-center">
                 <h3 class="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-wide">
@@ -142,6 +156,5 @@
                 </table>
             </div>
         </div>
-
     </div>
 </div>
