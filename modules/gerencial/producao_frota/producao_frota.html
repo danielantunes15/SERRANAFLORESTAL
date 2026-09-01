@@ -1,4 +1,4 @@
-<div class="max-w-[96rem] mx-auto px-6 py-8">          
+<div class="max-w-[96rem] mx-auto px-6 py-8 relative">          
     <div class="flex justify-between items-center mb-8 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm flex-wrap gap-4">
         <div class="flex items-center gap-4 flex-wrap">
             <div>
@@ -355,4 +355,11 @@
             </div>
         </div>
     </section>
+
+    <!-- OVERLAY DE CARREGAMENTO -->
+    <div id="loadingOverlay" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm hidden">
+        <i class="fas fa-circle-notch fa-spin text-sky-500 text-6xl mb-4"></i>
+        <h2 class="text-white text-2xl font-bold tracking-widest uppercase">Processando Dados</h2>
+        <p class="text-sky-400 mt-2 font-mono text-sm">Isso pode levar alguns segundos, aguarde...</p>
+    </div>
 </div>

@@ -68,6 +68,7 @@ window.initProducaoFrota = async function() {
     }
 
     function definirDatasPadrao() {
+        // Função de fallback inicial até carregar os meses do banco
         const hoje = new Date();
         const ano = hoje.getFullYear();
         const mes = String(hoje.getMonth() + 1).padStart(2, '0');
@@ -289,7 +290,7 @@ window.initProducaoFrota = async function() {
             }
             
             popularDropdownTransportadoras(dadosHistoricoGlobal);
-            popularDropdownMeses(dadosHistoricoGlobal);
+            popularDropdownMeses(dadosHistoricoGlobal); // Aqui chamamos a extração de meses
             processarFiltrosEExibir();
             
         } catch (e) {
@@ -389,243 +390,253 @@ window.initProducaoFrota = async function() {
     }
 
     function processarFiltrosEExibir() {
-        try {
-            const tStatus = document.getElementById('tabelaStatus');
-            if(tStatus) tStatus.innerText = "Processando cálculos financeiros...";
-            
-            const elFiltroTransp = document.getElementById('filtroTransportadora');
-            const filtroTransp = elFiltroTransp ? elFiltroTransp.value : '';
-            
-            const strInicioTransp = document.getElementById('dataInicioTransp')?.value || '';
-            const strFimTransp = document.getElementById('dataFimTransp')?.value || '';
-            const strInicioCarreg = document.getElementById('dataInicioCarreg')?.value || '';
-            const strFimCarreg = document.getElementById('dataFimCarreg')?.value || '';
-            
-            if (!strInicioTransp || !strFimTransp || !strInicioCarreg || !strFimCarreg) {
-                mostrarAlerta("Selecione períodos válidos para Transporte e Carregamento.", "error");
-                return;
-            }
-            
-            let timeInicioTransp = new Date(strInicioTransp.split('-')[0], parseInt(strInicioTransp.split('-')[1]) - 1, strInicioTransp.split('-')[2]).getTime();
-            let timeFimTransp = new Date(strFimTransp.split('-')[0], parseInt(strFimTransp.split('-')[1]) - 1, strFimTransp.split('-')[2], 23, 59, 59).getTime();
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.classList.remove('hidden');
 
-            let timeInicioCarreg = new Date(strInicioCarreg.split('-')[0], parseInt(strInicioCarreg.split('-')[1]) - 1, strInicioCarreg.split('-')[2]).getTime();
-            let timeFimCarreg = new Date(strFimCarreg.split('-')[0], parseInt(strFimCarreg.split('-')[1]) - 1, strFimCarreg.split('-')[2], 23, 59, 59).getTime();
-            
-            let diasNoPeriodoTransp = Math.max(1, Math.ceil(Math.abs(timeFimTransp - timeInicioTransp) / (1000 * 60 * 60 * 24)));
-            let diasNoPeriodoCarreg = Math.max(1, Math.ceil(Math.abs(timeFimCarreg - timeInicioCarreg) / (1000 * 60 * 60 * 24)));
-            
-            // Limpeza dos filtros
-            dadosFiltradosAtual = dadosHistoricoGlobal.filter(registro => {
-                const tr = registro.transportadora ? registro.transportadora.trim().toUpperCase() : 'N/A';
-                const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
-                const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
-                const isNossaGrua = gruasPropriasCache.has(gruaReg);
+        // Pequeno atraso para garantir que a tela de carregamento seja renderizada antes do script travar a thread
+        setTimeout(() => {
+            try {
+                const tStatus = document.getElementById('tabelaStatus');
+                if(tStatus) tStatus.innerText = "Processando cálculos financeiros...";
                 
-                if (!isSerrana && !isNossaGrua) return false;
-                if (filtroTransp === 'SOMENTE_SERRANA' && !isSerrana) return false;
-                if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) return false;
-                if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) return false;
+                const elFiltroTransp = document.getElementById('filtroTransportadora');
+                const filtroTransp = elFiltroTransp ? elFiltroTransp.value : '';
                 
-                const dataViagem = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
-                if (dataViagem) {
-                    const dateObj = converterDataString(dataViagem);
-                    if(isNaN(dateObj.getTime())) return false;
-
-                    const trTime = dateObj.getTime();
-                    const inTransp = trTime >= timeInicioTransp && trTime <= timeFimTransp;
-                    const inCarreg = trTime >= timeInicioCarreg && trTime <= timeFimCarreg;
-                    if (!inTransp && !inCarreg) return false;
-                } else { return false; }
-                return true;
-            });
-            
-            const agrupamentoTabela = {};
-            const agrupamentoFrente = {};
-            const agrupamentoDiario = {};
-            let dadosEnriquecidos = [];
-            
-            let tTranspViagens = 0, tTranspVol = 0, tTranspRec = 0;
-            let tCarregViagens = 0, tCarregVol = 0, tCarregRec = 0;
-            let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
-            let f5 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0, totalAsfalto: 0, totalTerra: 0, totalTarifaT: 0, recTranspTotal: 0, recCarregTotal: 0 };
-            let f6 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0, totalAsfalto: 0, totalTerra: 0, totalTarifaT: 0, recTranspTotal: 0, recCarregTotal: 0 };
-            
-            dadosFiltradosAtual.forEach(registro => {
-                const d = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
-                const dateVal = converterDataString(d);
-                const trTime = dateVal.getTime();
-                const keyData = formatarDataChave(dateVal);
+                const strInicioTransp = document.getElementById('dataInicioTransp')?.value || '';
+                const strFimTransp = document.getElementById('dataFimTransp')?.value || '';
+                const strInicioCarreg = document.getElementById('dataInicioCarreg')?.value || '';
+                const strFimCarreg = document.getElementById('dataFimCarreg')?.value || '';
                 
-                const inTranspPeriod = trTime >= timeInicioTransp && trTime <= timeFimTransp;
-                const inCarregPeriod = trTime >= timeInicioCarreg && trTime <= timeFimCarreg;
-
-                const pl = registro.placa ? registro.placa.trim().toUpperCase() : 'N/A';
-                const tr = registro.transportadora ? registro.transportadora.toUpperCase() : 'N/A';
-                const isSerranaFull = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
-                const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
-                const infoGrua = gruasPropriasCache.get(gruaReg);
-                const isNossaGruaFull = !!infoGrua;
-                
-                const isSerrana = isSerranaFull && inTranspPeriod;
-                const isNossaGrua = isNossaGruaFull && inCarregPeriod;
-
-                if (!isSerrana && !isNossaGrua) return;
-                
-                const v = parseFloat(String(registro.volumeReal).replace(',','.')) || 0;
-                const asfalto = parseFloat(String(registro.distanciaAsfalto).replace(',','.')) || 0;
-                const terra = parseFloat(String(registro.distanciaTerra).replace(',','.')) || 0;
-                
-                let tarifaTransporte = isSerrana ? calcularTarifaTransporte(asfalto, terra) : 0;
-                let recTransporte = isSerrana ? (v * tarifaTransporte) : 0;
-                let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
-                let totalReceitaItem = recTransporte + recCarregamento;
-                
-                if (isSerrana) { tTranspViagens++; tTranspVol += v; tTranspRec += recTransporte; }
-                if (isNossaGrua) { tCarregViagens++; tCarregVol += v; tCarregRec += recCarregamento; }
-                
-                let nomeFrente = infoGrua ? infoGrua.frente.toUpperCase() : (registro.frente ? String(registro.frente).toUpperCase() : '');
-                
-                if (nomeFrente.includes('5')) {
-                    if (isSerrana) { f5.volTransp += v; f5.viagens++; f5.totalAsfalto += asfalto; f5.totalTerra += terra; f5.totalTarifaT += tarifaTransporte; f5.recTranspTotal += recTransporte; }
-                    if (isNossaGrua) { f5.volCarreg += v; f5.recCarregTotal += recCarregamento; f5.tarifaC = precoCarregamento; }
-                } else if (nomeFrente.includes('6')) {
-                    if (isSerrana) { f6.volTransp += v; f6.viagens++; f6.totalAsfalto += asfalto; f6.totalTerra += terra; f6.totalTarifaT += tarifaTransporte; f5.recTranspTotal += recTransporte; }
-                    if (isNossaGrua) { f6.volCarreg += v; f6.recCarregTotal += recCarregamento; f6.tarifaC = precoCarregamento; }
+                if (!strInicioTransp || !strFimTransp || !strInicioCarreg || !strFimCarreg) {
+                    mostrarAlerta("Selecione períodos válidos para Transporte e Carregamento.", "error");
+                    return;
                 }
                 
-                let nomeCategoria = "DESCONHECIDO";
-                if (isSerranaFull && isNossaGruaFull) {
-                    let ordem = infoGrua.ordem || 'CX';
-                    let frenteNome = infoGrua.frente || 'FRENTE DESCONHECIDA';
-                    nomeCategoria = `${ordem}: SERRANA - ${frenteNome}`.toUpperCase();
-                } else if (!isSerranaFull && isNossaGruaFull) {
-                    let nomeTr = tr.split(' ')[0];
-                    nomeCategoria = `${nomeTr}: TRANSP. ${tr}`.toUpperCase();
-                } else if (isSerranaFull && !isNossaGruaFull) {
-                    nomeCategoria = `OUTRAS FRENTES: NOSSOS CAMINHÕES`.toUpperCase();
-                }
+                let timeInicioTransp = new Date(strInicioTransp.split('-')[0], parseInt(strInicioTransp.split('-')[1]) - 1, strInicioTransp.split('-')[2]).getTime();
+                let timeFimTransp = new Date(strFimTransp.split('-')[0], parseInt(strFimTransp.split('-')[1]) - 1, strFimTransp.split('-')[2], 23, 59, 59).getTime();
+
+                let timeInicioCarreg = new Date(strInicioCarreg.split('-')[0], parseInt(strInicioCarreg.split('-')[1]) - 1, strInicioCarreg.split('-')[2]).getTime();
+                let timeFimCarreg = new Date(strFimCarreg.split('-')[0], parseInt(strFimCarreg.split('-')[1]) - 1, strFimCarreg.split('-')[2], 23, 59, 59).getTime();
                 
-                const chaveFrente = `${nomeCategoria}_${asfalto}_${terra}`;
-                if (!agrupamentoFrente[chaveFrente]) {
-                    agrupamentoFrente[chaveFrente] = { categoria: nomeCategoria, asfalto: asfalto, terra: terra, tarifa: tarifaTransporte, viagens: 0, volume: 0, receita: 0 };
-                }
-                agrupamentoFrente[chaveFrente].viagens++;
-                agrupamentoFrente[chaveFrente].volume += v;
-                agrupamentoFrente[chaveFrente].receita += totalReceitaItem;
+                let diasNoPeriodoTransp = Math.max(1, Math.ceil(Math.abs(timeFimTransp - timeInicioTransp) / (1000 * 60 * 60 * 24)));
+                let diasNoPeriodoCarreg = Math.max(1, Math.ceil(Math.abs(timeFimCarreg - timeInicioCarreg) / (1000 * 60 * 60 * 24)));
                 
-                const chaveTabela = `${pl}_${asfalto}_${terra}`;
-                if (!agrupamentoTabela[chaveTabela]) {
-                    agrupamentoTabela[chaveTabela] = { placa: pl, transp: tr, isSerrana: isSerranaFull, isNossaGrua: isNossaGruaFull, asfalto: asfalto, terra: terra, tarifa: tarifaTransporte, viagens: 0, volume: 0, recTransp: 0, recCarreg: 0 };
-                }
-                agrupamentoTabela[chaveTabela].viagens++;
-                agrupamentoTabela[chaveTabela].volume += v;
-                agrupamentoTabela[chaveTabela].recTransp += recTransporte;
-                agrupamentoTabela[chaveTabela].recCarreg += recCarregamento;
-                
-                if (!agrupamentoDiario[keyData]) agrupamentoDiario[keyData] = { volTransp: 0, recTransp: 0, volCarreg: 0, recCarreg: 0 };
-                if (isSerrana) { agrupamentoDiario[keyData].volTransp += v; agrupamentoDiario[keyData].recTransp += recTransporte; }
-                if (isNossaGrua) { agrupamentoDiario[keyData].volCarreg += v; agrupamentoDiario[keyData].recCarreg += recCarregamento; }
-                
-                dadosEnriquecidos.push({
-                    data: d, up: nomeFrente, placa: pl, distAsfalto: asfalto, distTerra: terra, distTotal: asfalto + terra, tarifaTransporte: tarifaTransporte,
-                    recTransp: recTransporte, recCarreg: recCarregamento, recTotal: totalReceitaItem, volume: v, viagens: 1, isSerrana: isSerrana, isNossaGrua: isNossaGrua
+                // Limpeza dos filtros
+                dadosFiltradosAtual = dadosHistoricoGlobal.filter(registro => {
+                    const tr = registro.transportadora ? registro.transportadora.trim().toUpperCase() : 'N/A';
+                    const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
+                    const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
+                    const isNossaGrua = gruasPropriasCache.has(gruaReg);
+                    
+                    if (!isSerrana && !isNossaGrua) return false;
+                    if (filtroTransp === 'SOMENTE_SERRANA' && !isSerrana) return false;
+                    if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) return false;
+                    if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) return false;
+                    
+                    const dataViagem = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
+                    if (dataViagem) {
+                        const dateObj = converterDataString(dataViagem);
+                        if(isNaN(dateObj.getTime())) return false;
+
+                        const trTime = dateObj.getTime();
+                        const inTransp = trTime >= timeInicioTransp && trTime <= timeFimTransp;
+                        const inCarreg = trTime >= timeInicioCarreg && trTime <= timeFimCarreg;
+                        if (!inTransp && !inCarreg) return false;
+                    } else { return false; }
+                    return true;
                 });
-            });
-            
-            if (f5.viagens > 0) { f5.asfalto = f5.totalAsfalto / f5.viagens; f5.terra = f5.totalTerra / f5.viagens; f5.tarifaT = f5.totalTarifaT / f5.viagens; }
-            if (f6.viagens > 0) { f6.asfalto = f6.totalAsfalto / f6.viagens; f6.terra = f6.totalTerra / f6.viagens; f6.tarifaT = f6.totalTarifaT / f6.viagens; }
-            
-            dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => {
-                if (a.placa === b.placa) return b.viagens - a.viagens; 
-                return a.placa.localeCompare(b.placa); 
-            });
-            dadosFrentesAtual = Object.values(agrupamentoFrente).sort((a, b) => b.volume - a.volume);
-            agrupamentoDiarioGlobal = agrupamentoDiario;
-            
-            // === CÁLCULOS DOS KPIS DE METAS ===
-            const formatMoney = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            
-            let hojeTransporte = 0;
-            let hojeCarregamento = 0;
-            const hojeKey = formatarDataChave(new Date());
-            
-            if (agrupamentoDiario[hojeKey]) {
-                hojeTransporte = agrupamentoDiario[hojeKey].recTransp;
-                hojeCarregamento = agrupamentoDiario[hojeKey].recCarreg;
-            } else if (Object.keys(agrupamentoDiario).length > 0) {
-                const sortedKeys = Object.keys(agrupamentoDiario).sort();
-                const lastKey = sortedKeys[sortedKeys.length - 1];
-                hojeTransporte = agrupamentoDiario[lastKey].recTransp;
-                hojeCarregamento = agrupamentoDiario[lastKey].recCarreg;
-            }
-            
-            const metaPeriodoTransporte = metaTransporteDiaria * diasNoPeriodoTransp;
-            const metaPeriodoCarregamento = metaCarregamentoDiaria * diasNoPeriodoCarreg;
-            const percTransPeriodo = metaPeriodoTransporte > 0 ? ((tTranspRec / metaPeriodoTransporte) * 100) : 0;
-            const percCarrPeriodo = metaPeriodoCarregamento > 0 ? ((tCarregRec / metaPeriodoCarregamento) * 100) : 0;
-            const percTransHoje = metaTransporteDiaria > 0 ? ((hojeTransporte / metaTransporteDiaria) * 100) : 0;
-            const percCarrHoje = metaCarregamentoDiaria > 0 ? ((hojeCarregamento / metaCarregamentoDiaria) * 100) : 0;
-            
-            // Atualiza Dom KPIs
-            document.getElementById('valTranspReceita').innerText = formatMoney(tTranspRec);
-            document.getElementById('valCarregReceita').innerText = formatMoney(tCarregRec);
-            document.getElementById('kpi-transporte-hoje').innerText = formatMoney(hojeTransporte);
-            document.getElementById('kpi-carregamento-hoje').innerText = formatMoney(hojeCarregamento);
-            document.getElementById('desc-transporte-periodo').innerText = `Meta Período (${diasNoPeriodoTransp}d): ${formatMoney(metaPeriodoTransporte)}`;
-            document.getElementById('desc-carregamento-periodo').innerText = `Meta Período (${diasNoPeriodoCarreg}d): ${formatMoney(metaPeriodoCarregamento)}`;
-            document.getElementById('desc-transporte-hoje').innerText = `Meta Diária: ${formatMoney(metaTransporteDiaria)}`;
-            document.getElementById('desc-carregamento-hoje').innerText = `Meta Diária: ${formatMoney(metaCarregamentoDiaria)}`;
-            
-            aplicarBadge('badge-transporte-periodo', percTransPeriodo);
-            aplicarBadge('badge-carregamento-periodo', percCarrPeriodo);
-            aplicarBadge('badge-transporte-hoje', percTransHoje);
-            aplicarBadge('badge-carregamento-hoje', percCarrHoje);
-            
-            document.getElementById('valTranspViagens').innerText = tTranspViagens.toLocaleString('pt-BR');
-            document.getElementById('valTranspVolume').innerText = tTranspVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
-            document.getElementById('valCarregViagens').innerText = tCarregViagens.toLocaleString('pt-BR');
-            document.getElementById('valCarregVolume').innerText = tCarregVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
-            document.getElementById('valTotalReceita').innerText = formatMoney(tTranspRec + tCarregRec);
-            
-            // Prepara dados e datas rigorosamente sequenciais para os Gráficos
-            const dadosEvolucao = [];
-            const minTime = Math.min(timeInicioTransp, timeInicioCarreg);
-            const maxTime = Math.max(timeFimTransp, timeFimCarreg);
-
-            let dataCorrente = new Date(minTime);
-            const dataLimite = new Date(maxTime);
-            
-            while(dataCorrente <= dataLimite) {
-                const k = formatarDataChave(dataCorrente);
-                const label = dataCorrente.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
                 
-                if (agrupamentoDiario[k]) {
-                    dadosEvolucao.push({ 
-                        label: label, 
-                        recTransp: agrupamentoDiario[k].recTransp, 
-                        recCarreg: agrupamentoDiario[k].recCarreg, 
-                        volTransp: agrupamentoDiario[k].volTransp, 
-                        volCarreg: agrupamentoDiario[k].volCarreg 
+                const agrupamentoTabela = {};
+                const agrupamentoFrente = {};
+                const agrupamentoDiario = {};
+                let dadosEnriquecidos = [];
+                
+                let tTranspViagens = 0, tTranspVol = 0, tTranspRec = 0;
+                let tCarregViagens = 0, tCarregVol = 0, tCarregRec = 0;
+                let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
+                let f5 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0, totalAsfalto: 0, totalTerra: 0, totalTarifaT: 0, recTranspTotal: 0, recCarregTotal: 0 };
+                let f6 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0, totalAsfalto: 0, totalTerra: 0, totalTarifaT: 0, recTranspTotal: 0, recCarregTotal: 0 };
+                
+                dadosFiltradosAtual.forEach(registro => {
+                    const d = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
+                    const dateVal = converterDataString(d);
+                    const trTime = dateVal.getTime();
+                    const keyData = formatarDataChave(dateVal);
+                    
+                    const inTranspPeriod = trTime >= timeInicioTransp && trTime <= timeFimTransp;
+                    const inCarregPeriod = trTime >= timeInicioCarreg && trTime <= timeFimCarreg;
+
+                    const pl = registro.placa ? registro.placa.trim().toUpperCase() : 'N/A';
+                    const tr = registro.transportadora ? registro.transportadora.toUpperCase() : 'N/A';
+                    const isSerranaFull = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
+                    const gruaReg = registro.grua ? registro.grua.trim().toUpperCase() : '';
+                    const infoGrua = gruasPropriasCache.get(gruaReg);
+                    const isNossaGruaFull = !!infoGrua;
+                    
+                    const isSerrana = isSerranaFull && inTranspPeriod;
+                    const isNossaGrua = isNossaGruaFull && inCarregPeriod;
+
+                    if (!isSerrana && !isNossaGrua) return;
+                    
+                    const v = parseFloat(String(registro.volumeReal).replace(',','.')) || 0;
+                    const asfalto = parseFloat(String(registro.distanciaAsfalto).replace(',','.')) || 0;
+                    const terra = parseFloat(String(registro.distanciaTerra).replace(',','.')) || 0;
+                    
+                    let tarifaTransporte = isSerrana ? calcularTarifaTransporte(asfalto, terra) : 0;
+                    let recTransporte = isSerrana ? (v * tarifaTransporte) : 0;
+                    let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
+                    let totalReceitaItem = recTransporte + recCarregamento;
+                    
+                    if (isSerrana) { tTranspViagens++; tTranspVol += v; tTranspRec += recTransporte; }
+                    if (isNossaGrua) { tCarregViagens++; tCarregVol += v; tCarregRec += recCarregamento; }
+                    
+                    let nomeFrente = infoGrua ? infoGrua.frente.toUpperCase() : (registro.frente ? String(registro.frente).toUpperCase() : '');
+                    
+                    if (nomeFrente.includes('5')) {
+                        if (isSerrana) { f5.volTransp += v; f5.viagens++; f5.totalAsfalto += asfalto; f5.totalTerra += terra; f5.totalTarifaT += tarifaTransporte; f5.recTranspTotal += recTransporte; }
+                        if (isNossaGrua) { f5.volCarreg += v; f5.recCarregTotal += recCarregamento; f5.tarifaC = precoCarregamento; }
+                    } else if (nomeFrente.includes('6')) {
+                        if (isSerrana) { f6.volTransp += v; f6.viagens++; f6.totalAsfalto += asfalto; f6.totalTerra += terra; f6.totalTarifaT += tarifaTransporte; f5.recTranspTotal += recTransporte; }
+                        if (isNossaGrua) { f6.volCarreg += v; f6.recCarregTotal += recCarregamento; f6.tarifaC = precoCarregamento; }
+                    }
+                    
+                    let nomeCategoria = "DESCONHECIDO";
+                    if (isSerranaFull && isNossaGruaFull) {
+                        let ordem = infoGrua.ordem || 'CX';
+                        let frenteNome = infoGrua.frente || 'FRENTE DESCONHECIDA';
+                        nomeCategoria = `${ordem}: SERRANA - ${frenteNome}`.toUpperCase();
+                    } else if (!isSerranaFull && isNossaGruaFull) {
+                        let nomeTr = tr.split(' ')[0];
+                        nomeCategoria = `${nomeTr}: TRANSP. ${tr}`.toUpperCase();
+                    } else if (isSerranaFull && !isNossaGruaFull) {
+                        nomeCategoria = `OUTRAS FRENTES: NOSSOS CAMINHÕES`.toUpperCase();
+                    }
+                    
+                    const chaveFrente = `${nomeCategoria}_${asfalto}_${terra}`;
+                    if (!agrupamentoFrente[chaveFrente]) {
+                        agrupamentoFrente[chaveFrente] = { categoria: nomeCategoria, asfalto: asfalto, terra: terra, tarifa: tarifaTransporte, viagens: 0, volume: 0, receita: 0 };
+                    }
+                    agrupamentoFrente[chaveFrente].viagens++;
+                    agrupamentoFrente[chaveFrente].volume += v;
+                    agrupamentoFrente[chaveFrente].receita += totalReceitaItem;
+                    
+                    const chaveTabela = `${pl}_${asfalto}_${terra}`;
+                    if (!agrupamentoTabela[chaveTabela]) {
+                        agrupamentoTabela[chaveTabela] = { placa: pl, transp: tr, isSerrana: isSerranaFull, isNossaGrua: isNossaGruaFull, asfalto: asfalto, terra: terra, tarifa: tarifaTransporte, viagens: 0, volume: 0, recTransp: 0, recCarreg: 0 };
+                    }
+                    agrupamentoTabela[chaveTabela].viagens++;
+                    agrupamentoTabela[chaveTabela].volume += v;
+                    agrupamentoTabela[chaveTabela].recTransp += recTransporte;
+                    agrupamentoTabela[chaveTabela].recCarreg += recCarregamento;
+                    
+                    if (!agrupamentoDiario[keyData]) agrupamentoDiario[keyData] = { volTransp: 0, recTransp: 0, volCarreg: 0, recCarreg: 0 };
+                    if (isSerrana) { agrupamentoDiario[keyData].volTransp += v; agrupamentoDiario[keyData].recTransp += recTransporte; }
+                    if (isNossaGrua) { agrupamentoDiario[keyData].volCarreg += v; agrupamentoDiario[keyData].recCarreg += recCarregamento; }
+                    
+                    dadosEnriquecidos.push({
+                        data: d, up: nomeFrente, placa: pl, distAsfalto: asfalto, distTerra: terra, distTotal: asfalto + terra, tarifaTransporte: tarifaTransporte,
+                        recTransp: recTransporte, recCarreg: recCarregamento, recTotal: totalReceitaItem, volume: v, viagens: 1, isSerrana: isSerrana, isNossaGrua: isNossaGrua
                     });
-                } else {
-                    dadosEvolucao.push({ label: label, recTransp: 0, recCarreg: 0, volTransp: 0, volCarreg: 0 });
+                });
+                
+                if (f5.viagens > 0) { f5.asfalto = f5.totalAsfalto / f5.viagens; f5.terra = f5.totalTerra / f5.viagens; f5.tarifaT = f5.totalTarifaT / f5.viagens; }
+                if (f6.viagens > 0) { f6.asfalto = f6.totalAsfalto / f6.viagens; f6.terra = f6.totalTerra / f6.viagens; f6.tarifaT = f6.totalTarifaT / f6.viagens; }
+                
+                dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => {
+                    if (a.placa === b.placa) return b.viagens - a.viagens; 
+                    return a.placa.localeCompare(b.placa); 
+                });
+                dadosFrentesAtual = Object.values(agrupamentoFrente).sort((a, b) => b.volume - a.volume);
+                agrupamentoDiarioGlobal = agrupamentoDiario;
+                
+                // === CÁLCULOS DOS KPIS DE METAS ===
+                const formatMoney = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                
+                let hojeTransporte = 0;
+                let hojeCarregamento = 0;
+                const hojeKey = formatarDataChave(new Date());
+                
+                if (agrupamentoDiario[hojeKey]) {
+                    hojeTransporte = agrupamentoDiario[hojeKey].recTransp;
+                    hojeCarregamento = agrupamentoDiario[hojeKey].recCarreg;
+                } else if (Object.keys(agrupamentoDiario).length > 0) {
+                    const sortedKeys = Object.keys(agrupamentoDiario).sort();
+                    const lastKey = sortedKeys[sortedKeys.length - 1];
+                    hojeTransporte = agrupamentoDiario[lastKey].recTransp;
+                    hojeCarregamento = agrupamentoDiario[lastKey].recCarreg;
                 }
-                dataCorrente.setDate(dataCorrente.getDate() + 1);
+                
+                const metaPeriodoTransporte = metaTransporteDiaria * diasNoPeriodoTransp;
+                const metaPeriodoCarregamento = metaCarregamentoDiaria * diasNoPeriodoCarreg;
+                const percTransPeriodo = metaPeriodoTransporte > 0 ? ((tTranspRec / metaPeriodoTransporte) * 100) : 0;
+                const percCarrPeriodo = metaPeriodoCarregamento > 0 ? ((tCarregRec / metaPeriodoCarregamento) * 100) : 0;
+                const percTransHoje = metaTransporteDiaria > 0 ? ((hojeTransporte / metaTransporteDiaria) * 100) : 0;
+                const percCarrHoje = metaCarregamentoDiaria > 0 ? ((hojeCarregamento / metaCarregamentoDiaria) * 100) : 0;
+                
+                // Atualiza Dom KPIs
+                document.getElementById('valTranspReceita').innerText = formatMoney(tTranspRec);
+                document.getElementById('valCarregReceita').innerText = formatMoney(tCarregRec);
+                document.getElementById('kpi-transporte-hoje').innerText = formatMoney(hojeTransporte);
+                document.getElementById('kpi-carregamento-hoje').innerText = formatMoney(hojeCarregamento);
+                document.getElementById('desc-transporte-periodo').innerText = `Meta Período (${diasNoPeriodoTransp}d): ${formatMoney(metaPeriodoTransporte)}`;
+                document.getElementById('desc-carregamento-periodo').innerText = `Meta Período (${diasNoPeriodoCarreg}d): ${formatMoney(metaPeriodoCarregamento)}`;
+                document.getElementById('desc-transporte-hoje').innerText = `Meta Diária: ${formatMoney(metaTransporteDiaria)}`;
+                document.getElementById('desc-carregamento-hoje').innerText = `Meta Diária: ${formatMoney(metaCarregamentoDiaria)}`;
+                
+                aplicarBadge('badge-transporte-periodo', percTransPeriodo);
+                aplicarBadge('badge-carregamento-periodo', percCarrPeriodo);
+                aplicarBadge('badge-transporte-hoje', percTransHoje);
+                aplicarBadge('badge-carregamento-hoje', percCarrHoje);
+                
+                document.getElementById('valTranspViagens').innerText = tTranspViagens.toLocaleString('pt-BR');
+                document.getElementById('valTranspVolume').innerText = tTranspVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
+                document.getElementById('valCarregViagens').innerText = tCarregViagens.toLocaleString('pt-BR');
+                document.getElementById('valCarregVolume').innerText = tCarregVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
+                document.getElementById('valTotalReceita').innerText = formatMoney(tTranspRec + tCarregRec);
+                
+                // Prepara dados e datas rigorosamente sequenciais para os Gráficos
+                const dadosEvolucao = [];
+                const minTime = Math.min(timeInicioTransp, timeInicioCarreg);
+                const maxTime = Math.max(timeFimTransp, timeFimCarreg);
+
+                let dataCorrente = new Date(minTime);
+                const dataLimite = new Date(maxTime);
+                
+                while(dataCorrente <= dataLimite) {
+                    const k = formatarDataChave(dataCorrente);
+                    const label = dataCorrente.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                    
+                    if (agrupamentoDiario[k]) {
+                        dadosEvolucao.push({ 
+                            label: label, 
+                            recTransp: agrupamentoDiario[k].recTransp, 
+                            recCarreg: agrupamentoDiario[k].recCarreg, 
+                            volTransp: agrupamentoDiario[k].volTransp, 
+                            volCarreg: agrupamentoDiario[k].volCarreg 
+                        });
+                    } else {
+                        dadosEvolucao.push({ label: label, recTransp: 0, recCarreg: 0, volTransp: 0, volCarreg: 0 });
+                    }
+                    dataCorrente.setDate(dataCorrente.getDate() + 1);
+                }
+                
+                desenharGraficosEvolucao(dadosEvolucao);
+                desenharGrafico7DiasFixo(); // <-- CHAMADA DO NOVO GRÁFICO 7 DIAS FLUIDO
+                
+                atualizarPaineisReceita(f5, f6); 
+                renderizarTabela(dadosAgrupadosAtual);
+                atualizarPainelDinamico(dadosEnriquecidos);
+                
+                if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} rotas analisadas`;
+                
+            } catch (errInterface) {
+                console.error("[PRODUCAO] Erro Crítico na montagem da tela:", errInterface);
+                mostrarAlerta("Ocorreu um erro ao processar os dados financeiros.", "error");
+            } finally {
+                // Ao final de tudo, remove a tela de loading
+                if (overlay) overlay.classList.add('hidden');
             }
-            
-            desenharGraficosEvolucao(dadosEvolucao);
-            desenharGrafico7DiasFixo(); // <-- CHAMADA DO NOVO GRÁFICO 7 DIAS FLUIDO
-            
-            atualizarPaineisReceita(f5, f6); 
-            renderizarTabela(dadosAgrupadosAtual);
-            atualizarPainelDinamico(dadosEnriquecidos);
-            
-            if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} rotas analisadas`;
-            
-        } catch (errInterface) {
-            console.error("[PRODUCAO] Erro Crítico na montagem da tela:", errInterface);
-        }
+        }, 50); // Timeout de 50ms é suficiente para o DOM desenhar o overlay
     }
 
     function aplicarBadge(id, percent) {
