@@ -554,11 +554,15 @@ window.initProducaoFrota = async function() {
                 
                 let hojeTransporte = 0;
                 let hojeCarregamento = 0;
-                const hojeKey = formatarDataChave(new Date());
                 
-                if (agrupamentoDiario[hojeKey]) {
-                    hojeTransporte = agrupamentoDiario[hojeKey].recTransp;
-                    hojeCarregamento = agrupamentoDiario[hojeKey].recCarreg;
+                // CORREÇÃO: Pegar D-1 (Ontem) em vez de Hoje para exibir os resultados parciais fechados do D-1
+                const dataOntem = new Date();
+                dataOntem.setDate(dataOntem.getDate() - 1);
+                const d1Key = formatarDataChave(dataOntem);
+                
+                if (agrupamentoDiario[d1Key]) {
+                    hojeTransporte = agrupamentoDiario[d1Key].recTransp;
+                    hojeCarregamento = agrupamentoDiario[d1Key].recCarreg;
                 } else if (Object.keys(agrupamentoDiario).length > 0) {
                     const sortedKeys = Object.keys(agrupamentoDiario).sort();
                     const lastKey = sortedKeys[sortedKeys.length - 1];
