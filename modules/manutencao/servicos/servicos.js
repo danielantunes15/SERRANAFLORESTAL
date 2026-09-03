@@ -4,6 +4,7 @@ let mOS_Atual = null;
 let mOS_PecasCache = [];
 let mOS_ListaGeral = [];
 let mOS_Requisicoes = []; 
+let mOS_FrotasCache = []; // Cache global de frotas
 let mOS_AbaAtiva = 'aceite';
 let mapaSOSMecanicoInstance = null;
 window.mecanicoNomeCompletoCache = null; 
@@ -47,6 +48,14 @@ window.renderizarTelaServicos = async function() {
             if (typeof window.aplicarFiltroFilial === 'function') qPecas = window.aplicarFiltroFilial(qPecas);
             const { data: cachePecas } = await qPecas;
             mOS_PecasCache = cachePecas || [];
+        }
+
+        // Cache das frotas para exibir GO e placas extras
+        if (mOS_FrotasCache.length === 0) {
+            let qFrotas = window.supabaseClient.from('frotas_manutencao').select('*');
+            if (typeof window.aplicarFiltroFilial === 'function') qFrotas = window.aplicarFiltroFilial(qFrotas);
+            const { data: cacheFrotas } = await qFrotas;
+            mOS_FrotasCache = cacheFrotas || [];
         }
 
         let queryOS = window.supabaseClient.from('ordens_servico')
@@ -134,6 +143,21 @@ function mecanicoAtualizarContadores() {
     document.getElementById('countSOS').innerText = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S')).length;
 }
 
+// Helper para montar as informações de GO e Carretas nos cards
+function mecanicoObterInfoFrota(placa) {
+    if (!placa) return '';
+    const frota = mOS_FrotasCache.find(f => f.cavalo === placa || f.go === placa);
+    if (!frota) return '';
+    
+    let html = `<div style="font-size: 0.85rem; color: #94a3b8; margin-top: 5px; margin-bottom: 8px; background: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">`;
+    if (frota.go) html += `<span><strong style="color: #cbd5e1;">GO:</strong> ${frota.go}</span>`;
+    if (frota.carreta1) html += `<span><strong style="color: #cbd5e1;">C1:</strong> ${frota.carreta1}</span>`;
+    if (frota.carreta2) html += `<span><strong style="color: #cbd5e1;">C2:</strong> ${frota.carreta2}</span>`;
+    if (frota.carreta3) html += `<span><strong style="color: #cbd5e1;">C3:</strong> ${frota.carreta3}</span>`;
+    html += `</div>`;
+    return html;
+}
+
 function mecanicoRenderizarTabelas() {
     if (mOS_AbaAtiva === 'aceite') {
         const container = document.getElementById('tabelaServicosDisponiveis');
@@ -155,6 +179,7 @@ function mecanicoRenderizarTabelas() {
                     <span style="color:#94a3b8; font-size:0.85rem;"><i class="fas fa-clock"></i> ${formatarDataHoraBrasil(os.data_abertura)}</span>
                 </div>
                 <div class="card-placa">${os.placa} <span style="font-size:0.85rem; color:#94a3b8; font-weight:normal; vertical-align:middle;">(${os.status})</span></div>
+                ${mecanicoObterInfoFrota(os.placa)}
                 <div class="card-info-text"><strong style="color:#fff;">Mot:</strong> ${os.motorista || '-'}</div>
                 <div class="card-info-text" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;"><strong>Problema:</strong> ${os.problema || 'Sem descrição'}</div>
                 <div class="card-actions">
@@ -184,6 +209,7 @@ function mecanicoRenderizarTabelas() {
                     <span style="color:#94a3b8; font-size:0.85rem;">Responsável: <strong style="color:#fff;">${os.mecanico_responsavel}</strong></span>
                 </div>
                 <div class="card-placa" style="color: ${colorBorder};">${os.placa}</div>
+                ${mecanicoObterInfoFrota(os.placa)}
                 <div class="card-info-text" style="height: 40px; overflow: hidden; text-overflow: ellipsis;">${os.problema}</div>
                 
                 <div style="border-top: 1px solid #334155; margin-top: 15px; padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
@@ -257,6 +283,7 @@ function mecanicoRenderizarTabelas() {
                     <span style="color:#94a3b8; font-size:0.85rem;">${formatarDataHoraBrasil(os.data_abertura)}</span>
                 </div>
                 <div class="card-placa" style="color: #f97316;">${os.placa} <span style="font-size:0.85rem; color:#94a3b8; font-weight:normal;">(${os.status})</span></div>
+                ${mecanicoObterInfoFrota(os.placa)}
                 <div class="card-info-text"><strong>Problema:</strong> ${os.problema}</div>
                 ${ref ? `<div class="card-info-text"><strong>Ref:</strong> ${ref}</div>` : ''}
                 ${linkMapa ? `<a href="${linkMapa}" target="_blank" style="background:rgba(59,130,246,0.1); color:#60a5fa; padding:10px; border-radius:8px; text-align:center; text-decoration:none; font-weight:bold; margin: 10px 0; display:block;"><i class="fas fa-map-marker-alt"></i> ABRIR GPS NO CELULAR</a>` : ''}
