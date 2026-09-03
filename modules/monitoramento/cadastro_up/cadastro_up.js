@@ -5,6 +5,25 @@ let cacheFazendas = [];
 let cacheUPs = [];
 let cacheUPsPendentes = new Map(); // Armazena as UPs vindas das viagens e suas distâncias
 
+// Adiciona evento global para fechar o dropdown se clicar fora dele
+document.addEventListener('click', function(event) {
+    const trigger = document.getElementById('dropdownTrigger');
+    const menu = document.getElementById('dropdownMenu');
+    if (trigger && menu) {
+        if (!trigger.contains(event.target) && !menu.contains(event.target)) {
+            menu.style.display = 'none';
+        }
+    }
+});
+
+// Função para alternar a exibição do Dropdown customizado
+window.toggleDropdownUP = function() {
+    const menu = document.getElementById('dropdownMenu');
+    if (menu) {
+        menu.style.display = (menu.style.display === 'none' || menu.style.display === '') ? 'block' : 'none';
+    }
+};
+
 // Função auxiliar para resgatar a filial do usuário logado
 function obterFilialUsuarioLogadoUP() {
     return (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') 
@@ -112,9 +131,9 @@ window.carregarDadosCadastroUP = async function() {
 };
 
 window.carregarUPsPendentes = async function() {
-    const selectUp = document.getElementById('upCodigo');
-    if(selectUp) {
-        selectUp.innerHTML = '<option value="">Buscando UPs no período selecionado...</option>';
+    const listaDiv = document.getElementById('listaUpsCheckbox');
+    if(listaDiv) {
+        listaDiv.innerHTML = '<div style="color: #9ca3af; font-size: 0.85rem; font-style: italic; padding: 5px;">Buscando UPs no período selecionado...</div>';
     }
 
     try {
@@ -187,7 +206,6 @@ window.carregarUPsPendentes = async function() {
 
         // ===================================================================================
         // REGRA DE EXCLUSIVIDADE: Remove as UPs que já estão em *qualquer* fazenda
-        // Isso impede que elas apareçam novamente no Select (Dropdown)
         // ===================================================================================
         cacheUPs.forEach(upDb => {
             const codigoDb = (upDb.codigo || '').trim().toUpperCase();
@@ -196,47 +214,110 @@ window.carregarUPsPendentes = async function() {
             }
         });
 
-        if(selectUp) {
-            selectUp.innerHTML = '<option value="">Selecione uma UP Pendente...</option>';
+        if(listaDiv) {
+            listaDiv.innerHTML = ''; 
             const upsOrdenadas = Array.from(cacheUPsPendentes.keys()).sort();
             
-            upsOrdenadas.forEach(upName => {
-                const opt = document.createElement('option');
-                opt.value = upName;
-                opt.textContent = upName;
-                selectUp.appendChild(opt);
-            });
-            
             if(upsOrdenadas.length === 0) {
-                selectUp.innerHTML = '<option value="">Nenhuma UP pendente encontrada no período.</option>';
+                listaDiv.innerHTML = '<div style="color: #9ca3af; font-size: 0.85rem; font-style: italic; padding: 5px;">Nenhuma UP pendente encontrada no período.</div>';
+            } else {
+                upsOrdenadas.forEach(upName => {
+                    const label = document.createElement('label');
+                    label.style.display = 'flex';
+                    label.style.alignItems = 'center';
+                    label.style.padding = '8px 10px';
+                    label.style.marginBottom = '2px';
+                    label.style.cursor = 'pointer';
+                    label.style.color = '#e2e8f0';
+                    label.style.fontSize = '0.9rem';
+                    label.style.borderRadius = '4px';
+                    label.style.transition = 'background 0.2s';
+                    
+                    label.onmouseover = () => label.style.background = 'rgba(255,255,255,0.05)';
+                    label.onmouseout = () => label.style.background = 'transparent';
+                    
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.className = 'up-checkbox';
+                    cb.value = upName;
+                    cb.style.marginRight = '12px';
+                    cb.style.cursor = 'pointer';
+                    cb.style.width = '16px';
+                    cb.style.height = '16px';
+                    cb.onchange = window.preencherDistanciasUP;
+                    
+                    label.appendChild(cb);
+                    label.appendChild(document.createTextNode(upName));
+                    
+                    listaDiv.appendChild(label);
+                });
             }
         }
+        
+        // Reseta o label ao recarregar
+        const dropdownLabel = document.getElementById('dropdownLabel');
+        if (dropdownLabel) dropdownLabel.textContent = 'Selecione as UPs...';
 
     } catch(e) {
         console.error("Erro geral:", e);
-        if(selectUp) selectUp.innerHTML = '<option value="">Erro ao buscar UPs</option>';
+        if(listaDiv) listaDiv.innerHTML = '<div style="color: #ef4444; font-size: 0.85rem; font-style: italic; padding: 5px;">Erro ao buscar UPs</div>';
     }
 };
 
 window.preencherDistanciasUP = function() {
-    const selectUp = document.getElementById('upCodigo');
     const inputAsfalto = document.getElementById('upDistAsfalto');
     const inputTerra = document.getElementById('upDistTerra');
+    const inputDmt = document.getElementById('upDmtMedio');
+    const dropdownLabel = document.getElementById('dropdownLabel');
     
-    if(!selectUp || !inputAsfalto || !inputTerra) return;
+    if(!inputAsfalto || !inputTerra) return;
     
-    const upName = selectUp.value;
+    const checkboxes = document.querySelectorAll('.up-checkbox:checked');
+    const upsSelecionadas = Array.from(checkboxes).map(cb => cb.value);
     
-    if(upName && cacheUPsPendentes.has(upName)) {
-        const dados = cacheUPsPendentes.get(upName);
-        inputAsfalto.value = dados.asfalto.toFixed(2);
-        inputTerra.value = dados.terra.toFixed(2);
+    // Atualiza o texto do botão do Dropdown
+    if (dropdownLabel) {
+        if (upsSelecionadas.length === 0) {
+            dropdownLabel.textContent = 'Selecione as UPs...';
+        } else if (upsSelecionadas.length === 1) {
+            dropdownLabel.textContent = upsSelecionadas[0];
+        } else {
+            dropdownLabel.textContent = `${upsSelecionadas.length} UPs selecionadas`;
+        }
+    }
+    
+    if (upsSelecionadas.length === 1) {
+        const upName = upsSelecionadas[0];
+        if(upName && cacheUPsPendentes.has(upName)) {
+            const dados = cacheUPsPendentes.get(upName);
+            inputAsfalto.value = dados.asfalto.toFixed(2);
+            inputTerra.value = dados.terra.toFixed(2);
+            if(inputDmt) inputDmt.value = (dados.asfalto + dados.terra).toFixed(2);
+        }
+    } else if (upsSelecionadas.length > 1) {
+        // Múltiplos selecionados: monta o texto de distâncias para cada UP
+        let strAsfalto = [];
+        let strTerra = [];
+        let strDmt = [];
+        
+        upsSelecionadas.forEach(upName => {
+            if(cacheUPsPendentes.has(upName)) {
+                const dados = cacheUPsPendentes.get(upName);
+                strAsfalto.push(`${upName}: ${dados.asfalto.toFixed(2)}`);
+                strTerra.push(`${upName}: ${dados.terra.toFixed(2)}`);
+                strDmt.push(`${upName}: ${(dados.asfalto + dados.terra).toFixed(2)}`);
+            }
+        });
+        
+        inputAsfalto.value = strAsfalto.join('\n');
+        inputTerra.value = strTerra.join('\n');
+        if(inputDmt) inputDmt.value = strDmt.join('\n');
+        
     } else {
         inputAsfalto.value = '0.00';
         inputTerra.value = '0.00';
+        if(inputDmt) inputDmt.value = '0.00';
     }
-    
-    window.calcularDmtAutomatico();
 };
 
 window.atualizarSelectFazendas = function() {
@@ -253,17 +334,7 @@ window.atualizarSelectFazendas = function() {
 };
 
 window.calcularDmtAutomatico = function() {
-    const asfaltoInput = document.getElementById('upDistAsfalto');
-    const terraInput = document.getElementById('upDistTerra');
-    const dmtInput = document.getElementById('upDmtMedio');
-
-    if (!asfaltoInput || !terraInput || !dmtInput) return;
-
-    const asfalto = parseFloat(asfaltoInput.value) || 0;
-    const terra = parseFloat(terraInput.value) || 0;
-    
-    const dmtTotal = asfalto + terra;
-    dmtInput.value = dmtTotal.toFixed(2);
+    // Mantido por compatibilidade
 };
 
 window.salvarFazenda = async function() {
@@ -277,7 +348,6 @@ window.salvarFazenda = async function() {
         const filialLogada = obterFilialUsuarioLogadoUP();
         const payload = { nome: nome };
         
-        // Atrela a fazenda à filial do usuário
         if (filialLogada !== null) {
             payload.filial_id = filialLogada;
         }
@@ -298,66 +368,79 @@ window.salvarFazenda = async function() {
 
 window.salvarUP = async function() {
     const selectFazenda = document.getElementById('selectUpFazenda');
-    const selectCodigo = document.getElementById('upCodigo'); 
-    const inputAsfalto = document.getElementById('upDistAsfalto');
-    const inputTerra = document.getElementById('upDistTerra');
-    const inputDmt = document.getElementById('upDmtMedio');
-
-    if (!selectFazenda || !selectCodigo || !inputAsfalto || !inputTerra || !inputDmt) return;
+    if (!selectFazenda) return;
 
     const fazendaId = selectFazenda.value;
-    const codigo = selectCodigo.value.trim().toUpperCase(); 
-    const distAsfalto = parseFloat(inputAsfalto.value) || 0;
-    const distTerra = parseFloat(inputTerra.value) || 0;
-    const dmtMedio = parseFloat(inputDmt.value) || 0;
+    
+    const checkboxes = document.querySelectorAll('.up-checkbox:checked');
+    const upsSelecionadas = Array.from(checkboxes).map(cb => cb.value.trim().toUpperCase());
 
     if (!fazendaId) { alert("Selecione a fazenda correspondente."); return; }
-    if (!codigo) { alert("Selecione a UP na lista."); return; }
+    if (upsSelecionadas.length === 0) { alert("Marque pelo menos uma UP na lista."); return; }
 
     try {
         const filialLogada = obterFilialUsuarioLogadoUP();
+        const payloads = [];
         
-        const payload = {
-            codigo: codigo, 
-            fazenda_id: parseInt(fazendaId), 
-            distancia_asfalto: distAsfalto,
-            distancia_terra: distTerra, 
-            dmt_medio: dmtMedio
-        };
-
-        // Atrela a UP à filial do usuário
-        if (filialLogada !== null) {
-            payload.filial_id = filialLogada;
+        for (const codigo of upsSelecionadas) {
+            let distAsfalto = 0;
+            let distTerra = 0;
+            
+            if(cacheUPsPendentes.has(codigo)){
+                const dados = cacheUPsPendentes.get(codigo);
+                distAsfalto = dados.asfalto;
+                distTerra = dados.terra;
+            }
+            
+            const dmtMedio = distAsfalto + distTerra;
+            
+            const payload = {
+                codigo: codigo, 
+                fazenda_id: parseInt(fazendaId), 
+                distancia_asfalto: distAsfalto,
+                distancia_terra: distTerra, 
+                dmt_medio: dmtMedio
+            };
+            
+            if (filialLogada !== null) {
+                payload.filial_id = filialLogada;
+            }
+            
+            payloads.push(payload);
         }
 
-        const { error } = await supabaseClient.from('monitoramento_ups').insert([payload]);
+        const { error } = await supabaseClient.from('monitoramento_ups').insert(payloads);
 
         if (error) {
-            if (error.code === '23505') alert("UP já cadastrada no sistema.");
+            if (error.code === '23505') alert("Uma ou mais UPs já estão cadastradas no sistema.");
             else throw error;
             return;
         }
 
-        selectCodigo.value = '';
-        inputAsfalto.value = '0.00';
-        inputTerra.value = '0.00';
-        inputDmt.value = '0.00';
         selectFazenda.value = '';
+        
+        const dropdownLabel = document.getElementById('dropdownLabel');
+        if (dropdownLabel) dropdownLabel.textContent = 'Selecione as UPs...';
+        
+        const inputAsfalto = document.getElementById('upDistAsfalto');
+        const inputTerra = document.getElementById('upDistTerra');
+        const inputDmt = document.getElementById('upDmtMedio');
+        
+        if (inputAsfalto) inputAsfalto.value = '0.00';
+        if (inputTerra) inputTerra.value = '0.00';
+        if (inputDmt) inputDmt.value = '0.00';
 
         await window.carregarDadosCadastroUP();
         
     } catch (e) {
-        console.error(e); alert("Erro ao registrar a UP.");
+        console.error(e); alert("Erro ao registrar a(s) UP(s).");
     }
 };
 
 window.filtrarTabelaUPs = function() {
-    window.renderizarTabelaUPs(); // A renderização já coleta o termo da busca
+    window.renderizarTabelaUPs();
 };
 
-// ===================================================================================
-// RENDERIZAÇÃO AGRUPADA: Tabela exibe a Fazenda no Header e as UPs dela em seguida
-// ===================================================================================
 window.renderizarTabelaUPs = function() {
     const tbody = document.getElementById('tbodyCadastroUp');
     if (!tbody) return;
@@ -365,7 +448,6 @@ window.renderizarTabelaUPs = function() {
     const termoBusca = document.getElementById('buscaTabelaUp') ? document.getElementById('buscaTabelaUp').value.toLowerCase().trim() : '';
     tbody.innerHTML = '';
 
-    // Agrupa as UPs pelo ID da fazenda
     const mapUpsFazenda = {};
     cacheUPs.forEach(up => {
         if (!mapUpsFazenda[up.fazenda_id]) mapUpsFazenda[up.fazenda_id] = [];
@@ -377,20 +459,18 @@ window.renderizarTabelaUPs = function() {
     cacheFazendas.forEach(faz => {
         const upsDaFazenda = mapUpsFazenda[faz.id] || [];
         
-        // Verifica filtro: Se a fazenda bate com a busca ou se alguma UP bate com a busca
         const matchFazenda = faz.nome.toLowerCase().includes(termoBusca);
         let upsFiltradas = upsDaFazenda;
 
         if (termoBusca && !matchFazenda) {
             upsFiltradas = upsDaFazenda.filter(up => (up.codigo || '').toLowerCase().includes(termoBusca));
-            if (upsFiltradas.length === 0) return; // Oculta a fazenda se a busca não bateu em nada nela
+            if (upsFiltradas.length === 0) return; 
         }
 
         fazendasRenderizadas++;
 
-        // 1. Linha do Cabeçalho da Fazenda
         const trFazenda = document.createElement('tr');
-        trFazenda.style.backgroundColor = 'rgba(59, 130, 246, 0.15)'; // Fundo azul translúcido
+        trFazenda.style.backgroundColor = 'rgba(59, 130, 246, 0.15)'; 
         trFazenda.style.borderTop = '2px solid rgba(59, 130, 246, 0.3)';
         trFazenda.innerHTML = `
             <td colspan="4" style="padding: 12px; font-weight: bold; color: #fff; font-size: 1.05rem;">
@@ -404,7 +484,6 @@ window.renderizarTabelaUPs = function() {
         `;
         tbody.appendChild(trFazenda);
 
-        // 2. Linhas das UPs daquela Fazenda
         if (upsFiltradas.length === 0) {
             const trVazia = document.createElement('tr');
             trVazia.innerHTML = `<td colspan="5" style="padding: 10px 20px 10px 35px; color: #9ca3af; font-size: 0.85rem; font-style: italic;">Nenhuma UP vinculada.</td>`;
@@ -438,9 +517,7 @@ window.excluirFazenda = async function(id, nome) {
     if (!confirm(`🚨 ATENÇÃO: Deseja realmente EXCLUIR a fazenda "${nome}"?\n\nIsso removerá a fazenda do sistema e soltará todas as UPs que estavam presas a ela (As viagens reais continuarão intactas).`)) return;
 
     try {
-        // Primeiro deleta as UPs vinculadas da tabela de cadastro para não dar erro de chave estrangeira
         await supabaseClient.from('monitoramento_ups').delete().eq('fazenda_id', id);
-        // Depois deleta a própria fazenda
         const { error } = await supabaseClient.from('monitoramento_fazendas').delete().eq('id', id);
         
         if (error) throw error;
@@ -455,7 +532,6 @@ window.excluirUP = async function(id, codigo) {
     if (!confirm(`Deseja desvincular e remover a UP "${codigo}" desta fazenda?\nEla voltará a ficar disponível para seleção.`)) return;
 
     try {
-        // Deleta a UP apenas do cadastro. Na viagem ela continuará existindo.
         const { error } = await supabaseClient.from('monitoramento_ups').delete().eq('id', id);
         if (error) throw error;
         
