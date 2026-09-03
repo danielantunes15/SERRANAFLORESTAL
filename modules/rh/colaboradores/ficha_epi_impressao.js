@@ -29,6 +29,13 @@ window.gerarHtmlFichaEPI = async function(colaboradores) {
     colaboradores.forEach(c => {
         let itensColab = reqs.filter(r => r.colaborador_nome === c.nome);
 
+        // Verifica se há data de desligamento para exibir no cabeçalho
+        let htmlDesligamento = '';
+        if (c.data_desligamento) {
+            let dataDesligamentoFormatada = c.data_desligamento.split('-').reverse().join('/');
+            htmlDesligamento = `<div><strong style="text-transform:uppercase; font-size:10px; color:#555; display:block;">Data Desligamento</strong> ${dataDesligamentoFormatada}</div>`;
+        }
+
         html += `
         <div class="page-break">
             <div class="header">
@@ -41,6 +48,7 @@ window.gerarHtmlFichaEPI = async function(colaboradores) {
                 <div><strong style="text-transform:uppercase; font-size:10px; color:#555; display:block;">Matrícula</strong> ${c.cod_funcionario ? String(c.cod_funcionario).padStart(4, '0') : '-'}</div>
                 <div><strong style="text-transform:uppercase; font-size:10px; color:#555; display:block;">Função</strong> ${c.funcao || '-'}</div>
                 <div><strong style="text-transform:uppercase; font-size:10px; color:#555; display:block;">Data Admissão</strong> ${c.data_admissao ? c.data_admissao.split('-').reverse().join('/') : '-'}</div>
+                ${htmlDesligamento}
             </div>
             
             <p style="text-align: justify; font-size: 11px; line-height: 1.5;">
