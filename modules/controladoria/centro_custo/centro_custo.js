@@ -20,11 +20,23 @@ window.carregarOpcoesFilialGenerico = async function(selectId) {
     const select = document.getElementById(selectId);
     if (!select) return;
     try {
-        let options = '<option value="CENTRAL">Matriz Corporativa (Acesso Global)</option>';
+        const filialLogada = obterFilialUsuarioLogado();
+        let options = '';
+
+        // Se o usuário tem acesso global (CENTRAL), mostra a opção de Matriz
+        if (filialLogada === null) {
+            options += '<option value="CENTRAL">Matriz Corporativa (Acesso Global)</option>';
+        }
+
         if (typeof db !== 'undefined' && typeof db.getTodasFiliaisAdmin === 'function') {
             const filiais = await db.getTodasFiliaisAdmin();
             if (filiais && filiais.length > 0) {
-                filiais.forEach(f => { options += `<option value="${f.id}">${f.nome}</option>`; });
+                filiais.forEach(f => {
+                    // Exibe a filial apenas se for a filial do usuário logado ou se o usuário for nível CENTRAL
+                    if (filialLogada === null || f.id === filialLogada) {
+                        options += `<option value="${f.id}">${f.nome}</option>`;
+                    }
+                });
             }
         }
         select.innerHTML = options;
@@ -132,6 +144,7 @@ window.carregarCentrosCusto = async function() {
 window.abrirModalCentroCusto = function(cc = null) {
     document.getElementById('modalCentroCusto').style.display = 'flex';
     carregarOpcoesFilialGenerico('ccFilialId').then(() => {
+        const filialLogada = obterFilialUsuarioLogado();
         if (cc && cc.id) {
             document.getElementById('modalCentroCustoTitle').innerText = '  Editar Centro de Custo';
             document.getElementById('ccId').value = cc.id;
@@ -143,7 +156,7 @@ window.abrirModalCentroCusto = function(cc = null) {
         } else {
             document.getElementById('modalCentroCustoTitle').innerText = '  Novo Centro de Custo';
             document.getElementById('ccId').value = '';
-            document.getElementById('ccFilialId').value = 'CENTRAL';
+            document.getElementById('ccFilialId').value = filialLogada === null ? 'CENTRAL' : filialLogada;
             document.getElementById('ccCodigo').value = '';
             document.getElementById('ccNome').value = '';
             document.getElementById('ccDescricao').value = '';
@@ -164,12 +177,28 @@ window.salvarCentroCusto = async function() {
         status: document.getElementById('ccStatus').value
     };
     if (!payload.codigo || !payload.nome) return alert("Preencha Código e Nome.");
+    
     try {
-        if (id) await supabaseClient.from('centro_custo').update(payload).eq('id', id);
-        else await supabaseClient.from('centro_custo').insert([payload]);
+        let dbError;
+        if (id) {
+            const { error } = await supabaseClient.from('centro_custo').update(payload).eq('id', id);
+            dbError = error;
+        } else {
+            const { error } = await supabaseClient.from('centro_custo').insert([payload]);
+            dbError = error;
+        }
+        if (dbError) throw dbError;
+        
         fecharModalCentroCusto();
         await carregarCentrosCusto();
-    } catch (e) { alert("Erro ao salvar Centro de Custo."); }
+    } catch (e) {
+        console.error("Erro no Supabase:", e);
+        if (e.code === '23505' || e.status === 409 || (e.message && e.message.includes('duplicate key'))) {
+            alert("Erro 409 (Conflito): O Código de Centro de Custo informado já está cadastrado no sistema.");
+        } else {
+            alert("Erro ao salvar o Centro de Custo. Verifique o console.");
+        }
+    }
 };
 
 window.excluirCentroCusto = async function(id) {
@@ -272,6 +301,7 @@ window.carregarObjetosCusto = async function() {
 window.abrirModalObjetoCusto = function(obj = null) {
     document.getElementById('modalObjetoCusto').style.display = 'flex';
     carregarOpcoesFilialGenerico('objFilialId').then(() => {
+        const filialLogada = obterFilialUsuarioLogado();
         if (obj && obj.id) {
             document.getElementById('objId').value = obj.id;
             document.getElementById('objFilialId').value = obj.filial_id === null ? 'CENTRAL' : obj.filial_id;
@@ -285,7 +315,7 @@ window.abrirModalObjetoCusto = function(obj = null) {
             document.getElementById('objStatus').value = obj.status || 'Ativo';
         } else {
             document.getElementById('objId').value = '';
-            document.getElementById('objFilialId').value = 'CENTRAL';
+            document.getElementById('objFilialId').value = filialLogada === null ? 'CENTRAL' : filialLogada;
             carregarOpcoesCentroCusto();
             document.getElementById('objCentroCustoId').value = '';
             document.getElementById('objCodigo').value = '';
@@ -310,12 +340,28 @@ window.salvarObjetoCusto = async function() {
         descricao: document.getElementById('objDescricao').value.trim(),
         status: document.getElementById('objStatus').value
     };
+    
     try {
-        if (id) await supabaseClient.from('objetos_custo').update(payload).eq('id', id);
-        else await supabaseClient.from('objetos_custo').insert([payload]);
+        let dbError;
+        if (id) {
+            const { error } = await supabaseClient.from('objetos_custo').update(payload).eq('id', id);
+            dbError = error;
+        } else {
+            const { error } = await supabaseClient.from('objetos_custo').insert([payload]);
+            dbError = error;
+        }
+        if (dbError) throw dbError;
+        
         fecharModalObjetoCusto();
         await carregarObjetosCusto();
-    } catch (e) { alert("Erro ao salvar Objeto."); }
+    } catch (e) {
+        console.error("Erro no Supabase:", e);
+        if (e.code === '23505' || e.status === 409 || (e.message && e.message.includes('duplicate key'))) {
+            alert("Erro 409 (Conflito): O Código ou Placa informada já está cadastrada no sistema.");
+        } else {
+            alert("Erro ao salvar o Objeto de Custo. Verifique o console.");
+        }
+    }
 };
 
 window.excluirObjetoCusto = async function(id) {
@@ -418,6 +464,7 @@ window.carregarAtividades = async function() {
 window.abrirModalAtividade = function(ativ = null) {
     document.getElementById('modalAtividade').style.display = 'flex';
     carregarOpcoesFilialGenerico('ativFilialId').then(() => {
+        const filialLogada = obterFilialUsuarioLogado();
         if (ativ && ativ.id) {
             document.getElementById('ativId').value = ativ.id;
             document.getElementById('ativFilialId').value = ativ.filial_id === null ? 'CENTRAL' : ativ.filial_id;
@@ -430,7 +477,7 @@ window.abrirModalAtividade = function(ativ = null) {
             document.getElementById('ativStatus').value = ativ.status || 'Ativo';
         } else {
             document.getElementById('ativId').value = '';
-            document.getElementById('ativFilialId').value = 'CENTRAL';
+            document.getElementById('ativFilialId').value = filialLogada === null ? 'CENTRAL' : filialLogada;
             carregarOpcoesObjetoCustoAtiv();
             document.getElementById('ativObjetoCustoId').value = '';
             document.getElementById('ativCodigo').value = '';
@@ -453,12 +500,28 @@ window.salvarAtividade = async function() {
         descricao: document.getElementById('ativDescricao').value.trim(),
         status: document.getElementById('ativStatus').value
     };
+    
     try {
-        if (id) await supabaseClient.from('atividades_processos').update(payload).eq('id', id);
-        else await supabaseClient.from('atividades_processos').insert([payload]);
+        let dbError;
+        if (id) {
+            const { error } = await supabaseClient.from('atividades_processos').update(payload).eq('id', id);
+            dbError = error;
+        } else {
+            const { error } = await supabaseClient.from('atividades_processos').insert([payload]);
+            dbError = error;
+        }
+        if (dbError) throw dbError;
+        
         fecharModalAtividade();
         await carregarAtividades();
-    } catch (e) { alert("Erro ao salvar Atividade."); }
+    } catch (e) {
+        console.error("Erro no Supabase:", e);
+        if (e.code === '23505' || e.status === 409 || (e.message && e.message.includes('duplicate key'))) {
+            alert("Erro 409 (Conflito): O Código da Atividade informado já está cadastrado.");
+        } else {
+            alert("Erro ao salvar Atividade. Verifique o console.");
+        }
+    }
 };
 
 window.excluirAtividade = async function(id) {
@@ -537,6 +600,7 @@ window.carregarSetores = async function() {
 window.abrirModalSetor = function(setor = null) {
     document.getElementById('modalSetor').style.display = 'flex';
     carregarOpcoesFilialGenerico('setorFilialId').then(() => {
+        const filialLogada = obterFilialUsuarioLogado();
         if (setor && setor.id) {
             document.getElementById('modalSetorTitle').innerText = '  Editar Setor';
             document.getElementById('setorId').value = setor.id;
@@ -550,7 +614,7 @@ window.abrirModalSetor = function(setor = null) {
             document.getElementById('setorNome').value = '';
             document.getElementById('setorDescricao').value = '';
             document.getElementById('setorStatus').value = 'Ativo';
-            document.getElementById('setorFilialId').value = 'CENTRAL';
+            document.getElementById('setorFilialId').value = filialLogada === null ? 'CENTRAL' : filialLogada;
         }
     });
 };
@@ -566,12 +630,28 @@ window.salvarSetor = async function() {
         status: document.getElementById('setorStatus').value
     };
     if (!payload.nome) return alert("Preencha o Nome do Setor.");
+    
     try {
-        if (id) await supabaseClient.from('setores').update(payload).eq('id', id);
-        else await supabaseClient.from('setores').insert([payload]);
+        let dbError;
+        if (id) {
+            const { error } = await supabaseClient.from('setores').update(payload).eq('id', id);
+            dbError = error;
+        } else {
+            const { error } = await supabaseClient.from('setores').insert([payload]);
+            dbError = error;
+        }
+        if (dbError) throw dbError;
+        
         fecharModalSetor();
         await carregarSetores();
-    } catch (e) { alert("Erro ao salvar Setor."); }
+    } catch (e) {
+        console.error("Erro no Supabase:", e);
+        if (e.code === '23505' || e.status === 409 || (e.message && e.message.includes('duplicate key'))) {
+            alert("Erro 409 (Conflito): O Nome do Setor informado já está cadastrado.");
+        } else {
+            alert("Erro ao salvar Setor. Verifique o console.");
+        }
+    }
 };
 
 window.excluirSetor = async function(id) {
@@ -766,6 +846,7 @@ window.carregarCargos = async function() {
 window.abrirModalCargo = function(cargo = null) {
     document.getElementById('modalCargo').style.display = 'flex';
     carregarOpcoesFilialGenerico('cargoFilialId').then(() => {
+        const filialLogada = obterFilialUsuarioLogado();
         if (cargo && cargo.id) {
             document.getElementById('modalCargoTitle').innerText = '  Editar Cargo';
             document.getElementById('cargoId').value = cargo.id; 
@@ -782,7 +863,7 @@ window.abrirModalCargo = function(cargo = null) {
         } else {
             document.getElementById('modalCargoTitle').innerText = '  Novo Cargo / Posição';
             document.getElementById('cargoId').value = '';
-            document.getElementById('cargoFilialId').value = 'CENTRAL';
+            document.getElementById('cargoFilialId').value = filialLogada === null ? 'CENTRAL' : filialLogada;
             
             atualizarFiltrosCargo().then(() => {
                 document.getElementById('cargoNome').value = '';
@@ -815,6 +896,7 @@ window.salvarCargo = async function() {
     if (!payload.nome || isNaN(payload.setor_id) || isNaN(payload.centro_custo_id)) {
         return alert("  Preencha o Nome, Setor e Centro de Custo corretamente.");
     }
+    
     try {
         let dbError;
         if (id) {
@@ -825,13 +907,17 @@ window.salvarCargo = async function() {
             dbError = error;
         }
         if (dbError) throw dbError;
+        
         fecharModalCargo();
         await carregarCargos();
-        
     } catch (e) {
-        console.error("ERRO SUPABASE COMPLETO:", e);
-        const msg = e.message || e.details || (e.error && e.error.message) || JSON.stringify(e);
-        alert(`  Falha no Banco de Dados ao salvar Cargo:\n\n${msg}\n\n  VOCÊ EXECUTOU O CÓDIGO SQL NO SUPABASE? O banco está rejeitando a gravação.`);
+        console.error("Erro no Supabase:", e);
+        if (e.code === '23505' || e.status === 409 || (e.message && e.message.includes('duplicate key'))) {
+            alert("Erro 409 (Conflito): O Nome do Cargo informado já está cadastrado.");
+        } else {
+            const msg = e.message || e.details || (e.error && e.error.message) || JSON.stringify(e);
+            alert(`Falha no Banco de Dados ao salvar Cargo:\n\n${msg}`);
+        }
     }
 };
 
@@ -939,6 +1025,7 @@ window.carregarResponsaveis = async function() {
 window.abrirModalResponsavel = function(resp = null) {
     document.getElementById('modalResponsavel').style.display = 'flex';
     carregarOpcoesFilialGenerico('respFilialId').then(() => {
+        const filialLogada = obterFilialUsuarioLogado();
         if (resp && resp.id) {
             document.getElementById('modalResponsavelTitle').innerText = '  Editar Responsável';
             document.getElementById('respId').value = resp.id;
@@ -953,7 +1040,7 @@ window.abrirModalResponsavel = function(resp = null) {
         } else {
             document.getElementById('modalResponsavelTitle').innerText = '  Novo Responsável por Setor';
             document.getElementById('respId').value = '';
-            document.getElementById('respFilialId').value = 'CENTRAL';
+            document.getElementById('respFilialId').value = filialLogada === null ? 'CENTRAL' : filialLogada;
             
             carregarOpcoesSetorParaResponsavel().then(() => {
                 document.getElementById('respNome').value = '';
@@ -986,13 +1073,25 @@ window.salvarResponsavel = async function() {
     };
     
     try {
-        if (id) await supabaseClient.from('responsaveis_setor').update(payload).eq('id', id);
-        else await supabaseClient.from('responsaveis_setor').insert([payload]);
+        let dbError;
+        if (id) {
+            const { error } = await supabaseClient.from('responsaveis_setor').update(payload).eq('id', id);
+            dbError = error;
+        } else {
+            const { error } = await supabaseClient.from('responsaveis_setor').insert([payload]);
+            dbError = error;
+        }
+        if (dbError) throw dbError;
+        
         fecharModalResponsavel();
         await carregarResponsaveis();
-    } catch (e) { 
-        console.error(e);
-        alert("Erro ao salvar o Responsável. Verifique o console."); 
+    } catch (e) {
+        console.error("Erro no Supabase:", e);
+        if (e.code === '23505' || e.status === 409 || (e.message && e.message.includes('duplicate key'))) {
+            alert("Erro 409 (Conflito): Este Responsável já está cadastrado.");
+        } else {
+            alert("Erro ao salvar o Responsável. Verifique o console."); 
+        }
     }
 };
 
