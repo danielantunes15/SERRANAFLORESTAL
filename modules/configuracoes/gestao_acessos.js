@@ -146,7 +146,11 @@ window.carregarCheckboxesPermissoes = async function() {
     const isSuperOuMatriz4 = (window.currentUser && (window.isUsuarioGlobalAcessos() || window.currentUser.filial_id == 4));
 
     // 1. INICIALIZAÇÃO DINÂMICA: Intercepta o primeiro carregamento feito pelo menu.js
-    if (containerFilial && selectFilialContexto && selectFilialContexto.options.length <= 1) {
+    // CORREÇÃO: Utilizando dataset.inicializado para evitar o loop infinito no onChange do Select
+    if (containerFilial && selectFilialContexto && !selectFilialContexto.dataset.inicializado) {
+        
+        selectFilialContexto.dataset.inicializado = "true"; // Evita que esse bloco rode 2 vezes e resete o select
+        
         if (isSuperOuMatriz4) {
             containerFilial.style.display = 'block';
             try {
