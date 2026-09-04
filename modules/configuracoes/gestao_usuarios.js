@@ -35,23 +35,38 @@ window.carregarFiliaisFormulario = async function() {
     const selectFilial = document.getElementById('novoUserFilial');
     if (!selectFilial) return;
 
-    if (window.isUsuarioGlobal()) {
-        try {
-            const filiais = await db.getTodasFiliaisAdmin();
-            let options = '<option value="" disabled selected>-- Selecione a Filial --</option>';
-            options += '<option value="CENTRAL">ADMINISTRAÇÃO (Corporativo / Global)</option>';
-            if (filiais && filiais.length > 0) {
-                filiais.forEach(f => { options += `<option value="${f.id}">${f.nome}</option>`; });
-            }
-            selectFilial.innerHTML = options;
-            selectFilial.disabled = false;
-        } catch (e) {
-            console.error("Erro ao listar filiais:", e);
-            selectFilial.innerHTML = '<option value="" disabled selected>Erro ao carregar</option>';
+    let filiaisBanco = [];
+    try {
+        if (typeof db !== 'undefined' && typeof db.getTodasFiliaisAdmin === 'function') {
+            filiaisBanco = await db.getTodasFiliaisAdmin();
         }
+    } catch (e) {
+        console.error("Erro ao listar filiais:", e);
+    }
+
+    if (window.isUsuarioGlobal()) {
+        let options = '<option value="" disabled selected>-- Selecione a Filial --</option>';
+        options += '<option value="CENTRAL">ADMINISTRAÇÃO (Corporativo / Global)</option>';
+        if (filiaisBanco && filiaisBanco.length > 0) {
+            filiaisBanco.forEach(f => { options += `<option value="${f.id}">${f.nome}</option>`; });
+        }
+        selectFilial.innerHTML = options;
+        selectFilial.disabled = false;
     } else if (window.currentUser) {
         const fValue = window.currentUser.filial_id === null ? 'CENTRAL' : window.currentUser.filial_id;
-        selectFilial.innerHTML = `<option value="${fValue}" selected>Minha Filial Base</option>`;
+        
+        // Tenta descobrir o nome correto da filial do usuário não-global
+        let nomeFilial = 'Minha Filial Base';
+        if (filiaisBanco && filiaisBanco.length > 0) {
+            const filialEncontrada = filiaisBanco.find(f => f.id == fValue);
+            if (filialEncontrada) nomeFilial = filialEncontrada.nome;
+        } else if (window.currentUser.filiais && window.currentUser.filiais.nome) {
+            nomeFilial = window.currentUser.filiais.nome;
+        } else {
+            nomeFilial = `Filial ${fValue}`;
+        }
+
+        selectFilial.innerHTML = `<option value="${fValue}" selected>${nomeFilial}</option>`;
         selectFilial.disabled = true;
         window.carregarCargosParaFilial(fValue);
     }
@@ -112,6 +127,29 @@ window.renderizarUsuarios = async function() {
 
         const todosUsuarios = await db.getUsuarios('TODAS'); 
         
+        // ==========================================
+        // BUSCA NOMES DAS FILIAIS PARA MAPEAMENTO
+        // ==========================================
+        let filiaisBanco = [];
+        try {
+            if (typeof db !== 'undefined' && typeof db.getTodasFiliaisAdmin === 'function') {
+                filiaisBanco = await db.getTodasFiliaisAdmin();
+            }
+        } catch (e) { console.error("Erro ao carregar filiais banco", e); }
+
+        // CONTROLE DO FILTRO PARA ADMINS GLOBAIS
+        const filtroContainer = document.getElementById('filtroFilialContainer');
+        const filtroSelect = document.getElementById('filtroUsuariosFilial');
+        
+        if (window.isUsuarioGlobal() && filtroContainer && filtroSelect) {
+            filtroContainer.style.display = 'flex';
+            if (filtroSelect.options.length <= 2 && filiaisBanco.length > 0) {
+                filiaisBanco.forEach(f => {
+                    filtroSelect.innerHTML += `<option value="${f.id}">${f.nome}</option>`;
+                });
+            }
+        }
+        
         if (!window.isUsuarioGlobal()) {
             const filialAtiva = window.currentUser.filial_id;
             
@@ -131,68 +169,113 @@ window.renderizarUsuarios = async function() {
         } else {
             // Se for Administrador Global logado, ele vê todo mundo
             listaUsuarios = todosUsuarios; 
+            
+            // Aplica o filtro selecionado (se houver)
+            if (filtroSelect && filtroSelect.value !== 'TODAS') {
+                const fVal = filtroSelect.value === 'CENTRAL' ? null : parseInt(filtroSelect.value);
+                listaUsuarios = listaUsuarios.filter(u => u.filial_id === fVal);
+            }
         }
 
         if (listaUsuarios.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Nenhum usuário encontrado para esta filial.</td></tr>'; return;
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Nenhum usuário encontrado para o filtro atual.</td></tr>'; return;
         }
 
-        tbody.innerHTML = listaUsuarios.map(u => {
-            const isCurrent = u.id === window.currentUser.id;
-            const amISuperAdmin = window.isUsuarioGlobal();
-            
-            // Verificação de bloqueio para exibição dos botões
-            const lockedByBranch = !amISuperAdmin && (u.filial_id != window.currentUser.filial_id);
-            const isLocked = isCurrent || lockedByBranch;
+        // ==========================================
+        // AGRUPAMENTO E SEPARAÇÃO DOS USUÁRIOS POR FILIAL
+        // ==========================================
+        const filiaisMap = new Map();
+        filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
+        
+        // Mapeia os nomes das filiais vindos do banco
+        if (filiaisBanco && filiaisBanco.length > 0) {
+            filiaisBanco.forEach(f => {
+                filiaisMap.set(Number(f.id), { nome: f.nome, items: [] });
+            });
+        }
 
-            const isAtivo = u.status !== 'Inativo';
-            
-            let statusBadge = '';
-            if (!isAtivo) {
-                statusBadge = `<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid #ef4444;">Inativo</span>`;
-            } else if (u.primeiro_acesso) {
-                statusBadge = `<span style="background: rgba(251, 146, 60, 0.1); color: var(--ccol-rust-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-rust-bright);">Pendente (1º Acesso)</span>`;
-            } else {
-                statusBadge = `<span style="background: rgba(61, 220, 132, 0.1); color: var(--ccol-green-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-green-bright);">Ativo</span>`;
+        // Organiza a lista nas respectivas caixas da Filial
+        listaUsuarios.forEach(u => {
+            const fKey = u.filial_id === null ? 'CENTRAL' : Number(u.filial_id);
+            if (!filiaisMap.has(fKey)) {
+                // Fallback de segurança se o nome da filial não estiver no array global
+                const fallbackNome = (u.filiais && u.filiais.nome) ? u.filiais.nome : `Filial ID: ${fKey}`;
+                filiaisMap.set(fKey, { nome: fallbackNome, items: [] });
             }
-            
-            const filialNome = u.filial_id === null ? '<span style="color:#fde047; font-weight:bold;">Corporativo / Global</span>' : (u.filiais ? u.filiais.nome : `Filial ID: ${u.filial_id}`);
-            
-            const nomeDoCargo = (u.cargo_id && mapaCargos[u.cargo_id]) 
-                ? mapaCargos[u.cargo_id] 
-                : (u.cargos ? u.cargos.nome : (u.role || 'Sem Cargo Definido'));
-            
-            // Renderização condicional dos botões
-            let botoesAcao = '';
-            if (isLocked) {
-                botoesAcao = `
-                    <button disabled style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); padding: 5px 10px; border-radius: 4px; cursor: not-allowed; font-size: 0.75rem; margin-right: 5px;" title="Acesso bloqueado">🔒 Restrito</button>
-                `;
-            } else {
-                const btnStatus = isAtivo 
-                    ? `<button onclick="window.alternarStatusUsuario(${u.id}, 'Inativo')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Inativar Usuário">🚫 Inativar</button>`
-                    : `<button onclick="window.alternarStatusUsuario(${u.id}, 'Ativo')" style="background: rgba(61, 220, 132, 0.1); border: 1px solid #3ddc84; color: #3ddc84; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Reativar Usuário">✅ Ativar</button>`;
+            filiaisMap.get(fKey).items.push(u);
+        });
 
-                botoesAcao = `
-                    <button onclick="window.abrirModalEdicaoUsuario(${u.id})" style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; color: #3b82f6; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-right: 5px;" title="Editar informações ou aplicar promoção">✏️ Editar</button>
-                    <button onclick="window.resetarSenhaUsuario(${u.id})" style="background: rgba(255,255,255,0.05); border: 1px solid #fde047; color: #fde047; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;" title="Voltar a senha para 12345">🔄 Resetar</button>
-                    ${btnStatus}
-                    <button onclick="window.excluirUsuario(${u.id})" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Excluir Permanentemente">🗑️</button>
-                `;
-            }
+        let htmlFinal = '';
 
-            return `
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <td style="padding: 12px;">
-                    <div style="font-weight: bold; color: var(--ccol-blue-bright);">${u.nome_completo || 'Sem Nome Cadastrado'} ${isCurrent ? '(Você)' : ''}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-secondary);"><i class="fas fa-sign-in-alt"></i> ${u.username}</div>
-                </td>
-                <td><span class="badge-role" style="font-size: 0.75rem; background: #3b82f6;">${nomeDoCargo}</span></td>
-                <td style="font-size: 0.8rem; color: #cbd5e1;">${filialNome}</td>
-                <td>${statusBadge}</td>
-                <td>${botoesAcao}</td>
-            </tr>
-        `}).join('');
+        filiaisMap.forEach((group, fKey) => {
+            if (group.items.length === 0) return; // Se não tem usuário, não mostra a filial
+            
+            htmlFinal += `
+                <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
+                    <td colspan="5" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
+                        <i class="fas fa-building" style="margin-right: 8px;"></i> ${group.nome}
+                    </td>
+                </tr>
+            `;
+
+            group.items.forEach(u => {
+                const isCurrent = u.id === window.currentUser.id;
+                const amISuperAdmin = window.isUsuarioGlobal();
+                
+                const lockedByBranch = !amISuperAdmin && (u.filial_id != window.currentUser.filial_id);
+                const isLocked = isCurrent || lockedByBranch;
+
+                const isAtivo = u.status !== 'Inativo';
+                
+                let statusBadge = '';
+                if (!isAtivo) {
+                    statusBadge = `<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid #ef4444;">Inativo</span>`;
+                } else if (u.primeiro_acesso) {
+                    statusBadge = `<span style="background: rgba(251, 146, 60, 0.1); color: var(--ccol-rust-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-rust-bright);">Pendente (1º Acesso)</span>`;
+                } else {
+                    statusBadge = `<span style="background: rgba(61, 220, 132, 0.1); color: var(--ccol-green-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-green-bright);">Ativo</span>`;
+                }
+                
+                const filialNome = u.filial_id === null ? '<span style="color:#fde047; font-weight:bold;">Corporativo / Global</span>' : group.nome;
+                
+                const nomeDoCargo = (u.cargo_id && mapaCargos[u.cargo_id]) 
+                    ? mapaCargos[u.cargo_id] 
+                    : (u.cargos ? u.cargos.nome : (u.role || 'Sem Cargo Definido'));
+                
+                let botoesAcao = '';
+                if (isLocked) {
+                    botoesAcao = `
+                        <button disabled style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); padding: 5px 10px; border-radius: 4px; cursor: not-allowed; font-size: 0.75rem; margin-right: 5px;" title="Acesso bloqueado">🔒 Restrito</button>
+                    `;
+                } else {
+                    const btnStatus = isAtivo 
+                        ? `<button onclick="window.alternarStatusUsuario(${u.id}, 'Inativo')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Inativar Usuário">🚫 Inativar</button>`
+                        : `<button onclick="window.alternarStatusUsuario(${u.id}, 'Ativo')" style="background: rgba(61, 220, 132, 0.1); border: 1px solid #3ddc84; color: #3ddc84; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Reativar Usuário">✅ Ativar</button>`;
+
+                    botoesAcao = `
+                        <button onclick="window.abrirModalEdicaoUsuario(${u.id})" style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; color: #3b82f6; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-right: 5px;" title="Editar informações ou aplicar promoção">✏️ Editar</button>
+                        <button onclick="window.resetarSenhaUsuario(${u.id})" style="background: rgba(255,255,255,0.05); border: 1px solid #fde047; color: #fde047; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;" title="Voltar a senha para 12345">🔄 Resetar</button>
+                        ${btnStatus}
+                        <button onclick="window.excluirUsuario(${u.id})" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Excluir Permanentemente">🗑️</button>
+                    `;
+                }
+
+                htmlFinal += `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 12px; padding-left: 20px;">
+                        <div style="font-weight: bold; color: var(--ccol-blue-bright);">${u.nome_completo || 'Sem Nome Cadastrado'} ${isCurrent ? '(Você)' : ''}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);"><i class="fas fa-sign-in-alt"></i> ${u.username}</div>
+                    </td>
+                    <td><span class="badge-role" style="font-size: 0.75rem; background: #3b82f6;">${nomeDoCargo}</span></td>
+                    <td style="font-size: 0.8rem; color: #cbd5e1;">${filialNome}</td>
+                    <td>${statusBadge}</td>
+                    <td>${botoesAcao}</td>
+                </tr>`;
+            });
+        });
+
+        tbody.innerHTML = htmlFinal;
+
     } catch (e) {
         console.error(e);
         tbody.innerHTML = '<tr><td colspan="5" style="color: #ef4444;">Erro ao carregar dados dos usuários.</td></tr>';
@@ -328,7 +411,18 @@ window.abrirModalEdicaoUsuario = async function(id) {
         }
     } else {
         const fValue = window.currentUser.filial_id === null ? 'CENTRAL' : window.currentUser.filial_id;
-        selectFilial.innerHTML = `<option value="${fValue}">Minha Filial Base</option>`;
+        
+        // Busca o nome para não mostrar ID
+        let nomeFilial = 'Minha Filial Base';
+        if (u.filiais && u.filiais.nome) {
+            nomeFilial = u.filiais.nome;
+        } else if (window.currentUser.filiais && window.currentUser.filiais.nome) {
+            nomeFilial = window.currentUser.filiais.nome;
+        } else {
+            nomeFilial = `Filial ${fValue}`;
+        }
+
+        selectFilial.innerHTML = `<option value="${fValue}">${nomeFilial}</option>`;
         selectFilial.disabled = true;
     }
 
