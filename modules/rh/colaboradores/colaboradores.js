@@ -22,6 +22,12 @@ window.camposBaseObrigatorios = [
     { key: 'toxicologico_vencimento', id: 'colToxicologico' }
 ];
 
+// FUNÇÃO AUXILIAR PARA RESGATAR A FILIAL DO USUÁRIO NO RH
+window.obterFilialUsuarioLogadoRH = function() {
+    return (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') 
+        ? parseInt(window.currentUser.filial_id) : null;
+};
+
 window.initRHColaboradores = async function() {
     document.getElementById('viewListagemColaboradores').style.display = 'block';
     document.getElementById('viewFichaColaborador').style.display = 'none';
@@ -555,7 +561,15 @@ window.analisarVencimentosColaborador = function(c) {
 // ==================== CARREGAR DADOS BÁSICOS ====================
 window.carregarSetoresGlobal = async function() {
     try {
-        const { data, error } = await window.supabaseClient.from('setores').select('id, nome').eq('status', 'Ativo');
+        let query = window.supabaseClient.from('setores').select('id, nome, filial_id').eq('status', 'Ativo');
+        
+        // Aplica o filtro de filial para o setor (RH)
+        const filialLogada = window.obterFilialUsuarioLogadoRH();
+        if (filialLogada !== null) {
+            query = query.eq('filial_id', filialLogada);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
         
         const selSetor = document.getElementById('colSetorId');
@@ -568,8 +582,13 @@ window.carregarSetoresGlobal = async function() {
 
 window.carregarCargosControladoria = async function() {
     try {
-        let query = window.supabaseClient.from('cargos').select('id, nome').eq('status', 'Ativo').order('nome', { ascending: true });
-        if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+        let query = window.supabaseClient.from('cargos').select('id, nome, filial_id').eq('status', 'Ativo').order('nome', { ascending: true });
+        
+        // Aplica o filtro de filial para os cargos (RH)
+        const filialLogada = window.obterFilialUsuarioLogadoRH();
+        if (filialLogada !== null) {
+            query = query.eq('filial_id', filialLogada);
+        }
 
         const { data, error } = await query;
         if (error) throw error;
@@ -662,6 +681,7 @@ window.abrirFichaCompleta = async function(id = null) {
     window.mudarAbaFichaRH('tabPessoais');
     window.limparValidacaoVisualFicha();
     await window.carregarSetoresGlobal();
+    await window.carregarCargosControladoria();
     
     document.getElementById('colFoto').value = '';
     document.getElementById('colAnexos').value = '';
@@ -914,6 +934,11 @@ window.salvarColaboradorFicha = async function() {
             }
         }
         
+        // Garante que todo colaborador criado tenha a filial atrelada (a do usuário ou null se matriz)
+        if (!id) {
+            dados.filial_id = window.obterFilialUsuarioLogadoRH();
+        }
+        
         if (id) {
             await db.updateColaborador(id, dados);
             if (typeof window.registrarLogAuditoria === 'function') window.registrarLogAuditoria('RH', 'Edição', `Ficha atualizada: ${dados.nome}`, 'Info');
@@ -981,7 +1006,12 @@ window.montarCamposCursosDinamicosFull = function(vencimentosSalvos = {}) {
 window.carregarCursosGlobais = async function() {
     try {
         let query = window.supabaseClient.from('rh_cursos').select('*').order('nome', { ascending: true });
-        if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+        
+        // Aplica o filtro de filial (RH)
+        const filialLogada = window.obterFilialUsuarioLogadoRH();
+        if (filialLogada !== null) {
+            query = query.eq('filial_id', filialLogada);
+        }
         
         const { data, error } = await query;
         if (error) throw error;
@@ -1025,8 +1055,10 @@ window.salvarNovoCursoGlobal = async function() {
     if (!nome) return alert('Digite o nome do curso.');
     
     try {
-        let dados = { nome: nome };
-        if (typeof window.injetarFilial === 'function') dados = window.injetarFilial(dados);
+        let dados = { 
+            nome: nome,
+            filial_id: window.obterFilialUsuarioLogadoRH() // Associa o curso apenas à filial
+        };
         
         await window.supabaseClient.from('rh_cursos').insert([dados]);
         document.getElementById('novoCursoNome').value = '';
