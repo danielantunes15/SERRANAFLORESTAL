@@ -23,6 +23,10 @@ window.MAPA_MENUS = [
     { id: 'cadastro_frota', label: 'Cadastro Frota (O.S.)', setor: 'Manutenção', icon: 'fas fa-truck-moving' },
     { id: 'cadastro_os_classificacoes', label: 'Cadastro Básico (Tipos)', setor: 'Manutenção', icon: 'fas fa-list' },
     { id: 'relatorios_manutencao', label: 'Painel de Relatórios', setor: 'Manutenção', icon: 'fas fa-chart-line' },
+
+    // --- MÓDULO: SSMA (NOVO) ---
+    { id: 'ssma_ordem_servico', label: 'Cadastros Básicos (O.S.)', setor: 'SSMA', icon: 'fas fa-list-alt' },
+    { id: 'ssma_colaboradores', label: 'Colaboradores (Exportação)', setor: 'SSMA', icon: 'fas fa-hard-hat' },
     
     // --- MÓDULO INDEPENDENTE: ALMOXARIFADO ---
     { id: 'almoxarifado', label: 'Gestão de Estoque', setor: 'Almoxarifado', icon: 'fas fa-boxes' },
@@ -96,6 +100,9 @@ const ROTAS = {
     'borracharia': 'modules/manutencao/borracharia/borracharia.html',
     'cadastro_os_classificacoes': 'modules/manutencao/cadastros/classificacoes.html',
     'relatorios_manutencao': 'modules/manutencao/relatorios/relatorios.html',
+    
+    'ssma_ordem_servico': 'modules/ssma/cadastros/ssma_ordem_servico.html',
+    'ssma_colaboradores': 'modules/ssma/colaboradores/ssma_colaboradores.html',
     
     'rh_painel': 'modules/rh/painel/rh_painel.html',
     'rh_colaboradores': 'modules/rh/colaboradores/colaboradores.html',
@@ -250,7 +257,8 @@ window.getIconSetor = function(setor) {
         'Monitoramento': 'fas fa-desktop',
         'Gerencial': 'fas fa-briefcase',
         'Global': 'fas fa-globe',
-        'Configurações': 'fas fa-cog'
+        'Configurações': 'fas fa-cog',
+        'SSMA': 'fas fa-hard-hat'
     };
     return icones[setor] || 'fas fa-folder';
 };
@@ -331,6 +339,21 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'historico_os' && typeof window.initHistoricoOS === 'function') window.initHistoricoOS();
         if (pagina === 'cadastro_os_classificacoes' && typeof window.renderizarCadastroClassificacoes === 'function') window.renderizarCadastroClassificacoes();
         
+        // NOVO: Inicializador SSMA
+        if (pagina === 'ssma_ordem_servico') {
+            if (typeof window.carregarFiliaisSSMA === 'function') window.carregarFiliaisSSMA();
+            if (typeof window.carregarCargosSSMA === 'function') window.carregarCargosSSMA();
+            const formSsma = document.getElementById('form-os-ssma');
+            if (formSsma && typeof window.salvarOrdemServicoSSMA === 'function') {
+                formSsma.removeEventListener('submit', window.salvarOrdemServicoSSMA);
+                formSsma.addEventListener('submit', window.salvarOrdemServicoSSMA);
+            }
+        }
+        
+        if (pagina === 'ssma_colaboradores' && typeof window.initColaboradoresSSMA === 'function') {
+            window.initColaboradoresSSMA();
+        }
+
         if (pagina === 'painel_tv') {
             try { 
                 if (typeof carregarDadosOS === 'function') await carregarDadosOS(); 

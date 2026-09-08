@@ -1,0 +1,108 @@
+<style>
+    /* Pequenos ajustes locais para garantir o espaçamento do grid de OS */
+    .os-grid-top {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .os-section-title {
+        color: #60a5fa;
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-top: 25px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+        padding-bottom: 5px;
+    }
+</style>
+
+<div class="content-panel" style="padding: 25px; background: var(--bg-panel); border-radius: 12px; border: 1px solid var(--border-dim); animation: fadeIn 0.4s ease-in-out;">
+    
+    <!-- Cabeçalho -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+        <h2 style="color: #f8fafc; margin: 0; font-size: 1.5rem; font-weight: bold; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-hard-hat" style="color: #3b82f6;"></i>
+            Ordem de Serviço - SSMA
+        </h2>
+    </div>
+
+    <!-- Formulário -->
+    <form id="form-os-ssma" autocomplete="off">
+        
+        <div class="os-section-title"><i class="fas fa-info-circle"></i> Informações Básicas</div>
+        
+        <div class="os-grid-top">
+            <div class="form-group-dark">
+                <label for="filial_id">Filial Vinculada</label>
+                <select id="filial_id" name="filial_id" class="dark-select" required>
+                    <option value="" selected disabled>Carregando filiais...</option>
+                </select>
+            </div>
+            
+            <div class="form-group-dark">
+                <label for="cargo_id">Cargo</label>
+                <select id="cargo_id" name="cargo_id" class="dark-select" required>
+                    <option value="" selected disabled>Carregando cargos...</option>
+                </select>
+            </div>
+            
+            <div class="form-group-dark">
+                <label for="ano_revisao">Ano de Revisão</label>
+                <input type="number" id="ano_revisao" name="ano_revisao" value="2026" readonly 
+                       style="background-color: rgba(0,0,0,0.4); cursor: not-allowed; color: #94a3b8;">
+            </div>
+        </div>
+
+        <div class="os-section-title"><i class="fas fa-clipboard-check"></i> Detalhamento Operacional e Riscos</div>
+
+        <div class="form-group-dark" style="margin-bottom: 15px;">
+            <label for="atividades_desenvolvidas">Atividades Desenvolvidas</label>
+            <textarea id="atividades_desenvolvidas" name="atividades_desenvolvidas" rows="3" class="dark-select" required placeholder="Descreva as atividades desenvolvidas pelo cargo..."></textarea>
+        </div>
+
+        <div class="form-group-dark" style="margin-bottom: 15px;">
+            <label for="riscos_ocupacionais_expostos">Riscos Ocupacionais Expostos</label>
+            <textarea id="riscos_ocupacionais_expostos" name="riscos_ocupacionais_expostos" rows="3" class="dark-select" required placeholder="Descreva os riscos físicos, químicos, biológicos, ergonômicos e de acidentes..."></textarea>
+        </div>
+
+        <div class="form-group-dark" style="margin-bottom: 15px;">
+            <label for="equipamentos_protecao_individual">Equipamentos de Proteção Individual (EPI)</label>
+            <textarea id="equipamentos_protecao_individual" name="equipamentos_protecao_individual" rows="2" class="dark-select" required placeholder="Liste os EPIs obrigatórios para o cargo..."></textarea>
+        </div>
+
+        <div class="os-section-title"><i class="fas fa-shield-alt"></i> Normas e Procedimentos</div>
+
+        <div class="form-group-dark" style="margin-bottom: 15px;">
+            <label for="treinamentos_necessarios">Treinamentos Necessários para o Colaborador</label>
+            <textarea id="treinamentos_necessarios" name="treinamentos_necessarios" rows="2" class="dark-select" required placeholder="Ex: NR-06, Integração de Segurança, Direção Defensiva..."></textarea>
+        </div>
+
+        <div class="form-group-dark" style="margin-bottom: 15px;">
+            <label for="normas_internas">Normas Internas da Empresa</label>
+            <textarea id="normas_internas" name="normas_internas" rows="3" class="dark-select" required placeholder="Regras de conduta, proibições e normas gerais da SERRANALOG..."></textarea>
+        </div>
+
+        <div class="form-group-dark" style="margin-bottom: 15px;">
+            <label for="procedimentos_acidente_trabalho">Procedimentos em Caso de Acidente de Trabalho</label>
+            <textarea id="procedimentos_acidente_trabalho" name="procedimentos_acidente_trabalho" rows="3" class="dark-select" required placeholder="Passo a passo do que o colaborador deve fazer em caso de incidente ou acidente..."></textarea>
+        </div>
+
+        <div class="form-group-dark" style="margin-bottom: 20px;">
+            <label for="termo_responsabilidade">Termo de Responsabilidade</label>
+            <textarea id="termo_responsabilidade" name="termo_responsabilidade" rows="4" class="dark-select" required placeholder="Texto formal de ciência e responsabilidade a ser assinado pelo colaborador..."></textarea>
+        </div>
+
+        <!-- Botões de Ação -->
+        <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <button type="button" class="btn-secondary-dark" id="btn-cancelar" onclick="limparFormularioSSMA()" style="padding: 12px 20px;">
+                <i class="fas fa-times" style="margin-right: 8px;"></i> Cancelar
+            </button>
+            <button type="submit" class="btn-primary-green" id="btn-salvar-os" style="padding: 12px 25px;">
+                <i class="fas fa-save" style="margin-right: 8px;"></i> Salvar Ordem de Serviço
+            </button>
+        </div>
+
+    </form>
+</div>
