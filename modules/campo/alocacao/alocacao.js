@@ -1,5 +1,121 @@
 // ==================== modules/campo/alocacao/alocacao.js ====================
 
+window.funcoesSelecionadasEscala = ['OPERADOR MANTENEDOR', 'Líder de Campo'];
+window.cargosFilial = [];
+
+function obterFilialIdAtual() {
+    return (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL')
+        ? parseInt(window.currentUser.filial_id)
+        : null;
+}
+
+window.carregarConfiguracaoFuncoesDB = async function() {
+    if (typeof window.supabaseClient === 'undefined') return;
+    try {
+        const filialId = obterFilialIdAtual();
+        let query = window.supabaseClient.from('campo_config_escala').select('funcoes_selecionadas');
+
+        if (filialId !== null) {
+            query = query.eq('filial_id', filialId);
+        } else {
+            query = query.is('filial_id', null);
+        }
+
+        const { data, error } = await query.maybeSingle();
+        if (error) throw error;
+
+        if (data && data.funcoes_selecionadas && Array.isArray(data.funcoes_selecionadas)) {
+            window.funcoesSelecionadasEscala = data.funcoes_selecionadas;
+        } else {
+            window.funcoesSelecionadasEscala = ['OPERADOR MANTENEDOR', 'Líder de Campo'];
+        }
+    } catch (error) {
+        console.error("Erro ao carregar configuração de funções do banco:", error);
+    }
+};
+
+window.carregarCargosFilial = async function() {
+    if (typeof window.supabaseClient === 'undefined') return;
+    try {
+        let query = window.supabaseClient.from('cargos').select('nome').eq('status', 'Ativo').order('nome');
+        
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
+        } else if (window.currentUser && window.currentUser.filial_id) {
+            query = query.eq('filial_id', window.currentUser.filial_id);
+        }
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+            const nomesUnicos = [...new Set(data.map(c => c.nome))];
+            window.cargosFilial = nomesUnicos;
+        } else {
+            window.cargosFilial = ['OPERADOR MANTENEDOR', 'Líder de Campo', 'Motorista', 'Mecânico', 'Borracheiro'];
+        }
+    } catch (error) {
+        console.error("Erro ao carregar cargos da filial:", error);
+        window.cargosFilial = ['OPERADOR MANTENEDOR', 'Líder de Campo', 'Motorista', 'Mecânico', 'Borracheiro'];
+    }
+};
+
+window.abrirModalFiltroFuncoes = async function() {
+    document.getElementById('modalFiltroFuncoes').classList.add('show');
+    const container = document.getElementById('listaFiltroFuncoes');
+    container.innerHTML = '<div style="color:#fff; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando cargos da filial...</div>';
+    
+    await Promise.all([window.carregarConfiguracaoFuncoesDB(), window.carregarCargosFilial()]);
+    
+    let html = '';
+    window.cargosFilial.forEach(cargo => {
+        const isChecked = window.funcoesSelecionadasEscala.includes(cargo) ? 'checked' : '';
+        html += `
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #fff; font-weight: 500;">
+            <input type="checkbox" class="filtro-funcao-checkbox" value="${cargo}" ${isChecked} style="transform: scale(1.2); accent-color: #3b82f6;"> ${cargo}
+        </label>`;
+    });
+    
+    container.innerHTML = html;
+};
+
+window.fecharModalFiltroFuncoes = function() {
+    document.getElementById('modalFiltroFuncoes').classList.remove('show');
+};
+
+window.aplicarFiltroFuncoes = async function() {
+    const checkboxes = document.querySelectorAll('.filtro-funcao-checkbox:checked');
+    window.funcoesSelecionadasEscala = Array.from(checkboxes).map(cb => cb.value);
+    
+    const filialId = obterFilialIdAtual();
+    try {
+        const payload = {
+            filial_id: filialId,
+            funcoes_selecionadas: window.funcoesSelecionadasEscala,
+            updated_at: new Date().toISOString()
+        };
+
+        const { error } = await window.supabaseClient
+            .from('campo_config_escala')
+            .upsert([payload], { onConflict: 'filial_id' });
+
+        if (error) throw error;
+    } catch (err) {
+        console.error("Erro ao salvar configuração no banco:", err);
+    }
+    
+    window.fecharModalFiltroFuncoes();
+    
+    if (typeof window.carregarAlocacaoCampo === 'function') {
+        window.carregarAlocacaoCampo(); 
+    }
+    
+    if (typeof window.carregarDadosEscalaCampo === 'function') {
+        window._dadosEscalaCarregados = false;
+        window.carregarDadosEscalaCampo();
+    }
+};
+
 window.carregarAlocacaoCampo = async function() {
     if (typeof window.supabaseClient === 'undefined') return;
     
@@ -9,7 +125,8 @@ window.carregarAlocacaoCampo = async function() {
     try {
         container.innerHTML = '<div style="color:#fff; text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando painel de máquinas...</div>';
         
-        // FILTRO DE FILIAL TAMBÉM NAS MÁQUINAS NA ALOCAÇÃO
+        await Promise.all([window.carregarConfiguracaoFuncoesDB(), window.carregarCargosFilial()]);
+        
         let queryMaquinas = window.supabaseClient.from('maquinas_campo').select('*').order('id');
         if (typeof window.aplicarFiltroFilial === 'function') {
             queryMaquinas = window.aplicarFiltroFilial(queryMaquinas);
@@ -20,7 +137,7 @@ window.carregarAlocacaoCampo = async function() {
         
         let queryEquipe = window.supabaseClient.from('rh_colaboradores')
             .select('*')
-            .in('funcao', ['Líder de Campo', 'OPERADOR MANTENEDOR'])
+            .in('funcao', window.funcoesSelecionadasEscala)
             .order('nome');
 
         if (typeof window.aplicarFiltroFilial === 'function') {
@@ -45,6 +162,17 @@ window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
     let dataAncoraValor = op.data_ancora ? op.data_ancora.split('T')[0] : '';
     let tipoEscalaAtual = op.tipo_escala || '4x2';
     
+    let opcoesFuncao = '';
+    let funcaoEncontrada = false;
+    window.cargosFilial.forEach(c => {
+        const selected = op.funcao === c ? 'selected' : '';
+        if (selected) funcaoEncontrada = true;
+        opcoesFuncao += `<option value="${c}" ${selected}>${c}</option>`;
+    });
+    if (op.funcao && !funcaoEncontrada) {
+        opcoesFuncao += `<option value="${op.funcao}" selected>${op.funcao}</option>`;
+    }
+    
     return `
     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);" id="row_aloc_${op.id}">
         <td style="padding: 10px; text-align: left; font-weight: 800; color: #fff; width: 18%;">
@@ -52,8 +180,7 @@ window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
         </td>
         <td style="padding: 5px;">
             <select class="dark-select" id="aloc_funcao_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem;">
-                <option value="OPERADOR MANTENEDOR" ${op.funcao==='OPERADOR MANTENEDOR'?'selected':''}>Operador</option>
-                <option value="Líder de Campo" ${op.funcao==='Líder de Campo'?'selected':''}>Líder</option>
+                ${opcoesFuncao}
             </select>
         </td>
         <td style="padding: 5px;">
@@ -117,79 +244,51 @@ window.renderizarPainelMaquinasCampo = function() {
         
         const theadGeral = `<thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Ciclo</th><th>Papel</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Início</th><th>Ação</th></tr></thead>`;
 
-        // 1. Renderiza os Líderes
-        const lideres = membrosFrente.filter(op => op.funcao === 'Líder de Campo');
-        if (lideres.length > 0) {
-            html += `<div style="margin-bottom: 20px; background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; border-radius: 8px; padding: 10px;">
-                <h4 style="color: #fbbf24; margin: 0 0 10px 0;"><i class="fas fa-crown"></i> Líderes da Frente</h4>
-                <table style="width: 100%; border-collapse: collapse;">
-                    ${theadGeral}
-                <tbody>`;
-            lideres.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
-            html += `</tbody></table></div>`;
-        }
-        
-        // 2. Renderiza os Operadores por Máquina
-        ['Máquina 1', 'Máquina 2', 'Máquina 3'].forEach(nomeMaq => {
-            const numFrota = frente[nomeMaq === 'Máquina 1' ? 'numero_frota_1' : (nomeMaq === 'Máquina 2' ? 'numero_frota_2' : 'numero_frota_3')];
-            
-            // Busca quem é desta máquina e NÃO é líder
-            const operadores = membrosFrente.filter(op => op.maquina_especifica === nomeMaq && op.funcao !== 'Líder de Campo');
-            
-            // Oculta a máquina apenas se não tiver frota E não tiver ninguém alocado (corrige sumiço)
-            if (!numFrota && operadores.length === 0) return; 
-            
+        window.funcoesSelecionadasEscala.forEach(funcaoNome => {
+            const operadores = membrosFrente.filter(op => op.funcao === funcaoNome);
+            if (operadores.length === 0) return;
+
             operadores.sort((a,b) => {
                 const peso = o => ((o.turno || '').includes('06:00') ? 0 : 10) + (o.equipe === 'Fixo' ? 1 : 2);
                 return peso(a) - peso(b);
             });
-            
-            html += `<div style="margin-bottom: 15px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 10px;">
-                <h4 style="color: #34d399; margin: 0 0 10px 0;"><i class="fas fa-tractor"></i> ${nomeMaq} (Frota: ${numFrota || 'S/N'})</h4>
+
+            let colorBase = '#34d399'; let bgBase = 'rgba(16, 185, 129, 0.05)'; let borderBase = 'rgba(16, 185, 129, 0.3)'; let iconBase = 'fa-user-cog';
+            if(funcaoNome === 'Líder de Campo') { colorBase = '#fbbf24'; bgBase = 'rgba(251, 191, 36, 0.1)'; borderBase = '#fbbf24'; iconBase = 'fa-crown'; } 
+            else if (funcaoNome === 'Motorista') { colorBase = '#60a5fa'; bgBase = 'rgba(96, 165, 250, 0.05)'; borderBase = 'rgba(96, 165, 250, 0.3)'; iconBase = 'fa-truck'; } 
+            else if (funcaoNome === 'Mecânico' || funcaoNome === 'Borracheiro') { colorBase = '#a855f7'; bgBase = 'rgba(168, 85, 247, 0.05)'; borderBase = 'rgba(168, 85, 247, 0.3)'; iconBase = 'fa-tools'; }
+
+            html += `<div style="margin-bottom: 15px; background: ${bgBase}; border: 1px solid ${borderBase}; border-radius: 8px; padding: 10px;">
+                <h4 style="color: ${colorBase}; margin: 0 0 10px 0;"><i class="fas ${iconBase}"></i> Função: ${funcaoNome}</h4>
                 <table style="width: 100%; border-collapse: collapse;">
                     ${theadGeral}
                     <tbody>`;
-            
-            if (operadores.length === 0) {
-                html += `<tr><td colspan="9" style="padding: 10px; color:#9ca3af; text-align:center;">Nenhum operador alocado nesta máquina.</td></tr>`;
-            } else {
-                operadores.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
-            }
+            operadores.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
             html += `</tbody></table></div>`;
         });
-
-        // 3. O SEGREDO REVELADO: Operadores vinculados à Frente, mas sem Máquina (Nenhuma)
-        const operadoresSemMaquina = membrosFrente.filter(op => 
-            op.funcao !== 'Líder de Campo' && 
-            op.maquina_especifica !== 'Máquina 1' && 
-            op.maquina_especifica !== 'Máquina 2' && 
-            op.maquina_especifica !== 'Máquina 3'
-        );
-
-        if (operadoresSemMaquina.length > 0) {
-            html += `<div style="margin-bottom: 15px; background: rgba(249, 115, 22, 0.05); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: 8px; padding: 10px;">
-                <h4 style="color: #f97316; margin: 0 0 10px 0;"><i class="fas fa-exclamation-triangle"></i> Operadores nesta Frente sem Máquina (Selecione a Máquina ao lado)</h4>
-                <table style="width: 100%; border-collapse: collapse;">
-                    ${theadGeral}
-                    <tbody>`;
-            operadoresSemMaquina.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
-            html += `</tbody></table></div>`;
-        }
-        
         html += `</div>`;
     });
     
-    // 4. Reservas Totais (Sem nenhuma frente)
+    // Reservas Totais (Sem nenhuma frente)
     const reservas = window.equipeCampo.filter(op => !op.maquina_id);
     if (reservas.length > 0) {
         const theadGeral = `<thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Ciclo</th><th>Papel</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Início</th><th>Ação</th></tr></thead>`;
-        html += `<div style="background: rgba(239, 68, 68, 0.1); border: 2px solid #ef4444; border-radius: 10px; padding: 15px;">
-            <h2 style="color: #ef4444; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(239, 68, 68, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-users-slash"></i> Sem Frente Definida (Reservas Globais)</h2>
-            <table style="width: 100%; border-collapse: collapse;">
-                ${theadGeral}
-            <tbody>`;
-        reservas.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
-        html += `</tbody></table></div>`;
+        html += `<div style="background: rgba(239, 68, 68, 0.1); border: 2px solid #ef4444; border-radius: 10px; padding: 15px; margin-top: 20px;">
+            <h2 style="color: #ef4444; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(239, 68, 68, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-users-slash"></i> Sem Frente Definida (Reservas Globais)</h2>`;
+        
+        window.funcoesSelecionadasEscala.forEach(funcaoNome => {
+            const ops = reservas.filter(op => op.funcao === funcaoNome);
+            if (ops.length === 0) return;
+
+            html += `<div style="margin-bottom: 15px; background: rgba(0,0,0,0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 10px;">
+                <h4 style="color: #f87171; margin: 0 0 10px 0;"><i class="fas fa-layer-group"></i> ${funcaoNome}</h4>
+                <table style="width: 100%; border-collapse: collapse;">
+                    ${theadGeral}
+                <tbody>`;
+            ops.forEach(op => html += window.gerarLinhaTabelaAlocacao(op, optionsFrentes));
+            html += `</tbody></table></div>`;
+        });
+        html += `</div>`;
     }
     
     container.innerHTML = html;
@@ -266,9 +365,21 @@ window.abrirModalAlocacaoRapida = function(id) {
     
     window.popularFrentesAlocacao();
     
+    const selectFuncao = document.getElementById('alocFormFuncao');
+    let opcoesFuncao = '';
+    let funcaoEncontrada = false;
+    window.cargosFilial.forEach(c => {
+        const selected = op.funcao === c ? 'selected' : '';
+        if (selected) funcaoEncontrada = true;
+        opcoesFuncao += `<option value="${c}" ${selected}>${c}</option>`;
+    });
+    if (op.funcao && !funcaoEncontrada) {
+        opcoesFuncao += `<option value="${op.funcao}" selected>${op.funcao}</option>`;
+    }
+    selectFuncao.innerHTML = opcoesFuncao;
+    
     document.getElementById('alocFormId').value = op.id;
     document.getElementById('alocNomeExibicao').innerText = op.nome;
-    document.getElementById('alocFormFuncao').value = op.funcao || 'OPERADOR MANTENEDOR';
     document.getElementById('alocFormTipoEscala').value = op.tipo_escala || '4x2';
     document.getElementById('alocFormMaquina').value = op.maquina_id || '';
     document.getElementById('alocFormMaquinaEspecifica').value = op.maquina_especifica || '';
