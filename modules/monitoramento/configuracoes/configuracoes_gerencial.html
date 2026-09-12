@@ -56,59 +56,164 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
-                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-truck text-sky-400 mr-2"></i> Viagens (Produção)</h3></div>
-                <div class="p-6 bg-slate-900/50 flex-1">
-                    <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
-                        <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-file-excel text-emerald-500"></i></div>
-                        <h3 class="text-slate-200 font-bold text-xs">Arraste a planilha ou Clique Aqui</h3>
-                        <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="if(this.files.length) { window.processAndSaveFile(this.files[0]); this.value=''; }" />
-                        <button id="selectFileBtn" onclick="event.stopPropagation(); document.getElementById('fileInput').click()" class="mt-3 bg-sky-600 hover:bg-sky-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+        <!-- SESSÃO DE IMPORTAÇÃO: SUZANO -->
+        <div id="secao-importacao-suzano" class="mb-8 hidden">
+            <h2 class="text-xl font-bold text-emerald-400 mb-4 border-b border-slate-700 pb-2"><i class="fas fa-file-import mr-2"></i> IMPORTAÇÃO - SUZANO</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                    <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-truck text-sky-400 mr-2"></i> Viagens (Produção)</h3></div>
+                    <div class="p-6 bg-slate-900/50 flex-1">
+                        <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
+                            <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-file-excel text-emerald-500"></i></div>
+                            <h3 class="text-slate-200 font-bold text-xs">Arraste a planilha ou Clique Aqui</h3>
+                            <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="if(this.files.length) { window.processAndSaveFile(this.files[0]); this.value=''; }" />
+                            <button id="selectFileBtn" onclick="event.stopPropagation(); document.getElementById('fileInput').click()" class="mt-3 bg-sky-600 hover:bg-sky-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+                        </div>
+                        <div id="loadingSpinner" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-sky-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-sky-200 text-[10px] font-bold">Processando...</span></div>
+                        <div id="errorMsg" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
                     </div>
-                    <div id="loadingSpinner" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-sky-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-sky-200 text-[10px] font-bold">Processando...</span></div>
-                    <div id="errorMsg" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                </div>
+
+                <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                    <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-user-clock text-amber-400 mr-2"></i> Jornadas (Ponto)</h3></div>
+                    <div class="p-6 bg-slate-900/50 flex-1">
+                        <div id="dropZoneJornadas" onclick="document.getElementById('fileInputJornadas').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
+                            <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-file-csv text-amber-500"></i></div>
+                            <h3 class="text-slate-200 font-bold text-xs">Arraste o CSV ou Clique Aqui</h3>
+                            <input type="file" id="fileInputJornadas" accept=".csv, .xlsx" class="hidden" onchange="if(this.files.length) { window.processAndSaveJornadasFile(this.files[0]); this.value=''; }" />
+                            <button id="selectFileBtnJornadas" onclick="event.stopPropagation(); document.getElementById('fileInputJornadas').click()" class="mt-3 bg-amber-600 hover:bg-amber-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+                        </div>
+                        <div id="loadingSpinnerJornadas" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-amber-200 text-[10px] font-bold">Processando...</span></div>
+                        <div id="errorMsgJornadas" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                    <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-exclamation-triangle text-rose-400 mr-2"></i> Eventos (Telemetria)</h3></div>
+                    <div class="p-6 bg-slate-900/50 flex-1">
+                        <div id="dropZoneEventos" onclick="document.getElementById('fileInputEventos').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
+                            <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-satellite-dish text-rose-500"></i></div>
+                            <h3 class="text-slate-200 font-bold text-xs">Arraste o CSV ou Clique Aqui</h3>
+                            <input type="file" id="fileInputEventos" accept=".csv" class="hidden" onchange="if(this.files.length) { if(window.processAndSaveEventosFile) window.processAndSaveEventosFile(this.files[0]); else alert('Importação em desenvolvimento'); this.value=''; }" />
+                            <button id="selectFileBtnEventos" onclick="event.stopPropagation(); document.getElementById('fileInputEventos').click()" class="mt-3 bg-rose-600 hover:bg-rose-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+                        </div>
+                        <div id="loadingSpinnerEventos" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-rose-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-rose-200 text-[10px] font-bold">Processando...</span></div>
+                        <div id="errorMsgEventos" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
-                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-user-clock text-amber-400 mr-2"></i> Jornadas (Ponto)</h3></div>
-                <div class="p-6 bg-slate-900/50 flex-1">
-                    <div id="dropZoneJornadas" onclick="document.getElementById('fileInputJornadas').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
-                        <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-file-csv text-amber-500"></i></div>
-                        <h3 class="text-slate-200 font-bold text-xs">Arraste o CSV ou Clique Aqui</h3>
-                        <input type="file" id="fileInputJornadas" accept=".csv, .xlsx" class="hidden" onchange="if(this.files.length) { window.processAndSaveJornadasFile(this.files[0]); this.value=''; }" />
-                        <button id="selectFileBtnJornadas" onclick="event.stopPropagation(); document.getElementById('fileInputJornadas').click()" class="mt-3 bg-amber-600 hover:bg-amber-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+        <!-- SESSÃO DE IMPORTAÇÃO: BRACELL -->
+        <div id="secao-importacao-bracell" class="mb-10 hidden">
+            <h2 class="text-xl font-bold text-sky-400 mb-4 border-b border-slate-700 pb-2"><i class="fas fa-file-import mr-2"></i> IMPORTAÇÃO - BRACELL</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                    <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-truck text-sky-400 mr-2"></i> Viagens (Produção)</h3></div>
+                    <div class="p-6 bg-slate-900/50 flex-1">
+                        <div id="dropZoneBracell" onclick="document.getElementById('fileInputBracell').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
+                            <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-file-excel text-sky-500"></i></div>
+                            <h3 class="text-slate-200 font-bold text-xs">Arraste a planilha ou Clique Aqui</h3>
+                            <input type="file" id="fileInputBracell" accept=".xlsx, .xls, .csv" class="hidden" onchange="if(this.files.length) { if(window.processarImportacaoBracell) window.processarImportacaoBracell(event); else alert('Importação de viagens Bracell em desenvolvimento'); this.value=''; }" />
+                            <button id="selectFileBtnBracell" onclick="event.stopPropagation(); document.getElementById('fileInputBracell').click()" class="mt-3 bg-sky-600 hover:bg-sky-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+                        </div>
+                        <div id="loadingSpinnerBracell" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-sky-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-sky-200 text-[10px] font-bold">Processando...</span></div>
+                        <div id="errorMsgBracell" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
                     </div>
-                    <div id="loadingSpinnerJornadas" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-amber-200 text-[10px] font-bold">Processando...</span></div>
-                    <div id="errorMsgJornadas" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                </div>
+
+                <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                    <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-user-clock text-amber-400 mr-2"></i> Jornadas (Ponto)</h3></div>
+                    <div class="p-6 bg-slate-900/50 flex-1">
+                        <div id="dropZoneJornadasBracell" onclick="document.getElementById('fileInputJornadasBracell').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
+                            <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-file-csv text-amber-500"></i></div>
+                            <h3 class="text-slate-200 font-bold text-xs">Arraste o CSV ou Clique Aqui</h3>
+                            <input type="file" id="fileInputJornadasBracell" accept=".csv, .xlsx" class="hidden" onchange="if(this.files.length) { if(window.processAndSaveJornadasFileBracell) window.processAndSaveJornadasFileBracell(this.files[0]); else alert('Importação de jornadas Bracell em desenvolvimento'); this.value=''; }" />
+                            <button id="selectFileBtnJornadasBracell" onclick="event.stopPropagation(); document.getElementById('fileInputJornadasBracell').click()" class="mt-3 bg-amber-600 hover:bg-amber-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+                        </div>
+                        <div id="loadingSpinnerJornadasBracell" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-amber-200 text-[10px] font-bold">Processando...</span></div>
+                        <div id="errorMsgJornadasBracell" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                    <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-exclamation-triangle text-rose-400 mr-2"></i> Eventos (Telemetria)</h3></div>
+                    <div class="p-6 bg-slate-900/50 flex-1">
+                        <div id="dropZoneEventosBracell" onclick="document.getElementById('fileInputEventosBracell').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
+                            <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-satellite-dish text-rose-500"></i></div>
+                            <h3 class="text-slate-200 font-bold text-xs">Arraste o CSV ou Clique Aqui</h3>
+                            <input type="file" id="fileInputEventosBracell" accept=".csv" class="hidden" onchange="if(this.files.length) { if(window.processAndSaveEventosFileBracell) window.processAndSaveEventosFileBracell(this.files[0]); else alert('Importação de eventos Bracell em desenvolvimento'); this.value=''; }"/>
+                            <button id="selectFileBtnEventosBracell" onclick="event.stopPropagation(); document.getElementById('fileInputEventosBracell').click()" class="mt-3 bg-rose-600 hover:bg-rose-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+                        </div>
+                        <div id="loadingSpinnerEventosBracell" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-rose-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-rose-200 text-[10px] font-bold">Processando...</span></div>
+                        <div id="errorMsgEventosBracell" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
-                <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-exclamation-triangle text-rose-400 mr-2"></i> Eventos (Telemetria)</h3></div>
-                <div class="p-6 bg-slate-900/50 flex-1">
-                    <div id="dropZoneEventos" onclick="document.getElementById('fileInputEventos').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
-                        <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-satellite-dish text-rose-500"></i></div>
-                        <h3 class="text-slate-200 font-bold text-xs">Arraste o CSV ou Clique Aqui</h3>
-                        <input type="file" id="fileInputEventos" accept=".csv" class="hidden" />
-                        <button id="selectFileBtnEventos" onclick="event.stopPropagation(); document.getElementById('fileInputEventos').click()" class="mt-3 bg-rose-600 hover:bg-rose-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+        <!-- SESSÃO DE IMPORTAÇÃO: VERACEL -->
+        <div id="secao-importacao-veracel" class="mb-10 hidden">
+            <h2 class="text-xl font-bold text-teal-400 mb-4 border-b border-slate-700 pb-2"><i class="fas fa-file-import mr-2"></i> IMPORTAÇÃO - VERACEL</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                    <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-truck text-sky-400 mr-2"></i> Viagens (Produção)</h3></div>
+                    <div class="p-6 bg-slate-900/50 flex-1">
+                        <div id="dropZoneVeracel" onclick="document.getElementById('fileInputVeracel').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
+                            <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-file-excel text-teal-500"></i></div>
+                            <h3 class="text-slate-200 font-bold text-xs">Arraste a planilha ou Clique Aqui</h3>
+                            <input type="file" id="fileInputVeracel" accept=".xlsx, .xls, .csv" class="hidden" onchange="if(this.files.length) { if(window.processarImportacaoVeracel) window.processarImportacaoVeracel(event); else alert('Importação de viagens Veracel em desenvolvimento'); this.value=''; }" />
+                            <button id="selectFileBtnVeracel" onclick="event.stopPropagation(); document.getElementById('fileInputVeracel').click()" class="mt-3 bg-teal-600 hover:bg-teal-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+                        </div>
+                        <div id="loadingSpinnerVeracel" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-teal-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-teal-200 text-[10px] font-bold">Processando...</span></div>
+                        <div id="errorMsgVeracel" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
                     </div>
-                    <div id="loadingSpinnerEventos" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-rose-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-rose-200 text-[10px] font-bold">Processando...</span></div>
-                    <div id="errorMsgEventos" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                </div>
+
+                <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                    <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-user-clock text-amber-400 mr-2"></i> Jornadas (Ponto)</h3></div>
+                    <div class="p-6 bg-slate-900/50 flex-1">
+                        <div id="dropZoneJornadasVeracel" onclick="document.getElementById('fileInputJornadasVeracel').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
+                            <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-file-csv text-amber-500"></i></div>
+                            <h3 class="text-slate-200 font-bold text-xs">Arraste o CSV ou Clique Aqui</h3>
+                            <input type="file" id="fileInputJornadasVeracel" accept=".csv, .xlsx" class="hidden" onchange="if(this.files.length) { if(window.processAndSaveJornadasFileVeracel) window.processAndSaveJornadasFileVeracel(this.files[0]); else alert('Importação de jornadas Veracel em desenvolvimento'); this.value=''; }" />
+                            <button id="selectFileBtnJornadasVeracel" onclick="event.stopPropagation(); document.getElementById('fileInputJornadasVeracel').click()" class="mt-3 bg-amber-600 hover:bg-amber-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+                        </div>
+                        <div id="loadingSpinnerJornadasVeracel" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-amber-200 text-[10px] font-bold">Processando...</span></div>
+                        <div id="errorMsgJornadasVeracel" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden flex flex-col">
+                    <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700"><h3 class="font-bold text-white tracking-wide"><i class="fas fa-exclamation-triangle text-rose-400 mr-2"></i> Eventos (Telemetria)</h3></div>
+                    <div class="p-6 bg-slate-900/50 flex-1">
+                        <div id="dropZoneEventosVeracel" onclick="document.getElementById('fileInputEventosVeracel').click()" class="upload-zone rounded-2xl p-6 text-center cursor-pointer transition-smooth bg-slate-800/50 border-2 border-dashed border-slate-600 hover:bg-slate-800">
+                            <div class="w-12 h-12 mx-auto bg-slate-700 rounded-full flex items-center justify-center mb-3"><i class="fas fa-satellite-dish text-rose-500"></i></div>
+                            <h3 class="text-slate-200 font-bold text-xs">Arraste o CSV ou Clique Aqui</h3>
+                            <input type="file" id="fileInputEventosVeracel" accept=".csv" class="hidden" onchange="if(this.files.length) { if(window.processAndSaveEventosFileVeracel) window.processAndSaveEventosFileVeracel(this.files[0]); else alert('Importação de eventos Veracel em desenvolvimento'); this.value=''; }"/>
+                            <button id="selectFileBtnEventosVeracel" onclick="event.stopPropagation(); document.getElementById('fileInputEventosVeracel').click()" class="mt-3 bg-rose-600 hover:bg-rose-500 text-white px-4 py-1.5 rounded font-bold transition-all shadow-lg text-[10px]">BUSCAR ARQUIVO</button>
+                        </div>
+                        <div id="loadingSpinnerEventosVeracel" class="hidden flex-col items-center justify-center py-4"><div class="w-6 h-6 border-4 border-rose-400 border-t-transparent rounded-full animate-spin mb-2"></div><span class="text-rose-200 text-[10px] font-bold">Processando...</span></div>
+                        <div id="errorMsgEventosVeracel" class="mt-4 text-rose-200 text-[10px] hidden bg-rose-900/50 p-2 rounded border border-rose-800"></div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="glass-card rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden">
             <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
-                <h3 class="font-bold text-white tracking-wide text-[13px] uppercase"><i class="fas fa-history text-emerald-400 mr-2"></i> Últimas Importações Realizadas</h3>
+                <h3 class="font-bold text-white tracking-wide text-[13px] uppercase"><i class="fas fa-history text-emerald-400 mr-2"></i> Últimos Logs de Alterações</h3>
                 <button id="btnAtualizarHistorico" class="text-slate-400 hover:text-white transition-colors"><i class="fas fa-sync-alt"></i></button>
             </div>
             <div class="overflow-x-auto max-h-[250px] overflow-y-auto custom-scrollbar">
                 <table class="min-w-full text-xs text-left">
                     <thead class="bg-slate-900/95 text-slate-400 uppercase text-[10px] border-b border-slate-700 sticky top-0">
-                        <tr><th class="px-6 py-3">Data/Hora</th><th class="px-6 py-3">Período/Módulo</th><th class="px-6 py-3 text-center">Registros</th></tr>
+                        <tr>
+                            <th class="px-6 py-3">Data / Hora</th>
+                            <th class="px-6 py-3">Usuário</th>
+                            <th class="px-6 py-3">Filial</th>
+                            <th class="px-6 py-3 text-center">Registros Afetados</th>
+                        </tr>
                     </thead>
                     <tbody id="importHistoryBody" class="divide-y divide-slate-800/80 text-slate-300"></tbody>
                 </table>
@@ -137,3 +242,32 @@
         </div>
     </section>
 </div>
+
+<!-- SCRIPT DE FILTRO DE SESSÕES POR USUÁRIO -->
+<script>
+    setTimeout(() => {
+        const user = window.currentUser || {};
+        const role = user.role || '';
+        const filialId = user.filial_id ? parseInt(user.filial_id) : null;
+        
+        const secaoSuzano = document.getElementById('secao-importacao-suzano');
+        const secaoBracell = document.getElementById('secao-importacao-bracell');
+        const secaoVeracel = document.getElementById('secao-importacao-veracel');
+        
+        // Libera tudo para Admin e SuperAdmin
+        if (role === 'SuperAdmin' || role === 'Admin') {
+            if(secaoSuzano) secaoSuzano.classList.remove('hidden');
+            if(secaoBracell) secaoBracell.classList.remove('hidden');
+            if(secaoVeracel) secaoVeracel.classList.remove('hidden');
+        } else {
+            // Filtro por Filial ID (1, 5, 6, 7)
+            if (filialId === 1 || filialId === 7) {
+                if(secaoSuzano) secaoSuzano.classList.remove('hidden');
+            } else if (filialId === 5) {
+                if(secaoBracell) secaoBracell.classList.remove('hidden');
+            } else if (filialId === 6) {
+                if(secaoVeracel) secaoVeracel.classList.remove('hidden');
+            }
+        }
+    }, 150);
+</script>

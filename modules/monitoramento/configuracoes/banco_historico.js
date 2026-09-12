@@ -8,79 +8,44 @@ window.toggleMesExclusao = function() {
     const elDia = document.getElementById('diaExclusao');
     
     if (elTipo) {
-        // Exibe ou oculta a caixinha do mês
-        if (elMes) {
-            if (elTipo.value === 'viagens_mes') {
-                elMes.style.display = 'block';
-            } else {
-                elMes.style.display = 'none';
-                elMes.value = ''; 
-            }
-        }
-        // Exibe ou oculta a caixinha do Dia Específico
-        if (elDia) {
-            if (elTipo.value === 'viagens_dia') {
-                elDia.style.display = 'block';
-            } else {
-                elDia.style.display = 'none';
-                elDia.value = ''; 
-            }
-        }
-    }
-};
-
-window.carregarHistoricoImportacoes = async function() {
-    const tb = document.getElementById('importHistoryBody');
-    if (!tb) return;
-    tb.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Atualizando...</td></tr>';
-    try {
-        let query = window.supabaseClient.from('historico_importacoes').select('*').order('id', { ascending: false }).limit(10);
-        if (typeof window.aplicarFiltroFilial === 'function') {
-            query = window.aplicarFiltroFilial(query);
-        }
-        const { data, error } = await query; 
-        if (error) throw error;
-        tb.innerHTML = '';
-        if (!data || data.length === 0) {
-            tb.innerHTML = '<tr><td colspan="3" class="text-center py-6 text-slate-500">Nenhum histórico de importação encontrado.</td></tr>';
-            return;
-        }
-        data.forEach(d => {
-            let icone = '<i class="fas fa-database text-slate-500"></i>';
-            if (String(d.dataBase).toUpperCase().includes('JORNADA')) icone = '<i class="fas fa-user-clock text-amber-500"></i>';
-            if (String(d.dataBase).toUpperCase().includes('VIAGEN')) icone = '<i class="fas fa-truck text-sky-500"></i>';
-
-            tb.insertAdjacentHTML('beforeend', `
-                <tr class="hover:bg-slate-800/30 transition-colors">
-                    <td class="px-6 py-3 font-mono text-slate-400">${d.dataLancamento}</td>
-                    <td class="px-6 py-3 font-semibold text-slate-200">${icone} <span class="ml-2">${d.dataBase}</span></td>
-                    <td class="px-6 py-3 text-center font-bold text-emerald-400">+ ${d.qtdViagens}</td>
-                </tr>
-            `);
-        });
-    } catch (e) {
-        tb.innerHTML = '<tr><td colspan="3" class="text-center py-6 text-rose-500">Erro ao carregar histórico.</td></tr>';
+        if (elMes) elMes.style.display = (elTipo.value === 'viagens_mes') ? 'block' : 'none';
+        if (elDia) elDia.style.display = (elTipo.value === 'viagens_dia') ? 'block' : 'none';
     }
 };
 
 window.initBancoHistorico = function() {
-    const btnAtualizarHistorico = document.getElementById('btnAtualizarHistorico');
-    if(btnAtualizarHistorico) btnAtualizarHistorico.addEventListener('click', window.carregarHistoricoImportacoes);
-
     const btnLimparBanco = document.getElementById('btnLimparBanco');
     const elTipoExclusao = document.getElementById('tipoExclusao');
     const elMesExclusao = document.getElementById('mesExclusao');
     const elDiaExclusao = document.getElementById('diaExclusao');
 
     if (btnLimparBanco) {
-        btnLimparBanco.addEventListener('click', async () => {
+        const novoBtn = btnLimparBanco.cloneNode(true);
+        btnLimparBanco.parentNode.replaceChild(novoBtn, btnLimparBanco);
+        
+        novoBtn.addEventListener('click', async () => {
             if (!elTipoExclusao) return;
+
+            const user = window.currentUser || {};
+            const filial_id = user.filial_id ? String(user.filial_id) : null;
+            const isGlobalAdmin = (user.role === 'SuperAdmin' || user.role === 'Admin');
+
+            let nomeFilial = "DESCONHECIDA";
+            if (filial_id === '1' || filial_id === '7') nomeFilial = "SUZANO - MUCURI";
+            else if (filial_id === '5') nomeFilial = "BRACELL - LENÇÓIS PAULISTA";
+            else if (filial_id === '6') nomeFilial = "VERACEL - EUNÁPOLIS";
+            else if (filial_id === null && isGlobalAdmin) nomeFilial = "TODAS AS FILIAIS (MODO GLOBAL)";
+
+            let infoFilialHTML = `
+                <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); padding: 12px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                    <span style="color: #fca5a5; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px;">Alvo da Exclusão:</span>
+                    <strong style="color: #fff; font-size: 1.1rem; letter-spacing: 0.5px;">${nomeFilial}</strong>
+                </div>
+            `;
             
             const tipo = elTipoExclusao.value;
             let mensagemConfirmacao = "";
-            let mesTexto = "";
-            let anoStr = "", mesStr = "";
-            let diaStrISO = "", diaStrBR = "";
+            let termoBusca = "";
 
             if (tipo === 'viagens_mes') {
                 if (!elMesExclusao || !elMesExclusao.value) {
@@ -88,34 +53,25 @@ window.initBancoHistorico = function() {
                     return;
                 }
                 const [yyyy, mm] = elMesExclusao.value.split('-');
-                anoStr = yyyy;
-                mesStr = mm;
-                mesTexto = `${mm}/${yyyy}`;
+                termoBusca = `${mm}/${yyyy}`; // Ex: 09/2026
+                mensagemConfirmacao = `ATENÇÃO: Apagar banco de Produção desta operação referente APENAS ao mês <b>${termoBusca}</b>?`;
             } else if (tipo === 'viagens_dia') {
                 if (!elDiaExclusao || !elDiaExclusao.value) {
                     Swal.fire({icon: 'warning', title: 'Atenção', text: 'Selecione o dia na caixinha.', background: '#1e293b', color: '#f8fafc'});
                     return;
                 }
-                diaStrISO = elDiaExclusao.value;
-                const [y, m, d] = diaStrISO.split('-');
-                diaStrBR = `${d}/${m}/${y}`;
+                const [y, m, d] = elDiaExclusao.value.split('-');
+                termoBusca = `${d}/${m}/${y}`; // Ex: 12/09/2026
+                mensagemConfirmacao = `ATENÇÃO: Apagar banco de Produção desta operação referente APENAS ao dia <b>${termoBusca}</b>?`;
+            } else if (tipo === 'tudo') {
+                mensagemConfirmacao = "ALERTA MÁXIMO: Você tem certeza que deseja apagar TODOS os dados de Viagens desta operação?";
+            } else if (tipo === 'viagens') {
+                mensagemConfirmacao = "ATENÇÃO: Apagar TODO o banco de Produção (Viagens) desta operação?";
             }
-
-            if (tipo === 'tudo') mensagemConfirmacao = "ALERTA MÁXIMO: Apagar TODOS os dados de Viagens e Eventos? (As Jornadas serão mantidas)";
-            else if (tipo === 'viagens') mensagemConfirmacao = "ATENÇÃO: Apagar TODO o banco de Produção (Viagens)?";
-            else if (tipo === 'viagens_mes') mensagemConfirmacao = `ATENÇÃO: Apagar banco de Produção (Viagens) APENAS do mês ${mesTexto}?`;
-            else if (tipo === 'viagens_dia') mensagemConfirmacao = `ATENÇÃO: Apagar banco de Produção (Viagens) APENAS do dia ${diaStrBR}?`;
-            else if (tipo === 'eventos') mensagemConfirmacao = "ATENÇÃO: Apagar TODO o banco de Eventos?";
 
             const { isConfirmed } = await Swal.fire({
                 title: '<span style="color: #ef4444;">Zona de Risco</span>',
-                html: `
-                    <div style="text-align: left;">
-                        <p style="color: #cbd5e1; font-size: 0.95rem; margin-bottom: 10px; font-weight: 500;">
-                            ${mensagemConfirmacao}
-                        </p>
-                    </div>
-                `,
+                html: `<div style="text-align: left;">${infoFilialHTML}<p style="color: #cbd5e1; font-size: 0.95rem; font-weight: 500; text-align: center;">${mensagemConfirmacao}</p></div>`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#ef4444',
@@ -127,101 +83,227 @@ window.initBancoHistorico = function() {
             });
 
             if (isConfirmed) {
-                const conteudoOriginal = btnLimparBanco.innerHTML;
+                const txtOriginal = novoBtn.innerHTML;
+                let idsParaApagar = [];
+                
                 try {
-                    btnLimparBanco.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Apagando...';
-                    btnLimparBanco.disabled = true;
-                    btnLimparBanco.classList.add('opacity-50', 'cursor-not-allowed');
+                    novoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Apagando...';
+                    novoBtn.disabled = true;
+                    novoBtn.classList.add('opacity-50', 'cursor-not-allowed');
 
                     Swal.fire({
                         title: 'Apagando dados...',
-                        text: 'Aguarde a exclusão ser finalizada na nuvem.',
+                        text: 'Localizando registros e processando a exclusão...',
                         background: '#1e293b',
                         color: '#f8fafc',
                         allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
+                        didOpen: () => { Swal.showLoading(); }
                     });
 
-                    async function apagarMassa(tabela, colunaObrigatoria) {
-                        let query = window.supabaseClient.from(tabela).delete().neq(colunaObrigatoria, 'VALOR_IMPOSSIVEL_DE_EXISTIR_123');
-                        if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
-                        const { error } = await query;
-                        if (error) throw new Error(`Falha no banco (${tabela}): ${error.message}`);
+                    let tabelaViagens = 'historico_viagens'; 
+                    let colunaDataRef = 'dataDaBaseExcel'; 
+
+                    const numericFilialId = filial_id ? parseInt(filial_id) : null;
+                    if (numericFilialId === 5) {
+                        tabelaViagens = 'historico_viagens_sp'; 
+                        colunaDataRef = 'data_saida_patio'; 
                     }
 
-                    async function apagarPorMes(tabela, colunaData, mes, ano) {
-                        const likeStringBR = `%/${mes}/${ano}%`; 
-                        const likeStringISO = `${ano}-${mes}-%`; 
-                        let query1 = window.supabaseClient.from(tabela).delete().like(colunaData, likeStringBR);
-                        let query2 = window.supabaseClient.from(tabela).delete().like(colunaData, likeStringISO);
-                        if (typeof window.aplicarFiltroFilial === 'function') {
-                            query1 = window.aplicarFiltroFilial(query1);
-                            query2 = window.aplicarFiltroFilial(query2);
+                    const aplicarTravaFilial = (queryObj) => {
+                        if (numericFilialId !== null && !isGlobalAdmin) {
+                            return queryObj.eq('filial_id', numericFilialId);
                         }
-                        const { error: err1 } = await query1;
-                        const { error: err2 } = await query2;
-                        if (err1 && err2) throw new Error("Falha ao apagar dados do mês no Supabase.");
-                    }
+                        return queryObj;
+                    };
 
-                    async function apagarPorDia(tabela, colunaData, dataBR, dataISO) {
-                        let query1 = window.supabaseClient.from(tabela).delete().eq(colunaData, dataBR);
-                        let query2 = window.supabaseClient.from(tabela).delete().eq(colunaData, dataISO);
-                        if (typeof window.aplicarFiltroFilial === 'function') {
-                            query1 = window.aplicarFiltroFilial(query1);
-                            query2 = window.aplicarFiltroFilial(query2);
+                    // =========================================================
+                    // NOVO SISTEMA DE BUSCA PAGINADA E NORMALIZADOR DE DATA
+                    // =========================================================
+                    let fetchMore = true;
+                    let from = 0;
+                    const step = 1000;
+
+                    const normalizeDateKey = (dStr) => {
+                        if (!dStr) return '';
+                        let str = String(dStr).trim();
+                        
+                        // Converte DD/MM/YY para DD/MM/YYYY
+                        const parts = str.split('/');
+                        if (parts.length === 3) {
+                            let y = parts[2];
+                            if (y.length === 2) y = '20' + y;
+                            return `${parts[0].padStart(2,'0')}/${parts[1].padStart(2,'0')}/${y}`;
                         }
-                        const { error: err1 } = await query1;
-                        const { error: err2 } = await query2;
-                        if (err1 && err2) throw new Error(`Falha ao apagar dados do dia ${dataBR}.`);
+                        
+                        // Converte YYYY-MM-DD para DD/MM/YYYY
+                        const isoParts = str.split('-');
+                        if(isoParts.length === 3 && isoParts[0].length === 4) {
+                            return `${isoParts[2].padStart(2,'0')}/${isoParts[1].padStart(2,'0')}/${isoParts[0]}`;
+                        }
+                        
+                        return str;
+                    };
+
+                    while (fetchMore) {
+                        let query = window.supabaseClient.from(tabelaViagens).select(`id, ${colunaDataRef}`).range(from, from + step - 1);
+                        query = aplicarTravaFilial(query);
+                        
+                        const { data, error } = await query;
+                        if (error) throw new Error(error.message);
+
+                        if (data && data.length > 0) {
+                            data.forEach(row => {
+                                if (tipo === 'tudo' || tipo === 'viagens') {
+                                    // Se for apagar tudo, pega todos os IDs da filial
+                                    idsParaApagar.push(row.id);
+                                } else {
+                                    // Se for dia/mês, checa a data (normalizando formato /26 para /2026)
+                                    const dataNormalizada = normalizeDateKey(row[colunaDataRef]);
+                                    if (dataNormalizada.includes(termoBusca)) {
+                                        idsParaApagar.push(row.id);
+                                    }
+                                }
+                            });
+                            from += step;
+                            if (data.length < step) fetchMore = false;
+                        } else {
+                            fetchMore = false;
+                        }
                     }
 
-                    let logMsg = `[DADOS APAGADOS] - Módulo: ${tipo.toUpperCase()}`;
-
-                    if (tipo === 'viagens_dia') {
-                        await apagarPorDia('historico_viagens', 'dataDaBaseExcel', diaStrBR, diaStrISO);
-                        logMsg += ` (${diaStrBR})`;
-                    } else if (tipo === 'viagens_mes') {
-                        await apagarPorMes('historico_viagens', 'dataDaBaseExcel', mesStr, anoStr);
-                        logMsg += ` (${mesTexto})`;
-                    } else if (tipo === 'tudo' || tipo === 'viagens') {
-                        await apagarMassa('historico_viagens', 'movimento');
-                        if (tipo === 'tudo') await apagarMassa('historico_eventos', 'motorista');
-                    } else if (tipo === 'eventos') {
-                        await apagarMassa('historico_eventos', 'motorista');
+                    if (idsParaApagar.length === 0) {
+                        if (tipo === 'tudo' || tipo === 'viagens') throw new Error("A base já está vazia para esta filial.");
+                        else throw new Error(`Nenhum dado encontrado para a data/mês: ${termoBusca}`);
                     }
 
-                    await window.supabaseClient.from('historico_importacoes').insert([window.injetarFilial({
-                        "dataBase": logMsg,
-                        "qtdViagens": 0,
-                        "dataLancamento": new Date().toLocaleString('pt-PT')
-                    })]);
+                    // =========================================================
+                    // EXCLUSÃO EM LOTE (Evita limites da API)
+                    // =========================================================
+                    const batchSize = 500;
+                    for (let i = 0; i < idsParaApagar.length; i += batchSize) {
+                        const lote = idsParaApagar.slice(i, i + batchSize);
+                        const { error: errDel } = await window.supabaseClient.from(tabelaViagens).delete().in('id', lote);
+                        if (errDel) throw new Error(errDel.message);
+                    }
+
+                    // =========================================================
+                    // INSERE O LOG NO BANCO APÓS O SUCESSO DA EXCLUSÃO
+                    // =========================================================
+                    const now = new Date();
+                    const pad = (n) => String(n).padStart(2, '0');
+                    const dataLocalExata = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+                    let logAcao = "Exclusão";
+                    if (tipo === 'viagens_mes') logAcao = `Exclusão Viagens (${termoBusca})`;
+                    else if (tipo === 'viagens_dia') logAcao = `Exclusão Viagens (${termoBusca})`;
+                    else if (tipo === 'tudo') logAcao = "Exclusão Geral (TUDO)";
+                    else if (tipo === 'viagens') logAcao = "Exclusão Viagens (TUDO)";
+
+                    const payloadLog = {
+                        dataLancamento: dataLocalExata,
+                        dataBase: logAcao,
+                        qtdViagens: idsParaApagar.length,
+                        usuario: user.nome_completo || user.username || 'Sistema',
+                        filial_id: filial_id
+                    };
+                    await window.supabaseClient.from('historico_importacoes').insert([payloadLog]);
+
+                    // Atualiza a tabela de histórico na tela
+                    if(typeof window.carregarHistoricoImportacoes === 'function') window.carregarHistoricoImportacoes();
 
                     Swal.fire({
-                        icon: 'success',
                         title: 'Sucesso!',
-                        text: 'Os dados selecionados foram apagados da nuvem.',
+                        text: `${idsParaApagar.length} registros foram apagados com sucesso!`,
+                        icon: 'success',
                         background: '#1e293b',
-                        color: '#f8fafc',
-                        confirmButtonColor: '#10b981'
+                        color: '#f8fafc'
                     });
 
-                    window.carregarHistoricoImportacoes(); 
-                } catch (error) {
+                } catch (err) {
+                    console.error("Erro na exclusão:", err);
                     Swal.fire({
+                        title: 'Erro!',
+                        text: err.message,
                         icon: 'error',
-                        title: 'Erro de Exclusão',
-                        text: error.message,
                         background: '#1e293b',
                         color: '#f8fafc'
                     });
                 } finally {
-                    btnLimparBanco.innerHTML = conteudoOriginal;
-                    btnLimparBanco.disabled = false;
-                    btnLimparBanco.classList.remove('opacity-50', 'cursor-not-allowed');
+                    novoBtn.innerHTML = txtOriginal;
+                    novoBtn.disabled = false;
+                    novoBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                 }
             }
         });
     }
 };
+
+window.carregarHistoricoImportacoes = async function() {
+    const tb = document.getElementById('importHistoryBody');
+    if (!tb) return;
+    tb.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Atualizando...</td></tr>';
+    
+    try {
+        let query = window.supabaseClient.from('historico_importacoes').select('*');
+        
+        const user = window.currentUser || {};
+        const filialIdAtual = (user.filial_id !== null && user.filial_id !== undefined) ? String(user.filial_id) : null;
+        const isGlobalAdmin = (user.role === 'SuperAdmin' || user.role === 'Admin');
+
+        if (filialIdAtual !== null && !isGlobalAdmin) {
+            query = query.eq('filial_id', filialIdAtual);
+        }
+
+        query = query.order('id', { ascending: false }).limit(10);
+        
+        const { data, error } = await query; 
+        if (error) throw error;
+        
+        tb.innerHTML = '';
+        
+        if (!data || data.length === 0) {
+            tb.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-slate-500">Nenhum log recente encontrado para sua filial.</td></tr>';
+            return;
+        }
+
+        data.forEach(r => {
+            const dtLancamento = r.dataLancamento || r.data_importacao || 'Registro Recente';
+            const qtdViagens = r.qtdViagens || r.registros_adicionados || 0;
+            const baseInfo = r.dataBase || r.periodo || 'Importação Geral';
+            
+            let nomeFilialStr = 'Filial Desconhecida';
+            const fId = r.filial_id ? String(r.filial_id) : '1';
+            if (fId === '1' || fId === '7') nomeFilialStr = 'Suzano - Mucuri';
+            else if (fId === '5') nomeFilialStr = 'Bracell - Lençóis Paulista';
+            else if (fId === '6') nomeFilialStr = 'Veracel - Eunápolis';
+
+            const usuarioNome = r.usuario || user.nome_completo || user.username || 'Operador Torre';
+            
+            const isExclusao = baseInfo.toUpperCase().includes('EXCLUSÃO');
+            const corQtd = isExclusao ? 'text-rose-400' : 'text-emerald-400';
+            const sinalQtd = isExclusao ? '-' : '+';
+            const moduloIcon = isExclusao ? '<i class="fas fa-trash-alt text-rose-500"></i>' : '<i class="fas fa-truck text-sky-400"></i>';
+            const textoQuantidade = (isExclusao && qtdViagens === 0) ? 'Limpeza Total' : `${sinalQtd} ${qtdViagens} registros`;
+
+            const tr = `
+                <tr class="hover:bg-slate-800/50 transition-colors border-b border-slate-800/50 text-xs">
+                    <td class="px-6 py-3 font-mono text-slate-300">${dtLancamento}</td>
+                    <td class="px-6 py-3 font-bold text-white flex items-center gap-2">${moduloIcon} ${usuarioNome}</td>
+                    <td class="px-6 py-3 text-slate-300 font-medium">${nomeFilialStr} <br><span class="text-[10px] text-slate-500">${baseInfo}</span></td>
+                    <td class="px-6 py-3 text-center font-mono font-bold ${corQtd}">${textoQuantidade}</td>
+                </tr>
+            `;
+            tb.insertAdjacentHTML('beforeend', tr);
+        });
+    } catch(e) {
+        console.error("Erro ao carregar histórico:", e);
+        tb.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-rose-500">Erro ao carregar histórico de logs.</td></tr>';
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btnRefresh = document.getElementById('btnAtualizarHistorico');
+    if (btnRefresh) {
+        btnRefresh.addEventListener('click', window.carregarHistoricoImportacoes);
+    }
+});
