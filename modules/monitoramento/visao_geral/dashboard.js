@@ -35,7 +35,6 @@ function corrigirDataSupabaseLocal(dateStr) {
     return isNaN(d.getTime()) ? null : d;
 }
 
-// NOVO: Lê a data bruta como horário local ignorando o fuso que o banco carimbou
 function tratarFusoDB(dateStr) {
     if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return null;
     let str = String(dateStr).trim();
@@ -358,6 +357,12 @@ async function loadDashboardDataInit() {
         console.error("Erro ao puxar gruas cadastradas:", e);
     }
 
+    // ==============================================================
+    // SELEÇÃO INTELIGENTE DE TABELA (SUZANO VS BRACELL)
+    // ==============================================================
+    const filialId = window.currentUser ? parseInt(window.currentUser.filial_id) : null;
+    let tabelaViagens = filialId === 5 ? 'historico_viagens_sp' : 'historico_viagens';
+
     let allData = [];
     let from = 0;
     const step = 1000;
@@ -370,7 +375,7 @@ async function loadDashboardDataInit() {
 
     while (fetchMore) {
         let queryVia = window.supabaseClient
-            .from('historico_viagens')
+            .from(tabelaViagens)
             .select('*')
             .order('id', { ascending: false })
             .range(from, from + step - 1);
@@ -388,7 +393,50 @@ async function loadDashboardDataInit() {
         }
 
         if (data && data.length > 0) {
-            allData = allData.concat(data);
+            let dadosProcessados = data;
+
+            // TRADUÇÃO DOS DADOS DA BRACELL PARA O PADRÃO DO DASHBOARD
+            if (filialId === 5) {
+                dadosProcessados = data.map(d => {
+                    let dataExcelFormatada = null;
+                    if (d.data_saida_patio) {
+                        dataExcelFormatada = String(d.data_saida_patio).split(' ')[0]; // Pega só a data "12/09/2026"
+                    }
+                    
+                    // Tratamento seguro numérico e conversão para KG do Peso Bruto (PBTC)
+                    let pBruto = parseFloat(String(d.peso_bruto || '0').replace(',', '.'));
+                    if (pBruto > 0 && pBruto < 1000) pBruto = pBruto * 1000; 
+                    
+                    // Tratamento seguro numérico e conversão para KG do Peso Líquido
+                    let pLiq = parseFloat(String(d.peso_liquido || '0').replace(',', '.'));
+                    if (pLiq > 0 && pLiq < 1000) pLiq = pLiq * 1000;
+
+                    // Tratamento do Volume
+                    let vol = parseFloat(String(d.volume || '0').replace(',', '.'));
+
+                    return {
+                        id: d.id,
+                        transportadora: d.fornecedor || 'DESCONHECIDA',
+                        dataDaBaseExcel: dataExcelFormatada,
+                        placa: d.equipamento_cavalo || '-',
+                        pesoLiquido: pLiq,
+                        peso_na_entrada: pBruto, // O PBTC
+                        volumeReal: vol,         // A Caixa / Volume
+                        distanciaAsfalto: d.distancia_asfalto || 0,
+                        distanciaTerra: d.distancia_chao || 0,
+                        cicloHoras: 0,
+                        filaCampoHoras: 0,
+                        tempoCarregamentoHoras: 0,
+                        filaFabricaHoras: 0,
+                        grua: '-',
+                        frente: d.regional || '-',
+                        regional: d.regional ? String(d.regional).trim().toUpperCase() : 'SEM REGIONAL',
+                        rpv: (pLiq > 0 && vol > 0) ? (pLiq / vol) : 0
+                    };
+                });
+            }
+
+            allData = allData.concat(dadosProcessados);
             from += data.length;
             
             if (statusLabel) {
@@ -477,9 +525,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
     
     if (!theadComp || !tbodyComp) return;
 
-    let cenariosPropria = [];
-    let cenariosOutros = [];
-
     const colorVariants = [
         { text: 'text-indigo-400', bg: 'bg-indigo-900/10' },
         { text: 'text-amber-400', bg: 'bg-amber-900/10' },
@@ -498,73 +543,108 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         return transp.includes(transpPropriaConfig) || transp === transpPropriaConfig;
     }
 
-    if (configGruasObj && configGruasObj.length > 0) {
-        const gruasSorted = [...configGruasObj].sort((a, b) => {
-            const oa = a.ordem || 'ZZZ';
-            const ob = b.ordem || 'ZZZ';
-            return oa.localeCompare(ob);
-        });
+    const filialId = window.currentUser ? parseInt(window.currentUser.filial_id) : null;
+    let cenarios = [];
 
-        gruasSorted.forEach((item, index) => {
-            const nome = (item.frente || `Frente ${index+1}`).toUpperCase();
-            const tipo = item.tipo_frente || 'Outros';
-            const ordemDefinida = item.ordem ? item.ordem.toUpperCase() : `C${index+1}`;
-            const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
-            
+    // ==============================================================
+    // MONTAGEM DA TABELA (DIVISÃO BRACELL VS SUZANO)
+    // ==============================================================
+    if (filialId === 5) {
+        // LÓGICA BRACELL: Agrupa pela coluna REGIONAL
+        const regionaisUnicas = [...new Set(dadosFiltrados.map(d => String(d.regional || 'SEM REGIONAL').toUpperCase().trim()))].sort();
+        
+        regionaisUnicas.forEach((reg, index) => {
             const style = colorVariants[index % colorVariants.length];
-            const isPropria = (tipo === 'Propria' || tipo === 'Própria');
-            const icon = isPropria ? 'fa-star' : 'fa-leaf';
-
-            let dadosCenario = dadosFiltrados.filter(d => checkLoaderDynamic(d, codes) && isTransportadoraPropria(d));
+            // Agrupa e totaliza todas as viagens pertencentes à regional independentemente da transportadora
+            let dadosCenario = dadosFiltrados.filter(d => String(d.regional || 'SEM REGIONAL').toUpperCase().trim() === reg);
             
-            let cenarioObj = {
-                nome: nome,
-                tipo: tipo,
+            cenarios.push({
+                nome: reg,
+                tipo: 'REGIONAL',
                 style: style,
-                icon: icon,
+                icon: 'fa-map-marker-alt',
                 dados: dadosCenario,
                 stats: calcStats(dadosCenario),
-                ordemLabel: ordemDefinida
-            };
-
-            if (isPropria) {
-                cenariosPropria.push(cenarioObj);
-            } else {
-                cenariosOutros.push(cenarioObj);
-            }
+                ordemLabel: `REG ${index+1}`
+            });
         });
-    }
 
-    let codesPropria = [];
-    if (configGruasObj && configGruasObj.length > 0) {
-        configGruasObj.forEach(item => {
-            if(item.tipo_frente === 'Propria' || item.tipo_frente === 'Própria') {
+    } else {
+        // LÓGICA SUZANO: Agrupa por Gruas e Frente (Padrão Original)
+        let cenariosPropria = [];
+        let cenariosOutros = [];
+
+        if (configGruasObj && configGruasObj.length > 0) {
+            const gruasSorted = [...configGruasObj].sort((a, b) => {
+                const oa = a.ordem || 'ZZZ';
+                const ob = b.ordem || 'ZZZ';
+                return oa.localeCompare(ob);
+            });
+
+            gruasSorted.forEach((item, index) => {
+                const nome = (item.frente || `Frente ${index+1}`).toUpperCase();
+                const tipo = item.tipo_frente || 'Outros';
+                const ordemDefinida = item.ordem ? item.ordem.toUpperCase() : `C${index+1}`;
                 const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
-                codesPropria.push(...codes);
-            }
-        });
+                
+                const style = colorVariants[index % colorVariants.length];
+                const isPropria = (tipo === 'Propria' || tipo === 'Própria');
+                const icon = isPropria ? 'fa-star' : 'fa-leaf';
+
+                let dadosCenario = dadosFiltrados.filter(d => checkLoaderDynamic(d, codes) && isTransportadoraPropria(d));
+                
+                let cenarioObj = {
+                    nome: nome,
+                    tipo: tipo,
+                    style: style,
+                    icon: icon,
+                    dados: dadosCenario,
+                    stats: calcStats(dadosCenario),
+                    ordemLabel: ordemDefinida
+                };
+
+                if (isPropria) {
+                    cenariosPropria.push(cenarioObj);
+                } else {
+                    cenariosOutros.push(cenarioObj);
+                }
+            });
+        }
+
+        let codesPropria = [];
+        if (configGruasObj && configGruasObj.length > 0) {
+            configGruasObj.forEach(item => {
+                if(item.tipo_frente === 'Propria' || item.tipo_frente === 'Própria') {
+                    const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
+                    codesPropria.push(...codes);
+                }
+            });
+        }
+
+        function isASN(d) {
+            if (codesPropria.length > 0 && checkLoaderDynamic(d, codesPropria)) return true;
+            let grua = String(d.grua || '').trim().toUpperCase();
+            if (grua.startsWith('GSR')) return true; 
+            return false;
+        }
+
+        let dadosASN = dadosFiltrados.filter(d => !isTransportadoraPropria(d) && isASN(d));
+        let cenarioASN = {
+            nome: 'TRANSP. ASN',
+            tipo: 'ASN',
+            style: { text: 'text-purple-400', bg: 'bg-purple-900/10' }, 
+            icon: 'fa-truck-moving',
+            dados: dadosASN,
+            stats: calcStats(dadosASN),
+            ordemLabel: 'ASN'
+        };
+
+        cenarios = [...cenariosPropria, cenarioASN, ...cenariosOutros];
     }
 
-    function isASN(d) {
-        if (codesPropria.length > 0 && checkLoaderDynamic(d, codesPropria)) return true;
-        let grua = String(d.grua || '').trim().toUpperCase();
-        if (grua.startsWith('GSR')) return true; 
-        return false;
-    }
-
-    let dadosASN = dadosFiltrados.filter(d => !isTransportadoraPropria(d) && isASN(d));
-    let cenarioASN = {
-        nome: 'TRANSP. ASN',
-        tipo: 'ASN',
-        style: { text: 'text-purple-400', bg: 'bg-purple-900/10' }, 
-        icon: 'fa-truck-moving',
-        dados: dadosASN,
-        stats: calcStats(dadosASN),
-        ordemLabel: 'ASN'
-    };
-
-    let cenarios = [...cenariosPropria, cenarioASN, ...cenariosOutros];
-    
+    // ==============================================================
+    // RENDERIZAÇÃO DO HTML
+    // ==============================================================
     let todasViagensValidas = [];
     cenarios.forEach(c => {
         todasViagensValidas = todasViagensValidas.concat(c.dados);
@@ -809,6 +889,10 @@ function loadDashboardData() {
     }
 
     function isViagemPropriaDashboard(d) {
+        // Na filial 5, considera TODAS as viagens do banco de dados (ignora regra de transportadora própria)
+        const filialId = window.currentUser ? parseInt(window.currentUser.filial_id) : null;
+        if (filialId === 5) return true;
+
         const transp = String(d.transportadora || '').trim().toUpperCase();
         return transp.includes(transpPropriaConfig) || transp === transpPropriaConfig;
     }
@@ -868,13 +952,13 @@ function loadDashboardData() {
     }
 
     // =========================================================================================
-    // CÁLCULO DE DM OPERACIONAL REAL (MÉDIA PONDERADA POR TEMPO) E METAS
+    // CÁLCULO DE DM OPERACIONAL REAL E METAS
     // =========================================================================================
     let inicioPeriodo = new Date(dataInicioCalc);
     inicioPeriodo.setHours(0, 0, 0, 0);
 
     let fimDia = new Date(inicioPeriodo);
-    fimDia.setDate(fimDia.getDate() + 1); // 00:00:00 do dia seguinte para exatas 24h (86400000ms)
+    fimDia.setDate(fimDia.getDate() + 1); 
 
     let agora = new Date();
     let isHoje = inicioPeriodo.toDateString() === agora.toDateString();
@@ -925,7 +1009,6 @@ function loadDashboardData() {
                     let startOverlap = Math.max(dtAbertura.getTime(), overlapDispInicio.getTime());
                     let endOverlap = Math.min(dtConclusaoOS.getTime(), fimParaCalculo.getTime());
 
-                    // Soma TUDO de forma contínua sem mesclar os tempos
                     if (startOverlap < endOverlap) {
                         manutencaoCavalo += (endOverlap - startOverlap);
                     }
@@ -938,7 +1021,6 @@ function loadDashboardData() {
             somaDispNoDiaMs += dispNoDiaMs;
             totalMsExistenciaPeriodo += tempoDisp;
 
-            // Calcula a meta acumulada proporcional ao tempo que o caminhão ficou disponível
             let metaVeiculo = frota.meta ? parseFloat(frota.meta) : 0;
             let proporcaoPeriodo = dispNoDiaMs / (24 * 60 * 60 * 1000); 
             metaTotalViagens += (metaVeiculo * proporcaoPeriodo);
@@ -959,11 +1041,9 @@ function loadDashboardData() {
     
     let atingiuMeta = totalViagens >= metaTotalViagens;
 
-    // A Média arredondada exatamente como aparece no gráfico da Serrana (Ex: 43 ou 44)
     let mediaVeiculosDisp = totalMsExistenciaPeriodo > 0 ? (somaDispNoDiaMs / msTotalPeriodo) : 0;
     let mediaVeiculosDispStr = Math.round(mediaVeiculosDisp).toString();
 
-    // Atualiza o Número de Viagens Realizadas
     let elTotalViagens = document.getElementById('totalViagens');
     if (elTotalViagens) {
         if (metaTotalViagens > 0) {
@@ -975,7 +1055,6 @@ function loadDashboardData() {
         elTotalViagens.innerText = totalViagens.toLocaleString('pt-PT');
     }
 
-    // Atualiza o Texto do Rodapé, idêntico aos relatórios
     const elMetaTexto = document.getElementById('metaViagensText');
     if (elMetaTexto) {
         let corMetaStr = atingiuMeta ? 'text-emerald-400' : 'text-rose-500';
@@ -989,7 +1068,7 @@ function loadDashboardData() {
     }
 
     // =========================================================================================
-    // CÁLCULOS PRINCIPAIS - RPV E PBTC (COM REGRAS DE SLA DO CONTRATO)
+    // CÁLCULOS PRINCIPAIS - RPV E PBTC
     // =========================================================================================
     
     const totalPesoKg = cardsData.reduce((sum, r) => sum + (r.peso_na_entrada || 0), 0);
