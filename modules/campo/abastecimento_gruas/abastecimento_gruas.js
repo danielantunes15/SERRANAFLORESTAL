@@ -220,7 +220,6 @@ function renderizarMapaAbastecimento(dados) {
     const mapContainer = document.getElementById(mapContainerId);
     if (!mapContainer) return;
 
-    // Inicializa o mapa caso ainda não exista, utilizando o modelo Híbrido Satélite do Google
     if (!mapAbastecimento) {
         mapAbastecimento = L.map(mapContainerId).setView([-18.05, -39.87], 9);
         
@@ -232,10 +231,7 @@ function renderizarMapaAbastecimento(dados) {
         mapMarkersLayer = L.layerGroup().addTo(mapAbastecimento);
     }
 
-    // Resolve problema de renderização de telas ocultas
     setTimeout(() => { mapAbastecimento.invalidateSize(); }, 500);
-
-    // Limpa pontos antigos
     mapMarkersLayer.clearLayers();
 
     if (!dados || dados.length === 0) {
@@ -246,7 +242,6 @@ function renderizarMapaAbastecimento(dados) {
     const colunas = Object.keys(dados[0]);
     const colunasNorm = colunas.map(c => c.toLowerCase().replace(/\s/g, ''));
     
-    // Identificadores de coluna flexíveis
     const idxLoc = colunasNorm.findIndex(c => c.includes('localiza') || c.includes('gps') || c.includes('coordenada'));
     const idxGrua = colunasNorm.findIndex(c => c.includes('grua') || c.includes('maquina') || c.includes('frota'));
     const idxData = colunasNorm.findIndex(c => c.includes('data'));
@@ -278,11 +273,10 @@ function renderizarMapaAbastecimento(dados) {
                 let dataAbast = colData ? formatarDataHoraBR(item[colData]) : 'N/A';
                 let litrosAbast = colLts ? (item[colLts] || '0') : '0';
 
-                // Desenha o Ponto (Borda branca para destacar bem sobre a foto do satélite)
                 L.circleMarker([lat, lng], {
                     radius: 8,
-                    fillColor: '#ef4444', // Vermelho "Calor"
-                    color: '#ffffff',     // Borda Branca para dar contraste com a floresta
+                    fillColor: '#ef4444', 
+                    color: '#ffffff',     
                     weight: 2,
                     fillOpacity: 0.8
                 }).addTo(mapMarkersLayer)
@@ -414,10 +408,10 @@ function processarIndicadoresDashboard(dados) {
     const idxLts = colunasNorm.findIndex(c => (c.includes('lts') || c.includes('litro')) && c !== colunasNorm[idxMedia]);
     const idxHoras = colunasNorm.findIndex(c => (c.includes('hmaq') || c.includes('hora')) && c !== colunasNorm[idxMedia]);
 
-    const colGrua = colunas[idxGrua];
-    const colMediaLtsH = colunas[idxMedia];
-    const colLts = colunas[idxLts];
-    const colHoras = colunas[idxHoras];
+    const colGrua = idxGrua !== -1 ? colunas[idxGrua] : null;
+    const colMediaLtsH = idxMedia !== -1 ? colunas[idxMedia] : null;
+    const colLts = idxLts !== -1 ? colunas[idxLts] : null;
+    const colHoras = idxHoras !== -1 ? colunas[idxHoras] : null;
 
     let maquinas = {};
     let somaMediaGlobal = 0;
@@ -425,6 +419,7 @@ function processarIndicadoresDashboard(dados) {
     let totalLtsGlobal = 0;
     let totalHorasGlobal = 0;
 
+    // LÓGICA ORIGINAL RESTAURADA: Usa a coluna LTS/HMAQ da planilha para a média
     if (colGrua && colMediaLtsH) {
         dados.forEach(item => {
             let nomeGrua = item[colGrua] ? item[colGrua].trim() : 'Não Identificada';
@@ -450,6 +445,25 @@ function processarIndicadoresDashboard(dados) {
             }
         });
     }
+
+    // Geração do Array para o Ranking
+    let rankingMaquinas = Object.keys(maquinas).map(maq => {
+        let dadosMaq = maquinas[maq];
+        let media = dadosMaq.count > 0 ? (dadosMaq.somaMedia / dadosMaq.count) : 0;
+        return {
+            nome: maq,
+            lts: dadosMaq.lts,
+            horas: dadosMaq.horas,
+            media: media
+        };
+    });
+
+    // Ordenação do menor pro maior (ranking)
+    rankingMaquinas.sort((a, b) => {
+        if (a.media === 0) return 1;
+        if (b.media === 0) return -1;
+        return a.media - b.media;
+    });
 
     if (kpiContainer) {
         let htmlKpi = '';
@@ -485,9 +499,9 @@ function processarIndicadoresDashboard(dados) {
             </div>
         `;
 
-        for (let maq in maquinas) {
-            let dadosMaq = maquinas[maq];
-            let mediaMaqNum = dadosMaq.count > 0 ? (dadosMaq.somaMedia / dadosMaq.count) : 0;
+        // Renderiza as máquinas ordenadas sem medalhas
+        rankingMaquinas.forEach(maqData => {
+            let mediaMaqNum = maqData.media;
             let mediaMaq = mediaMaqNum.toFixed(2);
             
             let corValor = '#fff';
@@ -505,16 +519,16 @@ function processarIndicadoresDashboard(dados) {
             
             htmlKpi += `
                 <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); text-align: center;">
-                    <div style="color: var(--ccol-blue-bright); font-size: 1rem; font-weight: 700; margin-bottom: 10px;">${maq}</div>
+                    <div style="color: var(--ccol-blue-bright); font-size: 1rem; font-weight: 700; margin-bottom: 10px;">${maqData.nome}</div>
                     <div style="color: ${corValor}; font-size: 1.6rem; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: center; align-items: center;">
                         ${mediaMaq} <span style="font-size:0.8rem; color:#94a3b8; margin-left:4px;">LTS/H</span> ${iconeStatus}
                     </div>
                     <div style="font-size: 0.85rem; color: #ffffff; background: rgba(0,0,0,0.4); padding: 6px; border-radius: 4px; font-weight: 600; border: 1px solid rgba(255,255,255,0.1);">
-                        ${dadosMaq.lts.toLocaleString('pt-BR', {minimumFractionDigits: 1})} L / ${dadosMaq.horas.toLocaleString('pt-BR', {minimumFractionDigits: 1})} H
+                        ${maqData.lts.toLocaleString('pt-BR', {minimumFractionDigits: 1})} L / ${maqData.horas.toLocaleString('pt-BR', {minimumFractionDigits: 1})} H
                     </div>
                 </div>
             `;
-        }
+        });
 
         kpiContainer.innerHTML = htmlKpi;
     }
@@ -523,9 +537,9 @@ function processarIndicadoresDashboard(dados) {
         if (chartAbastecimento) chartAbastecimento.dispose();
         chartAbastecimento = echarts.init(chartContainer);
 
-        const categorias = Object.keys(maquinas);
-        const arrayLts = categorias.map(maq => maquinas[maq].lts);
-        const arrayLtsH = categorias.map(maq => maquinas[maq].count > 0 ? (maquinas[maq].somaMedia / maquinas[maq].count).toFixed(2) : 0);
+        const categorias = rankingMaquinas.map(m => m.nome);
+        const arrayLts = rankingMaquinas.map(m => m.lts);
+        const arrayLtsH = rankingMaquinas.map(m => m.media.toFixed(2));
 
         const option = {
             backgroundColor: 'transparent',
