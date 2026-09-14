@@ -4,7 +4,7 @@
 
 (function() {
     var dadosHistoricoCompletosGrua = []; 
-    var dadosGlobaisAbastecimento = []; // Dados em memória da Planilha do Google
+    var dadosGlobaisAbastecimento = []; 
     var listaQuadroGruasAtual = []; 
     var gruasPropriasPermitidas = []; 
     var graficoGruasInstancia = null; 
@@ -12,7 +12,6 @@
     var activeFilter = 'MES'; 
     var customDateStr = ''; 
     
-    // Planilha Google de Abastecimentos
     const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uQekwV3xaU-EIGikUaaeik_SdhtQLueaBPCVslUB3kY/export?format=csv&gid=1959920910";
 
     function getSupabaseClient() {
@@ -25,12 +24,23 @@
     window.initDesempenhoGrua = function() {
         setupFiltersGrua();
         buscarDadosSupabaseGrua(); 
-        buscarDadosPlanilhaAbastecimento(); // Busca simultânea
+        buscarDadosPlanilhaAbastecimento(); 
     };
 
     // =====================================
-    // FUNÇÕES DE TRATAMENTO DE DATAS (SUPABASE & SHEETS)
+    // FUNÇÕES DE TRATAMENTO 
     // =====================================
+    
+    // Normalizador para evitar erro de digitação (Letra O no lugar do Número 0)
+    function normalizarNomeGrua(nome) {
+        if (!nome) return 'N/A';
+        let n = nome.trim().toUpperCase();
+        if (n.startsWith('GSR')) {
+            n = 'GSR' + n.substring(3).replace(/O/g, '0');
+        }
+        return n;
+    }
+
     function convertDateFromBaseStr(dateStr) {
         if(!dateStr) return '';
         if(dateStr.includes('-')) {
@@ -109,9 +119,6 @@
         return parseFloat(s) || 0;
     }
 
-    // =====================================
-    // CONTROLES DE FILTRO DA INTERFACE
-    // =====================================
     function setupFiltersGrua() {
         const btnQFs = document.querySelectorAll('.btn-qf');
         const filterData = document.getElementById('filterDataGrua');
@@ -228,9 +235,6 @@
         } catch(e) {}
     }
 
-    // =====================================
-    // COMUNICAÇÃO DE DADOS (SUPABASE + SHEETS)
-    // =====================================
     async function buscarDadosPlanilhaAbastecimento() {
         const infoLabelKpi = document.getElementById('loadingKpiInfoAbast');
         try {
@@ -269,7 +273,7 @@
             gruasPropriasPermitidas = [];
             if (frentes) {
                 frentes.forEach(f => {
-                    if (f.codigos) gruasPropriasPermitidas.push(...f.codigos.split(',').map(c => c.trim().toUpperCase()).filter(Boolean));
+                    if (f.codigos) gruasPropriasPermitidas.push(...f.codigos.split(',').map(normalizarNomeGrua).filter(Boolean));
                 });
             }
             gruasPropriasPermitidas = [...new Set(gruasPropriasPermitidas)];
@@ -301,9 +305,6 @@
         }
     }
 
-    // =====================================
-    // PROCESSAMENTO CENTRAL (DISPARADO PELO FILTRO)
-    // =====================================
     function processarEExibirDadosGrua() {
         try {
             let dadosFiltrados = [];
@@ -334,14 +335,14 @@
 
             dadosFiltrados = dadosFiltrados.filter(x => {
                 if (!x.grua || x.grua.trim() === '') return false;
-                return gruasPropriasPermitidas.includes(x.grua.trim().toUpperCase());
+                return gruasPropriasPermitidas.includes(normalizarNomeGrua(x.grua)); 
             });
 
             const statsPorGrua = {};
             let totais = { viagens: 0, volume: 0, gruasUnicas: new Set() };
 
             dadosFiltrados.forEach(registro => {
-                const nomeGrua = registro.grua.trim().toUpperCase();
+                const nomeGrua = normalizarNomeGrua(registro.grua);
                 const dia = convertDateFromBaseStr(registro.dtFimCarregCampo);
                 
                 if(!statsPorGrua[nomeGrua]) {
@@ -413,7 +414,6 @@
         const kpiContainer = document.getElementById('kpiContainerIntegrado');
         if (!kpiContainer) return;
 
-        // Filtra a Planilha Baseada na mesma Regra de Data do Supabase
         let maquinasAbastecimento = {};
         
         if (dadosGlobaisAbastecimento && dadosGlobaisAbastecimento.length > 0) {
@@ -461,9 +461,9 @@
 
             if (colGrua && colMediaLtsH) {
                 dadosFiltradosAbast.forEach(item => {
-                    let nomeGrua = item[colGrua] ? item[colGrua].trim().toUpperCase() : 'N/A';
+                    let nomeGrua = normalizarNomeGrua(item[colGrua]);
                     
-                    if (gruasPropriasPermitidas.length > 0 && !gruasPropriasPermitidas.includes(nomeGrua)) {
+                    if (!gruasPropriasPermitidas.includes(nomeGrua)) {
                         return; 
                     }
 
@@ -479,20 +479,19 @@
             }
         }
 
-        // ==============================================================
-        // MONTAGEM DOS CARDS INTEGRADOS (PRODUÇÃO + METAS ESTABELECIDAS)
-        // ==============================================================
-        let htmlKpi = '';
+        let todasAsGruasSet = new Set([
+            ...listaQuadroGruasAtual.map(g => g.grua), 
+            ...Object.keys(maquinasAbastecimento)
+        ]);
         
-        let todasAsGruasSet = new Set([...listaQuadroGruasAtual.map(g => g.grua), ...Object.keys(maquinasAbastecimento)]);
-        let todasAsGruas = Array.from(todasAsGruasSet).sort();
+        let todasAsGruas = Array.from(todasAsGruasSet);
 
         if (todasAsGruas.length === 0) {
             kpiContainer.innerHTML = '<div class="col-span-full text-slate-400 text-sm font-medium bg-slate-800/50 p-4 rounded-lg border border-slate-700/50">Nenhum dado encontrado para o período.</div>';
             return;
         }
 
-        todasAsGruas.forEach(maq => {
+        let gruasComDados = todasAsGruas.map(maq => {
             let prod = listaQuadroGruasAtual.find(g => g.grua === maq);
             let abast = maquinasAbastecimento[maq];
 
@@ -502,28 +501,69 @@
             let caixaMedia = viagens > 0 ? (volume / viagens) : 0;
             let consumoLH = abast && abast.count > 0 ? (abast.somaMedia / abast.count) : 0;
 
-            // Metas Definidas
-            // 1. Tempo Médio <= 30 min
+            return { maq, volume, viagens, tempoMedio, caixaMedia, consumoLH };
+        });
+
+        // ORDENAÇÃO:
+        // 1º Consumo LTS/H (Menor para o maior. Se 0, vai pro final)
+        // 2º Caixa de Carga (Maior para o menor)
+        // 3º Produção Total (Maior para o menor)
+        // 4º Tempo Médio (Menor para o maior. Se 0, vai pro final)
+        gruasComDados.sort((a, b) => {
+            let consA = a.consumoLH > 0 ? a.consumoLH : Infinity;
+            let consB = b.consumoLH > 0 ? b.consumoLH : Infinity;
+            if (consA !== consB) return consA - consB;
+
+            if (b.caixaMedia !== a.caixaMedia) return b.caixaMedia - a.caixaMedia;
+            
+            if (b.volume !== a.volume) return b.volume - a.volume;
+            
+            let tempA = a.tempoMedio > 0 ? a.tempoMedio : Infinity;
+            let tempB = b.tempoMedio > 0 ? b.tempoMedio : Infinity;
+            if (tempA !== tempB) return tempA - tempB;
+
+            return a.maq.localeCompare(b.maq);
+        });
+
+        let htmlKpi = '';
+
+        gruasComDados.forEach((data, index) => {
+            let maq = data.maq;
+            let volume = data.volume;
+            let viagens = data.viagens;
+            let tempoMedio = data.tempoMedio;
+            let caixaMedia = data.caixaMedia;
+            let consumoLH = data.consumoLH;
+
             let tempoCor = (tempoMedio > 0 && tempoMedio <= 30) ? 'text-emerald-400' : (tempoMedio === 0 ? 'text-slate-500' : 'text-rose-500');
             let tempoIcone = (tempoMedio > 0 && tempoMedio <= 30) ? 'fa-check-circle text-emerald-500' : (tempoMedio === 0 ? 'fa-minus-circle text-slate-600' : 'fa-times-circle text-rose-500');
             
-            // 2. Caixa de Carga >= 62 m³
             let caixaCor = (caixaMedia >= 62) ? 'text-emerald-400' : (caixaMedia === 0 ? 'text-slate-500' : 'text-rose-500');
             let caixaIcone = (caixaMedia >= 62) ? 'fa-check-circle text-emerald-500' : (caixaMedia === 0 ? 'fa-minus-circle text-slate-600' : 'fa-times-circle text-rose-500');
 
-            // 3. Consumo < 13 L/H
             let consumoCor = (consumoLH > 0 && consumoLH < 13) ? 'text-emerald-400' : (consumoLH === 0 ? 'text-slate-500' : 'text-rose-500');
             let consumoIcone = (consumoLH > 0 && consumoLH < 13) ? 'fa-check-circle text-emerald-500' : (consumoLH === 0 ? 'fa-minus-circle text-slate-600' : 'fa-times-circle text-rose-500');
 
-            // Status da Borda do Card (Verde se bateu tudo, Vermelho se falhou algo, Neutro se não operou)
             let hasBad = (tempoMedio > 30) || (caixaMedia > 0 && caixaMedia < 62) || (consumoLH >= 13);
             let hasGood = (tempoMedio > 0 && tempoMedio <= 30) || (caixaMedia >= 62) || (consumoLH > 0 && consumoLH < 13);
             let cardBorder = (hasGood && !hasBad) ? 'border-emerald-500/50' : (hasBad ? 'border-rose-500/30' : 'border-slate-700/60');
 
+            let positionBadge = '';
+            if (consumoLH > 0 || volume > 0) {
+                if (index === 0) positionBadge = '<i class="fas fa-trophy text-amber-400" title="1º Lugar Geral"></i>';
+                else if (index === 1) positionBadge = '<i class="fas fa-medal text-slate-300" title="2º Lugar Geral"></i>';
+                else if (index === 2) positionBadge = '<i class="fas fa-medal text-amber-600" title="3º Lugar Geral"></i>';
+                else positionBadge = `<span class="text-slate-500 text-xs">${index + 1}º</span>`;
+            } else {
+                positionBadge = `<span class="text-slate-600 text-xs opacity-50">${index + 1}º</span>`;
+            }
+
             htmlKpi += `
                 <div class="bg-slate-800/80 p-5 rounded-2xl border ${cardBorder} shadow-xl relative overflow-hidden group hover:border-slate-500/40 transition-all backdrop-blur-sm flex flex-col gap-3">
                     <div class="flex justify-between items-center border-b border-slate-700/50 pb-2">
-                        <h4 class="text-sky-400 text-lg font-black uppercase tracking-widest">${maq}</h4>
+                        <h4 class="text-sky-400 text-lg font-black uppercase tracking-widest flex items-center gap-2">
+                            ${positionBadge} ${maq}
+                        </h4>
                         <span class="text-[10px] font-bold text-slate-400 bg-slate-900 px-2 py-1 rounded border border-slate-700">${viagens} Viagens</span>
                     </div>
                     
@@ -568,9 +608,6 @@
         kpiContainer.innerHTML = htmlKpi;
     }
 
-    // ==========================================
-    // PREENCHIMENTO DA TABELA DETALHADA E GRÁFICO
-    // ==========================================
     function preencherQuadroGruas(lista) {
         try {
             const tbody = document.getElementById('tbodyQuadroGruas');
