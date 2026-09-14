@@ -1,6 +1,5 @@
-// URL da Planilha Google (formato CSV)
-const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uQekwV3xaU-EIGikUaaeik_SdhtQLueaBPCVslUB3kY/export?format=csv&gid=1959920910";
-
+// Variáveis Globais
+let currentSheetUrl = ""; 
 let chartAbastecimento = null;
 let dadosGlobaisAbastecimento = []; 
 let dadosParaTabela = []; 
@@ -11,6 +10,113 @@ const itensPorPaginaAbast = 20;
 let mapAbastecimento = null;
 let mapMarkersLayer = null;
 
+// ==========================================
+// FUNÇÕES DE GERENCIAMENTO DO LINK DA PLANILHA (MODAL)
+// ==========================================
+
+// NOVO: Converte o link normal do Google Sheets para o link de Extração de Dados (CSV)
+function converterParaLinkCsv(url) {
+    if (!url) return '';
+    let str = url.trim();
+    if (str.includes('export?format=csv')) return str; // Se já estiver correto
+    
+    if (str.includes('docs.google.com/spreadsheets')) {
+        const match = str.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (match) {
+            let gid = '';
+            const gidMatch = str.match(/[#&?]gid=([0-9]+)/);
+            if (gidMatch) {
+                gid = `&gid=${gidMatch[1]}`;
+            }
+            return `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv${gid}`;
+        }
+    }
+    return str;
+}
+
+async function carregarLinkPlanilha() {
+    try {
+        const client = window.supabaseClient || window.db?.supabase || supabaseClient;
+        const filialId = (window.currentUser && window.currentUser.filial_id) ? window.currentUser.filial_id : null;
+        
+        let query = client.from('config_planilhas_abastecimento').select('url_planilha');
+        if (filialId !== null) {
+            query = query.eq('filial_id', filialId);
+        } else {
+            query = query.is('filial_id', null);
+        }
+        
+        const { data, error } = await query.maybeSingle();
+        if (data && data.url_planilha) {
+            currentSheetUrl = data.url_planilha;
+        } else {
+            currentSheetUrl = "";
+        }
+    } catch(e) {
+        console.error("Erro ao buscar link da planilha no banco:", e);
+    }
+}
+
+window.abrirModalLinkPlanilha = async function() {
+    const { value: urlStr } = await Swal.fire({
+        title: '<i class="fas fa-link text-sky-400"></i> Planilha de Abastecimento',
+        html: `<p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Cole o link da sua planilha Google. O sistema cuidará da conversão automaticamente.</p>`,
+        input: 'url',
+        inputPlaceholder: 'https://docs.google.com/spreadsheets/...',
+        inputValue: currentSheetUrl,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-save"></i> Salvar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0ea5e9',
+        cancelButtonColor: '#334155',
+        background: '#1e293b',
+        color: '#fff',
+        inputAttributes: {
+            autocapitalize: 'off',
+            autocorrect: 'off'
+        }
+    });
+
+    if (urlStr !== undefined) {
+        const novaUrl = urlStr.trim();
+        if (!novaUrl) {
+            Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Informe um link válido.', background: '#1e293b', color: '#fff' });
+            return;
+        }
+        
+        const client = window.supabaseClient || window.db?.supabase || supabaseClient;
+        const filialId = (window.currentUser && window.currentUser.filial_id) ? window.currentUser.filial_id : null;
+        
+        try {
+            Swal.fire({ title: 'Salvando...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }, background: '#1e293b', color: '#fff' });
+
+            let query = client.from('config_planilhas_abastecimento').select('id');
+            if (filialId !== null) query = query.eq('filial_id', filialId);
+            else query = query.is('filial_id', null);
+            
+            const { data, error } = await query.maybeSingle();
+            
+            if (data && data.id) {
+                await client.from('config_planilhas_abastecimento').update({ url_planilha: novaUrl, updated_at: new Date() }).eq('id', data.id);
+            } else {
+                await client.from('config_planilhas_abastecimento').insert([{ filial_id: filialId, url_planilha: novaUrl }]);
+            }
+            
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Link salvo com sucesso!', showConfirmButton: false, timer: 3000, background: '#1e293b', color: '#fff' });
+            
+            currentSheetUrl = novaUrl;
+            window.initAbastecimentoGruas(); 
+        } catch(e) {
+            console.error(e);
+            Swal.fire({ icon: 'error', title: 'Erro', text: 'Ocorreu um erro ao salvar o link da planilha no banco de dados.', background: '#1e293b', color: '#fff' });
+        }
+    }
+};
+
+// ==========================================
+// INICIALIZAÇÃO E LEITURA DA PLANILHA
+// ==========================================
+
 window.initAbastecimentoGruas = async function() {
     const tbody = document.getElementById('tbodyAbastecimento');
     const infoLabelChart = document.getElementById('loadingChartInfo');
@@ -20,9 +126,20 @@ window.initAbastecimentoGruas = async function() {
     if(infoLabelChart) infoLabelChart.innerText = "(Sincronizando...)";
     if(infoLabelKpi) infoLabelKpi.innerText = "- Sincronizando Planilha...";
     if(infoLabelMap) infoLabelMap.innerText = "(Aguardando dados...)";
+    if(tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i> Consultando link configurado...</td></tr>`;
+
+    await carregarLinkPlanilha();
+
+    if (!currentSheetUrl) {
+        if(tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#fbbf24; font-weight: bold;"><i class="fas fa-exclamation-triangle"></i> Nenhum link configurado para esta filial. Clique no botão "Configurar Planilha" logo acima.</td></tr>`;
+        if(infoLabelChart) infoLabelChart.innerText = "(Sem link configurado)";
+        if(infoLabelKpi) infoLabelKpi.innerText = "- Aguardando Link";
+        return;
+    }
 
     try {
-        const response = await fetch(SHEET_CSV_URL);
+        const urlFinal = converterParaLinkCsv(currentSheetUrl);
+        const response = await fetch(urlFinal);
         
         if (!response.ok) {
             throw new Error(`Erro na resposta da rede: ${response.status}`);
@@ -36,7 +153,11 @@ window.initAbastecimentoGruas = async function() {
             complete: function(results) {
                 dadosGlobaisAbastecimento = results.data;
                 
-                // Por padrão, aplica o filtro do mês atual assim que carrega
+                // Validação de segurança caso o Google retorne um HTML de erro de permissão
+                if (dadosGlobaisAbastecimento.length > 0 && Object.keys(dadosGlobaisAbastecimento[0]).join('').toLowerCase().includes('!doctype html')) {
+                    throw new Error("O link está bloqueado ou é inválido. A planilha precisa estar pública ou compartilhada.");
+                }
+
                 aplicarFiltroData('mes_atual', true);
                 
                 Swal.fire({
@@ -52,12 +173,12 @@ window.initAbastecimentoGruas = async function() {
             },
             error: function(err) {
                 console.error("Erro no PapaParse:", err);
-                Swal.fire('Erro', 'Não foi possível processar a planilha.', 'error');
+                Swal.fire({ icon: 'error', title: 'Erro', text: 'Não foi possível ler os dados. Verifique a planilha.', background: '#1e293b', color: '#fff' });
             }
         });
     } catch (error) {
         console.error("Erro ao buscar dados da planilha:", error);
-        if(tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#ef4444;">Erro ao conectar com a planilha. Verifique se o link possui permissão pública de visualização.</td></tr>`;
+        if(tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#ef4444;"><i class="fas fa-times-circle"></i> Erro ao ler a planilha. Verifique se a planilha está configurada como 'Qualquer pessoa com o link pode ver'.</td></tr>`;
         if(infoLabelChart) infoLabelChart.innerText = "(Erro na sincronização)";
     }
 };
@@ -76,6 +197,7 @@ function parseDataPlanilha(strData) {
         let p1 = parseInt(dma[0]); 
         let p2 = parseInt(dma[1]); 
         let p3 = parseInt(dma[2]);
+        if(p3 < 100) p3 += 2000; // Inteligência para tratar anos curtos
         
         if (p2 > 12) { return new Date(p3, p1 - 1, p2); } 
         else if (p1 > 12) { return new Date(p3, p2 - 1, p1); } 
@@ -93,7 +215,8 @@ function parseDataPlanilha(strData) {
 
 function obterDataDaLinha(row) {
     const colunas = Object.keys(row);
-    const colData = colunas.find(c => c.toLowerCase().includes('data/hora') || c.toLowerCase() === 'data');
+    // Validação de coluna mais forte
+    const colData = colunas.find(c => c.toLowerCase().includes('data'));
     if (!colData || !row[colData]) return null;
     
     let dataParsed = parseDataPlanilha(row[colData]);
@@ -126,6 +249,7 @@ function formatarDataHoraBR(strData) {
         if (p2 > 12) { dia = p2; mes = p1; ano = p3; } 
         else if (p1 > 12) { dia = p1; mes = p2; ano = p3; } 
         else { dia = p2; mes = p1; ano = p3; }
+        if(ano < 100) ano += 2000;
         
         let dataFormatada = `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
         return horaParte ? `${dataFormatada} ${horaParte}` : dataFormatada;
@@ -161,7 +285,7 @@ window.aplicarFiltroData = function(tipo, isInitialLoad = false) {
         if (!inicio && !fim) return true;
 
         const colunas = Object.keys(row);
-        const colData = colunas.find(c => c.toLowerCase().includes('data/hora') || c.toLowerCase() === 'data');
+        const colData = colunas.find(c => c.toLowerCase().includes('data'));
         
         if (!colData || !row[colData]) return false;
 
@@ -187,7 +311,6 @@ window.aplicarFiltroData = function(tipo, isInitialLoad = false) {
         return (dateB ? dateB.getTime() : 0) - (dateA ? dateA.getTime() : 0);
     });
 
-    // Chamadas de atualização visual
     renderizarTabelaPaginada(dadosFiltrados);
     processarIndicadoresDashboard(dadosFiltrados);
     renderizarMapaAbastecimento(dadosFiltrados);
@@ -222,12 +345,10 @@ function renderizarMapaAbastecimento(dados) {
 
     if (!mapAbastecimento) {
         mapAbastecimento = L.map(mapContainerId).setView([-18.05, -39.87], 9);
-        
         L.tileLayer('https://mt0.google.com/vt/lyrs=y&hl=pt-BR&x={x}&y={y}&z={z}', { 
             maxZoom: 21,
             attribution: 'Map data &copy; Google'
         }).addTo(mapAbastecimento);
-        
         mapMarkersLayer = L.layerGroup().addTo(mapAbastecimento);
     }
 
@@ -303,7 +424,7 @@ function renderizarMapaAbastecimento(dados) {
 }
 
 // ==========================================
-// RENDERIZAÇÃO DA TABELA (COM PAGINAÇÃO) E GRÁFICOS
+// RENDERIZAÇÃO DA TABELA (COM PAGINAÇÃO)
 // ==========================================
 
 function renderizarTabelaPaginada(dados) {
@@ -333,7 +454,9 @@ function montarCabecalhoETabela() {
     }
 
     const colunas = Object.keys(dadosParaTabela[0]);
-    if(thead) thead.innerHTML = colunas.map(col => `<th style="padding: 12px; border-bottom: 1px solid var(--border-dim); color: var(--ccol-blue-bright);">${col}</th>`).join('');
+    if(thead) {
+        thead.innerHTML = colunas.map(col => `<th style="padding: 12px; border-bottom: 1px solid var(--border-dim); color: var(--ccol-blue-bright);">${col}</th>`).join('');
+    }
 
     const totalPaginas = Math.ceil(dadosParaTabela.length / itensPorPaginaAbast);
     const inicio = (paginaAtualAbast - 1) * itensPorPaginaAbast;
@@ -390,6 +513,9 @@ function parseBR(str) {
     return parseFloat(s) || 0;
 }
 
+// ==========================================
+// RENDERIZAÇÃO DOS KPIS E DO GRÁFICO 
+// ==========================================
 function processarIndicadoresDashboard(dados) {
     const kpiContainer = document.getElementById('kpiContainerMaquinas');
     const chartContainer = document.getElementById('graficoConsumoGruas');
@@ -419,7 +545,7 @@ function processarIndicadoresDashboard(dados) {
     let totalLtsGlobal = 0;
     let totalHorasGlobal = 0;
 
-    // LÓGICA ORIGINAL RESTAURADA: Usa a coluna LTS/HMAQ da planilha para a média
+    // LÓGICA ORIGINAL RESTAURADA: Usa a coluna LTS/HMAQ da própria planilha
     if (colGrua && colMediaLtsH) {
         dados.forEach(item => {
             let nomeGrua = item[colGrua] ? item[colGrua].trim() : 'Não Identificada';
@@ -446,7 +572,7 @@ function processarIndicadoresDashboard(dados) {
         });
     }
 
-    // Geração do Array para o Ranking
+    // Criando array do ranking a partir da mesma matemática
     let rankingMaquinas = Object.keys(maquinas).map(maq => {
         let dadosMaq = maquinas[maq];
         let media = dadosMaq.count > 0 ? (dadosMaq.somaMedia / dadosMaq.count) : 0;
@@ -458,7 +584,7 @@ function processarIndicadoresDashboard(dados) {
         };
     });
 
-    // Ordenação do menor pro maior (ranking)
+    // Sorteio (Ranking: Menor para o Maior)
     rankingMaquinas.sort((a, b) => {
         if (a.media === 0) return 1;
         if (b.media === 0) return -1;
@@ -499,10 +625,10 @@ function processarIndicadoresDashboard(dados) {
             </div>
         `;
 
-        // Renderiza as máquinas ordenadas sem medalhas
-        rankingMaquinas.forEach(maqData => {
+        rankingMaquinas.forEach((maqData, index) => {
             let mediaMaqNum = maqData.media;
             let mediaMaq = mediaMaqNum.toFixed(2);
+            let posicao = index + 1;
             
             let corValor = '#fff';
             let iconeStatus = '';
@@ -518,8 +644,11 @@ function processarIndicadoresDashboard(dados) {
             }
             
             htmlKpi += `
-                <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); text-align: center;">
-                    <div style="color: var(--ccol-blue-bright); font-size: 1rem; font-weight: 700; margin-bottom: 10px;">${maqData.nome}</div>
+                <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); text-align: center; position: relative;">
+                    <div style="position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.1); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; color: #94a3b8;">${posicao}º</div>
+                    
+                    <div style="color: var(--ccol-blue-bright); font-size: 1rem; font-weight: 700; margin-bottom: 10px; text-align: left;">${maqData.nome}</div>
+                    
                     <div style="color: ${corValor}; font-size: 1.6rem; font-weight: 700; margin-bottom: 10px; display: flex; justify-content: center; align-items: center;">
                         ${mediaMaq} <span style="font-size:0.8rem; color:#94a3b8; margin-left:4px;">LTS/H</span> ${iconeStatus}
                     </div>
