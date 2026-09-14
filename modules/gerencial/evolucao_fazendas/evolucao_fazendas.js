@@ -39,10 +39,10 @@ function toNumber(val) {
 
 function classificarTransportadora(nomeOriginal) {
     const nome = String(nomeOriginal || '').trim().toUpperCase();
-    if (nome.includes('SERRANALOG') || nome.includes('SERRANA LOG')) {
+    if (nome.includes('SERRANALOG') || nome.includes('SERRANA LOG') || nome.includes('SERRANA')) {
         return 'SERRANALOG TRANSPORTES LTDA';
     }
-    return 'OUTRAS TRANSPORTADORAS';
+    return nome !== '' ? nome : 'OUTRAS TRANSPORTADORAS';
 }
 
 async function buscarTarifadorAtivoEvolucao() {
@@ -84,22 +84,43 @@ async function buscarConfigGruasEvolucao() {
     const client = getSupabaseClientEvolucao();
     if (!client) return;
     try {
-        const { data, error } = await client.from('config_gruas').select('codigos, tipo_frente');
+        const { data, error } = await client.from('config_gruas').select('*');
         if (error) throw error;
         
         gruasPropriasCacheEvolucao.clear();
         if (data) {
             data.forEach(g => {
-                if (g.tipo_frente && g.tipo_frente.trim().toUpperCase() === 'PROPRIA' && g.codigos) {
-                    g.codigos.split(',').forEach(c => {
-                        gruasPropriasCacheEvolucao.set(c.trim().toUpperCase(), true);
-                    });
+                const tipo = String(g.tipo_frente || g.tipo || '').toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                // Filtra apenas as que foram explicitamente marcadas como PRÓPRIA no painel
+                if (tipo.includes('PROPRIA')) {
+                    if (g.codigos) {
+                        g.codigos.split(',').forEach(c => {
+                            const cod = c.trim().toUpperCase().replace(/[-\s]/g, '');
+                            if(cod) gruasPropriasCacheEvolucao.set(cod, true);
+                        });
+                    }
                 }
             });
         }
     } catch (e) {
         console.error("[EVOLUCAO] Erro ao buscar gruas:", e);
     }
+}
+
+function isGruaSerrana(gruaString) {
+    let g = String(gruaString).trim().toUpperCase();
+    if (!g || g === '-' || g === 'NULL') return false;
+    
+    // Removemos espaços e hifens (Ex: GSR-0005 se torna GSR0005)
+    g = g.replace(/[-\s]/g, '');
+    
+    // 1. Se estiver mapeada no banco de dados como PRÓPRIA
+    if (gruasPropriasCacheEvolucao.has(g)) return true;
+    
+    // 2. Fallback de Segurança: Se iniciar com GSR
+    if (g.startsWith('GSR')) return true;
+    
+    return false;
 }
 
 function calcularTarifaTransporteEvolucao(asfalto, terra) {
@@ -215,7 +236,6 @@ async function exportarTelaParaPNG() {
 
 function definirDatasPadraoEvolucao() {
     const dataFim = new Date();
-    // Início no dia 1º do mês atual
     const dataInicio = new Date(dataFim.getFullYear(), dataFim.getMonth(), 1); 
     
     const elFim = document.getElementById('dataFimEvol');
@@ -277,10 +297,9 @@ function atualizarDropdownFazenda() {
     const fazendas = new Set();
 
     dadosViagensEvolucao.forEach(v => {
-        const tClassificada = classificarTransportadora(getCampo(v, ['transportadora']));
+        const tClassificada = classificarTransportadora(getCampo(v, ['transportadora', 'transportador', 'empresa_transporte']));
         const isSerrana = tClassificada === 'SERRANALOG TRANSPORTES LTDA';
-        const gruaReg = String(getCampo(v, ['grua'])).trim().toUpperCase();
-        const isNossaGrua = gruasPropriasCacheEvolucao.has(gruaReg);
+        const isNossaGrua = isGruaSerrana(getCampo(v, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']));
 
         if(isSerrana || isNossaGrua) {
             const codUp = String(getCampo(v, ['up'])).trim().toUpperCase();
@@ -326,10 +345,9 @@ function processarFiltrosEExibirEvolucao() {
         const timeV = converterDataExcel(dataV).getTime();
         if (timeV < timeInicio || timeV > timeFim) return false;
 
-        const tClassificada = classificarTransportadora(getCampo(registro, ['transportadora']));
+        const tClassificada = classificarTransportadora(getCampo(registro, ['transportadora', 'transportador', 'empresa_transporte']));
         const isSerrana = tClassificada === 'SERRANALOG TRANSPORTES LTDA';
-        const gruaReg = String(getCampo(registro, ['grua'])).trim().toUpperCase();
-        const isNossaGrua = gruasPropriasCacheEvolucao.has(gruaReg);
+        const isNossaGrua = isGruaSerrana(getCampo(registro, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']));
 
         if (!isSerrana && !isNossaGrua) return false;
 
@@ -368,11 +386,10 @@ function calcularAgrupamentosERenderizar() {
         const terra = toNumber(getCampo(r, ['distanciaTerra']));
         const dmt = asfalto + terra;
         
-        const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora']));
+        const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora', 'transportador', 'empresa_transporte']));
         const isSerrana = transpAgrupada === 'SERRANALOG TRANSPORTES LTDA';
         
-        const gruaReg = String(getCampo(r, ['grua'])).trim().toUpperCase();
-        const isNossaGrua = gruasPropriasCacheEvolucao.has(gruaReg);
+        const isNossaGrua = isGruaSerrana(getCampo(r, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']));
 
         let tarifaCalcT = 0;
         let faturamentoCalcT = 0;
@@ -785,7 +802,7 @@ function exportarExcelEvolucao() {
 
     const obj = {};
     dadosFiltradosEvolucao.forEach(r => {
-        const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora']));
+        const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora', 'transportador', 'empresa_transporte']));
         const codUp = String(getCampo(r, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
         
@@ -801,9 +818,8 @@ function exportarExcelEvolucao() {
         const terra = toNumber(getCampo(r, ['distanciaTerra']));
         const dmt = asfalto + terra;
         
-        const gruaReg = String(getCampo(r, ['grua'])).trim().toUpperCase();
-        const isNossaGrua = gruasPropriasCacheEvolucao.has(gruaReg);
         const isSerrana = transpAgrupada === 'SERRANALOG TRANSPORTES LTDA';
+        const isNossaGrua = isGruaSerrana(getCampo(r, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']));
 
         let tarifaCalcT = 0;
         let faturamentoCalcT = 0;
