@@ -8,7 +8,7 @@
         </div>
     </div>
     
-    <div class="form-grid" style="margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+    <div class="form-grid" style="margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; gap: 15px;">
         <div class="form-group-dark">
             <label>Nº da O.S.</label>
             <input type="text" id="filtroHistOSNum" placeholder="Ex: 15" oninput="renderizarTabelaHistoricoOS()">
@@ -57,10 +57,17 @@
             <select id="filtroHistMesAno" class="dark-select" onchange="renderizarTabelaHistoricoOS()" style="border-color: var(--ccol-green-bright);"><option value="">Todos os Meses</option></select>
         </div>
         
-        <div class="form-group-dark" style="grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; background: rgba(0,0,0,0.15); padding: 10px; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.1);">
-            <div><label style="color: var(--ccol-blue-bright);">Filtrar de (Data Início):</label><input type="date" id="filtroHistDataInicio" class="dark-select" onchange="renderizarTabelaHistoricoOS()"></div>
-            <div><label style="color: var(--ccol-blue-bright);">Até (Data Fim):</label><input type="date" id="filtroHistDataFim" class="dark-select" onchange="renderizarTabelaHistoricoOS()"></div>
-            <div><button class="btn-primary-blue" onclick="setFiltroMesAtualOS()" style="padding: 8px 15px; height: 38px;">Mês Atual</button></div>
+        <!-- Os filtros de data agora estão integrados ao grid principal ao lado do Mês Específico -->
+        <div class="form-group-dark">
+            <label style="color: var(--ccol-blue-bright);">De (Data Início):</label>
+            <input type="date" id="filtroHistDataInicio" class="dark-select" onchange="renderizarTabelaHistoricoOS()">
+        </div>
+        <div class="form-group-dark">
+            <label style="color: var(--ccol-blue-bright);">Até (Data Fim):</label>
+            <input type="date" id="filtroHistDataFim" class="dark-select" onchange="renderizarTabelaHistoricoOS()">
+        </div>
+        <div class="form-group-dark">
+            <button class="btn-primary-blue" onclick="setFiltroMesAtualOS()" style="padding: 8px 15px; height: 38px; width: 100%;">Mês Atual</button>
         </div>
     </div>
     

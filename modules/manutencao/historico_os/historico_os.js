@@ -5,10 +5,8 @@ const itemsPerPageHistoricoOS = 20;
 
 // FUNÇÃO NOVA: Descobre a categoria cruzando a placa da O.S com o cadastro da frota
 window.getCategoriaDaOS = function(os) {
-    // 1. Se a categoria já vier salva no banco de dados
     if (os.categoria) return os.categoria.trim().toUpperCase();
     
-    // 2. Se não vier, procura na lista de frotas através da placa
     if (os.placa && typeof window.frotasManutencao !== 'undefined') {
         const placaBusca = os.placa.trim().toUpperCase();
         const frota = window.frotasManutencao.find(f => 
@@ -22,6 +20,66 @@ window.getCategoriaDaOS = function(os) {
     
     return 'NÃO DEFINIDA';
 };
+
+// FUNÇÃO NOVA CENTRALIZADORA: Garante que PDF, Excel e Tabela exibam e filtrem 100% igual.
+function obterOSFiltradas() {
+    const num = document.getElementById('filtroHistOSNum')?.value.toLowerCase();
+    const categoria = document.getElementById('filtroHistCategoria')?.value;
+    const placa = document.getElementById('filtroHistPlaca')?.value;
+    const motorista = document.getElementById('filtroHistMotorista')?.value;
+    const dataInicio = document.getElementById('filtroHistDataInicio')?.value;
+    const dataFim = document.getElementById('filtroHistDataFim')?.value;
+    const tipo = document.getElementById('filtroHistTipo')?.value;
+    const mesAno = document.getElementById('filtroHistMesAno')?.value;
+
+    let filtradas = window.ordensServico || [];
+
+    if (num) {
+        // Busca por aproximação no ID/Número para não esconder dados
+        filtradas = filtradas.filter(o => 
+            (o.numero_os && o.numero_os.toString().includes(num)) || 
+            o.id.toString().includes(num)
+        );
+    }
+    
+    if (categoria) filtradas = filtradas.filter(o => window.getCategoriaDaOS(o) === categoria.toUpperCase());
+    if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
+    if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
+    
+    if (mesAno) {
+        // CORREÇÃO: Transforma "MM/YYYY" do select em "YYYY-MM" do banco de dados
+        const [mesFiltro, anoFiltro] = mesAno.split('/');
+        const mesAnoIso = `${anoFiltro}-${mesFiltro}`; 
+
+        filtradas = filtradas.filter(o => {
+            if (!o.data_abertura) return false;
+            return String(o.data_abertura).substring(0, 7) === mesAnoIso;
+        });
+    }
+    
+    if (dataInicio || dataFim) {
+        filtradas = filtradas.filter(o => {
+            if (!o.data_abertura) return false;
+            const dtAbertura = String(o.data_abertura).split('T')[0];
+            if (dataInicio && dtAbertura < dataInicio) return false;
+            if (dataFim && dtAbertura > dataFim) return false;
+            return true;
+        });
+    }
+    
+    if (tipo) {
+        if (tipo === '_SUZANO_') {
+            filtradas = filtradas.filter(o => o.tipo && o.tipo.toUpperCase().includes('SUZANO'));
+        } else {
+            filtradas = filtradas.filter(o => o.tipo && o.tipo === tipo);
+        }
+    }
+
+    // Ordena de forma decrescente para as OS mais novas não ficarem escondidas nas últimas páginas
+    filtradas.sort((a, b) => b.id - a.id);
+
+    return filtradas;
+}
 
 window.initHistoricoOS = async function() {
     if(typeof window.carregarDadosOS === 'function') {
@@ -39,46 +97,8 @@ window.renderizarTabelaHistoricoOS = function(resetPage = true) {
     const tbody = document.getElementById('tabelaHistoricoOS');
     if (!tbody) return;
 
-    const num = document.getElementById('filtroHistOSNum')?.value.toLowerCase();
-    const categoria = document.getElementById('filtroHistCategoria')?.value;
-    const placa = document.getElementById('filtroHistPlaca')?.value;
-    const motorista = document.getElementById('filtroHistMotorista')?.value;
-    const dataInicio = document.getElementById('filtroHistDataInicio')?.value;
-    const dataFim = document.getElementById('filtroHistDataFim')?.value;
-    const tipo = document.getElementById('filtroHistTipo')?.value;
-    const mesAno = document.getElementById('filtroHistMesAno')?.value;
-
-    let filtradas = window.ordensServico || [];
-
-    if (num) filtradas = filtradas.filter(o => (o.numero_os && o.numero_os.toString() === num) || o.id.toString() === num);
-    if (categoria) filtradas = filtradas.filter(o => window.getCategoriaDaOS(o) === categoria.toUpperCase());
-    if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
-    if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
-    
-    if (mesAno) {
-        filtradas = filtradas.filter(o => {
-            if (!o.data_abertura) return false;
-            return o.data_abertura.substring(0, 7) === mesAno;
-        });
-    }
-    
-    if (dataInicio || dataFim) {
-        filtradas = filtradas.filter(o => {
-            if (!o.data_abertura) return false;
-            const dtAbertura = o.data_abertura.split('T')[0];
-            if (dataInicio && dtAbertura < dataInicio) return false;
-            if (dataFim && dtAbertura > dataFim) return false;
-            return true;
-        });
-    }
-    
-    if (tipo) {
-        if (tipo === '_SUZANO_') {
-            filtradas = filtradas.filter(o => o.tipo && o.tipo.toUpperCase().includes('SUZANO'));
-        } else {
-            filtradas = filtradas.filter(o => o.tipo && o.tipo === tipo);
-        }
-    }
+    // Busca centralizada de filtros
+    const filtradas = obterOSFiltradas();
 
     // ========== LÓGICA DE PAGINAÇÃO ==========
     const totalItems = filtradas.length;
@@ -162,7 +182,6 @@ window.carregarFiltrosSelectHistoricoOS = function() {
 
     if (selectCategoria && window.ordensServico) {
         let optionsCat = '<option value="">Todas as Categorias</option>';
-        // Extrai as categorias únicas baseando-se na nova função
         const catUnicas = [...new Set(window.ordensServico.map(os => window.getCategoriaDaOS(os)))].filter(c => c && c !== 'NÃO DEFINIDA').sort();
         catUnicas.forEach(c => optionsCat += `<option value="${c}">${c}</option>`);
         selectCategoria.innerHTML = optionsCat;
@@ -185,15 +204,19 @@ window.carregarFiltrosSelectHistoricoOS = function() {
     if (selectMesAno && window.ordensServico) {
         let optionsMes = '<option value="">Todos os Meses</option>';
         const mesesUnicos = new Set();
+        
         window.ordensServico.forEach(os => {
             if (os.data_abertura) {
-                const d = new Date(os.data_abertura);
-                if(!isNaN(d)) {
-                    const mesAno = String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
-                    mesesUnicos.add(mesAno);
+                // Extrai o YYYY-MM diretamente da string crua, ignorando fuso horário
+                const yyyy_mm = String(os.data_abertura).substring(0, 7); 
+                if (yyyy_mm.length === 7 && yyyy_mm.includes('-')) {
+                    const partes = yyyy_mm.split('-');
+                    const mesAnoBr = partes[1] + '/' + partes[0]; // MM/YYYY
+                    mesesUnicos.add(mesAnoBr);
                 }
             }
         });
+        
         [...mesesUnicos].sort((a,b) => {
             const [mA, yA] = a.split('/');
             const [mB, yB] = b.split('/');
@@ -213,6 +236,10 @@ window.setFiltroMesAtualOS = function() {
     const inputInicio = document.getElementById('filtroHistDataInicio');
     const inputFim = document.getElementById('filtroHistDataFim');
     
+    // Limpa o select de Mês Específico para evitar conflitos visuais
+    const selectMesAno = document.getElementById('filtroHistMesAno');
+    if(selectMesAno) selectMesAno.value = '';
+    
     if (inputInicio) inputInicio.value = formatarData(primeiroDia);
     if (inputFim) inputFim.value = formatarData(ultimoDia);
 
@@ -222,46 +249,7 @@ window.setFiltroMesAtualOS = function() {
 };
 
 window.exportarHistoricoOSExcel = function() {
-    const num = document.getElementById('filtroHistOSNum')?.value.toLowerCase();
-    const categoria = document.getElementById('filtroHistCategoria')?.value;
-    const placa = document.getElementById('filtroHistPlaca')?.value;
-    const motorista = document.getElementById('filtroHistMotorista')?.value;
-    const dataInicio = document.getElementById('filtroHistDataInicio')?.value;
-    const dataFim = document.getElementById('filtroHistDataFim')?.value;
-    const tipo = document.getElementById('filtroHistTipo')?.value;
-    const mesAno = document.getElementById('filtroHistMesAno')?.value;
-    
-    let filtradas = window.ordensServico || [];
-    
-    if (num) filtradas = filtradas.filter(o => o.id.toString() === num);
-    if (categoria) filtradas = filtradas.filter(o => window.getCategoriaDaOS(o) === categoria.toUpperCase());
-    if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
-    if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
-    
-    if (mesAno) {
-        filtradas = filtradas.filter(o => {
-            if (!o.data_abertura) return false;
-            return String(o.data_abertura).substring(0, 7) === mesAno;
-        });
-    }
-    
-    if (dataInicio || dataFim) {
-        filtradas = filtradas.filter(o => {
-            if (!o.data_abertura) return false;
-            const dtAbertura = String(o.data_abertura).split('T')[0];
-            if (dataInicio && dtAbertura < dataInicio) return false;
-            if (dataFim && dtAbertura > dataFim) return false;
-            return true;
-        });
-    }
-
-    if (tipo) {
-        if (tipo === '_SUZANO_') {
-            filtradas = filtradas.filter(o => o.tipo && o.tipo.toUpperCase().includes('SUZANO'));
-        } else {
-            filtradas = filtradas.filter(o => o.tipo && o.tipo === tipo);
-        }
-    }
+    const filtradas = obterOSFiltradas();
     
     if (filtradas.length === 0) {
         alert("Não há dados para exportar com os filtros atuais.");
@@ -344,46 +332,7 @@ window.exportarHistoricoOSPDF = async function() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('landscape');
     
-    const num = document.getElementById('filtroHistOSNum')?.value.toLowerCase();
-    const categoria = document.getElementById('filtroHistCategoria')?.value;
-    const placa = document.getElementById('filtroHistPlaca')?.value;
-    const motorista = document.getElementById('filtroHistMotorista')?.value;
-    const dataInicio = document.getElementById('filtroHistDataInicio')?.value;
-    const dataFim = document.getElementById('filtroHistDataFim')?.value;
-    const tipoFiltro = document.getElementById('filtroHistTipo')?.value;
-    const mesAno = document.getElementById('filtroHistMesAno')?.value;
-    
-    let filtradas = window.ordensServico || [];
-    
-    if (num) filtradas = filtradas.filter(o => o.id.toString() === num);
-    if (categoria) filtradas = filtradas.filter(o => window.getCategoriaDaOS(o) === categoria.toUpperCase());
-    if (placa) filtradas = filtradas.filter(o => o.placa && o.placa.toUpperCase() === placa.toUpperCase());
-    if (motorista) filtradas = filtradas.filter(o => o.motorista && o.motorista === motorista);
-    
-    if (mesAno) {
-        filtradas = filtradas.filter(o => {
-            if (!o.data_abertura) return false;
-            return String(o.data_abertura).substring(0, 7) === mesAno;
-        });
-    }
-    
-    if (dataInicio || dataFim) {
-        filtradas = filtradas.filter(o => {
-            if (!o.data_abertura) return false;
-            const dtAbertura = String(o.data_abertura).split('T')[0];
-            if (dataInicio && dtAbertura < dataInicio) return false;
-            if (dataFim && dtAbertura > dataFim) return false;
-            return true;
-        });
-    }
-
-    if (tipoFiltro) {
-        if (tipoFiltro === '_SUZANO_') {
-            filtradas = filtradas.filter(o => o.tipo && o.tipo.toUpperCase().includes('SUZANO'));
-        } else {
-            filtradas = filtradas.filter(o => o.tipo && o.tipo === tipoFiltro);
-        }
-    }
+    const filtradas = obterOSFiltradas();
     
     if (filtradas.length === 0) {
         alert("Não há dados para exportar com os filtros atuais.");
@@ -513,7 +462,6 @@ function gerarDocumentoPDF(doc, logoDataUrl, linhasResumo, linhasTabela) {
     doc.save(`Relatorio_Historico_OS_${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
-// ====== FUNÇÃO DE VISUALIZAÇÃO COM O ERRO 400 CORRIGIDO ======
 window.abrirVisualizacaoOS = async function(id) {
     const os = window.ordensServico.find(o => o.id === id);
     if (!os) return;
@@ -578,7 +526,6 @@ window.abrirVisualizacaoOS = async function(id) {
             servicosContainer.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 10px;">Nenhum serviço apontado nesta O.S.</div>';
         }
 
-        // BUSCA SEM O JOIN NO SUPABASE (PREVINE O ERRO 400 DE FOREIGN KEY)
         const resPecas = await window.supabaseClient.from('os_pecas_utilizadas').select('*').eq('os_id', os.id).order('id');
         if (resPecas.data && resPecas.data.length > 0) {
             pecasContainer.innerHTML = resPecas.data.map(p => {
