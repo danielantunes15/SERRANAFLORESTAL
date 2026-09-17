@@ -5,6 +5,7 @@ let escalas = {};
 
 const HORARIOS_PROIBIDOS = ['23:00', '00:00', '01:00'];
 const TURNOS = [];
+
 for (let i = 0; i < 24; i++) {
     const horaInicio = `${String(i).padStart(2, '0')}:00`;
     if (!HORARIOS_PROIBIDOS.includes(horaInicio)) {
@@ -16,29 +17,28 @@ for (let i = 0; i < 24; i++) {
 
 function getDatasSemana(dataInicialStr = null) {
     let dataBase = new Date();
-    
+         
     if (dataInicialStr) {
-        dataBase = new Date(dataInicialStr + 'T00:00:00'); // Evita erro de fuso horário
+        dataBase = new Date(dataInicialStr + 'T00:00:00'); // Evita erro de fuso hor
     } else {
         const inputData = document.getElementById('dataInicioEscala');
         if (inputData && inputData.value) {
             dataBase = new Date(inputData.value + 'T00:00:00');
         }
     }
-
     const datas = [];
-    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    
+    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'S b'];
+         
     for (let i = 0; i < 7; i++) {
         const data = new Date(dataBase);
         data.setDate(dataBase.getDate() + i);
-        
-        // CORREÇÃO DO FUSO: Forçando a data local exata
+                 
+        // CORRE O DO FUSO: For ando a data local exata
         const ano = data.getFullYear();
         const mes = String(data.getMonth() + 1).padStart(2, '0');
         const dia = String(data.getDate()).padStart(2, '0');
         const dataStr = `${ano}-${mes}-${dia}`;
-
+        
         datas.push({
             dateKey: dataStr,
             diaTexto: diasSemana[data.getDay()],
@@ -52,33 +52,42 @@ let currentDatas = getDatasSemana();
 
 // SISTEMA DE BACKUP LOCAL
 function salvarBackupLocal() {
-    localStorage.setItem('ccol_motoristas', JSON.stringify(motoristas));
-    localStorage.setItem('ccol_conjuntos', JSON.stringify(conjuntos));
-    localStorage.setItem('ccol_escalas', JSON.stringify(escalas));
+    try {
+        localStorage.setItem('ccol_motoristas', JSON.stringify(motoristas));
+        localStorage.setItem('ccol_conjuntos', JSON.stringify(conjuntos));
+        localStorage.setItem('ccol_escalas', JSON.stringify(escalas));
+    } catch (e) {
+        console.warn("Aviso: Limite do LocalStorage atingido. O backup offline não foi salvo, mas o sistema continuará funcionando normalmente.", e);
+        
+        // Limpa os backups antigos pesados para liberar espaço
+        localStorage.removeItem('ccol_motoristas');
+        localStorage.removeItem('ccol_conjuntos');
+        localStorage.removeItem('ccol_escalas');
+    }
 }
 
 async function carregarDadosIniciais() {
     try {
-        // LÓGICA DE ALTA PERFORMANCE: Busca as 3 tabelas simultaneamente no Banco!
+        // L GICA DE ALTA PERFORMANCE: Busca as 3 tabelas simultaneamente no Banco!
         const [dbConjuntos, dbMotoristas, dbEscalas] = await Promise.all([
             db.getConjuntos(),
             db.getMotoristas(),
             db.getEscalas()
         ]);
-        
+                 
         conjuntos = dbConjuntos || [];
         motoristas = dbMotoristas || [];
         escalas = {};
-
+        
         motoristas.forEach(m => { escalas[m.id] = {}; });
-
+        
         if (dbEscalas) {
             dbEscalas.forEach(e => {
                 if (!escalas[e.motorista_id]) escalas[e.motorista_id] = {};
                 escalas[e.motorista_id][e.data] = { turno: e.turno, caminhao: e.caminhao, status: e.status };
             });
         }
-
+        
         // Garante que todos os dias existam na escala
         const datas = getDatasSemana();
         motoristas.forEach(m => {
@@ -89,7 +98,7 @@ async function carregarDadosIniciais() {
                 }
             });
         });
-
+        
         salvarBackupLocal();
     } catch (e) {
         console.error("Erro no DB. Carregando offline...", e);
@@ -102,18 +111,17 @@ function atualizarStats() {
     const statCaminhoes = document.getElementById('statCaminhoes');
     const statMotoristas = document.getElementById('statMotoristas');
     const statEscalasHoje = document.getElementById('statEscalasHoje');
-    
+         
     if (statConjuntos) statConjuntos.innerText = conjuntos.length;
     if (statCaminhoes) statCaminhoes.innerText = conjuntos.reduce((acc, c) => acc + (c.caminhoes?.length || 0), 0);
     if (statMotoristas) statMotoristas.innerText = motoristas.length;
-
     if (statEscalasHoje) {
         const agora = new Date();
         const ano = agora.getFullYear();
         const mes = String(agora.getMonth() + 1).padStart(2, '0');
         const dia = String(agora.getDate()).padStart(2, '0');
         const hoje = `${ano}-${mes}-${dia}`;
-        
+                 
         statEscalasHoje.innerText = motoristas.filter(m => escalas[m.id]?.[hoje]?.caminhao !== 'F').length;
     }
 }
