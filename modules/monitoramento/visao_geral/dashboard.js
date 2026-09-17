@@ -358,10 +358,9 @@ async function loadDashboardDataInit() {
     }
 
     // ==============================================================
-    // SELEÇÃO INTELIGENTE DE TABELA (SUZANO VS BRACELL)
+    // SELEÇÃO DA TABELA (AGORA SEMPRE historico_viagens) E MAPEAMENTO UNIFICADO
     // ==============================================================
-    const filialId = window.currentUser ? parseInt(window.currentUser.filial_id) : null;
-    let tabelaViagens = filialId === 5 ? 'historico_viagens_sp' : 'historico_viagens';
+    let tabelaViagens = 'historico_viagens'; 
 
     let allData = [];
     let from = 0;
@@ -393,48 +392,48 @@ async function loadDashboardDataInit() {
         }
 
         if (data && data.length > 0) {
-            let dadosProcessados = data;
-
-            // TRADUÇÃO DOS DADOS DA BRACELL PARA O PADRÃO DO DASHBOARD
-            if (filialId === 5) {
-                dadosProcessados = data.map(d => {
-                    let dataExcelFormatada = null;
+            // Mapeamento Blindado para SP e Demais Filiais
+            let dadosProcessados = data.map(d => {
+                // Recupera datas antigas de SP se a nova estiver vazia
+                let dataExcelFormatada = d.dataDaBaseExcel;
+                if (!dataExcelFormatada || dataExcelFormatada === 'Desconhecida') {
                     if (d.data_saida_patio) {
-                        dataExcelFormatada = String(d.data_saida_patio).split(' ')[0]; // Pega só a data "12/09/2026"
+                        dataExcelFormatada = String(d.data_saida_patio).split(' ')[0]; 
                     }
-                    
-                    // Tratamento seguro numérico e conversão para KG do Peso Bruto (PBTC)
-                    let pBruto = parseFloat(String(d.peso_bruto || '0').replace(',', '.'));
-                    if (pBruto > 0 && pBruto < 1000) pBruto = pBruto * 1000; 
-                    
-                    // Tratamento seguro numérico e conversão para KG do Peso Líquido
-                    let pLiq = parseFloat(String(d.peso_liquido || '0').replace(',', '.'));
-                    if (pLiq > 0 && pLiq < 1000) pLiq = pLiq * 1000;
+                }
+                
+                // Mapeia PBTC e Peso Líquido priorizando as colunas oficiais (e pegando as antigas de SP se houver)
+                let pBruto = parseFloat(String(d.peso_na_entrada || d.peso_bruto || '0').replace(',', '.'));
+                // Se a planilha estiver em Toneladas (ex: 74) e não em KG (74000), multiplica por 1000
+                if (pBruto > 0 && pBruto <= 150) pBruto = pBruto * 1000; 
 
-                    // Tratamento do Volume
-                    let vol = parseFloat(String(d.volume || '0').replace(',', '.'));
+                let pLiq = parseFloat(String(d.pesoLiquido || d.peso_liquido || '0').replace(',', '.'));
+                if (pLiq > 0 && pLiq <= 100) pLiq = pLiq * 1000; 
 
-                    return {
-                        id: d.id,
-                        transportadora: d.fornecedor || 'DESCONHECIDA',
-                        dataDaBaseExcel: dataExcelFormatada,
-                        placa: d.equipamento_cavalo || '-',
-                        pesoLiquido: pLiq,
-                        peso_na_entrada: pBruto, // O PBTC
-                        volumeReal: vol,         // A Caixa / Volume
-                        distanciaAsfalto: d.distancia_asfalto || 0,
-                        distanciaTerra: d.distancia_chao || 0,
-                        cicloHoras: 0,
-                        filaCampoHoras: 0,
-                        tempoCarregamentoHoras: 0,
-                        filaFabricaHoras: 0,
-                        grua: '-',
-                        frente: d.regional || '-',
-                        regional: d.regional ? String(d.regional).trim().toUpperCase() : 'SEM REGIONAL',
-                        rpv: (pLiq > 0 && vol > 0) ? (pLiq / vol) : 0
-                    };
-                });
-            }
+                let vol = parseFloat(String(d.volumeReal || d.volume || '0').replace(',', '.'));
+                let asfalto = parseFloat(String(d.distanciaAsfalto || d.distancia_asfalto || '0').replace(',', '.'));
+                let terra = parseFloat(String(d.distanciaTerra || d.distancia_chao || '0').replace(',', '.'));
+
+                let calcRpv = d.rpv || 0;
+                if (calcRpv === 0 && pLiq > 0 && vol > 0) {
+                    calcRpv = pLiq / vol;
+                }
+
+                return {
+                    ...d,
+                    dataDaBaseExcel: dataExcelFormatada,
+                    transportadora: d.transportadora || d.fornecedor || 'DESCONHECIDA',
+                    placa: d.placa || d.equipamento_cavalo || '-',
+                    peso_na_entrada: pBruto,
+                    pesoLiquido: pLiq,
+                    volumeReal: vol,
+                    distanciaAsfalto: asfalto,
+                    distanciaTerra: terra,
+                    frente: d.regional || d.frente || '-',
+                    regional: d.regional ? String(d.regional).trim().toUpperCase() : 'SEM REGIONAL',
+                    rpv: calcRpv
+                };
+            });
 
             allData = allData.concat(dadosProcessados);
             from += data.length;
@@ -466,7 +465,7 @@ function calcStats(dataArr) {
     }
 
     const viagens = dataArr.length;
-    const vol = dataArr.reduce((s,d) => s + (parseFloat(String(d.volumeReal).replace(',','.'))||0), 0);
+    const vol = dataArr.reduce((s,d) => s + d.volumeReal, 0);
     const medVol = viagens > 0 ? vol / viagens : 0;
     
     const validCiclos = dataArr.filter(d => d.cicloHoras > 0);
@@ -555,7 +554,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         
         regionaisUnicas.forEach((reg, index) => {
             const style = colorVariants[index % colorVariants.length];
-            // Agrupa e totaliza todas as viagens pertencentes à regional independentemente da transportadora
             let dadosCenario = dadosFiltrados.filter(d => String(d.regional || 'SEM REGIONAL').toUpperCase().trim() === reg);
             
             cenarios.push({
@@ -570,7 +568,7 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         });
 
     } else {
-        // LÓGICA SUZANO: Agrupa por Gruas e Frente (Padrão Original)
+        // LÓGICA SUZANO: Agrupa por Gruas e Frente
         let cenariosPropria = [];
         let cenariosOutros = [];
 
@@ -642,9 +640,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         cenarios = [...cenariosPropria, cenarioASN, ...cenariosOutros];
     }
 
-    // ==============================================================
-    // RENDERIZAÇÃO DO HTML
-    // ==============================================================
     let todasViagensValidas = [];
     cenarios.forEach(c => {
         todasViagensValidas = todasViagensValidas.concat(c.dados);
@@ -889,9 +884,8 @@ function loadDashboardData() {
     }
 
     function isViagemPropriaDashboard(d) {
-        // Na filial 5, considera TODAS as viagens do banco de dados (ignora regra de transportadora própria)
         const filialId = window.currentUser ? parseInt(window.currentUser.filial_id) : null;
-        if (filialId === 5) return true;
+        if (filialId === 5) return true; 
 
         const transp = String(d.transportadora || '').trim().toUpperCase();
         return transp.includes(transpPropriaConfig) || transp === transpPropriaConfig;
