@@ -120,14 +120,20 @@
             </table>
         </div>
     </div>
-</div>
+</div> <!-- FECHAMENTO CORRETO DO WRAPPER PRINCIPAL -->
+
 <style>
+    /* Esconde as setas dos inputs de número */
     input[type="number"]::-webkit-outer-spin-button,
     input[type="number"]::-webkit-inner-spin-button {
         -webkit-appearance: none;
         margin: 0;
     }
-    input[type="number"] { -moz-appearance: textfield; }
+    
+    input[type="number"] {
+        -moz-appearance: textfield; /* Para Firefox antigo */
+        appearance: textfield; /* Padrão moderno, remove o aviso do VS Code */
+    }
     
     #dropZone.dragover {
         border-color: #10b981 !important;
