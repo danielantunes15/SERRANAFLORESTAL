@@ -27,9 +27,11 @@
                 </select>
             </div>
 
-            <div class="bg-slate-900/50 p-1 px-3 rounded-lg border border-slate-700/50 flex items-center flex-1 lg:flex-initial">
-                <i class="far fa-calendar-alt text-slate-500 mr-2"></i>
-                <input type="date" id="filterDataFrota" class="bg-transparent text-sm text-white border-none focus:ring-0 w-full cursor-pointer outline-none">
+            <div class="bg-slate-900/50 p-1 px-3 rounded-lg border border-slate-700/50 flex items-center flex-1 lg:flex-initial gap-2">
+                <i class="far fa-calendar-alt text-slate-500"></i>
+                <input type="date" id="filterDataInicio" class="bg-transparent text-sm text-white border-none focus:ring-0 w-full cursor-pointer outline-none">
+                <span class="text-slate-500 text-sm">até</span>
+                <input type="date" id="filterDataFim" class="bg-transparent text-sm text-white border-none focus:ring-0 w-full cursor-pointer outline-none">
             </div>
         </div>
     </div>
@@ -109,17 +111,21 @@
             <table class="w-full text-left border-collapse">
                 <thead class="bg-slate-900/80 sticky top-0 z-10 shadow-sm backdrop-blur-md">
                     <tr>
-                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Placa (Conjunto)</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Placa</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Cenário Atual</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Serviço em Andamento</th>
                         <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Dias Trab.</th>
                         <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Total Viagens</th>
                         <th class="px-6 py-3 text-xs font-black text-sky-400 uppercase tracking-widest text-center">Média / Dia</th>
                         <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Ciclo Médio</th>
                         <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Vol. Total (m³)</th>
-                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                        <th class="px-6 py-3 text-xs font-black text-amber-400 uppercase tracking-widest text-center">Horas Paradas (Geral)</th>
+                        <th class="px-6 py-3 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status Meta</th>
+                        <th class="px-6 py-3 text-xs font-black text-rose-400 uppercase tracking-widest text-right">Vol. Comprometido (m³)</th>
                     </tr>
                 </thead>
                 <tbody id="tbodyQuadroGeral" class="divide-y divide-slate-700/50 bg-slate-800/20">
-                    <tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Carregando dados...</td></tr>
+                    <tr><td colspan="11" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Carregando dados...</td></tr>
                 </tbody>
             </table>
         </div>

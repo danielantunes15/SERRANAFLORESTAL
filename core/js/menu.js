@@ -55,7 +55,6 @@ window.MAPA_MENUS = [
     
     { id: 'visao_geral', label: 'Visão Geral (Analítico)', setor: 'Monitoramento', icon: 'fas fa-chart-pie' },
     { id: 'operacional', label: 'Metas Operacionais', setor: 'Monitoramento', icon: 'fas fa-chart-line' },
-    { id: 'desempenho_frota', label: 'Desempenho da Frota', setor: 'Monitoramento', icon: 'fas fa-truck-fast' },
     { id: 'desempenho_grua', label: 'Desempenho de Gruas', setor: 'Monitoramento', icon: 'fas fa-truck-loading' },
     { id: 'jornadas', label: 'Monitoramento de Jornadas', setor: 'Monitoramento', icon: 'fas fa-user-clock' },
     { id: 'historico_producao', label: 'Histórico de Produção', setor: 'Monitoramento', icon: 'fas fa-database' },
@@ -64,6 +63,7 @@ window.MAPA_MENUS = [
     { id: 'cadastro_up', label: 'Cadastro de UP e Fazendas', setor: 'Monitoramento', icon: 'fas fa-map-marked-alt' },
     
     { id: 'producao_frota', label: 'Produção e Faturamento', setor: 'Gerencial', icon: 'fas fa-money-bill-wave' },
+    { id: 'desempenho_frota', label: 'Desempenho da Frota', setor: 'Gerencial', icon: 'fas fa-truck-fast' },
     { id: 'evolucao_fazendas', label: 'Evolução das Fazendas', setor: 'Gerencial', icon: 'fas fa-seedling' },
     { id: 'visao_executiva', label: 'Visão Executiva (Global)', setor: 'Gerencial', icon: 'fas fa-globe-americas' },
     { id: 'tarifador', label: 'Tarifador', setor: 'Gerencial', icon: 'fas fa-calculator' },
@@ -129,9 +129,10 @@ const ROTAS = {
     
     'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
     'operacional': 'modules/monitoramento/operacional/operacional.html',
-    'desempenho_frota': 'modules/monitoramento/desempenho_frota/desempenho_frota.html',
     'desempenho_grua': 'modules/monitoramento/desempenho_grua/desempenho_grua.html',
+    
     'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', 
+    'desempenho_frota': 'modules/gerencial/desempenho_frota/desempenho_frota.html',
     'evolucao_fazendas': 'modules/gerencial/evolucao_fazendas/evolucao_fazendas.html',
     'visao_executiva': 'modules/gerencial/visao_executiva/visao_executiva.html', 
     'tarifador': 'modules/gerencial/tarifador/tarifador.html',

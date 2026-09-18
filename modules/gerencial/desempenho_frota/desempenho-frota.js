@@ -11,14 +11,14 @@
     }
 
     var dadosHistoricoCompletos = []; 
-    var frotasTritremAtivas = []; // Nova variável para armazenar os cavalos ativos
+    var dadosOSCompletos = []; // Guarda o histórico de OS para calcular horas paradas
+    var frotasTritremAtivas = []; 
     var listaQuadroGeralAtual = []; 
     var chartEvolucaoObj = null;
     var chartPlacasObj = null;
     var chartMelhoresObj = null;
 
     var activeFilter = 'MES'; 
-    var customDateStr = ''; 
 
     // Retorna o cliente do Supabase de forma segura
     function getSupabaseClient() {
@@ -57,16 +57,17 @@
 
     function setupFilters() {
         const btnQFs = document.querySelectorAll('.btn-qf');
-        const filterData = document.getElementById('filterDataFrota');
+        const filterDataInicio = document.getElementById('filterDataInicio');
+        const filterDataFim = document.getElementById('filterDataFim');
         const filterMes = document.getElementById('filterMesFrota');
         const btnExportar = document.getElementById('btnExportarExcel');
 
         btnQFs.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 activeFilter = e.currentTarget.getAttribute('data-qf');
-                if(filterData) filterData.value = ''; 
+                if(filterDataInicio) filterDataInicio.value = ''; 
+                if(filterDataFim) filterDataFim.value = ''; 
                 if(filterMes) filterMes.value = '';
-                customDateStr = '';
                 
                 atualizarUIBotoes(btnQFs, activeFilter);
                 processarEExibirDados();
@@ -77,8 +78,8 @@
             filterMes.addEventListener('change', (e) => {
                 if(e.target.value) {
                     activeFilter = 'MES';
-                    customDateStr = '';
-                    if(filterData) filterData.value = '';
+                    if(filterDataInicio) filterDataInicio.value = ''; 
+                    if(filterDataFim) filterDataFim.value = ''; 
                     
                     atualizarUIBotoes(btnQFs, null); 
                     processarEExibirDados();
@@ -86,21 +87,18 @@
             });
         }
 
-        if(filterData) {
-            filterData.addEventListener('change', (e) => {
-                if(e.target.value) {
-                    activeFilter = 'CUSTOM';
-                    const parts = e.target.value.split('-'); 
-                    if(parts.length === 3) {
-                        customDateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                    }
-                    if(filterMes) filterMes.value = '';
-                    
-                    atualizarUIBotoes(btnQFs, null);
-                    processarEExibirDados();
-                }
-            });
-        }
+        const handleDateChange = () => {
+            if(filterDataInicio && filterDataFim && filterDataInicio.value && filterDataFim.value) {
+                activeFilter = 'CUSTOM_RANGE';
+                if(filterMes) filterMes.value = '';
+                
+                atualizarUIBotoes(btnQFs, null);
+                processarEExibirDados();
+            }
+        };
+
+        if(filterDataInicio) filterDataInicio.addEventListener('change', handleDateChange);
+        if(filterDataFim) filterDataFim.addEventListener('change', handleDateChange);
 
         if(btnExportar) {
             btnExportar.addEventListener('click', window.exportarParaExcelFrota);
@@ -187,22 +185,21 @@
         const tbody2 = document.getElementById('tbodyFrota');
         
         if (!client) {
-            if (tbody1) tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-rose-500">Erro: SupabaseClient não encontrado.</td></tr>`;
+            if (tbody1) tbody1.innerHTML = `<tr><td colspan="11" class="text-center p-8 text-rose-500">Erro: SupabaseClient não encontrado.</td></tr>`;
             return;
         }
 
-        if (tbody1) tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
+        if (tbody1) tbody1.innerHTML = `<tr><td colspan="11" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
         if (tbody2) tbody2.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Buscando histórico da SERRANALOG...</td></tr>`;
         
         console.log("[DESEMPENHO] Buscando viagens da SERRANALOG e Cadastro de Frota...");
 
         try {
-            // 1. Buscar a frota TRITREM ativa primeiro
+            // 1. Buscar a frota TRITREM GERAL (Removido filtro status = Ativo)
             const { data: frotasData, error: frotasError } = await client
                 .from('frotas_manutencao')
                 .select('*')
-                .eq('categoria', 'TRITREM')
-                .eq('status', 'Ativo');
+                .eq('categoria', 'TRITREM');
                 
             if (!frotasError && frotasData) {
                 frotasTritremAtivas = frotasData;
@@ -240,13 +237,38 @@
                 }
             }
 
-            console.log(`[DESEMPENHO] Concluído! Viagens: ${dadosHistoricoCompletos.length} | Tritrems Ativos: ${frotasTritremAtivas.length}`);
+            // 3. Buscar Ordens de Serviço para calcular horas paradas e status "Em Manutenção"
+            dadosOSCompletos = [];
+            let fromOs = 0;
+            const stepOs = 1000;
+            let fetchMoreOs = true;
+
+            while (fetchMoreOs) {
+                const { data: osData, error: osError } = await client
+                    .from('ordens_servico')
+                    .select('placa, data_abertura, data_conclusao, inativa, tipo, problema')
+                    .range(fromOs, fromOs + stepOs - 1);
+                    
+                if (osError) {
+                    console.error("[DESEMPENHO] Erro ao buscar ordens de serviço:", osError);
+                    break;
+                }
+                if (osData && osData.length > 0) {
+                    dadosOSCompletos = dadosOSCompletos.concat(osData);
+                    fromOs += stepOs;
+                }
+                if (!osData || osData.length < stepOs) {
+                    fetchMoreOs = false;
+                }
+            }
+
+            console.log(`[DESEMPENHO] Concluído! Viagens: ${dadosHistoricoCompletos.length} | OS: ${dadosOSCompletos.length} | Tritrems Totais: ${frotasTritremAtivas.length}`);
             popularDropdownMeses(dadosHistoricoCompletos);
             processarEExibirDados();
             
         } catch (e) {
             console.error("[DESEMPENHO] Erro global na busca de dados:", e);
-            if (tbody1) tbody1.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-rose-500">Erro ao carregar dados (F12).</td></tr>`;
+            if (tbody1) tbody1.innerHTML = `<tr><td colspan="11" class="text-center p-8 text-rose-500">Erro ao carregar dados (F12).</td></tr>`;
         }
     }
 
@@ -254,7 +276,7 @@
         try {
             console.log("[DESEMPENHO] Processando dados para a tela...");
             
-            // Cria um dicionário com os Tritrems ativos e suas respectivas metas
+            // Cria um dicionário com os Tritrems totais e suas metas e info originais
             const dictTritrem = {};
             let metaDiariaGlobal = 0;
             frotasTritremAtivas.forEach(f => {
@@ -262,7 +284,46 @@
                     const placaNorm = normalizarPlaca(f.cavalo);
                     const meta = parseInt(f.meta) || 0;
                     dictTritrem[placaNorm] = { meta: meta, info: f };
-                    metaDiariaGlobal += meta;
+                    if (f.status === 'Ativo') { // Incrementa global apenas de ativos
+                        metaDiariaGlobal += meta;
+                    }
+                }
+            });
+
+            // Agrega horas paradas de TODO o histórico e guarda qual a Ordem em aberto (Manutenção atual)
+            const horasParadasGlobais = {};
+            const osAbertaPorPlaca = {};
+
+            dadosOSCompletos.forEach(os => {
+                if (os.inativa === 1) return; // ignora OS deletadas logicamente
+                
+                const placa = normalizarPlaca(os.placa);
+                if (!placa) return;
+                
+                if (!horasParadasGlobais[placa]) horasParadasGlobais[placa] = 0;
+                
+                if (os.data_abertura) {
+                    const start = new Date(os.data_abertura);
+                    const isAberta = !os.data_conclusao || os.data_conclusao.trim() === '';
+                    const end = isAberta ? new Date() : new Date(os.data_conclusao);
+                    
+                    const diffMs = end.getTime() - start.getTime();
+                    if (diffMs > 0) {
+                        const diffHoras = diffMs / (1000 * 60 * 60);
+                        horasParadasGlobais[placa] += diffHoras;
+
+                        // Guarda informações da OS aberta caso esteja "Em Manutenção"
+                        if (isAberta) {
+                            if (!osAbertaPorPlaca[placa] || osAbertaPorPlaca[placa].start > start) {
+                                osAbertaPorPlaca[placa] = {
+                                    start: start,
+                                    horasParadasAtual: diffHoras,
+                                    tipo: os.tipo || 'Manutenção',
+                                    problema: os.problema || 'Não Informado'
+                                };
+                            }
+                        }
+                    }
                 }
             });
 
@@ -285,9 +346,26 @@
                     diasParaGrafico.add(d);
                 }
                 dadosFiltrados = dadosHistoricoCompletos.filter(x => dias.includes(x.dataDaBaseExcel));
-            } else if (activeFilter === 'CUSTOM' && customDateStr) {
-                dadosFiltrados = dadosHistoricoCompletos.filter(x => x.dataDaBaseExcel === customDateStr);
-                diasParaGrafico.add(customDateStr);
+            } else if (activeFilter === 'CUSTOM_RANGE') {
+                const sVal = document.getElementById('filterDataInicio').value;
+                const eVal = document.getElementById('filterDataFim').value;
+                if(sVal && eVal) {
+                    const partsS = sVal.split('-');
+                    const startD = new Date(partsS[0], partsS[1]-1, partsS[2], 0, 0, 0);
+                    const partsE = eVal.split('-');
+                    const endD = new Date(partsE[0], partsE[1]-1, partsE[2], 23, 59, 59);
+                    
+                    dadosFiltrados = dadosHistoricoCompletos.filter(x => {
+                        if(!x.dataDaBaseExcel) return false;
+                        const p = x.dataDaBaseExcel.split('/');
+                        const d = new Date(p[2], p[1]-1, p[0], 12, 0, 0);
+                        if(d >= startD && d <= endD) {
+                            diasParaGrafico.add(x.dataDaBaseExcel);
+                            return true;
+                        }
+                        return false;
+                    });
+                }
             } else if (activeFilter === 'MES') {
                 const filterMesFrota = document.getElementById('filterMesFrota');
                 const selectedMesAno = filterMesFrota ? filterMesFrota.value : null;
@@ -302,7 +380,7 @@
                 });
             }
 
-            // Filtra os dados históricos mantendo apenas os Tritrems Ativos cadastrados
+            // Filtra os dados históricos mantendo apenas os Tritrems cadastrados (todos)
             dadosFiltrados = dadosFiltrados.filter(x => {
                 const placaNorm = normalizarPlaca(x.placa);
                 return dictTritrem.hasOwnProperty(placaNorm);
@@ -349,41 +427,72 @@
             let qtdAcimaOuNaMeta = 0;
             let qtdAbaixoMetaGeral = 0;
             let somaViagensGeral = 0;
+            let caminhoesAnalisadosDisplay = 0; // Contaremos apenas ativos para o dashboard principal
 
-            // Avaliando todos os Tritrems ATIVOS (mesmo os que não rodaram)
+            // Avaliando todos os Tritrems (mesmo Inativos e os que não rodaram)
             for (const placaNorm in dictTritrem) {
                 const configCavalo = dictTritrem[placaNorm];
                 const metaDoCavalo = configCavalo.meta;
                 const placaOriginal = configCavalo.info.cavalo;
+                const statusOriginal = configCavalo.info.status || 'Ativo';
+                const isAtivoStatus = statusOriginal.toLowerCase() === 'ativo';
+
+                if (isAtivoStatus) {
+                    caminhoesAnalisadosDisplay++;
+                }
 
                 const stats = statsPorPlaca[placaNorm] || { viagensTotais: 0, volumeTotal: 0, cicloTotal: 0, diasTrabalhados: new Set() };
                 
                 const media = stats.viagensTotais / numDiasAnalisados;
                 const cicloMedio = stats.viagensTotais > 0 ? (stats.cicloTotal / stats.viagensTotais) : 0;
+                
+                const horasParadasHist = horasParadasGlobais[placaNorm] || 0;
+                const viagensPerdidas = cicloMedio > 0 ? (horasParadasHist / cicloMedio) : 0;
+                const caixaMedia = stats.viagensTotais > 0 ? (stats.volumeTotal / stats.viagensTotais) : 115;
+                const volumePerdidoHist = viagensPerdidas * caixaMedia;
+
+                // Definir Cenário Atual
+                const osAberta = osAbertaPorPlaca[placaNorm];
+                let cenarioAtual = 'Em Operação';
+
+                if (osAberta) {
+                    cenarioAtual = 'Em Manutenção';
+                } else if (statusOriginal.toUpperCase() === 'INATIVO') {
+                    cenarioAtual = 'Inativo';
+                } else if (statusOriginal.toUpperCase() === 'SINISTRADO') {
+                    cenarioAtual = 'Sinistrado';
+                } else if (statusOriginal.toUpperCase() !== 'ATIVO') {
+                    cenarioAtual = statusOriginal;
+                }
 
                 listaQuadroGeralAtual.push({
                     placa: placaOriginal,
+                    cenarioAtual: cenarioAtual,
+                    osAtual: osAberta || null,
                     diasAnalisados: numDiasAnalisados,
                     viagensTotais: stats.viagensTotais,
                     mediaDiaria: media,
                     meta: metaDoCavalo,
                     cicloMedio: cicloMedio,
-                    volumeTotal: stats.volumeTotal
+                    volumeTotal: stats.volumeTotal,
+                    horasParadas: horasParadasHist,
+                    volumePerdido: volumePerdidoHist,
+                    isAtivo: isAtivoStatus
                 });
 
-                if (media >= metaDoCavalo) {
-                    qtdAcimaOuNaMeta++;
-                } else {
-                    qtdAbaixoMetaGeral++;
+                // Considerar nas metas do gráfico superior somente ativos
+                if (isAtivoStatus) {
+                    if (media >= metaDoCavalo) {
+                        qtdAcimaOuNaMeta++;
+                    } else {
+                        qtdAbaixoMetaGeral++;
+                    }
+                    somaViagensGeral += stats.viagensTotais;
                 }
-
-                somaViagensGeral += stats.viagensTotais;
             }
 
-            const totalCaminhoesUnicos = Object.keys(dictTritrem).length; // TRITREMs ativos
-            
             const cardTotalCaminhoes = document.getElementById('cardTotalCaminhoes');
-            if (cardTotalCaminhoes) cardTotalCaminhoes.innerText = totalCaminhoesUnicos;
+            if (cardTotalCaminhoes) cardTotalCaminhoes.innerText = caminhoesAnalisadosDisplay; // Mostra qtd de ativos no widget
             
             const cardAcimaMeta = document.getElementById('cardAcimaMeta');
             if (cardAcimaMeta) cardAcimaMeta.innerText = qtdAcimaOuNaMeta;
@@ -397,7 +506,7 @@
                 cardMediaViagens.innerHTML = `<span class="text-3xl">${somaViagensGeral}</span> <span class="text-sm text-slate-400 font-normal">/ ${metaTotalPeriodo}</span>`;
                 
                 const subtituloMedia = cardMediaViagens.nextElementSibling;
-                if(subtituloMedia) subtituloMedia.innerText = "Viagens Feitas / Meta Total no período";
+                if(subtituloMedia) subtituloMedia.innerText = "Viagens Feitas / Meta Total no período (Ativos)";
             }
 
             const registrosAbaixoMeta = [];
@@ -407,7 +516,6 @@
             datasValidas.forEach(dia => evolucaoDiariaAbaixoMeta[dia] = 0);
 
             for (const dia of datasValidas) {
-                // Média global do dia para usar caso um cavalo tenha feito 0 viagens e não tenha caixa média real
                 let volGlobalDia = 0; let viagGlobalDia = 0;
                 if (agrupamentoDiario[dia]) {
                     for (const p in agrupamentoDiario[dia]) {
@@ -415,10 +523,14 @@
                         viagGlobalDia += agrupamentoDiario[dia][p].viagens;
                     }
                 }
-                const mediaGlobalCaixaDia = viagGlobalDia > 0 ? (volGlobalDia / viagGlobalDia) : 115; // 115m³ é fallback de segurança para tritrem
+                const mediaGlobalCaixaDia = viagGlobalDia > 0 ? (volGlobalDia / viagGlobalDia) : 115; 
 
                 for (const placaNorm in dictTritrem) {
                     const configCavalo = dictTritrem[placaNorm];
+                    const isAtivoStatus = (configCavalo.info.status || 'Ativo').toLowerCase() === 'ativo';
+                    
+                    if (!isAtivoStatus) continue; // Foca no Volume perdido de ativos para os paineis do topo
+
                     const metaDoCavalo = configCavalo.meta;
                     const placaOriginal = configCavalo.info.cavalo;
 
@@ -451,10 +563,15 @@
             if (cardVolumePerdido) cardVolumePerdido.innerText = volumeTotalPerdido.toLocaleString('pt-PT', {maximumFractionDigits:1}) + ' m³';
 
             desenharGraficoEvolucao(datasValidas, evolucaoDiariaAbaixoMeta);
-            desenharGraficoMelhoresPlacas(listaQuadroGeralAtual);
-            desenharGraficoMenoresCiclos(listaQuadroGeralAtual);
+            desenharGraficoMelhoresPlacas(listaQuadroGeralAtual.filter(l => l.isAtivo));
+            desenharGraficoMenoresCiclos(listaQuadroGeralAtual.filter(l => l.isAtivo));
 
-            listaQuadroGeralAtual.sort((a, b) => b.mediaDiaria - a.mediaDiaria);
+            // Ordena tabela geral: Ativos primeiro por média, depois os inativos/manutenção
+            listaQuadroGeralAtual.sort((a, b) => {
+                if(a.isAtivo && !b.isAtivo) return -1;
+                if(!a.isAtivo && b.isAtivo) return 1;
+                return b.mediaDiaria - a.mediaDiaria;
+            });
             preencherQuadroGeral(listaQuadroGeralAtual);
 
             registrosAbaixoMeta.sort((a, b) => {
@@ -485,7 +602,7 @@
                 data: {
                     labels: labels.map(l => l.substring(0, 5)), 
                     datasets: [{
-                        label: 'Caminhões < Meta',
+                        label: 'Caminhões < Meta (Ativos)',
                         data: dataPoints,
                         borderColor: '#fb7185',
                         backgroundColor: 'rgba(251, 113, 133, 0.1)',
@@ -612,7 +729,7 @@
             tbody.innerHTML = '';
 
             if(lista.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center p-8 text-slate-500">Nenhum dado encontrado para o período.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" class="text-center p-8 text-slate-500">Nenhum dado encontrado para o período.</td></tr>`;
                 return;
             }
 
@@ -624,16 +741,47 @@
                 const volFormat = r.volumeTotal.toLocaleString('pt-PT', {maximumFractionDigits:2});
                 const cicloFormat = formatarHorasDecimais(r.cicloMedio);
 
+                // Badge de Cenário Atual
+                let badgeCenario = '';
+                if (r.cenarioAtual === 'Em Operação') {
+                    badgeCenario = '<span class="bg-emerald-900/50 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded text-[10px] uppercase font-bold whitespace-nowrap"><i class="fas fa-truck-moving mr-1"></i>Operação</span>';
+                } else if (r.cenarioAtual === 'Em Manutenção') {
+                    badgeCenario = '<span class="bg-amber-900/50 text-amber-400 border border-amber-500/30 px-2 py-1 rounded text-[10px] uppercase font-bold whitespace-nowrap"><i class="fas fa-tools mr-1"></i>Manutenção</span>';
+                } else if (r.cenarioAtual === 'Sinistrado') {
+                    badgeCenario = '<span class="bg-rose-900/50 text-rose-400 border border-rose-500/30 px-2 py-1 rounded text-[10px] uppercase font-bold whitespace-nowrap"><i class="fas fa-car-crash mr-1"></i>Sinistrado</span>';
+                } else if (r.cenarioAtual === 'Inativo') {
+                    badgeCenario = '<span class="bg-slate-700/50 text-slate-400 border border-slate-600/30 px-2 py-1 rounded text-[10px] uppercase font-bold whitespace-nowrap"><i class="fas fa-ban mr-1"></i>Inativo</span>';
+                } else {
+                    badgeCenario = `<span class="bg-slate-700/50 text-slate-300 border border-slate-600/30 px-2 py-1 rounded text-[10px] uppercase font-bold whitespace-nowrap">${r.cenarioAtual}</span>`;
+                }
+
+                // Badge de Serviço
+                let servicoText = '<span class="text-slate-600">-</span>';
+                if (r.osAtual) {
+                    const limitStr = (str, n) => (str && str.length > n) ? str.substring(0, n) + '...' : str;
+                    const tipoProb = limitStr(`${r.osAtual.tipo} - ${r.osAtual.problema}`, 35);
+                    servicoText = `
+                        <div class="flex flex-col">
+                            <span class="text-[10px] text-amber-300 font-semibold uppercase truncate max-w-[200px]" title="${r.osAtual.tipo} - ${r.osAtual.problema}">${tipoProb}</span>
+                            <span class="text-[11px] text-amber-500 font-mono mt-0.5"><i class="far fa-clock mr-1"></i>${formatarHorasDecimais(r.osAtual.horasParadasAtual)} parados(as)</span>
+                        </div>
+                    `;
+                }
+
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-700/30 transition-colors group";
+                tr.className = `transition-colors group ${!r.isAtivo ? 'opacity-60 hover:opacity-100' : 'hover:bg-slate-700/30'}`;
                 tr.innerHTML = `
                     <td class="px-6 py-3 text-sm font-bold text-white"><span class="bg-slate-900 px-2 py-1 rounded border border-slate-700 font-mono tracking-widest">${r.placa}</span></td>
+                    <td class="px-6 py-3 text-center">${badgeCenario}</td>
+                    <td class="px-6 py-3">${servicoText}</td>
                     <td class="px-6 py-3 text-center text-sm text-slate-300 font-mono">${r.diasAnalisados}</td>
                     <td class="px-6 py-3 text-center text-sm font-black text-sky-400">${r.viagensTotais}</td>
                     <td class="px-6 py-3 text-center text-lg font-black ${mediaColor}">${r.mediaDiaria.toFixed(1)} <span class="text-xs text-slate-500 font-normal">/ ${r.meta}</span></td>
                     <td class="px-6 py-3 text-center text-sm font-mono text-amber-400">${cicloFormat}</td>
                     <td class="px-6 py-3 text-right text-sm font-mono text-slate-400">${volFormat}</td>
-                    <td class="px-6 py-3 text-center text-sm bg-slate-900/30">${statusIcon} ${statusText}</td>
+                    <td class="px-6 py-3 text-center text-sm font-mono text-amber-500">${formatarHorasDecimais(r.horasParadas)}</td>
+                    <td class="px-6 py-3 text-center text-sm bg-slate-900/30">${r.isAtivo ? `${statusIcon}${statusText}` : '-'}</td>
+                    <td class="px-6 py-3 text-right text-sm font-black text-rose-500 bg-rose-900/10">${r.volumePerdido.toLocaleString('pt-PT', {maximumFractionDigits:2})} m³</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -647,7 +795,7 @@
             tbody.innerHTML = '';
 
             if(registros.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-emerald-400"><i class="fas fa-check-circle text-xl mb-2 block"></i>Todos os conjuntos TRITREM bateram a meta diária nas datas selecionadas!</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center p-8 text-emerald-400"><i class="fas fa-check-circle text-xl mb-2 block"></i>Todos os conjuntos TRITREM ATIVOS bateram a meta diária nas datas selecionadas!</td></tr>`;
                 return;
             }
 
@@ -681,14 +829,19 @@
 
         const dadosExcel = listaQuadroGeralAtual.map(r => ({
             "Placa (Conjunto)": r.placa,
+            "Cenário Atual": r.cenarioAtual,
+            "Serviço em Andamento": r.osAtual ? `${r.osAtual.tipo} - ${r.osAtual.problema}` : "-",
+            "Tempo Parado Atual": r.osAtual ? formatarHorasDecimais(r.osAtual.horasParadasAtual) : "-",
             "Dias Analisados": r.diasAnalisados,
             "Total de Viagens": r.viagensTotais,
             "Média (Viagens/Dia)": parseFloat(r.mediaDiaria.toFixed(2)),
             "Meta Cadastrada (Diária)": r.meta,
             "Ciclo Médio (Horas Formato)": formatarHorasDecimais(r.cicloMedio),
             "Ciclo Médio (Decimal)": parseFloat(r.cicloMedio.toFixed(2)),
-            "Volume Total Produzido (m³)": parseFloat(r.volumeTotal.toFixed(2)),
-            "Status da Meta": r.mediaDiaria >= r.meta ? "Na Meta" : "Abaixo da Meta"
+            "Volume Total (m³)": parseFloat(r.volumeTotal.toFixed(2)),
+            "Horas Paradas Totais (Histórico)": formatarHorasDecimais(r.horasParadas),
+            "Status da Meta": !r.isAtivo ? "N/A" : (r.mediaDiaria >= r.meta ? "Na Meta" : "Abaixo da Meta"),
+            "Volume Comprometido (m³)": parseFloat(r.volumePerdido.toFixed(2))
         }));
 
         if(typeof XLSX !== 'undefined') {
