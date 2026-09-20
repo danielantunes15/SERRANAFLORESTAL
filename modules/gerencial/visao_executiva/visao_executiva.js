@@ -4,6 +4,35 @@ var execChartComparativo = null;
 var execChartEvolucao = null;
 const tarifaCache = new Map(); 
 
+// Funções auxiliares baseadas na lógica de producao-frota
+function getCampo(obj, possiveisNomes) {
+    if (!obj) return '';
+    const chavesReais = Object.keys(obj);
+    for (let nomeProcurado of possiveisNomes) {
+        const chaveEncontrada = chavesReais.find(k => k.toLowerCase() === nomeProcurado.toLowerCase());
+        if (chaveEncontrada && obj[chaveEncontrada] !== null && obj[chaveEncontrada] !== undefined) {
+            return obj[chaveEncontrada];
+        }
+    }
+    return '';
+}
+
+function toNumber(val) {
+    if (val === null || val === undefined || val === '') return 0;
+    if (typeof val === 'number') return val;
+    let strLimpa = String(val).replace('R$', '').trim().replace(',', '.');
+    let num = parseFloat(strLimpa);
+    return isNaN(num) ? 0 : num;
+}
+
+function isGruaSerrana(gruaString, cacheProprias) {
+    let g = String(gruaString || '').trim().toUpperCase().replace(/[-\s]/g, '');
+    if (!g || g === 'NULL') return false;
+    if (cacheProprias.has(g)) return true;
+    if (g.startsWith('GSR')) return true;
+    return false;
+}
+
 window.initVisaoExecutiva = function() {
     const inputMes = document.getElementById('execFiltroMes');
     if (inputMes) {
@@ -199,8 +228,9 @@ window.atualizarDadosExecutivos = async function() {
             const promessasFetch = [];
             
             for (let from = 0; from <= count; from += step) {
+                // CORREÇÃO: Utilizando select('*') para evitar erro 400 caso alguma coluna de fallback não exista
                 let qViagens = window.supabaseClient.from('historico_viagens')
-                    .select('filial_id, volumeReal, dtFimDescarFabrica, dataDaBaseExcel, transportadora, grua, distanciaAsfalto, distanciaTerra, created_at')
+                    .select('*')
                     .gte('created_at', strInicioHist)
                     .range(from, from + step - 1);
                 
@@ -250,24 +280,33 @@ window.atualizarDadosExecutivos = async function() {
             
             if (!mesChart && !isMesAtual) continue; 
             
-            let tr = v.transportadora ? v.transportadora.toUpperCase() : '';
-            let isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG');
+            let tr = getCampo(v, ['transportadora', 'transportador', 'empresa_transporte']).trim().toUpperCase();
+            let isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG') || tr.includes('SERRANA');
             
-            let gruaReg = v.grua ? v.grua.trim().toUpperCase() : '';
-            let isNossaGrua = gruasPropriasCache.has(gruaReg);
+            let gruaRaw = getCampo(v, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']);
+            let isNossaGrua = isGruaSerrana(gruaRaw, gruasPropriasCache);
             
-            let vol = parseFloat(String(v.volumeReal).replace(',','.')) || 0;
-            let asfalto = parseFloat(String(v.distanciaAsfalto).replace(',','.')) || 0;
-            let terra = parseFloat(String(v.distanciaTerra).replace(',','.')) || 0;
+            let vol = toNumber(getCampo(v, ['volumeReal', 'pesoLiquido']));
+            let asfalto = toNumber(getCampo(v, ['distanciaAsfalto']));
+            let terra = toNumber(getCampo(v, ['distanciaTerra']));
             
             let tarifador = getTarifador(v.filial_id);
             let precoCarregamento = tarifador ? parseFloat(tarifador.preco_carregamento) || 0 : 0;
             
             let recTransp = 0;
             if (isSerrana) {
-                // CORREÇÃO: Chamando corretamente a função getTarifaRapida
                 let tarifa = getTarifaRapida(tarifador, asfalto, terra);
                 recTransp = vol * tarifa;
+                
+                if (recTransp === 0) {
+                    let tarifaAlternativa = toNumber(getCampo(v, ['tarifa', 'valorTarifa', 'valortarifa', 'preco', 'valor_tarifa', 'tarifaAplicada']));
+                    let receitaAlternativa = toNumber(getCampo(v, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
+                    if (receitaAlternativa > 0) {
+                        recTransp = receitaAlternativa;
+                    } else if (tarifaAlternativa > 0 && vol > 0) {
+                        recTransp = tarifaAlternativa * vol;
+                    }
+                }
             }
             
             let recCarreg = isNossaGrua ? (vol * precoCarregamento) : 0;
@@ -281,7 +320,11 @@ window.atualizarDadosExecutivos = async function() {
                 if (!filiaisDataMap[v.filial_id]) {
                     filiaisDataMap[v.filial_id] = { producao: 0, faturamento: 0 };
                 }
-                filiaisDataMap[v.filial_id].producao += vol;
+                
+                if (isSerrana) {
+                    filiaisDataMap[v.filial_id].producao += vol;
+                }
+                
                 filiaisDataMap[v.filial_id].faturamento += receitaTotalViagem;
             }
         }
