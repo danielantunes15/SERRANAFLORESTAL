@@ -82,11 +82,21 @@ function getInfoGruaSerrana(gruaString) {
 
 window.initProducaoFrota = async function() {
     console.log("[PRODUCAO] Módulo iniciado.");
+    
+    // MELHORIA DE PERFORMANCE 1: Dispara o Loading Imediatamente ao abrir a aba
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.classList.remove('hidden');
+
     configurarEventos();
     definirDatasPadrao();
-    await carregarMetas(); 
-    await buscarTarifadorAtivo();
-    await mapearFazendasUPs(); 
+    
+    // MELHORIA DE PERFORMANCE 2: Baixa os dados auxiliares em Paralelo
+    await Promise.all([
+        carregarMetas(),
+        buscarTarifadorAtivo(),
+        mapearFazendasUPs()
+    ]);
+    
     buscarTodosDadosSupabase();
 
     function configurarEventos() {
@@ -113,14 +123,8 @@ window.initProducaoFrota = async function() {
         const mes = String(hoje.getMonth() + 1).padStart(2, '0');
         const valorMesAtual = `${ano}-${mes}`;
 
-        const selectMes = document.getElementById('filtroMes');
-        if(selectMes) {
-            const nomeMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-            const nomeMes = nomeMeses[hoje.getMonth()];
-            selectMes.innerHTML = `<option value="PERSONALIZADO">Personalizado...</option>
-                                   <option value="${valorMesAtual}" selected>${nomeMes}/${ano}</option>`;
-        }
-
+        // Chama direto a função que gera os dropdowns com JS ao invés de ler do banco todo
+        popularDropdownMeses();
         aplicarDatasPeloMes(valorMesAtual);
     }
 
@@ -155,47 +159,33 @@ window.initProducaoFrota = async function() {
         if(elFimCarreg) elFimCarreg.value = formatarStr(fimCarreg);
     }
 
-    function popularDropdownMeses(dados) {
+    function popularDropdownMeses() {
         const select = document.getElementById('filtroMes');
         if(!select) return;
 
         const valorSelecionado = select.value;
-        const mesesSet = new Set();
-        
-        dados.forEach(d => {
-            const dataViagem = d.dtFimDescarFabrica || d.dataDaBaseExcel;
-            if(dataViagem) {
-                const dateObj = converterDataString(dataViagem);
-                if(!isNaN(dateObj.getTime())) {
-                    const y = dateObj.getFullYear();
-                    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-                    mesesSet.add(`${y}-${m}`);
-                }
-            }
-        });
-
-        const hoje = new Date();
-        const mesAtualStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
-        mesesSet.add(mesAtualStr);
-
-        const mesesArr = Array.from(mesesSet).sort().reverse(); 
-        
         let opsHtml = '<option value="PERSONALIZADO">Personalizado...</option>';
         const nomeMeses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-        mesesArr.forEach(m => {
-            const [ano, mes] = m.split('-');
-            if(ano && mes && !isNaN(ano) && !isNaN(mes)) {
-                const nomeMes = nomeMeses[parseInt(mes) - 1];
-                opsHtml += `<option value="${m}">${nomeMes}/${ano}</option>`;
-            }
-        });
+        const hoje = new Date();
+        let mesAtualStr = '';
+
+        // Gera os últimos 12 meses nativamente sem precisar baixar viagens
+        for(let i = 0; i < 12; i++) {
+            const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const val = `${y}-${m}`;
+            if(i === 0) mesAtualStr = val;
+
+            opsHtml += `<option value="${val}">${nomeMeses[d.getMonth()]}/${y}</option>`;
+        }
 
         select.innerHTML = opsHtml;
 
-        if (mesesArr.includes(valorSelecionado) && valorSelecionado !== 'PERSONALIZADO') {
+        if (valorSelecionado && valorSelecionado !== 'PERSONALIZADO') {
             select.value = valorSelecionado;
-        } else if (mesesArr.length > 0) {
+        } else {
             select.value = mesAtualStr; 
         }
         
@@ -304,6 +294,8 @@ window.initProducaoFrota = async function() {
         
         if (!client) {
             if(tStatus) tStatus.innerText = "Erro de conexão com o banco.";
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.classList.add('hidden');
             return;
         }
         
@@ -330,40 +322,19 @@ window.initProducaoFrota = async function() {
                 });
             }
             
-            if(tStatus) tStatus.innerText = "Baixando viagens...";
-            dadosHistoricoGlobal = [];
-            
-            let from = 0;
-            const step = 1000;
-            let fetchMore = true;
-            
-            while (fetchMore) {
-                let query = client.from('historico_viagens').select('*').range(from, from + step - 1);
-                if (typeof window.aplicarFiltroLocal === 'function') query = window.aplicarFiltroLocal(query);
-                
-                const { data, error } = await query;
-                if (error) { console.error("Erro ao buscar viagens:", error); break; }
-                
-                if (data && data.length > 0) {
-                    dadosHistoricoGlobal = dadosHistoricoGlobal.concat(data);
-                    from += step;
-                    if(tStatus) tStatus.innerText = `Baixando... (${dadosHistoricoGlobal.length} registros)`;
-                }
-                
-                if (!data || data.length < step) { fetchMore = false; }
-            }
-            
-            popularDropdownTransportadoras(dadosHistoricoGlobal);
-            popularDropdownMeses(dadosHistoricoGlobal); 
+            // OTIMIZAÇÃO: Não baixa mais o banco inteiro aqui. Dispara direto o Filtro do período selecionado.
+            popularDropdownTransportadoras();
             processarFiltrosEExibir();
             
         } catch (e) {
             console.error("[PRODUCAO] Erro global na busca:", e);
             if(tStatus) tStatus.innerText = "Erro ao carregar dados.";
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.classList.add('hidden');
         }
     }
 
-    function popularDropdownTransportadoras(dados) {
+    function popularDropdownTransportadoras(dados = []) {
         try {
             const select = document.getElementById('filtroTransportadora');
             if(!select) return;
@@ -374,12 +345,14 @@ window.initProducaoFrota = async function() {
                 if (tName) transpSet.add(tName.trim().toUpperCase());
             });
             
+            const currentVal = select.value;
             let opsHtml = '<option value="">Todas Transportadoras</option>';
             opsHtml += '<option value="SOMENTE_SERRANA">✓ NOSSOS CAMINHÕES (Serrana)</option>';
             opsHtml += '<option value="SOMENTE_TERCEIROS">✓ CAMINHÕES TERCEIROS</option>';
             
             Array.from(transpSet).sort().forEach(t => { opsHtml += `<option value="${t}">${t}</option>`; });
             select.innerHTML = opsHtml;
+            if(currentVal) select.value = currentVal;
         } catch(e) {}
     }
 
@@ -458,7 +431,7 @@ window.initProducaoFrota = async function() {
         const overlay = document.getElementById('loadingOverlay');
         if (overlay) overlay.classList.remove('hidden');
 
-        setTimeout(() => {
+        setTimeout(async () => {
             try {
                 const tStatus = document.getElementById('tabelaStatus');
                 if(tStatus) tStatus.innerText = "Processando cálculos financeiros...";
@@ -482,6 +455,59 @@ window.initProducaoFrota = async function() {
                 let timeInicioCarreg = new Date(strInicioCarreg.split('-')[0], parseInt(strInicioCarreg.split('-')[1]) - 1, strInicioCarreg.split('-')[2]).getTime();
                 let timeFimCarreg = new Date(strFimCarreg.split('-')[0], parseInt(strFimCarreg.split('-')[1]) - 1, strFimCarreg.split('-')[2], 23, 59, 59).getTime();
                 
+                // -------------------------------------------------------------
+                // LÓGICA RÁPIDA: Buscar APENAS as viagens do período selecionado
+                // -------------------------------------------------------------
+                if(tStatus) tStatus.innerText = "Baixando viagens do período...";
+                
+                let minTime = Math.min(timeInicioTransp, timeInicioCarreg);
+                let maxTime = Math.max(timeFimTransp, timeFimCarreg);
+
+                // Garante que a busca inclua os últimos 7 dias para o gráfico "Fixo" não ficar zerado
+                let dataHoje = new Date();
+                let timeSeteDiasAtras = new Date(dataHoje.getFullYear(), dataHoje.getMonth(), dataHoje.getDate() - 7).getTime();
+                minTime = Math.min(minTime, timeSeteDiasAtras);
+                maxTime = Math.max(maxTime, dataHoje.getTime());
+
+                // Margens de segurança de banco de dados (lançamentos retroativos etc)
+                let minDateObj = new Date(minTime);
+                minDateObj.setDate(minDateObj.getDate() - 15);
+                let strMin = minDateObj.toISOString().split('T')[0] + 'T00:00:00';
+
+                let maxDateObj = new Date(maxTime);
+                maxDateObj.setDate(maxDateObj.getDate() + 5);
+                let strMax = maxDateObj.toISOString().split('T')[0] + 'T23:59:59';
+
+                let from = 0;
+                let step = 1000;
+                let fetchMore = true;
+                let dadosMes = [];
+                const client = getSupabaseClient();
+
+                while (fetchMore) {
+                    let query = client.from('historico_viagens').select('*')
+                        .gte('created_at', strMin)
+                        .lte('created_at', strMax)
+                        .range(from, from + step - 1);
+                        
+                    if (typeof window.aplicarFiltroLocal === 'function') query = window.aplicarFiltroLocal(query);
+
+                    const { data, error } = await query;
+                    if (error) { throw error; }
+
+                    if (data && data.length > 0) {
+                        dadosMes = dadosMes.concat(data);
+                        from += step;
+                        if(tStatus) tStatus.innerText = `Baixando... (${dadosMes.length} registros)`;
+                    }
+
+                    if (!data || data.length < step) { fetchMore = false; }
+                }
+
+                dadosHistoricoGlobal = dadosMes; // Guarda na global para uso na exportação Excel
+                popularDropdownTransportadoras(dadosHistoricoGlobal); // Atualiza transportadoras reais do período
+                
+                // Continua com os cálculos usando apenas a fração baixada do banco
                 let diasNoPeriodoTransp = Math.max(1, Math.ceil(Math.abs(timeFimTransp - timeInicioTransp) / (1000 * 60 * 60 * 24)));
                 let diasNoPeriodoCarreg = Math.max(1, Math.ceil(Math.abs(timeFimCarreg - timeInicioCarreg) / (1000 * 60 * 60 * 24)));
                 
@@ -691,11 +717,11 @@ window.initProducaoFrota = async function() {
                 document.getElementById('valTotalReceita').innerText = formatMoney(tTranspRec + tCarregRec);
                 
                 const dadosEvolucao = [];
-                const minTime = Math.min(timeInicioTransp, timeInicioCarreg);
-                const maxTime = Math.max(timeFimTransp, timeFimCarreg);
+                const minTimeEvo = Math.min(timeInicioTransp, timeInicioCarreg);
+                const maxTimeEvo = Math.max(timeFimTransp, timeFimCarreg);
 
-                let dataCorrente = new Date(minTime);
-                const dataLimite = new Date(maxTime);
+                let dataCorrente = new Date(minTimeEvo);
+                const dataLimite = new Date(maxTimeEvo);
                 
                 while(dataCorrente <= dataLimite) {
                     const k = formatarDataChave(dataCorrente);
