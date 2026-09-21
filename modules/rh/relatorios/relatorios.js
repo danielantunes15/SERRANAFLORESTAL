@@ -1,10 +1,16 @@
+// ==================== modules/rh/relatorios/relatorios.js ====================
+
 document.addEventListener('DOMContentLoaded', function() {
     const formFiltros = document.getElementById('formFiltrosRelatorio');
     
-    formFiltros.addEventListener('submit', function(e) {
-        e.preventDefault();
-        gerarRelatorio();
-    });
+    // CORREÇÃO: Verifica se o elemento existe na tela antes de adicionar o evento
+    // Isso evita o erro "Cannot read properties of null" quando estiver em outras telas
+    if (formFiltros) {
+        formFiltros.addEventListener('submit', function(e) {
+            e.preventDefault();
+            gerarRelatorio();
+        });
+    }
 });
 
 function gerarRelatorio() {
