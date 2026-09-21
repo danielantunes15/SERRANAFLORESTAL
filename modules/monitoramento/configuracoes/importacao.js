@@ -360,7 +360,8 @@ window.processAndSaveJornadasFile = async function(file) {
             "dataBase": `Jornadas Ponto`,
             "qtdViagens": jornadasNovas.length,
             "dataLancamento": new Date().toLocaleString('pt-PT'),
-            "filial_id": window.currentUser ? window.currentUser.filial_id : null
+            "filial_id": window.currentUser ? window.currentUser.filial_id : null,
+            "usuario": window.currentUser ? (window.currentUser.nome_completo || window.currentUser.username) : 'Sistema'
         }]);
         
         alert(`Sucesso! Salvas ${jornadasNovas.length} NOVAS jornadas.`);
@@ -634,7 +635,8 @@ window.processAndSaveFile = async function(file) {
             "dataBase": `Viagens: ${strHistoricoDatas}`, 
             "qtdViagens": viagensNovasArray.length, 
             "dataLancamento": new Date().toLocaleString('pt-PT'),
-            "filial_id": window.currentUser ? window.currentUser.filial_id : null 
+            "filial_id": window.currentUser ? window.currentUser.filial_id : null,
+            "usuario": window.currentUser ? (window.currentUser.nome_completo || window.currentUser.username) : 'Sistema'
         }]);
         
         let msgSucesso = `Sucesso! Salvas ${viagensNovasArray.length} NOVAS viagens.\nDatas: ${strHistoricoDatas}`;

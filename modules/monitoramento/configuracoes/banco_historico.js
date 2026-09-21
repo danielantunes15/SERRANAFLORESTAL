@@ -105,7 +105,7 @@ window.initBancoHistorico = function() {
 
                     const numericFilialId = filial_id ? parseInt(filial_id) : null;
                     if (numericFilialId === 5) {
-                        tabelaViagens = 'historico_viagens_sp'; 
+                        tabelaViagens = 'historico_viagens'; 
                         colunaDataRef = 'data_saida_patio'; 
                     }
 
@@ -277,7 +277,8 @@ window.carregarHistoricoImportacoes = async function() {
             else if (fId === '5') nomeFilialStr = 'Bracell - Lençóis Paulista';
             else if (fId === '6') nomeFilialStr = 'Veracel - Eunápolis';
 
-            const usuarioNome = r.usuario || user.nome_completo || user.username || 'Operador Torre';
+            // CORREÇÃO: Não pega mais do currentUser se não houver no banco de dados.
+            const usuarioNome = r.usuario || 'Sistema / Não Registrado';
             
             const isExclusao = baseInfo.toUpperCase().includes('EXCLUSÃO');
             const corQtd = isExclusao ? 'text-rose-400' : 'text-emerald-400';
