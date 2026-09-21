@@ -435,7 +435,31 @@ function renderizarGraficoComparativo(dados) {
 
     const option = {
         backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        tooltip: { 
+            trigger: 'axis', 
+            axisPointer: { type: 'shadow' },
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            borderColor: 'rgba(51, 65, 85, 0.8)',
+            textStyle: { color: '#f8fafc' },
+            formatter: function(params) {
+                let html = `<div style="font-weight:bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 4px;">${params[0].axisValue}</div>`;
+                params.forEach(p => {
+                    let valFormatado = '';
+                    if (p.seriesName.includes('Faturamento')) {
+                        valFormatado = p.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    } else if (p.seriesName.includes('Produção')) {
+                        valFormatado = p.value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
+                    } else {
+                        valFormatado = p.value;
+                    }
+                    html += `<div style="display: flex; justify-content: space-between; gap: 15px;">
+                                <span>${p.marker} ${p.seriesName}:</span>
+                                <b>${valFormatado}</b>
+                             </div>`;
+                });
+                return html;
+            }
+        },
         legend: { data: ['Faturamento (R$)', 'Produção (m³)'], textStyle: { color: '#cbd5e1', fontWeight: 'bold' }, top: 0 },
         grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
         xAxis: [
@@ -471,9 +495,16 @@ function renderizarGraficoEvolucao(meses, valores) {
         backgroundColor: 'transparent',
         tooltip: {
             trigger: 'axis',
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            borderColor: 'rgba(51, 65, 85, 0.8)',
+            textStyle: { color: '#f8fafc' },
             formatter: function(params) {
                 let val = params[0].value.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
-                return `<span style="font-weight:bold">${params[0].name}</span><br/>Receita: <b>${val}</b>`;
+                return `<div style="font-weight:bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 4px;">${params[0].name}</div>
+                        <div style="display: flex; justify-content: space-between; gap: 15px;">
+                            <span>${params[0].marker} Receita:</span>
+                            <b>${val}</b>
+                        </div>`;
             }
         },
         grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
