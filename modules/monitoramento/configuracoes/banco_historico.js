@@ -31,7 +31,8 @@ window.initBancoHistorico = function() {
             const isGlobalAdmin = (user.role === 'SuperAdmin' || user.role === 'Admin');
 
             let nomeFilial = "DESCONHECIDA";
-            if (filial_id === '1' || filial_id === '7') nomeFilial = "SUZANO - MUCURI";
+            if (filial_id === '1') nomeFilial = "SUZANO - MUCURI";
+            else if (filial_id === '7') nomeFilial = "SUZANO - LINHARES";
             else if (filial_id === '5') nomeFilial = "BRACELL - LENÇÓIS PAULISTA";
             else if (filial_id === '6') nomeFilial = "VERACEL - EUNÁPOLIS";
             else if (filial_id === null && isGlobalAdmin) nomeFilial = "TODAS AS FILIAIS (MODO GLOBAL)";
@@ -273,11 +274,13 @@ window.carregarHistoricoImportacoes = async function() {
             
             let nomeFilialStr = 'Filial Desconhecida';
             const fId = r.filial_id ? String(r.filial_id) : '1';
-            if (fId === '1' || fId === '7') nomeFilialStr = 'Suzano - Mucuri';
+            
+            // CORREÇÃO: Divisão do ID 1 e ID 7 na Tabela Histórica
+            if (fId === '1') nomeFilialStr = 'Suzano - Mucuri';
+            else if (fId === '7') nomeFilialStr = 'Suzano - Linhares';
             else if (fId === '5') nomeFilialStr = 'Bracell - Lençóis Paulista';
             else if (fId === '6') nomeFilialStr = 'Veracel - Eunápolis';
 
-            // CORREÇÃO: Não pega mais do currentUser se não houver no banco de dados.
             const usuarioNome = r.usuario || 'Sistema / Não Registrado';
             
             const isExclusao = baseInfo.toUpperCase().includes('EXCLUSÃO');

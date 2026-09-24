@@ -117,7 +117,7 @@ window.processarImportacaoBracell = async function(input) {
                             transportadora: row['Fornecedor'] ? String(row['Fornecedor']).trim() : 'BRACELL',
                             
                             pesoLiquido: window.parseNumero(row['Peso Liquido']),
-                            peso_na_entrada: window.parseNumero(row['Peso bruto']), // <-- PBTC (Peso Bruto de SP) mapeado corretamente
+                            peso_na_entrada: window.parseNumero(row['Peso bruto']), 
                             volumeReal: window.parseNumero(row['Volume']),
                             distanciaAsfalto: window.parseNumero(row['Distancia Asfalto']),
                             distanciaTerra: window.parseNumero(row['Distancia Chão']),
@@ -130,7 +130,7 @@ window.processarImportacaoBracell = async function(input) {
                             tipo_conjunto: row['Tipo de conjunto'] ? String(row['Tipo de conjunto']).trim() : null,
                             fornecedor: row['Fornecedor'] ? String(row['Fornecedor']).trim() : null,
                             equipamento_cavalo: cavaloStr,
-                            peso_bruto: window.parseNumero(row['Peso bruto']), // Mantém no campo exclusivo por segurança
+                            peso_bruto: window.parseNumero(row['Peso bruto']), 
                             tara: window.parseNumero(row['Tara']),
                             projeto: row['Projeto'] ? String(row['Projeto']).trim() : null,
                             talhao: row['Talhão'] ? String(row['Talhão']).trim() : null,
@@ -376,11 +376,14 @@ window.processAndSaveJornadasFile = async function(file) {
 };
 
 // =========================================================================
-// 3. IMPORTAÇÃO GENÉRICA (SUZANO/BAHIA/ETC)
+// 3. IMPORTAÇÃO GENÉRICA (SUZANO/LINHARES/ETC)
 // =========================================================================
 function parseSheetToData(sheet) {
     const rawData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
     if (!rawData || rawData.length === 0) throw new Error("Planilha vazia.");
+
+    // Detecta dinamicamente se o usuário está acessando a filial de Linhares (ID 7)
+    const isLinhares = (window.currentUser && String(window.currentUser.filial_id) === '7');
 
     const normKeys = Object.keys(rawData[0]).map(k => ({ orig: k, norm: typeof normalizeStr === 'function' ? normalizeStr(k) : k.toLowerCase() }));
     function findKey(possibilities) {
@@ -392,43 +395,59 @@ function parseSheetToData(sheet) {
         return null;
     }
 
+    // MAPEAMENTO INTELIGENTE DAS COLUNAS (Adapta as chaves baseadas na Filial)
     const movimentoKey = findKey(['movimento', 'id_movimento']);
     const transpKey = findKey(['transportadora', 'nome da transportadora']);
     const placaKey = findKey(['placa do cavalo', 'placa cavalo', 'placa']);
-    const pesoLiqKey = findKey(['peso liquido', 'peso líquido', 'peso_liquido']); 
-    const pesoBrutoKey = findKey(['Peso na Entrada', 'peso na entrada', 'peso bruto', 'pbtc']); 
-    const volumeKey = findKey(['volume real', 'volume_real', 'volume']);
-    const gruaKey = findKey(['carregador florestal', 'carregador', 'grua']); 
     const upKey = findKey(['up', 'u.p', 'u.p.', 'unidade de producao', 'unidade de produção', 'código up', 'codigo up']);
     
-    const dtSaidaBaseKey = findKey(['data de saída', 'data saída', 'data saída fábrica']);
-    const dtSaidaFabKey = findKey(['data saída fábrica', 'data saida fabrica', 'data de saída', 'data saída']);
-    const hrSaidaFabKey = findKey(['hora saída fábrica', 'hora saida fabrica', 'hora saída', 'hora saida']);
+    // As colunas abaixo alteram o dicionário de busca se o usuário for Filial 7 (Linhares)
+    const pesoLiqKey = findKey(isLinhares ? ['líquido', 'liquido'] : ['peso liquido', 'peso líquido', 'peso_liquido']); 
+    const pesoBrutoKey = findKey(isLinhares ? ['peso entr'] : ['Peso na Entrada', 'peso na entrada', 'peso bruto', 'pbtc']); 
+    const volumeKey = findKey(isLinhares ? ['vol real'] : ['volume real', 'volume_real', 'volume']);
+    const gruaKey = findKey(isLinhares ? ['carreg.fl.', 'carreg fl'] : ['carregador florestal', 'carregador', 'grua']); 
     
-    const dtFimDescarFabKey = findKey(['dt fim descar fáb', 'dt fim descar fab']);
-    const hrFimDescarFabKey = findKey(['hr fim descar fáb', 'hr fim descar fab']);
-
-    const dtInicioCarregCpoKey = findKey(['dt início carreg cpo', 'dt inicio carreg cpo', 'data inicio carregamento']);
-    const hrInicioCarregCpoKey = findKey(['hr início carreg cpo', 'hr inicio carreg cpo', 'hora inicio carregamento']);
-    const dtFimCarregCpoKey = findKey(['dt final carreg cpo', 'dt fim carreg cpo', 'data final carregamento']);
-    const hrFimCarregCpoKey = findKey(['hr final carreg cpo', 'hr fim carreg cpo', 'hora final carregamento']);
-
-    const dtChegadaCampoKey = findKey(['data chegada campo', 'dt chegada campo']);
-    const hrChegadaCampoKey = findKey(['hora chegada campo', 'hr chegada campo']);
+    const dtSaidaBaseKey = findKey(isLinhares ? ['dtsaídafáb', 'dtsaidafab'] : ['data de saída', 'data saída', 'data saída fábrica']);
+    const dtSaidaFabKey = findKey(isLinhares ? ['dtsaídafáb', 'dtsaidafab'] : ['data saída fábrica', 'data saida fabrica', 'data de saída', 'data saída']);
+    const hrSaidaFabKey = findKey(isLinhares ? ['hrsaídafab', 'hrsaidafab'] : ['hora saída fábrica', 'hora saida fabrica', 'hora saída', 'hora saida']);
     
-    const dtSaidaCampoKey = findKey(['data saída campo', 'data saida campo', 'dt saida campo']);
-    const hrSaidaCampoKey = findKey(['hora saída campo', 'hora saida campo', 'hr saida campo']);
+    const dtFimDescarFabKey = findKey(isLinhares ? ['dtfimdesfb'] : ['dt fim descar fáb', 'dt fim descar fab']);
+    const hrFimDescarFabKey = findKey(isLinhares ? ['hrfimdesfb'] : ['hr fim descar fáb', 'hr fim descar fab']);
 
-    const dtEntradaFabKey = findKey(['data de entrada', 'dt entrada']);
-    const hrEntradaFabKey = findKey(['hora de entrada', 'hr entrada']);
-    const dtInicioDescarFabKey = findKey(['dt início descar fáb', 'dt inicio descar fab']);
-    const hrInicioDescarFabKey = findKey(['hr início descar fáb', 'hr inicio descar fab']);
+    const dtInicioCarregCpoKey = findKey(isLinhares ? ['dtinicarcp'] : ['dt início carreg cpo', 'dt inicio carreg cpo', 'data inicio carregamento']);
+    const hrInicioCarregCpoKey = findKey(isLinhares ? ['hrinicarcp'] : ['hr início carreg cpo', 'hr inicio carreg cpo', 'hora inicio carregamento']);
+    const dtFimCarregCpoKey = findKey(isLinhares ? ['dtfimcarcp'] : ['dt final carreg cpo', 'dt fim carreg cpo', 'data final carregamento']);
+    const hrFimCarregCpoKey = findKey(isLinhares ? ['hrfimcarcp'] : ['hr final carreg cpo', 'hr fim carreg cpo', 'hora final carregamento']);
+
+    const dtChegadaCampoKey = findKey(isLinhares ? ['dtcheg.cpo', 'dtcheg cpo'] : ['data chegada campo', 'dt chegada campo']);
+    const hrChegadaCampoKey = findKey(isLinhares ? ['hrcheg.cpo', 'hrcheg cpo'] : ['hora chegada campo', 'hr chegada campo']);
+    
+    const dtSaidaCampoKey = findKey(isLinhares ? ['dtsaídacpo', 'dtsaidacpo'] : ['data saída campo', 'data saida campo', 'dt saida campo']);
+    const hrSaidaCampoKey = findKey(isLinhares ? ['hrsaídacpo', 'hrsaidacpo'] : ['hora saída campo', 'hora saida campo', 'hr saida campo']);
+
+    const dtEntradaFabKey = findKey(isLinhares ? ['data entr'] : ['data de entrada', 'dt entrada']);
+    const hrEntradaFabKey = findKey(isLinhares ? ['hora entr'] : ['hora de entrada', 'hr entrada']);
+    const dtInicioDescarFabKey = findKey(isLinhares ? ['dtinidesfb'] : ['dt início descar fáb', 'dt inicio descar fab']);
+    const hrInicioDescarFabKey = findKey(isLinhares ? ['hrinidesfb'] : ['hr início descar fáb', 'hr inicio descar fab']);
+    
+    const distAsfaltoKey = findKey(isLinhares ? ['dist asfal'] : ['distancia por asfalto', 'distância por asfalto', 'distancia asfalto']);
+    const distTerraKey = findKey(isLinhares ? ['dist terra'] : ['distancia por terra', 'distância por terra', 'distancia terra']);
 
     const mappedData = rawData.map((row, idx) => {
         const getValue = (key) => (key && row[key] !== undefined && row[key] !== "") ? row[key] : null;
         
-        const rawDtSaida = getValue(dtSaidaBaseKey) || getValue(dtSaidaFabKey);
-        const rawHrSaida = getValue(hrSaidaFabKey);
+        let rawDtSaida;
+        let rawHrSaida;
+
+        // ISOLAMENTO DE REGRA: Prioriza DtFimDesFb apenas para filial Linhares (ID 7)
+        if (isLinhares) {
+            rawDtSaida = getValue(dtFimDescarFabKey) || getValue(dtSaidaBaseKey) || getValue(dtSaidaFabKey);
+            rawHrSaida = getValue(hrFimDescarFabKey) || getValue(hrSaidaFabKey);
+        } else {
+            rawDtSaida = getValue(dtSaidaBaseKey) || getValue(dtSaidaFabKey);
+            rawHrSaida = getValue(hrSaidaFabKey);
+        }
+
         let strDataBase = 'Desconhecida';
 
         if (rawDtSaida && typeof parseDateTime === 'function') {
@@ -490,8 +509,8 @@ function parseSheetToData(sheet) {
             
             grua: String(getValue(gruaKey) || "-").trim(),
             up: String(getValue(upKey) || "-").trim(),
-            distanciaAsfalto: parserNum(getValue(findKey(['distancia por asfalto', 'distância por asfalto', 'distancia asfalto']))),
-            distanciaTerra: parserNum(getValue(findKey(['distancia por terra', 'distância por terra', 'distancia terra']))),
+            distanciaAsfalto: parserNum(getValue(distAsfaltoKey)),
+            distanciaTerra: parserNum(getValue(distTerraKey)),
             
             cicloHoras: calcHr(getSafeDate(dtSaidaFabKey), getValue(hrSaidaFabKey), getSafeDate(dtFimDescarFabKey), getValue(hrFimDescarFabKey)),
             tempoCarregamentoHoras: calcHr(getSafeDate(dtInicioCarregCpoKey), getValue(hrInicioCarregCpoKey), getSafeDate(dtFimCarregCpoKey), getValue(hrFimCarregCpoKey)),

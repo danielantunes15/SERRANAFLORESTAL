@@ -1,7 +1,6 @@
 // ==========================================
 // js/dashboard.js - LÓGICA DO DASHBOARD
 // ==========================================
-
 Chart.register(ChartDataLabels);
 Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
@@ -11,12 +10,12 @@ let fullHistoricoData = [];
 let metasGlobaisObj = null; 
 let configGruasObj = []; 
 
-// Força inicialização automática no Dia Anterior (D-1)
+// Força a inicialização automática no Dia Anterior (D-1)
 let activeQuickFilter = 'D-1'; 
+
 let chartCiclo = null, chartTransp = null;
 let osParaMeta = [];
 let frotasParaMeta = [];
-
 let filterTransportadora, filterData, filterMes, filterDataInicio, filterDataFim, btnQFs;
 let chkKeysCache = null; 
 
@@ -45,6 +44,20 @@ function tratarFusoDB(dateStr) {
     }
     const d = new Date(str); 
     return isNaN(d.getTime()) ? null : d;
+}
+
+// NORMALIZADOR UNIVERSAL DE DATAS PARA O PAINEL
+function normalizarDataPainel(dStr) {
+    if (!dStr || dStr === 'Desconhecida' || dStr === 'null') return 'Desconhecida';
+    let s = String(dStr).trim().split(' ')[0].split('T')[0]; 
+    if (s.includes('-')) {
+        const p = s.split('-'); 
+        if (p.length === 3) {
+            if (p[0].length === 4) return `${p[2]}/${p[1]}/${p[0]}`; // YYYY-MM-DD -> DD/MM/YYYY
+            if (p[2].length === 4) return `${p[0]}/${p[1]}/${p[2]}`; // DD-MM-YYYY -> DD/MM/YYYY
+        }
+    }
+    return s; 
 }
 
 window.carregarDadosDashboardAnalitico = async function() {
@@ -91,8 +104,8 @@ function normalizarCiclos(dataArr) {
         if (d.cicloHorasOriginal === undefined) {
             d.cicloHorasOriginal = d.cicloHoras;
         }
-        if (d.cicloHorasOriginal > 0 && d.cicloHorasOriginal <= 12) {
-             const pl = d.placa || 'N/A';
+        if (d.cicloHorasOriginal > 0 && d.cicloHorasOriginal <= 12) { 
+            const pl = d.placa || 'N/A';
             if (!pMap.has(pl)) pMap.set(pl, { ciclos: 0, count: 0 });
             pMap.get(pl).ciclos += d.cicloHorasOriginal;
             pMap.get(pl).count++;
@@ -274,7 +287,6 @@ const centerTextPlugin = {
         const centerY = (chartArea.top + chartArea.bottom) / 2;
         
         const total = chart.config.data.datasets[0].data.reduce((a, b) => a + b, 0);
-
         ctx.restore();
         ctx.font = "bold 28px 'Inter', sans-serif";
         ctx.textBaseline = "middle";
@@ -303,12 +315,18 @@ async function loadDashboardDataInit() {
             let fetchMoreOS = true;
 
             while (fetchMoreOS) {
-                const osResp = await window.supabaseClient
+                let queryOS = window.supabaseClient
                     .from('ordens_servico')
                     .select('*')
                     .neq('status', 'Agendada')
                     .order('data_abertura', { ascending: false })
                     .range(fromOS, fromOS + stepOS - 1);
+                    
+                if (typeof window.aplicarFiltroFilial === 'function') {
+                    queryOS = window.aplicarFiltroFilial(queryOS);
+                }
+
+                const osResp = await queryOS;
                     
                 if (osResp.error) {
                     fetchMoreOS = false;
@@ -326,16 +344,29 @@ async function loadDashboardDataInit() {
         if (window.frotasManutencao && window.frotasManutencao.length > 0) {
             frotasParaMeta = window.frotasManutencao;
         } else {
-            let frotasResp = await window.supabaseClient.from('frotas_manutencao').select('*').limit(5000);
+            let queryFrotas = window.supabaseClient.from('frotas_manutencao').select('*').limit(5000);
+            if (typeof window.aplicarFiltroFilial === 'function') {
+                queryFrotas = window.aplicarFiltroFilial(queryFrotas);
+            }
+            let frotasResp = await queryFrotas;
+
             if (!frotasResp.data || frotasResp.data.length === 0) {
-                frotasResp = await window.supabaseClient.from('cadastro_frota').select('*').limit(5000);
+                let queryCad = window.supabaseClient.from('cadastro_frota').select('*').limit(5000);
+                if (typeof window.aplicarFiltroFilial === 'function') {
+                    queryCad = window.aplicarFiltroFilial(queryCad);
+                }
+                frotasResp = await queryCad;
             }
             if (frotasResp.data) frotasParaMeta = frotasResp.data;
         }
     } catch (e) { console.error("Erro ao puxar dados da manutenção:", e); }
 
     try {
-        let queryMeta = window.supabaseClient.from('metas_globais').select('*').eq('id', 1).single();
+        let filialIdMetas = (window.currentUser && window.currentUser.filial_id !== null && window.currentUser.filial_id !== undefined) 
+            ? window.currentUser.filial_id 
+            : 1;
+            
+        let queryMeta = window.supabaseClient.from('metas_globais').select('*').eq('id', filialIdMetas).single();
         const { data: metasData } = await queryMeta;
         if (metasData) {
             metasGlobaisObj = metasData;
@@ -357,11 +388,7 @@ async function loadDashboardDataInit() {
         console.error("Erro ao puxar gruas cadastradas:", e);
     }
 
-    // ==============================================================
-    // SELEÇÃO DA TABELA (AGORA SEMPRE historico_viagens) E MAPEAMENTO UNIFICADO
-    // ==============================================================
     let tabelaViagens = 'historico_viagens'; 
-
     let allData = [];
     let from = 0;
     const step = 1000;
@@ -392,19 +419,19 @@ async function loadDashboardDataInit() {
         }
 
         if (data && data.length > 0) {
-            // Mapeamento Blindado para SP e Demais Filiais
             let dadosProcessados = data.map(d => {
-                // Recupera datas antigas de SP se a nova estiver vazia
                 let dataExcelFormatada = d.dataDaBaseExcel;
-                if (!dataExcelFormatada || dataExcelFormatada === 'Desconhecida') {
+                if (!dataExcelFormatada || dataExcelFormatada === 'Desconhecida' || dataExcelFormatada === 'null') {
                     if (d.data_saida_patio) {
                         dataExcelFormatada = String(d.data_saida_patio).split(' ')[0]; 
+                    } else if (d.created_at) {
+                        dataExcelFormatada = String(d.created_at).split('T')[0];
                     }
                 }
                 
-                // Mapeia PBTC e Peso Líquido priorizando as colunas oficiais (e pegando as antigas de SP se houver)
+                dataExcelFormatada = normalizarDataPainel(dataExcelFormatada);
+                
                 let pBruto = parseFloat(String(d.peso_na_entrada || d.peso_bruto || '0').replace(',', '.'));
-                // Se a planilha estiver em Toneladas (ex: 74) e não em KG (74000), multiplica por 1000
                 if (pBruto > 0 && pBruto <= 150) pBruto = pBruto * 1000; 
 
                 let pLiq = parseFloat(String(d.pesoLiquido || d.peso_liquido || '0').replace(',', '.'));
@@ -463,7 +490,6 @@ function calcStats(dataArr) {
     if(!dataArr || dataArr.length === 0) {
         return { volTotal: 0, medVol: 0, medCiclo: 0, prod: 0, medFilaCpo: 0, medCarreg: 0, medFilaFab: 0, medAsfalto: 0, medTerra: 0 };
     }
-
     const viagens = dataArr.length;
     const vol = dataArr.reduce((s,d) => s + d.volumeReal, 0);
     const medVol = viagens > 0 ? vol / viagens : 0;
@@ -475,10 +501,8 @@ function calcStats(dataArr) {
 
     const validFilaCpo = dataArr.filter(d => d.filaCampoHoras > 0);
     const medFilaCpo = validFilaCpo.length > 0 ? validFilaCpo.reduce((s,d) => s + d.filaCampoHoras, 0) / validFilaCpo.length : 0;
-
     const validCarreg = dataArr.filter(d => d.tempoCarregamentoHoras > 0);
     const medCarreg = validCarreg.length > 0 ? validCarreg.reduce((s,d) => s + d.tempoCarregamentoHoras, 0) / validCarreg.length : 0;
-
     const validFilaFab = dataArr.filter(d => d.filaFabricaHoras > 0);
     const medFilaFab = validFilaFab.length > 0 ? validFilaFab.reduce((s,d) => s + d.filaFabricaHoras, 0) / validFilaFab.length : 0;
     
@@ -627,6 +651,7 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         }
 
         let dadosASN = dadosFiltrados.filter(d => !isTransportadoraPropria(d) && isASN(d));
+        
         let cenarioASN = {
             nome: 'TRANSP. ASN',
             tipo: 'ASN',
@@ -644,6 +669,29 @@ function renderizarTabelaComparativo(dadosFiltrados) {
     cenarios.forEach(c => {
         todasViagensValidas = todasViagensValidas.concat(c.dados);
     });
+
+    // ==============================================================
+    // SALVA-VIDAS: Cobre as Frentes Não Mapeadas (Gruas Não Cadastradas)
+    // ==============================================================
+    const setMapeadas = new Set(todasViagensValidas.map(d => d.id || d.movimento));
+    
+    // Captura as viagens que a filial rodou mas a grua não estava cadastrada no sistema
+    let dadosNaoMapeados = dadosFiltrados.filter(d => !setMapeadas.has(d.id || d.movimento));
+    
+    if (dadosNaoMapeados.length > 0) {
+        let cenarioNaoMapeado = {
+            nome: 'FRENTES NÃO MAPEADAS (Gruas sem cadastro)',
+            tipo: 'SEM CADASTRO',
+            style: { text: 'text-rose-400', bg: 'bg-rose-900/10' }, 
+            icon: 'fa-exclamation-triangle',
+            dados: dadosNaoMapeados,
+            stats: calcStats(dadosNaoMapeados),
+            ordemLabel: 'ALERTA'
+        };
+        cenarios.push(cenarioNaoMapeado);
+        todasViagensValidas = todasViagensValidas.concat(dadosNaoMapeados);
+    }
+
     todasViagensValidas = [...new Set(todasViagensValidas)];
     const stGlobal = calcStats(todasViagensValidas);
 
@@ -700,7 +748,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
 
 function loadDashboardData() {
     const storedData = fullHistoricoData;
-
     if(!storedData.length) {
         if(document.getElementById('dbStatusLabel')) document.getElementById('dbStatusLabel').innerText = "Sem dados no banco";
         renderizarTabelaComparativo([]); 
@@ -726,7 +773,6 @@ function loadDashboardData() {
         currM = 'ALL'; 
         window.dashMesInicializado = true;
     }
-
     if (filterMes) {
         const mesesSet = new Set();
         storedData.forEach(d => {
@@ -742,7 +788,6 @@ function loadDashboardData() {
               const pA = a.split('/'); const pB = b.split('/');
               return new Date(pA[1], pA[0]-1, 1) - new Date(pB[1], pB[0]-1, 1);
         });
-
         const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         
         filterMes.innerHTML = '<option value="ALL">TODOS OS MESES</option>';
@@ -830,14 +875,12 @@ function loadDashboardData() {
             tv.innerText = '0';
             tv.className = "text-3xl font-extrabold text-white m-0 transition-all";
         }
-
         if (document.getElementById('metaViagensText')) {
             let mt = document.getElementById('metaViagensText');
             mt.innerHTML = `<span class="text-sky-400 font-bold text-[12px]">DM: 0.00% (0)</span> <span class="text-slate-600 mx-[6px]">|</span> <span class="text-slate-400 font-bold text-[12px]">META: 0</span>`;
             mt.classList.remove('hidden');
             mt.className = "mt-auto pt-3 border-t border-slate-700/50 flex items-center uppercase tracking-wider block whitespace-nowrap overflow-hidden text-ellipsis";
         }
-
         if(document.getElementById('totalPesoLiq')) document.getElementById('totalPesoLiq').innerHTML = '<span class="text-white">0 t</span>';
         if(document.getElementById('mediaRPV')) document.getElementById('mediaRPV').innerText = '0';
         if(document.getElementById('produtividadeGlobal')) document.getElementById('produtividadeGlobal').innerText = '0.0';
@@ -846,19 +889,26 @@ function loadDashboardData() {
         if(document.getElementById('bestPlacaName')) document.getElementById('bestPlacaName').innerText = 'Nenhum cavalo encontrado';
         if(document.getElementById('tempoCarregamento')) document.getElementById('tempoCarregamento').innerText = '0 h';
         
-        if(document.getElementById('mediaVolumeViagem')) {
-            const el = document.getElementById('mediaVolumeViagem');
-            el.className = "text-3xl font-extrabold text-white m-0 transition-all";
-            el.innerHTML = '0 m³';
-            const sub = el.parentElement.nextElementSibling;
-            if(sub) { sub.innerText = "Caixa de Carga"; sub.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest"; }
+        let elMediaVol = document.getElementById('mediaVolumeViagem');
+        if (elMediaVol) {
+            elMediaVol.className = "text-3xl font-extrabold text-white m-0 transition-all";
+            elMediaVol.innerText = "0 m³";
+            const subMedia = elMediaVol.parentElement.nextElementSibling;
+            if(subMedia) {
+                subMedia.innerText = "Caixa de Carga";
+                subMedia.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest";
+            }
         }
-        if(document.getElementById('totalVolumeReal')) {
-            const el = document.getElementById('totalVolumeReal');
-            el.className = "text-3xl font-extrabold text-white m-0 transition-all";
-            el.innerHTML = '0 m³';
-            const sub = el.parentElement.nextElementSibling;
-            if(sub) { sub.innerText = "Acumulado Período"; sub.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest"; }
+
+        let elTotalVol = document.getElementById('totalVolumeReal');
+        if (elTotalVol) {
+            elTotalVol.className = "text-3xl font-extrabold text-white m-0 transition-all";
+            elTotalVol.innerText = "0 m³";
+            const subTotal = elTotalVol.parentElement.nextElementSibling;
+            if(subTotal) {
+                subTotal.innerText = "Acumulado Período";
+                subTotal.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest";
+            }
         }
 
         renderizarTabelaComparativo([]);
@@ -885,7 +935,7 @@ function loadDashboardData() {
 
     function isViagemPropriaDashboard(d) {
         const filialId = window.currentUser ? parseInt(window.currentUser.filial_id) : null;
-        if (filialId === 5) return true; 
+        if (filialId === 5) return true; // Cobre Bracell
 
         const transp = String(d.transportadora || '').trim().toUpperCase();
         return transp.includes(transpPropriaConfig) || transp === transpPropriaConfig;
@@ -950,14 +1000,13 @@ function loadDashboardData() {
     // =========================================================================================
     let inicioPeriodo = new Date(dataInicioCalc);
     inicioPeriodo.setHours(0, 0, 0, 0);
-
     let fimDia = new Date(inicioPeriodo);
     fimDia.setDate(fimDia.getDate() + 1); 
 
     let agora = new Date();
     let isHoje = inicioPeriodo.toDateString() === agora.toDateString();
-
     let fimParaCalculo = isHoje ? agora : fimDia;
+
     let msTotalPeriodo = fimParaCalculo.getTime() - inicioPeriodo.getTime();
     if (msTotalPeriodo <= 0) msTotalPeriodo = 1;
 
@@ -1034,7 +1083,6 @@ function loadDashboardData() {
     let corDm = percentDM >= 90 ? 'text-emerald-400' : (percentDM >= 80 ? 'text-amber-400' : 'text-rose-400');
     
     let atingiuMeta = totalViagens >= metaTotalViagens;
-
     let mediaVeiculosDisp = totalMsExistenciaPeriodo > 0 ? (somaDispNoDiaMs / msTotalPeriodo) : 0;
     let mediaVeiculosDispStr = Math.round(mediaVeiculosDisp).toString();
 
@@ -1152,13 +1200,12 @@ function loadDashboardData() {
 
     const produtividadeGlobalM3 = somaCiclosTotais > 0 ? (totalVolumeReal / somaCiclosTotais) : 0;
     
-    let metaCaixaFinal = (metasGlobaisObj && metasGlobaisObj.cx_prog) ? parseFloat(metasGlobaisObj.cx_prog) : 48;
+    // Apenas usa as metas se o usuário tiver de fato configurado (sem fallback "chumbado")
+    let metaCaixaFinal = (metasGlobaisObj && metasGlobaisObj.cx_prog) ? parseFloat(metasGlobaisObj.cx_prog) : 0;
     
     let metaVolumeCalculada = 0;
     if (metasGlobaisObj && metasGlobaisObj.vol_prog > 0) {
         metaVolumeCalculada = metasGlobaisObj.vol_prog * diasConsideradosCalc; 
-    } else {
-        metaVolumeCalculada = (50 * 2 * diasConsideradosCalc) * metaCaixaFinal; 
     }
 
     let elMediaVol = document.getElementById('mediaVolumeViagem');
@@ -1184,6 +1231,11 @@ function loadDashboardData() {
         } else {
             elMediaVol.className = "text-3xl font-extrabold text-white m-0 transition-all";
             elMediaVol.innerText = mediaVolume.toLocaleString('pt-PT', {maximumFractionDigits: 1}) + " m³";
+            const subMedia = elMediaVol.parentElement.nextElementSibling;
+            if(subMedia) {
+                subMedia.innerText = "Caixa de Carga";
+                subMedia.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest";
+            }
         }
     }
 
@@ -1210,6 +1262,11 @@ function loadDashboardData() {
         } else {
             elTotalVol.className = "text-3xl font-extrabold text-white m-0 transition-all";
             elTotalVol.innerText = totalVolumeReal.toLocaleString('pt-PT', {maximumFractionDigits: 1}) + " m³";
+            const subTotal = elTotalVol.parentElement.nextElementSibling;
+            if(subTotal) {
+                subTotal.innerText = "Acumulado Período";
+                subTotal.className = "mt-auto pt-3 border-t border-slate-700/50 text-[10px] font-bold text-slate-500 uppercase tracking-widest";
+            }
         }
     }
 

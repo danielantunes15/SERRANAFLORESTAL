@@ -2,12 +2,12 @@
 if(typeof Chart !== 'undefined') {
     Chart.register(ChartDataLabels);
 }
-
 var dadosViagensEvolucao = [];
 var dadosFiltradosEvolucao = [];
 var dicionarioUpFazenda = {}; 
 
 var tarifadorAtivoGlobalEvolucao = null; 
+
 var gruasPropriasCacheEvolucao = new Map(); 
 
 var chartEvolucaoDiariaObj = null;
@@ -48,15 +48,12 @@ function classificarTransportadora(nomeOriginal) {
 async function buscarTarifadorAtivoEvolucao() {
     const client = getSupabaseClientEvolucao();
     const badge = document.getElementById('badgeTarifadorAtivoEvolucao');
-
     if (!client) return;
     try {
         let query = client.from('tarifadores').select('*').eq('ativo', true).limit(1);
         if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
-
         const { data, error } = await query;
         if (error) throw error;
-
         if (data && data.length > 0) {
             tarifadorAtivoGlobalEvolucao = data[0];
             const precoCarreg = parseFloat(tarifadorAtivoGlobalEvolucao.preco_carregamento) || 0;
@@ -86,12 +83,11 @@ async function buscarConfigGruasEvolucao() {
     try {
         const { data, error } = await client.from('config_gruas').select('*');
         if (error) throw error;
-        
+                 
         gruasPropriasCacheEvolucao.clear();
         if (data) {
             data.forEach(g => {
                 const tipo = String(g.tipo_frente || g.tipo || '').toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                // Filtra apenas as que foram explicitamente marcadas como PRÓPRIA no painel
                 if (tipo.includes('PROPRIA')) {
                     if (g.codigos) {
                         g.codigos.split(',').forEach(c => {
@@ -110,31 +106,43 @@ async function buscarConfigGruasEvolucao() {
 function isGruaSerrana(gruaString) {
     let g = String(gruaString).trim().toUpperCase();
     if (!g || g === '-' || g === 'NULL') return false;
-    
-    // Removemos espaços e hifens (Ex: GSR-0005 se torna GSR0005)
     g = g.replace(/[-\s]/g, '');
-    
-    // 1. Se estiver mapeada no banco de dados como PRÓPRIA
     if (gruasPropriasCacheEvolucao.has(g)) return true;
-    
-    // 2. Fallback de Segurança: Se iniciar com GSR
     if (g.startsWith('GSR')) return true;
-    
     return false;
 }
 
+// ==========================================
+// CÁLCULO INTELIGENTE DE TARIFA (RAIO + MATRIZ)
+// ==========================================
 function calcularTarifaTransporteEvolucao(asfalto, terra) {
     if (!tarifadorAtivoGlobalEvolucao || !tarifadorAtivoGlobalEvolucao.dados) return 0;
     let asfaltoVal = parseFloat(String(asfalto).replace(',','.')) || 0;
     let terraVal = parseFloat(String(terra).replace(',','.')) || 0;
     const dadosMatriz = tarifadorAtivoGlobalEvolucao.dados;
+    
+    if (dadosMatriz.length === 0) return 0;
 
+    // VERIFICA SE A TABELA FOI CONFIGURADA POR RAIO
+    if (dadosMatriz[0].is_raio || dadosMatriz[0].raio_inicial !== undefined) {
+        let distanciaTotal = asfaltoVal + terraVal;
+        let distArredondada = Math.round(distanciaTotal * 100) / 100;
+        
+        let faixa = dadosMatriz.find(t => distArredondada >= t.raio_inicial && distArredondada <= t.raio_final);
+        
+        if (!faixa) {
+            let ordenados = [...dadosMatriz].sort((a,b) => a.raio_final - b.raio_final);
+            faixa = ordenados.find(t => t.raio_final >= distArredondada);
+            if(!faixa) faixa = ordenados[ordenados.length - 1];
+        }
+        return faixa ? parseFloat(faixa.tarifa) : 0;
+    }
+
+    // LÓGICA PADRÃO
     const exato = dadosMatriz.find(t => Math.abs(t.asfalto - asfaltoVal) < 0.001 && Math.abs(t.terra - terraVal) < 0.001);
     if (exato) return exato.tarifa;
-
     let maisProximo = null;
     let menorDistancia = Infinity;
-
     dadosMatriz.forEach(t => {
         const distancia = Math.sqrt(Math.pow(t.asfalto - asfaltoVal, 2) + Math.pow(t.terra - terraVal, 2));
         if (distancia < menorDistancia) {
@@ -149,18 +157,17 @@ window.initEvolucaoFazendas = async function() {
     console.log("[EVOLUCAO_FAZENDAS] Módulo ativado.");
     configurarEventosEvolucao();
     definirDatasPadraoEvolucao();
-    
+         
     await buscarTarifadorAtivoEvolucao(); 
     await buscarConfigGruasEvolucao();
     await mapearFazendasUPs();
     buscarDadosEvolucao();
-};
+}
 
 async function mapearFazendasUPs() {
     const client = getSupabaseClientEvolucao();
     const statusEl = document.getElementById('statusEvolucao');
     if(!client) return;
-
     if(statusEl) statusEl.innerText = "Sincronizando UPs e Fazendas...";
     dicionarioUpFazenda = {}; 
 
@@ -170,7 +177,6 @@ async function mapearFazendasUPs() {
         if (tbFazendas) {
             tbFazendas.forEach(f => mapFaz[f.id] = f.nome);
         }
-
         const { data: tbUps } = await client.from('monitoramento_ups').select('codigo, fazenda_id');
         if (tbUps) {
             tbUps.forEach(u => {
@@ -188,13 +194,10 @@ async function mapearFazendasUPs() {
 function configurarEventosEvolucao() {
     const btnFiltrar = document.getElementById('btnFiltrarEvolucao');
     if(btnFiltrar) btnFiltrar.addEventListener('click', processarFiltrosEExibirEvolucao);
-
     const btnExcel = document.getElementById('btnExportarEvolucao');
     if(btnExcel) btnExcel.addEventListener('click', exportarExcelEvolucao);
-
     const btnPNG = document.getElementById('btnExportarPNG');
     if(btnPNG) btnPNG.addEventListener('click', exportarTelaParaPNG);
-
     const filtroFazenda = document.getElementById('filtroFazenda');
     if(filtroFazenda) {
         filtroFazenda.addEventListener('change', processarFiltrosEExibirEvolucao);
@@ -206,25 +209,21 @@ async function exportarTelaParaPNG() {
         alert('A biblioteca html2canvas não foi carregada no index.html.');
         return;
     }
-
     const btn = document.getElementById('btnExportarPNG');
     const originalText = btn.innerHTML;
-    
+         
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando...';
     btn.disabled = true;
-
     try {
         const areaPrint = document.getElementById('conteudoEvolucaoFazendas');
         await new Promise(resolve => setTimeout(resolve, 500));
-
         const canvas = await html2canvas(areaPrint, { scale: 2, useCORS: true, backgroundColor: '#0f172a' });
         const imagemDataUrl = canvas.toDataURL('image/png');
-        
+                 
         const link = document.createElement('a');
         link.download = `Dashboard_Fazendas_${new Date().toISOString().slice(0,10)}.png`;
         link.href = imagemDataUrl;
         link.click();
-
     } catch (error) {
         console.error('Erro ao gerar PNG:', error);
         alert('Ocorreu um erro ao tentar gerar a imagem.');
@@ -236,11 +235,10 @@ async function exportarTelaParaPNG() {
 
 function definirDatasPadraoEvolucao() {
     const dataFim = new Date();
-    const dataInicio = new Date(dataFim.getFullYear(), dataFim.getMonth(), 1); 
-    
+    const dataInicio = new Date(dataFim.getFullYear(), dataFim.getMonth(), 1);
+          
     const elFim = document.getElementById('dataFimEvol');
     if(elFim) elFim.value = dataFim.toISOString().split('T')[0];
-
     const elInicio = document.getElementById('dataInicioEvol');
     if(elInicio) elInicio.value = dataInicio.toISOString().split('T')[0];
 }
@@ -248,38 +246,35 @@ function definirDatasPadraoEvolucao() {
 async function buscarDadosEvolucao() {
     const client = getSupabaseClientEvolucao();
     const statusEl = document.getElementById('statusEvolucao');
-    
+         
     if (!client) {
         if(statusEl) statusEl.innerText = "Erro na conexão com banco.";
         return;
     }
-
     try {
         dadosViagensEvolucao = [];
         let from = 0;
         const step = 1000;
         let fetchMore = true;
-        
+                 
         while (fetchMore) {
             let query = client.from('historico_viagens').select('*').range(from, from + step - 1);
             if (typeof window.aplicarFiltroLocal === 'function') {
                 query = window.aplicarFiltroLocal(query);
             }
-
             const { data, error } = await query;
             if (error) { console.error(error); break; }
-            
+                         
             if (data && data.length > 0) { 
-                dadosViagensEvolucao = dadosViagensEvolucao.concat(data); 
-                from += step; 
-                if(statusEl) statusEl.innerText = `Lendo viagens (${dadosViagensEvolucao.length})...`;
+                 dadosViagensEvolucao = dadosViagensEvolucao.concat(data); 
+                 from += step; 
+                 if(statusEl) statusEl.innerText = `Lendo viagens (${dadosViagensEvolucao.length})...`;
             }
             if (!data || data.length < step) fetchMore = false;
         }
-
         popularDropdownsIniciais();
         processarFiltrosEExibirEvolucao();
-        
+             
     } catch (e) {
         console.error(e);
         if(statusEl) statusEl.innerText = "Erro ao processar dados.";
@@ -293,21 +288,17 @@ function popularDropdownsIniciais() {
 function atualizarDropdownFazenda() {
     const selectFazenda = document.getElementById('filtroFazenda');
     if(!selectFazenda) return;
-
     const fazendas = new Set();
-
     dadosViagensEvolucao.forEach(v => {
         const tClassificada = classificarTransportadora(getCampo(v, ['transportadora', 'transportador', 'empresa_transporte']));
         const isSerrana = tClassificada === 'SERRANALOG TRANSPORTES LTDA';
         const isNossaGrua = isGruaSerrana(getCampo(v, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']));
-
         if(isSerrana || isNossaGrua) {
             const codUp = String(getCampo(v, ['up'])).trim().toUpperCase();
             let nomeDaFazenda = dicionarioUpFazenda[codUp] || "NÃO VINCULADA";
             fazendas.add(nomeDaFazenda.toUpperCase());
         }
     });
-
     let htmlFaz = '<option value="">Todas as Fazendas</option>';
     Array.from(fazendas).sort().forEach(faz => { htmlFaz += `<option value="${faz}">${faz}</option>`; });
     selectFazenda.innerHTML = htmlFaz;
@@ -331,24 +322,23 @@ function converterDataExcel(dataStr) {
 function processarFiltrosEExibirEvolucao() {
     const statusEl = document.getElementById('statusEvolucao');
     const fazendaFiltro = document.getElementById('filtroFazenda') ? document.getElementById('filtroFazenda').value : '';
-    
+         
     const strInicio = document.getElementById('dataInicioEvol') ? document.getElementById('dataInicioEvol').value : ''; 
     const strFim = document.getElementById('dataFimEvol') ? document.getElementById('dataFimEvol').value : ''; 
-
+     
     let timeInicio = strInicio ? new Date(strInicio.split('-')[0], parseInt(strInicio.split('-')[1]) - 1, strInicio.split('-')[2]).getTime() : 0;
     let timeFim = strFim ? new Date(strFim.split('-')[0], parseInt(strFim.split('-')[1]) - 1, strFim.split('-')[2], 23, 59, 59).getTime() : Infinity;
 
     dadosFiltradosEvolucao = dadosViagensEvolucao.filter(registro => {
         let dataV = getCampo(registro, ['dataDaBaseExcel', 'dataLancamento']);
         if (!dataV || dataV === '') dataV = getCampo(registro, ['created_at']);
-        
+                 
         const timeV = converterDataExcel(dataV).getTime();
         if (timeV < timeInicio || timeV > timeFim) return false;
 
         const tClassificada = classificarTransportadora(getCampo(registro, ['transportadora', 'transportador', 'empresa_transporte']));
         const isSerrana = tClassificada === 'SERRANALOG TRANSPORTES LTDA';
         const isNossaGrua = isGruaSerrana(getCampo(registro, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']));
-
         if (!isSerrana && !isNossaGrua) return false;
 
         const codUp = String(getCampo(registro, ['up'])).trim().toUpperCase();
@@ -359,11 +349,11 @@ function processarFiltrosEExibirEvolucao() {
     });
 
     calcularAgrupamentosERenderizar();
-    
+         
     if(statusEl) {
         statusEl.innerText = `${dadosFiltradosEvolucao.length} registros analisados`;
         statusEl.className = dadosFiltradosEvolucao.length === 0 
-            ? "text-xs font-bold bg-slate-900 border border-slate-700 text-amber-400 px-3 py-1 rounded-lg font-mono"
+             ? "text-xs font-bold bg-slate-900 border border-slate-700 text-amber-400 px-3 py-1 rounded-lg font-mono"
             : "text-xs font-bold bg-slate-900 border border-slate-700 text-emerald-400 px-3 py-1 rounded-lg font-mono";
     }
 }
@@ -385,15 +375,14 @@ function calcularAgrupamentosERenderizar() {
         const asfalto = toNumber(getCampo(r, ['distanciaAsfalto']));
         const terra = toNumber(getCampo(r, ['distanciaTerra']));
         const dmt = asfalto + terra;
-        
+                 
         const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora', 'transportador', 'empresa_transporte']));
         const isSerrana = transpAgrupada === 'SERRANALOG TRANSPORTES LTDA';
-        
+                 
         const isNossaGrua = isGruaSerrana(getCampo(r, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']));
 
         let tarifaCalcT = 0;
         let faturamentoCalcT = 0;
-
         if (isSerrana && tarifadorAtivoGlobalEvolucao) {
             tarifaCalcT = calcularTarifaTransporteEvolucao(asfalto, terra);
             faturamentoCalcT = tarifaCalcT * vol;
@@ -402,7 +391,6 @@ function calcularAgrupamentosERenderizar() {
             faturamentoCalcT = toNumber(getCampo(r, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
             if (faturamentoCalcT === 0 && tarifaCalcT > 0 && vol > 0) faturamentoCalcT = tarifaCalcT * vol;
         }
-
         let tarifaCalcC = isNossaGrua ? precoCarregamentoBase : 0;
         let faturamentoCalcC = isNossaGrua ? (vol * tarifaCalcC) : 0;
 
@@ -411,7 +399,7 @@ function calcularAgrupamentosERenderizar() {
             let crAt = getCampo(r, ['created_at']);
             dataStr = crAt ? String(crAt).split('T')[0] : 'S/D';
         }
-        
+                 
         const codUp = String(getCampo(r, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
         const chaveGrupo = `${nomeDaFazenda} || ${transpAgrupada}`;
@@ -430,7 +418,7 @@ function calcularAgrupamentosERenderizar() {
         if(!agrupamentoFazenda[chaveGrupo]) {
             agrupamentoFazenda[chaveGrupo] = { 
                 fazenda: nomeDaFazenda, transportadora: transpAgrupada, viagens: 0, volume: 0, 
-                faturamento: 0, faturamentoCarregamento: 0, scoreDMT: 0
+                faturamento: 0, faturamentoCarregamento: 0, scoreDMT: 0 
             };
         }
         agrupamentoFazenda[chaveGrupo].viagens += 1;
@@ -452,22 +440,22 @@ function calcularAgrupamentosERenderizar() {
                 somaDmtSerrana: 0
             };
         }
-        
+                 
         const cardFazenda = agrupamentoCardsFazenda[nomeDaFazenda];
-        
+                 
         if (isSerrana) {
             cardFazenda.volumeSerrana += vol;
             cardFazenda.viagensSerrana += 1;
             cardFazenda.somaDmtSerrana += dmt;
             cardFazenda.faturamentoTransporteSerrana += faturamentoCalcT;
         }
-        
+                 
         if (isNossaGrua) {
             cardFazenda.volumeCarregadoNossasGruas += vol;
             cardFazenda.viagensCarregado += 1;
             cardFazenda.faturamentoCarregamento += faturamentoCalcC;
         }
-        
+                 
         cardFazenda.faturamentoTotalNosso += (isSerrana ? faturamentoCalcT : 0) + (isNossaGrua ? faturamentoCalcC : 0);
 
         if (nomeDaFazenda === "NÃO VINCULADA" && codUp && codUp !== '' && codUp !== '-' && codUp !== 'NULL') {
@@ -493,7 +481,6 @@ function calcularAgrupamentosERenderizar() {
 function renderizarQuadroLadoALado(fazendasCards, totFaturamentoGlobal, precoCarregamentoBase) {
     const quadro = document.getElementById('quadroEvolucaoLadoALado');
     if(!quadro) return;
-
     if(fazendasCards.length === 0) {
         quadro.innerHTML = `
             <div class="col-span-full text-center text-amber-400 py-8 border border-dashed border-slate-700 rounded-xl bg-slate-800/20 font-bold text-sm">
@@ -505,23 +492,23 @@ function renderizarQuadroLadoALado(fazendasCards, totFaturamentoGlobal, precoCar
     let html = '';
     fazendasCards.forEach(f => {
         const partVolume = totFaturamentoGlobal > 0 ? ((f.faturamentoTotalNosso / totFaturamentoGlobal) * 100).toFixed(1) : 0;
-        
+                 
         const tarifaMediaTransporte = f.volumeSerrana > 0 ? (f.faturamentoTransporteSerrana / f.volumeSerrana) : 0;
         const dmtMedioSerrana = f.viagensSerrana > 0 ? (f.somaDmtSerrana / f.viagensSerrana) : 0;
-        
+                 
         const colorTitle = f.fazenda === "NÃO VINCULADA" ? "text-rose-400" : "text-white";
 
         html += `
             <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700/60 hover:border-emerald-500/50 hover:bg-slate-800 transition-all shadow-md flex flex-col justify-between group relative overflow-hidden">
                 <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl transition-all group-hover:bg-emerald-500/10"></div>
-                
+                                 
                 <div>
                     <div class="flex justify-between items-start gap-2 mb-2">
                         <span class="text-[10px] font-bold text-slate-400 font-mono flex items-center gap-1">
                             <i class="fas fa-chart-pie text-emerald-500"></i> ${partVolume}% da Receita
                         </span>
                     </div>
-                    
+                                         
                     <h4 class="${colorTitle} font-black text-sm tracking-wide uppercase truncate mb-3 border-b border-slate-700/50 pb-2" title="${f.fazenda}">
                         <i class="fas fa-tractor text-slate-500 text-xs mr-1"></i> ${f.fazenda}
                     </h4>
@@ -534,33 +521,30 @@ function renderizarQuadroLadoALado(fazendasCards, totFaturamentoGlobal, precoCar
                         </span>
                         <span class="text-sm font-black text-white font-mono bg-slate-900/50 px-2 py-0.5 rounded border border-slate-700/30">${f.viagensSerrana}</span>
                     </div>
-
                     <div class="flex justify-between items-center">
                         <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5" title="Viagens Carregadas por Gruas da Serrana">
                             <i class="fas fa-tractor text-emerald-400 text-[10px]"></i> Viagens (Carreg):
                         </span>
                         <span class="text-sm font-black text-white font-mono bg-slate-900/50 px-2 py-0.5 rounded border border-slate-700/30">${f.viagensCarregado}</span>
                     </div>
-                    
+                                         
                     <div class="flex justify-between items-center pt-2 mt-2 border-t border-slate-700/30">
                         <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5" title="Volume Exato Transportado">
                             <i class="fas fa-dolly text-sky-400 text-[10px]"></i> Vol. Transportado:
                         </span>
                         <span class="text-sm font-black text-sky-400 font-mono">${f.volumeSerrana.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 6 })}<span class="text-[10px] text-slate-500 ml-0.5">m³</span></span>
                     </div>
-
                     <div class="flex justify-between items-center">
                         <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5" title="Volume Exato Carregado (Serrana + Outros)">
                             <i class="fas fa-cubes text-emerald-400 text-[10px]"></i> Vol. Carregado:
                         </span>
                         <span class="text-sm font-black text-emerald-400 font-mono">${f.volumeCarregadoNossasGruas.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 6 })}<span class="text-[10px] text-slate-500 ml-0.5">m³</span></span>
                     </div>
-                    
+                                         
                     <div class="flex justify-between items-center pt-2 border-t border-slate-700/30 mt-2">
                         <span class="text-[10px] text-slate-500 uppercase tracking-widest">Faturado (Transp):</span>
                         <span class="text-xs font-bold text-sky-300 font-mono">R$ ${f.faturamentoTransporteSerrana.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-
                     <div class="flex justify-between items-center">
                         <span class="text-[10px] text-slate-500 uppercase tracking-widest">Faturado (Carreg):</span>
                         <span class="text-xs font-bold text-emerald-300 font-mono">R$ ${f.faturamentoCarregamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -575,12 +559,10 @@ function renderizarQuadroLadoALado(fazendasCards, totFaturamentoGlobal, precoCar
                         <span class="text-[10px] text-slate-500">Tarifa Transp. (Média):</span>
                         <span class="text-xs font-bold text-slate-300 font-mono">R$ ${tarifaMediaTransporte.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /m³</span>
                     </div>
-
                     <div class="flex justify-between items-center">
                         <span class="text-[10px] text-slate-500">Tarifa Carreg. (Preço):</span>
                         <span class="text-xs font-bold text-slate-300 font-mono">R$ ${precoCarregamentoBase.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /m³</span>
                     </div>
-
                     <div class="flex justify-between items-center pt-1 border-t border-slate-700/30">
                         <span class="text-[10px] text-slate-500">DMT Médio (Transp):</span>
                         <span class="text-xs font-bold text-slate-400 font-mono">${dmtMedioSerrana.toFixed(1)} km</span>
@@ -599,25 +581,20 @@ function renderizarQuadroLadoALado(fazendasCards, totFaturamentoGlobal, precoCar
 function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
     const diasOrd = Object.keys(agrDiario).filter(d => d !== 'S/D').sort((a,b) => converterDataExcel(a).getTime() - converterDataExcel(b).getTime());
     const labelsDiario = diasOrd.map(d => d.substring(0,5));
-
     const fazendasNoPeriodoSet = new Set();
     diasOrd.forEach(d => {
         Object.keys(agrDiario[d]).forEach(faz => fazendasNoPeriodoSet.add(faz));
     });
     const arrayFazendas = Array.from(fazendasNoPeriodoSet).sort();
-
     const paleta = ['#10b981', '#38bdf8', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
-
     const datasetsDiario = arrayFazendas.map((faz, index) => {
         const dataVol = [];
-        const dataViagens = []; 
-        
+        const dataViagens = [];          
         diasOrd.forEach(d => {
             const inf = agrDiario[d][faz] || { volume: 0, viagens: 0 };
             dataVol.push(parseFloat(inf.volume.toFixed(1)));
             dataViagens.push(inf.viagens);
         });
-
         return {
             type: 'bar',
             label: faz,
@@ -692,7 +669,7 @@ function renderizarGraficosEvolucao(agrDiario, listaFazendas) {
         if(!agrupamentoPuroFazenda[f.fazenda]) agrupamentoPuroFazenda[f.fazenda] = 0;
         agrupamentoPuroFazenda[f.fazenda] += f.volume;
     });
-    
+         
     const arrPuroFazendas = Object.keys(agrupamentoPuroFazenda).map(key => {
         return { fazenda: key, volume: agrupamentoPuroFazenda[key] };
     }).sort((a,b) => b.volume - a.volume).slice(0, 10);
@@ -734,16 +711,14 @@ function renderizarTabelaEvolucao(dados) {
     const tbody = document.getElementById('tbodyEvolucaoFazendas');
     if(!tbody) return;
     tbody.innerHTML = '';
-
     if(dados.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center p-8 text-slate-500">Nenhum registro encontrado.</td></tr>`;
         return;
     }
-
     dados.forEach(d => {
         const dmtMedio = d.viagens > 0 ? (d.scoreDMT / d.viagens) : 0;
         const tarifaMedia = d.volume > 0 ? (d.faturamento / d.volume) : 0;
-        
+                 
         const corFazenda = d.fazenda === "NÃO VINCULADA" ? "text-rose-400" : "text-white";
         const isSerrana = d.transportadora.includes('SERRANALOG');
         const corTransportadora = isSerrana ? "text-slate-300" : "text-purple-300 font-bold";
@@ -768,12 +743,10 @@ function renderizarUPsNaoVinculadas(ups) {
     const tbody = document.getElementById('tbodyUpsNaoVinculadas');
     if(!tbody) return;
     tbody.innerHTML = '';
-
     if(ups.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" class="text-center p-8 text-emerald-400 font-bold"><i class="fas fa-check-circle mr-2"></i>Todas as UPs da operação estão cadastradas e vinculadas a uma Fazenda!</td></tr>`;
         return;
     }
-
     ups.forEach(u => {
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-700/30 transition-colors";
@@ -805,25 +778,24 @@ function exportarExcelEvolucao() {
         const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora', 'transportador', 'empresa_transporte']));
         const codUp = String(getCampo(r, ['up'])).trim().toUpperCase();
         let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
-        
+                 
         let dataStr = getCampo(r, ['dataDaBaseExcel', 'dataLancamento']);
         if (!dataStr || dataStr === '') {
             let crAt = getCampo(r, ['created_at']);
             dataStr = crAt ? String(crAt).split('T')[0] : 'S/D';
         }
-        
+                 
         const ch = `${dataStr}_${nomeDaFazenda}_${transpAgrupada}`;
         const vol = toNumber(getCampo(r, ['volumeReal', 'pesoLiquido']));
         const asfalto = toNumber(getCampo(r, ['distanciaAsfalto']));
         const terra = toNumber(getCampo(r, ['distanciaTerra']));
         const dmt = asfalto + terra;
-        
+                 
         const isSerrana = transpAgrupada === 'SERRANALOG TRANSPORTES LTDA';
         const isNossaGrua = isGruaSerrana(getCampo(r, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']));
 
         let tarifaCalcT = 0;
         let faturamentoCalcT = 0;
-
         if (isSerrana && tarifadorAtivoGlobalEvolucao) {
             tarifaCalcT = calcularTarifaTransporteEvolucao(asfalto, terra);
             faturamentoCalcT = tarifaCalcT * vol;
