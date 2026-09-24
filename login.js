@@ -1,11 +1,23 @@
 let usuarioTemporario = null;
 let listaFiliais = [];
+let tentativasFalhas = 0;
 
 async function hashPassword(password) {
     const msgBuffer = new TextEncoder().encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function gerarCaptcha() {
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = Math.floor(Math.random() * 10) + 1;
+    const inputCaptcha = document.getElementById('loginCaptcha');
+    inputCaptcha.placeholder = `Segurança: Quanto é ${num1} + ${num2}?`;
+    inputCaptcha.value = ''; 
+    inputCaptcha.required = true;
+    document.getElementById('captchaResult').value = num1 + num2;
+    document.getElementById('captchaContainer').style.display = 'block';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -23,14 +35,13 @@ async function carregarFiliaisDoBanco() {
     try {
         if (typeof db.getFiliais === 'function') {
             listaFiliais = await db.getFiliais();
-        } else if (window.supabaseClient) {
-             const { data } = await window.supabaseClient.from('filiais').select('*').eq('status', 'Ativa').order('nome', { ascending: true });
+        } else if (window.supabaseClient) { 
+            const { data } = await window.supabaseClient.from('filiais').select('*').eq('status', 'Ativa').order('nome', { ascending: true });
             listaFiliais = data || [];
         }
         
         select.innerHTML = '<option value="" disabled selected>Selecione a Base/Filial...</option>';
         
-        // Adiciona as filiais normais primeiro
         listaFiliais.forEach(filial => {
             const option = document.createElement('option');
             option.value = filial.id;
@@ -38,12 +49,11 @@ async function carregarFiliaisDoBanco() {
             select.appendChild(option);
         });
 
-        // ADICIONA A OPÇÃO GLOBAL PARA O SUPERADMIN NA TELA DE LOGIN POR ÚLTIMO
         const optionGlobal = document.createElement('option');
         optionGlobal.value = 'CENTRAL';
         optionGlobal.textContent = 'ADMINISTRADOR';
         optionGlobal.style.fontWeight = 'bold';
-        optionGlobal.style.color = '#ffffff'; // Letra branca
+        optionGlobal.style.color = '#ffffff';
         select.appendChild(optionGlobal);
 
     } catch (e) {
@@ -62,6 +72,16 @@ window.realizarLogin = async function(event) {
     if (!filialId) { alert('Por favor, selecione uma filial válida.'); return; }
     if(!userStr || !passStr) { alert('Preencha seu usuário e senha.'); return; }
 
+    if (tentativasFalhas >= 2) {
+        const inputCaptcha = document.getElementById('loginCaptcha').value;
+        const expected = document.getElementById('captchaResult').value;
+        if (inputCaptcha !== expected) {
+            alert('Resposta de segurança incorreta. Tente novamente.');
+            gerarCaptcha();
+            return;
+        }
+    }
+
     const prevText = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Autenticando...';
     btn.disabled = true;
@@ -71,7 +91,6 @@ window.realizarLogin = async function(event) {
         let dbUser = null;
         let authIdSeguro = null;
 
-        // TENTA O LOGIN SEGURO VIA SUPABASE AUTH
         const { data: authData, error: authError } = await window.supabaseClient.auth.signInWithPassword({
             email: emailFantasma,
             password: passStr
@@ -83,20 +102,20 @@ window.realizarLogin = async function(event) {
             dbUser = await db.getUsuarioByUsername(userStr);
 
             if (!dbUser || (dbUser.senha_hash !== hashedPass && dbUser.senha_hash !== passStr)) {
+                tentativasFalhas++;
+                if (tentativasFalhas >= 2) gerarCaptcha();
                 alert('Usuário ou senha incorretos.');
                 btn.innerHTML = prevText;
                 btn.disabled = false;
                 return;
             }
-
-            // MIGRAÇÃO SILENCIOSA 
+            
             if (!dbUser.auth_id && !dbUser.primeiro_acesso) {
                 console.log("Migrando usuário antigo para autenticação segura...");
                 const { data: signUpData, error: signUpError } = await window.supabaseClient.auth.signUp({
                     email: emailFantasma,
                     password: passStr 
                 });
-
                 if (signUpError) {
                     console.error("ERRO NO SUPABASE AUTH (signUp):", signUpError);
                 } else if (signUpData && signUpData.user) {
@@ -115,11 +134,9 @@ window.realizarLogin = async function(event) {
                 }
             }
         } else {
-            // LOGIN SEGURO COM SUCESSO
             authIdSeguro = authData.user.id;
             dbUser = await db.getUsuarioByUsername(userStr);
             
-            // Verifica se a conta já existe no Supabase mas o banco ainda não sabe o ID
             if (dbUser && !dbUser.auth_id) {
                 console.log("Sincronizando auth_id com o banco de dados...");
                 await window.supabaseClient.from('usuarios')
@@ -129,14 +146,11 @@ window.realizarLogin = async function(event) {
         }
 
         if (dbUser) {
-            // ================= REGRAS DE SEGURANÇA E BLOQUEIO =================
+            tentativasFalhas = 0;
             const isGlobalAdmin = (dbUser.role === 'SuperAdmin');
             
-            // CONVERSÃO DE ACESSO CORPORATIVO:
-            // Transforma o 'CENTRAL' da tela em null para bater perfeitamente com o banco de dados
             const filialIdComparacao = (filialId === 'CENTRAL') ? null : filialId;
 
-            // A trava agora entende que um usuário global pode entrar na base global
             if (!isGlobalAdmin && dbUser.filial_id != filialIdComparacao) {
                 alert('Acesso Negado! Seu usuário não tem permissão para a filial selecionada.');
                 await window.supabaseClient.auth.signOut();
@@ -172,6 +186,8 @@ window.realizarLogin = async function(event) {
                 window.location.href = 'index.html';
             }
         } else {
+            tentativasFalhas++;
+            if (tentativasFalhas >= 2) gerarCaptcha();
             alert('Perfil não encontrado no banco de dados da operação.');
             btn.innerHTML = prevText;
             btn.disabled = false;
@@ -224,7 +240,7 @@ window.salvarNovaSenha = async function() {
                 senha_hash: hashedNewPass, 
                 primeiro_acesso: false, 
                 auth_id: authIdSeguro 
-            })
+             })
             .eq('id', usuarioTemporario.id);
 
         if (dbError) throw dbError;
@@ -233,6 +249,7 @@ window.salvarNovaSenha = async function() {
         usuarioTemporario.auth_id = authIdSeguro;
         localStorage.setItem('ccol_user_session', JSON.stringify(usuarioTemporario));
         window.location.href = 'index.html';
+
     } catch(e) {
         console.error("Erro fatal ao salvar senha:", e);
         alert('Falha na comunicação com o servidor.');
