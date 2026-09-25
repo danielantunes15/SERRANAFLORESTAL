@@ -17,6 +17,7 @@ window.MAPA_MENUS = [
     
     { id: 'os', label: 'Gestão de O.S.', setor: 'Manutenção', icon: 'fas fa-clipboard-list' },
     { id: 'historico_os', label: 'Histórico de O.S.', setor: 'Manutenção', icon: 'fas fa-history' },
+    { id: 'controle_manutencao', label: 'Controle de Manutenção', setor: 'Manutenção', icon: 'fas fa-cogs' },
     { id: 'painel_tv', label: 'Painel TV (Tempo Real)', setor: 'Manutenção', icon: 'fas fa-tv' },
     { id: 'servicos', label: 'Serviços (Mecânicos)', setor: 'Manutenção', icon: 'fas fa-toolbox' },
     { id: 'borracharia', label: 'Borracharia', setor: 'Manutenção', icon: 'fas fa-life-ring' },
@@ -95,6 +96,7 @@ const ROTAS = {
     
     'os': 'modules/manutencao/ordem_servico/os.html',
     'historico_os': 'modules/manutencao/historico_os/historico_os.html',
+    'controle_manutencao': 'modules/manutencao/controle_manutencao/controle_manutencao.html',
     'painel_tv': 'modules/manutencao/painel_tv/painel_tv.html',
     'servicos': 'modules/manutencao/servicos/servicos.html',
     'borracharia': 'modules/manutencao/borracharia/borracharia.html',
@@ -338,6 +340,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
         if (pagina === 'historico_os' && typeof window.initHistoricoOS === 'function') window.initHistoricoOS();
+        if (pagina === 'controle_manutencao' && typeof window.initControleManutencao === 'function') window.initControleManutencao();
         if (pagina === 'cadastro_os_classificacoes' && typeof window.renderizarCadastroClassificacoes === 'function') window.renderizarCadastroClassificacoes();
         
         // NOVO: Inicializador SSMA
