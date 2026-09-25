@@ -2,6 +2,7 @@
 window.listaColaboradoresDb = [];
 window.colaboradoresFiltradosRH = [];
 window.listaCursosAtivos = [];
+window.cargosCadastradosDb = []; // Adicionado: Armazenar cargos para o filtro em cascata
 window.filtroPendenciasAtivo = false;
 
 // Variáveis de Paginação
@@ -22,6 +23,37 @@ window.camposBaseObrigatorios = [
     { key: 'toxicologico_vencimento', id: 'colToxicologico' }
 ];
 
+// Funções para o Filtro em Cascata de Setor -> Cargo
+window.filtrarCargosPorSetorEvent = function() {
+    window.filtrarCargosPorSetor(this.value);
+};
+
+window.filtrarCargosPorSetor = function(setorId) {
+    const selCargo = document.getElementById('colFuncao');
+    if (!selCargo) return;
+
+    let cargosFiltrados = window.cargosCadastradosDb || [];
+    
+    // Filtra os cargos somente se um setor tiver sido selecionado
+    if (setorId) {
+        cargosFiltrados = cargosFiltrados.filter(c => String(c.setor_id) === String(setorId));
+    }
+
+    const valorAtual = selCargo.value;
+    
+    // Atualiza o HTML do campo de cargos com os resultados do filtro
+    selCargo.innerHTML = '<option value="">Selecione um cargo...</option>' + cargosFiltrados.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+    
+    // Mantém o cargo previamente selecionado se ele continuar válido no novo filtro
+    if (valorAtual && cargosFiltrados.some(c => c.nome === valorAtual)) {
+        selCargo.value = valorAtual;
+    } else if (valorAtual && !setorId && window.cargosCadastradosDb.some(c => c.nome === valorAtual)) {
+        // Garante que o valor não se perca caso venha preenchido
+        selCargo.innerHTML += `<option value="${valorAtual}">${valorAtual}</option>`;
+        selCargo.value = valorAtual;
+    }
+};
+
 // FUNÇÃO AUXILIAR PARA RESGATAR A FILIAL DO USUÁRIO NO RH
 window.obterFilialUsuarioLogadoRH = function() {
     return (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') 
@@ -40,6 +72,13 @@ window.initRHColaboradores = async function() {
     
     window.filtroPendenciasAtivo = false;
     window.paginaAtualRH = 1;
+    
+    // Listener do Filtro Dinâmico de Cargos
+    const selSetor = document.getElementById('colSetorId');
+    if(selSetor) {
+        selSetor.removeEventListener('change', window.filtrarCargosPorSetorEvent);
+        selSetor.addEventListener('change', window.filtrarCargosPorSetorEvent);
+    }
     
     await window.carregarSetoresGlobal(); 
     await window.carregarCursosGlobais();
@@ -99,7 +138,7 @@ window.toggleFiltroPendencias = function() {
     if(window.filtroPendenciasAtivo) {
         btn.classList.remove('btn-danger-outline');
         btn.classList.add('btn-danger-block');
-        btn.innerHTML = '<i class="fas fa-filter"></i> Filtrando Pendentes';
+        btn.innerHTML = '<i class="fas fa-filter"></i> Filtrando Pendências';
     } else {
         btn.classList.remove('btn-danger-block');
         btn.classList.add('btn-danger-outline');
@@ -582,7 +621,8 @@ window.carregarSetoresGlobal = async function() {
 
 window.carregarCargosControladoria = async function() {
     try {
-        let query = window.supabaseClient.from('cargos').select('id, nome, filial_id').eq('status', 'Ativo').order('nome', { ascending: true });
+        // Alterado: Adicionado 'setor_id' na query para permitir o funcionamento do filtro cascata
+        let query = window.supabaseClient.from('cargos').select('id, nome, filial_id, setor_id').eq('status', 'Ativo').order('nome', { ascending: true });
         
         // Aplica o filtro de filial para os cargos (RH)
         const filialLogada = window.obterFilialUsuarioLogadoRH();
@@ -593,8 +633,13 @@ window.carregarCargosControladoria = async function() {
         const { data, error } = await query;
         if (error) throw error;
 
-        const selCargo = document.getElementById('colFuncao');
-        if (selCargo) selCargo.innerHTML = '<option value="">Selecione um cargo...</option>' + data.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+        // Armazena globalmente a lista completa
+        window.cargosCadastradosDb = data || [];
+        
+        // Aplica o filtro inicial baseando-se no que estiver marcado no campo 'Setor'
+        const setorAtual = document.getElementById('colSetorId') ? document.getElementById('colSetorId').value : '';
+        window.filtrarCargosPorSetor(setorAtual);
+
     } catch(e) { console.error("Erro ao carregar cargos:", e); }
 };
 
@@ -704,6 +749,10 @@ window.abrirFichaCompleta = async function(id = null) {
         
         document.getElementById('colTipoContrato').value = c.tipo_contrato || 'CLT';
         document.getElementById('colSetorId').value = c.setor_id || '';
+        
+        // Aciona o filtro de Cargos para refletir apenas os compatíveis com o setor armazenado no banco
+        window.filtrarCargosPorSetor(c.setor_id);
+        
         document.getElementById('colPlanoSaude').value = c.plano_saude || 'Não';
         document.getElementById('colSindicato').value = c.ativo_sindicato || 'Não';
         
@@ -818,6 +867,8 @@ window.abrirFichaCompleta = async function(id = null) {
         window.atualizarBadgeStatusHeader();
         
         document.getElementById('colSetorId').value = '';
+        window.filtrarCargosPorSetor(''); // Aciona filtro sem setor (reseta lista de cargos)
+
         document.getElementById('colPlanoSaude').value = 'Não';
         document.getElementById('colSindicato').value = 'Não';
         
