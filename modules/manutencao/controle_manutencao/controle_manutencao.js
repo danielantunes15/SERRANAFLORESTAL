@@ -12,19 +12,7 @@ window.obterFilialUsuarioLogadoRev = function() {
 window.initControleManutencao = async function() {
     console.log("Módulo Controle de Manutenção (Revisões) Inicializado.");
     
-    // Injeta botão de Importar Excel dinamicamente se não existir
-    const actionBar = document.querySelector('.action-bar > div:last-child');
-    if (actionBar && !document.getElementById('btnImportarExcelKm')) {
-        const btnImportar = document.createElement('button');
-        btnImportar.id = 'btnImportarExcelKm';
-        btnImportar.className = 'btn-primary-green';
-        btnImportar.innerHTML = '<i class="fas fa-file-excel"></i> Importar KMs (TRITREM)';
-        btnImportar.onclick = window.importarPlanilhaKm;
-        
-        // Insere o botão antes do botão de configurações
-        actionBar.insertBefore(btnImportar, actionBar.lastElementChild);
-    }
-
+    // Filtros
     const elPlaca = document.getElementById('filtroPlacaRevisao');
     const elStatus = document.getElementById('filtroStatusRevisao');
     if (elPlaca) elPlaca.value = '';
@@ -39,7 +27,7 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
     
     try {
         const tbody = document.getElementById('tbControleRevisoes');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Sincronizando e carregando veículos...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Sincronizando e carregando veículos...</td></tr>`;
 
         // 1. Sincroniza com Google Sheets antes de buscar do banco e ESPERA terminar
         if (forcarSincronizacao) {
@@ -94,7 +82,10 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
                 km_atual: parseInt(rev.km_atual) || 0,
                 km_ultima_revisao: parseInt(rev.km_ultima_revisao) || 0,
                 km_proxima_revisao: parseInt(rev.km_proxima_revisao) || 0,
-                detalhes_ultima_revisao: rev.detalhes_ultima_revisao || ''
+                detalhes_ultima_revisao: rev.detalhes_ultima_revisao || '',
+                // CAMPOS DE INSPEÇÃO (TRITREM)
+                data_inspecao: rev.data_inspecao || null,
+                data_proxima_inspecao: rev.data_proxima_inspecao || null
             };
         });
 
@@ -102,7 +93,7 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
     } catch (e) {
         console.error("Erro ao carregar e mesclar veículos:", e);
         const tbody = document.getElementById('tbControleRevisoes');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Erro ao buscar dados. Tente novamente.</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Erro ao buscar dados. Tente novamente.</td></tr>`;
     }
 };
 
@@ -162,7 +153,7 @@ window.renderizarControleManutencao = function() {
     tbody.innerHTML = '';
 
     if (window.veiculosRevisaoFiltrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-secondary);">Nenhum veículo corresponde aos filtros aplicados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-secondary);">Nenhum veículo corresponde aos filtros aplicados.</td></tr>`;
         return;
     }
 
@@ -186,7 +177,7 @@ window.renderizarControleManutencao = function() {
 
         const trHeader = document.createElement('tr');
         trHeader.innerHTML = `
-            <td colspan="5" style="text-align: left; background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); font-weight: bold; padding: 12px 20px; border-top: 2px solid rgba(59, 130, 246, 0.3); border-bottom: 2px solid rgba(59, 130, 246, 0.3); font-size: 1.1rem; letter-spacing: 1px;">
+            <td colspan="6" style="text-align: left; background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); font-weight: bold; padding: 12px 20px; border-top: 2px solid rgba(59, 130, 246, 0.3); border-bottom: 2px solid rgba(59, 130, 246, 0.3); font-size: 1.1rem; letter-spacing: 1px;">
                 <i class="fas fa-layer-group"></i> CATEGORIA: ${categoria} <span style="font-size: 0.85rem; color: var(--text-secondary); margin-left: 10px;">(${veiculosDoGrupo.length} equipamentos)</span>
             </td>
         `;
@@ -194,6 +185,7 @@ window.renderizarControleManutencao = function() {
 
         veiculosDoGrupo.forEach(v => {
             const info = window.determinarStatusRevisao(v);
+            const isTritrem = String(v.tipo).toUpperCase().includes('TRITREM');
             
             let idVeiculoHtml = `
                 <div style="font-weight: 800; color: #fff; font-size: 1.1rem; letter-spacing: 1px;">${v.placa}</div>
@@ -224,6 +216,50 @@ window.renderizarControleManutencao = function() {
                 </div>
             `;
 
+            // COLUNA DE INSPEÇÃO (TRITREM) COM CONTADOR DE DIAS
+            let datasHtml = '<span style="color: var(--text-secondary); font-size: 0.8rem;">Não aplicável</span>';
+            if (isTritrem) {
+                const formatData = (d) => {
+                    if (!d) return '--/--/----';
+                    const p = d.split('-');
+                    if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+                    return d;
+                };
+
+                let alertaDiasHtml = '';
+                if (v.data_proxima_inspecao) {
+                    const hoje = new Date();
+                    hoje.setHours(0, 0, 0, 0);
+                    
+                    const [ano, mes, dia] = v.data_proxima_inspecao.split('-');
+                    const dataProx = new Date(ano, mes - 1, dia);
+                    dataProx.setHours(0, 0, 0, 0);
+
+                    const diffTime = dataProx.getTime() - hoje.getTime();
+                    const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
+
+                    if (diffDays < 0) {
+                        alertaDiasHtml = `<span style="color: #ef4444; font-weight: bold;"><i class="fas fa-exclamation-circle"></i> Atrasado ${Math.abs(diffDays)} dia(s)</span>`;
+                    } else if (diffDays === 0) {
+                        alertaDiasHtml = `<span style="color: #ef4444; font-weight: bold;"><i class="fas fa-exclamation-triangle"></i> Vence HOJE</span>`;
+                    } else if (diffDays <= 5) {
+                        alertaDiasHtml = `<span style="color: #f59e0b; font-weight: bold;"><i class="fas fa-clock"></i> Vence em ${diffDays} dia(s)</span>`;
+                    } else {
+                        alertaDiasHtml = `<span style="color: #10b981;"><i class="fas fa-check"></i> Faltam ${diffDays} dia(s)</span>`;
+                    }
+                } else {
+                    alertaDiasHtml = `<span style="color: var(--text-secondary);"><i class="fas fa-question-circle"></i> Sem previsão</span>`;
+                }
+
+                datasHtml = `
+                    <div style="font-size: 0.85rem; line-height: 1.6;">
+                        <div><span style="color: var(--text-secondary);">Inspeção:</span> <strong style="color: #10b981;">${formatData(v.data_inspecao)}</strong></div>
+                        <div style="margin-top: 4px;"><span style="color: var(--text-secondary);">Próxima:</span> <strong style="color: #f59e0b;">${formatData(v.data_proxima_inspecao)}</strong></div>
+                        <div style="margin-top: 4px; font-size: 0.75rem;">${alertaDiasHtml}</div>
+                    </div>
+                `;
+            }
+
             let badgeHtml = `
                 <div class="badge-status-rev" style="background: ${info.bg}; color: ${info.cor}; border: 1px solid ${info.cor};">
                     <i class="${info.icon}"></i> ${info.status}
@@ -236,7 +272,7 @@ window.renderizarControleManutencao = function() {
                     <button class="btn-secondary-dark" onclick="window.abrirModalKm('${v.id}')" title="Atualizar ${btnLabelKm}">
                         <i class="fas fa-tachometer-alt" style="color: var(--ccol-blue-bright);"></i> ${isGrua ? 'HORAS' : 'KM'}
                     </button>
-                    <button class="btn-primary-green" onclick="window.abrirModalRevisao('${v.id}')" title="Registrar Nova Revisão">
+                    <button class="btn-primary-green" onclick="window.abrirModalRevisao('${v.id}')" title="Registrar Manutenção / Inspeção">
                         <i class="fas fa-tools"></i> Revisão
                     </button>
                 </div>
@@ -245,8 +281,9 @@ window.renderizarControleManutencao = function() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${idVeiculoHtml}</td>
-                <td style="color: var(--text-secondary); font-weight: 600;">${v.tipo.toUpperCase()}</td>
+                <td style="color: var(--text-secondary); font-weight: 600; font-size: 0.85rem;">${v.tipo.toUpperCase()}</td>
                 <td>${progressHtml}</td>
+                <td>${datasHtml}</td>
                 <td style="text-align: center;">${badgeHtml}</td>
                 <td>${acoesHtml}</td>
             `;
@@ -258,7 +295,7 @@ window.renderizarControleManutencao = function() {
 // ======================= IMPORTAÇÃO DE PLANILHA =======================
 window.importarPlanilhaKm = function() {
     if (typeof XLSX === 'undefined') {
-        alert("A biblioteca XLSX não está carregada. Por favor, adicione o script do SheetJS no seu index.html:\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js\"></script>");
+        alert("A biblioteca XLSX (SheetJS) não está carregada no sistema.\nCertifique-se de adicioná-la no seu index.html.");
         return;
     }
 
@@ -313,7 +350,7 @@ window.importarPlanilhaKm = function() {
                     const filialId = window.obterFilialUsuarioLogadoRev();
 
                     const tbody = document.getElementById('tbControleRevisoes');
-                    if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--ccol-blue-bright); padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Processando planilha e atualizando TRITREMs...</td></tr>`;
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--ccol-blue-bright); padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Lendo planilha e atualizando TRITREMs...</td></tr>`;
 
                     for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
                         const row = jsonData[i];
@@ -455,6 +492,7 @@ window.abrirModalRevisao = function(id) {
     if(!v) return;
 
     const isGrua = String(v.tipo).toUpperCase().includes('GRUA');
+    const isTritrem = String(v.tipo).toUpperCase().includes('TRITREM');
     const lblTexto = isGrua ? 'Horímetro' : 'KM';
 
     document.getElementById('lblRevRealizadaTexto').innerText = lblTexto;
@@ -472,6 +510,19 @@ window.abrirModalRevisao = function(id) {
     const inputDetalhes = document.getElementById('inputDetalhesRevisao');
 
     inputRealizada.value = v.km_atual;
+    inputDetalhes.value = v.detalhes_ultima_revisao || '';
+
+    // Gestão do display de datas (Exclusivo Tritrem)
+    const divDatas = document.getElementById('divDatasInspecaoTritrem');
+    if (isTritrem) {
+        divDatas.style.display = 'block';
+        document.getElementById('inputDataInspecao').value = v.data_inspecao || '';
+        document.getElementById('inputDataProximaInspecao').value = v.data_proxima_inspecao || '';
+    } else {
+        divDatas.style.display = 'none';
+        document.getElementById('inputDataInspecao').value = '';
+        document.getElementById('inputDataProximaInspecao').value = '';
+    }
 
     // Lógica para GRUAS (calcula automático a próxima de 500h e trava o input)
     if (isGrua) {
@@ -483,7 +534,6 @@ window.abrirModalRevisao = function(id) {
             const ultima = parseInt(inputRealizada.value) || 0;
             const proximaRevisao500 = ultima + 500;
             
-            // Calcula o próximo múltiplo de 1000 para a revisão geral
             let proximaRevisaoGeral = Math.ceil(ultima / 1000) * 1000;
             if (proximaRevisaoGeral === ultima || proximaRevisaoGeral === 0) {
                 proximaRevisaoGeral += 1000;
@@ -501,8 +551,7 @@ window.abrirModalRevisao = function(id) {
         inputProxima.style.cursor = '';
         
         inputRealizada.oninput = null;
-        inputProxima.value = v.km_atual + 10000;
-        inputDetalhes.value = '';
+        inputProxima.value = (v.km_proxima_revisao && v.km_proxima_revisao > 0) ? v.km_proxima_revisao : v.km_atual + 10000;
     }
 
     document.getElementById('modalRegistrarRevisao').classList.add('show');
@@ -520,9 +569,26 @@ window.salvarNovaRevisao = async function() {
     const kmProxima = parseInt(document.getElementById('inputKmProximaRevisao').value);
     const detalhes = document.getElementById('inputDetalhesRevisao').value.trim();
     const filialId = window.obterFilialUsuarioLogadoRev();
+    const isTritrem = String(tipo).toUpperCase().includes('TRITREM');
 
-    if (isNaN(kmRevisao) || isNaN(kmProxima)) return alert("Preencha corretamente os campos obrigatórios.");
+    if (isNaN(kmRevisao) || isNaN(kmProxima)) return alert("Preencha corretamente os campos obrigatórios de KM/Hora.");
     if (kmProxima <= kmRevisao) return alert("A próxima revisão deve ser MAIOR que a revisão realizada.");
+
+    let payload = {
+        placa: placa,
+        numero_frota: frota,
+        tipo: tipo,
+        km_atual: kmRevisao,
+        km_ultima_revisao: kmRevisao,
+        km_proxima_revisao: kmProxima,
+        detalhes_ultima_revisao: detalhes,
+        filial_id: filialId
+    };
+
+    if (isTritrem) {
+        payload.data_inspecao = document.getElementById('inputDataInspecao').value || null;
+        payload.data_proxima_inspecao = document.getElementById('inputDataProximaInspecao').value || null;
+    }
 
     try {
         let queryCheck = window.supabaseClient.from('manutencao_revisoes').select('id').eq('placa', placa);
@@ -531,15 +597,9 @@ window.salvarNovaRevisao = async function() {
         const { data: checkExist } = await queryCheck.maybeSingle();
 
         if (checkExist && checkExist.id) {
-            await window.supabaseClient.from('manutencao_revisoes').update({ 
-                km_atual: kmRevisao, km_ultima_revisao: kmRevisao, km_proxima_revisao: kmProxima, detalhes_ultima_revisao: detalhes
-            }).eq('id', checkExist.id);
+            await window.supabaseClient.from('manutencao_revisoes').update(payload).eq('id', checkExist.id);
         } else {
-            await window.supabaseClient.from('manutencao_revisoes').insert([{
-                placa: placa, numero_frota: frota, tipo: tipo,
-                km_atual: kmRevisao, km_ultima_revisao: kmRevisao, km_proxima_revisao: kmProxima, detalhes_ultima_revisao: detalhes,
-                filial_id: filialId
-            }]);
+            await window.supabaseClient.from('manutencao_revisoes').insert([payload]);
         }
 
         window.fecharModalRevisao();
@@ -549,7 +609,7 @@ window.salvarNovaRevisao = async function() {
 
     } catch (e) {
         console.error("Erro ao registrar revisão:", e);
-        alert("Erro ao registrar a revisão. Tente novamente.");
+        alert("Erro ao registrar a manutenção. Tente novamente.");
     }
 };
 

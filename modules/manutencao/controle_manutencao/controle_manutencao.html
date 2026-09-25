@@ -67,6 +67,7 @@
         </h3>
         
         <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="btn-primary-green" onclick="window.importarPlanilhaKm()"><i class="fas fa-file-excel"></i> Importar KMs (TRITREM)</button>
             <input type="text" id="filtroPlacaRevisao" class="search-input-dark" placeholder="Buscar Placa ou Frota..." onkeyup="window.filtrarRevisoesManutencao()" style="width: 200px;">
             <select id="filtroStatusRevisao" class="dark-select" onchange="window.filtrarRevisoesManutencao()" style="width: 180px;">
                 <option value="">Todos os Status</option>
@@ -124,15 +125,16 @@
         <table class="data-table-modern" style="margin: 0; min-width: 1100px;">
             <thead>
                 <tr>
-                    <th style="width: 25%;">Equipamento / Placas</th>
-                    <th style="width: 15%;">Tipo de Veículo</th>
-                    <th style="width: 30%;">Progresso para Revisão</th>
+                    <th style="width: 20%;">Equipamento / Placas</th>
+                    <th style="width: 10%;">Categoria</th>
+                    <th style="width: 25%;">Progresso para Revisão</th>
+                    <th style="width: 15%;">Inspeção (TRITREM)</th>
                     <th style="width: 15%; text-align: center;">Status</th>
                     <th style="width: 15%; text-align: right;">Ações Rápidas</th>
                 </tr>
             </thead>
             <tbody id="tbControleRevisoes">
-                <tr><td colspan="5" style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Carregando dados de manutenção...</td></tr>
+                <tr><td colspan="6" style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Carregando dados de manutenção...</td></tr>
             </tbody>
         </table>
     </div>
@@ -199,11 +201,11 @@
     </div>
 </div>
 
-<!-- MODAL: REGISTRAR NOVA REVISÃO -->
+<!-- MODAL: REGISTRAR NOVA REVISÃO / INSPECÃO -->
 <div id="modalRegistrarRevisao" class="modal-overlay">
-    <div class="custom-modal" style="max-width: 500px;">
+    <div class="custom-modal" style="max-width: 600px;">
         <div class="modal-header">
-            <h3><i class="fas fa-tools" style="color: #10b981;"></i> Registrar Nova Revisão</h3>
+            <h3><i class="fas fa-tools" style="color: #10b981;"></i> Registrar Revisão / Inspeção</h3>
             <button class="close-modal" onclick="window.fecharModalRevisao()">&times;</button>
         </div>
         <div class="modal-body">
@@ -214,7 +216,7 @@
             
             <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
                 <h4 id="revVeiculoPlaca" style="color: #fff; margin: 0 0 5px 0; font-size: 1.2rem;">FROTA / PLACA</h4>
-                <p style="color: #10b981; margin: 0; font-size: 0.85rem;">Registro de execução de manutenção preventiva</p>
+                <p style="color: #10b981; margin: 0; font-size: 0.85rem;">Atualização de dados e acompanhamento</p>
             </div>
 
             <div class="form-grid-conjunto" style="grid-template-columns: 1fr 1fr; gap: 15px;">
@@ -227,9 +229,24 @@
                     <input type="number" id="inputKmProximaRevisao" placeholder="Valor da próxima">
                 </div>
             </div>
+
+            <!-- EXCLUSIVO PARA TRITREM -->
+            <div id="divDatasInspecaoTritrem" style="display: none; background: rgba(59, 130, 246, 0.1); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                <h5 style="color: var(--ccol-blue-bright); margin: 0 0 10px 0; font-size: 0.95rem;"><i class="fas fa-clipboard-check"></i> Controle de Inspeção (TRITREM)</h5>
+                <div class="form-grid-conjunto" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group-dark">
+                        <label>Data da Inspeção</label>
+                        <input type="date" id="inputDataInspecao">
+                    </div>
+                    <div class="form-group-dark">
+                        <label>Próxima Inspeção</label>
+                        <input type="date" id="inputDataProximaInspecao">
+                    </div>
+                </div>
+            </div>
             
             <div class="form-group-dark" style="margin-top: 15px;">
-                <label>Detalhes da Revisão (Opcional)</label>
+                <label>Detalhes (Acompanhamento / Obs)</label>
                 <textarea id="inputDetalhesRevisao" rows="3" placeholder="Ex: Troca de óleo, filtros, engraxamento..."></textarea>
             </div>
         </div>
