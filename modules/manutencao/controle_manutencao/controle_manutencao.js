@@ -1,6 +1,551 @@
 // ==================== modules/manutencao/controle_manutencao/controle_manutencao.js ====================
 
+window.veiculosRevisaoDb = [];
+window.veiculosRevisaoFiltrados = [];
+
+// Função auxiliar para resgatar a filial do usuário logado
+window.obterFilialUsuarioLogadoRev = function() {
+    return (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') 
+        ? parseInt(window.currentUser.filial_id) : null;
+};
+
 window.initControleManutencao = async function() {
-    console.log("Módulo Controle de Manutenção inicializado com sucesso.");
-    // Todo o código futuro de requisições, listagens e interações será construído aqui
+    console.log("Módulo Controle de Manutenção (Revisões) Inicializado.");
+    
+    const elPlaca = document.getElementById('filtroPlacaRevisao');
+    const elStatus = document.getElementById('filtroStatusRevisao');
+    if (elPlaca) elPlaca.value = '';
+    if (elStatus) elStatus.value = '';
+
+    await window.carregarVeiculosManutencao(true);
+};
+
+window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) {
+    const NOME_TABELA_VEICULOS = 'frotas_manutencao'; 
+    const filialId = window.obterFilialUsuarioLogadoRev();
+    
+    try {
+        const tbody = document.getElementById('tbControleRevisoes');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Sincronizando com a Planilha e Carregando base de veículos...</td></tr>`;
+
+        // 1. Sincroniza com Google Sheets antes de buscar do banco e ESPERA terminar
+        if (forcarSincronizacao) {
+            await window.sincronizarComPlanilhaGoogle();
+        }
+
+        // 2. Busca veículos da tabela de frotas (Filtrando por filial)
+        let queryFrotas = window.supabaseClient.from(NOME_TABELA_VEICULOS).select('*');
+        if (filialId !== null) {
+            queryFrotas = queryFrotas.eq('filial_id', filialId);
+        }
+        
+        const { data: frotas, error: errFrota } = await queryFrotas;
+        if (errFrota) throw errFrota;
+        let frotasGlobais = frotas || [];
+
+        // 3. Filtra TRITREM e GRUA
+        const veiculosFiltrados = frotasGlobais.filter(v => {
+            const cat = String(v.categoria || '').toUpperCase();
+            const status = String(v.status || '').toUpperCase();
+            return (cat.includes('TRITREM') || cat.includes('GRUA')) && status !== 'INATIVO';
+        });
+
+        // 4. Busca os dados de manutenções (Filtrando por filial)
+        let queryRevisoes = window.supabaseClient.from('manutencao_revisoes').select('*');
+        if (filialId !== null) {
+            queryRevisoes = queryRevisoes.eq('filial_id', filialId);
+        }
+        
+        const { data: revisoes, error: errRev } = await queryRevisoes;
+        if (errRev) throw errRev;
+
+        // 5. Mescla informações
+        window.veiculosRevisaoDb = veiculosFiltrados.map(frota => {
+            const placaPrincipal = frota.cavalo || frota.go || 'N/A';
+            const frotaNum = frota.numero_frota || frota.go || 'N/A';
+            const tipoVeiculo = frota.categoria || 'N/A';
+
+            const rev = revisoes.find(r => r.placa === placaPrincipal || r.numero_frota === frotaNum) || {};
+            
+            let compartimentos = [];
+            if(frota.carreta1) compartimentos.push(frota.carreta1);
+            if(frota.carreta2) compartimentos.push(frota.carreta2);
+            if(frota.carreta3) compartimentos.push(frota.carreta3);
+
+            return {
+                id: frota.id,
+                placa: placaPrincipal,
+                numero_frota: frotaNum,
+                tipo: tipoVeiculo,
+                compartimentos: compartimentos.length > 0 ? compartimentos.join(' / ') : 'Sem compartimentos atrelados',
+                km_atual: parseInt(rev.km_atual) || 0,
+                km_ultima_revisao: parseInt(rev.km_ultima_revisao) || 0,
+                km_proxima_revisao: parseInt(rev.km_proxima_revisao) || 0,
+                detalhes_ultima_revisao: rev.detalhes_ultima_revisao || ''
+            };
+        });
+
+        window.filtrarRevisoesManutencao();
+    } catch (e) {
+        console.error("Erro ao carregar e mesclar veículos:", e);
+        const tbody = document.getElementById('tbControleRevisoes');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Erro ao buscar dados.</td></tr>`;
+    }
+};
+
+window.determinarStatusRevisao = function(v) {
+    if (v.km_proxima_revisao === 0) return { status: 'Não Configurado', cor: '#94a3b8', bg: 'rgba(148, 163, 184, 0.1)', icon: 'fas fa-question-circle' };
+    
+    const kmRestante = v.km_proxima_revisao - v.km_atual;
+    const isGrua = String(v.tipo).toUpperCase().includes('GRUA');
+    const margem = isGrua ? 250 : 1500; // Gruas avisam faltando 250 horas. Outros faltam 1.500 km.
+
+    if (kmRestante <= 0) {
+        return { status: 'Atrasada', cor: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', icon: 'fas fa-times-circle' };
+    } else if (kmRestante <= margem) {
+        return { status: 'Atenção', cor: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', icon: 'fas fa-exclamation-triangle' };
+    } else {
+        return { status: 'Em Dia', cor: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', icon: 'fas fa-check-circle' };
+    }
+};
+
+window.filtrarRevisoesManutencao = function() {
+    const termo = (document.getElementById('filtroPlacaRevisao').value || '').toLowerCase().trim();
+    const statusDesejado = document.getElementById('filtroStatusRevisao').value;
+
+    window.veiculosRevisaoFiltrados = window.veiculosRevisaoDb.filter(v => {
+        const matchBusca = (v.placa && v.placa.toLowerCase().includes(termo)) || 
+                           (v.numero_frota && v.numero_frota.toLowerCase().includes(termo)) ||
+                           (v.compartimentos && v.compartimentos.toLowerCase().includes(termo));
+        
+        const infoStatus = window.determinarStatusRevisao(v);
+        const matchStatus = statusDesejado === '' || infoStatus.status === statusDesejado;
+
+        return matchBusca && matchStatus;
+    });
+
+    window.renderizarControleManutencao();
+};
+
+window.renderizarControleManutencao = function() {
+    const tbody = document.getElementById('tbControleRevisoes');
+    if (!tbody) return;
+
+    let totMonitorados = window.veiculosRevisaoDb.length;
+    let totDia = 0, totAtencao = 0, totAtrasada = 0;
+
+    window.veiculosRevisaoDb.forEach(v => {
+        const info = window.determinarStatusRevisao(v);
+        if (info.status === 'Em Dia') totDia++;
+        else if (info.status === 'Atenção') totAtencao++;
+        else if (info.status === 'Atrasada') totAtrasada++;
+    });
+
+    document.getElementById('totRevMonitorados').innerText = totMonitorados;
+    document.getElementById('totRevEmDia').innerText = totDia;
+    document.getElementById('totRevAtencao').innerText = totAtencao;
+    document.getElementById('totRevAtrasadas').innerText = totAtrasada;
+
+    tbody.innerHTML = '';
+
+    if (window.veiculosRevisaoFiltrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-secondary);">Nenhum veículo corresponde aos filtros aplicados.</td></tr>`;
+        return;
+    }
+
+    const gruposCategoria = {};
+    window.veiculosRevisaoFiltrados.forEach(v => {
+        const cat = String(v.tipo || 'OUTROS').toUpperCase();
+        if (!gruposCategoria[cat]) gruposCategoria[cat] = [];
+        gruposCategoria[cat].push(v);
+    });
+
+    Object.keys(gruposCategoria).sort().forEach(categoria => {
+        const veiculosDoGrupo = gruposCategoria[categoria];
+        const isGrua = categoria.includes('GRUA');
+        const s_und = isGrua ? 'h' : 'km';
+
+        veiculosDoGrupo.sort((a, b) => {
+            let restanteA = a.km_proxima_revisao === 0 ? 9999999 : (a.km_proxima_revisao - a.km_atual);
+            let restanteB = b.km_proxima_revisao === 0 ? 9999999 : (b.km_proxima_revisao - b.km_atual);
+            return restanteA - restanteB;
+        });
+
+        const trHeader = document.createElement('tr');
+        trHeader.innerHTML = `
+            <td colspan="5" style="text-align: left; background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); font-weight: bold; padding: 12px 20px; border-top: 2px solid rgba(59, 130, 246, 0.3); border-bottom: 2px solid rgba(59, 130, 246, 0.3); font-size: 1.1rem; letter-spacing: 1px;">
+                <i class="fas fa-layer-group"></i> CATEGORIA: ${categoria} <span style="font-size: 0.85rem; color: var(--text-secondary); margin-left: 10px;">(${veiculosDoGrupo.length} equipamentos)</span>
+            </td>
+        `;
+        tbody.appendChild(trHeader);
+
+        veiculosDoGrupo.forEach(v => {
+            const info = window.determinarStatusRevisao(v);
+            
+            let idVeiculoHtml = `
+                <div style="font-weight: 800; color: #fff; font-size: 1.1rem; letter-spacing: 1px;">${v.placa}</div>
+                <div style="color: var(--ccol-blue-bright); font-size: 0.85rem; font-weight: bold;">Frota: ${v.numero_frota}</div>
+                ${!isGrua ? `<div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 3px;"><i class="fas fa-link"></i> ${v.compartimentos}</div>` : ''}
+            `;
+
+            let rangeTotal = v.km_proxima_revisao - v.km_ultima_revisao;
+            if (rangeTotal <= 0) rangeTotal = (isGrua ? 1000 : 10000); 
+            
+            let kmRodadosCiclo = v.km_atual - v.km_ultima_revisao;
+            if (kmRodadosCiclo < 0) kmRodadosCiclo = 0;
+
+            let pct = (kmRodadosCiclo / rangeTotal) * 100;
+            if (pct > 100) pct = 100;
+
+            let progressHtml = `
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 2px;">
+                    <span style="color: var(--text-secondary);">Última: <strong style="color:#fff;">${v.km_ultima_revisao.toLocaleString('pt-BR')} ${s_und}</strong></span>
+                    <span style="color: var(--ccol-blue-bright);">Atual: <strong>${v.km_atual.toLocaleString('pt-BR')} ${s_und}</strong></span>
+                    <span style="color: var(--text-secondary);">Próxima: <strong style="color:#fff;">${v.km_proxima_revisao.toLocaleString('pt-BR')} ${s_und}</strong></span>
+                </div>
+                <div class="km-progress-bg">
+                    <div class="km-progress-fill" style="width: ${pct}%; background-color: ${info.cor};"></div>
+                </div>
+                <div style="text-align: right; font-size: 0.75rem; color: ${info.cor}; margin-top: 3px; font-weight: bold;">
+                    ${v.km_proxima_revisao === 0 ? 'Meta não definida' : (v.km_proxima_revisao - v.km_atual) + ` ${s_und} restantes`}
+                </div>
+            `;
+
+            let badgeHtml = `
+                <div class="badge-status-rev" style="background: ${info.bg}; color: ${info.cor}; border: 1px solid ${info.cor};">
+                    <i class="${info.icon}"></i> ${info.status}
+                </div>
+            `;
+
+            let btnLabelKm = isGrua ? 'Horímetro' : 'KM';
+            let acoesHtml = `
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button class="btn-secondary-dark" onclick="window.abrirModalKm('${v.id}')" title="Atualizar ${btnLabelKm}">
+                        <i class="fas fa-tachometer-alt" style="color: var(--ccol-blue-bright);"></i> ${isGrua ? 'HORAS' : 'KM'}
+                    </button>
+                    <button class="btn-primary-green" onclick="window.abrirModalRevisao('${v.id}')" title="Registrar Nova Revisão">
+                        <i class="fas fa-tools"></i> Revisão
+                    </button>
+                </div>
+            `;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${idVeiculoHtml}</td>
+                <td style="color: var(--text-secondary); font-weight: 600;">${v.tipo.toUpperCase()}</td>
+                <td>${progressHtml}</td>
+                <td style="text-align: center;">${badgeHtml}</td>
+                <td>${acoesHtml}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    });
+};
+
+// ======================= MODAL: KM / HORÍMETRO =======================
+window.abrirModalKm = function(id) {
+    const v = window.veiculosRevisaoDb.find(x => String(x.id) === String(id));
+    if(!v) return;
+
+    const isGrua = String(v.tipo).toUpperCase().includes('GRUA');
+    const lblTexto = isGrua ? 'Horímetro' : 'KM';
+
+    document.getElementById('lblTituloKmHorimetro').innerText = lblTexto;
+    document.getElementById('lblAtualSistemaTexto').innerText = lblTexto;
+
+    document.getElementById('kmVeiculoId').value = v.id;
+    document.getElementById('kmVeiculoPlacaValor').value = v.placa;
+    document.getElementById('kmVeiculoFrotaValor').value = v.numero_frota;
+    document.getElementById('kmVeiculoTipoValor').value = v.tipo;
+    
+    document.getElementById('kmVeiculoPlaca').innerText = `${v.placa} (Frota ${v.numero_frota})`;
+    document.getElementById('kmAtualSistema').innerText = v.km_atual.toLocaleString('pt-BR');
+    document.getElementById('inputNovoKm').value = v.km_atual;
+
+    document.getElementById('modalAtualizarKm').classList.add('show');
+};
+
+window.fecharModalKm = function() {
+    document.getElementById('modalAtualizarKm').classList.remove('show');
+};
+
+window.salvarNovoKm = async function() {
+    const placa = document.getElementById('kmVeiculoPlacaValor').value;
+    const frota = document.getElementById('kmVeiculoFrotaValor').value;
+    const tipo = document.getElementById('kmVeiculoTipoValor').value;
+    const novoKm = parseInt(document.getElementById('inputNovoKm').value);
+    const filialId = window.obterFilialUsuarioLogadoRev();
+
+    if (isNaN(novoKm) || novoKm < 0) return alert("Digite um valor válido.");
+
+    try {
+        let queryCheck = window.supabaseClient.from('manutencao_revisoes').select('id').eq('placa', placa);
+        if (filialId !== null) queryCheck = queryCheck.eq('filial_id', filialId);
+        
+        const { data: checkExist } = await queryCheck.maybeSingle();
+
+        if (checkExist) {
+            await window.supabaseClient.from('manutencao_revisoes').update({ km_atual: novoKm }).eq('id', checkExist.id);
+        } else {
+            await window.supabaseClient.from('manutencao_revisoes').insert([{
+                placa: placa, numero_frota: frota, tipo: tipo,
+                km_atual: novoKm, km_ultima_revisao: novoKm, km_proxima_revisao: 0,
+                filial_id: filialId
+            }]);
+        }
+
+        alert('Hodômetro/Horímetro atualizado com sucesso!');
+        window.fecharModalKm();
+        await window.carregarVeiculosManutencao(false);
+
+    } catch (e) {
+        console.error("Erro ao atualizar:", e);
+        alert("Erro ao salvar. Tente novamente.");
+    }
+};
+
+// ======================= MODAL: REGISTRAR REVISÃO =======================
+window.abrirModalRevisao = function(id) {
+    const v = window.veiculosRevisaoDb.find(x => String(x.id) === String(id));
+    if(!v) return;
+
+    const isGrua = String(v.tipo).toUpperCase().includes('GRUA');
+    const lblTexto = isGrua ? 'Horímetro' : 'KM';
+
+    document.getElementById('lblRevRealizadaTexto').innerText = lblTexto;
+    document.getElementById('lblRevProximaTexto').innerText = lblTexto;
+
+    document.getElementById('revVeiculoId').value = v.id;
+    document.getElementById('revVeiculoPlacaValor').value = v.placa;
+    document.getElementById('revVeiculoFrotaValor').value = v.numero_frota;
+    document.getElementById('revVeiculoTipoValor').value = v.tipo;
+
+    document.getElementById('revVeiculoPlaca').innerText = `${v.placa} (Frota ${v.numero_frota})`;
+    
+    // Sugestão de próxima revisão: Grua (+250h) | Tritrem (+10.000km)
+    const adicional = isGrua ? 250 : 10000;
+    document.getElementById('inputKmRevisaoRealizada').value = v.km_atual;
+    document.getElementById('inputKmProximaRevisao').value = v.km_atual + adicional;
+    document.getElementById('inputDetalhesRevisao').value = '';
+
+    document.getElementById('modalRegistrarRevisao').classList.add('show');
+};
+
+window.fecharModalRevisao = function() {
+    document.getElementById('modalRegistrarRevisao').classList.remove('show');
+};
+
+window.salvarNovaRevisao = async function() {
+    const placa = document.getElementById('revVeiculoPlacaValor').value;
+    const frota = document.getElementById('revVeiculoFrotaValor').value;
+    const tipo = document.getElementById('revVeiculoTipoValor').value;
+    const kmRevisao = parseInt(document.getElementById('inputKmRevisaoRealizada').value);
+    const kmProxima = parseInt(document.getElementById('inputKmProximaRevisao').value);
+    const detalhes = document.getElementById('inputDetalhesRevisao').value.trim();
+    const filialId = window.obterFilialUsuarioLogadoRev();
+
+    if (isNaN(kmRevisao) || isNaN(kmProxima)) return alert("Preencha corretamente os campos obrigatórios.");
+    if (kmProxima <= kmRevisao) return alert("A próxima revisão deve ser MAIOR que a revisão realizada.");
+
+    try {
+        let queryCheck = window.supabaseClient.from('manutencao_revisoes').select('id').eq('placa', placa);
+        if (filialId !== null) queryCheck = queryCheck.eq('filial_id', filialId);
+        
+        const { data: checkExist } = await queryCheck.maybeSingle();
+
+        if (checkExist) {
+            await window.supabaseClient.from('manutencao_revisoes').update({ 
+                km_atual: kmRevisao, km_ultima_revisao: kmRevisao, km_proxima_revisao: kmProxima, detalhes_ultima_revisao: detalhes
+            }).eq('id', checkExist.id);
+        } else {
+            await window.supabaseClient.from('manutencao_revisoes').insert([{
+                placa: placa, numero_frota: frota, tipo: tipo,
+                km_atual: kmRevisao, km_ultima_revisao: kmRevisao, km_proxima_revisao: kmProxima, detalhes_ultima_revisao: detalhes,
+                filial_id: filialId
+            }]);
+        }
+
+        alert('Revisão registrada com sucesso!');
+        window.fecharModalRevisao();
+        await window.carregarVeiculosManutencao(false);
+
+    } catch (e) {
+        console.error("Erro ao registrar revisão:", e);
+        alert("Erro ao registrar a revisão. Tente novamente.");
+    }
+};
+
+// ======================= CONFIGURAÇÕES & GOOGLE SHEETS =======================
+window.abrirModalConfigManutencao = async function() {
+    document.getElementById('inputGoogleSheetsLink').value = 'Carregando...';
+    document.getElementById('modalConfigManutencao').classList.add('show');
+    
+    const filialId = window.obterFilialUsuarioLogadoRev() || 0;
+
+    try {
+        const { data, error } = await window.supabaseClient.from('manutencao_configuracoes').select('google_sheets_link').eq('filial_id', filialId).maybeSingle();
+        if (!error && data) {
+            document.getElementById('inputGoogleSheetsLink').value = data.google_sheets_link || '';
+        } else {
+            document.getElementById('inputGoogleSheetsLink').value = '';
+        }
+    } catch(e) {
+        document.getElementById('inputGoogleSheetsLink').value = '';
+    }
+};
+
+window.fecharModalConfigManutencao = function() {
+    document.getElementById('modalConfigManutencao').classList.remove('show');
+};
+
+window.salvarConfigManutencao = async function() {
+    const link = document.getElementById('inputGoogleSheetsLink').value.trim();
+    const filialId = window.obterFilialUsuarioLogadoRev() || 0;
+
+    try {
+        const { data: check } = await window.supabaseClient.from('manutencao_configuracoes').select('id').eq('filial_id', filialId).maybeSingle();
+        
+        if (check) {
+            await window.supabaseClient.from('manutencao_configuracoes').update({ google_sheets_link: link }).eq('id', check.id);
+        } else {
+            await window.supabaseClient.from('manutencao_configuracoes').insert([{ google_sheets_link: link, filial_id: filialId }]);
+        }
+
+        alert("Link da planilha salvo com sucesso!");
+        window.fecharModalConfigManutencao();
+    } catch(e) {
+        console.error(e);
+        alert("Erro ao salvar configuração.");
+    }
+};
+
+window.forcarSincronizacaoPlanilha = async function() {
+    await window.salvarConfigManutencao();
+    const btn = document.querySelector('#modalConfigManutencao .btn-primary-blue');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+    
+    await window.carregarVeiculosManutencao(true);
+    
+    btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sincronizar Agora';
+    alert("Sincronização concluída e painel atualizado!");
+};
+
+window.sincronizarComPlanilhaGoogle = async function() {
+    const filialId = window.obterFilialUsuarioLogadoRev();
+    
+    try {
+        const { data } = await window.supabaseClient.from('manutencao_configuracoes').select('google_sheets_link').eq('filial_id', filialId || 0).maybeSingle();
+        if(!data || !data.google_sheets_link) return;
+        
+        const matchId = data.google_sheets_link.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if(!matchId) return;
+        
+        const sheetId = matchId[1];
+        let csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+
+        const matchGid = data.google_sheets_link.match(/[#&?]gid=([0-9]+)/);
+        if (matchGid) {
+            csvUrl += `&gid=${matchGid[1]}`;
+        }
+
+        const response = await fetch(csvUrl);
+        const csvText = await response.text();
+        
+        // Transformado em Promise para aguardar a biblioteca PapaParse finalizar todo o processamento de banco de dados
+        await new Promise((resolve, reject) => {
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async function(results) {
+                    try {
+                        const rows = results.data;
+                        let veiculosAtualizados = 0;
+                        let ultimosRegistros = {};
+                        let rowIndex = 0;
+                        
+                        for (let row of rows) {
+                            rowIndex++;
+                            let frotaSheet = null;
+                            let valorSheet = null;
+                            
+                            // Varre os cabeçalhos limpando espaços indesejados
+                            for (let key in row) {
+                                let k = key.trim().toUpperCase();
+                                if (k === 'GRUA' || k === 'FROTA' || k === 'PLACA' || k === 'EQUIPAMENTO') frotaSheet = row[key];
+                                if (k === 'HORIMETRO FINAL' || k === 'HORIMETRO' || k === 'KM' || k === 'ATUAL') valorSheet = row[key];
+                            }
+                            
+                            if (frotaSheet && valorSheet) {
+                                frotaSheet = frotaSheet.trim().toUpperCase();
+                                
+                                // Pega o número, aceitando e convertendo casas decimais caso possua
+                                let limpo = String(valorSheet).replace(/,/g, '.').replace(/[^\d.-]/g, '');
+                                let valorNum = parseFloat(limpo);
+                                
+                                if (!isNaN(valorNum) && valorNum > 0) {
+                                    // Baseado na arquitetura do Forms, as respostas mais recentes ficam sempre na última linha,
+                                    // portanto o maior índice (rowIndex) representa sempre a coleta mais nova para aquele veículo
+                                    if (!ultimosRegistros[frotaSheet] || rowIndex >= ultimosRegistros[frotaSheet].index) {
+                                        ultimosRegistros[frotaSheet] = { 
+                                            value: valorNum, 
+                                            index: rowIndex 
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Atualiza no banco as informações salvas da planilha
+                        for (const [frotaId, record] of Object.entries(ultimosRegistros)) {
+                            let valorFinal = Math.round(record.value); // Remove decimais para simplificar a visualização do usuário
+                            
+                            let queryRev = window.supabaseClient.from('manutencao_revisoes').select('*').or(`placa.eq.${frotaId},numero_frota.eq.${frotaId}`);
+                            if (filialId !== null) queryRev = queryRev.eq('filial_id', filialId);
+                            
+                            const { data: rev } = await queryRev.maybeSingle();
+                            
+                            if (rev) {
+                                // Se já existe o veículo no controle, atualiza caso o horímetro recebido seja maior
+                                if (valorFinal > (rev.km_atual || 0)) {
+                                    await window.supabaseClient.from('manutencao_revisoes').update({ km_atual: valorFinal }).eq('id', rev.id);
+                                    veiculosAtualizados++;
+                                }
+                            } else {
+                                // Se a planilha tem leitura para um veículo que ainda NÃO tem uma base em Manutenção de Revisões
+                                // Procura no cadastro geral para resgatar dados do cavalo e insere no banco
+                                let queryFrota = window.supabaseClient.from('frotas_manutencao').select('*').or(`cavalo.eq.${frotaId},go.eq.${frotaId},numero_frota.eq.${frotaId}`);
+                                if (filialId !== null) queryFrota = queryFrota.eq('filial_id', filialId);
+                                
+                                const { data: f } = await queryFrota.maybeSingle();
+                                if (f) {
+                                    await window.supabaseClient.from('manutencao_revisoes').insert([{
+                                        placa: f.cavalo || f.go || frotaId,
+                                        numero_frota: f.numero_frota || f.go || frotaId,
+                                        tipo: f.categoria || 'GRUA',
+                                        km_atual: valorFinal,
+                                        km_ultima_revisao: valorFinal,
+                                        km_proxima_revisao: 0,
+                                        filial_id: filialId
+                                    }]);
+                                    veiculosAtualizados++;
+                                }
+                            }
+                        }
+                        
+                        if(veiculosAtualizados > 0) {
+                            console.log(`Planilha sincronizada com sucesso. ${veiculosAtualizados} hodômetros/horímetros atualizados.`);
+                        }
+                        resolve();
+                    } catch (err) {
+                        reject(err);
+                    }
+                },
+                error: function(error) {
+                    reject(error);
+                }
+            });
+        });
+    } catch(e) {
+        console.error("Erro na integração com Google Sheets:", e);
+    }
 };
