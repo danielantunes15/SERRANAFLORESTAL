@@ -12,6 +12,19 @@ window.obterFilialUsuarioLogadoRev = function() {
 window.initControleManutencao = async function() {
     console.log("Módulo Controle de Manutenção (Revisões) Inicializado.");
     
+    // Injeta botão de Importar Excel dinamicamente se não existir
+    const actionBar = document.querySelector('.action-bar > div:last-child');
+    if (actionBar && !document.getElementById('btnImportarExcelKm')) {
+        const btnImportar = document.createElement('button');
+        btnImportar.id = 'btnImportarExcelKm';
+        btnImportar.className = 'btn-primary-green';
+        btnImportar.innerHTML = '<i class="fas fa-file-excel"></i> Importar KMs (TRITREM)';
+        btnImportar.onclick = window.importarPlanilhaKm;
+        
+        // Insere o botão antes do botão de configurações
+        actionBar.insertBefore(btnImportar, actionBar.lastElementChild);
+    }
+
     const elPlaca = document.getElementById('filtroPlacaRevisao');
     const elStatus = document.getElementById('filtroStatusRevisao');
     if (elPlaca) elPlaca.value = '';
@@ -26,7 +39,7 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
     
     try {
         const tbody = document.getElementById('tbControleRevisoes');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Sincronizando com a Planilha e Carregando base de veículos...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Sincronizando e carregando veículos...</td></tr>`;
 
         // 1. Sincroniza com Google Sheets antes de buscar do banco e ESPERA terminar
         if (forcarSincronizacao) {
@@ -242,6 +255,137 @@ window.renderizarControleManutencao = function() {
     });
 };
 
+// ======================= IMPORTAÇÃO DE PLANILHA =======================
+window.importarPlanilhaKm = function() {
+    if (typeof XLSX === 'undefined') {
+        alert("A biblioteca XLSX não está carregada. Por favor, adicione o script do SheetJS no seu index.html:\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js\"></script>");
+        return;
+    }
+
+    let fileInput = document.getElementById('inputImportarKmExcel');
+    if (!fileInput) {
+        fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.id = 'inputImportarKmExcel';
+        fileInput.accept = '.xlsx, .xls';
+        fileInput.style.display = 'none';
+        document.body.appendChild(fileInput);
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+
+                    let headerRowIndex = -1;
+                    let colPlaca = -1;
+                    let colOdo = -1;
+
+                    // Procura o cabeçalho correto
+                    for (let i = 0; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        if (row && row.length > 0) {
+                            for(let j = 0; j < row.length; j++) {
+                                const val = String(row[j] || '').trim();
+                                if (val === 'Placa') colPlaca = j;
+                                if (val === 'Odômetro Final (GPS)') colOdo = j;
+                            }
+                            if (colPlaca !== -1 && colOdo !== -1) {
+                                headerRowIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (headerRowIndex === -1) {
+                        alert("Não foi possível encontrar as colunas 'Placa' e 'Odômetro Final (GPS)' na planilha importada.");
+                        fileInput.value = ''; 
+                        return;
+                    }
+
+                    let veiculosAtualizados = 0;
+                    const filialId = window.obterFilialUsuarioLogadoRev();
+
+                    const tbody = document.getElementById('tbControleRevisoes');
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--ccol-blue-bright); padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Processando planilha e atualizando TRITREMs...</td></tr>`;
+
+                    for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        if (!row || !row[colPlaca]) continue;
+
+                        const placaSheet = String(row[colPlaca]).trim().toUpperCase();
+                        let odoSheetRaw = String(row[colOdo] || '0').replace(/,/g, '.').replace(/[^\d.-]/g, '');
+                        const odoFinal = Math.round(parseFloat(odoSheetRaw));
+
+                        if (isNaN(odoFinal) || odoFinal <= 0) continue;
+
+                        // Verifica a Frota 
+                        let queryFrota = window.supabaseClient.from('frotas_manutencao')
+                            .select('*')
+                            .or(`cavalo.eq."${placaSheet}",go.eq."${placaSheet}",numero_frota.eq."${placaSheet}"`);
+                        
+                        if (filialId !== null) queryFrota = queryFrota.eq('filial_id', filialId);
+                        
+                        const { data: f } = await queryFrota.maybeSingle();
+
+                        // Garante que a atualização será APLICADA APENAS AO TRITREM
+                        if (f && String(f.categoria || '').toUpperCase().includes('TRITREM')) {
+                            const placaReal = f.cavalo || f.go || placaSheet;
+                            const numFrotaReal = f.numero_frota || f.go || placaSheet;
+
+                            let queryRev = window.supabaseClient.from('manutencao_revisoes')
+                                .select('id, km_atual')
+                                .or(`placa.eq."${placaReal}",numero_frota.eq."${numFrotaReal}"`);
+                                
+                            if (filialId !== null) queryRev = queryRev.eq('filial_id', filialId);
+                            
+                            const { data: rev } = await queryRev.maybeSingle();
+
+                            if (rev && rev.id) {
+                                if (odoFinal > (rev.km_atual || 0)) {
+                                    await window.supabaseClient.from('manutencao_revisoes').update({ km_atual: odoFinal }).eq('id', rev.id);
+                                    veiculosAtualizados++;
+                                }
+                            } else {
+                                await window.supabaseClient.from('manutencao_revisoes').insert([{
+                                    placa: placaReal,
+                                    numero_frota: numFrotaReal,
+                                    tipo: f.categoria,
+                                    km_atual: odoFinal,
+                                    km_ultima_revisao: odoFinal,
+                                    km_proxima_revisao: 0,
+                                    filial_id: filialId
+                                }]);
+                                veiculosAtualizados++;
+                            }
+                        }
+                    }
+
+                    alert(`Planilha processada com sucesso! ${veiculosAtualizados} TRITREM(s) atualizado(s).`);
+                    fileInput.value = '';
+                    
+                    // Recarrega a tabela imediatamente sem precisar do botão de atualizar dados
+                    await window.carregarVeiculosManutencao(false);
+
+                } catch (err) {
+                    console.error("Erro ao ler excel:", err);
+                    alert("Ocorreu um erro ao processar a planilha. Verifique o console.");
+                    await window.carregarVeiculosManutencao(false);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    fileInput.click();
+};
+
 // ======================= MODAL: KM / HORÍMETRO =======================
 window.abrirModalKm = function(id) {
     const v = window.veiculosRevisaoDb.find(x => String(x.id) === String(id));
@@ -294,8 +438,9 @@ window.salvarNovoKm = async function() {
             }]);
         }
 
-        alert('Hodômetro/Horímetro atualizado com sucesso!');
         window.fecharModalKm();
+        
+        // Dispara a renovação da tabela para efeito "automático"
         await window.carregarVeiculosManutencao(false);
 
     } catch (e) {
@@ -330,7 +475,6 @@ window.abrirModalRevisao = function(id) {
 
     // Lógica para GRUAS (calcula automático a próxima de 500h e trava o input)
     if (isGrua) {
-        // Bloqueia a edição do campo de próxima revisão e deixa visualmente escuro
         inputProxima.readOnly = true;
         inputProxima.style.backgroundColor = 'rgba(0,0,0,0.2)'; 
         inputProxima.style.cursor = 'not-allowed';
@@ -398,8 +542,9 @@ window.salvarNovaRevisao = async function() {
             }]);
         }
 
-        alert('Revisão registrada com sucesso!');
         window.fecharModalRevisao();
+
+        // Dispara a renovação da tabela para efeito "automático" sem dar refresh na janela inteira
         await window.carregarVeiculosManutencao(false);
 
     } catch (e) {
@@ -460,7 +605,6 @@ window.forcarSincronizacaoPlanilha = async function() {
     await window.carregarVeiculosManutencao(true);
     
     btn.innerHTML = '<i class="fas fa-sync-alt"></i> Sincronizar Agora';
-    alert("Sincronização concluída e painel atualizado!");
 };
 
 window.sincronizarComPlanilhaGoogle = async function() {
@@ -526,7 +670,6 @@ window.sincronizarComPlanilhaGoogle = async function() {
                         for (const [frotaId, record] of Object.entries(ultimosRegistros)) {
                             let valorFinal = Math.round(record.value); 
                             
-                            // Correção da Sintaxe para evitar o erro 409 e 400 em placas com espaço ("GRUA 01")
                             let queryRev = window.supabaseClient.from('manutencao_revisoes')
                                 .select('*')
                                 .or(`placa.eq."${frotaId}",numero_frota.eq."${frotaId}"`);
@@ -541,7 +684,6 @@ window.sincronizarComPlanilhaGoogle = async function() {
                                     veiculosAtualizados++;
                                 }
                             } else {
-                                // Correção de aspas duplas na query de frotas
                                 let queryFrota = window.supabaseClient.from('frotas_manutencao')
                                     .select('*')
                                     .or(`cavalo.eq."${frotaId}",go.eq."${frotaId}",numero_frota.eq."${frotaId}"`);
@@ -553,7 +695,6 @@ window.sincronizarComPlanilhaGoogle = async function() {
                                     const placaReal = f.cavalo || f.go || frotaId;
                                     const numFrotaReal = f.numero_frota || f.go || frotaId;
 
-                                    // Dupla verificação para prevenir duplicação caso a frotaId da planilha não seja a placa primária
                                     let checkDeNovo = window.supabaseClient.from('manutencao_revisoes')
                                         .select('id, km_atual')
                                         .or(`placa.eq."${placaReal}",numero_frota.eq."${numFrotaReal}"`);
