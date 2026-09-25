@@ -160,15 +160,15 @@ window.renderizarControleManutencao = function() {
         gruposCategoria[cat].push(v);
     });
 
-    Object.keys(gruposCategoria).sort().forEach(categoria => {
+    // Ordenação alfabética (A-Z) das categorias
+    Object.keys(gruposCategoria).sort((a, b) => a.localeCompare(b)).forEach(categoria => {
         const veiculosDoGrupo = gruposCategoria[categoria];
         const isGrua = categoria.includes('GRUA');
         const s_und = isGrua ? 'h' : 'km';
 
+        // ORDENAÇÃO POR PLACA/FROTA (Alfanumérica: 01, 02, 03, 04, 05...)
         veiculosDoGrupo.sort((a, b) => {
-            let restanteA = a.km_proxima_revisao === 0 ? 9999999 : (a.km_proxima_revisao - a.km_atual);
-            let restanteB = b.km_proxima_revisao === 0 ? 9999999 : (b.km_proxima_revisao - b.km_atual);
-            return restanteA - restanteB;
+            return (a.placa || '').localeCompare((b.placa || ''), undefined, { numeric: true, sensitivity: 'base' });
         });
 
         const trHeader = document.createElement('tr');
@@ -322,10 +322,44 @@ window.abrirModalRevisao = function(id) {
 
     document.getElementById('revVeiculoPlaca').innerText = `${v.placa} (Frota ${v.numero_frota})`;
     
-    const adicional = isGrua ? 250 : 10000;
-    document.getElementById('inputKmRevisaoRealizada').value = v.km_atual;
-    document.getElementById('inputKmProximaRevisao').value = v.km_atual + adicional;
-    document.getElementById('inputDetalhesRevisao').value = '';
+    const inputRealizada = document.getElementById('inputKmRevisaoRealizada');
+    const inputProxima = document.getElementById('inputKmProximaRevisao');
+    const inputDetalhes = document.getElementById('inputDetalhesRevisao');
+
+    inputRealizada.value = v.km_atual;
+
+    // Lógica para GRUAS (calcula automático a próxima de 500h e trava o input)
+    if (isGrua) {
+        // Bloqueia a edição do campo de próxima revisão e deixa visualmente escuro
+        inputProxima.readOnly = true;
+        inputProxima.style.backgroundColor = 'rgba(0,0,0,0.2)'; 
+        inputProxima.style.cursor = 'not-allowed';
+
+        inputRealizada.oninput = function() {
+            const ultima = parseInt(inputRealizada.value) || 0;
+            const proximaRevisao500 = ultima + 500;
+            
+            // Calcula o próximo múltiplo de 1000 para a revisão geral
+            let proximaRevisaoGeral = Math.ceil(ultima / 1000) * 1000;
+            if (proximaRevisaoGeral === ultima || proximaRevisaoGeral === 0) {
+                proximaRevisaoGeral += 1000;
+            }
+
+            inputProxima.value = proximaRevisao500;
+            inputDetalhes.value = `Aviso automático: Próxima revisão em ${proximaRevisao500}h. Revisão GERAL programada para ${proximaRevisaoGeral}h.`;
+        };
+        // Aciona o cálculo imediatamente ao abrir o modal
+        inputRealizada.dispatchEvent(new Event('input'));
+    } else {
+        // Libera o campo para outros veículos que não sejam GRUA
+        inputProxima.readOnly = false;
+        inputProxima.style.backgroundColor = '';
+        inputProxima.style.cursor = '';
+        
+        inputRealizada.oninput = null;
+        inputProxima.value = v.km_atual + 10000;
+        inputDetalhes.value = '';
+    }
 
     document.getElementById('modalRegistrarRevisao').classList.add('show');
 };
