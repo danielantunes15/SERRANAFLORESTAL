@@ -57,6 +57,19 @@
         align-items: center;
         gap: 6px;
     }
+    
+    /* Ajustes para inputs menores e compactos no modal */
+    .input-compacto {
+        font-size: 0.85rem !important;
+        padding: 8px !important;
+    }
+    .label-compacta {
+        font-size: 0.75rem !important;
+        margin-bottom: 4px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 </style>
 
 <div id="viewControleManutencao" style="animation: terminalFadeIn 0.3s ease-out; padding: 20px;">
@@ -66,7 +79,7 @@
             <i class="fas fa-wrench" style="color: var(--ccol-blue-bright);"></i> Controle de Revisões
         </h3>
         
-        <div style="display: flex; gap: 10px; align-items: center;">
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
             <button class="btn-primary-green" onclick="window.importarPlanilhaKm()"><i class="fas fa-file-excel"></i> Importar KMs (TRITREM)</button>
             <input type="text" id="filtroPlacaRevisao" class="search-input-dark" placeholder="Buscar Placa ou Frota..." onkeyup="window.filtrarRevisoesManutencao()" style="width: 200px;">
             <select id="filtroStatusRevisao" class="dark-select" onchange="window.filtrarRevisoesManutencao()" style="width: 180px;">
@@ -81,7 +94,7 @@
     </div>
 
     <!-- CARDS DE RESUMO -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 25px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px;">
         <div class="rev-card-dashboard">
             <div class="rev-card-icon" style="background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); border: 1px solid rgba(59, 130, 246, 0.3);">
                 <i class="fas fa-truck-moving"></i>
@@ -122,19 +135,20 @@
 
     <!-- TABELA DE CONTROLE -->
     <div class="content-panel" style="padding: 0; overflow-x: auto;">
-        <table class="data-table-modern" style="margin: 0; min-width: 1100px;">
+        <table class="data-table-modern" style="margin: 0; width: 100%; min-width: 1000px;">
             <thead>
                 <tr>
                     <th style="width: 20%;">Equipamento / Placas</th>
-                    <th style="width: 10%;">Categoria</th>
+                    <th style="width: 8%;">Categoria</th>
                     <th style="width: 25%;">Progresso para Revisão</th>
-                    <th style="width: 15%;">Inspeção (TRITREM)</th>
-                    <th style="width: 15%; text-align: center;">Status</th>
-                    <th style="width: 15%; text-align: right;">Ações Rápidas</th>
+                    <th style="width: 17%;">Inspeção (TRITREM)</th>
+                    <th style="width: 10%; text-align: center;">Qtd Revisões</th>
+                    <th style="width: 10%; text-align: center;">Status</th>
+                    <th style="width: 10%; text-align: right;">Ações Rápidas</th>
                 </tr>
             </thead>
             <tbody id="tbControleRevisoes">
-                <tr><td colspan="6" style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Carregando dados de manutenção...</td></tr>
+                <tr><td colspan="7" style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Carregando dados de manutenção...</td></tr>
             </tbody>
         </table>
     </div>
@@ -203,7 +217,7 @@
 
 <!-- MODAL: REGISTRAR NOVA REVISÃO / INSPECÃO -->
 <div id="modalRegistrarRevisao" class="modal-overlay">
-    <div class="custom-modal" style="max-width: 600px;">
+    <div class="custom-modal" style="max-width: 850px;"> <!-- Largura aumentada para acomodar 5 colunas -->
         <div class="modal-header">
             <h3><i class="fas fa-tools" style="color: #10b981;"></i> Registrar Revisão / Inspeção</h3>
             <button class="close-modal" onclick="window.fecharModalRevisao()">&times;</button>
@@ -214,7 +228,7 @@
             <input type="hidden" id="revVeiculoFrotaValor">
             <input type="hidden" id="revVeiculoTipoValor">
             
-            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
                 <h4 id="revVeiculoPlaca" style="color: #fff; margin: 0 0 5px 0; font-size: 1.2rem;">FROTA / PLACA</h4>
                 <p style="color: #10b981; margin: 0; font-size: 0.85rem;">Atualização de dados e acompanhamento</p>
             </div>
@@ -231,16 +245,30 @@
             </div>
 
             <!-- EXCLUSIVO PARA TRITREM -->
-            <div id="divDatasInspecaoTritrem" style="display: none; background: rgba(59, 130, 246, 0.1); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(59, 130, 246, 0.3);">
-                <h5 style="color: var(--ccol-blue-bright); margin: 0 0 10px 0; font-size: 0.95rem;"><i class="fas fa-clipboard-check"></i> Controle de Inspeção (TRITREM)</h5>
-                <div class="form-grid-conjunto" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div id="divDatasInspecaoTritrem" style="display: none; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <h5 style="color: var(--ccol-blue-bright); margin: 0 0 12px 0; font-size: 0.95rem;"><i class="fas fa-clipboard-check"></i> Controle de Inspeção e Elétrica (TRITREM)</h5>
+                
+                <!-- GRID DE 5 COLUNAS EM UMA ÚNICA LINHA -->
+                <div class="form-grid-conjunto" style="grid-template-columns: repeat(5, 1fr); gap: 10px;">
                     <div class="form-group-dark">
-                        <label>Data da Inspeção</label>
-                        <input type="date" id="inputDataInspecao">
+                        <label class="label-compacta" title="Data da Inspeção (Mecânica)">Insp. Mecânica</label>
+                        <input type="date" id="inputDataInspecao" class="input-compacto">
                     </div>
                     <div class="form-group-dark">
-                        <label>Próxima Inspeção</label>
-                        <input type="date" id="inputDataProximaInspecao">
+                        <label class="label-compacta" title="Próxima Inspeção">Próx. Inspeção</label>
+                        <input type="date" id="inputDataProximaInspecao" class="input-compacto">
+                    </div>
+                    <div class="form-group-dark">
+                        <label class="label-compacta" title="Revisão Eletromecânica">Rev. Elétrica</label>
+                        <input type="date" id="inputDataRevEletro" class="input-compacto">
+                    </div>
+                    <div class="form-group-dark">
+                        <label class="label-compacta" title="Inspeção Eletromecânica">Insp. Elétrica</label>
+                        <input type="date" id="inputDataInspEletro" class="input-compacto">
+                    </div>
+                    <div class="form-group-dark">
+                        <label class="label-compacta" style="color: #10b981;" title="Quantidade Total de Revisões Realizadas">Qtd. Revisões</label>
+                        <input type="number" id="inputQtdRevisoes" placeholder="Ex: 5" class="input-compacto" style="font-weight: bold; color: #10b981;">
                     </div>
                 </div>
             </div>

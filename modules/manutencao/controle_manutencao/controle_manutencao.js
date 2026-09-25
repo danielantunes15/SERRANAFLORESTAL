@@ -12,7 +12,6 @@ window.obterFilialUsuarioLogadoRev = function() {
 window.initControleManutencao = async function() {
     console.log("Módulo Controle de Manutenção (Revisões) Inicializado.");
     
-    // Filtros
     const elPlaca = document.getElementById('filtroPlacaRevisao');
     const elStatus = document.getElementById('filtroStatusRevisao');
     if (elPlaca) elPlaca.value = '';
@@ -27,7 +26,7 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
     
     try {
         const tbody = document.getElementById('tbControleRevisoes');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Sincronizando e carregando veículos...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Sincronizando e carregando veículos...</td></tr>`;
 
         // 1. Sincroniza com Google Sheets antes de buscar do banco e ESPERA terminar
         if (forcarSincronizacao) {
@@ -85,7 +84,10 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
                 detalhes_ultima_revisao: rev.detalhes_ultima_revisao || '',
                 // CAMPOS DE INSPEÇÃO (TRITREM)
                 data_inspecao: rev.data_inspecao || null,
-                data_proxima_inspecao: rev.data_proxima_inspecao || null
+                data_proxima_inspecao: rev.data_proxima_inspecao || null,
+                data_revisao_eletromecanica: rev.data_revisao_eletromecanica || null,
+                data_inspecao_eletromecanica: rev.data_inspecao_eletromecanica || null,
+                quantidade_revisoes: parseInt(rev.quantidade_revisoes) || 0
             };
         });
 
@@ -93,7 +95,7 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
     } catch (e) {
         console.error("Erro ao carregar e mesclar veículos:", e);
         const tbody = document.getElementById('tbControleRevisoes');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Erro ao buscar dados. Tente novamente.</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Erro ao buscar dados. Tente novamente.</td></tr>`;
     }
 };
 
@@ -102,7 +104,7 @@ window.determinarStatusRevisao = function(v) {
     
     const kmRestante = v.km_proxima_revisao - v.km_atual;
     const isGrua = String(v.tipo).toUpperCase().includes('GRUA');
-    const margem = isGrua ? 250 : 1500; // Gruas avisam faltando 250 horas. Outros faltam 1.500 km.
+    const margem = isGrua ? 250 : 1500; 
 
     if (kmRestante <= 0) {
         return { status: 'Atrasada', cor: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', icon: 'fas fa-times-circle' };
@@ -153,7 +155,7 @@ window.renderizarControleManutencao = function() {
     tbody.innerHTML = '';
 
     if (window.veiculosRevisaoFiltrados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-secondary);">Nenhum veículo corresponde aos filtros aplicados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-secondary);">Nenhum veículo corresponde aos filtros aplicados.</td></tr>`;
         return;
     }
 
@@ -170,14 +172,14 @@ window.renderizarControleManutencao = function() {
         const isGrua = categoria.includes('GRUA');
         const s_und = isGrua ? 'h' : 'km';
 
-        // ORDENAÇÃO POR PLACA/FROTA (Alfanumérica: 01, 02, 03, 04, 05...)
+        // ORDENAÇÃO POR PLACA/FROTA (Alfanumérica)
         veiculosDoGrupo.sort((a, b) => {
             return (a.placa || '').localeCompare((b.placa || ''), undefined, { numeric: true, sensitivity: 'base' });
         });
 
         const trHeader = document.createElement('tr');
         trHeader.innerHTML = `
-            <td colspan="6" style="text-align: left; background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); font-weight: bold; padding: 12px 20px; border-top: 2px solid rgba(59, 130, 246, 0.3); border-bottom: 2px solid rgba(59, 130, 246, 0.3); font-size: 1.1rem; letter-spacing: 1px;">
+            <td colspan="7" style="text-align: left; background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); font-weight: bold; padding: 12px 20px; border-top: 2px solid rgba(59, 130, 246, 0.3); border-bottom: 2px solid rgba(59, 130, 246, 0.3); font-size: 1.1rem; letter-spacing: 1px;">
                 <i class="fas fa-layer-group"></i> CATEGORIA: ${categoria} <span style="font-size: 0.85rem; color: var(--text-secondary); margin-left: 10px;">(${veiculosDoGrupo.length} equipamentos)</span>
             </td>
         `;
@@ -216,8 +218,10 @@ window.renderizarControleManutencao = function() {
                 </div>
             `;
 
-            // COLUNA DE INSPEÇÃO (TRITREM) COM CONTADOR DE DIAS
+            // COLUNA DE INSPEÇÃO E REVISÃO (TRITREM)
             let datasHtml = '<span style="color: var(--text-secondary); font-size: 0.8rem;">Não aplicável</span>';
+            let qtdRevisoesHtml = '<span style="color: var(--text-secondary); font-size: 0.8rem;">-</span>';
+
             if (isTritrem) {
                 const formatData = (d) => {
                     if (!d) return '--/--/----';
@@ -253,9 +257,19 @@ window.renderizarControleManutencao = function() {
 
                 datasHtml = `
                     <div style="font-size: 0.85rem; line-height: 1.6;">
-                        <div><span style="color: var(--text-secondary);">Inspeção:</span> <strong style="color: #10b981;">${formatData(v.data_inspecao)}</strong></div>
-                        <div style="margin-top: 4px;"><span style="color: var(--text-secondary);">Próxima:</span> <strong style="color: #f59e0b;">${formatData(v.data_proxima_inspecao)}</strong></div>
+                        <div><span style="color: var(--text-secondary);">Insp. Mecânica:</span> <strong style="color: #10b981;">${formatData(v.data_inspecao)}</strong></div>
+                        <div style="margin-top: 2px;"><span style="color: var(--text-secondary);">Próx. Inspeção:</span> <strong style="color: #f59e0b;">${formatData(v.data_proxima_inspecao)}</strong></div>
                         <div style="margin-top: 4px; font-size: 0.75rem;">${alertaDiasHtml}</div>
+                        <div style="margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px;"></div>
+                        <div><span style="color: var(--text-secondary);">Rev. Elétrica:</span> <strong style="color: #3b82f6;">${formatData(v.data_revisao_eletromecanica)}</strong></div>
+                        <div style="margin-top: 2px;"><span style="color: var(--text-secondary);">Insp. Elétrica:</span> <strong style="color: #8b5cf6;">${formatData(v.data_inspecao_eletromecanica)}</strong></div>
+                    </div>
+                `;
+
+                qtdRevisoesHtml = `
+                    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 10px; text-align: center;">
+                        <span style="display: block; font-size: 1.5rem; font-weight: 800; color: #10b981;">${v.quantidade_revisoes}</span>
+                        <span style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">Revisões</span>
                     </div>
                 `;
             }
@@ -272,7 +286,7 @@ window.renderizarControleManutencao = function() {
                     <button class="btn-secondary-dark" onclick="window.abrirModalKm('${v.id}')" title="Atualizar ${btnLabelKm}">
                         <i class="fas fa-tachometer-alt" style="color: var(--ccol-blue-bright);"></i> ${isGrua ? 'HORAS' : 'KM'}
                     </button>
-                    <button class="btn-primary-green" onclick="window.abrirModalRevisao('${v.id}')" title="Registrar Manutenção / Inspeção">
+                    <button class="btn-primary-green" onclick="window.abrirModalRevisao('${v.id}')" title="Registrar Revisão">
                         <i class="fas fa-tools"></i> Revisão
                     </button>
                 </div>
@@ -284,6 +298,7 @@ window.renderizarControleManutencao = function() {
                 <td style="color: var(--text-secondary); font-weight: 600; font-size: 0.85rem;">${v.tipo.toUpperCase()}</td>
                 <td>${progressHtml}</td>
                 <td>${datasHtml}</td>
+                <td style="text-align: center; vertical-align: middle;">${qtdRevisoesHtml}</td>
                 <td style="text-align: center;">${badgeHtml}</td>
                 <td>${acoesHtml}</td>
             `;
@@ -350,7 +365,7 @@ window.importarPlanilhaKm = function() {
                     const filialId = window.obterFilialUsuarioLogadoRev();
 
                     const tbody = document.getElementById('tbControleRevisoes');
-                    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--ccol-blue-bright); padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Lendo planilha e atualizando TRITREMs...</td></tr>`;
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--ccol-blue-bright); padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Lendo planilha e atualizando TRITREMs...</td></tr>`;
 
                     for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
                         const row = jsonData[i];
@@ -397,6 +412,7 @@ window.importarPlanilhaKm = function() {
                                     km_atual: odoFinal,
                                     km_ultima_revisao: odoFinal,
                                     km_proxima_revisao: 0,
+                                    quantidade_revisoes: 0,
                                     filial_id: filialId
                                 }]);
                                 veiculosAtualizados++;
@@ -471,6 +487,7 @@ window.salvarNovoKm = async function() {
             await window.supabaseClient.from('manutencao_revisoes').insert([{
                 placa: placa, numero_frota: frota, tipo: tipo,
                 km_atual: novoKm, km_ultima_revisao: novoKm, km_proxima_revisao: 0,
+                quantidade_revisoes: 0,
                 filial_id: filialId
             }]);
         }
@@ -518,10 +535,16 @@ window.abrirModalRevisao = function(id) {
         divDatas.style.display = 'block';
         document.getElementById('inputDataInspecao').value = v.data_inspecao || '';
         document.getElementById('inputDataProximaInspecao').value = v.data_proxima_inspecao || '';
+        document.getElementById('inputDataRevEletro').value = v.data_revisao_eletromecanica || '';
+        document.getElementById('inputDataInspEletro').value = v.data_inspecao_eletromecanica || '';
+        document.getElementById('inputQtdRevisoes').value = v.quantidade_revisoes || 0;
     } else {
         divDatas.style.display = 'none';
         document.getElementById('inputDataInspecao').value = '';
         document.getElementById('inputDataProximaInspecao').value = '';
+        document.getElementById('inputDataRevEletro').value = '';
+        document.getElementById('inputDataInspEletro').value = '';
+        document.getElementById('inputQtdRevisoes').value = 0;
     }
 
     // Lógica para GRUAS (calcula automático a próxima de 500h e trava o input)
@@ -588,6 +611,9 @@ window.salvarNovaRevisao = async function() {
     if (isTritrem) {
         payload.data_inspecao = document.getElementById('inputDataInspecao').value || null;
         payload.data_proxima_inspecao = document.getElementById('inputDataProximaInspecao').value || null;
+        payload.data_revisao_eletromecanica = document.getElementById('inputDataRevEletro').value || null;
+        payload.data_inspecao_eletromecanica = document.getElementById('inputDataInspEletro').value || null;
+        payload.quantidade_revisoes = parseInt(document.getElementById('inputQtdRevisoes').value) || 0;
     }
 
     try {
@@ -776,6 +802,7 @@ window.sincronizarComPlanilhaGoogle = async function() {
                                             km_atual: valorFinal,
                                             km_ultima_revisao: valorFinal,
                                             km_proxima_revisao: 0,
+                                            quantidade_revisoes: 0,
                                             filial_id: filialId
                                         }]);
                                         veiculosAtualizados++;
