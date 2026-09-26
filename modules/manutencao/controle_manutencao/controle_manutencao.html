@@ -1,150 +1,108 @@
 <!-- ==================== modules/manutencao/controle_manutencao/controle_manutencao.html ==================== -->
 <style>
-    .rev-card-dashboard {
-        background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.2) 100%);
-        border: 1px solid var(--border-dim);
-        border-radius: 12px;
-        padding: 20px;
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-    .rev-card-icon {
-        width: 60px;
-        height: 60px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.8rem;
-    }
-    .rev-card-info h4 {
-        margin: 0;
-        color: var(--text-secondary);
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .rev-card-info span {
-        display: block;
-        font-size: 2rem;
-        font-weight: 800;
-        color: #fff;
-        line-height: 1.2;
-    }
-    .km-progress-bg {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        height: 8px;
-        width: 100%;
-        overflow: hidden;
-        margin-top: 8px;
-        position: relative;
-    }
-    .km-progress-fill {
-        height: 100%;
-        border-radius: 10px;
-        transition: width 0.5s ease-in-out, background-color 0.5s;
-    }
-    .badge-status-rev {
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-    
-    /* Ajustes para inputs menores e compactos no modal */
-    .input-compacto {
-        font-size: 0.85rem !important;
-        padding: 8px !important;
-    }
-    .label-compacta {
-        font-size: 0.75rem !important;
-        margin-bottom: 4px !important;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+    /* Estilos base dos Cards e Progresso */
+    .rev-card-dashboard { background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.2) 100%); border: 1px solid var(--border-dim); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    .rev-card-icon { width: 60px; height: 60px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
+    .rev-card-info h4 { margin: 0; color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .rev-card-info span { display: block; font-size: 2rem; font-weight: 800; color: #fff; line-height: 1.2; }
+    .km-progress-bg { background: rgba(255, 255, 255, 0.1); border-radius: 10px; height: 8px; width: 100%; overflow: hidden; margin-top: 8px; position: relative; }
+    .km-progress-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease-in-out, background-color 0.5s; }
+    .badge-status-rev { padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
+    .input-compacto { font-size: 0.85rem !important; padding: 8px !important; }
+    .label-compacta { font-size: 0.75rem !important; margin-bottom: 4px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Abas de Navegação */
+    .nav-tabs-modern { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-dim); padding-bottom: 10px; }
+    .tab-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 1rem; font-weight: bold; padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px; }
+    .tab-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+    .tab-btn.active { background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); border: 1px solid rgba(59, 130, 246, 0.3); }
+
+    /* Painel Lateral (Offcanvas Histórico) */
+    .side-panel { position: fixed; top: 0; right: -500px; width: 450px; height: 100vh; background: var(--bg-dark-secondary); box-shadow: -5px 0 25px rgba(0,0,0,0.5); z-index: 1000; transition: right 0.4s ease; border-left: 1px solid var(--border-dim); display: flex; flex-direction: column; }
+    .side-panel.open { right: 0; }
+    .side-panel-header { padding: 20px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border-dim); display: flex; justify-content: space-between; align-items: center; }
+    .side-panel-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .timeline-item { position: relative; padding-left: 30px; margin-bottom: 20px; border-left: 2px solid rgba(59, 130, 246, 0.3); }
+    .timeline-item::before { content: ''; position: absolute; left: -6px; top: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--ccol-blue-bright); }
+    .timeline-date { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 5px; }
+    .timeline-content { background: rgba(255,255,255,0.02); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
+
+    /* Kanban Board */
+    .kanban-board { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 20px; align-items: flex-start; }
+    .kanban-col { flex: 1; min-width: 300px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-dim); border-radius: 12px; display: flex; flex-direction: column; }
+    .kanban-col-header { padding: 15px; font-weight: bold; border-bottom: 1px solid var(--border-dim); display: flex; justify-content: space-between; align-items: center; }
+    .kanban-col-body { padding: 15px; display: flex; flex-direction: column; gap: 15px; min-height: 200px; }
+    .kanban-card { background: var(--bg-dark); border: 1px solid var(--border-dim); border-radius: 8px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s; border-left: 4px solid var(--text-secondary); }
+    .kanban-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.2); }
+    .kanban-card.critical { border-left-color: #ef4444; }
+    .kanban-card.warning { border-left-color: #f59e0b; }
+    .kanban-card.good { border-left-color: #10b981; }
+
+    /* Checklist Grid */
+    .checklist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; }
+    .check-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #fff; cursor: pointer; }
+    .check-item input { width: 16px; height: 16px; cursor: pointer; }
 </style>
 
 <div id="viewControleManutencao" style="animation: terminalFadeIn 0.3s ease-out; padding: 20px;">
     <!-- CABEÇALHO COMPACTO EM LINHA -->
-    <div class="action-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding: 15px 20px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-dim); border-radius: 8px;">
+    <div class="action-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px 20px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-dim); border-radius: 8px;">
         <h3 style="color: #fff; margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
-            <i class="fas fa-wrench" style="color: var(--ccol-blue-bright);"></i> Controle de Revisões
+            <i class="fas fa-wrench" style="color: var(--ccol-blue-bright);"></i> Central de Manutenção
         </h3>
         
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
-            <button class="btn-primary-green" onclick="window.importarPlanilhaKm()"><i class="fas fa-file-excel"></i> Importar KMs (TRITREM)</button>
+            <button class="btn-primary-green" onclick="window.importarPlanilhaKm()"><i class="fas fa-file-excel"></i> Importar KMs</button>
             <input type="text" id="filtroPlacaRevisao" class="search-input-dark" placeholder="Buscar Placa ou Frota..." onkeyup="window.filtrarRevisoesManutencao()" style="width: 200px;">
-            <select id="filtroStatusRevisao" class="dark-select" onchange="window.filtrarRevisoesManutencao()" style="width: 180px;">
-                <option value="">Todos os Status</option>
+            <select id="filtroStatusRevisao" class="dark-select" onchange="window.filtrarRevisoesManutencao()" style="width: 150px;">
+                <option value="">Todos Status</option>
                 <option value="Em Dia">Em Dia</option>
                 <option value="Atenção">Atenção (Vencendo)</option>
                 <option value="Atrasada">Atrasada</option>
             </select>
             <button class="btn-primary-blue" onclick="window.carregarVeiculosManutencao(true)"><i class="fas fa-sync-alt"></i> Atualizar Dados</button>
-            <button class="btn-secondary-dark" onclick="window.abrirModalConfigManutencao()" title="Configurações (Planilha do Google)"><i class="fas fa-cog"></i></button>
+            <button class="btn-secondary-dark" onclick="window.abrirModalConfigManutencao()" title="Configurações"><i class="fas fa-cog"></i></button>
         </div>
     </div>
 
-    <!-- CARDS DE RESUMO -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px;">
+    <!-- ABAS DE NAVEGAÇÃO -->
+    <div class="nav-tabs-modern">
+        <button class="tab-btn active" id="btnTabLista" onclick="window.alternarAbaManutencao('lista')"><i class="fas fa-list"></i> Visão Geral (Lista)</button>
+        <button class="tab-btn" id="btnTabKanban" onclick="window.alternarAbaManutencao('kanban')"><i class="fas fa-columns"></i> Gestão de Oficina (Kanban)</button>
+    </div>
+
+    <!-- CARDS DE RESUMO (SÓ MOSTRA NA LISTA) -->
+    <div id="containerResumoCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px;">
         <div class="rev-card-dashboard">
-            <div class="rev-card-icon" style="background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); border: 1px solid rgba(59, 130, 246, 0.3);">
-                <i class="fas fa-truck-moving"></i>
-            </div>
-            <div class="rev-card-info">
-                <h4>Total Monitorados</h4>
-                <span id="totRevMonitorados">0</span>
-            </div>
+            <div class="rev-card-icon" style="background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); border: 1px solid rgba(59, 130, 246, 0.3);"><i class="fas fa-truck-moving"></i></div>
+            <div class="rev-card-info"><h4>Total Monitorados</h4><span id="totRevMonitorados">0</span></div>
         </div>
         <div class="rev-card-dashboard">
-            <div class="rev-card-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <div class="rev-card-info">
-                <h4>Revisões em Dia</h4>
-                <span id="totRevEmDia">0</span>
-            </div>
+            <div class="rev-card-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);"><i class="fas fa-check-circle"></i></div>
+            <div class="rev-card-info"><h4>Revisões em Dia</h4><span id="totRevEmDia">0</span></div>
         </div>
         <div class="rev-card-dashboard">
-            <div class="rev-card-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <div class="rev-card-info">
-                <h4>Atenção (Próximos a Vencer)</h4>
-                <span id="totRevAtencao">0</span>
-            </div>
+            <div class="rev-card-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="rev-card-info"><h4>Atenção (Vencendo)</h4><span id="totRevAtencao">0</span></div>
         </div>
         <div class="rev-card-dashboard">
-            <div class="rev-card-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">
-                <i class="fas fa-times-circle"></i>
-            </div>
-            <div class="rev-card-info">
-                <h4>Revisões Atrasadas</h4>
-                <span id="totRevAtrasadas">0</span>
-            </div>
+            <div class="rev-card-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);"><i class="fas fa-times-circle"></i></div>
+            <div class="rev-card-info"><h4>Atrasadas (Crítico)</h4><span id="totRevAtrasadas">0</span></div>
         </div>
     </div>
 
-    <!-- TABELA DE CONTROLE -->
-    <div class="content-panel" style="padding: 0; overflow-x: auto;">
-        <table class="data-table-modern" style="margin: 0; width: 100%; min-width: 1000px;">
+    <!-- CONTEÚDO DA ABA: LISTA -->
+    <div id="tabConteudoLista" class="content-panel" style="padding: 0; overflow-x: auto;">
+        <table class="data-table-modern" style="margin: 0; width: 100%; min-width: 1100px;">
             <thead>
                 <tr>
-                    <th style="width: 20%;">Equipamento / Placas</th>
+                    <th style="width: 18%;">Equipamento / Placas</th>
                     <th style="width: 8%;">Categoria</th>
-                    <th style="width: 25%;">Progresso para Revisão</th>
+                    <th style="width: 25%;">Progresso / Score de Risco</th>
                     <th style="width: 17%;">Inspeção (TRITREM)</th>
-                    <th style="width: 10%; text-align: center;">Qtd Revisões</th>
+                    <th style="width: 8%; text-align: center;">Revisões</th>
                     <th style="width: 10%; text-align: center;">Status</th>
-                    <th style="width: 10%; text-align: right;">Ações Rápidas</th>
+                    <th style="width: 14%; text-align: right;">Ações Rápidas</th>
                 </tr>
             </thead>
             <tbody id="tbControleRevisoes">
@@ -152,40 +110,156 @@
             </tbody>
         </table>
     </div>
-</div>
 
-<!-- MODAL: CONFIGURAÇÕES (LINK GOOGLE SHEETS) -->
-<div id="modalConfigManutencao" class="modal-overlay">
-    <div class="custom-modal" style="max-width: 500px;">
-        <div class="modal-header">
-            <h3><i class="fas fa-cog" style="color: var(--ccol-blue-bright);"></i> Configurações do Módulo</h3>
-            <button class="close-modal" onclick="window.fecharModalConfigManutencao()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <h4 style="color: #fff; margin: 0 0 5px 0; font-size: 1rem;"><i class="fas fa-file-excel" style="color: #10b981;"></i> Sincronização com Google Sheets</h4>
-                <p style="color: var(--text-secondary); margin: 0; font-size: 0.85rem; line-height: 1.4;">
-                    Para atualizar automaticamente os KMs e Horímetros, cole o link da sua planilha abaixo. <br><br>
-                    <strong style="color: #f59e0b;">Importante:</strong> A planilha precisa estar "Pública (Qualquer pessoa com o link)" e conter colunas com os nomes <b>FROTA</b> (ou PLACA) e <b>KM</b> (ou HORIMETRO).
-                </p>
+    <!-- CONTEÚDO DA ABA: KANBAN -->
+    <div id="tabConteudoKanban" style="display: none;">
+        <div class="kanban-board">
+            <!-- Coluna: Rodando -->
+            <div class="kanban-col">
+                <div class="kanban-col-header" style="border-top: 4px solid var(--text-secondary); color: #fff;">
+                    <span><i class="fas fa-road"></i> Rodando / Operação</span>
+                    <span class="badge" style="background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 12px;" id="kbCountRodando">0</span>
+                </div>
+                <div class="kanban-col-body" id="kbColRodando"></div>
+            </div>
+            
+            <!-- Coluna: Pátio / Fila -->
+            <div class="kanban-col">
+                <div class="kanban-col-header" style="border-top: 4px solid #f59e0b; color: #f59e0b;">
+                    <span><i class="fas fa-parking"></i> Pátio / Fila Oficina</span>
+                    <span class="badge" style="background: rgba(245, 158, 11, 0.1); padding: 2px 8px; border-radius: 12px;" id="kbCountPatio">0</span>
+                </div>
+                <div class="kanban-col-body" id="kbColPatio"></div>
             </div>
 
-            <div class="form-group-dark">
-                <label>Link da Planilha do Google Sheets</label>
-                <input type="url" id="inputGoogleSheetsLink" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size: 0.9rem;">
+            <!-- Coluna: Em Manutenção -->
+            <div class="kanban-col">
+                <div class="kanban-col-header" style="border-top: 4px solid var(--ccol-blue-bright); color: var(--ccol-blue-bright);">
+                    <span><i class="fas fa-tools"></i> Em Manutenção (Box)</span>
+                    <span class="badge" style="background: rgba(59, 130, 246, 0.1); padding: 2px 8px; border-radius: 12px;" id="kbCountManutencao">0</span>
+                </div>
+                <div class="kanban-col-body" id="kbColManutencao"></div>
             </div>
-        </div>
-        <div class="modal-footer" style="justify-content: space-between;">
-            <button class="btn-primary-blue" onclick="window.forcarSincronizacaoPlanilha()"><i class="fas fa-sync-alt"></i> Sincronizar Agora</button>
-            <div>
-                <button class="btn-secondary-dark" onclick="window.fecharModalConfigManutencao()">Cancelar</button>
-                <button class="btn-primary-green" onclick="window.salvarConfigManutencao()">💾 Salvar Link</button>
+
+            <!-- Coluna: Aguardando Peças -->
+            <div class="kanban-col">
+                <div class="kanban-col-header" style="border-top: 4px solid #ef4444; color: #ef4444;">
+                    <span><i class="fas fa-box-open"></i> Aguardando Peças</span>
+                    <span class="badge" style="background: rgba(239, 68, 68, 0.1); padding: 2px 8px; border-radius: 12px;" id="kbCountPecas">0</span>
+                </div>
+                <div class="kanban-col-body" id="kbColPecas"></div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- MODAL: ATUALIZAR KM/HORIMETRO -->
+<!-- PAINEL LATERAL: HISTÓRICO (OFFCANVAS) -->
+<div id="painelHistorico" class="side-panel">
+    <div class="side-panel-header">
+        <div>
+            <h3 style="margin: 0; color: #fff; font-size: 1.2rem;"><i class="fas fa-history" style="color: var(--ccol-blue-bright);"></i> Histórico de Máquina</h3>
+            <span id="txtPlacaHistorico" style="color: var(--text-secondary); font-size: 0.9rem;">Selecione um veículo</span>
+        </div>
+        <button class="btn-secondary-dark" onclick="window.fecharPainelHistorico()" style="padding: 5px 10px;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="side-panel-body" id="bodyHistoricoTimeline">
+        <div style="text-align: center; color: var(--text-secondary); padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
+    </div>
+</div>
+
+<!-- MODAL: REGISTRAR NOVA REVISÃO COM CHECKLIST -->
+<div id="modalRegistrarRevisao" class="modal-overlay">
+    <div class="custom-modal" style="max-width: 800px; width: 95%;">
+        <div class="modal-header">
+            <h3><i class="fas fa-tools" style="color: #10b981;"></i> Reporte de Manutenção / Inspeção</h3>
+            <button class="close-modal" onclick="window.fecharModalRevisao()">&times;</button>
+        </div>
+        <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+            <input type="hidden" id="revVeiculoId">
+            <input type="hidden" id="revVeiculoPlacaValor">
+            <input type="hidden" id="revVeiculoFrotaValor">
+            <input type="hidden" id="revVeiculoTipoValor">
+            
+            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h4 id="revVeiculoPlaca" style="color: #fff; margin: 0 0 5px 0; font-size: 1.2rem;">FROTA / PLACA</h4>
+                    <p style="color: #10b981; margin: 0; font-size: 0.85rem;">Atualização de KM e Apontamentos</p>
+                </div>
+                <div>
+                    <select id="selectStatusOficina" class="dark-select" style="border-color: #10b981;">
+                        <option value="RODANDO">🟢 Rodando / Em Operação</option>
+                        <option value="PATIO">🟠 Pátio / Fila Oficina</option>
+                        <option value="MANUTENCAO">🔵 Em Manutenção (Box)</option>
+                        <option value="AGUARDANDO_PECA">🔴 Aguardando Peças</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- BLOCO GERAL -->
+            <div class="form-grid-conjunto" style="grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                <div class="form-group-dark">
+                    <label>Data Desta Revisão *</label>
+                    <input type="date" id="inputDataUltimaRevisao" class="input-compacto">
+                </div>
+                <div class="form-group-dark">
+                    <label>Realizada (<span id="lblRevRealizadaTexto">KM</span>) *</label>
+                    <input type="number" id="inputKmRevisaoRealizada" placeholder="Atual" class="input-compacto">
+                </div>
+                <div class="form-group-dark">
+                    <label>Próxima (<span id="lblRevProximaTexto">KM</span>) *</label>
+                    <input type="number" id="inputKmProximaRevisao" placeholder="Próxima" class="input-compacto">
+                </div>
+            </div>
+
+            <!-- EXCLUSIVO PARA TRITREM -->
+            <div id="divDatasInspecaoTritrem" style="display: none; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <h5 style="color: var(--ccol-blue-bright); margin: 0 0 12px 0; font-size: 0.95rem;"><i class="fas fa-clipboard-check"></i> Controle de Inspeção e Elétrica (TRITREM)</h5>
+                <div class="form-grid-conjunto" style="grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                    <div class="form-group-dark">
+                        <label class="label-compacta">Insp. Mecânica</label>
+                        <input type="date" id="inputDataInspecao" class="input-compacto">
+                    </div>
+                    <div class="form-group-dark">
+                        <label class="label-compacta">Insp. Eletromecânica</label>
+                        <input type="date" id="inputDataInspEletro" class="input-compacto">
+                    </div>
+                    <div class="form-group-dark">
+                        <label class="label-compacta">Próx. Insp. Eletromec.</label>
+                        <input type="date" id="inputDataProximaInspecao" class="input-compacto">
+                    </div>
+                    <div class="form-group-dark">
+                        <label class="label-compacta" style="color: #10b981;">Qtd. Revisões</label>
+                        <input type="number" id="inputQtdRevisoes" class="input-compacto" style="font-weight: bold; color: #10b981;">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CHECKLIST DIGITAL -->
+            <div style="margin-top: 15px;">
+                <label style="color: var(--text-secondary); font-size: 0.85rem; font-weight: bold; text-transform: uppercase;">Checklist de Oficina (Opcional)</label>
+                <div class="checklist-grid">
+                    <label class="check-item"><input type="checkbox" id="chkOleo"> Troca de Óleo e Filtros</label>
+                    <label class="check-item"><input type="checkbox" id="chkEngraxamento"> Engraxamento Geral</label>
+                    <label class="check-item"><input type="checkbox" id="chkFreios"> Revisão de Freios / Cuícas</label>
+                    <label class="check-item"><input type="checkbox" id="chkPneus"> Calibragem e Rodízio de Pneus</label>
+                    <label class="check-item"><input type="checkbox" id="chkEletrica"> Verificação Elétrica (Lâmpadas/Chicote)</label>
+                    <label class="check-item"><input type="checkbox" id="chkEstrutura"> Soldas e Estrutura</label>
+                </div>
+            </div>
+
+            <div class="form-group-dark" style="margin-top: 15px;">
+                <label>Defeitos Relatados / Observações</label>
+                <textarea id="inputDetalhesRevisao" rows="3" placeholder="Descreva os serviços executados ou pendências..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.fecharModalRevisao()">Cancelar</button>
+            <button class="btn-primary-green" onclick="window.salvarNovaRevisao()">✅ Salvar no Diário de Bordo</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CONFIGURAÇÕES E KM SÃO IDÊNTICOS... MANTIVE O DE KM AQUI: -->
 <div id="modalAtualizarKm" class="modal-overlay">
     <div class="custom-modal" style="max-width: 400px;">
         <div class="modal-header">
@@ -210,77 +284,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="window.fecharModalKm()">Cancelar</button>
-            <button class="btn-primary-blue" onclick="window.salvarNovoKm()">💾 Salvar</button>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL: REGISTRAR NOVA REVISÃO / INSPECÃO -->
-<div id="modalRegistrarRevisao" class="modal-overlay">
-    <div class="custom-modal" style="max-width: 850px;"> <!-- Largura aumentada para acomodar 5 colunas -->
-        <div class="modal-header">
-            <h3><i class="fas fa-tools" style="color: #10b981;"></i> Registrar Revisão / Inspeção</h3>
-            <button class="close-modal" onclick="window.fecharModalRevisao()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <input type="hidden" id="revVeiculoId">
-            <input type="hidden" id="revVeiculoPlacaValor">
-            <input type="hidden" id="revVeiculoFrotaValor">
-            <input type="hidden" id="revVeiculoTipoValor">
-            
-            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                <h4 id="revVeiculoPlaca" style="color: #fff; margin: 0 0 5px 0; font-size: 1.2rem;">FROTA / PLACA</h4>
-                <p style="color: #10b981; margin: 0; font-size: 0.85rem;">Atualização de dados e acompanhamento</p>
-            </div>
-
-            <div class="form-grid-conjunto" style="grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div class="form-group-dark">
-                    <label>Realizada em qual <span id="lblRevRealizadaTexto">KM</span>? *</label>
-                    <input type="number" id="inputKmRevisaoRealizada" placeholder="Valor realizado">
-                </div>
-                <div class="form-group-dark">
-                    <label>Próxima vence em qual <span id="lblRevProximaTexto">KM</span>? *</label>
-                    <input type="number" id="inputKmProximaRevisao" placeholder="Valor da próxima">
-                </div>
-            </div>
-
-            <!-- EXCLUSIVO PARA TRITREM -->
-            <div id="divDatasInspecaoTritrem" style="display: none; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                <h5 style="color: var(--ccol-blue-bright); margin: 0 0 12px 0; font-size: 0.95rem;"><i class="fas fa-clipboard-check"></i> Controle de Inspeção e Elétrica (TRITREM)</h5>
-                
-                <!-- GRID DE 5 COLUNAS EM UMA ÚNICA LINHA -->
-                <div class="form-grid-conjunto" style="grid-template-columns: repeat(5, 1fr); gap: 10px;">
-                    <div class="form-group-dark">
-                        <label class="label-compacta" title="Data da Inspeção (Mecânica)">Insp. Mecânica</label>
-                        <input type="date" id="inputDataInspecao" class="input-compacto">
-                    </div>
-                    <div class="form-group-dark">
-                        <label class="label-compacta" title="Próxima Inspeção">Próx. Inspeção</label>
-                        <input type="date" id="inputDataProximaInspecao" class="input-compacto">
-                    </div>
-                    <div class="form-group-dark">
-                        <label class="label-compacta" title="Revisão Eletromecânica">Rev. Elétrica</label>
-                        <input type="date" id="inputDataRevEletro" class="input-compacto">
-                    </div>
-                    <div class="form-group-dark">
-                        <label class="label-compacta" title="Inspeção Eletromecânica">Insp. Elétrica</label>
-                        <input type="date" id="inputDataInspEletro" class="input-compacto">
-                    </div>
-                    <div class="form-group-dark">
-                        <label class="label-compacta" style="color: #10b981;" title="Quantidade Total de Revisões Realizadas">Qtd. Revisões</label>
-                        <input type="number" id="inputQtdRevisoes" placeholder="Ex: 5" class="input-compacto" style="font-weight: bold; color: #10b981;">
-                    </div>
-                </div>
-            </div>
-            
-            <div class="form-group-dark" style="margin-top: 15px;">
-                <label>Detalhes (Acompanhamento / Obs)</label>
-                <textarea id="inputDetalhesRevisao" rows="3" placeholder="Ex: Troca de óleo, filtros, engraxamento..."></textarea>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn-secondary-dark" onclick="window.fecharModalRevisao()">Cancelar</button>
-            <button class="btn-primary-green" onclick="window.salvarNovaRevisao()">✅ Confirmar Revisão</button>
+            <button class="btn-primary-blue" onclick="window.salvarNovoKm()">💾 Salvar Registro</button>
         </div>
     </div>
 </div>
