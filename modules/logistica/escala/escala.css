@@ -43,6 +43,17 @@
     100% { opacity: 1; text-shadow: 0 0 10px rgba(239, 68, 68, 0.8); }
 }
 
+/* Animação suave para atrair a atenção do controlador de frota (Paradas Programadas) */
+@keyframes piscarSuaveParada {
+    0% { opacity: 1; box-shadow: 0 0 5px rgba(245, 158, 11, 0.3); }
+    50% { opacity: 0.85; box-shadow: 0 0 15px rgba(245, 158, 11, 0.9); transform: scale(1.02); }
+    100% { opacity: 1; box-shadow: 0 0 5px rgba(245, 158, 11, 0.3); }
+}
+.alerta-parada-suave {
+    animation: piscarSuaveParada 2.5s infinite;
+    border: 1px solid #f59e0b !important;
+}
+
 @media print {
     .escala-conjunto-box { page-break-inside: avoid; margin-bottom: 20px;}
     .select-escala-excel { appearance: none; -webkit-appearance: none; color: #000; font-weight: bold; }

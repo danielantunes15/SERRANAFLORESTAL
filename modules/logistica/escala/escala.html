@@ -198,3 +198,34 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Paradas Logística -->
+<div id="modalParadasLogistica" class="modal-overlay">
+    <div class="custom-modal" style="max-width: 900px; width: 95%;">
+        <div class="modal-header">
+            <h3><i class="fas fa-hand-paper" style="color: #f59e0b;"></i> Solicitações de Parada (Central de Manutenção)</h3>
+            <button class="close-modal" onclick="window.fecharModalParadasLogistica()">&times;</button>
+        </div>
+        <div class="modal-body" style="max-height: 65vh; overflow-y: auto; padding: 0;">
+            <table class="data-table-modern" style="margin: 0; width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Placa</th>
+                        <th>Data Programada</th>
+                        <th>Motivo</th>
+                        <th>Manutenção (Status)</th>
+                        <th>Visto Logística</th>
+                        <th>Status CCOL</th>
+                        <th style="text-align: right;">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="tbListaParadasLogistica">
+                    <tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary-dark" onclick="window.fecharModalParadasLogistica()">Fechar</button>
+        </div>
+    </div>
+</div>

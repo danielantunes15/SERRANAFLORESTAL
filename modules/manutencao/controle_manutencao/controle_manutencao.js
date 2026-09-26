@@ -3,10 +3,18 @@
 window.veiculosRevisaoDb = [];
 window.veiculosRevisaoFiltrados = [];
 window.abaAtivaManutencao = 'lista';
+window.paradasProgramadas = []; 
 
 window.obterFilialUsuarioLogadoRev = function() {
     return (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') 
         ? parseInt(window.currentUser.filial_id) : null;
+};
+
+// Função global de formatação para evitar o erro de minutos cortados (ex: 11:1)
+window.formatarDataHoraCerta = function(isoString) {
+    if (!isoString) return '';
+    const d = new Date(isoString);
+    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 window.initControleManutencao = async function() {
@@ -19,35 +27,22 @@ window.initControleManutencao = async function() {
     await window.carregarVeiculosManutencao(true);
 };
 
-window.alternarAbaManutencao = function(aba) {
-    window.abaAtivaManutencao = aba;
-    document.getElementById('btnTabLista').classList.remove('active');
-    document.getElementById('btnTabKanban').classList.remove('active');
-    document.getElementById('tabConteudoLista').style.display = 'none';
-    document.getElementById('tabConteudoKanban').style.display = 'none';
-    document.getElementById('containerResumoCards').style.display = 'none';
-
-    if (aba === 'lista') {
-        document.getElementById('btnTabLista').classList.add('active');
-        document.getElementById('tabConteudoLista').style.display = 'block';
-        document.getElementById('containerResumoCards').style.display = 'grid';
-    } else {
-        document.getElementById('btnTabKanban').classList.add('active');
-        document.getElementById('tabConteudoKanban').style.display = 'block';
-    }
-    window.renderizarControleManutencao();
-};
-
 window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) {
     const filialId = window.obterFilialUsuarioLogadoRev();
     
     try {
         const tbody = document.getElementById('tbControleRevisoes');
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Sincronizando com a Planilha e montando inteligência...</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Sincronizando dados e montando inteligência...</td></tr>`;
 
         if (forcarSincronizacao) {
             await window.sincronizarComPlanilhaGoogle();
         }
+
+        // CARREGA AS PARADAS PROGRAMADAS PENDENTES
+        let queryParadas = window.supabaseClient.from('manutencao_paradas_programadas').select('*').eq('status', 'Pendente');
+        if (filialId !== null) queryParadas = queryParadas.eq('filial_id', filialId);
+        const { data: paradas } = await queryParadas;
+        window.paradasProgramadas = paradas || [];
 
         let queryFrotas = window.supabaseClient.from('frotas_manutencao').select('*');
         if (filialId !== null) queryFrotas = queryFrotas.eq('filial_id', filialId);
@@ -80,23 +75,21 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
             let kmUltima = parseInt(rev.km_ultima_revisao) || 0;
             let kmProxima = parseInt(rev.km_proxima_revisao) || 0;
             
-            // SCORE DE RISCO: 0 a 100+ (Mais perto de vencer, maior o risco)
             let scoreRisco = 0;
             let distTotal = kmProxima - kmUltima;
             let distPercorrida = kmAtual - kmUltima;
             if (distTotal > 0) {
                 scoreRisco = Math.round((distPercorrida / distTotal) * 100);
             }
-            if (kmProxima === 0) scoreRisco = -1; // Não configurado
+            if (kmProxima === 0) scoreRisco = -1;
 
-            // Previsão Simples Baseada em Média Arbitrária (Tritrem = 300km/dia, Grua = 15h/dia)
             let prevDias = null;
             let isGrua = tipoVeiculo.toUpperCase().includes('GRUA');
             if (kmProxima > kmAtual) {
                 let rest = kmProxima - kmAtual;
                 prevDias = Math.round(rest / (isGrua ? 15 : 300));
             } else if (kmProxima > 0) {
-                prevDias = 0; // Vencido
+                prevDias = 0; 
             }
 
             return {
@@ -111,7 +104,6 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
                 km_proxima_revisao: kmProxima,
                 score_risco: scoreRisco,
                 previsao_dias: prevDias,
-                status_oficina: rev.status_oficina || 'RODANDO',
                 detalhes_ultima_revisao: rev.detalhes_ultima_revisao || '',
                 data_inspecao: rev.data_inspecao || null,
                 data_proxima_inspecao: rev.data_proxima_inspecao || null,
@@ -137,8 +129,9 @@ window.determinarStatusRevisao = function(v) {
 };
 
 window.filtrarRevisoesManutencao = function() {
-    const termo = (document.getElementById('filtroPlacaRevisao').value || '').toLowerCase().trim();
-    const statusDesejado = document.getElementById('filtroStatusRevisao').value;
+    const termo = (document.getElementById('filtroPlacaRevisao')?.value || '').toLowerCase().trim();
+    const statusDesejado = document.getElementById('filtroStatusRevisao')?.value || '';
+    const categoriaDesejada = document.getElementById('filtroCategoriaRevisao')?.value || 'TODAS';
 
     window.veiculosRevisaoFiltrados = window.veiculosRevisaoDb.filter(v => {
         const matchBusca = (v.placa && v.placa.toLowerCase().includes(termo)) || 
@@ -147,19 +140,101 @@ window.filtrarRevisoesManutencao = function() {
         
         const infoStatus = window.determinarStatusRevisao(v);
         const matchStatus = statusDesejado === '' || infoStatus.status === statusDesejado;
+        const matchCategoria = categoriaDesejada === 'TODAS' || (v.tipo && v.tipo.toUpperCase().includes(categoriaDesejada));
 
-        return matchBusca && matchStatus;
+        return matchBusca && matchStatus && matchCategoria;
     });
 
     window.renderizarControleManutencao();
 };
 
-window.renderizarControleManutencao = function() {
-    if (window.abaAtivaManutencao === 'kanban') {
-        window.renderizarKanban();
-        return;
+window.gerarBadgeStatusVeiculo = function(placa) {
+    const parada = (window.paradasProgramadas || []).find(p => p.placa === placa && p.status === 'Pendente');
+    
+    let btnAcao = '';
+    if (parada) {
+        const dataFmt = window.formatarDataHoraCerta(parada.data_programada);
+        btnAcao = `<button class="btn-primary-blue input-compacto" style="margin-top: 6px; width: 100%; border-radius: 6px;" onclick="window.abrirModalParadasProgramadas()"><i class="fas fa-clock"></i> Parada: ${dataFmt}</button>`;
+    } else {
+        btnAcao = `<button class="btn-secondary-dark input-compacto" style="margin-top: 6px; width: 100%; border-color: #f59e0b; color: #f59e0b; border-radius: 6px;" onclick="window.abrirModalAgendarParada('${placa}')"><i class="fas fa-hand-paper"></i> Solicitar Parada</button>`;
     }
 
+    if (typeof window.ordensServico === 'undefined' || !window.ordensServico) {
+        return `
+            <div class="veiculo-info-status" style="margin-top: 8px;">
+                <span class="badge-status-rev" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); text-transform: none; font-size: 0.8rem; width: 100%; justify-content: center;">
+                    <i class="fas fa-truck-moving"></i> Em Operação
+                </span>
+                ${btnAcao}
+            </div>`;
+    }
+
+    const osAberta = window.ordensServico.find(o => 
+        (o.placa === placa || o.go === placa) && 
+        o.status !== 'Concluída' && 
+        o.status !== 'Agendada'
+    );
+
+    if (!osAberta) {
+        return `
+            <div class="veiculo-info-status" style="margin-top: 8px;">
+                <span class="badge-status-rev" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); text-transform: none; font-size: 0.8rem; width: 100%; justify-content: center;">
+                    <i class="fas fa-truck-moving"></i> Em Operação
+                </span>
+                ${btnAcao}
+            </div>`;
+    }
+
+    let tempoStr = '';
+    if (osAberta.data_abertura) {
+        let inicioStr = String(osAberta.data_abertura);
+        if (!inicioStr.includes('T')) inicioStr += 'T00:00:00';
+        const inicio = new Date(inicioStr.replace('Z', '').replace('+00:00', ''));
+        const agora = new Date();
+        
+        const diffMs = agora - inicio;
+        if (diffMs > 0) {
+            const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMin = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            
+            if (diffHrs > 24) {
+                const dias = Math.floor(diffHrs / 24);
+                tempoStr = `${dias}d ${diffHrs % 24}h`;
+            } else {
+                tempoStr = `${diffHrs}h ${diffMin}m`;
+            }
+        }
+    }
+
+    const tipoServico = osAberta.tipo || 'Manutenção';
+    const statusOS = osAberta.status || 'Oficina';
+    
+    let corBg = 'rgba(245, 158, 11, 0.15)'; 
+    let corBorda = 'rgba(245, 158, 11, 0.4)';
+    let corTexto = '#fbbf24'; 
+    let icone = 'fa-tools';
+
+    if (osAberta.tipo === 'Sinistro' || osAberta.status === 'Sinistrado') {
+        corBg = 'rgba(239, 68, 68, 0.15)'; 
+        corBorda = 'rgba(239, 68, 68, 0.4)';
+        corTexto = '#f87171';
+        icone = 'fa-car-crash';
+    } else if (osAberta.status === 'Em Manutenção') {
+        corBg = 'rgba(59, 130, 246, 0.15)'; 
+        corBorda = 'rgba(59, 130, 246, 0.4)';
+        corTexto = '#60a5fa';
+        icone = 'fa-wrench';
+    }
+
+    return `
+        <div class="veiculo-info-status" style="margin-top: 8px;">
+            <span class="badge-status-rev" style="background: ${corBg}; color: ${corTexto}; border: 1px solid ${corBorda}; font-size: 0.8rem; text-transform: none; width: 100%; justify-content: center;">
+                <i class="fas ${icone}"></i> ${statusOS}: ${tipoServico} (Há ${tempoStr})
+            </span>
+        </div>`;
+};
+
+window.renderizarControleManutencao = function() {
     const tbody = document.getElementById('tbControleRevisoes');
     if (!tbody) return;
 
@@ -173,10 +248,10 @@ window.renderizarControleManutencao = function() {
         else if (info.status === 'Atrasada') totAtrasada++;
     });
 
-    document.getElementById('totRevMonitorados').innerText = totMonitorados;
-    document.getElementById('totRevEmDia').innerText = totDia;
-    document.getElementById('totRevAtencao').innerText = totAtencao;
-    document.getElementById('totRevAtrasadas').innerText = totAtrasada;
+    if(document.getElementById('totRevMonitorados')) document.getElementById('totRevMonitorados').innerText = totMonitorados;
+    if(document.getElementById('totRevEmDia')) document.getElementById('totRevEmDia').innerText = totDia;
+    if(document.getElementById('totRevAtencao')) document.getElementById('totRevAtencao').innerText = totAtencao;
+    if(document.getElementById('totRevAtrasadas')) document.getElementById('totRevAtrasadas').innerText = totAtrasada;
 
     tbody.innerHTML = '';
 
@@ -204,7 +279,6 @@ window.renderizarControleManutencao = function() {
         const isGrua = categoria.includes('GRUA');
         const s_und = isGrua ? 'h' : 'km';
 
-        // ORDENAR POR RISCO (Os mais atrasados no topo) e depois por Placa
         veiculosDoGrupo.sort((a, b) => {
             if (b.score_risco !== a.score_risco) return b.score_risco - a.score_risco;
             return (a.placa || '').localeCompare((b.placa || ''), undefined, { numeric: true });
@@ -223,7 +297,7 @@ window.renderizarControleManutencao = function() {
             const isTritrem = String(v.tipo).toUpperCase().includes('TRITREM');
             
             let idVeiculoHtml = `
-                <div style="font-weight: 800; color: #fff; font-size: 1.1rem; letter-spacing: 1px; cursor: pointer; text-decoration: underline; text-decoration-color: var(--text-secondary);" onclick="window.abrirPainelHistorico('${v.placa}')" title="Ver Histórico">${v.placa}</div>
+                <div style="font-weight: 800; color: #fff; font-size: 1.2rem; letter-spacing: 1px; cursor: pointer; text-decoration: underline; text-decoration-color: var(--text-secondary);" onclick="window.abrirPainelHistorico('${v.placa}')" title="Ver Histórico">${v.placa}</div>
                 <div style="color: var(--ccol-blue-bright); font-size: 0.85rem; font-weight: bold;">Frota: ${v.numero_frota}</div>
                 ${!isGrua ? `<div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 3px;"><i class="fas fa-link"></i> ${v.compartimentos}</div>` : ''}
             `;
@@ -291,9 +365,6 @@ window.renderizarControleManutencao = function() {
                     <div class="badge-status-rev" style="background: ${info.bg}; color: ${info.cor}; border: 1px solid ${info.cor}; justify-content:center;">
                         <i class="${info.icon}"></i> ${info.status}
                     </div>
-                    <div style="font-size:0.75rem; text-align:center; color:var(--text-secondary); background:rgba(255,255,255,0.05); padding:4px; border-radius:6px; border:1px solid rgba(255,255,255,0.1);">
-                        <i class="fas fa-map-marker-alt"></i> ${v.status_oficina.replace('_', ' ')}
-                    </div>
                 </div>
             `;
 
@@ -319,7 +390,7 @@ window.renderizarControleManutencao = function() {
                 <td>${progressHtml}</td>
                 <td>${datasHtml}</td>
                 <td style="text-align: center; vertical-align: middle;">${qtdRevisoesHtml}</td>
-                <td style="text-align: center; vertical-align: middle;">${badgeHtml}</td>
+                <td style="text-align: center; vertical-align: middle;">${window.gerarBadgeStatusVeiculo(v.placa)}</td>
                 <td>${acoesHtml}</td>
             `;
             tbody.appendChild(tr);
@@ -327,103 +398,162 @@ window.renderizarControleManutencao = function() {
     });
 };
 
-// ======================= VISÃO KANBAN =======================
-window.renderizarKanban = function() {
-    const colRodando = document.getElementById('kbColRodando');
-    const colPatio = document.getElementById('kbColPatio');
-    const colManutencao = document.getElementById('kbColManutencao');
-    const colPecas = document.getElementById('kbColPecas');
+// ======================= LÓGICA DE PARADAS PROGRAMADAS =======================
 
-    if(!colRodando) return;
-
-    colRodando.innerHTML = ''; colPatio.innerHTML = ''; colManutencao.innerHTML = ''; colPecas.innerHTML = '';
-    let cont = { RODANDO: 0, PATIO: 0, MANUTENCAO: 0, AGUARDANDO_PECA: 0 };
-
-    window.veiculosRevisaoFiltrados.forEach(v => {
-        const info = window.determinarStatusRevisao(v);
-        let s = v.status_oficina || 'RODANDO';
-        if (cont[s] !== undefined) cont[s]++;
-
-        let prevText = v.previsao_dias !== null 
-            ? (v.previsao_dias <= 0 ? 'Vencido' : `Vence em ${v.previsao_dias}d`)
-            : 'S/ Meta';
-
-        const card = document.createElement('div');
-        card.className = `kanban-card ${info.classStatus}`;
-        card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
-                <div>
-                    <h5 style="margin:0; color:#fff; font-size:1.1rem; text-decoration: underline; cursor: pointer;" onclick="window.abrirPainelHistorico('${v.placa}')">${v.placa}</h5>
-                    <span style="font-size:0.75rem; color:var(--text-secondary);">${v.tipo}</span>
-                </div>
-                <div style="background:${info.bg}; color:${info.cor}; padding:3px 8px; border-radius:12px; font-size:0.7rem; font-weight:bold;">
-                    ${info.status}
-                </div>
-            </div>
-            <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:10px;">
-                <div><strong>Km Atual:</strong> ${v.km_atual}</div>
-                <div><strong>Risco:</strong> ${v.score_risco >= 0 ? v.score_risco+'%' : '-'} | ${prevText}</div>
-            </div>
-            <div style="display:flex; justify-content:space-between; gap:5px;">
-                <select class="dark-select input-compacto" style="width:100%; border-color:var(--border-dim);" onchange="window.alterarStatusOficinaRapido('${v.placa}', this.value)">
-                    <option value="RODANDO" ${s==='RODANDO'?'selected':''}>Rodando</option>
-                    <option value="PATIO" ${s==='PATIO'?'selected':''}>Pátio/Fila</option>
-                    <option value="MANUTENCAO" ${s==='MANUTENCAO'?'selected':''}>Manutenção</option>
-                    <option value="AGUARDANDO_PECA" ${s==='AGUARDANDO_PECA'?'selected':''}>Aguard. Peça</option>
-                </select>
-                <button class="btn-primary-green input-compacto" onclick="window.abrirModalRevisao('${v.id}')" title="Revisão/Apontamento"><i class="fas fa-tools"></i></button>
-            </div>
-        `;
-
-        if (s === 'RODANDO') colRodando.appendChild(card);
-        else if (s === 'PATIO') colPatio.appendChild(card);
-        else if (s === 'MANUTENCAO') colManutencao.appendChild(card);
-        else if (s === 'AGUARDANDO_PECA') colPecas.appendChild(card);
-    });
-
-    document.getElementById('kbCountRodando').innerText = cont.RODANDO;
-    document.getElementById('kbCountPatio').innerText = cont.PATIO;
-    document.getElementById('kbCountManutencao').innerText = cont.MANUTENCAO;
-    document.getElementById('kbCountPecas').innerText = cont.AGUARDANDO_PECA;
+window.abrirModalAgendarParada = function(placa) {
+    document.getElementById('inputParadaPlaca').value = placa;
+    document.getElementById('paradaVeiculoPlaca').innerText = placa;
+    
+    const dataAtual = new Date();
+    dataAtual.setHours(dataAtual.getHours() + 1);
+    const fusoAjuste = new Date(dataAtual.getTime() - (dataAtual.getTimezoneOffset() * 60000));
+    
+    document.getElementById('inputParadaData').value = fusoAjuste.toISOString().slice(0, 16);
+    document.getElementById('inputParadaMotivo').value = '';
+    
+    document.getElementById('modalAgendarParada').classList.add('show');
 };
 
-window.alterarStatusOficinaRapido = async function(placa, novoStatus) {
+window.fecharModalAgendarParada = function() {
+    document.getElementById('modalAgendarParada').classList.remove('show');
+};
+
+window.salvarAgendamentoParada = async function() {
+    const placa = document.getElementById('inputParadaPlaca').value;
+    const dataProg = document.getElementById('inputParadaData').value;
+    const motivo = document.getElementById('inputParadaMotivo').value.trim();
+    const filialId = window.obterFilialUsuarioLogadoRev();
+
+    if(!dataProg || !motivo) return alert("Por favor, preencha a data e o motivo da parada.");
+
     try {
-        let v = window.veiculosRevisaoDb.find(x => x.placa === placa);
-        if(!v) return;
+        const { error } = await window.supabaseClient.from('manutencao_paradas_programadas').insert([{
+            placa: placa, 
+            data_programada: dataProg, 
+            motivo: motivo, 
+            filial_id: filialId
+        }]);
+        if(error) throw error;
 
-        let queryCheck = window.supabaseClient.from('manutencao_revisoes').select('id').eq('placa', placa);
-        const filialId = window.obterFilialUsuarioLogadoRev();
-        if (filialId !== null) queryCheck = queryCheck.eq('filial_id', filialId);
-        
-        const { data: rev } = await queryCheck.maybeSingle();
-        if (rev && rev.id) {
-            await window.supabaseClient.from('manutencao_revisoes').update({ status_oficina: novoStatus }).eq('id', rev.id);
-            
-            // Log Historico
-            window.registrarHistorico(placa, v.numero_frota, v.km_atual, 'MUDANCA_STATUS', `Veículo movido para: ${novoStatus.replace('_', ' ')}`);
-
-            v.status_oficina = novoStatus;
-            window.filtrarRevisoesManutencao(); // re-render
-        }
+        alert("Veículo agendado para manutenção com sucesso!");
+        window.fecharModalAgendarParada();
+        await window.carregarVeiculosManutencao(false); 
     } catch(e) {
         console.error(e);
-        alert("Erro ao alterar status.");
+        alert("Erro ao tentar agendar a parada.");
     }
 };
+
+window.abrirModalParadasProgramadas = async function() {
+    document.getElementById('modalListaParadas').classList.add('show');
+    await window.carregarListaParadasProgramadas();
+};
+
+window.fecharModalParadasProgramadas = function() {
+    document.getElementById('modalListaParadas').classList.remove('show');
+};
+
+window.carregarListaParadasProgramadas = async function() {
+    const tbody = document.getElementById('tbListaParadas');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Buscando agendamentos...</td></tr>';
+    
+    const filialId = window.obterFilialUsuarioLogadoRev();
+
+    try {
+        let query = window.supabaseClient.from('manutencao_paradas_programadas').select('*').eq('status', 'Pendente').order('data_programada', { ascending: true });
+        if (filialId !== null) query = query.eq('filial_id', filialId);
+
+        const { data, error } = await query;
+        if(error) throw error;
+
+        if(!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-secondary); padding: 20px;">Nenhuma parada programada no momento.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(p => {
+            const dataFmt = window.formatarDataHoraCerta(p.data_programada);
+            
+            let vistoStr = p.visualizado_em 
+                ? `<span style="color:#10b981; font-size:0.8rem;"><i class="fas fa-check-double"></i> ${p.visualizado_por} <br><small>${window.formatarDataHoraCerta(p.visualizado_em)}</small></span>`
+                : '<span style="color:#94a3b8; font-size:0.8rem;"><i class="fas fa-eye-slash"></i> Não Visto</span>';
+
+            let statusLogHtml = '';
+            const statLog = p.status_logistica || 'Pendente';
+            if (statLog === 'Pendente') {
+                statusLogHtml = `<span style="color: #f59e0b; font-weight:bold;">Aguardando...</span>`;
+            } else if (statLog === 'Parou') {
+                statusLogHtml = `<span style="color: #10b981; font-weight:bold;"><i class="fas fa-check"></i> Parou</span><br><small style="color:var(--text-secondary); font-size:0.7rem;">Por: ${p.confirmado_por}</small>`;
+            } else {
+                statusLogHtml = `<span style="color: #ef4444; font-weight:bold;"><i class="fas fa-times"></i> Não Parou</span><br><small style="color:var(--text-secondary); font-size:0.7rem;">Por: ${p.confirmado_por}</small>`;
+            }
+
+            return `
+            <tr style="background: rgba(0,0,0,0.2);">
+                <td style="font-weight: 900; color: #fff; font-size: 1.1rem; letter-spacing: 1px;">${p.placa}</td>
+                <td style="color: var(--ccol-blue-bright); font-weight: bold;"><i class="fas fa-clock"></i> ${dataFmt}</td>
+                <td style="color: var(--text-secondary);">${p.motivo}</td>
+                <td>${vistoStr}</td>
+                <td>${statusLogHtml}</td>
+                <td style="text-align: right;">
+                    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                        <button class="btn-primary-green input-compacto" onclick="window.concluirParadaProgramada(${p.id})" title="Marcar como Concluída"><i class="fas fa-check"></i> Concluir</button>
+                        <button class="btn-secondary-dark input-compacto" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4);" onclick="window.cancelarParadaProgramada(${p.id})" title="Cancelar Agendamento"><i class="fas fa-times"></i></button>
+                    </div>
+                </td>
+            </tr>
+            `;
+        }).join('');
+    } catch(e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #ef4444; padding: 20px;">Erro ao carregar lista de paradas.</td></tr>';
+    }
+};
+
+window.concluirParadaProgramada = async function(id) {
+    if(!confirm("Atenção: A parada deste veículo já foi efetuada e o caminhão já deu entrada na oficina?")) return;
+    try {
+        await window.supabaseClient.from('manutencao_paradas_programadas').update({ status: 'Concluída' }).eq('id', id);
+        await window.carregarListaParadasProgramadas();
+        await window.carregarVeiculosManutencao(false);
+    } catch(e) { 
+        alert("Erro ao concluir parada."); 
+    }
+};
+
+window.cancelarParadaProgramada = async function(id) {
+    if(!confirm("Deseja cancelar o agendamento desta parada? Ela sumirá da lista e do painel.")) return;
+    try {
+        await window.supabaseClient.from('manutencao_paradas_programadas').update({ status: 'Cancelada' }).eq('id', id);
+        await window.carregarListaParadasProgramadas();
+        await window.carregarVeiculosManutencao(false);
+    } catch(e) { 
+        alert("Erro ao cancelar."); 
+    }
+};
+
 
 // ======================= HISTÓRICO E OFFCANVAS =======================
 window.registrarHistorico = async function(placa, frota, km, tipo, detalhes) {
     try {
         const filialId = window.obterFilialUsuarioLogadoRev();
-        const user = window.currentUser ? window.currentUser.nome : 'Sistema';
+        
+        let userNameLocal = 'Sistema';
+        const sessao = localStorage.getItem('ccol_user_session');
+        if (sessao) {
+            const u = JSON.parse(sessao);
+            userNameLocal = u.nome_completo || u.nome || u.username || 'Sistema';
+        } else if (window.currentUser) {
+            userNameLocal = window.currentUser.nome_completo || window.currentUser.nome || window.currentUser.username || 'Sistema';
+        }
+
         await window.supabaseClient.from('manutencao_historico').insert([{
             placa: placa,
             numero_frota: frota,
             km_registrado: km,
             tipo_registro: tipo,
             detalhes: detalhes,
-            usuario: user,
+            usuario: userNameLocal,
             filial_id: filialId
         }]);
     } catch(e) {
@@ -452,7 +582,7 @@ window.abrirPainelHistorico = async function(placa) {
 
         let html = '';
         data.forEach(log => {
-            const dataFmt = new Date(log.data_registro).toLocaleString('pt-BR');
+            const dataFmt = window.formatarDataHoraCerta(log.data_registro);
             let icon = 'fas fa-info-circle';
             let color = 'var(--text-secondary)';
             if(log.tipo_registro === 'REVISAO') { icon = 'fas fa-tools'; color = '#10b981'; }
@@ -565,21 +695,18 @@ window.abrirModalRevisao = function(id) {
     document.getElementById('revVeiculoTipoValor').value = v.tipo;
 
     document.getElementById('revVeiculoPlaca').innerText = `${v.placa} (Frota ${v.numero_frota})`;
-    document.getElementById('selectStatusOficina').value = v.status_oficina || 'RODANDO';
     
     const inputDataUltima = document.getElementById('inputDataUltimaRevisao');
     const inputRealizada = document.getElementById('inputKmRevisaoRealizada');
     const inputProxima = document.getElementById('inputKmProximaRevisao');
     const inputDetalhes = document.getElementById('inputDetalhesRevisao');
 
-    // Reseta checkboxes
     document.querySelectorAll('.checklist-grid input[type="checkbox"]').forEach(chk => chk.checked = false);
 
-    inputDataUltima.value = v.data_ultima_revisao || new Date().toISOString().split('T')[0]; // sugere data de hoje
+    inputDataUltima.value = v.data_ultima_revisao || new Date().toISOString().split('T')[0]; 
     inputRealizada.value = v.km_atual;
     inputDetalhes.value = '';
 
-    // Gestão do display de datas (Exclusivo Tritrem)
     const divDatas = document.getElementById('divDatasInspecaoTritrem');
     if (isTritrem) {
         divDatas.style.display = 'block';
@@ -603,9 +730,6 @@ window.abrirModalRevisao = function(id) {
         inputRealizada.oninput = function() {
             const ultima = parseInt(inputRealizada.value) || 0;
             const proximaRevisao500 = ultima + 500;
-            let proximaRevisaoGeral = Math.ceil(ultima / 1000) * 1000;
-            if (proximaRevisaoGeral === ultima || proximaRevisaoGeral === 0) proximaRevisaoGeral += 1000;
-
             inputProxima.value = proximaRevisao500;
         };
         inputRealizada.dispatchEvent(new Event('input'));
@@ -631,7 +755,7 @@ window.salvarNovaRevisao = async function() {
     const dataUltima = document.getElementById('inputDataUltimaRevisao').value || null;
     const kmRevisao = parseInt(document.getElementById('inputKmRevisaoRealizada').value);
     const kmProxima = parseInt(document.getElementById('inputKmProximaRevisao').value);
-    const statusOficina = document.getElementById('selectStatusOficina').value;
+
     const filialId = window.obterFilialUsuarioLogadoRev();
     const isTritrem = String(tipo).toUpperCase().includes('TRITREM');
 
@@ -641,7 +765,6 @@ window.salvarNovaRevisao = async function() {
     if (isNaN(kmRevisao) || isNaN(kmProxima)) return alert("Preencha corretamente os campos obrigatórios de KM/Hora.");
     if (kmProxima <= kmRevisao) return alert("A próxima revisão deve ser MAIOR que a revisão realizada.");
 
-    // Monta checklist para o histórico
     let checks = [];
     if(document.getElementById('chkOleo').checked) checks.push("Óleo/Filtros");
     if(document.getElementById('chkEngraxamento').checked) checks.push("Engraxamento");
@@ -661,7 +784,6 @@ window.salvarNovaRevisao = async function() {
         km_atual: kmRevisao,
         km_ultima_revisao: kmRevisao,
         km_proxima_revisao: kmProxima,
-        status_oficina: statusOficina,
         detalhes_ultima_revisao: detalhes,
         filial_id: filialId
     };
@@ -685,7 +807,6 @@ window.salvarNovaRevisao = async function() {
             await window.supabaseClient.from('manutencao_revisoes').insert([payload]);
         }
 
-        // Salvar no Histórico (Diário de Bordo)
         window.registrarHistorico(placa, frota, kmRevisao, 'REVISAO', descricaoCompleta || 'Revisão registrada via sistema.');
 
         window.fecharModalRevisao();

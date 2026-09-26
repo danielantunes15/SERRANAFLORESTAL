@@ -7,6 +7,13 @@ window.SISTEMA_CICLOS = [];
 window.ausenciasGlobais = [];
 window.bancoHorasGlobais = [];
 
+// Função global de formatação para evitar o erro de minutos cortados (ex: 11:1)
+window.formatarDataHoraCerta = function(isoString) {
+    if (!isoString) return '';
+    const d = new Date(isoString);
+    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
 window.carregarAusenciasGlobais = async function() {
     try {
         let queryAbs = window.supabaseClient.from('rh_absenteismo')
@@ -244,8 +251,14 @@ window.renderizarEscala = async function() {
 
     let html = '';
 
-    // BOTÃO PARA GERAR TERMO DE TODOS OS MOTORISTAS
-    html += `<div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+    // ========================================================
+    // BOTÕES ALINHADOS À DIREITA LADO A LADO COM GAP
+    // ========================================================
+    html += `<div style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-bottom: 20px;">
+                <button id="btnNotificacaoParada" onclick="window.abrirModalParadasLogistica()" title="Visualizar Paradas Solicitadas pela Oficina" style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; color: #fbbf24; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: all 0.3s; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-hand-paper"></i> Paradas Programadas (Oficina)
+                    <span id="badgeParadasLog" style="background: #ef4444; color: white; padding: 2px 6px; border-radius: 12px; font-size: 0.75rem; display: none;">0</span>
+                </button>
                 <button onclick="window.gerarTodosFormulariosTrocaTurnoPDF()" title="Imprimir Termo de Opção de Turno para todos os motoristas" style="background: #3b82f6; border: none; color: #fff; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 0.9rem; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;">
                     <i class="fas fa-print"></i> Gerar Todos os Termos de Turno
                 </button>
@@ -335,7 +348,6 @@ window.renderizarEscala = async function() {
                 rowsHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 800; color: #f8fafc;">${eq !== '-' ? eq : ''}</td>`;
                 rowsHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 600; color: #cbd5e1;">${posicaoStr}</td>`;
                 
-                // --- BOTÃO DE GERAR TERMO INDIVIDUAL ---
                 rowsHtml += `<td class="td-name" style="padding: 8px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; ${isBlocked ? 'color: #f87171;' : 'color: #fff;'} font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="overflow: hidden; text-overflow: ellipsis;">${m.nome}${flagStatusRH}</span>
@@ -403,6 +415,10 @@ window.renderizarEscala = async function() {
     });
 
     container.innerHTML = html;
+    
+    // Roda a verificação de Paradas Programadas assim que o grid terminar de montar o botão
+    window.verificarParadasPendentesLogistica();
+    
     document.querySelectorAll('.select-escala-excel').forEach(select => select.addEventListener('change', window.handleEscalaChange));
     if(typeof atualizarStats === 'function') atualizarStats();
     
@@ -410,6 +426,169 @@ window.renderizarEscala = async function() {
         window.buscarMotoristaEscala();
     }
 }
+
+// =========================================================================
+// INTEGRAÇÃO: VISTO E CONFIRMAÇÃO DE PARADAS PROGRAMADAS PELA LOGÍSTICA
+// =========================================================================
+
+// Helper interno que extrai o nome do usuário logado de forma garantida
+function obterNomeUsuarioLogadoParaParadas() {
+    if (window.currentUser && (window.currentUser.nome_completo || window.currentUser.nome || window.currentUser.username)) {
+        return window.currentUser.nome_completo || window.currentUser.nome || window.currentUser.username;
+    }
+    const sessaoStr = localStorage.getItem('ccol_user_session');
+    if (sessaoStr) {
+        const u = JSON.parse(sessaoStr);
+        return u.nome_completo || u.nome || u.username || 'Logística';
+    }
+    return 'Logística';
+}
+
+window.verificarParadasPendentesLogistica = async function() {
+    try {
+        const filialId = (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') ? window.currentUser.filial_id : null;
+        let query = window.supabaseClient.from('manutencao_paradas_programadas')
+            .select('id, status_logistica, visualizado_em')
+            .eq('status', 'Pendente'); 
+        
+        if (filialId !== null) query = query.eq('filial_id', filialId);
+        
+        const { data } = await query;
+        if (data) {
+            const pendentesLogistica = data.filter(p => p.status_logistica === 'Pendente' || !p.status_logistica);
+            const btn = document.getElementById('btnNotificacaoParada');
+            const badge = document.getElementById('badgeParadasLog');
+            
+            if (btn && badge) {
+                if (pendentesLogistica.length > 0) {
+                    badge.innerText = pendentesLogistica.length;
+                    badge.style.display = 'inline-block';
+                    btn.classList.add('alerta-parada-suave');
+                    btn.style.background = 'rgba(245, 158, 11, 0.2)';
+                } else {
+                    badge.style.display = 'none';
+                    btn.classList.remove('alerta-parada-suave');
+                    btn.style.background = 'rgba(245, 158, 11, 0.1)';
+                }
+            }
+        }
+    } catch(e) { console.error(e); }
+};
+
+window.abrirModalParadasLogistica = async function() {
+    document.getElementById('modalParadasLogistica').classList.add('show');
+    await window.carregarListaParadasLogistica();
+};
+
+window.fecharModalParadasLogistica = function() {
+    document.getElementById('modalParadasLogistica').classList.remove('show');
+};
+
+window.carregarListaParadasLogistica = async function() {
+    const tbody = document.getElementById('tbListaParadasLogistica');
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Buscando solicitações...</td></tr>';
+    
+    try {
+        const filialId = (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') ? window.currentUser.filial_id : null;
+        let query = window.supabaseClient.from('manutencao_paradas_programadas')
+            .select('*')
+            .order('data_programada', { ascending: false })
+            .limit(50);
+            
+        if (filialId !== null) query = query.eq('filial_id', filialId);
+        
+        const { data, error } = await query;
+        if(error) throw error;
+        
+        if(!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: var(--text-secondary); padding: 20px;">Nenhuma parada programada.</td></tr>';
+            return;
+        }
+        
+        const unseenIds = data.filter(p => !p.visualizado_em && (p.status === 'Pendente')).map(p => p.id);
+        const nomeUser = obterNomeUsuarioLogadoParaParadas();
+
+        if (unseenIds.length > 0) {
+            const agora = new Date().toISOString();
+            
+            data.forEach(p => {
+                if(unseenIds.includes(p.id)) {
+                    p.visualizado_por = nomeUser;
+                    p.visualizado_em = agora;
+                }
+            });
+            
+            window.supabaseClient.from('manutencao_paradas_programadas')
+                .update({ visualizado_por: nomeUser, visualizado_em: agora })
+                .in('id', unseenIds)
+                .then(() => window.verificarParadasPendentesLogistica()); 
+        }
+
+        tbody.innerHTML = data.map(p => {
+            const dataFmt = window.formatarDataHoraCerta(p.data_programada);
+            
+            let vistoStr = p.visualizado_em 
+                ? `<span style="color:#10b981; font-size:0.8rem;"><i class="fas fa-check-double"></i> ${p.visualizado_por} <br><small>${window.formatarDataHoraCerta(p.visualizado_em)}</small></span>`
+                : '<span style="color:#94a3b8; font-size:0.8rem;"><i class="fas fa-eye-slash"></i> Não Visto</span>';
+
+            let acaoHtml = '';
+            let statusLogHtml = '';
+            
+            const statLog = p.status_logistica || 'Pendente';
+            if (statLog === 'Pendente') {
+                statusLogHtml = `<span style="color: #f59e0b; font-weight:bold;">Pendente</span>`;
+                acaoHtml = `
+                    <div style="display:flex; gap:5px; justify-content:flex-end;">
+                        <button class="btn-primary-green input-compacto" style="padding:4px 8px; font-size:0.75rem;" onclick="window.confirmarAcaoParadaLogistica(${p.id}, 'Parou')">Sim, Parou</button>
+                        <button class="btn-secondary-dark input-compacto" style="padding:4px 8px; font-size:0.75rem; color:#ef4444; border-color:rgba(239,68,68,0.3);" onclick="window.confirmarAcaoParadaLogistica(${p.id}, 'Não Parou')">Não Parou</button>
+                    </div>
+                `;
+            } else if (statLog === 'Parou') {
+                statusLogHtml = `<span style="color: #10b981; font-weight:bold;"><i class="fas fa-check"></i> Parou</span><br><small style="color:var(--text-secondary); font-size:0.7rem;">Por: ${p.confirmado_por}</small>`;
+            } else {
+                statusLogHtml = `<span style="color: #ef4444; font-weight:bold;"><i class="fas fa-times"></i> Não Parou</span><br><small style="color:var(--text-secondary); font-size:0.7rem;">Por: ${p.confirmado_por}</small>`;
+            }
+
+            let statusOfiHtml = p.status === 'Pendente' ? `<span style="color:#f59e0b;">Aguardando...</span>` : `<span style="color:#10b981;">${p.status}</span>`;
+
+            return `
+            <tr style="background: rgba(0,0,0,0.2);">
+                <td style="font-weight: 900; color: #fff; font-size: 1rem;">${p.placa}</td>
+                <td style="color: var(--ccol-blue-bright); font-weight: bold; font-size: 0.85rem;"><i class="fas fa-clock"></i> ${dataFmt}</td>
+                <td style="color: var(--text-secondary); font-size: 0.85rem;">${p.motivo}</td>
+                <td style="font-size: 0.85rem;">${statusOfiHtml}</td>
+                <td>${vistoStr}</td>
+                <td>${statusLogHtml}</td>
+                <td style="text-align: right;">${acaoHtml}</td>
+            </tr>
+            `;
+        }).join('');
+    } catch(e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: #ef4444; padding: 20px;">Erro ao carregar solicitações.</td></tr>';
+    }
+};
+
+window.confirmarAcaoParadaLogistica = async function(id, acao) {
+    if(!confirm(`Confirma registrar que o veículo "${acao}"?`)) return;
+    
+    try {
+        const nomeUser = obterNomeUsuarioLogadoParaParadas();
+        const agora = new Date().toISOString();
+        
+        await window.supabaseClient.from('manutencao_paradas_programadas').update({
+            status_logistica: acao,
+            confirmado_por: nomeUser,
+            confirmado_em: agora
+        }).eq('id', id);
+        
+        await window.carregarListaParadasLogistica();
+        window.verificarParadasPendentesLogistica();
+    } catch(e) {
+        alert("Erro ao confirmar ação.");
+    }
+};
+// =========================================================================
 
 window.limparDestaqueMotorista = function() {
     const linhas = document.querySelectorAll('#escalaContainer tbody tr');
@@ -924,7 +1103,6 @@ window.carregarDadosBancoHoras = function() {
     selCaminhao.innerHTML = htmlCam;
 };
 
-// UTILITÁRIO PARA VERIFICAR SE TRABALHOU NO DIA
 const isWorkingDay = (idMot, dStr) => {
     const ausencia = window.getAusenciaNoDia(idMot, dStr);
     if (ausencia) return false; 
@@ -949,7 +1127,6 @@ window.salvarBancoHoras = async function() {
         return;
     }
 
-    // REGRA DE FADIGA: O MÁXIMO DE DIAS SEGUIDOS TRABALHADOS É 5.
     let consecutiveDays = 1;
     const dataExtraDate = new Date(dataStr + 'T00:00:00');
     
