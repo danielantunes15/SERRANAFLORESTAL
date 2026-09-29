@@ -286,7 +286,7 @@ window.renderizarEscalaLinhares = function(diasRender) {
             if (m.turno && m.turno !== '-') {
                 let cicloMatch = window.getCiclos().find(c => c.dbValue === m.turno);
                 if (cicloMatch) {
-                    if (escAtual.shift === 'DIA') displayTurno = `☀️ ${cicloMatch.labelDia}`;
+                    if (escAtual.shift === 'DIA') displayTurno = `☀️️ ${cicloMatch.labelDia}`;
                     else if (escAtual.shift === 'NOITE') displayTurno = `🌙 ${cicloMatch.labelNoite}`;
                     else displayTurno = `⏸️ Folga (Ref: ${cicloMatch.base})`;
                 }
@@ -977,7 +977,13 @@ window.imprimirRelatorioEscalaSemanal = function() {
                 let printTurno = m.turno || '-';
                 if (m.turno && m.turno !== '-') {
                     let cMatch = window.getCiclos().find(c => c.dbValue === m.turno);
-                    if (cMatch) printTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
+                    if (cMatch) {
+                        if(isLinhares) {
+                            printTurno = cMatch.base;
+                        } else {
+                            printTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
+                        }
+                    }
                 }
                 
                 tHtml += `<tr class="${classeTr}"><td>${printTurno}</td><td>${goStr}</td><td>${eq}</td><td>${posStr}</td><td style="text-align:left;"><b>${m.nome}</b></td>`;
@@ -1091,7 +1097,13 @@ window.exportarEscalaMensalExcel = async function() {
         let excelTurno = m.turno || '-';
         if (m.turno && m.turno !== '-') {
             let cMatch = window.getCiclos().find(c => c.dbValue === m.turno);
-            if (cMatch) excelTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
+            if (cMatch) {
+                if (isLinhares) {
+                    excelTurno = cMatch.base;
+                } else {
+                    excelTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
+                }
+            }
         }
 
         let linha = `${excelTurno};${nomeConjunto};${goStr};${eq !== '-' ? eq : '-'};${posStr};${m.nome}`;
@@ -1166,6 +1178,15 @@ window.gerarRelatorioImpressao = async function() {
         } else if (turnoFiltro === 'Noite') {
             motoristasFiltrados = motoristasOrd.filter(m => ['D', 'E', 'F'].includes(window.getEq(m)));
         }
+    } else {
+        if (turnoFiltro !== 'Todos') {
+            motoristasFiltrados = motoristasOrd.filter(m => {
+                const esc = window.getEscalaDiaComputada(m, dataStr);
+                if (turnoFiltro === 'Dia') return esc.shift === 'DIA';
+                if (turnoFiltro === 'Noite') return esc.shift === 'NOITE';
+                return true;
+            });
+        }
     }
 
     const trabs = [];
@@ -1177,19 +1198,23 @@ window.gerarRelatorioImpressao = async function() {
         const escala = window.getEscalaDiaComputada(m, dataStr);
         const trinca = m.conjuntoId ? String(m.conjuntoId).padStart(2, '0') : 'S/F';
 
-        if (ausencia) {
-            let relTurno = m.turno || '-';
-            if (m.turno && m.turno !== '-') {
-                let cMatch = window.getCiclos().find(c => c.dbValue === m.turno);
-                if (cMatch) relTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
+        let relTurno = m.turno || '-';
+        if (m.turno && m.turno !== '-') {
+            let cMatch = window.getCiclos().find(c => c.dbValue === m.turno);
+            if (cMatch) {
+                if (isLinhares) {
+                    if (escala.shift === 'DIA') relTurno = cMatch.labelDia;
+                    else if (escala.shift === 'NOITE') relTurno = cMatch.labelNoite;
+                    else relTurno = cMatch.base;
+                } else {
+                    relTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
+                }
             }
+        }
+
+        if (ausencia) {
             trabs.push({ nome: m.nome, trinca: trinca, eq: eq, turno: relTurno, caminhao: ausencia });
         } else if (escala.caminhao !== 'F') {
-            let relTurno = m.turno || '-';
-            if (m.turno && m.turno !== '-') {
-                let cMatch = window.getCiclos().find(c => c.dbValue === m.turno);
-                if (cMatch) relTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
-            }
             trabs.push({ nome: m.nome, trinca: trinca, eq: eq, turno: relTurno, caminhao: escala.caminhao });
             if (escala.caminhao !== 'T' && escala.caminhao !== 'TRAB') caminhoesOcupados.push(escala.caminhao);
         }

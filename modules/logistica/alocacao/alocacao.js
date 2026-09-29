@@ -192,6 +192,8 @@ window.renderizarAlocacao = function() {
     const getTurnoConjunto = (conjId) => {
         if (!conjId) return "ZZZ";
         const mots = motoristas.filter(m => String(m.conjuntoId) === String(conjId));
+        const motDia = mots.find(m => m.turno && m.turno !== '-' && ['A','B','C'].includes(window.getEq(m)));
+        if (motDia) return motDia.turno;
         const motComTurno = mots.find(m => m.turno && m.turno !== '-');
         return motComTurno ? motComTurno.turno : "ZZY"; 
     };
@@ -216,8 +218,14 @@ window.renderizarAlocacao = function() {
     };
 
     const motoristasOrdenados = [...motoristas].sort((a, b) => {
+        const conjA = a.conjuntoId ? Number(a.conjuntoId) : 999999;
+        const conjB = b.conjuntoId ? Number(b.conjuntoId) : 999999;
+        
+        // 1º Nível de agrupamento: Conjunto
+        if (conjA !== conjB) return conjA - conjB;
+        
         if (isLinhares) {
-            // 1º Nível Linhares: Letra da Equipe (A, B, C...)
+            // 2º Nível de agrupamento para LINHARES: Letra da Equipe primeiro
             const eqA = window.getEq(a);
             const eqB = window.getEq(b);
             const pesoA = window.pesoEquipe(eqA);
@@ -225,43 +233,38 @@ window.renderizarAlocacao = function() {
             
             if (pesoA !== pesoB) return pesoA - pesoB;
 
-            // 2º Nível Linhares: Estado (0=Dia, 1=Noite, 2=Folga)
+            // 3º Nível Linhares: Estado (0=Dia, 1=Noite, 2=Folga)
             const estadoA = getLinharesShiftState(a);
             const estadoB = getLinharesShiftState(b);
             if (estadoA !== estadoB) return estadoA - estadoB;
             
-            // 3º Nível Linhares: Nome
+            // 4º Nível Linhares: Nome
             return a.nome.localeCompare(b.nome);
         } else {
-            // 1º Nível Padrão: Conjunto
-            const conjA = a.conjuntoId ? Number(a.conjuntoId) : 999999;
-            const conjB = b.conjuntoId ? Number(b.conjuntoId) : 999999;
-            if (conjA !== conjB) return conjA - conjB;
-
-            // 2º Nível Padrão: Horário/Turno
+            // 2º Nível de agrupamento Padrão: Horário/Turno
             const turnoA = getTurnoConjunto(a.conjuntoId);
             const turnoB = getTurnoConjunto(b.conjuntoId);
             const horaA = turnoA.match(/\d+/) ? parseInt(turnoA.match(/\d+/)[0], 10) : 9999;
             const horaB = turnoB.match(/\d+/) ? parseInt(turnoB.match(/\d+/)[0], 10) : 9999;
+            
             if (horaA !== horaB) return horaA - horaB;
             
-            // 3º Nível Padrão: Peso da Equipe Clássica (A, B, C)
             const eqA = window.getEq(a);
             const eqB = window.getEq(b);
             if (window.pesoEquipe(eqA) !== window.pesoEquipe(eqB)) return window.pesoEquipe(eqA) - window.pesoEquipe(eqB);
             
-            // 4º Nível Padrão: Nome
             return a.nome.localeCompare(b.nome);
         }
     });
 
     let html = '';
-    let lastGroup = null; // Usado para agrupar por Equipe (Linhares) ou Conjunto (Padrão)
+    let lastGroup = null; 
     
     motoristasOrdenados.forEach(m => {
         const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
+        const currentConjunto = m.conjuntoId ? Number(m.conjuntoId) : 'sem_conjunto';
         let eq = window.getEq(m);
-        let currentGroup = isLinhares ? eq : (m.conjuntoId ? Number(m.conjuntoId) : 'sem_conjunto');
+        let currentGroup = isLinhares ? eq : currentConjunto;
 
         // Criação de Cabeçalho Agrupador
         if (currentGroup !== lastGroup) {
