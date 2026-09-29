@@ -142,9 +142,34 @@ window.renderizarAlocacao = function() {
     
     const tbody = document.getElementById('alocacaoList');
     if (!tbody) return;
+
+    const isLinhares = window.currentUser && String(window.currentUser.filial_id) === '7';
+
+    // Ajusta o cabeçalho dinamicamente para não alterar o visual das outras filiais
+    const trCabecalho = document.getElementById('trCabecalhoAlocacao');
+    if (trCabecalho) {
+        if (isLinhares) {
+            trCabecalho.innerHTML = `
+                <th>Motorista</th>
+                <th>Cidade</th>
+                <th>Equipe</th>
+                <th>Turno Padrão</th>
+                <th>Conjunto</th>
+                <th>Escala Manual</th>
+            `;
+        } else {
+            trCabecalho.innerHTML = `
+                <th>Motorista</th>
+                <th>Equipe</th>
+                <th>Turno Padrão</th>
+                <th>Conjunto</th>
+                <th>Escala Manual</th>
+            `;
+        }
+    }
     
     if (motoristas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Nenhum motorista registrado</td></tr>'; 
+        tbody.innerHTML = `<tr><td colspan="${isLinhares ? 6 : 5}" style="text-align: center; padding: 20px;">Nenhum motorista registrado</td></tr>`; 
         return;
     }
 
@@ -214,7 +239,7 @@ window.renderizarAlocacao = function() {
 
             html += `
                 <tr style="background-color: #0f172a; border-top: 2px solid #3b82f6;">
-                    <td colspan="5" style="text-align: left; padding: 12px 15px; font-weight: 800; color: #fff; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px;">
+                    <td colspan="${isLinhares ? 6 : 5}" style="text-align: left; padding: 12px 15px; font-weight: 800; color: #fff; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; align-items: center;">
                                 ${badgeHorario}
@@ -239,11 +264,36 @@ window.renderizarAlocacao = function() {
         if (['A', 'B', 'C'].includes(eq)) turnoDisplay = '<span style="color: #fbbf24; font-size: 0.75rem;">☀️ Turno Dia</span>';
         else if (['D', 'E', 'F'].includes(eq)) turnoDisplay = '<span style="color: #93c5fd; font-size: 0.75rem;">🌙 Turno Noite</span>';
 
+        // Lógica de tamanhos adaptativos e injeção do select de cidade caso seja Linhares
+        let cidadeSelectHtml = '';
+        let wMot = isLinhares ? '20%' : '25%';
+        let wEq  = isLinhares ? '26%' : '32%';
+        let wTur = isLinhares ? '14%' : '15%';
+        let wCon = isLinhares ? '13%' : '13%';
+        let wMan = isLinhares ? '13%' : '15%';
+
+        if (isLinhares) {
+            let optionsCidade = `
+                <option value="" ${!m.cidade ? 'selected' : ''}>Sem Cidade</option>
+                <option value="Aracruz" ${m.cidade === 'Aracruz' ? 'selected' : ''}>Aracruz</option>
+                <option value="Braço do Rio" ${m.cidade === 'Braço do Rio' ? 'selected' : ''}>Braço do Rio</option>
+                <option value="Jacupemba" ${m.cidade === 'Jacupemba' ? 'selected' : ''}>Jacupemba</option>
+                <option value="Linhares" ${m.cidade === 'Linhares' ? 'selected' : ''}>Linhares</option>
+                <option value="Pedro Canário" ${m.cidade === 'Pedro Canário' ? 'selected' : ''}>Pedro Canário</option>
+                <option value="Rio Quartel" ${m.cidade === 'Rio Quartel' ? 'selected' : ''}>Rio Quartel</option>
+                <option value="São Matheus" ${m.cidade === 'São Matheus' ? 'selected' : ''}>São Matheus</option>
+                <option value="Sooretama" ${m.cidade === 'Sooretama' ? 'selected' : ''}>Sooretama</option>
+                <option value="Outros" ${m.cidade === 'Outros' ? 'selected' : ''}>Outros</option>
+            `;
+            let selectC = `<select class="select-aloc-cidade select-turno" data-id="${m.id}" ${isBlocked ? 'disabled' : ''} style="width: 100%; font-weight: bold; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px;">${optionsCidade}</select>`;
+            cidadeSelectHtml = `<td style="padding: 10px; vertical-align: middle; width: 14%;">${selectC}</td>`;
+        }
+
         let equipeSelect = `
             <div style="display: flex; align-items: center; justify-content: flex-start;">
                 ${posicaoTag}
-                <select class="select-aloc-equipe select-turno" data-id="${m.id}" ${isBlocked ? 'disabled' : ''} style="width: 140px; font-weight: bold; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px;">
-                    <option value="-" ${eq === '-' ? 'selected' : ''}>Sem EQUIPE</option>
+                <select class="select-aloc-equipe select-turno" data-id="${m.id}" ${isBlocked ? 'disabled' : ''} style="${isLinhares ? 'width: 100px;' : 'width: 140px;'} font-weight: bold; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px;">
+                    <option value="-" ${eq === '-' ? 'selected' : ''}>Sem EQ</option>
                     <option value="A" ${eq === 'A' ? 'selected' : ''}>A (Dia)</option>
                     <option value="B" ${eq === 'B' ? 'selected' : ''}>B (Dia)</option>
                     <option value="C" ${eq === 'C' ? 'selected' : ''}>C (Dia)</option>
@@ -268,7 +318,7 @@ window.renderizarAlocacao = function() {
         
         let conjuntoSelect = `<select class="select-aloc-conjunto select-turno" data-id="${m.id}" ${isBlocked ? 'disabled' : ''} style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px;">
             <option value="">Não Alocado</option>
-            ${isBlocked ? '' : conjuntos.map(c => `<option value="${c.id}" ${String(m.conjuntoId) === String(c.id) ? 'selected' : ''}>Conjunto ${String(c.id).padStart(2, '0')}</option>`).join('')}
+            ${isBlocked ? '' : conjuntos.map(c => `<option value="${c.id}" ${String(m.conjuntoId) === String(c.id) ? 'selected' : ''}>Conjunto${String(c.id).padStart(2, '0')}</option>`).join('')}
         </select>`;
         
         let botaoManual = '';
@@ -291,20 +341,22 @@ window.renderizarAlocacao = function() {
         if (m.status === 'Afastado') flagStatusRH = ' <span style="font-size:0.6rem; background:#ef4444; color:#fff; padding:2px 4px; border-radius:3px;">AFASTADO</span>';
 
         html += `<tr style="${isBlocked ? 'background-color: rgba(239, 68, 68, 0.1);' : `background-color: ${bgRow};`} border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <td style="padding: 12px 15px; vertical-align: middle; width: 25%;">
+            <td style="padding: 12px ${isLinhares ? '10px' : '15px'}; vertical-align: middle; width: ${wMot};">
                 <div style="${isBlocked ? 'color: #ef4444;' : 'color: #f8fafc;'} font-weight: 800; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.nome}${flagStatusRH}</div>
                 ${turnoDisplay}
             </td>
-            <td style="padding: 10px; vertical-align: middle; width: 32%;">${equipeSelect}</td>
-            <td style="padding: 10px; vertical-align: middle; width: 15%;">${turnoSelect}</td>
-            <td style="padding: 10px; vertical-align: middle; width: 13%;">${conjuntoSelect}</td>
-            <td style="padding: 10px; vertical-align: middle; width: 15%;">${botaoManual}</td>
+            ${cidadeSelectHtml}
+            <td style="padding: 10px; vertical-align: middle; width: ${wEq};">${equipeSelect}</td>
+            <td style="padding: 10px; vertical-align: middle; width: ${wTur};">${turnoSelect}</td>
+            <td style="padding: 10px; vertical-align: middle; width: ${wCon};">${conjuntoSelect}</td>
+            <td style="padding: 10px; vertical-align: middle; width: ${wMan};">${botaoManual}</td>
         </tr>`;
     });
 
     tbody.innerHTML = html;
 
-    document.querySelectorAll('.select-aloc-equipe, .select-aloc-turno, .select-aloc-conjunto').forEach(el => el.addEventListener('change', window.updateAlocacao));
+    // Vincula o evento a todos os selects renderizados
+    document.querySelectorAll('.select-aloc-equipe, .select-aloc-turno, .select-aloc-conjunto, .select-aloc-cidade').forEach(el => el.addEventListener('change', window.updateAlocacao));
     
     document.querySelectorAll('.select-turno-global').forEach(el => el.addEventListener('change', async (e) => {
         const conjuntoId = e.target.dataset.conjunto;
@@ -384,6 +436,10 @@ window.updateAlocacao = async function(e) {
     const novaEquipe = tr.querySelector('.select-aloc-equipe').value;
     const novoTurno = tr.querySelector('.select-aloc-turno').value;
     const novoConjuntoId = tr.querySelector('.select-aloc-conjunto').value || null;
+    
+    // Pega o valor da cidade se a caixa de seleção existir na tela atual
+    const selectCidadeEl = tr.querySelector('.select-aloc-cidade');
+    const novaCidade = selectCidadeEl ? selectCidadeEl.value : (m.cidade || null);
 
     const hojeStr = new Date().toISOString().split('T')[0];
     const timestampAtual = new Date().toISOString();
@@ -415,16 +471,17 @@ window.updateAlocacao = async function(e) {
     m.turno = novoTurno;
     m.conjuntoId = novoConjuntoId;
     m.data_ancora = dataAncoraMantida;
+    m.cidade = novaCidade;
     m.historico_alocacao = historico;
 
     select.disabled = true;
 
     try {
-        // CORREÇÃO: Nome da coluna alterado de conjunto_id para conjuntoId para bater com o banco de dados
         const { error } = await window.supabaseClient.from('rh_colaboradores').update({
             equipe: novaEquipe,
             turno: novoTurno,
             conjuntoId: novoConjuntoId ? novoConjuntoId : null, 
+            cidade: novaCidade,
             data_ancora: dataAncoraMantida,
             historico_alocacao: historico
         }).eq('id', motoristaId);
@@ -437,7 +494,7 @@ window.updateAlocacao = async function(e) {
         }
 
         if (typeof window.registrarLogAuditoria === 'function') {
-            window.registrarLogAuditoria('Logística', 'Alocação', `Alocação atualizada: ${m.nome} (Eq:${novaEquipe} / T:${novoTurno} / Cj:${novoConjuntoId || 'S/F'})`, 'Info');
+            window.registrarLogAuditoria('Logística', 'Alocação', `Alocação atualizada: ${m.nome} (Eq:${novaEquipe} / T:${novoTurno} / Cj:${novoConjuntoId || 'S/F'} / Cidade:${novaCidade || 'S/C'})`, 'Info');
         }
 
         select.disabled = false;

@@ -129,21 +129,45 @@ window.getStatusMotorista = function(m, dDate) {
 }
 
 window.calcularEscalaMatematica = function(motorista, dateKey) {
+    // Retorno Base de Bloqueios
     if (!motorista.data_ancora || motorista.masterDrive === 'Não' || motorista.destra === 'Não' || motorista.status === 'Férias' || motorista.status === 'Afastado') {
-        return { caminhao: 'F', turno: motorista.turno, status: 'fallback' };
+        return { caminhao: 'F', turno: motorista.turno, status: 'fallback', shift: 'F' };
     }
+
+    const isLinhares = window.currentUser && String(window.currentUser.filial_id) === '7';
+    const dDate = new Date(dateKey + 'T00:00:00');
+
+    // Lógica Específica Linhares: 4 Dias (Dia) / 2 Folgas / 4 Dias (Noite) / 2 Folgas = 12 dias de ciclo
+    if (isLinhares) {
+        const strAncora = motorista.data_ancora.split('T')[0];
+        const dataAncora = new Date(strAncora + 'T00:00:00');
+        const utcAncora = Date.UTC(dataAncora.getFullYear(), dataAncora.getMonth(), dataAncora.getDate());
+        const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
+        const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
+        
+        const ciclo12 = ((diffDays % 12) + 12) % 12;
+        let statusCam = 'F';
+        let shiftType = 'F';
+        
+        if (ciclo12 < 4) { statusCam = 'T'; shiftType = 'DIA'; }
+        else if (ciclo12 >= 4 && ciclo12 < 6) { statusCam = 'F'; shiftType = 'F'; }
+        else if (ciclo12 >= 6 && ciclo12 < 10) { statusCam = 'T'; shiftType = 'NOITE'; }
+        else { statusCam = 'F'; shiftType = 'F'; }
+        
+        return { caminhao: statusCam, turno: motorista.turno, status: 'auto', shift: shiftType };
+    }
+
+    // Lógica Padrão (Sem Linhares)
+    const statusMot = window.getStatusMotorista(motorista, dDate);
+    if (statusMot === 'F') return { caminhao: 'F', turno: motorista.turno, status: 'fallback', shift: 'F' };
+
     const eq = window.getEq(motorista);
     if (motorista.conjuntoId && eq === '-') {
-        return { caminhao: 'F', turno: motorista.turno, status: 'fallback' };
+        return { caminhao: 'F', turno: motorista.turno, status: 'fallback', shift: 'TRAB' };
     }
 
-    const dDate = new Date(dateKey + 'T00:00:00');
-    const statusMot = window.getStatusMotorista(motorista, dDate);
-
-    if (statusMot === 'F') return { caminhao: 'F', turno: motorista.turno, status: 'fallback' };
-
     const conjunto = conjuntos.find(c => String(c.id) === String(motorista.conjuntoId));
-    if (!conjunto || !conjunto.caminhoes) return { caminhao: 'T', turno: motorista.turno, status: 'fallback' };
+    if (!conjunto || !conjunto.caminhoes) return { caminhao: 'T', turno: motorista.turno, status: 'fallback', shift: 'TRAB' };
 
     let placa1 = conjunto.caminhoes.length > 0 ? (typeof conjunto.caminhoes[0] === 'string' ? conjunto.caminhoes[0] : conjunto.caminhoes[0].placa) : 'F';
     let placa2 = conjunto.caminhoes.length > 1 ? (typeof conjunto.caminhoes[1] === 'string' ? conjunto.caminhoes[1] : conjunto.caminhoes[1].placa) : placa1;
@@ -174,7 +198,7 @@ window.calcularEscalaMatematica = function(motorista, dateKey) {
     
     if (statusCaminhao === 'TRAB') statusCaminhao = 'T';
 
-    return { caminhao: statusCaminhao, turno: motorista.turno, status: 'auto' };
+    return { caminhao: statusCaminhao, turno: motorista.turno, status: 'auto', shift: 'TRAB' };
 }
 
 window.getEscalaDiaComputada = function(motorista, dateKey) {
@@ -183,6 +207,159 @@ window.getEscalaDiaComputada = function(motorista, dateKey) {
     }
     return window.calcularEscalaMatematica(motorista, dateKey);
 }
+
+window.renderizarEscalaLinhares = function(diasRender) {
+    const container = document.getElementById('escalaContainer');
+    let html = '';
+    
+    html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #3b82f6; margin: 0; font-weight: 800;"><i class="fas fa-map-marker-alt"></i> ESCALA LINHARES - FILIAL ID 7</h2>
+                <div style="display: flex; gap: 15px;">
+                    <button id="btnNotificacaoParada" onclick="window.abrirModalParadasLogistica()" title="Visualizar Paradas Programadas" style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; color: #fbbf24; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: all 0.3s; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-hand-paper"></i> Paradas Programadas
+                        <span id="badgeParadasLog" style="background: #ef4444; color: white; padding: 2px 6px; border-radius: 12px; font-size: 0.75rem; display: none;">0</span>
+                    </button>
+                    <button onclick="window.gerarTodosFormulariosTrocaTurnoPDF()" title="Imprimir Termo de Opção" style="background: #3b82f6; border: none; color: #fff; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 0.9rem; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: all 0.2s;">
+                        <i class="fas fa-print"></i> Gerar Todos os Termos de Turno
+                    </button>
+                </div>
+             </div>`;
+
+    const motoristasLinhares = motoristas.filter(m => String(m.filial_id) === '7' || (!m.filial_id));
+
+    // Agrupamento baseado no status do primeiro dia visualizado
+    const grupoDia = [];
+    const grupoNoite = [];
+    const grupoFolga = [];
+
+    motoristasLinhares.forEach(m => {
+        const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
+        if (isBlocked) {
+            grupoFolga.push(m);
+            return;
+        }
+        const esc = window.getEscalaDiaComputada(m, diasRender[0].dateKey);
+        if (esc.shift === 'DIA') grupoDia.push(m);
+        else if (esc.shift === 'NOITE') grupoNoite.push(m);
+        else grupoFolga.push(m);
+    });
+
+    const renderGrupo = (grupo, titulo) => {
+        if (grupo.length === 0) return '';
+        let rowsHtml = `<tr style="background-color: rgba(0,0,0,0.6);">
+                            <td colspan="${3 + diasRender.length}" style="padding: 8px 15px; font-weight: 800; font-size: 0.8rem; color: #e2e8f0; text-align: left; border: 1px solid rgba(255,255,255,0.05);">
+                                ${titulo}
+                            </td>
+                        </tr>`;
+        
+        grupo.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(m => {
+            const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
+            let displayTurno = m.turno || '-';
+            let flagStatusRH = '';
+            if (m.status === 'Férias') flagStatusRH = ' <span style="font-size:0.6rem; background:#f59e0b; color:#fff; padding:2px 4px; border-radius:3px;">FÉRIAS</span>';
+            if (m.status === 'Afastado') flagStatusRH = ' <span style="font-size:0.6rem; background:#ef4444; color:#fff; padding:2px 4px; border-radius:3px;">AFASTADO</span>';
+            
+            const cidadeStr = m.cidade || 'Não informada';
+
+            rowsHtml += `<tr style="background-color: transparent; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;">
+                            <td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #38bdf8; font-weight: bold;">${displayTurno}</td>
+                            <td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #cbd5e1; font-weight: 600;">${cidadeStr}</td>
+                            <td class="td-name" style="padding: 8px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; ${isBlocked ? 'color: #f87171;' : 'color: #fff;'} font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="overflow: hidden; text-overflow: ellipsis;">${m.nome}${flagStatusRH}</span>
+                                </div>
+                            </td>`;
+            
+            diasRender.forEach(d => {
+                const ausencia = window.getAusenciaNoDia(m.id, d.dateKey);
+                let bgCell, colorCell, borderSide, opcoes, selectDisabled;
+                
+                if (ausencia) {
+                    bgCell = ausencia === 'FALTA' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)';
+                    colorCell = ausencia === 'FALTA' ? '#ef4444' : '#f59e0b';
+                    borderSide = `1px solid rgba(${ausencia === 'FALTA' ? '239, 68, 68' : '245, 158, 11'}, 0.3)`;
+                    selectDisabled = true;
+                    opcoes = `<option value="${ausencia}" selected style="background: #1e293b; color: ${colorCell};">${ausencia}</option>`;
+                } else {
+                    const escala = window.getEscalaDiaComputada(m, d.dateKey);
+                    const isFolga = escala.caminhao === 'F' && escala.shift === 'F';
+                    const isManual = escala.status === 'manual';
+                    const isDia = escala.shift === 'DIA';
+                    const isNoite = escala.shift === 'NOITE';
+                    
+                    // Diferença visual nítida para a escala de Linhares (4 Dia / 4 Noite)
+                    if (isDia) {
+                        bgCell = 'rgba(253, 224, 71, 0.2)';
+                        colorCell = '#fde047';
+                        borderSide = '1px solid rgba(253, 224, 71, 0.4)';
+                    } else if (isNoite) {
+                        bgCell = 'rgba(30, 58, 138, 0.4)';
+                        colorCell = '#93c5fd';
+                        borderSide = '1px solid rgba(59, 130, 246, 0.4)';
+                    } else {
+                        bgCell = 'rgba(249, 115, 22, 0.15)';
+                        colorCell = '#fb923c';
+                        borderSide = '1px solid rgba(249, 115, 22, 0.3)';
+                    }
+
+                    if (isManual) {
+                        bgCell = 'rgba(168, 85, 247, 0.15)';
+                        borderSide = '1px solid rgba(168, 85, 247, 0.5)';
+                    }
+                    
+                    let labelShift = isFolga ? 'F' : (isDia ? 'T-DIA' : (isNoite ? 'T-NOITE' : 'T'));
+
+                    opcoes = `<option value="F" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fff;">F</option>`;
+                    opcoes += `<option value="T" ${!isFolga ? 'selected' : ''} style="background: #1e293b; color: #fff;">${labelShift}</option>`;
+                    
+                    if (isManual) {
+                        opcoes += `<option value="AUTO" style="background: #0f172a; color: #fbbf24; font-weight: bold;"> Voltar para Auto</option>`;
+                    }
+                    selectDisabled = isBlocked;
+                }
+
+                rowsHtml += `<td style="padding: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: ${borderSide}; border-right: ${borderSide}; background-color: ${bgCell}; text-align: center; vertical-align: middle;">
+                    <select class="select-escala-excel" data-motorista="${m.id}" data-data="${d.dateKey}" ${selectDisabled ? 'disabled' : ''} style="width: 100%; padding: 6px 0; background: transparent; border: none; color: ${colorCell}; font-weight: 800; font-size: 0.8rem; text-align: center; appearance: none; cursor: pointer; outline: none; text-align-last: center;">
+                        ${isBlocked && !ausencia ? '<option value="F">Bloq</option>' : opcoes}
+                    </select>
+                </td>`;
+            });
+            rowsHtml += `</tr>`;
+        });
+        return rowsHtml;
+    };
+
+    html += `<div style="background: rgba(15, 23, 42, 0.4); border-radius: 8px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <div style="overflow-x: auto; width: 100%;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem; min-width: 950px;">
+                        <thead>
+                            <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
+                                <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 12%;">Horário</th>
+                                <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 15%;">Cidade</th>
+                                <th style="padding: 12px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 25%;">Colaborador</th>
+                                ${diasRender.map(d => `<th style="padding: 10px 5px; border: 1px solid rgba(255,255,255,0.05); width: 6.8%; color: #cbd5e1;">${d.diaTexto}<br><span style="font-size:0.85rem; font-weight:800; color: #fff;">${d.diaNum}</span></th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+    html += renderGrupo(grupoDia, '☀️ INICIANDO A SEMANA DE DIA');
+    html += renderGrupo(grupoNoite, '🌙 INICIANDO A SEMANA DE NOITE');
+    html += renderGrupo(grupoFolga, '⏸️ INICIANDO A SEMANA DE FOLGA');
+
+    html += `           </tbody>
+                    </table>
+                </div>
+             </div>`;
+             
+    container.innerHTML = html;
+
+    window.verificarParadasPendentesLogistica();
+    document.querySelectorAll('.select-escala-excel').forEach(select => select.addEventListener('change', window.handleEscalaChange));
+    if(typeof atualizarStats === 'function') atualizarStats();
+    if (document.getElementById('buscaMotoristaEscala') && document.getElementById('buscaMotoristaEscala').value.trim() !== '') {
+        window.buscarMotoristaEscala();
+    }
+};
 
 window.renderizarEscala = async function() {
     const container = document.getElementById('escalaContainer');
@@ -233,6 +410,12 @@ window.renderizarEscala = async function() {
         });
     }
     window.currentDatas = diasRender;
+
+    const isLinhares = window.currentUser && String(window.currentUser.filial_id) === '7';
+    if (isLinhares) {
+        window.renderizarEscalaLinhares(diasRender);
+        return;
+    }
 
     const filtroSelec = filtroSelectEl ? filtroSelectEl.value : 'todos';
     let conjuntosRender = filtroSelec !== 'todos' ? conjuntos.filter(c => String(c.id) === String(filtroSelec)) : [...conjuntos];
@@ -588,7 +771,6 @@ window.confirmarAcaoParadaLogistica = async function(id, acao) {
         alert("Erro ao confirmar ação.");
     }
 };
-// =========================================================================
 
 window.limparDestaqueMotorista = function() {
     const linhas = document.querySelectorAll('#escalaContainer tbody tr');
@@ -995,9 +1177,6 @@ window.gerarRelatorioImpressao = async function() {
     window.fecharModalImpressao();
 };
 
-// ==============================================================
-// VERIFICAÇÃO DE JORNADA E EXCLUSÃO PARA FALTAS/EXTRAS
-// ==============================================================
 window.abrirModalFaltaLogistica = async function() {
     if (!window.listaParaSelectColaboradores || window.listaParaSelectColaboradores.length === 0) {
         if (typeof window.carregarListaBaseColaboradores === 'function') {
