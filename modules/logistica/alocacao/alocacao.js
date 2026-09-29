@@ -196,91 +196,133 @@ window.renderizarAlocacao = function() {
         return motComTurno ? motComTurno.turno : "ZZY"; 
     };
 
+    // Função local para determinar se o motorista de Linhares está de Dia(0), Noite(1) ou Folga(2)
+    const getLinharesShiftState = (m) => {
+        const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
+        if (isBlocked) return 2; // Folga
+
+        if (!m.data_ancora) return 2; // Sem ciclo, vai pro final (Folga)
+        const dDate = new Date();
+        const strAncora = m.data_ancora.split('T')[0];
+        const dataAncora = new Date(strAncora + 'T00:00:00');
+        const utcAncora = Date.UTC(dataAncora.getFullYear(), dataAncora.getMonth(), dataAncora.getDate());
+        const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
+        const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
+        const ciclo12 = ((diffDays % 12) + 12) % 12;
+        
+        if (ciclo12 < 4) return 0; // Trabalhando Dia
+        if (ciclo12 >= 6 && ciclo12 < 10) return 1; // Trabalhando Noite
+        return 2; // Folgando
+    };
+
     const motoristasOrdenados = [...motoristas].sort((a, b) => {
-        const conjA = a.conjuntoId ? Number(a.conjuntoId) : 999999;
-        const conjB = b.conjuntoId ? Number(b.conjuntoId) : 999999;
-        
-        // 1º Nível de agrupamento: Conjunto
-        if (conjA !== conjB) return conjA - conjB;
-        
         if (isLinhares) {
-            // 2º Nível de agrupamento para LINHARES: Letra da Equipe primeiro
+            // 1º Nível Linhares: Letra da Equipe (A, B, C...)
             const eqA = window.getEq(a);
             const eqB = window.getEq(b);
             const pesoA = window.pesoEquipe(eqA);
             const pesoB = window.pesoEquipe(eqB);
             
             if (pesoA !== pesoB) return pesoA - pesoB;
+
+            // 2º Nível Linhares: Estado (0=Dia, 1=Noite, 2=Folga)
+            const estadoA = getLinharesShiftState(a);
+            const estadoB = getLinharesShiftState(b);
+            if (estadoA !== estadoB) return estadoA - estadoB;
             
-            // 3º Nível: Nome
+            // 3º Nível Linhares: Nome
             return a.nome.localeCompare(b.nome);
         } else {
-            // 2º Nível de agrupamento Padrão: Horário/Turno
+            // 1º Nível Padrão: Conjunto
+            const conjA = a.conjuntoId ? Number(a.conjuntoId) : 999999;
+            const conjB = b.conjuntoId ? Number(b.conjuntoId) : 999999;
+            if (conjA !== conjB) return conjA - conjB;
+
+            // 2º Nível Padrão: Horário/Turno
             const turnoA = getTurnoConjunto(a.conjuntoId);
             const turnoB = getTurnoConjunto(b.conjuntoId);
             const horaA = turnoA.match(/\d+/) ? parseInt(turnoA.match(/\d+/)[0], 10) : 9999;
             const horaB = turnoB.match(/\d+/) ? parseInt(turnoB.match(/\d+/)[0], 10) : 9999;
-            
             if (horaA !== horaB) return horaA - horaB;
             
+            // 3º Nível Padrão: Peso da Equipe Clássica (A, B, C)
             const eqA = window.getEq(a);
             const eqB = window.getEq(b);
             if (window.pesoEquipe(eqA) !== window.pesoEquipe(eqB)) return window.pesoEquipe(eqA) - window.pesoEquipe(eqB);
             
+            // 4º Nível Padrão: Nome
             return a.nome.localeCompare(b.nome);
         }
     });
 
     let html = '';
-    let lastConjunto = null;
+    let lastGroup = null; // Usado para agrupar por Equipe (Linhares) ou Conjunto (Padrão)
     
     motoristasOrdenados.forEach(m => {
         const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
-        const currentConjunto = m.conjuntoId ? Number(m.conjuntoId) : 'sem_conjunto';
         let eq = window.getEq(m);
+        let currentGroup = isLinhares ? eq : (m.conjuntoId ? Number(m.conjuntoId) : 'sem_conjunto');
 
-        if (currentConjunto !== lastConjunto) {
-            const dbValOriginal = getTurnoConjunto(m.conjuntoId);
-            let badgeTexto = "S/ Horário";
-            if (dbValOriginal !== 'ZZZ' && dbValOriginal !== 'ZZY') {
-                let cl = window.getCiclos().find(c => c.dbValue === dbValOriginal);
-                badgeTexto = cl ? `Iniciando às ${cl.base}` : dbValOriginal;
-            }
+        // Criação de Cabeçalho Agrupador
+        if (currentGroup !== lastGroup) {
+            if (isLinhares) {
+                const tituloEquipe = currentGroup === '-' ? 'OUTROS / SEM EQUIPE' : `EQUIPE ${currentGroup}`;
+                const badgeColor = getLinharesColor(currentGroup, false);
+                
+                html += `
+                    <tr style="background-color: #0f172a; border-top: 2px solid ${badgeColor};">
+                        <td colspan="6" style="text-align: left; padding: 12px 15px; font-weight: 800; color: #fff; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center;">
+                                    <span style="background: ${badgeColor}; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; margin-right: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.5);"><i class="fas fa-users"></i> ${tituloEquipe}</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                const dbValOriginal = getTurnoConjunto(m.conjuntoId);
+                let badgeTexto = "S/ Horário";
+                if (dbValOriginal !== 'ZZZ' && dbValOriginal !== 'ZZY') {
+                    let cl = window.getCiclos().find(c => c.dbValue === dbValOriginal);
+                    badgeTexto = cl ? `Iniciando às ${cl.base}` : dbValOriginal;
+                }
 
-            const tituloConjunto = m.conjuntoId ? `CONJUNTO ${String(m.conjuntoId).padStart(2, '0')}` : `RESERVAS / SEM CONJUNTO`;
-            const btnReset = m.conjuntoId ? `<button onclick="window.resetarCicloConjunto(${m.conjuntoId})" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 4px 12px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: bold; transition: 0.2s;">ZERAR CICLO</button>` : '';
-            
-            let selectTurnoGlobal = '';
-            if (m.conjuntoId) {
-                let opcoesTurno = window.getCiclos().map(c => `<option value="${c.dbValue}">Iniciando às ${c.base}</option>`).join('');
-                selectTurnoGlobal = `
-                    <select class="select-turno-global" data-conjunto="${m.conjuntoId}" style="margin-left: 15px; background: rgba(15, 23, 42, 0.9); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.5); border-radius: 6px; padding: 4px 8px; font-weight: bold; cursor: pointer; font-size: 0.8rem; outline: none;">
-                        <option value="">🔄 Mudar Horário da Equipe...</option>
-                        ${opcoesTurno}
-                    </select>
+                const tituloConjunto = m.conjuntoId ? `CONJUNTO ${String(m.conjuntoId).padStart(2, '0')}` : `RESERVAS / SEM CONJUNTO`;
+                const btnReset = m.conjuntoId ? `<button onclick="window.resetarCicloConjunto(${m.conjuntoId})" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 4px 12px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: bold; transition: 0.2s;">ZERAR CICLO</button>` : '';
+                
+                let selectTurnoGlobal = '';
+                if (m.conjuntoId) {
+                    let opcoesTurno = window.getCiclos().map(c => `<option value="${c.dbValue}">Iniciando às ${c.base}</option>`).join('');
+                    selectTurnoGlobal = `
+                        <select class="select-turno-global" data-conjunto="${m.conjuntoId}" style="margin-left: 15px; background: rgba(15, 23, 42, 0.9); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.5); border-radius: 6px; padding: 4px 8px; font-weight: bold; cursor: pointer; font-size: 0.8rem; outline: none;">
+                            <option value="">🔄 Mudar Horário da Equipe...</option>
+                            ${opcoesTurno}
+                        </select>
+                    `;
+                }
+
+                let badgeHorario = '';
+                if (dbValOriginal !== 'ZZZ' && dbValOriginal !== 'ZZY') {
+                    badgeHorario = `<span style="background: #3b82f6; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; margin-right: 12px;"><i class="far fa-clock"></i> ${badgeTexto}</span>`;
+                }
+
+                html += `
+                    <tr style="background-color: #0f172a; border-top: 2px solid #3b82f6;">
+                        <td colspan="5" style="text-align: left; padding: 12px 15px; font-weight: 800; color: #fff; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center;">
+                                    ${badgeHorario}
+                                    ${tituloConjunto}
+                                    ${selectTurnoGlobal}
+                                </div>
+                                <div>${btnReset}</div>
+                            </div>
+                        </td>
+                    </tr>
                 `;
             }
-
-            let badgeHorario = '';
-            if (dbValOriginal !== 'ZZZ' && dbValOriginal !== 'ZZY') {
-                badgeHorario = `<span style="background: #3b82f6; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; margin-right: 12px;"><i class="far fa-clock"></i> ${badgeTexto}</span>`;
-            }
-
-            html += `
-                <tr style="background-color: #0f172a; border-top: 2px solid #3b82f6;">
-                    <td colspan="${isLinhares ? 6 : 5}" style="text-align: left; padding: 12px 15px; font-weight: 800; color: #fff; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="display: flex; align-items: center;">
-                                ${badgeHorario}
-                                ${tituloConjunto}
-                                ${selectTurnoGlobal}
-                            </div>
-                            <div>${btnReset}</div>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            lastConjunto = currentConjunto;
+            lastGroup = currentGroup;
         }
         
         let posicaoTag = '';
@@ -302,31 +344,32 @@ window.renderizarAlocacao = function() {
             if (['A', 'B', 'C'].includes(eq)) turnoDisplay = '<span style="color: #fbbf24; font-size: 0.75rem;">☀️ Turno Dia</span>';
             else if (['D', 'E', 'F'].includes(eq)) turnoDisplay = '<span style="color: #93c5fd; font-size: 0.75rem;">🌙 Turno Noite</span>';
         } else {
-            // Lógica dinâmica baseada no ciclo matemático para atualizar as opções do <select>
-            if (m.data_ancora) {
-                const dDate = new Date(); // Hoje
-                const strAncora = m.data_ancora.split('T')[0];
-                const dataAncora = new Date(strAncora + 'T00:00:00');
-                const utcAncora = Date.UTC(dataAncora.getFullYear(), dataAncora.getMonth(), dataAncora.getDate());
-                const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
-                const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
-                const ciclo12 = ((diffDays % 12) + 12) % 12;
-                
-                if (ciclo12 < 4) {
-                    turnoDisplay = '<span style="color: #fbbf24; font-size: 0.75rem;">☀️ Trabalhando (Dia)</span>';
+            // Lógica dinâmica para exibir o 1º horário selecionado (DIA) ou o 2º (NOITE) com base no estado real
+            let labelTurnoDia = 'Horário Dia';
+            let labelTurnoNoite = 'Horário Noite';
+            
+            if (m.turno && m.turno !== '-') {
+                let cicloMatch = window.getCiclos().find(c => c.dbValue === m.turno);
+                if (cicloMatch) {
+                    labelTurnoDia = cicloMatch.labelDia;
+                    labelTurnoNoite = cicloMatch.labelNoite;
+                }
+            }
+
+            if (m.data_ancora && !isBlocked) {
+                const estadoAtual = getLinharesShiftState(m);
+                if (estadoAtual === 0) { // DIA
+                    turnoDisplay = `<span style="color: #fbbf24; font-size: 0.75rem; font-weight: 800;">☀️ ${labelTurnoDia}</span>`;
                     isNoite = false;
-                } else if (ciclo12 >= 4 && ciclo12 < 6) {
-                    turnoDisplay = '<span style="color: #94a3b8; font-size: 0.75rem;">⏸️ Folgando</span>';
-                    isNoite = false;
-                } else if (ciclo12 >= 6 && ciclo12 < 10) {
-                    turnoDisplay = '<span style="color: #93c5fd; font-size: 0.75rem;">🌙 Trabalhando (Noite)</span>';
+                } else if (estadoAtual === 1) { // NOITE
+                    turnoDisplay = `<span style="color: #93c5fd; font-size: 0.75rem; font-weight: 800;">🌙 ${labelTurnoNoite}</span>`;
                     isNoite = true;
-                } else {
-                    turnoDisplay = '<span style="color: #94a3b8; font-size: 0.75rem;">⏸️ Folgando</span>';
-                    isNoite = true;
+                } else { // FOLGA
+                    turnoDisplay = `<span style="color: #94a3b8; font-size: 0.75rem; font-weight: 800;">⏸️ Folgando</span>`;
+                    isNoite = false; 
                 }
             } else {
-                turnoDisplay = '<span style="color: #94a3b8; font-size: 0.75rem;">⚠️ Sem Ciclo</span>';
+                turnoDisplay = '<span style="color: #94a3b8; font-size: 0.75rem;">⏸️ Folgando / Sem Ciclo</span>';
                 isNoite = false;
             }
         }
@@ -411,7 +454,7 @@ window.renderizarAlocacao = function() {
             if (['A', 'B', 'C'].includes(eq)) bgRow = 'rgba(253, 230, 138, 0.05)';
             else if (['D', 'E', 'F'].includes(eq)) bgRow = 'rgba(191, 219, 254, 0.05)';
         } else if (!isBlocked && isLinhares) {
-            bgRow = getLinharesColor(eq, true);
+            bgRow = getLinharesColor(eq, true); // Aplica a cor translúcida do fundo
         }
         
         let flagStatusRH = '';
@@ -449,7 +492,7 @@ window.renderizarAlocacao = function() {
         try {
             e.target.disabled = true;
             const hojeStr = new Date().toISOString().split('T')[0];
-            const timestampAtual = new Date().toISOString();
+            const timestampAtual = window.obterDataHoraLocalParaDB ? window.obterDataHoraLocalParaDB() : new Date().toISOString();
             const motsToUpdate = motoristas.filter(m => String(m.conjuntoId) === String(conjuntoId));
             
             for (let m of motsToUpdate) {
@@ -518,7 +561,7 @@ window.updateAlocacao = async function(e) {
     const novaCidade = selectCidadeEl ? selectCidadeEl.value : (m.cidade || null);
 
     const hojeStr = new Date().toISOString().split('T')[0];
-    const timestampAtual = new Date().toISOString();
+    const timestampAtual = window.obterDataHoraLocalParaDB ? window.obterDataHoraLocalParaDB() : new Date().toISOString();
     let historico = Array.isArray(m.historico_alocacao) ? [...m.historico_alocacao] : [];
 
     const dataAncoraMantida = m.data_ancora || hojeStr;
@@ -589,7 +632,7 @@ window.resetarCicloConjunto = async function(conjuntoId) {
     const isLinharesReset = window.currentUser && String(window.currentUser.filial_id) === '7';
     const mots = motoristas.filter(m => String(m.conjuntoId) === String(conjuntoId));
     const hojeStr = new Date().toISOString().split('T')[0];
-    const timestampAtual = new Date().toISOString();
+    const timestampAtual = window.obterDataHoraLocalParaDB ? window.obterDataHoraLocalParaDB() : new Date().toISOString();
 
     for (let m of mots) {
         let eq = window.getEq(m);
@@ -648,7 +691,7 @@ window.salvarEscalaManual = async function() {
     m.data_ancora = dataAncora;
     
     const hojeStr = new Date().toISOString().split('T')[0];
-    const timestampAtual = new Date().toISOString();
+    const timestampAtual = window.obterDataHoraLocalParaDB ? window.obterDataHoraLocalParaDB() : new Date().toISOString();
     let historico = Array.isArray(m.historico_alocacao) ? [...m.historico_alocacao] : [];
     
     if (historico.length === 0) {

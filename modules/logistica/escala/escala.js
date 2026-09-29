@@ -11,10 +11,19 @@ window.SISTEMA_CICLOS = [];
 window.ausenciasGlobais = [];
 window.bancoHorasGlobais = [];
 
+// Função global para pegar a hora local correta e evitar o fuso de +3h do UTC
+window.obterDataHoraLocalParaDB = function() {
+    const data = new Date();
+    const tzoffset = data.getTimezoneOffset() * 60000; // offset em milissegundos
+    return new Date(data.getTime() - tzoffset).toISOString().slice(0, 19); // Retorna YYYY-MM-DDTHH:mm:ss (Sem o Z do UTC)
+};
+
 // Função global de formatação para evitar o erro de minutos cortados (ex: 11:1)
 window.formatarDataHoraCerta = function(isoString) {
     if (!isoString) return '';
-    const d = new Date(isoString);
+    // Remove o 'Z' do final para forçar o JavaScript a entender que a data já é local e não somar/subtrair 3 horas
+    const cleanString = isoString.endsWith('Z') ? isoString.slice(0, -1) : isoString;
+    const d = new Date(cleanString);
     return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
@@ -234,7 +243,7 @@ window.renderizarEscalaLinhares = function(diasRender) {
 
     const motoristasLinhares = motoristas.filter(m => String(m.filial_id) === '7' || (!m.filial_id));
 
-    // Agrupamento baseado nas letras de A até T
+    // Agrupamento estrito por letra (Equipe) de A até T
     const gruposEquipe = {};
     const letras = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T', '-'];
     letras.forEach(l => gruposEquipe[l] = []);
@@ -245,6 +254,15 @@ window.renderizarEscalaLinhares = function(diasRender) {
         gruposEquipe[eq].push(m);
     });
 
+    const getShiftState = (m, dateKey) => {
+        const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
+        if (isBlocked) return 2; // Folga
+        const esc = window.getEscalaDiaComputada(m, dateKey);
+        if (esc.shift === 'DIA') return 0;
+        if (esc.shift === 'NOITE') return 1;
+        return 2; // Folga
+    };
+
     const renderGrupo = (grupo, titulo) => {
         if (grupo.length === 0) return '';
         let rowsHtml = `<tr style="background-color: rgba(0,0,0,0.6);">
@@ -253,14 +271,25 @@ window.renderizarEscalaLinhares = function(diasRender) {
                             </td>
                         </tr>`;
         
-        grupo.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(m => {
+        grupo.sort((a,b) => {
+            const stateA = getShiftState(a, diasRender[0].dateKey);
+            const stateB = getShiftState(b, diasRender[0].dateKey);
+            if (stateA !== stateB) return stateA - stateB; // Dia -> Noite -> Folga
+            return a.nome.localeCompare(b.nome);
+        }).forEach(m => {
             const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
             
-            // Para Linhares, turno exibe a base inicial como referência visual simples
+            // Avalia o dia atual (diasRender[0]) para pegar o turno matemático correto
+            const escAtual = window.getEscalaDiaComputada(m, diasRender[0].dateKey);
             let displayTurno = m.turno || '-';
+            
             if (m.turno && m.turno !== '-') {
                 let cicloMatch = window.getCiclos().find(c => c.dbValue === m.turno);
-                if (cicloMatch) displayTurno = cicloMatch.base; 
+                if (cicloMatch) {
+                    if (escAtual.shift === 'DIA') displayTurno = `☀️ ${cicloMatch.labelDia}`;
+                    else if (escAtual.shift === 'NOITE') displayTurno = `🌙 ${cicloMatch.labelNoite}`;
+                    else displayTurno = `⏸️ Folga (Ref: ${cicloMatch.base})`;
+                }
             }
 
             let flagStatusRH = '';
@@ -704,7 +733,7 @@ window.carregarListaParadasLogistica = async function() {
         const nomeUser = obterNomeUsuarioLogadoParaParadas();
 
         if (unseenIds.length > 0) {
-            const agora = new Date().toISOString();
+            const agora = window.obterDataHoraLocalParaDB();
             
             data.forEach(p => {
                 if(unseenIds.includes(p.id)) {
@@ -769,7 +798,7 @@ window.confirmarAcaoParadaLogistica = async function(id, acao) {
     
     try {
         const nomeUser = obterNomeUsuarioLogadoParaParadas();
-        const agora = new Date().toISOString();
+        const agora = window.obterDataHoraLocalParaDB();
         
         await window.supabaseClient.from('manutencao_paradas_programadas').update({
             status_logistica: acao,
