@@ -1,7 +1,11 @@
 // ==================== MÓDULO: ESCALA SEMANAL (NÚCLEO E INTEGRAÇÃO RH) ====================
 
 window.getEq = function(m) { return m && m.equipe ? m.equipe.trim().toUpperCase() : '-'; };
-window.pesoEquipe = function(eq) { return {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6}[eq] || 99; };
+
+// Suporte global para as equipes de A até T.
+window.pesoEquipe = function(eq) { 
+    return {'A':1,'B':2,'C':3,'D':4,'E':5,'F':6,'G':7,'H':8,'I':9,'J':10,'K':11,'L':12,'M':13,'N':14,'O':15,'P':16,'Q':17,'R':18,'S':19,'T':20}[eq] || 99; 
+};
 
 window.SISTEMA_CICLOS = [];
 window.ausenciasGlobais = [];
@@ -208,6 +212,9 @@ window.getEscalaDiaComputada = function(motorista, dateKey) {
     return window.calcularEscalaMatematica(motorista, dateKey);
 }
 
+// -------------------------------------------------------------------------
+// FUNÇÃO EXCLUSIVA DE RENDERIZAÇÃO DA FILIAL 7 (LINHARES) AGRUPADA POR A-T
+// -------------------------------------------------------------------------
 window.renderizarEscalaLinhares = function(diasRender) {
     const container = document.getElementById('escalaContainer');
     let html = '';
@@ -227,21 +234,15 @@ window.renderizarEscalaLinhares = function(diasRender) {
 
     const motoristasLinhares = motoristas.filter(m => String(m.filial_id) === '7' || (!m.filial_id));
 
-    // Agrupamento baseado no status do primeiro dia visualizado
-    const grupoDia = [];
-    const grupoNoite = [];
-    const grupoFolga = [];
+    // Agrupamento baseado nas letras de A até T
+    const gruposEquipe = {};
+    const letras = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T', '-'];
+    letras.forEach(l => gruposEquipe[l] = []);
 
     motoristasLinhares.forEach(m => {
-        const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
-        if (isBlocked) {
-            grupoFolga.push(m);
-            return;
-        }
-        const esc = window.getEscalaDiaComputada(m, diasRender[0].dateKey);
-        if (esc.shift === 'DIA') grupoDia.push(m);
-        else if (esc.shift === 'NOITE') grupoNoite.push(m);
-        else grupoFolga.push(m);
+        let eq = window.getEq(m);
+        if (!letras.includes(eq)) eq = '-';
+        gruposEquipe[eq].push(m);
     });
 
     const renderGrupo = (grupo, titulo) => {
@@ -254,7 +255,14 @@ window.renderizarEscalaLinhares = function(diasRender) {
         
         grupo.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(m => {
             const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
+            
+            // Para Linhares, turno exibe a base inicial como referência visual simples
             let displayTurno = m.turno || '-';
+            if (m.turno && m.turno !== '-') {
+                let cicloMatch = window.getCiclos().find(c => c.dbValue === m.turno);
+                if (cicloMatch) displayTurno = cicloMatch.base; 
+            }
+
             let flagStatusRH = '';
             if (m.status === 'Férias') flagStatusRH = ' <span style="font-size:0.6rem; background:#f59e0b; color:#fff; padding:2px 4px; border-radius:3px;">FÉRIAS</span>';
             if (m.status === 'Afastado') flagStatusRH = ' <span style="font-size:0.6rem; background:#ef4444; color:#fff; padding:2px 4px; border-radius:3px;">AFASTADO</span>';
@@ -287,7 +295,6 @@ window.renderizarEscalaLinhares = function(diasRender) {
                     const isDia = escala.shift === 'DIA';
                     const isNoite = escala.shift === 'NOITE';
                     
-                    // Diferença visual nítida para a escala de Linhares (4 Dia / 4 Noite)
                     if (isDia) {
                         bgCell = 'rgba(253, 224, 71, 0.2)';
                         colorCell = '#fde047';
@@ -334,7 +341,7 @@ window.renderizarEscalaLinhares = function(diasRender) {
                     <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem; min-width: 950px;">
                         <thead>
                             <tr style="background-color: rgba(30, 41, 59, 0.9); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">
-                                <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 12%;">Horário</th>
+                                <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 12%;">Horário (Base)</th>
                                 <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 15%;">Cidade</th>
                                 <th style="padding: 12px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 25%;">Colaborador</th>
                                 ${diasRender.map(d => `<th style="padding: 10px 5px; border: 1px solid rgba(255,255,255,0.05); width: 6.8%; color: #cbd5e1;">${d.diaTexto}<br><span style="font-size:0.85rem; font-weight:800; color: #fff;">${d.diaNum}</span></th>`).join('')}
@@ -342,9 +349,14 @@ window.renderizarEscalaLinhares = function(diasRender) {
                         </thead>
                         <tbody>`;
 
-    html += renderGrupo(grupoDia, '☀️ INICIANDO A SEMANA DE DIA');
-    html += renderGrupo(grupoNoite, '🌙 INICIANDO A SEMANA DE NOITE');
-    html += renderGrupo(grupoFolga, '⏸️ INICIANDO A SEMANA DE FOLGA');
+    // Processa a montagem das linhas das equipes de A até T + Sem Equipe
+    letras.forEach(letra => {
+        const grupo = gruposEquipe[letra];
+        if (grupo.length > 0) {
+            const titulo = letra === '-' ? '📋 OUTROS / SEM EQUIPE DEFINIDA' : `🚚 EQUIPE ${letra}`;
+            html += renderGrupo(grupo, titulo);
+        }
+    });
 
     html += `           </tbody>
                     </table>
@@ -874,6 +886,8 @@ window.imprimirRelatorioEscalaSemanal = function() {
 
     if (conjuntosRender.length === 0) { alert("Nenhum dado para imprimir."); return; }
 
+    const isLinhares = window.currentUser && String(window.currentUser.filial_id) === '7';
+
     let html = `
     <html>
     <head>
@@ -905,8 +919,14 @@ window.imprimirRelatorioEscalaSemanal = function() {
         let motoristasDoConjunto = motoristas.filter(m => String(m.conjuntoId) === String(conj.id));
         if (motoristasDoConjunto.length === 0) return;
 
-        const gDia = motoristasDoConjunto.filter(m => ['A', 'B', 'C'].includes(window.getEq(m))).sort((a,b) => window.pesoEquipe(window.getEq(a)) - window.pesoEquipe(window.getEq(b)));
-        const gNoite = motoristasDoConjunto.filter(m => ['D', 'E', 'F'].includes(window.getEq(m))).sort((a,b) => window.pesoEquipe(window.getEq(a)) - window.pesoEquipe(window.getEq(b)));
+        let gDia = [], gNoite = [];
+        
+        if (isLinhares) {
+            gDia = motoristasDoConjunto.sort((a,b) => window.pesoEquipe(window.getEq(a)) - window.pesoEquipe(window.getEq(b)));
+        } else {
+            gDia = motoristasDoConjunto.filter(m => ['A', 'B', 'C'].includes(window.getEq(m))).sort((a,b) => window.pesoEquipe(window.getEq(a)) - window.pesoEquipe(window.getEq(b)));
+            gNoite = motoristasDoConjunto.filter(m => ['D', 'E', 'F'].includes(window.getEq(m))).sort((a,b) => window.pesoEquipe(window.getEq(a)) - window.pesoEquipe(window.getEq(b)));
+        }
 
         const renderTable = (grupo, titulo, classeTr) => {
             if (grupo.length === 0) return '';
@@ -957,8 +977,14 @@ window.imprimirRelatorioEscalaSemanal = function() {
 
         html += `<div class="trinca-box"><div class="trinca-num">CONJUNTO ${String(conj.id).padStart(2, '0')}</div>`;
         html += `<table><thead><tr><th style="width:11%;">HORÁRIO</th><th style="width:11%;">FROTA/PLACA</th><th style="width:5%;">EQ</th><th style="width:11%;">POSIÇÃO</th><th style="text-align:left;">COLABORADOR</th>${window.currentDatas.map(d => `<th style="width:8%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
-        html += renderTable(gDia, 'TURNO DO DIA (EQUIPES A, B, C)', 'dia-bg');
-        html += renderTable(gNoite, 'TURNO DA NOITE (EQUIPES D, E, F)', 'noite-bg');
+        
+        if (isLinhares) {
+            html += renderTable(gDia, 'COLABORADORES', 'dia-bg');
+        } else {
+            html += renderTable(gDia, 'TURNO DO DIA (EQUIPES A, B, C)', 'dia-bg');
+            html += renderTable(gNoite, 'TURNO DA NOITE (EQUIPES D, E, F)', 'noite-bg');
+        }
+        
         html += `</tbody></table></div>`;
     });
 
@@ -988,6 +1014,8 @@ window.exportarEscalaMensalExcel = async function() {
         return conjA - conjB || window.pesoEquipe(window.getEq(a)) - window.pesoEquipe(window.getEq(b));
     });
 
+    const isLinhares = window.currentUser && String(window.currentUser.filial_id) === '7';
+
     mOrdenados.forEach(m => {
         let eq = window.getEq(m);
         let posStr = '-';
@@ -1008,18 +1036,27 @@ window.exportarEscalaMensalExcel = async function() {
                 let go1 = getCamId(cam1);
                 let go2 = getCamId(cam2);
                 
-                if (eq === 'A' || eq === 'D') { goStr = go1; posStr = 'FROTA 1'; }
-                else if (eq === 'B' || eq === 'E') { goStr = go2; posStr = 'FROTA 2'; }
-                else if (eq === 'C' || eq === 'F') { goStr = (go1 !== '-' && go2 !== '-' && go1 !== go2) ? `${go1} / ${go2}` : go1; posStr = 'FOLGUISTA'; }
+                if (eq === 'A' || eq === 'D') { goStr = go1; }
+                else if (eq === 'B' || eq === 'E') { goStr = go2; }
+                else if (eq === 'C' || eq === 'F') { goStr = (go1 !== '-' && go2 !== '-' && go1 !== go2) ? `${go1} / ${go2}` : go1; }
+            }
+            
+            if (isLinhares) {
+                posStr = `EQ. ${eq !== '-' ? eq : 'S/E'}`;
             } else {
                 if (eq === 'A' || eq === 'D') posStr = 'FROTA 1';
                 else if (eq === 'B' || eq === 'E') posStr = 'FROTA 2';
                 else if (eq === 'C' || eq === 'F') posStr = 'FOLGUISTA';
             }
+
         } else {
-            if (eq === 'A' || eq === 'D') posStr = 'FROTA 1';
-            else if (eq === 'B' || eq === 'E') posStr = 'FROTA 2';
-            else if (eq === 'C' || eq === 'F') posStr = 'FOLGUISTA';
+            if (isLinhares) {
+                posStr = `EQ. ${eq !== '-' ? eq : 'S/E'}`;
+            } else {
+                if (eq === 'A' || eq === 'D') posStr = 'FROTA 1';
+                else if (eq === 'B' || eq === 'E') posStr = 'FROTA 2';
+                else if (eq === 'C' || eq === 'F') posStr = 'FOLGUISTA';
+            }
         }
         
         let excelTurno = m.turno || '-';
@@ -1057,6 +1094,7 @@ window.exportarEscalaMensalExcel = async function() {
 window.gerarRelatorioImpressao = async function() {
     const dataStr = document.getElementById('printData').value;
     const turnoFiltro = document.getElementById('printTurno').value;
+    const isLinhares = window.currentUser && String(window.currentUser.filial_id) === '7';
     
     if (!dataStr) { alert('Selecione uma data para impressão.'); return; }
     
@@ -1092,10 +1130,13 @@ window.gerarRelatorioImpressao = async function() {
 
     const motoristasOrd = [...motoristas];
     let motoristasFiltrados = motoristasOrd;
-    if (turnoFiltro === 'Dia') {
-        motoristasFiltrados = motoristasOrd.filter(m => ['A', 'B', 'C'].includes(window.getEq(m)));
-    } else if (turnoFiltro === 'Noite') {
-        motoristasFiltrados = motoristasOrd.filter(m => ['D', 'E', 'F'].includes(window.getEq(m)));
+    
+    if (!isLinhares) {
+        if (turnoFiltro === 'Dia') {
+            motoristasFiltrados = motoristasOrd.filter(m => ['A', 'B', 'C'].includes(window.getEq(m)));
+        } else if (turnoFiltro === 'Noite') {
+            motoristasFiltrados = motoristasOrd.filter(m => ['D', 'E', 'F'].includes(window.getEq(m)));
+        }
     }
 
     const trabs = [];

@@ -2,6 +2,22 @@
 
 window.dadosHistoricoMemoria = []; // Cache para a pesquisa da aba de histórico
 
+// Função auxiliar para gerar cores únicas para as 20 equipes de Linhares
+function getLinharesColor(eq, isBackground) {
+    if (eq === '-') return isBackground ? 'transparent' : '#64748b';
+    const letras = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T'];
+    const index = letras.indexOf(eq);
+    if (index === -1) return isBackground ? 'transparent' : '#64748b';
+    
+    // Distribui as cores ao longo do espectro HSL (360 graus / 20 equipes = 18 graus de diferença por letra)
+    const hue = index * 18;
+    if (isBackground) {
+        return `hsla(${hue}, 80%, 50%, 0.15)`; // Fundo translúcido para a linha da tabela
+    } else {
+        return `hsl(${hue}, 80%, 40%)`; // Cor sólida para a Badge
+    }
+}
+
 // ============================================================================
 // CONTROLE DE ABAS
 // ============================================================================
@@ -176,8 +192,6 @@ window.renderizarAlocacao = function() {
     const getTurnoConjunto = (conjId) => {
         if (!conjId) return "ZZZ";
         const mots = motoristas.filter(m => String(m.conjuntoId) === String(conjId));
-        const motDia = mots.find(m => m.turno && m.turno !== '-' && ['A','B','C'].includes(window.getEq(m)));
-        if (motDia) return motDia.turno;
         const motComTurno = mots.find(m => m.turno && m.turno !== '-');
         return motComTurno ? motComTurno.turno : "ZZY"; 
     };
@@ -186,20 +200,35 @@ window.renderizarAlocacao = function() {
         const conjA = a.conjuntoId ? Number(a.conjuntoId) : 999999;
         const conjB = b.conjuntoId ? Number(b.conjuntoId) : 999999;
         
+        // 1º Nível de agrupamento: Conjunto
         if (conjA !== conjB) return conjA - conjB;
         
-        const turnoA = getTurnoConjunto(a.conjuntoId);
-        const turnoB = getTurnoConjunto(b.conjuntoId);
-        const horaA = turnoA.match(/\d+/) ? parseInt(turnoA.match(/\d+/)[0], 10) : 9999;
-        const horaB = turnoB.match(/\d+/) ? parseInt(turnoB.match(/\d+/)[0], 10) : 9999;
-        
-        if (horaA !== horaB) return horaA - horaB;
-        
-        const eqA = window.getEq(a);
-        const eqB = window.getEq(b);
-        if (window.pesoEquipe(eqA) !== window.pesoEquipe(eqB)) return window.pesoEquipe(eqA) - window.pesoEquipe(eqB);
-        
-        return a.nome.localeCompare(b.nome);
+        if (isLinhares) {
+            // 2º Nível de agrupamento para LINHARES: Letra da Equipe primeiro
+            const eqA = window.getEq(a);
+            const eqB = window.getEq(b);
+            const pesoA = window.pesoEquipe(eqA);
+            const pesoB = window.pesoEquipe(eqB);
+            
+            if (pesoA !== pesoB) return pesoA - pesoB;
+            
+            // 3º Nível: Nome
+            return a.nome.localeCompare(b.nome);
+        } else {
+            // 2º Nível de agrupamento Padrão: Horário/Turno
+            const turnoA = getTurnoConjunto(a.conjuntoId);
+            const turnoB = getTurnoConjunto(b.conjuntoId);
+            const horaA = turnoA.match(/\d+/) ? parseInt(turnoA.match(/\d+/)[0], 10) : 9999;
+            const horaB = turnoB.match(/\d+/) ? parseInt(turnoB.match(/\d+/)[0], 10) : 9999;
+            
+            if (horaA !== horaB) return horaA - horaB;
+            
+            const eqA = window.getEq(a);
+            const eqB = window.getEq(b);
+            if (window.pesoEquipe(eqA) !== window.pesoEquipe(eqB)) return window.pesoEquipe(eqA) - window.pesoEquipe(eqB);
+            
+            return a.nome.localeCompare(b.nome);
+        }
     });
 
     let html = '';
@@ -255,16 +284,53 @@ window.renderizarAlocacao = function() {
         }
         
         let posicaoTag = '';
-        if (eq === 'A' || eq === 'D') posicaoTag = '<span style="display:inline-block; width: 75px; font-size: 0.65rem; background: #2563eb; color: #fff; padding: 3px; border-radius: 4px; text-align: center; font-weight: bold; margin-right: 8px;">FROTA 1</span>';
-        else if (eq === 'B' || eq === 'E') posicaoTag = '<span style="display:inline-block; width: 75px; font-size: 0.65rem; background: #7c3aed; color: #fff; padding: 3px; border-radius: 4px; text-align: center; font-weight: bold; margin-right: 8px;">FROTA 2</span>';
-        else if (eq === 'C' || eq === 'F') posicaoTag = '<span style="display:inline-block; width: 75px; font-size: 0.65rem; background: #ea580c; color: #fff; padding: 3px; border-radius: 4px; text-align: center; font-weight: bold; margin-right: 8px;">FOLGUISTA</span>';
-        else posicaoTag = '<span style="display:inline-block; width: 75px; font-size: 0.65rem; background: #475569; color: #fff; padding: 3px; border-radius: 4px; text-align: center; font-weight: bold; margin-right: 8px;">RESERVA</span>';
+        if (isLinhares) {
+            let badgeColor = getLinharesColor(eq, false);
+            posicaoTag = `<span style="display:inline-block; width: 60px; font-size: 0.65rem; background: ${badgeColor}; color: #fff; padding: 3px; border-radius: 4px; text-align: center; font-weight: bold; margin-right: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.5);">EQ. ${eq !== '-' ? eq : 'S/E'}</span>`;
+        } else {
+            if (eq === 'A' || eq === 'D') posicaoTag = '<span style="display:inline-block; width: 75px; font-size: 0.65rem; background: #2563eb; color: #fff; padding: 3px; border-radius: 4px; text-align: center; font-weight: bold; margin-right: 8px;">FROTA 1</span>';
+            else if (eq === 'B' || eq === 'E') posicaoTag = '<span style="display:inline-block; width: 75px; font-size: 0.65rem; background: #7c3aed; color: #fff; padding: 3px; border-radius: 4px; text-align: center; font-weight: bold; margin-right: 8px;">FROTA 2</span>';
+            else if (eq === 'C' || eq === 'F') posicaoTag = '<span style="display:inline-block; width: 75px; font-size: 0.65rem; background: #ea580c; color: #fff; padding: 3px; border-radius: 4px; text-align: center; font-weight: bold; margin-right: 8px;">FOLGUISTA</span>';
+            else posicaoTag = '<span style="display:inline-block; width: 75px; font-size: 0.65rem; background: #475569; color: #fff; padding: 3px; border-radius: 4px; text-align: center; font-weight: bold; margin-right: 8px;">RESERVA</span>';
+        }
 
+        let isNoite = false;
         let turnoDisplay = '';
-        if (['A', 'B', 'C'].includes(eq)) turnoDisplay = '<span style="color: #fbbf24; font-size: 0.75rem;">☀️ Turno Dia</span>';
-        else if (['D', 'E', 'F'].includes(eq)) turnoDisplay = '<span style="color: #93c5fd; font-size: 0.75rem;">🌙 Turno Noite</span>';
 
-        // Lógica de tamanhos adaptativos e injeção do select de cidade caso seja Linhares
+        if (!isLinhares) {
+            if (['D', 'E', 'F'].includes(eq)) isNoite = true;
+            if (['A', 'B', 'C'].includes(eq)) turnoDisplay = '<span style="color: #fbbf24; font-size: 0.75rem;">☀️ Turno Dia</span>';
+            else if (['D', 'E', 'F'].includes(eq)) turnoDisplay = '<span style="color: #93c5fd; font-size: 0.75rem;">🌙 Turno Noite</span>';
+        } else {
+            // Lógica dinâmica baseada no ciclo matemático para atualizar as opções do <select>
+            if (m.data_ancora) {
+                const dDate = new Date(); // Hoje
+                const strAncora = m.data_ancora.split('T')[0];
+                const dataAncora = new Date(strAncora + 'T00:00:00');
+                const utcAncora = Date.UTC(dataAncora.getFullYear(), dataAncora.getMonth(), dataAncora.getDate());
+                const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
+                const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
+                const ciclo12 = ((diffDays % 12) + 12) % 12;
+                
+                if (ciclo12 < 4) {
+                    turnoDisplay = '<span style="color: #fbbf24; font-size: 0.75rem;">☀️ Trabalhando (Dia)</span>';
+                    isNoite = false;
+                } else if (ciclo12 >= 4 && ciclo12 < 6) {
+                    turnoDisplay = '<span style="color: #94a3b8; font-size: 0.75rem;">⏸️ Folgando</span>';
+                    isNoite = false;
+                } else if (ciclo12 >= 6 && ciclo12 < 10) {
+                    turnoDisplay = '<span style="color: #93c5fd; font-size: 0.75rem;">🌙 Trabalhando (Noite)</span>';
+                    isNoite = true;
+                } else {
+                    turnoDisplay = '<span style="color: #94a3b8; font-size: 0.75rem;">⏸️ Folgando</span>';
+                    isNoite = true;
+                }
+            } else {
+                turnoDisplay = '<span style="color: #94a3b8; font-size: 0.75rem;">⚠️ Sem Ciclo</span>';
+                isNoite = false;
+            }
+        }
+
         let cidadeSelectHtml = '';
         let wMot = isLinhares ? '20%' : '25%';
         let wEq  = isLinhares ? '26%' : '32%';
@@ -289,21 +355,31 @@ window.renderizarAlocacao = function() {
             cidadeSelectHtml = `<td style="padding: 10px; vertical-align: middle; width: 14%;">${selectC}</td>`;
         }
 
+        let equipeSelectOptions = `<option value="-" ${eq === '-' ? 'selected' : ''}>Sem EQ</option>`;
+        if (isLinhares) {
+            const letras = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T'];
+            letras.forEach(l => {
+                equipeSelectOptions += `<option value="${l}" ${eq === l ? 'selected' : ''}>Equipe ${l}</option>`;
+            });
+        } else {
+            equipeSelectOptions += `
+                <option value="A" ${eq === 'A' ? 'selected' : ''}>A (Dia)</option>
+                <option value="B" ${eq === 'B' ? 'selected' : ''}>B (Dia)</option>
+                <option value="C" ${eq === 'C' ? 'selected' : ''}>C (Dia)</option>
+                <option value="D" ${eq === 'D' ? 'selected' : ''}>D (Noite)</option>
+                <option value="E" ${eq === 'E' ? 'selected' : ''}>E (Noite)</option>
+                <option value="F" ${eq === 'F' ? 'selected' : ''}>F (Noite)</option>
+            `;
+        }
+
         let equipeSelect = `
             <div style="display: flex; align-items: center; justify-content: flex-start;">
                 ${posicaoTag}
                 <select class="select-aloc-equipe select-turno" data-id="${m.id}" ${isBlocked ? 'disabled' : ''} style="${isLinhares ? 'width: 100px;' : 'width: 140px;'} font-weight: bold; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px;">
-                    <option value="-" ${eq === '-' ? 'selected' : ''}>Sem EQ</option>
-                    <option value="A" ${eq === 'A' ? 'selected' : ''}>A (Dia)</option>
-                    <option value="B" ${eq === 'B' ? 'selected' : ''}>B (Dia)</option>
-                    <option value="C" ${eq === 'C' ? 'selected' : ''}>C (Dia)</option>
-                    <option value="D" ${eq === 'D' ? 'selected' : ''}>D (Noite)</option>
-                    <option value="E" ${eq === 'E' ? 'selected' : ''}>E (Noite)</option>
-                    <option value="F" ${eq === 'F' ? 'selected' : ''}>F (Noite)</option>
+                    ${equipeSelectOptions}
                 </select>
             </div>`;
         
-        let isNoite = ['D', 'E', 'F'].includes(eq);
         let opcoesIndividual = '<option value="-">-</option>';
         window.getCiclos().forEach(c => {
             let labelVisual = isNoite ? c.labelNoite : c.labelDia;
@@ -331,9 +407,11 @@ window.renderizarAlocacao = function() {
         }
         
         let bgRow = 'transparent';
-        if (!isBlocked) {
+        if (!isBlocked && !isLinhares) {
             if (['A', 'B', 'C'].includes(eq)) bgRow = 'rgba(253, 230, 138, 0.05)';
             else if (['D', 'E', 'F'].includes(eq)) bgRow = 'rgba(191, 219, 254, 0.05)';
+        } else if (!isBlocked && isLinhares) {
+            bgRow = getLinharesColor(eq, true);
         }
         
         let flagStatusRH = '';
@@ -355,7 +433,6 @@ window.renderizarAlocacao = function() {
 
     tbody.innerHTML = html;
 
-    // Vincula o evento a todos os selects renderizados
     document.querySelectorAll('.select-aloc-equipe, .select-aloc-turno, .select-aloc-conjunto, .select-aloc-cidade').forEach(el => el.addEventListener('change', window.updateAlocacao));
     
     document.querySelectorAll('.select-turno-global').forEach(el => el.addEventListener('change', async (e) => {
@@ -364,7 +441,7 @@ window.renderizarAlocacao = function() {
         if (!novoTurnoDbValue) return;
 
         const cicloInfo = window.getCiclos().find(c => c.dbValue === novoTurnoDbValue);
-        if (!confirm(`Confirmar mudança do Conjunto ${conjuntoId} para "${cicloInfo.base}"?\n\n- Equipes Dia (A, B, C) exibirão: ${cicloInfo.labelDia}\n- Equipes Noite (D, E, F) exibirão: ${cicloInfo.labelNoite}`)) {
+        if (!confirm(`Confirmar mudança do Conjunto ${conjuntoId} para "${cicloInfo.base}"?`)) {
             e.target.value = ""; 
             return;
         }
@@ -437,7 +514,6 @@ window.updateAlocacao = async function(e) {
     const novoTurno = tr.querySelector('.select-aloc-turno').value;
     const novoConjuntoId = tr.querySelector('.select-aloc-conjunto').value || null;
     
-    // Pega o valor da cidade se a caixa de seleção existir na tela atual
     const selectCidadeEl = tr.querySelector('.select-aloc-cidade');
     const novaCidade = selectCidadeEl ? selectCidadeEl.value : (m.cidade || null);
 
@@ -494,7 +570,7 @@ window.updateAlocacao = async function(e) {
         }
 
         if (typeof window.registrarLogAuditoria === 'function') {
-            window.registrarLogAuditoria('Logística', 'Alocação', `Alocação atualizada: ${m.nome} (Eq:${novaEquipe} / T:${novoTurno} / Cj:${novoConjuntoId || 'S/F'} / Cidade:${novaCidade || 'S/C'})`, 'Info');
+            window.registrarLogAuditoria('Logística', 'Alocação', `Alocação atualizada: ${m.nome} (Eq:${novaEquipe} / Cj:${novoConjuntoId || 'S/F'} / Cidade:${novaCidade || 'S/C'})`, 'Info');
         }
 
         select.disabled = false;
@@ -508,8 +584,9 @@ window.updateAlocacao = async function(e) {
 };
 
 window.resetarCicloConjunto = async function(conjuntoId) {
-    if(!confirm(`Deseja resetar o ciclo 4x2 do Conjunto ${conjuntoId} para a data de HOJE?\nIsso afetará as equipes A, B e C (Dia) e D, E e F (Noite).`)) return;
+    if(!confirm(`Deseja resetar o ciclo 4x2 do Conjunto ${conjuntoId} para a data de HOJE?`)) return;
 
+    const isLinharesReset = window.currentUser && String(window.currentUser.filial_id) === '7';
     const mots = motoristas.filter(m => String(m.conjuntoId) === String(conjuntoId));
     const hojeStr = new Date().toISOString().split('T')[0];
     const timestampAtual = new Date().toISOString();
@@ -518,9 +595,11 @@ window.resetarCicloConjunto = async function(conjuntoId) {
         let eq = window.getEq(m);
         let diasParaSubtrair = 0;
         
-        if (eq === 'A' || eq === 'D') diasParaSubtrair = 0;
-        else if (eq === 'B' || eq === 'E') diasParaSubtrair = 2;
-        else if (eq === 'C' || eq === 'F') diasParaSubtrair = 4;
+        if (!isLinharesReset) {
+            if (eq === 'A' || eq === 'D') diasParaSubtrair = 0;
+            else if (eq === 'B' || eq === 'E') diasParaSubtrair = 2;
+            else if (eq === 'C' || eq === 'F') diasParaSubtrair = 4;
+        }
 
         let dataAncoraObj = new Date(hojeStr + 'T00:00:00');
         dataAncoraObj.setDate(dataAncoraObj.getDate() - diasParaSubtrair);
