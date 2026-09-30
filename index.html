@@ -74,7 +74,10 @@
                 <button id="btnMobileMenu" onclick="toggleMobileMenu()" style="display: none; background: transparent; border: none; color: #fff; font-size: 1.6rem; cursor: pointer; padding: 5px 10px; margin-right: 5px; border-radius: 6px;">
                     <i class="fas fa-bars"></i>
                 </button>
-                <div class="ccol-logo-modern">SISF</div>
+                <!-- Ajustado com estilo inline para remover fundo azul, bordas e sombras -->
+                <div class="ccol-logo-modern" style="background: transparent !important; box-shadow: none !important; padding: 0 !important; border: none !important;">
+                    <img src="assets/logo.png" alt="Serrana Florestal Logo" class="company-logo-img">
+                </div>
                 <div class="header-titles">
                     <h1>Serrana Florestal</h1>
                     <p>Sistema Integrado Serrana Florestal</p>
@@ -82,9 +85,6 @@
             </div>
             
             <div class="header-right">
-                <div class="logo-container">
-                    <img src="assets/logo.png" alt="Serrana Florestal Logo" class="company-logo-img">
-                </div>
                 <div class="quick-stats-header">
                     <div class="q-stat" title="Motoristas Disponíveis / Sem Conjunto">🚗 <span id="statDisponiveis">0</span></div>
                     <div class="q-stat" title="Total de Cavalos">🚚 <span id="statCavalos">0</span></div>
