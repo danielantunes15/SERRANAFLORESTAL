@@ -294,7 +294,7 @@ window.carregarTrocasDoDia = async function() {
     const tbody = document.getElementById('tbodyTrocaTurno');
     if (!tbody || !dataRef) return;
     
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 20px;">Processando frotas, turnos e continuidade...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 20px;">Processando frotas, turnos e continuidade...</td></tr>`;
     
     try {
         const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
@@ -324,7 +324,7 @@ window.carregarTrocasDoDia = async function() {
                 .select('*').eq('filial_id', 7).eq('status', 'Ativo').eq('categoria', 'TRITREM');
 
             if (!frotaLinhares || frotaLinhares.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#f1c40f;">Nenhuma frota TRITREM ativa encontrada para Linhares.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#f1c40f;">Nenhuma frota TRITREM ativa encontrada para Linhares.</td></tr>`;
                 return;
             }
 
@@ -347,7 +347,7 @@ window.carregarTrocasDoDia = async function() {
             
             const cLista = (typeof conjuntos !== 'undefined') ? conjuntos : (window.conjuntos || []);
             if (cLista.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#f1c40f;">Nenhum Conjunto encontrado na memória do sistema.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#f1c40f;">Nenhum Conjunto encontrado na memória do sistema.</td></tr>`;
                 return;
             }
 
@@ -383,11 +383,21 @@ window.carregarTrocasDoDia = async function() {
             return Number(a.conjId) - Number(b.conjId);
         });
 
+        const mListaOrdenada = [...mLista].sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+        let lastPlacaSeparador = null;
         let html = '';
+
         linhasData.forEach((linha, indiceGlobal) => {
             const { conjId, go, placaNorm, esc, idxTurno } = linha;
             const domId = `${placaNorm.replace(/[^A-Z0-9]/g, '')}_${idxTurno}_${indiceGlobal}`; 
             
+            // ESPAÇAMENTO ENTRE CAMINHÕES DIFERENTES
+            if (lastPlacaSeparador && lastPlacaSeparador !== placaNorm) {
+                html += `<tr style="height: 12px; background: transparent;"><td colspan="8" style="border: none; padding: 0; box-shadow: none;"></td></tr>`;
+            }
+            lastPlacaSeparador = placaNorm;
+
             let reg = null;
             let ultimoReg = null;
             let motoristaAtualSalvo = '';
@@ -466,14 +476,14 @@ window.carregarTrocasDoDia = async function() {
 
                 if (horarioPrevistoLargarVal) {
                     labelPrevisto = `
-                        <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px; display:flex; align-items:center;">
+                        <div style="font-size:0.75rem; color:#94a3b8; margin-top:6px; display:flex; align-items:center;">
                             Previsto: <b style="color:#fbbf24; margin:0 4px;">${horarioPrevistoLargarVal}</b> 
                             <span style="font-size:0.65rem; color:#64748b; margin-right:5px;">(Assumiu ${dataInicioFmt} às ${horaInicioFmt})</span>
                             <span id="alerta_disp_${domId}">${diffDispHTML}</span>
                         </div>
                     `;
                 } else {
-                    labelPrevisto = `<div style="font-size:0.75rem; color:#64748b; margin-top:4px;">Sem histórico de entrega</div>`;
+                    labelPrevisto = `<div style="font-size:0.75rem; color:#64748b; margin-top:6px;">Sem histórico de entrega</div>`;
                 }
 
             } else {
@@ -490,55 +500,59 @@ window.carregarTrocasDoDia = async function() {
                 proximaTroca = `${((h + 12) % 24).toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
             }
 
-            let selectMotAtual = `<select id="mot_atual_${domId}" class="input-moderno" style="margin-bottom:5px;"><option value="">-- Entregando --</option>`;
-            mLista.forEach(m => { selectMotAtual += `<option value="${m.nome}" ${m.nome === motoristaAtualSalvo ? 'selected' : ''}>${m.nome}</option>`; });
+            let selectMotAtual = `<select id="mot_atual_${domId}" class="input-moderno" style="margin:0;"><option value="">-- Entregando --</option>`;
+            mListaOrdenada.forEach(m => { selectMotAtual += `<option value="${m.nome}" ${m.nome === motoristaAtualSalvo ? 'selected' : ''}>${m.nome}</option>`; });
             selectMotAtual += `</select>`;
 
-            let selectMotProx = `<select id="mot_prox_${domId}" class="input-moderno" data-original="${esc.nome || ''}" onchange="verificarMudancaMotorista('${domId}')" style="margin-bottom:5px;"><option value="">-- Assumindo --</option>`;
-            mLista.forEach(m => { selectMotProx += `<option value="${m.nome}" ${m.nome === motoristaProxSalvo ? 'selected' : ''}>${m.nome}</option>`; });
+            let selectMotProx = `<select id="mot_prox_${domId}" class="input-moderno" data-original="${esc.nome || ''}" onchange="verificarMudancaMotorista('${domId}')" style="margin:0;"><option value="">-- Assumindo --</option>`;
+            mListaOrdenada.forEach(m => { selectMotProx += `<option value="${m.nome}" ${m.nome === motoristaProxSalvo ? 'selected' : ''}>${m.nome}</option>`; });
             selectMotProx += `</select>`;
 
-            let selectLocal = `<select id="local_${domId}" class="input-moderno"><option value="">Selecione...</option>`;
+            let selectLocal = `<select id="local_${domId}" class="input-moderno" style="margin:0;"><option value="">Selecione...</option>`;
             window.locaisTrocaCache.forEach(l => {
                 const isSelected = (reg && reg.local_troca_id === l.id) ? 'selected' : '';
                 selectLocal += `<option value="${l.id}" ${isSelected}>${l.nome}</option>`;
             });
             selectLocal += `</select>`;
 
-            let isZebrado = (indiceGlobal % 2 === 0);
-            let baseBgColor = isZebrado ? 'rgba(0,0,0,0.2)' : 'transparent';
-            let baseBorder = isZebrado ? '2px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(255,255,255,0.05)';
+            // LÓGICA DE CORES E ÍCONES BASEADA NO TURNO (DIA vs NOITE)
+            const isNoite = esc.originalTurno && (esc.originalTurno.includes("2") || esc.originalTurno.toUpperCase().includes("NOITE"));
+            let baseBgColor = isNoite ? 'rgba(99, 102, 241, 0.12)' : 'rgba(56, 189, 248, 0.12)'; 
+            let baseBorder = isNoite ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)';
+            let baseHover = isNoite ? 'rgba(99, 102, 241, 0.2)' : 'rgba(56, 189, 248, 0.2)';
+            let iconeTurno = isNoite ? '<i class="fas fa-moon" style="color: #a5b4fc;"></i>' : '<i class="fas fa-sun" style="color: #fde047;"></i>';
+            let corBadge = isNoite ? 'background: rgba(99, 102, 241, 0.25); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.5);' : 'background: rgba(56, 189, 248, 0.25); color: #bae6fd; border: 1px solid rgba(56, 189, 248, 0.5);';
 
-            let inputHoraEntregou = isLinhares ? `<input type="time" id="hora_entregou_${domId}" data-previsto="${horarioPrevistoLargarVal}" class="input-moderno" value="${horarioEntregou}" onchange="calcularTempoTroca('${domId}')" title="Horário que entregou o caminhão">` : '<span style="font-size:0.8rem;color:#64748b;">N/A Filial</span>';
+            let inputHoraEntregou = isLinhares ? `<input type="time" id="hora_entregou_${domId}" data-previsto="${horarioPrevistoLargarVal}" class="input-moderno" value="${horarioEntregou}" onchange="calcularTempoTroca('${domId}')" title="Horário que entregou o caminhão" style="margin:0;">` : '<span style="font-size:0.8rem;color:#64748b;">N/A Filial</span>';
 
             html += `
-                <tr id="tr_${domId}" style="background: ${baseBgColor}; border-bottom: ${baseBorder};">
-                    <td style="font-weight: bold; color: var(--ccol-blue-bright);">
-                        CONJ ${String(conjId).padStart(2,'0')} 
-                        <br><span class="badge-go" style="margin-top:4px;">Frota ${go}</span>
-                        ${isLinhares ? `<br><span class="badge-turno" style="margin-top:4px; font-size:0.75rem;">${esc.turno}</span>` : ''}
-                    </td>
-                    <td style="font-weight: bold; color: #fff; font-size:1.1rem;">${placaNorm}</td>
-                    <td>
-                        <div class="grid-duplo">
-                            <div style="grid-column: span 2;">${selectMotAtual}</div>
-                            <div style="grid-column: span 2;">${inputHoraEntregou}</div>
-                            ${isLinhares ? `<div style="grid-column: span 2;">${labelPrevisto}</div>` : ''}
+                <tr id="tr_${domId}" style="background: ${baseBgColor}; border-bottom: ${baseBorder}; transition: all 0.3s ease;" onmouseover="this.style.background='${baseHover}'" onmouseout="this.style.background='${baseBgColor}'">
+                    <td style="vertical-align: middle;">
+                        <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-start;">
+                            <span style="font-weight: 900; color: #fff; font-size: 1.15rem; letter-spacing: 1px;">${placaNorm}</span>
+                            ${isLinhares ? `<span class="badge-turno" style="font-size:0.75rem; padding: 3px 8px; ${corBadge}">${iconeTurno}${esc.turno || 'Indefinido'}</span>` : ''}
                         </div>
                     </td>
-                    <td>
-                        <div class="grid-duplo">
-                            <div style="grid-column: span 2;">${selectMotProx}</div>
-                            <div style="grid-column: span 2;"><input type="time" id="hora_assumiu_${domId}" class="input-moderno" value="${horarioAssumiu}" onchange="calcularTempoTroca('${domId}')" title="Horário que assumiu o caminhão"></div>
+                    <td style="vertical-align: middle;">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <div style="flex: 1; min-width: 150px;">${selectMotAtual}</div>
+                            <div style="width: 110px;">${inputHoraEntregou}</div>
+                        </div>
+                        ${isLinhares ? `${labelPrevisto}` : ''}
+                    </td>
+                    <td style="vertical-align: middle;">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <div style="flex: 1; min-width: 150px;">${selectMotProx}</div>
+                            <div style="width: 110px;"><input type="time" id="hora_assumiu_${domId}" class="input-moderno" value="${horarioAssumiu}" onchange="calcularTempoTroca('${domId}')" title="Horário que assumiu o caminhão" style="margin:0;"></div>
                         </div>
                     </td>
-                    <td>${selectLocal}</td>
-                    <td style="text-align: center;"><span id="tempo_troca_${domId}">${diffRender}</span></td>
-                    <td style="text-align: center;"><span id="prox_${domId}" class="hora-estimada">${proximaTroca}</span></td>
-                    <td>
-                        <input type="text" id="obs_${domId}" class="input-moderno" placeholder="Observações..." value="${obsReal}">
+                    <td style="vertical-align: middle;">${selectLocal}</td>
+                    <td style="text-align: center; vertical-align: middle;"><span id="tempo_troca_${domId}">${diffRender}</span></td>
+                    <td style="text-align: center; vertical-align: middle;"><span id="prox_${domId}" class="hora-estimada">${proximaTroca}</span></td>
+                    <td style="vertical-align: middle;">
+                        <input type="text" id="obs_${domId}" class="input-moderno" placeholder="Observações..." value="${obsReal}" style="margin:0;">
                     </td>
-                    <td><button class="btn-primary-green" onclick="salvarTroca('${domId}', '${placaNorm}', '${esc.originalTurno}')" style="width:100%; padding:8px;"><i class="fas fa-save"></i> Salvar</button></td>
+                    <td style="vertical-align: middle;"><button class="btn-primary-green" onclick="salvarTroca('${domId}', '${placaNorm}', '${esc.originalTurno}')" style="width:100%; padding:8px;"><i class="fas fa-save"></i> Salvar</button></td>
                 </tr>
             `;
         });
@@ -547,7 +561,7 @@ window.carregarTrocasDoDia = async function() {
         
     } catch (e) {
         console.error("Erro na varredura", e);
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 20px; color:#ef4444;">Erro ao cruzar os dados. Veja o console.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 20px; color:#ef4444;">Erro ao cruzar os dados. Veja o console.</td></tr>`;
     }
 }
 
@@ -912,11 +926,19 @@ window.carregarHistoricoTrocas = async function() {
                 diffRender = `<span style="color:${color}; font-weight:bold;">${diffH}h ${diffM}m</span>`;
             }
 
+            // LÓGICA DE CORES E ÍCONES BASEADA NO TURNO PARA O HISTÓRICO
+            const isNoite = reg.turno_previsto && (reg.turno_previsto.includes("2") || reg.turno_previsto.toUpperCase().includes("NOITE"));
+            let baseBgColor = isNoite ? 'rgba(99, 102, 241, 0.12)' : 'rgba(56, 189, 248, 0.12)'; 
+            let baseHover = isNoite ? 'rgba(99, 102, 241, 0.2)' : 'rgba(56, 189, 248, 0.2)';
+            let baseBorder = isNoite ? '1px solid rgba(99, 102, 241, 0.2)' : '1px solid rgba(56, 189, 248, 0.2)';
+            let iconeTurno = isNoite ? '<i class="fas fa-moon" style="color: #a5b4fc;"></i>' : '<i class="fas fa-sun" style="color: #fde047;"></i>';
+            let corBadge = isNoite ? 'background: rgba(99, 102, 241, 0.25); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.5);' : 'background: rgba(56, 189, 248, 0.25); color: #bae6fd; border: 1px solid rgba(56, 189, 248, 0.5);';
+
             return `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.1);">
+                <tr style="border-bottom: ${baseBorder}; background: ${baseBgColor}; transition: all 0.3s ease;" onmouseover="this.style.background='${baseHover}'" onmouseout="this.style.background='${baseBgColor}'">
                     <td style="text-align: center; color: #94a3b8; font-weight: bold;">${dataFormatada}</td>
                     <td style="font-weight: bold; color: var(--ccol-blue-bright); font-size: 1.1rem;">${reg.placa_cavalo}</td>
-                    <td style="text-align: center;"><span class="badge-turno">${reg.turno_previsto}</span></td>
+                    <td style="text-align: center;"><span class="badge-turno" style="${corBadge}">${iconeTurno} ${reg.turno_previsto}</span></td>
                     <td style="font-weight: bold; color: #f87171;">${reg.motorista_atual || '-'}</td>
                     <td style="font-weight: bold; color: #4ade80;">${reg.motorista_programado || '-'}</td>
                     <td>${localNome}</td>
