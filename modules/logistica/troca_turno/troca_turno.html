@@ -84,7 +84,6 @@
     }
     .bubble-tooltip::before { display: none; }
 
-    /* CSS PARA O MODO TELA CHEIA DO MAPA */
     #mapaIndicadoresWrapper:fullscreen {
         background: #1e293b !important;
         padding: 0 !important;
@@ -94,11 +93,17 @@
         border: none !important;
         border-radius: 0 !important;
     }
+    .grid-duplo {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+    }
 </style>
 
 <div class="content-panel" style="animation: fadeIn 0.3s ease; min-height: 80vh; background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);">
     <div style="display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid var(--border-dim); padding-bottom: 15px; flex-wrap: wrap;">
         <button class="btn-primary-blue" id="btnAbaRegistros" onclick="alternarAbaTroca('registros')"><i class="fas fa-exchange-alt"></i> Troca de Turno (Escala)</button>
+        <button class="btn-secondary-dark" id="btnAbaPerformance" onclick="alternarAbaTroca('performance')"><i class="fas fa-stopwatch"></i> Performance de Troca</button>
         <button class="btn-secondary-dark" id="btnAbaLocais" onclick="alternarAbaTroca('locais')"><i class="fas fa-map-marker-alt"></i> Cadastro de Locais & Mapa</button>
         <button class="btn-secondary-dark" id="btnAbaHistorico" onclick="alternarAbaTroca('historico')"><i class="fas fa-history"></i> Histórico</button>
         <button class="btn-secondary-dark" id="btnAbaIndicadores" onclick="alternarAbaTroca('indicadores')"><i class="fas fa-chart-pie"></i> Indicadores</button>
@@ -116,18 +121,70 @@
             <table class="dark-table modern-turno-table" style="margin: 0; width: 100%;">
                 <thead>
                     <tr>
-                        <th style="width: 10%;">Conjunto / Frota</th>
-                        <th style="width: 10%;">Placa (Cavalo)</th>
-                        <th style="width: 8%; text-align: center;">Previsto</th>
-                        <th style="width: 18%;">Motorista (Escala)</th>
-                        <th style="width: 12%;">Local da Troca</th>
-                        <th style="width: 8%;">Horário Real</th>
-                        <th style="width: 8%; text-align: center;">Troca (+12h)</th>
-                        <th style="width: 16%;">Observação</th>
+                        <th style="width: 8%;">Conj / Frota</th>
+                        <th style="width: 8%;">Placa</th>
+                        <th style="width: 20%;">Entregou (Motorista / Hora)</th>
+                        <th style="width: 20%;">Assumiu (Motorista / Hora)</th>
+                        <th style="width: 10%;">Local da Troca</th>
+                        <th style="width: 6%; text-align: center;">T. Troca</th>
+                        <th style="width: 6%; text-align: center;">Largar (+12h)</th>
+                        <th style="width: 12%;">Observação</th>
                         <th style="width: 10%; text-align: center;">Ação</th>
                     </tr>
                 </thead>
                 <tbody id="tbodyTrocaTurno">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="aba-performance" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+            <h3 style="color: #f1c40f; margin: 0; font-weight: 800; font-size: 1.5rem;"><i class="fas fa-stopwatch"></i> Dashboard de Performance de Troca</h3>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <label style="color: #94a3b8; font-weight: 600; font-size: 0.85rem;">Data da Performance:</label>
+                <input type="date" id="filtroDataPerformance" class="input-moderno" style="width: auto;" onchange="carregarPerformanceTroca()">
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+            <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; border-radius: 12px; padding: 20px; text-align: center;">
+                <h4 style="color: #93c5fd; margin: 0 0 10px 0; font-size: 0.9rem; text-transform: uppercase;">Média de Troca</h4>
+                <div id="kpiMediaTroca" style="font-size: 2rem; font-weight: 900; color: #fff;">0 min</div>
+            </div>
+            <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid #a855f7; border-radius: 12px; padding: 20px; text-align: center;">
+                <h4 style="color: #d8b4fe; margin: 0 0 10px 0; font-size: 0.9rem; text-transform: uppercase;">Troca Mais Rápida</h4>
+                <div id="kpiMelhorTroca" style="font-size: 2rem; font-weight: 900; color: #fff;">-</div>
+            </div>
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 12px; padding: 20px; text-align: center;">
+                <h4 style="color: #fca5a5; margin: 0 0 10px 0; font-size: 0.9rem; text-transform: uppercase;">Trocas Lentas (>30m)</h4>
+                <div id="kpiSlaTroca" style="font-size: 2rem; font-weight: 900; color: #fff;">0</div>
+            </div>
+            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; border-radius: 12px; padding: 20px; text-align: center;">
+                <h4 style="color: #6ee7b7; margin: 0 0 10px 0; font-size: 0.9rem; text-transform: uppercase;">Saldo Disp (Horas)</h4>
+                <div id="kpiSaldoDisp" style="font-size: 2rem; font-weight: 900; color: #fff;">0h 0m</div>
+            </div>
+            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; border-radius: 12px; padding: 20px; text-align: center;">
+                <h4 style="color: #fcd34d; margin: 0 0 10px 0; font-size: 0.9rem; text-transform: uppercase;">Estourou Turno</h4>
+                <div id="kpiEstourou" style="font-size: 2rem; font-weight: 900; color: #fff;">0</div>
+            </div>
+        </div>
+
+        <div class="table-responsive" style="background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <table class="dark-table modern-turno-table" style="margin: 0; width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="text-align: center;">Data</th>
+                        <th>Placa</th>
+                        <th>Entregou</th>
+                        <th>Assumiu</th>
+                        <th style="text-align: center;">Tempo Troca</th>
+                        <th style="text-align: center;">Saldo Turno</th>
+                        <th>Local</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyPerformance">
+                    <tr><td colspan="7" style="text-align: center; padding: 20px; color: #94a3b8;">Carregando métricas...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -192,7 +249,7 @@
             </div>
             
             <div style="flex: 1; min-width: 200px;">
-                <label style="color: #94a3b8; font-weight: 600; font-size: 0.85rem;">Motorista</label>
+                <label style="color: #94a3b8; font-weight: 600; font-size: 0.85rem;">Motorista (Assumiu)</label>
                 <select id="filtroMotoristaHistoricoTroca" class="input-moderno" onchange="carregarHistoricoTrocas()">
                     <option value="">Todos os Motoristas</option>
                 </select>
@@ -204,16 +261,18 @@
                 <thead>
                     <tr>
                         <th style="text-align: center;">Data</th>
-                        <th>Placa (Cavalo)</th>
-                        <th style="text-align: center;">Previsto</th>
-                        <th>Motorista Confirmado</th>
+                        <th>Placa</th>
+                        <th>Turno</th>
+                        <th>Motorista Entregou</th>
+                        <th>Motorista Assumiu</th>
                         <th>Local da Troca</th>
-                        <th style="text-align: center;">Realizado</th>
-                        <th>Observação (Motivo)</th>
+                        <th style="text-align: center;">Horários (E / A)</th>
+                        <th style="text-align: center;">T. Troca</th>
+                        <th>Obs</th>
                     </tr>
                 </thead>
                 <tbody id="tbodyHistoricoTroca">
-                    <tr><td colspan="7" style="text-align: center; padding: 20px; color: #94a3b8;">Use os filtros acima para buscar o histórico de cruzamentos passados.</td></tr>
+                    <tr><td colspan="9" style="text-align: center; padding: 20px; color: #94a3b8;">Use os filtros acima para buscar o histórico de cruzamentos passados.</td></tr>
                 </tbody>
             </table>
         </div>
