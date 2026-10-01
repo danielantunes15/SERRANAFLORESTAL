@@ -409,7 +409,7 @@ window.calcularTempoTroca = function(domId) {
                 let excesso = Math.abs(diffDisp);
                 let excH = Math.floor(excesso / 60);
                 let excM = excesso % 60;
-                alertaDisp.innerHTML = `<div style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 0.75rem;">-${excH}h ${excM}m Atraso</div>`;
+                alertaDisp.innerHTML = `<div style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 0.75rem;">-${excH}h ${excM}m Extra</div>`;
             } else {
                 alertaDisp.innerHTML = `<div style="background: rgba(16, 185, 129, 0.2); color: #4ade80; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.75rem;">Exato</div>`;
             }
@@ -700,7 +700,7 @@ window.carregarTrocasDoDia = async function() {
                     let excesso = Math.abs(diffDisp);
                     let excH = Math.floor(excesso / 60);
                     let excM = excesso % 60;
-                    diffDispHTML = `<div style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 0.75rem;">-${excH}h ${excM}m Atraso</div>`;
+                    diffDispHTML = `<div style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 0.75rem;">-${excH}h ${excM}m Extra</div>`;
                 } else {
                     diffDispHTML = `<div style="background: rgba(16, 185, 129, 0.2); color: #4ade80; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.75rem;">Exato</div>`;
                 }
