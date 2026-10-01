@@ -544,10 +544,11 @@ window.carregarTrocasDoDia = async function() {
         let lastPlacaSeparador = null;
         let htmlTabela = '';
         
-        let htmlKbDisponivel = '';
-        let htmlKbPendente = '';
-        let htmlKbAndamento = '';
-        let htmlKbConcluido = '';
+        let listDisponivel = [];
+        let listPendente = [];
+        let listAndamento = [];
+        let listConcluido = [];
+        
         let countDisponivel = 0;
         let countPendente = 0;
         let countAndamento = 0;
@@ -555,52 +556,7 @@ window.carregarTrocasDoDia = async function() {
         
         let kanbanPorPlaca = {};
 
-        if (isLinhares) {
-            mListaOrdenada.forEach(m => {
-                const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
-                if (isBlocked || !m.data_ancora) return;
-
-                const dDate = new Date(dataRef + "T12:00:00");
-                const strAncora = m.data_ancora.split('T')[0];
-                const dataAncora = new Date(strAncora + 'T12:00:00');
-                const utcAncora = Date.UTC(dataAncora.getFullYear(), dataAncora.getMonth(), dataAncora.getDate());
-                const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
-                const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
-                const ciclo12 = ((diffDays % 12) + 12) % 12;
-
-                let estado = 2; // folga
-                if (ciclo12 < 4) estado = 0; // Dia
-                else if (ciclo12 >= 6 && ciclo12 < 10) estado = 1; // Noite
-
-                if (estado !== 2 && !m.conjuntoId) {
-                    let turnoStr = estado === 0 ? 'Dia' : 'Noite';
-                    let regDisp = registros.find(r => r.data_referencia === dataRef && r.cavalo === 'RESERVA' && r.motorista_entregou === m.nome);
-                    
-                    if (regDisp) {
-                        countConcluido++;
-                        htmlKbConcluido += `
-                            <div class="kanban-card">
-                                <div class="kb-placa">RESERVA <span style="font-size:0.7rem; font-weight:normal; background: rgba(168, 85, 247, 0.25); color: #d8b4fe; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(168,85,247,0.5);"><i class="fas fa-user-check"></i> ${turnoStr}</span></div>
-                                <div class="kb-info"><i class="fas fa-user" style="color:#a855f7; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
-                                <div class="kb-status-time">
-                                    <span><i class="far fa-clock"></i> Concluído às: ${regDisp.horario_entregou ? regDisp.horario_entregou.substring(0,5) : '--:--'}</span>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        countDisponivel++;
-                        htmlKbDisponivel += `
-                            <div class="kanban-card" style="border-left-color: #a855f7;">
-                                <div class="kb-placa">DISPONÍVEL <span style="font-size:0.7rem; font-weight:normal; background: rgba(168, 85, 247, 0.25); color: #d8b4fe; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(168,85,247,0.5);"><i class="fas fa-user-clock"></i> ${turnoStr}</span></div>
-                                <div class="kb-info"><i class="fas fa-user" style="color:#a855f7; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
-                                <button class="btn-primary-green" style="width: 100%; margin-top: 10px; padding: 8px; font-size: 0.8rem;" onclick="concluirTurnoReserva('${m.nome}', '${turnoStr}')"><i class="fas fa-check"></i> Concluir Turno</button>
-                            </div>
-                        `;
-                    }
-                }
-            });
-        }
-
+        // LOOP DE CAMINHÕES / FROTA
         linhasData.forEach((linha, indiceGlobal) => {
             const { conjId, go, placaNorm, esc, idxTurno } = linha;
             const domId = `${placaNorm.replace(/[^A-Z0-9]/g, '')}_${idxTurno}_${indiceGlobal}`; 
@@ -801,6 +757,7 @@ window.carregarTrocasDoDia = async function() {
             });
         });
 
+        // RENDERIZAR CARDS DOS CAMINHÕES KANBAN
         Object.keys(kanbanPorPlaca).forEach(placa => {
             let turnos = kanbanPorPlaca[placa];
             let activeShift = turnos[0]; 
@@ -847,23 +804,173 @@ window.carregarTrocasDoDia = async function() {
                 </div>
             `;
 
-            if (activeShift.statusKb === 0) { countPendente++; htmlKbPendente += htmlCard; }
-            else if (activeShift.statusKb === 1) { countAndamento++; htmlKbAndamento += htmlCard; }
-            else if (activeShift.statusKb === 2) { countConcluido++; htmlKbConcluido += htmlCard; }
+            if (activeShift.statusKb === 0) { countPendente++; listPendente.push(htmlCard); }
+            else if (activeShift.statusKb === 1) { countAndamento++; listAndamento.push({ html: htmlCard, sortValue: 0 }); }
+            else if (activeShift.statusKb === 2) { countConcluido++; listConcluido.push(htmlCard); }
         });
+
+        // LOOP DE MOTORISTAS (LÓGICA DESCANSO DE 11h E ORDENAÇÃO) PARA FILIAL LINHARES
+        if (isLinhares) {
+            let motoristasEscaladosHoje = new Set();
+            Object.keys(kanbanPorPlaca).forEach(placa => {
+                kanbanPorPlaca[placa].forEach(shift => {
+                    if (shift.nomeAssumiu && shift.nomeAssumiu !== 'Escala Vazia' && shift.statusKb < 2) {
+                        motoristasEscaladosHoje.add(shift.nomeAssumiu);
+                    }
+                });
+            });
+
+            const parseDateTime = (dateStr, timeStr, turno) => {
+                if (!dateStr || !timeStr) return null;
+                let dt = new Date(`${dateStr}T${timeStr.substring(0,5)}:00`);
+                let hour = parseInt(timeStr.substring(0,2));
+                if ((turno === 'Turno 2' || turno === 'Noite' || String(turno).toUpperCase().includes('NOITE')) && hour < 12) {
+                    dt.setDate(dt.getDate() + 1);
+                }
+                return dt;
+            };
+
+            const getDriverLatestEvent = (nomeMotorista) => {
+                let latestTime = 0;
+                let event = null;
+                registros.forEach(r => {
+                    if (r.motorista_assumiu === nomeMotorista && r.horario_assumiu) {
+                        let dtA = parseDateTime(r.data_referencia, r.horario_assumiu, r.turno_referencia || r.turno_previsto);
+                        if (dtA && dtA.getTime() > latestTime) {
+                            latestTime = dtA.getTime();
+                            event = { type: 'A', dt: dtA, record: r };
+                        }
+                    }
+                    if (r.motorista_entregou === nomeMotorista && r.horario_entregou) {
+                        let dtE = parseDateTime(r.data_referencia, r.horario_entregou, r.turno_referencia || r.turno_previsto);
+                        if (dtE && dtE.getTime() > latestTime) {
+                            latestTime = dtE.getTime();
+                            event = { type: 'E', dt: dtE, record: r };
+                        }
+                    }
+                });
+                return event;
+            };
+
+            mListaOrdenada.forEach(m => {
+                const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
+                if (isBlocked || !m.data_ancora) return;
+
+                const dDate = new Date(dataRef + "T12:00:00");
+                const strAncora = m.data_ancora.split('T')[0];
+                const dataAncora = new Date(strAncora + 'T12:00:00');
+                const utcAncora = Date.UTC(dataAncora.getFullYear(), dataAncora.getMonth(), dataAncora.getDate());
+                const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
+                const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
+                const ciclo12 = ((diffDays % 12) + 12) % 12;
+
+                let estado = 2; // folga
+                if (ciclo12 < 4) estado = 0; // Dia
+                else if (ciclo12 >= 6 && ciclo12 < 10) estado = 1; // Noite
+
+                if (estado === 2) return; 
+                if (motoristasEscaladosHoje.has(m.nome)) return; 
+
+                let lastEvent = getDriverLatestEvent(m.nome);
+                
+                if (lastEvent && lastEvent.type === 'A') return; 
+
+                let regDisp = registros.find(r => r.data_referencia === dataRef && r.cavalo === 'RESERVA' && r.motorista_entregou === m.nome);
+                let turnoStr = estado === 0 ? 'Dia' : 'Noite';
+                let cidadeStr = m.cidade || 'N/I';
+
+                if (regDisp) {
+                    countConcluido++;
+                    listConcluido.push(`
+                        <div class="kanban-card">
+                            <div class="kb-placa">RESERVA <span style="font-size:0.7rem; font-weight:normal; background: rgba(16, 185, 129, 0.25); color: #4ade80; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(16,185,129,0.5);"><i class="fas fa-check"></i> ${turnoStr}</span></div>
+                            <div class="kb-info"><i class="fas fa-user" style="color:#a855f7; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
+                            <div class="kb-info"><i class="fas fa-city" style="color:#94a3b8; width:15px;"></i> Cidade: <span style="color:#cbd5e1;">${cidadeStr}</span></div>
+                            <div class="kb-status-time">
+                                <span><i class="far fa-clock"></i> Concluído às: ${regDisp.horario_entregou ? regDisp.horario_entregou.substring(0,5) : '--:--'}</span>
+                            </div>
+                        </div>
+                    `);
+                    return;
+                }
+
+                let isResting = false;
+                let missingHours = 0;
+                let missingMins = 0;
+                let readyTimeStr = '--:--';
+                let readyTime = null; 
+                
+                let idleTimeMs = Infinity; 
+                let idleTimeText = 'Livre (Sem registro recente)';
+
+                if (lastEvent && lastEvent.type === 'E') {
+                    let now = new Date();
+                    let diffMs = now.getTime() - lastEvent.dt.getTime();
+                    
+                    if (diffMs >= 0 && diffMs < (11 * 3600000)) { 
+                        isResting = true;
+                        let timeNeededMs = (11 * 3600000) - diffMs;
+                        missingHours = Math.floor(timeNeededMs / 3600000);
+                        missingMins = Math.floor((timeNeededMs % 3600000) / 60000);
+                        
+                        readyTime = new Date(now.getTime() + timeNeededMs);
+                        readyTimeStr = String(readyTime.getHours()).padStart(2, '0') + ':' + String(readyTime.getMinutes()).padStart(2, '0');
+                    } else if (diffMs >= (11 * 3600000)) {
+                        idleTimeMs = diffMs - (11 * 3600000);
+                        let idleH = Math.floor(idleTimeMs / 3600000);
+                        let idleM = Math.floor((idleTimeMs % 3600000) / 60000);
+                        idleTimeText = `Ocioso há <b>${idleH}h ${idleM}m</b>`;
+                    }
+                }
+
+                if (isResting) {
+                    countAndamento++;
+                    listAndamento.push({
+                        html: `
+                            <div class="kanban-card" style="border-left-color: #f59e0b;">
+                                <div class="kb-placa">EM DESCANSO <span style="font-size:0.7rem; font-weight:normal; background: rgba(245, 158, 11, 0.25); color: #fbbf24; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245,158,11,0.5);"><i class="fas fa-bed"></i> 11h</span></div>
+                                <div class="kb-info"><i class="fas fa-user" style="color:#fbbf24; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
+                                <div class="kb-info"><i class="fas fa-city" style="color:#94a3b8; width:15px;"></i> Cidade: <span style="color:#cbd5e1;">${cidadeStr}</span></div>
+                                <div class="kb-status-time" style="margin-top:8px; border-top:none; display:block;">
+                                    <div style="background: rgba(245, 158, 11, 0.15); padding: 6px; border-radius: 6px; border: 1px solid rgba(245,158,11,0.3); text-align: center; color: #fcd34d;">
+                                        <div style="font-size:0.75rem; margin-bottom:3px;">Faltam <b>${missingHours}h ${missingMins}m</b></div>
+                                        <div style="font-size:0.85rem; font-weight:bold;">Pronto às ${readyTimeStr}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `,
+                        sortValue: readyTime.getTime()
+                    });
+                } else {
+                    countDisponivel++;
+                    listDisponivel.push({
+                        html: `
+                            <div class="kanban-card" style="border-left-color: #a855f7;">
+                                <div class="kb-placa">DISPONÍVEL <span style="font-size:0.7rem; font-weight:normal; background: rgba(168, 85, 247, 0.25); color: #d8b4fe; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(168,85,247,0.5);"><i class="fas fa-user-clock"></i> ${turnoStr}</span></div>
+                                <div class="kb-info"><i class="fas fa-user" style="color:#a855f7; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
+                                <div class="kb-info"><i class="fas fa-city" style="color:#94a3b8; width:15px;"></i> Cidade: <span style="color:#cbd5e1;">${cidadeStr}</span></div>
+                                <div class="kb-info"><i class="fas fa-hourglass-half" style="color:#fcd34d; width:15px;"></i> <span style="color:#cbd5e1;">${idleTimeText}</span></div>
+                                <button class="btn-primary-green" style="width: 100%; margin-top: 10px; padding: 8px; font-size: 0.8rem;" onclick="concluirTurnoReserva('${m.nome}', '${turnoStr}')"><i class="fas fa-check"></i> Concluir Turno</button>
+                            </div>
+                        `,
+                        idleTimeMs: idleTimeMs
+                    });
+                }
+            });
+        }
         
         tbody.innerHTML = htmlTabela;
 
-        document.getElementById('kb-col-disponivel').innerHTML = htmlKbDisponivel;
+        document.getElementById('kb-col-disponivel').innerHTML = listDisponivel.sort((a, b) => b.idleTimeMs - a.idleTimeMs).map(i => i.html).join('');
         document.getElementById('kb-count-disponivel').innerText = countDisponivel;
 
-        document.getElementById('kb-col-pendente').innerHTML = htmlKbPendente;
+        document.getElementById('kb-col-pendente').innerHTML = listPendente.join('');
         document.getElementById('kb-count-pendente').innerText = countPendente;
 
-        document.getElementById('kb-col-andamento').innerHTML = htmlKbAndamento;
+        document.getElementById('kb-col-andamento').innerHTML = listAndamento.sort((a, b) => a.sortValue - b.sortValue).map(i => i.html).join('');
         document.getElementById('kb-count-andamento').innerText = countAndamento;
 
-        document.getElementById('kb-col-concluido').innerHTML = htmlKbConcluido;
+        document.getElementById('kb-col-concluido').innerHTML = listConcluido.join('');
         document.getElementById('kb-count-concluido').innerText = countConcluido;
         
     } catch (e) {
