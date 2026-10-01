@@ -436,16 +436,6 @@ window.confirmarObservacaoTroca = function() {
     document.getElementById('modalObservacaoTroca').style.display = 'none';
 }
 
-function getShiftValue(dateStr, turnoName) {
-    if(!dateStr) return 0;
-    let d = new Date(dateStr + "T00:00:00");
-    let val = d.getTime();
-    if (turnoName && (turnoName.includes("2") || turnoName.toUpperCase().includes("NOITE"))) {
-        val += 12 * 60 * 60 * 1000;
-    }
-    return val;
-}
-
 window.carregarTrocasDoDia = async function() {
     const dataRef = document.getElementById('dataFiltroTroca').value;
     const tbody = document.getElementById('tbodyTrocaTurno');
@@ -562,6 +552,8 @@ window.carregarTrocasDoDia = async function() {
         let countPendente = 0;
         let countAndamento = 0;
         let countConcluido = 0;
+        
+        let kanbanPorPlaca = {};
 
         if (isLinhares) {
             mListaOrdenada.forEach(m => {
@@ -631,19 +623,28 @@ window.carregarTrocasDoDia = async function() {
             let horarioPrevistoLargarVal = ''; 
 
             if (isLinhares) {
-                let currentShiftVal = getShiftValue(dataRef, esc.originalTurno);
                 let historicoPlaca = registros.filter(r => r.cavalo.toUpperCase() === placaNorm);
-                
-                let maxVal = -1;
-                for (let r of historicoPlaca) {
-                    let val = getShiftValue(r.data_referencia, r.turno_referencia);
-                    if (val === currentShiftVal) {
-                        reg = r;
-                    } else if (val < currentShiftVal && val > maxVal) {
-                        maxVal = val;
-                        ultimoReg = r;
-                    }
+                reg = historicoPlaca.find(r => r.data_referencia === dataRef && r.turno_referencia === esc.originalTurno);
+
+                // Lógica Estrita: Encontra o turno imediatamente anterior exato
+                let isNoiteTurno = esc.originalTurno && (esc.originalTurno.includes("2") || esc.originalTurno.toUpperCase().includes("NOITE"));
+                let prevDateRef = dataRef;
+                let prevTurnoRef = 'Turno 1';
+
+                if (isNoiteTurno) {
+                    prevDateRef = dataRef;
+                    prevTurnoRef = 'Turno 1';
+                } else {
+                    let pDate = new Date(dataRef + "T12:00:00");
+                    pDate.setDate(pDate.getDate() - 1);
+                    const y = pDate.getFullYear();
+                    const m = String(pDate.getMonth() + 1).padStart(2, '0');
+                    const d = String(pDate.getDate()).padStart(2, '0');
+                    prevDateRef = `${y}-${m}-${d}`;
+                    prevTurnoRef = 'Turno 2';
                 }
+
+                ultimoReg = historicoPlaca.find(r => r.data_referencia === prevDateRef && r.turno_referencia === prevTurnoRef);
 
                 if (reg) {
                     horarioEntregou = reg.horario_entregou ? reg.horario_entregou.substring(0,5) : '';
@@ -792,23 +793,63 @@ window.carregarTrocasDoDia = async function() {
                 if (horarioAssumiu) statusKb = 2;
             }
 
-            let nomeEntregou = motoristaAtualSalvo || 'Aguardando CCO';
-            let nomeAssumiu = motoristaProxSalvo || esc.nome || 'Escala Vazia';
+            if (!kanbanPorPlaca[placaNorm]) kanbanPorPlaca[placaNorm] = [];
+            kanbanPorPlaca[placaNorm].push({
+                domId, placaNorm, esc, nomeEntregou: motoristaAtualSalvo || 'Aguardando CCO', 
+                nomeAssumiu: motoristaProxSalvo || esc.nome || 'Escala Vazia',
+                horarioEntregou, horarioAssumiu, statusKb, corBadge, iconeTurno
+            });
+        });
+
+        Object.keys(kanbanPorPlaca).forEach(placa => {
+            let turnos = kanbanPorPlaca[placa];
+            let activeShift = turnos[0]; 
+            
+            if (turnos.length > 1) {
+                if (turnos[0].statusKb === 2 && turnos[1].statusKb > 0) {
+                    activeShift = turnos[1];
+                } else if (turnos[0].statusKb === 0 && turnos[1].statusKb > 0) {
+                    activeShift = turnos[1];
+                } else if (turnos[0].statusKb === 2 && turnos[1].statusKb === 0) {
+                    activeShift = turnos[0];
+                }
+            }
+
+            let idleHtml = '';
+            if (activeShift.statusKb === 1 && activeShift.horarioEntregou) {
+                let [he_h, he_m] = activeShift.horarioEntregou.split(':').map(Number);
+                let now = new Date();
+                let diff = (now.getHours() * 60 + now.getMinutes()) - (he_h * 60 + he_m);
+                if (diff < 0) diff += 24 * 60; 
+                
+                let diffH = Math.floor(diff / 60);
+                let diffM = diff % 60;
+                
+                let colorBorder = diff > 30 ? '#ef4444' : '#f59e0b';
+                let colorBg = diff > 30 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)';
+                let pulseClass = diff > 30 ? 'box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);' : '';
+                
+                idleHtml = `<div style="margin-top: 10px; background: ${colorBg}; padding: 6px; border-radius: 6px; color: ${colorBorder}; font-weight: 900; font-size: 0.85rem; text-align: center; border: 1px solid ${colorBorder}; ${pulseClass}"><i class="fas fa-exclamation-triangle"></i> CAMINHÃO PARADO HÁ ${diffH}h ${diffM}m</div>`;
+            }
+
+            let cardBorderColor = activeShift.statusKb === 0 ? '#94a3b8' : (activeShift.statusKb === 1 ? '#ef4444' : '#10b981');
+
             let htmlCard = `
-                <div class="kanban-card" onclick="focarNaTabela('${domId}')" style="border-left-color: ${statusKb === 0 ? '#94a3b8' : (statusKb === 1 ? '#f59e0b' : '#10b981')};">
-                    <div class="kb-placa">${placaNorm} <span style="font-size:0.7rem; font-weight:normal; ${corBadge}; padding: 2px 6px; border-radius: 4px;">${iconeTurno} ${esc.turno || ''}</span></div>
-                    <div class="kb-info"><i class="fas fa-sign-out-alt" style="color:#f87171; width:15px;"></i> Sai: <span style="color:#fff;">${nomeEntregou}</span></div>
-                    <div class="kb-info"><i class="fas fa-sign-in-alt" style="color:#4ade80; width:15px;"></i> Entra: <span style="color:#fff;">${nomeAssumiu}</span></div>
+                <div class="kanban-card" onclick="focarNaTabela('${activeShift.domId}')" style="border-left-color: ${cardBorderColor};">
+                    <div class="kb-placa">${activeShift.placaNorm} <span style="font-size:0.7rem; font-weight:normal; ${activeShift.corBadge}; padding: 2px 6px; border-radius: 4px;">${activeShift.iconeTurno} ${activeShift.esc.turno || ''}</span></div>
+                    <div class="kb-info"><i class="fas fa-sign-out-alt" style="color:#f87171; width:15px;"></i> Sai: <span style="color:#fff;">${activeShift.nomeEntregou}</span></div>
+                    <div class="kb-info"><i class="fas fa-sign-in-alt" style="color:#4ade80; width:15px;"></i> Entra: <span style="color:#fff;">${activeShift.nomeAssumiu}</span></div>
                     <div class="kb-status-time">
-                        <span><i class="far fa-clock"></i> E: ${horarioEntregou || '--:--'}</span>
-                        <span><i class="far fa-clock"></i> A: ${horarioAssumiu || '--:--'}</span>
+                        <span><i class="far fa-clock"></i> E: ${activeShift.horarioEntregou || '--:--'}</span>
+                        <span><i class="far fa-clock"></i> A: ${activeShift.horarioAssumiu || '--:--'}</span>
                     </div>
+                    ${idleHtml}
                 </div>
             `;
 
-            if (statusKb === 0) { countPendente++; htmlKbPendente += htmlCard; }
-            else if (statusKb === 1) { countAndamento++; htmlKbAndamento += htmlCard; }
-            else if (statusKb === 2) { countConcluido++; htmlKbConcluido += htmlCard; }
+            if (activeShift.statusKb === 0) { countPendente++; htmlKbPendente += htmlCard; }
+            else if (activeShift.statusKb === 1) { countAndamento++; htmlKbAndamento += htmlCard; }
+            else if (activeShift.statusKb === 2) { countConcluido++; htmlKbConcluido += htmlCard; }
         });
         
         tbody.innerHTML = htmlTabela;
@@ -847,23 +888,31 @@ window.salvarTroca = async function(domId, placa, turnoPrevisto) {
 
     if (isLinhares) {
         horaEntregou = document.getElementById(`hora_entregou_${domId}`).value;
-        if (!localId || !horaAssumiu || !motoristaAtual || !motoristaProx || !horaEntregou) {
-            return alert("Preencha Motorista Atual, Próximo Motorista, Local e todos os Horários antes de salvar.");
+        
+        if (!localId) return alert("Preencha o Local da Troca antes de salvar.");
+        if (!horaEntregou && !horaAssumiu) return alert("Preencha pelo menos um horário (Entregou ou Assumiu) antes de salvar.");
+        if (horaEntregou && !motoristaAtual) return alert("Selecione o Motorista que Entregou o caminhão.");
+        if (horaAssumiu && !motoristaProx) return alert("Selecione o Motorista que Assumiu o caminhão.");
+        
+        if (horaEntregou && horaAssumiu) {
+            let [he_h, he_m] = horaEntregou.split(':').map(Number);
+            let [ha_h, ha_m] = horaAssumiu.split(':').map(Number);
+            let diff = (ha_h * 60 + ha_m) - (he_h * 60 + he_m);
+            if (diff < 0) diff += 24 * 60;
+            tempoTrocaMin = diff;
         }
-        
-        let [he_h, he_m] = horaEntregou.split(':').map(Number);
-        let [ha_h, ha_m] = horaAssumiu.split(':').map(Number);
-        let diff = (ha_h * 60 + ha_m) - (he_h * 60 + he_m);
-        if (diff < 0) diff += 24 * 60;
-        tempoTrocaMin = diff;
-        
-        horaPrevistaLargar = `${((ha_h + 12) % 24).toString().padStart(2, '0')}:${ha_m.toString().padStart(2, '0')}`;
+
+        if (horaAssumiu) {
+            let [ha_h, ha_m] = horaAssumiu.split(':').map(Number);
+            horaPrevistaLargar = `${((ha_h + 12) % 24).toString().padStart(2, '0')}:${ha_m.toString().padStart(2, '0')}`;
+        }
 
         const heInput = document.getElementById(`hora_entregou_${domId}`);
         const horaPrevistaLargarVal = heInput ? heInput.getAttribute('data-previsto') : null;
         
         if (horaEntregou && horaPrevistaLargarVal) {
             let [prev_h, prev_m] = horaPrevistaLargarVal.split(':').map(Number);
+            let [he_h, he_m] = horaEntregou.split(':').map(Number);
             let minPrev = prev_h * 60 + prev_m;
             let minE = he_h * 60 + he_m;
             
@@ -875,7 +924,8 @@ window.salvarTroca = async function(domId, placa, turnoPrevisto) {
         }
 
     } else {
-        if (!localId || !horaAssumiu) return alert("Preencha Local e Horário antes de salvar.");
+        if (!localId) return alert("Preencha o Local antes de salvar.");
+        if (!horaAssumiu) return alert("Preencha o Horário antes de salvar.");
     }
 
     const formatTime = (t) => {
