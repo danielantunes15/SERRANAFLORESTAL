@@ -1,4 +1,4 @@
-// ==================== MÓDULO: TROCA DE TURNO (CRUZAMENTO SEGURO, HISTÓRICO E INDICADORES) ====================
+// ==================== MÓDULO: TROCA DE TURNO (CRUZAMENTO SEGURO, HISTÓRICO E INDICADORES UNIFICADO) ====================
 window.locaisTrocaCache = [];
 window.mapaTroca = null;
 window.markerTroca = null;
@@ -28,7 +28,7 @@ window.concluirTurnoReserva = async function(nome, turnoStr) {
     const horaStr = String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0');
 
     try {
-        const p = { 
+        const p = window.injetarFilial({ 
             data_referencia: dataRef, 
             cavalo: 'RESERVA', 
             turno_referencia: turnoStr, 
@@ -40,9 +40,8 @@ window.concluirTurnoReserva = async function(nome, turnoStr) {
             tempo_troca_minutos: 0,
             horario_previsto_largar: null, 
             saldo_minutos: 0,
-            observacao: 'Turno de reserva concluído via Kanban.', 
-            filial_id: 7
-        };
+            observacao: 'Turno de reserva concluído via Kanban.'
+        });
         
         const { error } = await window.supabaseClient.from('troca_turno_linhares').insert([p]);
         if (error) throw error;
@@ -107,28 +106,45 @@ window.atualizarIndicadoresEscalaHorario = function(dataRef) {
                 }
             }
         } else {
+            // Lógica Adaptada p/ Mucuri (Agrupamento fiel ao relógio de alocação)
             if (typeof window.getEscalaDiaComputada === 'function') {
                 const esc = window.getEscalaDiaComputada(m, dataRef);
                 if (esc && esc.caminhao && esc.caminhao !== 'F' && esc.caminhao.toUpperCase() !== 'FOLGA') {
-                    let turnoOriginal = esc.turno || m.turno || '';
+                    let turnoDbValue = esc.turno || m.turno || '';
                     let horarioInicio = esc.inicio || m.inicio_turno || '';
                     
-                    if (!horarioInicio) {
-                        if (turnoOriginal.includes('2') || turnoOriginal.toUpperCase().includes('NOITE')) {
-                            horarioInicio = '18:00';
-                        } else if (turnoOriginal.includes('1') || turnoOriginal.toUpperCase().includes('DIA')) {
-                            horarioInicio = '06:00';
-                        } else {
-                            horarioInicio = 'N/I';
-                        }
-                    } else {
-                        horarioInicio = horarioInicio.substring(0, 5); 
+                    let isNoiteEq = false;
+                    let eq = typeof window.getEq === 'function' ? window.getEq(m) : (m.equipe || '');
+                    if (['D','E','F'].includes(eq)) {
+                        isNoiteEq = true;
                     }
 
-                    const horaInt = parseInt(horarioInicio.split(':')[0]) || 0;
-                    const isNoite = turnoOriginal.includes('2') || turnoOriginal.toUpperCase().includes('NOITE') || (horaInt >= 17 || horaInt < 4);
+                    // Transforma o código do banco "TOQ-2A12" no Label Visível "02:00-14:00"
+                    let turnoLabel = turnoDbValue;
+                    if (typeof window.getCiclos === 'function') {
+                        let cMatch = window.getCiclos().find(c => c.dbValue === turnoDbValue);
+                        if (cMatch) {
+                            turnoLabel = isNoiteEq ? cMatch.labelNoite : cMatch.labelDia;
+                        }
+                    }
+                    
+                    if (!horarioInicio) {
+                        // Extrai a primeira hora com Regex (ex: "02:00")
+                        const timeMatch = turnoLabel.match(/\b(\d{2}:\d{2})\b/);
+                        if (timeMatch) {
+                            horarioInicio = timeMatch[1];
+                        } else {
+                            horarioInicio = isNoiteEq ? '18:00' : '06:00';
+                        }
+                    } else {
+                        horarioInicio = String(horarioInicio).substring(0, 5); 
+                    }
 
-                    if (isNoite) {
+                    // A regra do "dia" e "noite" na tela baseada no relógio (>= 12h = Noite)
+                    let horaInt = parseInt(horarioInicio.split(':')[0], 10);
+                    let isNoiteFinal = (horaInt >= 12 && horaInt <= 23);
+
+                    if (isNoiteFinal) {
                         if(!contagemNoite[horarioInicio]) contagemNoite[horarioInicio] = [];
                         contagemNoite[horarioInicio].push(m.nome);
                         totalNoite++;
@@ -441,6 +457,9 @@ window.carregarTrocasDoDia = async function() {
     const tbody = document.getElementById('tbodyTrocaTurno');
     if (!tbody || !dataRef) return;
     
+    const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
+    const isMucuri = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '1');
+
     window.atualizarIndicadoresEscalaHorario(dataRef);
 
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 20px;">Processando frotas, turnos e continuidade...</td></tr>`;
@@ -453,29 +472,28 @@ window.carregarTrocasDoDia = async function() {
             if (resLocais.data) window.locaisTrocaCache = resLocais.data;
         }
 
-        const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
         let registros = [];
         let linhasData = [];
         const mLista = (typeof motoristas !== 'undefined') ? motoristas : (window.motoristas || []);
 
+        const dFiltro = new Date(dataRef + "T12:00:00");
+        dFiltro.setDate(dFiltro.getDate() - 5);
+        const dataLimiteStr = dFiltro.toISOString().split('T')[0];
+
+        try {
+            let queryHistorico = window.supabaseClient.from('troca_turno_linhares')
+                .select('*')
+                .gte('data_referencia', dataLimiteStr)
+                .lte('data_referencia', dataRef)
+                .order('data_referencia', { ascending: false })
+                .order('id', { ascending: false });
+                
+            queryHistorico = window.aplicarFiltroFilial(queryHistorico); 
+            const { data } = await queryHistorico;
+            if (data) registros = data;
+        } catch(e) { console.warn("Erro supabase troca_turno_linhares", e); }
+
         if (isLinhares) {
-            const dFiltro = new Date(dataRef + "T12:00:00");
-            dFiltro.setDate(dFiltro.getDate() - 5);
-            const dataLimiteStr = dFiltro.toISOString().split('T')[0];
-            
-            let historicoGeralLinhares = [];
-            try {
-                const { data } = await window.supabaseClient.from('troca_turno_linhares')
-                    .select('*')
-                    .gte('data_referencia', dataLimiteStr)
-                    .lte('data_referencia', dataRef)
-                    .order('data_referencia', { ascending: false })
-                    .order('id', { ascending: false });
-                if (data) historicoGeralLinhares = data;
-            } catch(e) { console.warn("Erro supabase troca_turno_linhares", e); }
-
-            registros = historicoGeralLinhares;
-
             const { data: frotaLinhares } = await window.supabaseClient.from('frotas_manutencao')
                 .select('*').eq('filial_id', 7).eq('status', 'Ativo').eq('categoria', 'TRITREM');
 
@@ -489,18 +507,10 @@ window.carregarTrocasDoDia = async function() {
                 const go = f.frota || '-';
                 const conjId = f.numero_frota || '-';
                 
-                linhasData.push({ conjId: conjId, go: go, placaNorm: placaNorm, esc: { nome: null, turno: 'Turno 1', originalTurno: 'Turno 1' }, idxTurno: 0, ordemTurno: 1 });
-                linhasData.push({ conjId: conjId, go: go, placaNorm: placaNorm, esc: { nome: null, turno: 'Turno 2', originalTurno: 'Turno 2' }, idxTurno: 1, ordemTurno: 2 });
+                linhasData.push({ conjId: conjId, go: go, placaNorm: placaNorm, esc: { nome: null, turno: 'Turno 1', originalTurno: 'Turno 1', eq: '' }, idxTurno: 0, ordemTurno: 1 });
+                linhasData.push({ conjId: conjId, go: go, placaNorm: placaNorm, esc: { nome: null, turno: 'Turno 2', originalTurno: 'Turno 2', eq: '' }, idxTurno: 1, ordemTurno: 2 });
             });
-
         } else {
-            try {
-                let query = window.supabaseClient.from('registro_troca_turno').select('*').eq('data_referencia', dataRef);
-                query = window.aplicarFiltroFilial(query);
-                const res = await query;
-                if (res.data) registros = res.data;
-            } catch(e) { console.warn("Erro supabase registro_troca_turno", e); }
-            
             const cLista = (typeof conjuntos !== 'undefined') ? conjuntos : (window.conjuntos || []);
             if (cLista.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#f1c40f;">Nenhum Conjunto encontrado na memória do sistema.</td></tr>`;
@@ -517,15 +527,30 @@ window.carregarTrocasDoDia = async function() {
                     let motoristasHoje = [];
                     mLista.forEach(m => {
                         if (typeof window.getEscalaDiaComputada === 'function') {
-                            const esc = window.getEscalaDiaComputada(m, dataRef);
-                            if (String(esc.caminhao).trim().toUpperCase() === placaNorm && esc.caminhao !== 'F') {
-                                let turnoFormatado = esc.turno || m.turno || 'Indefinido';
-                                motoristasHoje.push({ nome: m.nome, turno: turnoFormatado, originalTurno: esc.turno || m.turno });
+                            const escDia = window.getEscalaDiaComputada(m, dataRef);
+                            if (String(escDia.caminhao).trim().toUpperCase() === placaNorm && escDia.caminhao !== 'F') {
+                                
+                                let originalTurno = escDia.turno || m.turno || 'Indefinido';
+                                let turnoFormatado = originalTurno;
+                                let eq = typeof window.getEq === 'function' ? window.getEq(m) : (m.equipe || '');
+
+                                if (typeof window.getCiclos === 'function') {
+                                    let cMatch = window.getCiclos().find(c => c.dbValue === originalTurno);
+                                    if (cMatch) {
+                                        if (['D','E','F'].includes(eq)) {
+                                            turnoFormatado = cMatch.labelNoite;
+                                        } else {
+                                            turnoFormatado = cMatch.labelDia;
+                                        }
+                                    }
+                                }
+
+                                motoristasHoje.push({ nome: m.nome, turno: turnoFormatado, originalTurno: originalTurno, eq: eq });
                             }
                         }
                     });
                     
-                    if (motoristasHoje.length === 0) motoristasHoje.push({ nome: null, turno: 'Sem Escala', originalTurno: 'Sem Escala' });
+                    if (motoristasHoje.length === 0) motoristasHoje.push({ nome: null, turno: 'Sem Escala', originalTurno: 'Sem Escala', eq: '' });
 
                     motoristasHoje.forEach((esc, idxTurno) => {
                         linhasData.push({ conjId: conj.id || conj.codigo || '-', go: go, placaNorm: placaNorm, esc: esc, idxTurno: idxTurno, ordemTurno: idxTurno });
@@ -534,9 +559,43 @@ window.carregarTrocasDoDia = async function() {
             });
         }
 
+        // NOVA LÓGICA DE ORDENAÇÃO: 1º Dia vs Noite, 2º Horário Crescente, 3º Placa
+        linhasData.forEach((linha) => {
+            let horaMinutos = 0;
+            let isNoite = false;
+            let tFmt = String(linha.esc.turno || '');
+            let tOrig = String(linha.esc.originalTurno || '').toUpperCase();
+            
+            let match = tFmt.match(/\b(\d{2}):(\d{2})\b/);
+            if (match) {
+                let h = parseInt(match[1], 10);
+                let m = parseInt(match[2], 10);
+                horaMinutos = h * 60 + m;
+                isNoite = (h >= 12 && h <= 23);
+            } else {
+                if (tOrig.includes('NOITE') || tOrig === 'TURNO 2' || (tOrig === '2' && !tOrig.includes(':'))) {
+                    horaMinutos = 18 * 60;
+                    isNoite = true;
+                } else {
+                    horaMinutos = 6 * 60;
+                    isNoite = false;
+                }
+            }
+            linha.sortTime = horaMinutos;
+            linha.isNoite = isNoite ? 1 : 0;
+        });
+
         linhasData.sort((a, b) => {
-            if (a.ordemTurno !== b.ordemTurno) return a.ordemTurno - b.ordemTurno;
-            return Number(a.conjId) - Number(b.conjId);
+            if (a.isNoite !== b.isNoite) return a.isNoite - b.isNoite;
+            if (a.sortTime !== b.sortTime) return a.sortTime - b.sortTime;
+            
+            let conjA = parseInt(a.conjId);
+            let conjB = parseInt(b.conjId);
+            if (isNaN(conjA)) conjA = 9999;
+            if (isNaN(conjB)) conjB = 9999;
+            if (conjA !== conjB) return conjA - conjB;
+            
+            return (a.placaNorm || '').localeCompare(b.placaNorm || '');
         });
 
         const mListaOrdenada = [...mLista].sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
@@ -558,7 +617,7 @@ window.carregarTrocasDoDia = async function() {
 
         // LOOP DE CAMINHÕES / FROTA
         linhasData.forEach((linha, indiceGlobal) => {
-            const { conjId, go, placaNorm, esc, idxTurno } = linha;
+            const { conjId, go, placaNorm, esc, idxTurno, isNoite } = linha;
             const domId = `${placaNorm.replace(/[^A-Z0-9]/g, '')}_${idxTurno}_${indiceGlobal}`; 
             
             if (lastPlacaSeparador && lastPlacaSeparador !== placaNorm) {
@@ -578,104 +637,89 @@ window.carregarTrocasDoDia = async function() {
             let labelPrevisto = '';
             let horarioPrevistoLargarVal = ''; 
 
-            if (isLinhares) {
-                let historicoPlaca = registros.filter(r => r.cavalo.toUpperCase() === placaNorm);
-                reg = historicoPlaca.find(r => r.data_referencia === dataRef && r.turno_referencia === esc.originalTurno);
+            let historicoPlaca = registros.filter(r => r.cavalo.toUpperCase() === placaNorm);
+            reg = historicoPlaca.find(r => r.data_referencia === dataRef && (r.turno_referencia === esc.originalTurno || r.turno_referencia === esc.turno));
 
-                // Lógica Estrita: Encontra o turno imediatamente anterior exato
-                let isNoiteTurno = esc.originalTurno && (esc.originalTurno.includes("2") || esc.originalTurno.toUpperCase().includes("NOITE"));
-                let prevDateRef = dataRef;
-                let prevTurnoRef = 'Turno 1';
+            let idxAtual = historicoPlaca.findIndex(r => r.id === (reg ? reg.id : -1));
+            if (reg && idxAtual < historicoPlaca.length - 1) {
+                ultimoReg = historicoPlaca[idxAtual + 1];
+            } else if (!reg && historicoPlaca.length > 0) {
+                ultimoReg = historicoPlaca[0];
+            }
 
-                if (isNoiteTurno) {
-                    prevDateRef = dataRef;
-                    prevTurnoRef = 'Turno 1';
-                } else {
-                    let pDate = new Date(dataRef + "T12:00:00");
-                    pDate.setDate(pDate.getDate() - 1);
-                    const y = pDate.getFullYear();
-                    const m = String(pDate.getMonth() + 1).padStart(2, '0');
-                    const d = String(pDate.getDate()).padStart(2, '0');
-                    prevDateRef = `${y}-${m}-${d}`;
-                    prevTurnoRef = 'Turno 2';
+            if (reg) {
+                horarioEntregou = reg.horario_entregou ? reg.horario_entregou.substring(0,5) : '';
+                horarioAssumiu = reg.horario_assumiu ? reg.horario_assumiu.substring(0,5) : '';
+                obsReal = reg.observacao || '';
+                motoristaProxSalvo = reg.motorista_assumiu || '';
+                motoristaAtualSalvo = reg.motorista_entregou || '';
+                localTrocaIdStr = String(reg.local_troca_id || '');
+                
+                if (reg.tempo_troca_minutos !== null && reg.tempo_troca_minutos !== undefined) {
+                    let diffH = Math.floor(reg.tempo_troca_minutos / 60);
+                    let diffM = reg.tempo_troca_minutos % 60;
+                    let color = reg.tempo_troca_minutos > 30 ? '#ef4444' : '#4ade80';
+                    diffRender = `<span style="color:${color}; font-weight:bold; font-size:1.1rem;">${diffH}h ${diffM}m</span>`;
                 }
-
-                ultimoReg = historicoPlaca.find(r => r.data_referencia === prevDateRef && r.turno_referencia === prevTurnoRef);
-
-                if (reg) {
-                    horarioEntregou = reg.horario_entregou ? reg.horario_entregou.substring(0,5) : '';
-                    horarioAssumiu = reg.horario_assumiu ? reg.horario_assumiu.substring(0,5) : '';
-                    obsReal = reg.observacao || '';
-                    motoristaProxSalvo = reg.motorista_assumiu || '';
-                    localTrocaIdStr = String(reg.local_troca_id || '');
-                    
-                    if (reg.tempo_troca_minutos !== null && reg.tempo_troca_minutos !== undefined) {
-                        let diffH = Math.floor(reg.tempo_troca_minutos / 60);
-                        let diffM = reg.tempo_troca_minutos % 60;
-                        let color = reg.tempo_troca_minutos > 30 ? '#ef4444' : '#4ade80';
-                        diffRender = `<span style="color:${color}; font-weight:bold; font-size:1.1rem;">${diffH}h ${diffM}m</span>`;
-                    }
-                }
-
-                motoristaAtualSalvo = (reg && reg.motorista_entregou) ? reg.motorista_entregou : (ultimoReg ? ultimoReg.motorista_assumiu : '');
-
-                let dataInicioFmt = '--/--';
-                let horaInicioFmt = '--:--';
+            } else {
+                motoristaProxSalvo = esc.nome || '';
                 
                 if (ultimoReg) {
-                    if (ultimoReg.horario_previsto_largar) horarioPrevistoLargarVal = ultimoReg.horario_previsto_largar.substring(0, 5);
-                    if (ultimoReg.data_referencia) dataInicioFmt = ultimoReg.data_referencia.split('-').reverse().slice(0,2).join('/');
-                    if (ultimoReg.horario_assumiu) horaInicioFmt = ultimoReg.horario_assumiu.substring(0, 5);
+                    motoristaAtualSalvo = ultimoReg.motorista_assumiu || '';
+                } else if (!isLinhares) {
+                    let parceiro = linhasData.find(l => l.placaNorm === placaNorm && l.esc.nome && l.esc.nome !== esc.nome);
+                    if (parceiro) motoristaAtualSalvo = parceiro.esc.nome;
                 }
+            }
 
-                let diffDispHTML = '';
-                if (horarioEntregou && horarioPrevistoLargarVal) {
-                    let [prev_h, prev_m] = horarioPrevistoLargarVal.split(':').map(Number);
-                    let [he_h, he_m] = horarioEntregou.split(':').map(Number);
-                    let minPrev = prev_h * 60 + prev_m;
-                    let minE = he_h * 60 + he_m;
-                    let diffDisp = minPrev - minE;
-                    
-                    if (diffDisp < -12 * 60) diffDisp += 24 * 60;
-                    if (diffDisp > 12 * 60) diffDisp -= 24 * 60; 
+            let dataInicioFmt = '--/--';
+            let horaInicioFmt = '--:--';
+            
+            if (ultimoReg) {
+                if (ultimoReg.horario_previsto_largar) horarioPrevistoLargarVal = ultimoReg.horario_previsto_largar.substring(0, 5);
+                if (ultimoReg.data_referencia) dataInicioFmt = ultimoReg.data_referencia.split('-').reverse().slice(0,2).join('/');
+                if (ultimoReg.horario_assumiu) horaInicioFmt = ultimoReg.horario_assumiu.substring(0, 5);
+            }
 
-                    if (diffDisp > 0) {
-                        let dispH = Math.floor(diffDisp / 60);
-                        let dispM = diffDisp % 60;
-                        diffDispHTML = `<div style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.4); font-size: 0.75rem;">+${dispH}h ${dispM}m Disp</div>`;
-                    } else if (diffDisp < 0) {
-                        let excesso = Math.abs(diffDisp);
-                        let excH = Math.floor(excesso / 60);
-                        let excM = excesso % 60;
-                        diffDispHTML = `<div style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 0.75rem;">-${excH}h ${excM}m Atraso</div>`;
-                    } else {
-                        diffDispHTML = `<div style="background: rgba(16, 185, 129, 0.2); color: #4ade80; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.75rem;">Exato</div>`;
-                    }
-                }
+            let diffDispHTML = '';
+            if (horarioEntregou && horarioPrevistoLargarVal) {
+                let [prev_h, prev_m] = horarioPrevistoLargarVal.split(':').map(Number);
+                let [he_h, he_m] = horarioEntregou.split(':').map(Number);
+                let minPrev = prev_h * 60 + prev_m;
+                let minE = he_h * 60 + he_m;
+                let diffDisp = minPrev - minE;
+                
+                if (diffDisp < -12 * 60) diffDisp += 24 * 60;
+                if (diffDisp > 12 * 60) diffDisp -= 24 * 60; 
 
-                if (horarioPrevistoLargarVal) {
-                    labelPrevisto = `
-                        <div style="font-size:0.75rem; color:#94a3b8; margin-top:8px; display:flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-                            <div style="background: rgba(0,0,0,0.25); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 5px;" title="Iniciou Jornada">
-                                <i class="fas fa-flag-checkered" style="color:#4ade80;"></i> <b style="color:#e2e8f0;">${dataInicioFmt} ${horaInicioFmt}</b>
-                            </div>
-                            <div style="background: rgba(0,0,0,0.25); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 5px;" title="Previsão para Largar">
-                                <i class="fas fa-stopwatch" style="color:#fbbf24;"></i> <b style="color:#fbbf24;">${horarioPrevistoLargarVal}</b>
-                            </div>
-                            <div id="alerta_disp_${domId}">${diffDispHTML}</div>
-                        </div>
-                    `;
+                if (diffDisp > 0) {
+                    let dispH = Math.floor(diffDisp / 60);
+                    let dispM = diffDisp % 60;
+                    diffDispHTML = `<div style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.4); font-size: 0.75rem;">+${dispH}h ${dispM}m Disp</div>`;
+                } else if (diffDisp < 0) {
+                    let excesso = Math.abs(diffDisp);
+                    let excH = Math.floor(excesso / 60);
+                    let excM = excesso % 60;
+                    diffDispHTML = `<div style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 0.75rem;">-${excH}h ${excM}m Atraso</div>`;
                 } else {
-                    labelPrevisto = `<div style="font-size:0.75rem; color:#64748b; margin-top:8px;">Sem histórico de entrega anterior</div>`;
+                    diffDispHTML = `<div style="background: rgba(16, 185, 129, 0.2); color: #4ade80; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.75rem;">Exato</div>`;
                 }
+            }
 
+            if (horarioPrevistoLargarVal) {
+                labelPrevisto = `
+                    <div style="font-size:0.75rem; color:#94a3b8; margin-top:8px; display:flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                        <div style="background: rgba(0,0,0,0.25); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 5px;" title="Iniciou Jornada">
+                            <i class="fas fa-flag-checkered" style="color:#4ade80;"></i> <b style="color:#e2e8f0;">${dataInicioFmt} ${horaInicioFmt}</b>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.25); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 5px;" title="Previsão para Largar">
+                            <i class="fas fa-stopwatch" style="color:#fbbf24;"></i> <b style="color:#fbbf24;">${horarioPrevistoLargarVal}</b>
+                        </div>
+                        <div id="alerta_disp_${domId}">${diffDispHTML}</div>
+                    </div>
+                `;
             } else {
-                reg = registros.find(r => r.placa_cavalo.toUpperCase() === placaNorm && (r.turno_previsto === esc.turno || r.turno_previsto === esc.originalTurno)) || {};
-                motoristaAtualSalvo = reg.motorista_atual || '';
-                motoristaProxSalvo = reg.motorista_programado || esc.nome || '';
-                horarioAssumiu = reg.horario_real ? reg.horario_real.substring(0,5) : '';
-                obsReal = reg.observacao || '';
-                localTrocaIdStr = String(reg.local_troca_id || '');
+                labelPrevisto = `<div style="font-size:0.75rem; color:#64748b; margin-top:8px;">Sem histórico de entrega anterior</div>`;
             }
             
             let proximaTroca = '--:--';
@@ -699,14 +743,14 @@ window.carregarTrocasDoDia = async function() {
             });
             selectLocal += `</select>`;
 
-            const isNoite = esc.originalTurno && (esc.originalTurno.includes("2") || esc.originalTurno.toUpperCase().includes("NOITE"));
-            let baseBgColor = isNoite ? 'rgba(99, 102, 241, 0.12)' : 'rgba(56, 189, 248, 0.12)'; 
-            let baseBorder = isNoite ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)';
-            let baseHover = isNoite ? 'rgba(99, 102, 241, 0.2)' : 'rgba(56, 189, 248, 0.2)';
-            let iconeTurno = isNoite ? '<i class="fas fa-moon" style="color: #a5b4fc;"></i>' : '<i class="fas fa-sun" style="color: #fde047;"></i>';
-            let corBadge = isNoite ? 'background: rgba(99, 102, 241, 0.25); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.5);' : 'background: rgba(56, 189, 248, 0.25); color: #bae6fd; border: 1px solid rgba(56, 189, 248, 0.5);';
+            let isNoiteTurno = (linha.isNoite === 1);
+            let baseBgColor = isNoiteTurno ? 'rgba(99, 102, 241, 0.12)' : 'rgba(56, 189, 248, 0.12)'; 
+            let baseBorder = isNoiteTurno ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)';
+            let baseHover = isNoiteTurno ? 'rgba(99, 102, 241, 0.2)' : 'rgba(56, 189, 248, 0.2)';
+            let iconeTurno = isNoiteTurno ? '<i class="fas fa-moon" style="color: #a5b4fc;"></i>' : '<i class="fas fa-sun" style="color: #fde047;"></i>';
+            let corBadge = isNoiteTurno ? 'background: rgba(99, 102, 241, 0.25); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.5);' : 'background: rgba(56, 189, 248, 0.25); color: #bae6fd; border: 1px solid rgba(56, 189, 248, 0.5);';
 
-            let inputHoraEntregou = isLinhares ? `<input type="time" id="hora_entregou_${domId}" data-previsto="${horarioPrevistoLargarVal}" class="input-moderno" value="${horarioEntregou}" onchange="calcularTempoTroca('${domId}')" title="Horário que entregou o caminhão" style="margin:0; text-align:center;">` : '<span style="font-size:0.8rem;color:#64748b;">N/A Filial</span>';
+            let inputHoraEntregou = `<input type="time" id="hora_entregou_${domId}" data-previsto="${horarioPrevistoLargarVal}" class="input-moderno" value="${horarioEntregou}" onchange="calcularTempoTroca('${domId}')" title="Horário que entregou o caminhão" style="margin:0; text-align:center;">`;
 
             htmlTabela += `
                 <tr id="tr_${domId}" style="background: ${baseBgColor}; border-bottom: ${baseBorder}; transition: all 0.3s ease;" onmouseover="this.style.background='${baseHover}'" onmouseout="this.style.background='${baseBgColor}'">
@@ -721,7 +765,7 @@ window.carregarTrocasDoDia = async function() {
                             <div style="flex: 1; min-width: 150px;">${selectMotAtual}</div>
                             <div style="width: 100px;">${inputHoraEntregou}</div>
                         </div>
-                        ${isLinhares ? `${labelPrevisto}` : ''}
+                        ${labelPrevisto}
                     </td>
                     <td style="vertical-align: top; padding-top: 18px;">
                         <div style="display: flex; gap: 8px; align-items: center;">
@@ -742,12 +786,8 @@ window.carregarTrocasDoDia = async function() {
             `;
 
             let statusKb = 0; // 0=Pendente, 1=Andamento, 2=Concluído
-            if (isLinhares) {
-                if (horarioEntregou && !horarioAssumiu) statusKb = 1;
-                else if (horarioEntregou && horarioAssumiu) statusKb = 2;
-            } else {
-                if (horarioAssumiu) statusKb = 2;
-            }
+            if (horarioEntregou && !horarioAssumiu) statusKb = 1;
+            else if (horarioEntregou && horarioAssumiu) statusKb = 2;
 
             if (!kanbanPorPlaca[placaNorm]) kanbanPorPlaca[placaNorm] = [];
             kanbanPorPlaca[placaNorm].push({
@@ -987,52 +1027,43 @@ window.salvarTroca = async function(domId, placa, turnoPrevisto) {
     const horaAssumiu = document.getElementById(`hora_assumiu_${domId}`).value;
     const obs = document.getElementById(`obs_${domId}`).value.trim();
     
-    const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
-    let horaEntregou = null;
+    let horaEntregou = document.getElementById(`hora_entregou_${domId}`).value;
     let tempoTrocaMin = null;
     let horaPrevistaLargar = null;
     let saldoMinutos = null;
 
-    if (isLinhares) {
-        horaEntregou = document.getElementById(`hora_entregou_${domId}`).value;
-        
-        if (!localId) return alert("Preencha o Local da Troca antes de salvar.");
-        if (!horaEntregou && !horaAssumiu) return alert("Preencha pelo menos um horário (Entregou ou Assumiu) antes de salvar.");
-        if (horaEntregou && !motoristaAtual) return alert("Selecione o Motorista que Entregou o caminhão.");
-        if (horaAssumiu && !motoristaProx) return alert("Selecione o Motorista que Assumiu o caminhão.");
-        
-        if (horaEntregou && horaAssumiu) {
-            let [he_h, he_m] = horaEntregou.split(':').map(Number);
-            let [ha_h, ha_m] = horaAssumiu.split(':').map(Number);
-            let diff = (ha_h * 60 + ha_m) - (he_h * 60 + he_m);
-            if (diff < 0) diff += 24 * 60;
-            tempoTrocaMin = diff;
-        }
+    if (!localId) return alert("Preencha o Local da Troca antes de salvar.");
+    if (!horaEntregou && !horaAssumiu) return alert("Preencha pelo menos um horário (Entregou ou Assumiu) antes de salvar.");
+    if (horaEntregou && !motoristaAtual) return alert("Selecione o Motorista que Entregou o caminhão.");
+    if (horaAssumiu && !motoristaProx) return alert("Selecione o Motorista que Assumiu o caminhão.");
+    
+    if (horaEntregou && horaAssumiu) {
+        let [he_h, he_m] = horaEntregou.split(':').map(Number);
+        let [ha_h, ha_m] = horaAssumiu.split(':').map(Number);
+        let diff = (ha_h * 60 + ha_m) - (he_h * 60 + he_m);
+        if (diff < 0) diff += 24 * 60;
+        tempoTrocaMin = diff;
+    }
 
-        if (horaAssumiu) {
-            let [ha_h, ha_m] = horaAssumiu.split(':').map(Number);
-            horaPrevistaLargar = `${((ha_h + 12) % 24).toString().padStart(2, '0')}:${ha_m.toString().padStart(2, '0')}`;
-        }
+    if (horaAssumiu) {
+        let [ha_h, ha_m] = horaAssumiu.split(':').map(Number);
+        horaPrevistaLargar = `${((ha_h + 12) % 24).toString().padStart(2, '0')}:${ha_m.toString().padStart(2, '0')}`;
+    }
 
-        const heInput = document.getElementById(`hora_entregou_${domId}`);
-        const horaPrevistaLargarVal = heInput ? heInput.getAttribute('data-previsto') : null;
+    const heInput = document.getElementById(`hora_entregou_${domId}`);
+    const horaPrevistaLargarVal = heInput ? heInput.getAttribute('data-previsto') : null;
+    
+    if (horaEntregou && horaPrevistaLargarVal) {
+        let [prev_h, prev_m] = horaPrevistaLargarVal.split(':').map(Number);
+        let [he_h, he_m] = horaEntregou.split(':').map(Number);
+        let minPrev = prev_h * 60 + prev_m;
+        let minE = he_h * 60 + he_m;
         
-        if (horaEntregou && horaPrevistaLargarVal) {
-            let [prev_h, prev_m] = horaPrevistaLargarVal.split(':').map(Number);
-            let [he_h, he_m] = horaEntregou.split(':').map(Number);
-            let minPrev = prev_h * 60 + prev_m;
-            let minE = he_h * 60 + he_m;
-            
-            let diffDisp = minPrev - minE;
-            if (diffDisp < -12 * 60) diffDisp += 24 * 60;
-            if (diffDisp > 12 * 60) diffDisp -= 24 * 60; 
-            
-            saldoMinutos = diffDisp;
-        }
-
-    } else {
-        if (!localId) return alert("Preencha o Local antes de salvar.");
-        if (!horaAssumiu) return alert("Preencha o Horário antes de salvar.");
+        let diffDisp = minPrev - minE;
+        if (diffDisp < -12 * 60) diffDisp += 24 * 60;
+        if (diffDisp > 12 * 60) diffDisp -= 24 * 60; 
+        
+        saldoMinutos = diffDisp;
     }
 
     const formatTime = (t) => {
@@ -1041,59 +1072,37 @@ window.salvarTroca = async function(domId, placa, turnoPrevisto) {
     };
 
     try {
-        if (isLinhares) {
-            const { data: exist } = await window.supabaseClient.from('troca_turno_linhares').select('id')
-                .eq('data_referencia', dataRef).eq('cavalo', placa).eq('turno_referencia', turnoPrevisto).maybeSingle();
-                
-            const p = { 
-                data_referencia: dataRef, 
-                cavalo: placa, 
-                turno_referencia: turnoPrevisto, 
-                motorista_entregou: motoristaAtual || null, 
-                motorista_assumiu: motoristaProx || null, 
-                local_troca_id: localId || null, 
-                horario_entregou: formatTime(horaEntregou),
-                horario_assumiu: formatTime(horaAssumiu),
-                tempo_troca_minutos: tempoTrocaMin !== null && !isNaN(tempoTrocaMin) ? parseInt(tempoTrocaMin, 10) : null,
-                horario_previsto_largar: formatTime(horaPrevistaLargar), 
-                saldo_minutos: saldoMinutos !== null && !isNaN(saldoMinutos) ? parseInt(saldoMinutos, 10) : null,
-                observacao: obs || null, 
-                filial_id: 7
-            };
+        const queryExist = window.supabaseClient.from('troca_turno_linhares')
+            .select('id')
+            .eq('data_referencia', dataRef)
+            .eq('cavalo', placa)
+            .eq('turno_referencia', turnoPrevisto);
             
-            let res;
-            if (exist) {
-                res = await window.supabaseClient.from('troca_turno_linhares').update(p).eq('id', exist.id);
-            } else {
-                res = await window.supabaseClient.from('troca_turno_linhares').insert([p]);
-            }
-            if (res.error) throw res.error;
+        const { data: exist } = await window.aplicarFiltroFilial(queryExist).maybeSingle();
             
+        const p = window.injetarFilial({ 
+            data_referencia: dataRef, 
+            cavalo: placa, 
+            turno_referencia: turnoPrevisto, 
+            motorista_entregou: motoristaAtual || null, 
+            motorista_assumiu: motoristaProx || null, 
+            local_troca_id: localId || null, 
+            horario_entregou: formatTime(horaEntregou),
+            horario_assumiu: formatTime(horaAssumiu),
+            tempo_troca_minutos: tempoTrocaMin !== null && !isNaN(tempoTrocaMin) ? parseInt(tempoTrocaMin, 10) : null,
+            horario_previsto_largar: formatTime(horaPrevistaLargar), 
+            saldo_minutos: saldoMinutos !== null && !isNaN(saldoMinutos) ? parseInt(saldoMinutos, 10) : null,
+            observacao: obs || null
+        });
+        
+        let res;
+        if (exist) {
+            res = await window.supabaseClient.from('troca_turno_linhares').update(p).eq('id', exist.id);
         } else {
-            let queryValida = window.supabaseClient.from('registro_troca_turno').select('id')
-                .eq('data_referencia', dataRef).eq('placa_cavalo', placa).eq('turno_previsto', turnoPrevisto);
-            queryValida = window.aplicarFiltroFilial(queryValida);
-            const { data: exist } = await queryValida.maybeSingle();
-                
-            const p = window.injetarFilial({ 
-                data_referencia: dataRef, 
-                placa_cavalo: placa, 
-                turno_previsto: turnoPrevisto, 
-                motorista_atual: motoristaAtual || null, 
-                motorista_programado: motoristaProx || null, 
-                local_troca_id: localId || null, 
-                horario_real: formatTime(horaAssumiu), 
-                observacao: obs || null 
-            });
-            
-            let res;
-            if (exist) {
-                res = await window.supabaseClient.from('registro_troca_turno').update(p).eq('id', exist.id);
-            } else {
-                res = await window.supabaseClient.from('registro_troca_turno').insert([p]);
-            }
-            if (res.error) throw res.error;
+            res = await window.supabaseClient.from('troca_turno_linhares').insert([p]);
         }
+        
+        if (res.error) throw res.error;
         
         alert("Registro Salvo com Sucesso!");
         window.carregarTrocasDoDia();
@@ -1104,12 +1113,6 @@ window.salvarTroca = async function(domId, placa, turnoPrevisto) {
 }
 
 window.carregarPerformanceTroca = async function() {
-    const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
-    if (!isLinhares) {
-        document.getElementById('tbodyPerformance').innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#f59e0b;">Este painel de performance é exclusivo da filial Linhares (Tritrens).</td></tr>`;
-        return;
-    }
-
     const inputFiltro = document.getElementById('filtroDataPerformance');
     let dataFiltro = inputFiltro ? inputFiltro.value : null;
 
@@ -1138,6 +1141,7 @@ window.carregarPerformanceTroca = async function() {
             .eq('data_referencia', dataFiltro)
             .order('data_referencia', { ascending: false });
 
+        query = window.aplicarFiltroFilial(query);
         const { data, error } = await query.limit(500);
 
         if (error) throw error;
@@ -1287,21 +1291,16 @@ window.carregarHistoricoTrocas = async function() {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Buscando histórico no banco de dados...</td></tr>`;
 
     try {
-        const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
+        let query = window.supabaseClient.from('troca_turno_linhares')
+            .select('*')
+            .order('data_referencia', { ascending: false })
+            .limit(200);
+            
+        query = window.aplicarFiltroFilial(query);
         
-        let query;
-        if (isLinhares) {
-            query = window.supabaseClient.from('troca_turno_linhares').select('*').order('data_referencia', { ascending: false }).limit(200);
-            if (dataFiltro) query = query.eq('data_referencia', dataFiltro);
-            if (placaFiltro) query = query.eq('cavalo', placaFiltro);
-            if (motoristaFiltro) query = query.eq('motorista_assumiu', motoristaFiltro);
-        } else {
-            query = window.supabaseClient.from('registro_troca_turno').select('*').order('data_referencia', { ascending: false }).limit(200);
-            query = window.aplicarFiltroFilial(query);
-            if (dataFiltro) query = query.eq('data_referencia', dataFiltro);
-            if (placaFiltro) query = query.eq('placa_cavalo', placaFiltro);
-            if (motoristaFiltro) query = query.eq('motorista_programado', motoristaFiltro);
-        }
+        if (dataFiltro) query = query.eq('data_referencia', dataFiltro);
+        if (placaFiltro) query = query.eq('cavalo', placaFiltro);
+        if (motoristaFiltro) query = query.eq('motorista_assumiu', motoristaFiltro);
 
         const { data, error } = await query;
         if (error) throw error;
@@ -1313,16 +1312,13 @@ window.carregarHistoricoTrocas = async function() {
         }
 
         window.dadosHistoricoTrocasAtual = data.map(r => {
-            if (isLinhares) {
-                return {
-                    id: r.id, data_referencia: r.data_referencia, placa_cavalo: r.cavalo,
-                    turno_previsto: r.turno_referencia, motorista_atual: r.motorista_entregou,
-                    motorista_programado: r.motorista_assumiu, local_troca_id: r.local_troca_id,
-                    horario_real: r.horario_assumiu, horario_entregou: r.horario_entregou, 
-                    tempo_troca_minutos: r.tempo_troca_minutos, observacao: r.observacao
-                };
-            }
-            return r;
+            return {
+                id: r.id, data_referencia: r.data_referencia, placa_cavalo: r.cavalo,
+                turno_previsto: r.turno_referencia, motorista_atual: r.motorista_entregou,
+                motorista_programado: r.motorista_assumiu, local_troca_id: r.local_troca_id,
+                horario_real: r.horario_assumiu, horario_entregou: r.horario_entregou, 
+                tempo_troca_minutos: r.tempo_troca_minutos, observacao: r.observacao
+            };
         });
 
         if (window.locaisTrocaCache.length === 0) {
@@ -1338,12 +1334,7 @@ window.carregarHistoricoTrocas = async function() {
             const dataFormatada = reg.data_referencia ? reg.data_referencia.split('-').reverse().join('/') : '-';
             const obsFormatada = reg.observacao ? reg.observacao : '-';
             
-            let htmlTempos = '';
-            if (isLinhares) {
-                htmlTempos = `Entregou: <b>${reg.horario_entregou ? reg.horario_entregou.substring(0,5) : '--'}</b><br>Assumiu: <b>${reg.horario_real ? reg.horario_real.substring(0,5) : '--'}</b>`;
-            } else {
-                htmlTempos = `Real: <b>${reg.horario_real || '--'}</b>`;
-            }
+            let htmlTempos = `Entregou: <b>${reg.horario_entregou ? reg.horario_entregou.substring(0,5) : '--'}</b><br>Assumiu: <b>${reg.horario_real ? reg.horario_real.substring(0,5) : '--'}</b>`;
             
             let diffRender = '--';
             if (reg.tempo_troca_minutos !== undefined && reg.tempo_troca_minutos !== null && reg.placa_cavalo !== 'RESERVA') {
@@ -1355,7 +1346,18 @@ window.carregarHistoricoTrocas = async function() {
                 diffRender = `<span style="color:#a855f7; font-weight:bold;">N/A (Reserva)</span>`;
             }
 
-            const isNoite = reg.turno_previsto && (reg.turno_previsto.includes("2") || reg.turno_previsto.toUpperCase().includes("NOITE"));
+            let isNoite = false;
+            if (reg.turno_previsto) {
+                let tUp = String(reg.turno_previsto).toUpperCase();
+                const timeM = tUp.match(/\b(\d{2}):\d{2}\b/);
+                if (timeM) {
+                    let h = parseInt(timeM[1], 10);
+                    isNoite = (h >= 12 && h <= 23);
+                } else if (tUp.includes('NOITE') || tUp === 'TURNO 2' || (tUp === '2' && !tUp.includes(':'))) {
+                    isNoite = true;
+                }
+            }
+
             let baseBgColor = isNoite ? 'rgba(99, 102, 241, 0.12)' : 'rgba(56, 189, 248, 0.12)'; 
             let baseHover = isNoite ? 'rgba(99, 102, 241, 0.2)' : 'rgba(56, 189, 248, 0.2)';
             let baseBorder = isNoite ? '1px solid rgba(99, 102, 241, 0.2)' : '1px solid rgba(56, 189, 248, 0.2)';
@@ -1432,12 +1434,11 @@ window.carregarIndicadoresTroca = async function() {
     }
 
     try {
-        const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
-        let query = isLinhares 
-            ? window.supabaseClient.from('troca_turno_linhares').select('local_troca_id, data_referencia, motorista_assumiu').not('local_troca_id', 'is', null)
-            : window.supabaseClient.from('registro_troca_turno').select('local_troca_id, data_referencia, motorista_programado').not('local_troca_id', 'is', null);
+        let query = window.supabaseClient.from('troca_turno_linhares')
+            .select('local_troca_id, data_referencia, motorista_assumiu')
+            .not('local_troca_id', 'is', null);
 
-        if (!isLinhares) query = window.aplicarFiltroFilial(query); 
+        query = window.aplicarFiltroFilial(query); 
 
         if (tempoFiltro !== 'all') {
             const dataHoje = new Date();
@@ -1474,7 +1475,7 @@ window.carregarIndicadoresTroca = async function() {
 
         window.dadosIndicadoresBrutos = data.map(r => ({
             ...r,
-            motorista_padrao: isLinhares ? r.motorista_assumiu : r.motorista_programado
+            motorista_padrao: r.motorista_assumiu
         }));
 
         let locaisMap = {};
