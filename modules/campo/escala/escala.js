@@ -105,12 +105,26 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
     if (operador.tipo_escala === '4x4') { cicloTotal = 8; diasTrabalho = 4; }
     else if (operador.tipo_escala === '5x2') { cicloTotal = 7; diasTrabalho = 5; }
     else if (operador.tipo_escala === '6x1') { cicloTotal = 7; diasTrabalho = 6; }
+    else if (operador.tipo_escala === '4x2 Alternado' || operador.tipo_escala === '4x2v') { cicloTotal = 6; diasTrabalho = 4; }
     
     const cycleDay = ((diffDays % cicloTotal) + cicloTotal) % cicloTotal;
     
     let statusTrabalho = 'TRAB';
     if (cycleDay >= diasTrabalho) {
         statusTrabalho = 'FOLGA';
+    }
+
+    // Calcula o turno dinâmico da viradinha a partir da data ancora
+    let turnoDinamico = operador.turno;
+    if (operador.tipo_escala === '4x2 Alternado' || operador.tipo_escala === '4x2v') {
+        let cicloAtual = Math.floor(diffDays / cicloTotal);
+        // Se o ciclo atual for ímpar, ele inverte o horário
+        if (Math.abs(cicloAtual % 2) === 1) { 
+            if (turnoDinamico === '06:00 - 18:00') turnoDinamico = '18:00 - 06:00';
+            else if (turnoDinamico === '18:00 - 06:00') turnoDinamico = '06:00 - 18:00';
+            else if (turnoDinamico === '07:00 - 19:00') turnoDinamico = '19:00 - 07:00';
+            else if (turnoDinamico === '19:00 - 07:00') turnoDinamico = '07:00 - 19:00';
+        }
     }
 
     let valorExibicao = 'F';
@@ -171,7 +185,7 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
         }
     }
 
-    return { statusEscala: valorExibicao, turno: operador.turno, status: 'auto' };
+    return { statusEscala: valorExibicao, turno: turnoDinamico, status: 'auto' };
 };
 
 window.getEscalaCampoDiaComputada = function(operador, dateKey) {
@@ -187,7 +201,6 @@ window.getEscalaCampoDiaComputada = function(operador, dateKey) {
 window.calcularMatrizEscala = function(equipeArr, maquinasArr, dateStrs) {
     let matriz = {};
     
-    // Passo 1: Calcula a escala base individual 
     equipeArr.forEach(op => {
         matriz[op.id] = {};
         dateStrs.forEach(dStr => {
@@ -195,7 +208,6 @@ window.calcularMatrizEscala = function(equipeArr, maquinasArr, dateStrs) {
         });
     });
 
-    // Passo 2: Mapeamento de Folguistas assumindo a frota dos Fixos de folga
     maquinasArr.forEach(maq => {
         let membrosFrente = equipeArr.filter(op => String(op.maquina_id) === String(maq.id));
         let funcoesUnicas = [...new Set(membrosFrente.map(op => op.funcao))];
@@ -216,7 +228,6 @@ window.calcularMatrizEscala = function(equipeArr, maquinasArr, dateStrs) {
                         return placa;
                     }).filter(p => p !== 'RESERVA');
 
-                    // Atribui a placa do Fixo para o Folguista
                     folguistasOn.forEach((folguista, idx) => {
                         if (placasDisponiveis[idx]) {
                             matriz[folguista.id][dStr].statusEscala = placasDisponiveis[idx];
@@ -316,17 +327,35 @@ window.renderizarEscalaCampo = function() {
                             <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">Máquina / Cargo</th>
                             <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 6%;">Ciclo</th>
                             <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 6%;">Papel</th>
-                            <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 8%;">Turno</th>
+                            <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 8%;">Turno Início</th>
                             <th style="padding: 12px 15px; border: 1px solid rgba(255,255,255,0.05); text-align: left; width: 22%;">Operador</th>
                             ${diasRender.map(d => `<th style="padding: 10px 5px; border: 1px solid rgba(255,255,255,0.05); width: 6.8%; color: #cbd5e1;">${d.diaTexto}<br><span style="font-size:0.85rem; font-weight:800; color: #fff;">${d.diaNum}</span></th>`).join('')}
                         </tr>
                      </thead><tbody>`;
 
+            // ORDENAÇÃO: 1º Dia, 2º Noite, 3º Folga (baseado no primeiro dia da tabela), e depois pelo horário
             ops.sort((a,b) => {
+                const dKey = diasRender[0].dateKey;
+                const escA = matrizEscala[a.id][dKey];
+                const escB = matrizEscala[b.id][dKey];
+
+                const getPeso = (esc) => {
+                    if (!esc || esc.statusEscala === 'FOLGA' || esc.statusEscala === 'F') return 3;
+                    let isDia = esc.turno && (esc.turno.startsWith('06:00') || esc.turno.startsWith('07:00'));
+                    return isDia ? 1 : 2;
+                };
+
+                let pesoA = getPeso(escA);
+                let pesoB = getPeso(escB);
+                if (pesoA !== pesoB) return pesoA - pesoB;
+
+                let turnoA = escA ? escA.turno : (a.turno || '');
+                let turnoB = escB ? escB.turno : (b.turno || '');
+                if (turnoA !== turnoB) return (turnoA || '').localeCompare(turnoB || '');
+
                 let maqA = a.maquina_especifica || 'Z'; let maqB = b.maquina_especifica || 'Z';
-                if(maqA !== maqB) return maqA.localeCompare(maqB);
-                let turnoA = a.turno || ''; let turnoB = b.turno || '';
-                if(turnoA !== turnoB) return turnoA.localeCompare(turnoB);
+                if (maqA !== maqB) return maqA.localeCompare(maqB);
+                
                 let eqA = a.equipe === 'Fixo' ? 1 : 2; let eqB = b.equipe === 'Fixo' ? 1 : 2;
                 return eqA - eqB;
             });
@@ -350,8 +379,19 @@ window.renderizarEscalaCampo = function() {
                     const isFolga = escala.statusEscala === 'FOLGA' || escala.statusEscala === 'F';
                     const isManual = escala.status === 'manual';
                     
-                    let bgCell = isFolga ? 'rgba(249, 115, 22, 0.15)' : 'rgba(16, 185, 129, 0.15)';
-                    let colorCell = isFolga ? '#fb923c' : '#34d399';
+                    let isDia = escala.turno && (escala.turno.startsWith('06:00') || escala.turno.startsWith('07:00'));
+                    
+                    // CORES CLARAS PARA DIA E ESCURAS PARA NOITE
+                    let bgCell = 'rgba(16, 185, 129, 0.15)';
+                    if (isFolga) {
+                        bgCell = 'rgba(249, 115, 22, 0.15)'; 
+                    } else if (isDia) {
+                        bgCell = 'rgba(16, 185, 129, 0.25)'; // Claro
+                    } else {
+                        bgCell = 'rgba(0, 0, 0, 0.4)'; // Escuro
+                    }
+
+                    let colorCell = isFolga ? '#fb923c' : (isDia ? '#10b981' : '#34d399');
                     let borderSide = isFolga ? '1px solid rgba(249, 115, 22, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)';
                     if (isManual) { bgCell = 'rgba(168, 85, 247, 0.15)'; borderSide = '1px solid rgba(168, 85, 247, 0.5)'; }
                     
@@ -389,10 +429,16 @@ window.renderizarEscalaCampo = function() {
 
                     if (isManual) opcoes += `<option value="AUTO" style="background: #0f172a; color: #fbbf24; font-weight: bold;"> Voltar p/ Auto</option>`;
 
+                    let turnoDisplay = '';
+                    if ((op.tipo_escala === '4x2 Alternado' || op.tipo_escala === '4x2v') && !isFolga) {
+                        turnoDisplay = `<div style="font-size: 0.65rem; margin-top: -4px; opacity: 0.8; color: ${isDia ? '#fbbf24' : '#94a3b8'};">${isDia ? '☀ ' + escala.turno : '☾ ' + escala.turno}</div>`;
+                    }
+
                     html += `<td style="padding: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: ${borderSide}; border-right: ${borderSide}; background-color: ${bgCell}; text-align: center;">
                         <select class="select-escala-campo" data-operador="${op.id}" data-data="${d.dateKey}" style="width: 100%; padding: 6px 0; background: transparent; border: none; color: ${colorCell}; font-weight: 800; font-size: 0.85rem; text-align: center; appearance: none; cursor: pointer; outline: none; text-align-last: center;">
                             ${opcoes}
                         </select>
+                        ${turnoDisplay}
                     </td>`;
                 });
                 html += `</tr>`;
@@ -473,11 +519,15 @@ async function handleEscalaCampoChange(e) {
         }
 
         try {
+            // Pegar o turno dinâmico exato daquele dia caso ele seja do ciclo alternado,
+            // garantindo que ele não salve a exceção com turno errado.
+            const turnoExatoDia = window.calcularEscalaCampoMatematica(op, data).turno;
+
             let payload = { 
                 id: idExcecao, 
                 operador_id: op.id, 
                 data: data, 
-                turno: op.turno, 
+                turno: turnoExatoDia, 
                 frente: novoStatusEscala, 
                 status: 'manual' 
             };
@@ -493,7 +543,7 @@ async function handleEscalaCampoChange(e) {
             
             if (!window.escalasCampoExcecoes[op.id]) window.escalasCampoExcecoes[op.id] = {};
             window.escalasCampoExcecoes[op.id][data] = { 
-                turno: op.turno, 
+                turno: turnoExatoDia, 
                 statusEscala: novoStatusEscala, 
                 status: 'manual' 
             };
@@ -519,7 +569,7 @@ window.fecharModalImpressaoCampo = function() { document.getElementById('modalIm
 
 window.imprimirRelatorioEscalaSemanalCampo = function() {
     if (!window.currentDatasCampo || window.currentDatasCampo.length === 0) return alert("Nenhuma escala visível.");
-    let html = `<html><head><title>Escala Semanal Dinâmica</title><style>@page { size: A4 landscape; margin: 10mm; } body { font-family: Arial; font-size: 11px; } .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 15px; } h1 { margin: 0; font-size: 18px; } table { width: 100%; border-collapse: collapse; text-align: center; } th, td { border: 1px solid #000; padding: 4px; font-size: 10px; } th { background-color: #d1d5db; } .f { background-color: #f8d7da; font-weight: bold; } .t { background-color: #d4edda; font-weight: bold; }</style></head><body>`;
+    let html = `<html><head><title>Escala Semanal Dinâmica</title><style>@page { size: A4 landscape; margin: 10mm; } body { font-family: Arial; font-size: 11px; } .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 15px; } h1 { margin: 0; font-size: 18px; } table { width: 100%; border-collapse: collapse; text-align: center; } th, td { border: 1px solid #000; padding: 4px; font-size: 10px; } th { background-color: #d1d5db; } .f { background-color: #f8d7da; font-weight: bold; } .tdia { background-color: #d4edda; font-weight: bold; } .tnoite { background-color: #cbd5e1; font-weight: bold; }</style></head><body>`;
     html += `<div class="header"><h1>Escala Semanal de Frentes e Colaboradores</h1></div>`;
     
     const dateStrs = window.currentDatasCampo.map(d => d.dateKey);
@@ -542,15 +592,35 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
             let ops = membrosFrente.filter(op => op.funcao === funcaoNome);
             if (ops.length === 0) return;
             
-            html += `<h4 style="margin:5px 0;">Função: ${funcaoNome}</h4><table><thead><tr><th style="width:12%;">Máquina/Liderança</th><th style="width:8%;">Ciclo</th><th style="width:8%;">Regime</th><th style="width:8%;">Turno</th><th style="text-align:left;">Nome</th>${window.currentDatasCampo.map(d => `<th style="width:7%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
+            html += `<h4 style="margin:5px 0;">Função: ${funcaoNome}</h4><table><thead><tr><th style="width:12%;">Máquina/Liderança</th><th style="width:8%;">Ciclo</th><th style="width:8%;">Regime</th><th style="width:8%;">Turno Início</th><th style="text-align:left;">Nome</th>${window.currentDatasCampo.map(d => `<th style="width:7%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
+            
+            // Ordenação idêntica ao painel web
             ops.sort((a,b) => {
+                const dKey = window.currentDatasCampo[0].dateKey;
+                const escA = matrizEscala[a.id][dKey];
+                const escB = matrizEscala[b.id][dKey];
+                
+                const getPeso = (esc) => {
+                    if (!esc || esc.statusEscala === 'FOLGA' || esc.statusEscala === 'F') return 3;
+                    let isDia = esc.turno && (esc.turno.startsWith('06:00') || esc.turno.startsWith('07:00'));
+                    return isDia ? 1 : 2;
+                };
+
+                let pesoA = getPeso(escA);
+                let pesoB = getPeso(escB);
+                if (pesoA !== pesoB) return pesoA - pesoB;
+
+                let turnoA = escA ? escA.turno : (a.turno || '');
+                let turnoB = escB ? escB.turno : (b.turno || '');
+                if (turnoA !== turnoB) return (turnoA || '').localeCompare(turnoB || '');
+
                 let maqA = a.maquina_especifica || 'Z'; let maqB = b.maquina_especifica || 'Z';
                 if(maqA !== maqB) return maqA.localeCompare(maqB);
-                let turnoA = a.turno || ''; let turnoB = b.turno || '';
-                if(turnoA !== turnoB) return turnoA.localeCompare(turnoB);
+                
                 let eqA = a.equipe === 'Fixo' ? 1 : 2; let eqB = b.equipe === 'Fixo' ? 1 : 2;
                 return eqA - eqB;
             });
+            
             ops.forEach(op => {
                 let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
                 if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; } 
@@ -559,7 +629,12 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
                 window.currentDatasCampo.forEach(d => {
                     const esc = matrizEscala[op.id][d.dateKey];
                     const isF = esc.statusEscala === 'FOLGA' || esc.statusEscala === 'F';
-                    html += `<td class="${isF ? 'f' : 't'}">${isF ? 'F' : esc.statusEscala}</td>`;
+                    let isDia = esc.turno && (esc.turno.startsWith('06:00') || esc.turno.startsWith('07:00'));
+                    let turnoLetra = '';
+                    if ((op.tipo_escala === '4x2 Alternado' || op.tipo_escala === '4x2v') && !isF) {
+                        turnoLetra = isDia ? `<br>☀ ${esc.turno}` : `<br>☾ ${esc.turno}`;
+                    }
+                    html += `<td class="${isF ? 'f' : (isDia ? 'tdia' : 'tnoite')}">${isF ? 'F' : esc.statusEscala + turnoLetra}</td>`;
                 });
                 html += `</tr>`;
             });
@@ -574,7 +649,7 @@ window.exportarEscalaCampoExcel = function() {
     const inputData = document.getElementById('campoDataEscala');
     let dataBase = inputData && inputData.value ? new Date(inputData.value + 'T00:00:00') : new Date();
     const ano = dataBase.getFullYear(), mes = dataBase.getMonth(), diasNoMes = new Date(ano, mes + 1, 0).getDate();
-    let csvContent = "\uFEFFFrente;Função;Máquina;Ciclo;Turno;Regime;Operador";
+    let csvContent = "\uFEFFFrente;Função;Máquina;Ciclo;Turno Início;Regime;Operador";
     
     let dateStrs = [];
     for (let dia = 1; dia <= diasNoMes; dia++) {
@@ -587,11 +662,29 @@ window.exportarEscalaCampoExcel = function() {
 
     let excelOps = [...window.equipeCampo];
     excelOps.sort((a,b) => {
+        const dKey = dateStrs[0];
+        const escA = matrizEscala[a.id] ? matrizEscala[a.id][dKey] : null;
+        const escB = matrizEscala[b.id] ? matrizEscala[b.id][dKey] : null;
+
         if(a.maquina_id !== b.maquina_id) return (a.maquina_id || 0) - (b.maquina_id || 0);
         let fA = a.funcao || 'Z'; let fB = b.funcao || 'Z';
         if(fA !== fB) return fA.localeCompare(fB);
+        
+        const getPeso = (esc) => {
+            if (!esc || esc.statusEscala === 'FOLGA' || esc.statusEscala === 'F') return 3;
+            let isDia = esc.turno && (esc.turno.startsWith('06:00') || esc.turno.startsWith('07:00'));
+            return isDia ? 1 : 2;
+        };
+        let pesoA = getPeso(escA); let pesoB = getPeso(escB);
+        if (pesoA !== pesoB) return pesoA - pesoB;
+
+        let turnoA = escA ? escA.turno : '';
+        let turnoB = escB ? escB.turno : '';
+        if (turnoA !== turnoB) return (turnoA || '').localeCompare(turnoB || '');
+
         let maqA = a.maquina_especifica || 'Z'; let maqB = b.maquina_especifica || 'Z';
         if(maqA !== maqB) return maqA.localeCompare(maqB);
+        
         let eqA = a.equipe === 'Fixo' ? 1 : 2; let eqB = b.equipe === 'Fixo' ? 1 : 2;
         return eqA - eqB;
     });
@@ -609,7 +702,12 @@ window.exportarEscalaCampoExcel = function() {
         for (let dia = 1; dia <= diasNoMes; dia++) {
             const dStr = dateStrs[dia - 1];
             const esc = matrizEscala[op.id][dStr];
-            linha += `;${(esc.statusEscala === 'FOLGA' || esc.statusEscala === 'F') ? 'F' : esc.statusEscala}`;
+            const isF = esc.statusEscala === 'FOLGA' || esc.statusEscala === 'F';
+            let turnoLetra = '';
+            if ((op.tipo_escala === '4x2 Alternado' || op.tipo_escala === '4x2v') && !isF) {
+                turnoLetra = esc.turno ? ` (${esc.turno})` : '';
+            }
+            linha += `;${isF ? 'F' : esc.statusEscala + turnoLetra}`;
         }
         csvContent += linha + "\n";
     });
@@ -624,7 +722,7 @@ window.gerarRelatorioImpressaoCampo = function() {
     
     const matrizEscala = window.calcularMatrizEscala(window.equipeCampo, window.maquinasCampo, [dStr]);
 
-    let html = `<html><head><title>Escala Diária Campo</title><style>@page { size: A4 portrait; margin: 15mm; } body { font-family: Arial; font-size: 12px; } .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; } table { width: 100%; border-collapse: collapse; text-align: center; } th, td { border: 1px solid #000; padding: 6px; } th { background-color: #d1d5db; } .t { background-color: #d4edda; font-weight: bold; }</style></head><body>`;
+    let html = `<html><head><title>Escala Diária Campo</title><style>@page { size: A4 portrait; margin: 15mm; } body { font-family: Arial; font-size: 12px; } .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; } table { width: 100%; border-collapse: collapse; text-align: center; } th, td { border: 1px solid #000; padding: 6px; } th { background-color: #d1d5db; }</style></head><body>`;
     html += `<div class="header"><h1>Diária Campo - ${dForm}</h1></div>`;
     const trabs = [];
     window.equipeCampo.forEach(op => {
@@ -636,14 +734,27 @@ window.gerarRelatorioImpressaoCampo = function() {
             let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
             if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; } 
             else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) { nomeMaqVisual = 'Cobrir M1/M2'; }
-            trabs.push({ n: op.nome, f: nFront, func: op.funcao || '-', m: nomeMaqVisual, c: op.tipo_escala||'4x2', t: op.turno||'-', v: esc.statusEscala });
+            let turnoExibicao = (op.tipo_escala === '4x2 Alternado' || op.tipo_escala === '4x2v') ? esc.turno : (op.turno||'-');
+            trabs.push({ n: op.nome, f: nFront, func: op.funcao || '-', m: nomeMaqVisual, c: op.tipo_escala||'4x2', t: turnoExibicao, v: esc.statusEscala });
         }
     });
     if (trabs.length === 0) html += '<p>Ninguém escalado.</p>';
     else {
-        html += `<table><thead><tr><th>Frente</th><th>Função</th><th>Máquina/Líder</th><th>Ciclo</th><th>Turno</th><th style="text-align:left;">Operador</th><th>Alocação</th></tr></thead><tbody>`;
-        trabs.sort((a,b) => a.f.localeCompare(b.f) || a.func.localeCompare(b.func) || a.m.localeCompare(b.m)).forEach(l => { 
-            html += `<tr><td>${l.f}</td><td>${l.func}</td><td>${l.m}</td><td>${l.c}</td><td>${l.t}</td><td style="text-align:left;"><b>${l.n}</b></td><td class="t">${l.v}</td></tr>`; 
+        html += `<table><thead><tr><th>Frente</th><th>Função</th><th>Máquina/Líder</th><th>Ciclo</th><th>Turno Escala</th><th style="text-align:left;">Operador</th><th>Alocação</th></tr></thead><tbody>`;
+        trabs.sort((a,b) => {
+            let isDiaA = a.t && (a.t.startsWith('06:00') || a.t.startsWith('07:00'));
+            let isDiaB = b.t && (b.t.startsWith('06:00') || b.t.startsWith('07:00'));
+            let pesoA = isDiaA ? 1 : 2;
+            let pesoB = isDiaB ? 1 : 2;
+            if (pesoA !== pesoB) return pesoA - pesoB;
+            if (a.t !== b.t) return (a.t || '').localeCompare(b.t || '');
+            if (a.f !== b.f) return a.f.localeCompare(b.f);
+            if (a.func !== b.func) return a.func.localeCompare(b.func);
+            return a.m.localeCompare(b.m);
+        }).forEach(l => { 
+            let isDia = l.t && (l.t.startsWith('06:00') || l.t.startsWith('07:00'));
+            let bgStyle = isDia ? 'background-color: #d4edda; font-weight: bold;' : 'background-color: #cbd5e1; font-weight: bold;';
+            html += `<tr><td>${l.f}</td><td>${l.func}</td><td>${l.m}</td><td>${l.c}</td><td>${l.t}</td><td style="text-align:left;"><b>${l.n}</b></td><td style="${bgStyle}">${l.v}</td></tr>`; 
         });
         html += `</tbody></table>`;
     }

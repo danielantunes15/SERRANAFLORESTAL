@@ -52,6 +52,7 @@
                 <label style="color: #10b981;">Tipo de Escala (Ciclo)</label>
                 <select id="alocFormTipoEscala" class="dark-select" style="border-color: #10b981;">
                     <option value="4x2">4x2 (4 Dias Trab / 2 Folgas)</option>
+                    <option value="4x2 Alternado">4x2 Alternado (Alterna Turno após folga)</option>
                     <option value="4x4">4x4 (4 Dias Trab / 4 Folgas)</option>
                     <option value="5x2">5x2 (5 Dias Trab / 2 Folgas)</option>
                     <option value="6x1">6x1 (6 Dias Trab / 1 Folga)</option>
@@ -67,10 +68,12 @@
             </div>
             
             <div class="form-group-dark">
-                <label>Turno Padrão</label>
+                <label>Turno Padrão (Horário Inicial do Ciclo)</label>
                 <select id="alocFormTurno" class="dark-select">
-                    <option value="06:00 - 18:00">06:00 - 18:00 (Diurno)</option>
-                    <option value="18:00 - 06:00">18:00 - 06:00 (Noturno)</option>
+                    <option value="06:00 - 18:00">06:00 - 18:00</option>
+                    <option value="18:00 - 06:00">18:00 - 06:00</option>
+                    <option value="07:00 - 19:00">07:00 - 19:00</option>
+                    <option value="19:00 - 07:00">19:00 - 07:00</option>
                 </select>
             </div>
             

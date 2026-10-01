@@ -186,6 +186,7 @@ window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
         <td style="padding: 5px;">
             <select class="dark-select" id="aloc_tipoescala_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem; border-color: #10b981; color: #10b981;">
                 <option value="4x2" ${tipoEscalaAtual==='4x2'?'selected':''}>4x2</option>
+                <option value="4x2 Alternado" ${tipoEscalaAtual==='4x2 Alternado'||tipoEscalaAtual==='4x2v'?'selected':''}>4x2 Alternado</option>
                 <option value="4x4" ${tipoEscalaAtual==='4x4'?'selected':''}>4x4</option>
                 <option value="5x2" ${tipoEscalaAtual==='5x2'?'selected':''}>5x2</option>
                 <option value="6x1" ${tipoEscalaAtual==='6x1'?'selected':''}>6x1</option>
@@ -201,6 +202,8 @@ window.gerarLinhaTabelaAlocacao = function(op, selectFrentes) {
             <select class="dark-select" id="aloc_turno_${op.id}" style="padding: 4px 8px; width: 100%; font-size: 0.8rem; border-color: #38bdf8;">
                 <option value="06:00 - 18:00" ${op.turno==='06:00 - 18:00'?'selected':''}>06:00 - 18:00</option>
                 <option value="18:00 - 06:00" ${op.turno==='18:00 - 06:00'?'selected':''}>18:00 - 06:00</option>
+                <option value="07:00 - 19:00" ${op.turno==='07:00 - 19:00'?'selected':''}>07:00 - 19:00</option>
+                <option value="19:00 - 07:00" ${op.turno==='19:00 - 07:00'?'selected':''}>19:00 - 07:00</option>
             </select>
         </td>
         <td style="padding: 5px;">
@@ -242,14 +245,14 @@ window.renderizarPainelMaquinasCampo = function() {
         html += `<div style="background: rgba(15, 23, 42, 0.8); border: 2px solid #3b82f6; border-radius: 10px; padding: 15px;">`;
         html += `<h2 style="color: #3b82f6; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(59, 130, 246, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-network-wired"></i> ${frente.nome || `Frente ${frente.id}`}</h2>`;
         
-        const theadGeral = `<thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Ciclo</th><th>Papel</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Início</th><th>Ação</th></tr></thead>`;
+        const theadGeral = `<thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Ciclo</th><th>Papel</th><th>Turno (Horário Inicial)</th><th>Frente</th><th>Máquina</th><th>Data Início</th><th>Ação</th></tr></thead>`;
 
         window.funcoesSelecionadasEscala.forEach(funcaoNome => {
             const operadores = membrosFrente.filter(op => op.funcao === funcaoNome);
             if (operadores.length === 0) return;
 
             operadores.sort((a,b) => {
-                const peso = o => ((o.turno || '').includes('06:00') ? 0 : 10) + (o.equipe === 'Fixo' ? 1 : 2);
+                const peso = o => ((o.turno || '').includes('06:00') || (o.turno || '').includes('07:00') ? 0 : 10) + (o.equipe === 'Fixo' ? 1 : 2);
                 return peso(a) - peso(b);
             });
 
@@ -272,7 +275,7 @@ window.renderizarPainelMaquinasCampo = function() {
     // Reservas Totais (Sem nenhuma frente)
     const reservas = window.equipeCampo.filter(op => !op.maquina_id);
     if (reservas.length > 0) {
-        const theadGeral = `<thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Ciclo</th><th>Papel</th><th>Turno</th><th>Frente</th><th>Máquina</th><th>Data Início</th><th>Ação</th></tr></thead>`;
+        const theadGeral = `<thead><tr style="background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem;"><th style="padding: 8px; text-align:left;">Membro</th><th>Função</th><th>Ciclo</th><th>Papel</th><th>Turno (Horário Inicial)</th><th>Frente</th><th>Máquina</th><th>Data Início</th><th>Ação</th></tr></thead>`;
         html += `<div style="background: rgba(239, 68, 68, 0.1); border: 2px solid #ef4444; border-radius: 10px; padding: 15px; margin-top: 20px;">
             <h2 style="color: #ef4444; margin-top: 0; font-size: 1.3rem; border-bottom: 2px solid rgba(239, 68, 68, 0.3); padding-bottom: 10px; margin-bottom: 20px;"><i class="fas fa-users-slash"></i> Sem Frente Definida (Reservas Globais)</h2>`;
         
@@ -380,7 +383,12 @@ window.abrirModalAlocacaoRapida = function(id) {
     
     document.getElementById('alocFormId').value = op.id;
     document.getElementById('alocNomeExibicao').innerText = op.nome;
-    document.getElementById('alocFormTipoEscala').value = op.tipo_escala || '4x2';
+    
+    // Tratativa de suporte a legado se estivesse gravado como 4x2v no BD
+    let escValor = op.tipo_escala || '4x2';
+    if(escValor === '4x2v') escValor = '4x2 Alternado';
+    
+    document.getElementById('alocFormTipoEscala').value = escValor;
     document.getElementById('alocFormMaquina').value = op.maquina_id || '';
     document.getElementById('alocFormMaquinaEspecifica').value = op.maquina_especifica || '';
     document.getElementById('alocFormEquipe').value = op.equipe || 'Fixo';
