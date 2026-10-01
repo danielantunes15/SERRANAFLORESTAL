@@ -169,30 +169,47 @@
         if (tbody2) tbody2.innerHTML = `<tr><td colspan="10" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Carregando dados de manutenção...</td></tr>`;
         
         try {
-            // 1. Frota
-            const { data: frotasData } = await client.from('frotas_manutencao').select('*').eq('categoria', 'TRITREM');
+            // 1. Frota - Aplicado filtro por filial
+            let queryFrota = client.from('frotas_manutencao').select('*').eq('categoria', 'TRITREM');
+            if (typeof window.aplicarFiltroFilial === 'function') {
+                queryFrota = window.aplicarFiltroFilial(queryFrota);
+            }
+            const { data: frotasData } = await queryFrota;
             if (frotasData) frotasTritremAtivas = frotasData;
 
-            // 2. Viagens
+            // 2. Viagens - Aplicado filtro por filial
             dadosHistoricoCompletos = [];
             let from = 0; const step = 1000; let fetchMore = true;
             while (fetchMore) {
-                let query = client.from('historico_viagens').select('*').ilike('transportadora', '%SERRANALOG TRANSPORTES LTDA%').range(from, from + step - 1);
-                if (typeof window.aplicarFiltroLocal === 'function') query = window.aplicarFiltroLocal(query);
-                const { data, error } = await query;
+                let queryViagens = client.from('historico_viagens').select('*').ilike('transportadora', '%SERRANALOG TRANSPORTES LTDA%').range(from, from + step - 1);
+                
+                // Tenta aplicar o filtro de local/filial adequado à tabela de viagens
+                if (typeof window.aplicarFiltroLocal === 'function') {
+                    queryViagens = window.aplicarFiltroLocal(queryViagens);
+                } else if (typeof window.aplicarFiltroFilial === 'function') {
+                    queryViagens = window.aplicarFiltroFilial(queryViagens);
+                }
+
+                const { data, error } = await queryViagens;
                 if (error) break;
                 if (data && data.length > 0) { dadosHistoricoCompletos = dadosHistoricoCompletos.concat(data); from += step; }
                 if (!data || data.length < step) fetchMore = false;
             }
 
-            // 3. Ordens de Serviço
+            // 3. Ordens de Serviço - Aplicado filtro por filial
             dadosOSCompletos = [];
             let fromOs = 0; let fetchMoreOs = true;
             while (fetchMoreOs) {
-                const { data: osData, error: osError } = await client
+                let queryOs = client
                     .from('ordens_servico')
                     .select('placa, data_abertura, data_conclusao, inativa, tipo, problema')
                     .range(fromOs, fromOs + step - 1);
+                
+                if (typeof window.aplicarFiltroFilial === 'function') {
+                    queryOs = window.aplicarFiltroFilial(queryOs);
+                }
+
+                const { data: osData, error: osError } = await queryOs;
                     
                 if (osError) {
                     console.error("[DESEMPENHO] Erro ao buscar OS:", osError);
