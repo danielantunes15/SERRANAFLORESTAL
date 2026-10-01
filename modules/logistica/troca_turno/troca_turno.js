@@ -8,6 +8,166 @@ window.motSelectPendente = null;
 window.dadosHistoricoTrocasAtual = []; 
 window.dadosIndicadoresBrutos = []; 
 
+window.focarNaTabela = function(domId) {
+    window.alternarAbaTroca('registros');
+    setTimeout(() => {
+        const linha = document.getElementById(`tr_${domId}`);
+        if (linha) {
+            linha.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            linha.style.boxShadow = 'inset 0 0 15px rgba(59, 130, 246, 0.8)';
+            setTimeout(() => { linha.style.boxShadow = 'none'; }, 2000);
+        }
+    }, 300);
+}
+
+window.concluirTurnoReserva = async function(nome, turnoStr) {
+    if (!confirm(`Deseja concluir o turno do motorista Reserva/Disponível: ${nome}?`)) return;
+    
+    const dataRef = document.getElementById('dataFiltroTroca').value;
+    const agora = new Date();
+    const horaStr = String(agora.getHours()).padStart(2, '0') + ':' + String(agora.getMinutes()).padStart(2, '0');
+
+    try {
+        const p = { 
+            data_referencia: dataRef, 
+            cavalo: 'RESERVA', 
+            turno_referencia: turnoStr, 
+            motorista_entregou: nome, 
+            motorista_assumiu: nome, 
+            local_troca_id: null, 
+            horario_entregou: horaStr,
+            horario_assumiu: horaStr,
+            tempo_troca_minutos: 0,
+            horario_previsto_largar: null, 
+            saldo_minutos: 0,
+            observacao: 'Turno de reserva concluído via Kanban.', 
+            filial_id: 7
+        };
+        
+        const { error } = await window.supabaseClient.from('troca_turno_linhares').insert([p]);
+        if (error) throw error;
+        
+        alert("Turno do motorista reserva concluído com sucesso!");
+        window.carregarTrocasDoDia();
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao concluir turno do reserva.");
+    }
+};
+
+window.atualizarIndicadoresEscalaHorario = function(dataRef) {
+    const mLista = (typeof motoristas !== 'undefined') ? motoristas : (window.motoristas || []);
+    let contagemDia = {}; 
+    let contagemNoite = {};
+    let totalDia = 0;
+    let totalNoite = 0;
+
+    const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
+
+    mLista.forEach(m => {
+        if (isLinhares) {
+            const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
+            if (isBlocked || !m.data_ancora) return; 
+
+            const dDate = new Date(dataRef + "T12:00:00");
+            const strAncora = m.data_ancora.split('T')[0];
+            const dataAncora = new Date(strAncora + 'T12:00:00');
+            
+            const utcAncora = Date.UTC(dataAncora.getFullYear(), dataAncora.getMonth(), dataAncora.getDate());
+            const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
+            const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
+            const ciclo12 = ((diffDays % 12) + 12) % 12;
+
+            let estado = 2; // 2 = Folga
+            if (ciclo12 < 4) estado = 0; // 0 = Dia
+            else if (ciclo12 >= 6 && ciclo12 < 10) estado = 1; // 1 = Noite
+
+            if (estado !== 2) { 
+                let horario = '';
+                if (m.turno && m.turno !== '-') {
+                    const ciclos = typeof window.getCiclos === 'function' ? window.getCiclos() : [];
+                    let cicloMatch = ciclos.find(c => c.dbValue === m.turno);
+                    if (cicloMatch) {
+                        horario = estado === 0 ? cicloMatch.labelDia : cicloMatch.labelNoite;
+                    } else {
+                        horario = m.turno;
+                    }
+                } else {
+                    horario = estado === 0 ? '06:00' : '18:00';
+                }
+
+                if (estado === 0) {
+                    if(!contagemDia[horario]) contagemDia[horario] = [];
+                    contagemDia[horario].push(m.nome);
+                    totalDia++;
+                } else {
+                    if(!contagemNoite[horario]) contagemNoite[horario] = [];
+                    contagemNoite[horario].push(m.nome);
+                    totalNoite++;
+                }
+            }
+        } else {
+            if (typeof window.getEscalaDiaComputada === 'function') {
+                const esc = window.getEscalaDiaComputada(m, dataRef);
+                if (esc && esc.caminhao && esc.caminhao !== 'F' && esc.caminhao.toUpperCase() !== 'FOLGA') {
+                    let turnoOriginal = esc.turno || m.turno || '';
+                    let horarioInicio = esc.inicio || m.inicio_turno || '';
+                    
+                    if (!horarioInicio) {
+                        if (turnoOriginal.includes('2') || turnoOriginal.toUpperCase().includes('NOITE')) {
+                            horarioInicio = '18:00';
+                        } else if (turnoOriginal.includes('1') || turnoOriginal.toUpperCase().includes('DIA')) {
+                            horarioInicio = '06:00';
+                        } else {
+                            horarioInicio = 'N/I';
+                        }
+                    } else {
+                        horarioInicio = horarioInicio.substring(0, 5); 
+                    }
+
+                    const horaInt = parseInt(horarioInicio.split(':')[0]) || 0;
+                    const isNoite = turnoOriginal.includes('2') || turnoOriginal.toUpperCase().includes('NOITE') || (horaInt >= 17 || horaInt < 4);
+
+                    if (isNoite) {
+                        if(!contagemNoite[horarioInicio]) contagemNoite[horarioInicio] = [];
+                        contagemNoite[horarioInicio].push(m.nome);
+                        totalNoite++;
+                    } else {
+                        if(!contagemDia[horarioInicio]) contagemDia[horarioInicio] = [];
+                        contagemDia[horarioInicio].push(m.nome);
+                        totalDia++;
+                    }
+                }
+            }
+        }
+    });
+
+    const elTotDia = document.getElementById('kpiTotalDia');
+    const elTotNoite = document.getElementById('kpiTotalNoite');
+    const elListaDia = document.getElementById('listaHorariosDia');
+    const elListaNoite = document.getElementById('listaHorariosNoite');
+
+    if (elTotDia) elTotDia.innerText = totalDia;
+    if (elTotNoite) elTotNoite.innerText = totalNoite;
+
+    const renderBadges = (contagemDict, colorText, cssClass) => {
+        const horarios = Object.keys(contagemDict).sort();
+        if (horarios.length === 0) return `<span style="color:#64748b; font-size:0.85rem;">Nenhum motorista escalado</span>`;
+        
+        return horarios.map(h => {
+            const nomesOrdenados = contagemDict[h].sort().join('&#10;');
+            return `
+            <div class="badge-escala ${cssClass}" title="MOTORISTAS NESTE HORÁRIO:&#10;${nomesOrdenados}">
+                <span style="font-size: 0.85rem; color: #cbd5e1; font-weight: 600; margin-bottom: 5px;"><i class="far fa-clock" style="margin-right: 4px;"></i>${h}</span>
+                <span style="font-size: 1.4rem; font-weight: 900; color: ${colorText};">${contagemDict[h].length} <i class="fas fa-users" style="font-size:0.9rem; opacity:0.7;"></i></span>
+            </div>
+        `}).join('');
+    };
+
+    if (elListaDia) elListaDia.innerHTML = renderBadges(contagemDia, '#38bdf8', '');
+    if (elListaNoite) elListaNoite.innerHTML = renderBadges(contagemNoite, '#a5b4fc', 'badge-escala-noite');
+}
+
 window.renderizarTrocaTurno = async function() {
     const inputTroca = document.getElementById('dataFiltroTroca');
     if (inputTroca && !inputTroca.value) {
@@ -63,7 +223,7 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 window.alternarAbaTroca = function(aba) {
-    const abas = ['registros', 'performance', 'locais', 'historico', 'indicadores'];
+    const abas = ['registros', 'kanban', 'performance', 'locais', 'historico', 'indicadores'];
     const prefixAba = 'aba-';
     const prefixBtn = 'btnAba';
 
@@ -80,7 +240,7 @@ window.alternarAbaTroca = function(aba) {
     const btnAtivo = document.getElementById(prefixBtn + aba.charAt(0).toUpperCase() + aba.slice(1));
     if (btnAtivo) btnAtivo.className = 'btn-primary-blue';
 
-    if (aba === 'registros') {
+    if (aba === 'registros' || aba === 'kanban') {
         window.carregarTrocasDoDia();
     } else if (aba === 'performance') {
         const inputDataPerf = document.getElementById('filtroDataPerformance');
@@ -186,7 +346,6 @@ window.calcularTempoTroca = function(domId) {
     const divProx = document.getElementById(`prox_${domId}`);
     const alertaDisp = document.getElementById(`alerta_disp_${domId}`);
 
-    // Projeção do Largar (Assumiu + 12h)
     if(ha) {
         let [h, m] = ha.split(':').map(Number);
         divProx.innerText = `${((h + 12) % 24).toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
@@ -194,7 +353,6 @@ window.calcularTempoTroca = function(domId) {
         divProx.innerText = '--:--';
     }
 
-    // Cálculo do Tempo Gasto na troca
     if(he && ha) {
         let [he_h, he_m] = he.split(':').map(Number);
         let [ha_h, ha_m] = ha.split(':').map(Number);
@@ -202,7 +360,7 @@ window.calcularTempoTroca = function(domId) {
         let minA = ha_h * 60 + ha_m;
         
         let diff = minA - minE;
-        if (diff < 0) diff += 24 * 60; // Passou da meia noite
+        if (diff < 0) diff += 24 * 60; 
 
         let diffH = Math.floor(diff / 60);
         let diffM = diff % 60;
@@ -213,7 +371,6 @@ window.calcularTempoTroca = function(domId) {
         divTempo.innerText = '--';
     }
 
-    // Cálculo dinâmico do Tempo Disponível / Atraso (Entregou x Previsto Largar)
     if (heInput && alertaDisp) {
         const previsto = heInput.getAttribute('data-previsto');
         if (previsto && he) {
@@ -231,14 +388,14 @@ window.calcularTempoTroca = function(domId) {
             if (diffDisp > 0) {
                 let dispH = Math.floor(diffDisp / 60);
                 let dispM = diffDisp % 60;
-                alertaDisp.innerHTML = `<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid #3b82f6; font-size: 0.75rem;">+${dispH}h ${dispM}m Disp</span>`;
+                alertaDisp.innerHTML = `<div style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.4); font-size: 0.75rem;">+${dispH}h ${dispM}m Disp</div>`;
             } else if (diffDisp < 0) {
                 let excesso = Math.abs(diffDisp);
                 let excH = Math.floor(excesso / 60);
                 let excM = excesso % 60;
-                alertaDisp.innerHTML = `<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid #ef4444; font-size: 0.75rem;">-${excH}h ${excM}m Atraso</span>`;
+                alertaDisp.innerHTML = `<div style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 0.75rem;">-${excH}h ${excM}m Atraso</div>`;
             } else {
-                alertaDisp.innerHTML = `<span style="background: rgba(16, 185, 129, 0.2); color: #4ade80; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid #10b981; font-size: 0.75rem;">Exato</span>`;
+                alertaDisp.innerHTML = `<div style="background: rgba(16, 185, 129, 0.2); color: #4ade80; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.75rem;">Exato</div>`;
             }
         } else {
             alertaDisp.innerHTML = '';
@@ -294,9 +451,18 @@ window.carregarTrocasDoDia = async function() {
     const tbody = document.getElementById('tbodyTrocaTurno');
     if (!tbody || !dataRef) return;
     
+    window.atualizarIndicadoresEscalaHorario(dataRef);
+
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 20px;">Processando frotas, turnos e continuidade...</td></tr>`;
     
     try {
+        if (window.locaisTrocaCache.length === 0) {
+            let resLocaisQuery = window.supabaseClient.from('locais_troca').select('*').order('nome');
+            resLocaisQuery = window.aplicarFiltroFilial(resLocaisQuery);
+            const resLocais = await resLocaisQuery;
+            if (resLocais.data) window.locaisTrocaCache = resLocais.data;
+        }
+
         const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
         let registros = [];
         let linhasData = [];
@@ -324,7 +490,7 @@ window.carregarTrocasDoDia = async function() {
                 .select('*').eq('filial_id', 7).eq('status', 'Ativo').eq('categoria', 'TRITREM');
 
             if (!frotaLinhares || frotaLinhares.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#f1c40f;">Nenhuma frota TRITREM ativa encontrada para Linhares.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#f1c40f;">Nenhuma frota TRITREM ativa encontrada.</td></tr>`;
                 return;
             }
 
@@ -386,15 +552,69 @@ window.carregarTrocasDoDia = async function() {
         const mListaOrdenada = [...mLista].sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
 
         let lastPlacaSeparador = null;
-        let html = '';
+        let htmlTabela = '';
+        
+        let htmlKbDisponivel = '';
+        let htmlKbPendente = '';
+        let htmlKbAndamento = '';
+        let htmlKbConcluido = '';
+        let countDisponivel = 0;
+        let countPendente = 0;
+        let countAndamento = 0;
+        let countConcluido = 0;
+
+        if (isLinhares) {
+            mListaOrdenada.forEach(m => {
+                const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
+                if (isBlocked || !m.data_ancora) return;
+
+                const dDate = new Date(dataRef + "T12:00:00");
+                const strAncora = m.data_ancora.split('T')[0];
+                const dataAncora = new Date(strAncora + 'T12:00:00');
+                const utcAncora = Date.UTC(dataAncora.getFullYear(), dataAncora.getMonth(), dataAncora.getDate());
+                const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
+                const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
+                const ciclo12 = ((diffDays % 12) + 12) % 12;
+
+                let estado = 2; // folga
+                if (ciclo12 < 4) estado = 0; // Dia
+                else if (ciclo12 >= 6 && ciclo12 < 10) estado = 1; // Noite
+
+                if (estado !== 2 && !m.conjuntoId) {
+                    let turnoStr = estado === 0 ? 'Dia' : 'Noite';
+                    let regDisp = registros.find(r => r.data_referencia === dataRef && r.cavalo === 'RESERVA' && r.motorista_entregou === m.nome);
+                    
+                    if (regDisp) {
+                        countConcluido++;
+                        htmlKbConcluido += `
+                            <div class="kanban-card">
+                                <div class="kb-placa">RESERVA <span style="font-size:0.7rem; font-weight:normal; background: rgba(168, 85, 247, 0.25); color: #d8b4fe; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(168,85,247,0.5);"><i class="fas fa-user-check"></i> ${turnoStr}</span></div>
+                                <div class="kb-info"><i class="fas fa-user" style="color:#a855f7; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
+                                <div class="kb-status-time">
+                                    <span><i class="far fa-clock"></i> Concluído às: ${regDisp.horario_entregou ? regDisp.horario_entregou.substring(0,5) : '--:--'}</span>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        countDisponivel++;
+                        htmlKbDisponivel += `
+                            <div class="kanban-card" style="border-left-color: #a855f7;">
+                                <div class="kb-placa">DISPONÍVEL <span style="font-size:0.7rem; font-weight:normal; background: rgba(168, 85, 247, 0.25); color: #d8b4fe; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(168,85,247,0.5);"><i class="fas fa-user-clock"></i> ${turnoStr}</span></div>
+                                <div class="kb-info"><i class="fas fa-user" style="color:#a855f7; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
+                                <button class="btn-primary-green" style="width: 100%; margin-top: 10px; padding: 8px; font-size: 0.8rem;" onclick="concluirTurnoReserva('${m.nome}', '${turnoStr}')"><i class="fas fa-check"></i> Concluir Turno</button>
+                            </div>
+                        `;
+                    }
+                }
+            });
+        }
 
         linhasData.forEach((linha, indiceGlobal) => {
             const { conjId, go, placaNorm, esc, idxTurno } = linha;
             const domId = `${placaNorm.replace(/[^A-Z0-9]/g, '')}_${idxTurno}_${indiceGlobal}`; 
             
-            // ESPAÇAMENTO ENTRE CAMINHÕES DIFERENTES
             if (lastPlacaSeparador && lastPlacaSeparador !== placaNorm) {
-                html += `<tr style="height: 12px; background: transparent;"><td colspan="8" style="border: none; padding: 0; box-shadow: none;"></td></tr>`;
+                htmlTabela += `<tr style="height: 12px; background: transparent;"><td colspan="8" style="border: none; padding: 0; box-shadow: none;"></td></tr>`;
             }
             lastPlacaSeparador = placaNorm;
 
@@ -405,6 +625,7 @@ window.carregarTrocasDoDia = async function() {
             let horarioEntregou = '';
             let horarioAssumiu = '';
             let obsReal = '';
+            let localTrocaIdStr = '';
             let diffRender = '--';
             let labelPrevisto = '';
             let horarioPrevistoLargarVal = ''; 
@@ -429,6 +650,7 @@ window.carregarTrocasDoDia = async function() {
                     horarioAssumiu = reg.horario_assumiu ? reg.horario_assumiu.substring(0,5) : '';
                     obsReal = reg.observacao || '';
                     motoristaProxSalvo = reg.motorista_assumiu || '';
+                    localTrocaIdStr = String(reg.local_troca_id || '');
                     
                     if (reg.tempo_troca_minutos !== null && reg.tempo_troca_minutos !== undefined) {
                         let diffH = Math.floor(reg.tempo_troca_minutos / 60);
@@ -463,27 +685,31 @@ window.carregarTrocasDoDia = async function() {
                     if (diffDisp > 0) {
                         let dispH = Math.floor(diffDisp / 60);
                         let dispM = diffDisp % 60;
-                        diffDispHTML = `<span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid #3b82f6; font-size: 0.75rem;">+${dispH}h ${dispM}m Disp</span>`;
+                        diffDispHTML = `<div style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.4); font-size: 0.75rem;">+${dispH}h ${dispM}m Disp</div>`;
                     } else if (diffDisp < 0) {
                         let excesso = Math.abs(diffDisp);
                         let excH = Math.floor(excesso / 60);
                         let excM = excesso % 60;
-                        diffDispHTML = `<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid #ef4444; font-size: 0.75rem;">-${excH}h ${excM}m Atraso</span>`;
+                        diffDispHTML = `<div style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 0.75rem;">-${excH}h ${excM}m Atraso</div>`;
                     } else {
-                        diffDispHTML = `<span style="background: rgba(16, 185, 129, 0.2); color: #4ade80; padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid #10b981; font-size: 0.75rem;">Exato</span>`;
+                        diffDispHTML = `<div style="background: rgba(16, 185, 129, 0.2); color: #4ade80; padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.75rem;">Exato</div>`;
                     }
                 }
 
                 if (horarioPrevistoLargarVal) {
                     labelPrevisto = `
-                        <div style="font-size:0.75rem; color:#94a3b8; margin-top:6px; display:flex; align-items:center;">
-                            Previsto: <b style="color:#fbbf24; margin:0 4px;">${horarioPrevistoLargarVal}</b> 
-                            <span style="font-size:0.65rem; color:#64748b; margin-right:5px;">(Assumiu ${dataInicioFmt} às ${horaInicioFmt})</span>
-                            <span id="alerta_disp_${domId}">${diffDispHTML}</span>
+                        <div style="font-size:0.75rem; color:#94a3b8; margin-top:8px; display:flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                            <div style="background: rgba(0,0,0,0.25); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 5px;" title="Iniciou Jornada">
+                                <i class="fas fa-flag-checkered" style="color:#4ade80;"></i> <b style="color:#e2e8f0;">${dataInicioFmt} ${horaInicioFmt}</b>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.25); padding: 4px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 5px;" title="Previsão para Largar">
+                                <i class="fas fa-stopwatch" style="color:#fbbf24;"></i> <b style="color:#fbbf24;">${horarioPrevistoLargarVal}</b>
+                            </div>
+                            <div id="alerta_disp_${domId}">${diffDispHTML}</div>
                         </div>
                     `;
                 } else {
-                    labelPrevisto = `<div style="font-size:0.75rem; color:#64748b; margin-top:6px;">Sem histórico de entrega</div>`;
+                    labelPrevisto = `<div style="font-size:0.75rem; color:#64748b; margin-top:8px;">Sem histórico de entrega anterior</div>`;
                 }
 
             } else {
@@ -492,6 +718,7 @@ window.carregarTrocasDoDia = async function() {
                 motoristaProxSalvo = reg.motorista_programado || esc.nome || '';
                 horarioAssumiu = reg.horario_real ? reg.horario_real.substring(0,5) : '';
                 obsReal = reg.observacao || '';
+                localTrocaIdStr = String(reg.local_troca_id || '');
             }
             
             let proximaTroca = '--:--';
@@ -510,12 +737,11 @@ window.carregarTrocasDoDia = async function() {
 
             let selectLocal = `<select id="local_${domId}" class="input-moderno" style="margin:0;"><option value="">Selecione...</option>`;
             window.locaisTrocaCache.forEach(l => {
-                const isSelected = (reg && reg.local_troca_id === l.id) ? 'selected' : '';
+                const isSelected = (localTrocaIdStr === String(l.id)) ? 'selected' : '';
                 selectLocal += `<option value="${l.id}" ${isSelected}>${l.nome}</option>`;
             });
             selectLocal += `</select>`;
 
-            // LÓGICA DE CORES E ÍCONES BASEADA NO TURNO (DIA vs NOITE)
             const isNoite = esc.originalTurno && (esc.originalTurno.includes("2") || esc.originalTurno.toUpperCase().includes("NOITE"));
             let baseBgColor = isNoite ? 'rgba(99, 102, 241, 0.12)' : 'rgba(56, 189, 248, 0.12)'; 
             let baseBorder = isNoite ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)';
@@ -523,41 +749,81 @@ window.carregarTrocasDoDia = async function() {
             let iconeTurno = isNoite ? '<i class="fas fa-moon" style="color: #a5b4fc;"></i>' : '<i class="fas fa-sun" style="color: #fde047;"></i>';
             let corBadge = isNoite ? 'background: rgba(99, 102, 241, 0.25); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.5);' : 'background: rgba(56, 189, 248, 0.25); color: #bae6fd; border: 1px solid rgba(56, 189, 248, 0.5);';
 
-            let inputHoraEntregou = isLinhares ? `<input type="time" id="hora_entregou_${domId}" data-previsto="${horarioPrevistoLargarVal}" class="input-moderno" value="${horarioEntregou}" onchange="calcularTempoTroca('${domId}')" title="Horário que entregou o caminhão" style="margin:0;">` : '<span style="font-size:0.8rem;color:#64748b;">N/A Filial</span>';
+            let inputHoraEntregou = isLinhares ? `<input type="time" id="hora_entregou_${domId}" data-previsto="${horarioPrevistoLargarVal}" class="input-moderno" value="${horarioEntregou}" onchange="calcularTempoTroca('${domId}')" title="Horário que entregou o caminhão" style="margin:0; text-align:center;">` : '<span style="font-size:0.8rem;color:#64748b;">N/A Filial</span>';
 
-            html += `
+            htmlTabela += `
                 <tr id="tr_${domId}" style="background: ${baseBgColor}; border-bottom: ${baseBorder}; transition: all 0.3s ease;" onmouseover="this.style.background='${baseHover}'" onmouseout="this.style.background='${baseBgColor}'">
-                    <td style="vertical-align: middle;">
+                    <td style="vertical-align: top; padding-top: 18px;">
                         <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-start;">
                             <span style="font-weight: 900; color: #fff; font-size: 1.15rem; letter-spacing: 1px;">${placaNorm}</span>
-                            ${isLinhares ? `<span class="badge-turno" style="font-size:0.75rem; padding: 3px 8px; ${corBadge}">${iconeTurno}${esc.turno || 'Indefinido'}</span>` : ''}
+                            <span class="badge-turno" style="font-size:0.75rem; padding: 3px 8px; ${corBadge}">${iconeTurno}${esc.turno || 'Indefinido'}</span>
                         </div>
                     </td>
-                    <td style="vertical-align: middle;">
+                    <td style="vertical-align: top; padding-top: 18px;">
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <div style="flex: 1; min-width: 150px;">${selectMotAtual}</div>
-                            <div style="width: 110px;">${inputHoraEntregou}</div>
+                            <div style="width: 100px;">${inputHoraEntregou}</div>
                         </div>
                         ${isLinhares ? `${labelPrevisto}` : ''}
                     </td>
-                    <td style="vertical-align: middle;">
+                    <td style="vertical-align: top; padding-top: 18px;">
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <div style="flex: 1; min-width: 150px;">${selectMotProx}</div>
-                            <div style="width: 110px;"><input type="time" id="hora_assumiu_${domId}" class="input-moderno" value="${horarioAssumiu}" onchange="calcularTempoTroca('${domId}')" title="Horário que assumiu o caminhão" style="margin:0;"></div>
+                            <div style="width: 100px;"><input type="time" id="hora_assumiu_${domId}" class="input-moderno" value="${horarioAssumiu}" onchange="calcularTempoTroca('${domId}')" title="Horário que assumiu o caminhão" style="margin:0; text-align:center;"></div>
                         </div>
                     </td>
-                    <td style="vertical-align: middle;">${selectLocal}</td>
-                    <td style="text-align: center; vertical-align: middle;"><span id="tempo_troca_${domId}">${diffRender}</span></td>
-                    <td style="text-align: center; vertical-align: middle;"><span id="prox_${domId}" class="hora-estimada">${proximaTroca}</span></td>
-                    <td style="vertical-align: middle;">
+                    <td style="vertical-align: top; padding-top: 18px;">${selectLocal}</td>
+                    <td style="text-align: center; vertical-align: top; padding-top: 25px;"><span id="tempo_troca_${domId}">${diffRender}</span></td>
+                    <td style="text-align: center; vertical-align: top; padding-top: 22px;"><span id="prox_${domId}" class="hora-estimada">${proximaTroca}</span></td>
+                    <td style="vertical-align: top; padding-top: 18px;">
                         <input type="text" id="obs_${domId}" class="input-moderno" placeholder="Observações..." value="${obsReal}" style="margin:0;">
                     </td>
-                    <td style="vertical-align: middle;"><button class="btn-primary-green" onclick="salvarTroca('${domId}', '${placaNorm}', '${esc.originalTurno}')" style="width:100%; padding:8px;"><i class="fas fa-save"></i> Salvar</button></td>
+                    <td style="vertical-align: top; padding-top: 18px;">
+                        <button class="btn-primary-green" onclick="salvarTroca('${domId}', '${placaNorm}', '${esc.originalTurno}')" style="width:100%; padding:8px;"><i class="fas fa-save"></i> Salvar</button>
+                    </td>
                 </tr>
             `;
+
+            let statusKb = 0; // 0=Pendente, 1=Andamento, 2=Concluído
+            if (isLinhares) {
+                if (horarioEntregou && !horarioAssumiu) statusKb = 1;
+                else if (horarioEntregou && horarioAssumiu) statusKb = 2;
+            } else {
+                if (horarioAssumiu) statusKb = 2;
+            }
+
+            let nomeEntregou = motoristaAtualSalvo || 'Aguardando CCO';
+            let nomeAssumiu = motoristaProxSalvo || esc.nome || 'Escala Vazia';
+            let htmlCard = `
+                <div class="kanban-card" onclick="focarNaTabela('${domId}')" style="border-left-color: ${statusKb === 0 ? '#94a3b8' : (statusKb === 1 ? '#f59e0b' : '#10b981')};">
+                    <div class="kb-placa">${placaNorm} <span style="font-size:0.7rem; font-weight:normal; ${corBadge}; padding: 2px 6px; border-radius: 4px;">${iconeTurno} ${esc.turno || ''}</span></div>
+                    <div class="kb-info"><i class="fas fa-sign-out-alt" style="color:#f87171; width:15px;"></i> Sai: <span style="color:#fff;">${nomeEntregou}</span></div>
+                    <div class="kb-info"><i class="fas fa-sign-in-alt" style="color:#4ade80; width:15px;"></i> Entra: <span style="color:#fff;">${nomeAssumiu}</span></div>
+                    <div class="kb-status-time">
+                        <span><i class="far fa-clock"></i> E: ${horarioEntregou || '--:--'}</span>
+                        <span><i class="far fa-clock"></i> A: ${horarioAssumiu || '--:--'}</span>
+                    </div>
+                </div>
+            `;
+
+            if (statusKb === 0) { countPendente++; htmlKbPendente += htmlCard; }
+            else if (statusKb === 1) { countAndamento++; htmlKbAndamento += htmlCard; }
+            else if (statusKb === 2) { countConcluido++; htmlKbConcluido += htmlCard; }
         });
         
-        tbody.innerHTML = html;
+        tbody.innerHTML = htmlTabela;
+
+        document.getElementById('kb-col-disponivel').innerHTML = htmlKbDisponivel;
+        document.getElementById('kb-count-disponivel').innerText = countDisponivel;
+
+        document.getElementById('kb-col-pendente').innerHTML = htmlKbPendente;
+        document.getElementById('kb-count-pendente').innerText = countPendente;
+
+        document.getElementById('kb-col-andamento').innerHTML = htmlKbAndamento;
+        document.getElementById('kb-count-andamento').innerText = countAndamento;
+
+        document.getElementById('kb-col-concluido').innerHTML = htmlKbConcluido;
+        document.getElementById('kb-count-concluido').innerText = countConcluido;
         
     } catch (e) {
         console.error("Erro na varredura", e);
@@ -593,7 +859,6 @@ window.salvarTroca = async function(domId, placa, turnoPrevisto) {
         
         horaPrevistaLargar = `${((ha_h + 12) % 24).toString().padStart(2, '0')}:${ha_m.toString().padStart(2, '0')}`;
 
-        // Cálculo do Saldo para salvar no banco
         const heInput = document.getElementById(`hora_entregou_${domId}`);
         const horaPrevistaLargarVal = heInput ? heInput.getAttribute('data-previsto') : null;
         
@@ -629,7 +894,7 @@ window.salvarTroca = async function(domId, placa, turnoPrevisto) {
                 turno_referencia: turnoPrevisto, 
                 motorista_entregou: motoristaAtual || null, 
                 motorista_assumiu: motoristaProx || null, 
-                local_troca_id: localId ? parseInt(localId, 10) : null, 
+                local_troca_id: localId || null, 
                 horario_entregou: formatTime(horaEntregou),
                 horario_assumiu: formatTime(horaAssumiu),
                 tempo_troca_minutos: tempoTrocaMin !== null && !isNaN(tempoTrocaMin) ? parseInt(tempoTrocaMin, 10) : null,
@@ -659,7 +924,7 @@ window.salvarTroca = async function(domId, placa, turnoPrevisto) {
                 turno_previsto: turnoPrevisto, 
                 motorista_atual: motoristaAtual || null, 
                 motorista_programado: motoristaProx || null, 
-                local_troca_id: localId ? parseInt(localId, 10) : null, 
+                local_troca_id: localId || null, 
                 horario_real: formatTime(horaAssumiu), 
                 observacao: obs || null 
             });
@@ -739,6 +1004,8 @@ window.carregarPerformanceTroca = async function() {
         let tableHtml = '';
 
         data.forEach(d => {
+            if (d.cavalo === 'RESERVA') return; 
+
             totalMinutos += d.tempo_troca_minutos;
             if (d.tempo_troca_minutos > 30) acimaDe30++;
             
@@ -786,7 +1053,8 @@ window.carregarPerformanceTroca = async function() {
             `;
         });
 
-        let media = Math.round(totalMinutos / data.length);
+        let dataValida = data.filter(d => d.cavalo !== 'RESERVA');
+        let media = dataValida.length > 0 ? Math.round(totalMinutos / dataValida.length) : 0;
         document.getElementById('kpiMediaTroca').innerText = media + ' min';
         document.getElementById('kpiSlaTroca').innerText = acimaDe30;
         
@@ -802,6 +1070,7 @@ window.carregarPerformanceTroca = async function() {
         document.getElementById('kpiSaldoDisp').innerText = `${totalHorasPos}h ${totalMinPos}m`;
         document.getElementById('kpiEstourou').innerText = estourouCount;
 
+        if (!tableHtml) tableHtml = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">Nenhum registro com tempo validado nesta data.</td></tr>`;
         document.getElementById('tbodyPerformance').innerHTML = tableHtml;
 
     } catch (e) {
@@ -838,6 +1107,7 @@ window.popularFiltrosHistoricoTroca = function() {
     placas.sort();
     let htmlPlaca = '<option value="">Todas as Placas</option>';
     placas.forEach(p => { htmlPlaca += `<option value="${p}">${p}</option>`; });
+    htmlPlaca += `<option value="RESERVA">RESERVA (Motoristas Disponíveis)</option>`;
     
     const valPlacaAtual = selectPlaca.value;
     selectPlaca.innerHTML = htmlPlaca;
@@ -907,7 +1177,7 @@ window.carregarHistoricoTrocas = async function() {
 
         tbody.innerHTML = window.dadosHistoricoTrocasAtual.map(reg => {
             const local = window.locaisTrocaCache.find(l => String(l.id) === String(reg.local_troca_id));
-            const localNome = local ? local.nome : 'Local Desconhecido';
+            const localNome = local ? local.nome : (reg.placa_cavalo === 'RESERVA' ? 'Baixa via Kanban' : 'Local Desconhecido');
             const dataFormatada = reg.data_referencia ? reg.data_referencia.split('-').reverse().join('/') : '-';
             const obsFormatada = reg.observacao ? reg.observacao : '-';
             
@@ -919,14 +1189,15 @@ window.carregarHistoricoTrocas = async function() {
             }
             
             let diffRender = '--';
-            if (reg.tempo_troca_minutos !== undefined && reg.tempo_troca_minutos !== null) {
+            if (reg.tempo_troca_minutos !== undefined && reg.tempo_troca_minutos !== null && reg.placa_cavalo !== 'RESERVA') {
                 let diffH = Math.floor(reg.tempo_troca_minutos / 60);
                 let diffM = reg.tempo_troca_minutos % 60;
                 let color = reg.tempo_troca_minutos > 30 ? '#ef4444' : '#4ade80';
                 diffRender = `<span style="color:${color}; font-weight:bold;">${diffH}h ${diffM}m</span>`;
+            } else if (reg.placa_cavalo === 'RESERVA') {
+                diffRender = `<span style="color:#a855f7; font-weight:bold;">N/A (Reserva)</span>`;
             }
 
-            // LÓGICA DE CORES E ÍCONES BASEADA NO TURNO PARA O HISTÓRICO
             const isNoite = reg.turno_previsto && (reg.turno_previsto.includes("2") || reg.turno_previsto.toUpperCase().includes("NOITE"));
             let baseBgColor = isNoite ? 'rgba(99, 102, 241, 0.12)' : 'rgba(56, 189, 248, 0.12)'; 
             let baseHover = isNoite ? 'rgba(99, 102, 241, 0.2)' : 'rgba(56, 189, 248, 0.2)';
@@ -967,7 +1238,7 @@ window.exportarHistoricoTrocasExcel = function() {
 
     window.dadosHistoricoTrocasAtual.forEach(reg => {
         const local = window.locaisTrocaCache.find(l => String(l.id) === String(reg.local_troca_id));
-        const localNome = local ? local.nome : 'Local Desconhecido';
+        const localNome = local ? local.nome : (reg.placa_cavalo === 'RESERVA' ? 'Baixa via Kanban' : 'Local Desconhecido');
         const dataFormatada = reg.data_referencia ? reg.data_referencia.split('-').reverse().join('/') : '-';
         const obsFormatada = reg.observacao ? reg.observacao.replace(/;/g, ',').replace(/\n/g, ' ') : '-';
 
@@ -975,7 +1246,7 @@ window.exportarHistoricoTrocasExcel = function() {
             dataFormatada, reg.placa_cavalo, reg.turno_previsto,
             reg.motorista_atual || '-', reg.motorista_programado || '-',
             localNome, reg.horario_entregou || '-', reg.horario_real || '-',
-            reg.tempo_troca_minutos || '-', obsFormatada
+            reg.tempo_troca_minutos !== null ? reg.tempo_troca_minutos : '-', obsFormatada
         ].join(';');
 
         csvContent += linha + "\n";
@@ -1006,8 +1277,8 @@ window.carregarIndicadoresTroca = async function() {
     try {
         const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
         let query = isLinhares 
-            ? window.supabaseClient.from('troca_turno_linhares').select('local_troca_id, data_referencia, motorista_assumiu')
-            : window.supabaseClient.from('registro_troca_turno').select('local_troca_id, data_referencia, motorista_programado');
+            ? window.supabaseClient.from('troca_turno_linhares').select('local_troca_id, data_referencia, motorista_assumiu').not('local_troca_id', 'is', null)
+            : window.supabaseClient.from('registro_troca_turno').select('local_troca_id, data_referencia, motorista_programado').not('local_troca_id', 'is', null);
 
         if (!isLinhares) query = window.aplicarFiltroFilial(query); 
 
