@@ -612,8 +612,8 @@ window.carregarTrocasDoDia = async function() {
                 let iconeTurno = isNoite ? '<i class="fas fa-moon" style="color: #a5b4fc;"></i>' : '<i class="fas fa-sun" style="color: #fde047;"></i>';
                 let corBadge = isNoite ? 'background: rgba(99, 102, 241, 0.25); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.5);' : 'background: rgba(56, 189, 248, 0.25); color: #bae6fd; border: 1px solid rgba(56, 189, 248, 0.5);';
 
-                let inputHoraEntregou = `<input type="time" id="hora_entregou_${domId}" data-previsto="${horarioPrevistoLargarVal}" class="input-moderno input-compacto" value="${horarioEntregou}" onchange="calcularTempoTroca('${domId}')" title="Entregou" style="margin:0; text-align:center;">`;
-                let inputHoraAssumiu = `<input type="time" id="hora_assumiu_${domId}" class="input-moderno input-compacto" value="${horarioAssumiu}" onchange="calcularTempoTroca('${domId}')" title="Assumiu" style="margin:0; text-align:center;">`;
+                let inputHoraEntregou = `<input type="time" id="hora_entregou_${domId}" data-previsto="${horarioPrevistoLargarVal}" class="input-moderno input-compacto" value="${horarioEntregou}" onchange="calcularTempoTroca('${domId}')" title="Entregou" style="margin:0; text-align:center; padding: 6px 2px !important; width: 100%;">`;
+                let inputHoraAssumiu = `<input type="time" id="hora_assumiu_${domId}" class="input-moderno input-compacto" value="${horarioAssumiu}" onchange="calcularTempoTroca('${domId}')" title="Assumiu" style="margin:0; text-align:center; padding: 6px 2px !important; width: 100%;">`;
 
                 let acoesHtml = `<button class="btn-primary-green btn-compacto" onclick="salvarTroca('${domId}', '${truck.placaNorm}', '${esc.originalTurno}')" title="Salvar" style="flex:1;"><i class="fas fa-save"></i></button>`;
                 if (reg && reg.id) {
@@ -641,14 +641,14 @@ window.carregarTrocasDoDia = async function() {
                     <td style="vertical-align: middle;">
                         <div style="display: flex; gap: 4px; align-items: center;">
                             <div style="flex: 1; min-width: 140px;">${selectMotAtual}</div>
-                            <div style="width: 80px;">${inputHoraEntregou}</div>
+                            <div style="width: 105px;">${inputHoraEntregou}</div>
                         </div>
                         ${labelPrevisto}
                     </td>
                     <td style="vertical-align: middle;">
                         <div style="display: flex; gap: 4px; align-items: center;">
                             <div style="flex: 1; min-width: 140px;">${selectMotProx}</div>
-                            <div style="width: 80px;">${inputHoraAssumiu}</div>
+                            <div style="width: 105px;">${inputHoraAssumiu}</div>
                         </div>
                     </td>
                     <td style="vertical-align: middle;">${selectLocal}</td>
