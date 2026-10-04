@@ -32,7 +32,7 @@ window.carregarPerformanceTroca = async function() {
 
         if (!data || data.length === 0) {
             document.getElementById('tbodyPerformance').innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8;">Nenhum registro com tempo validado nesta data.</td></tr>`;
-            document.getElementById('kpiMediaTroca').innerText = '0 min';
+            document.getElementById('kpiMediaTroca').innerText = '0h 0m';
             document.getElementById('kpiSlaTroca').innerText = '0';
             document.getElementById('kpiMelhorTroca').innerHTML = '-';
             document.getElementById('kpiSaldoDisp').innerText = '0h 0m';
@@ -91,14 +91,17 @@ window.carregarPerformanceTroca = async function() {
 
         let dataValida = data.filter(d => d.cavalo !== 'RESERVA');
         let media = dataValida.length > 0 ? Math.round(totalMinutos / dataValida.length) : 0;
-        document.getElementById('kpiMediaTroca').innerText = media + ' min';
+        let mediaH = Math.floor(media / 60);
+        let mediaM = media % 60;
+        document.getElementById('kpiMediaTroca').innerText = mediaH > 0 ? `${mediaH}h ${mediaM}m` : `${mediaM}m`;
+        
         document.getElementById('kpiSlaTroca').innerText = acimaDe30;
         
         if (melhorTempo !== 9999) {
             let mH = Math.floor(melhorTempo / 60);
             let mM = melhorTempo % 60;
-            let strMelhor = mH > 0 ? `${mH}h ${mM}m` : `${mM} min`;
-            document.getElementById('kpiMelhorTroca').innerHTML = `${strMelhor} <br><span style="font-size:0.9rem; color:#cbd5e1; font-weight:normal;">${melhorPlaca}</span>`;
+            let strMelhor = mH > 0 ? `${mH}h ${mM}m` : `${mM}m`;
+            document.getElementById('kpiMelhorTroca').innerHTML = `${strMelhor} <div class="kpi-sub">${melhorPlaca}</div>`;
         }
 
         document.getElementById('kpiSaldoDisp').innerText = `${Math.floor(totalSaldoPositivo / 60)}h ${totalSaldoPositivo % 60}m`;
@@ -341,7 +344,7 @@ window.carregarIndicadoresTroca = async function() {
         document.getElementById('kpiTotalPA').innerText = totalPA;
 
         const ranking = Object.values(locaisMap).filter(l => l.count > 0).sort((a, b) => b.count - a.count);
-        if (ranking.length > 0) document.getElementById('kpiTopLocal').innerHTML = `${ranking[0].nome}<br><span style="font-size:1rem; font-weight:normal; color:#fde68a;">(${ranking[0].count} trocas)</span>`;
+        if (ranking.length > 0) document.getElementById('kpiTopLocal').innerHTML = `${ranking[0].nome}<div class="kpi-sub">(${ranking[0].count} trocas)</div>`;
         else document.getElementById('kpiTopLocal').innerText = '-';
 
         const tbodyRanking = document.getElementById('tbodyRankingLocais');

@@ -290,7 +290,6 @@ window.verificarMudancaMotorista = function(domId) {
     const original = selectMot.getAttribute('data-original');
     const atual = selectMot.value;
     
-    // Nao emitir alerta caso mude para "Sem Motorista"
     if (original && atual !== original && atual !== "" && atual !== "Sem Motorista") {
         window.motSelectPendente = selectMot;
         document.getElementById('obsDomId').value = domId;
@@ -336,7 +335,6 @@ window.carregarTrocasDoDia = async function() {
             if (resLocais.data) window.locaisTrocaCache = resLocais.data;
         }
 
-        // 1. BUSCA AS ORDENS DE SERVIÇO ABERTAS PARA SEPARAR VEÍCULOS EM MANUTENÇÃO
         let ordensAbertas = [];
         try {
             let qOS = window.supabaseClient.from('ordens_servico').select('placa, status').eq('inativa', 0).neq('status', 'Concluída');
@@ -380,7 +378,6 @@ window.carregarTrocasDoDia = async function() {
                 const go = f.frota || '-';
                 const conjId = f.numero_frota || '-';
                 
-                // Lógica de OS / Manutenção
                 let osAberta = ordensAbertas.find(o => String(o.placa).trim().toUpperCase() === placaNorm);
                 let isManutencao = !!osAberta || (f.status && (f.status.toUpperCase().includes('MANUT') || f.status.toUpperCase().includes('OFICINA')));
                 
@@ -429,7 +426,6 @@ window.carregarTrocasDoDia = async function() {
             });
         }
 
-        // Determinação de Ordem e Dia/Noite
         linhasData.forEach((linha) => {
             let horaMinutos = 0; let isNoite = false;
             let tFmt = String(linha.esc.turno || '');
@@ -451,7 +447,6 @@ window.carregarTrocasDoDia = async function() {
             linha.isNoite = isNoite ? 1 : 0;
         });
 
-        // 2. AGRUPAR POR PLACA PARA CRIAR A LINHA ÚNICA (ROWSPAN)
         let groupedByPlaca = {};
         linhasData.forEach((linha) => {
             if (!groupedByPlaca[linha.placaNorm]) {
@@ -491,7 +486,6 @@ window.carregarTrocasDoDia = async function() {
         let countDisponivel = 0; let countPendente = 0; let countAndamento = 0; let countConcluido = 0;
         let kanbanPorPlaca = {};
 
-        // LOOP SOBRE OS CAMINHÕES AGRUPADOS
         groupedArray.forEach((truck, truckIdx) => {
             let isManutencao = truck.isManutencao;
             let rowCount = truck.turnos.length;
@@ -620,7 +614,6 @@ window.carregarTrocasDoDia = async function() {
                     acoesHtml += `<button class="btn-danger btn-compacto" onclick="excluirTroca('${reg.id}')" title="Excluir" style="flex:1;"><i class="fas fa-trash"></i></button>`;
                 }
 
-                // Linha Única Combinada e Agrupada (Rowspan na Placa)
                 let isLastShift = idxLocal === rowCount - 1;
                 let borderStyle = isLastShift ? truckBorderColor : '1px dashed rgba(255,255,255,0.05)';
 
@@ -667,7 +660,6 @@ window.carregarTrocasDoDia = async function() {
                 if (isManutencao) htmlTabelaManut += htmlTr;
                 else htmlTabelaAtivas += htmlTr;
 
-                // Kanban Setup
                 let statusKb = 0; 
                 if (horarioEntregou && !horarioAssumiu) statusKb = 1;
                 else if (horarioEntregou && horarioAssumiu) statusKb = 2;
