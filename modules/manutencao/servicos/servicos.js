@@ -28,18 +28,34 @@ window.renderizarTelaServicos = async function() {
         }
 
         if (mMecanicosCache.length === 0) {
-            let queryUsuarios = window.supabaseClient.from('usuarios').select('username, nome_completo, role').eq('status', 'Ativo');
-            
-            if (typeof window.aplicarFiltroFilial === 'function') {
-                queryUsuarios = window.aplicarFiltroFilial(queryUsuarios);
-            }
-            
-            const { data: usersData } = await queryUsuarios;
-            if (usersData) {
-                mMecanicosCache = usersData
-                    .filter(u => u.role && (u.role.toLowerCase().includes('mecanico') || u.role.toLowerCase().includes('mecânico') || u.role.toLowerCase().includes('borracheiro')))
-                    .map(u => (u.nome_completo && u.nome_completo.trim() !== '') ? u.nome_completo : u.username)
-                    .sort();
+            // Busca o(s) ID(s) do setor de Manutenção
+            // Usa ilike('%Manuten%') para abranger "Manutenção", "MANUTENÇÃO", etc., em todas as filiais
+            const { data: setoresData } = await window.supabaseClient
+                .from('setores')
+                .select('id')
+                .ilike('nome', '%Manuten%');
+
+            if (setoresData && setoresData.length > 0) {
+                const setoresIds = setoresData.map(s => s.id);
+                
+                // Busca os colaboradores vinculados a qualquer um dos setores encontrados, apenas ativos e em ordem alfabética
+                let queryColaboradores = window.supabaseClient
+                    .from('rh_colaboradores')
+                    .select('nome')
+                    .in('setor_id', setoresIds)
+                    .eq('status', 'Ativo')
+                    .order('nome', { ascending: true });
+
+                if (typeof window.aplicarFiltroFilial === 'function') {
+                    queryColaboradores = window.aplicarFiltroFilial(queryColaboradores);
+                }
+
+                const { data: colabsData } = await queryColaboradores;
+                if (colabsData) {
+                    mMecanicosCache = colabsData
+                        .map(c => c.nome)
+                        .filter(nome => nome && nome.trim() !== '');
+                }
             }
         }
 
