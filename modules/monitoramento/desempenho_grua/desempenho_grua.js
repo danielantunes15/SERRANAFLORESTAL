@@ -284,7 +284,7 @@
             let fetchMore = true;
 
             while (fetchMore) {
-                let query = client.from('historico_viagens').select('*').ilike('transportadora', '%SERRANALOG%').range(from, from + step - 1);
+                let query = client.from('historico_viagens').select('*').range(from, from + step - 1);
                 if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
 
                 const { data, error } = await query;
