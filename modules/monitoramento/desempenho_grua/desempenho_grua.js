@@ -196,7 +196,7 @@
 
             const mesesUnicos = new Set();
             dados.forEach(d => {
-                const dt = convertDateFromBaseStr(d.dtFimCarregCampo);
+                const dt = convertDateFromBaseStr(d.dtFimDescarFabrica);
                 if(dt) {
                     const parts = dt.split('/');
                     if(parts.length === 3) {
@@ -308,42 +308,76 @@
     function processarEExibirDadosGrua() {
         try {
             let dadosFiltrados = [];
+            
+            // Variáveis de diagnóstico para o F12
+            let ignoradasPorData = 0;
+            let ignoradasPorGruaVazia = 0;
+            let ignoradasPorGruaTerceiro = 0;
 
+            // 1. FILTRO DE DATA
             if (activeFilter === 'D-1') {
                 const d = getPastDateStringGrua(1);
-                dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => convertDateFromBaseStr(x.dtFimCarregCampo) === d);
+                dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => convertDateFromBaseStr(x.dtFimDescarFabrica) === d);
             } else if (activeFilter === 'D-2') {
                 const d = getPastDateStringGrua(2);
-                dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => convertDateFromBaseStr(x.dtFimCarregCampo) === d);
+                dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => convertDateFromBaseStr(x.dtFimDescarFabrica) === d);
             } else if (activeFilter === 'D-7') {
                 const dias = [];
                 for(let i=1; i<=7; i++) dias.push(getPastDateStringGrua(i));
-                dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => dias.includes(convertDateFromBaseStr(x.dtFimCarregCampo)));
+                dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => dias.includes(convertDateFromBaseStr(x.dtFimDescarFabrica)));
             } else if (activeFilter === 'CUSTOM' && customDateStr) {
-                dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => convertDateFromBaseStr(x.dtFimCarregCampo) === customDateStr);
+                dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => convertDateFromBaseStr(x.dtFimDescarFabrica) === customDateStr);
             } else if (activeFilter === 'MES') {
                 const filterMes = document.getElementById('filterMesGrua');
                 const selectedMesAno = filterMes ? filterMes.value : null;
                 dadosFiltrados = dadosHistoricoCompletosGrua.filter(x => {
-                    const dt = convertDateFromBaseStr(x.dtFimCarregCampo);
-                    if(!dt || !selectedMesAno) return false;
+                    const dt = convertDateFromBaseStr(x.dtFimDescarFabrica);
+                    
+                    if(!dt || !selectedMesAno) {
+                        ignoradasPorData++;
+                        return false;
+                    }
+                    
                     const parts = dt.split('/');
                     if (`${parts[1]}/${parts[2]}` === selectedMesAno) return true;
                     return false;
                 });
             }
 
+            // 2. FILTRO DE GRUAS PRÓPRIAS E NULAS
             dadosFiltrados = dadosFiltrados.filter(x => {
-                if (!x.grua || x.grua.trim() === '') return false;
-                return gruasPropriasPermitidas.includes(normalizarNomeGrua(x.grua)); 
+                if (!x.grua || x.grua.trim() === '') {
+                    ignoradasPorGruaVazia++;
+                    return false;
+                }
+                
+                const nomeNormalizado = normalizarNomeGrua(x.grua);
+                if (!gruasPropriasPermitidas.includes(nomeNormalizado)) {
+                    ignoradasPorGruaTerceiro++;
+                    return false;
+                }
+                
+                return true; 
             });
+
+            // ----------------------------------------------------
+            // LOG DE DIAGNÓSTICO PARA O CONSOLE (Aperte F12)
+            // ----------------------------------------------------
+            console.log("=== DIAGNÓSTICO DE VIAGENS (DESEMPENHO GRUAS) ===");
+            console.log(`Total de viagens carregadas do banco: ${dadosHistoricoCompletosGrua.length}`);
+            console.log(`- Viagens sem Data de Descarregamento (dtFimDescarFabrica): ${ignoradasPorData}`);
+            console.log(`- Viagens com a coluna Grua em branco: ${ignoradasPorGruaVazia}`);
+            console.log(`- Viagens feitas por gruas NÃO cadastradas como Próprias: ${ignoradasPorGruaTerceiro}`);
+            console.log(`Total de Viagens processadas com sucesso na tela: ${dadosFiltrados.length}`);
+            console.log("=================================================");
+            // ----------------------------------------------------
 
             const statsPorGrua = {};
             let totais = { viagens: 0, volume: 0, gruasUnicas: new Set() };
 
             dadosFiltrados.forEach(registro => {
                 const nomeGrua = normalizarNomeGrua(registro.grua);
-                const dia = convertDateFromBaseStr(registro.dtFimCarregCampo);
+                const dia = convertDateFromBaseStr(registro.dtFimDescarFabrica);
                 
                 if(!statsPorGrua[nomeGrua]) {
                     statsPorGrua[nomeGrua] = { viagens: 0, volumeTotal: 0, minutosCarregamentoTotais: 0, viagensComTempoValido: 0, diasOperados: new Set() };
@@ -504,11 +538,6 @@
             return { maq, volume, viagens, tempoMedio, caixaMedia, consumoLH };
         });
 
-        // ORDENAÇÃO:
-        // 1º Consumo LTS/H (Menor para o maior. Se 0, vai pro final)
-        // 2º Caixa de Carga (Maior para o menor)
-        // 3º Produção Total (Maior para o menor)
-        // 4º Tempo Médio (Menor para o maior. Se 0, vai pro final)
         gruasComDados.sort((a, b) => {
             let consA = a.consumoLH > 0 ? a.consumoLH : Infinity;
             let consB = b.consumoLH > 0 ? b.consumoLH : Infinity;
