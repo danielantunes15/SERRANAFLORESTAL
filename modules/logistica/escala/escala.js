@@ -286,7 +286,7 @@ window.renderizarEscalaLinhares = function(diasRender) {
             if (m.turno && m.turno !== '-') {
                 let cicloMatch = window.getCiclos().find(c => c.dbValue === m.turno);
                 if (cicloMatch) {
-                    if (escAtual.shift === 'DIA') displayTurno = `☀️️ ${cicloMatch.labelDia}`;
+                    if (escAtual.shift === 'DIA') displayTurno = `☀ ${cicloMatch.labelDia}`;
                     else if (escAtual.shift === 'NOITE') displayTurno = `🌙 ${cicloMatch.labelNoite}`;
                     else displayTurno = `⏸️ Folga (Ref: ${cicloMatch.base})`;
                 }
@@ -717,7 +717,7 @@ window.carregarListaParadasLogistica = async function() {
         let query = window.supabaseClient.from('manutencao_paradas_programadas')
             .select('*')
             .order('data_programada', { ascending: false })
-            .limit(50);
+            .limit(5); // LIMITADO APENAS ÀS 5 ÚLTIMAS CONFORME SOLICITADO
             
         if (filialId !== null) query = query.eq('filial_id', filialId);
         
@@ -770,7 +770,13 @@ window.carregarListaParadasLogistica = async function() {
             } else if (statLog === 'Parou') {
                 statusLogHtml = `<span style="color: #10b981; font-weight:bold;"><i class="fas fa-check"></i> Parou</span><br><small style="color:var(--text-secondary); font-size:0.7rem;">Por: ${p.confirmado_por}</small>`;
             } else {
-                statusLogHtml = `<span style="color: #ef4444; font-weight:bold;"><i class="fas fa-times"></i> Não Parou</span><br><small style="color:var(--text-secondary); font-size:0.7rem;">Por: ${p.confirmado_por}</small>`;
+                // QUADRO DE OBSERVAÇÃO QUANDO "NÃO PAROU" COM O MOTIVO
+                let motivoNaoParouHtml = p.motivo_nao_parou ? 
+                    `<div style="margin-top: 6px; padding: 6px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; color: #fca5a5; font-size: 0.75rem; line-height: 1.3; text-align: left; max-width: 200px;">
+                        <strong>Motivo:</strong> ${p.motivo_nao_parou}
+                    </div>` : '';
+                    
+                statusLogHtml = `<span style="color: #ef4444; font-weight:bold;"><i class="fas fa-times"></i> Não Parou</span><br><small style="color:var(--text-secondary); font-size:0.7rem;">Por: ${p.confirmado_por}</small>${motivoNaoParouHtml}`;
             }
 
             let statusOfiHtml = p.status === 'Pendente' ? `<span style="color:#f59e0b;">Aguardando...</span>` : `<span style="color:#10b981;">${p.status}</span>`;
@@ -794,17 +800,34 @@ window.carregarListaParadasLogistica = async function() {
 };
 
 window.confirmarAcaoParadaLogistica = async function(id, acao) {
-    if(!confirm(`Confirma registrar que o veículo "${acao}"?`)) return;
+    let motivoNaoParou = null;
+
+    if (acao === 'Não Parou') {
+        motivoNaoParou = prompt(`Confirma registrar que o veículo "Não Parou"?\n\nPor favor, informe o motivo obrigatório:`);
+        if (motivoNaoParou === null) return; // O usuário clicou em cancelar
+        if (motivoNaoParou.trim() === '') {
+            alert("Ação cancelada: É obrigatório informar o motivo de não ter parado.");
+            return;
+        }
+    } else {
+        if(!confirm(`Confirma registrar que o veículo "${acao}"?`)) return;
+    }
     
     try {
         const nomeUser = obterNomeUsuarioLogadoParaParadas();
         const agora = window.obterDataHoraLocalParaDB();
         
-        await window.supabaseClient.from('manutencao_paradas_programadas').update({
+        let payload = {
             status_logistica: acao,
             confirmado_por: nomeUser,
             confirmado_em: agora
-        }).eq('id', id);
+        };
+
+        if (motivoNaoParou) {
+            payload.motivo_nao_parou = motivoNaoParou.trim();
+        }
+        
+        await window.supabaseClient.from('manutencao_paradas_programadas').update(payload).eq('id', id);
         
         await window.carregarListaParadasLogistica();
         window.verificarParadasPendentesLogistica();
