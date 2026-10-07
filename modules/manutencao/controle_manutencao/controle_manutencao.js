@@ -742,6 +742,38 @@ window.abrirModalRevisao = function(id) {
     }
 
     document.getElementById('modalRegistrarRevisao').classList.add('show');
+
+    // Carregar o Histórico detalhado no Modal
+    const tbHist = document.getElementById('tbHistoricoRevisoesModal');
+    if (tbHist) {
+        tbHist.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 15px;"><i class="fas fa-spinner fa-spin"></i> Carregando histórico...</td></tr>';
+        
+        let queryHist = window.supabaseClient.from('manutencao_registro_revisoes')
+            .select('*')
+            .eq('placa', v.placa)
+            .order('data_revisao', { ascending: false });
+            
+        queryHist.then(({ data, error }) => {
+            if (error || !data || data.length === 0) {
+                tbHist.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-secondary); padding: 15px;">Nenhuma revisão anterior registrada.</td></tr>';
+            } else {
+                tbHist.innerHTML = data.map(r => {
+                    let dataFormatada = r.data_revisao;
+                    if(dataFormatada) {
+                        const p = dataFormatada.split('-');
+                        dataFormatada = `${p[2]}/${p[1]}/${p[0]}`;
+                    }
+                    return `
+                    <tr style="background: rgba(0,0,0,0.2);">
+                        <td style="padding: 10px;">${dataFormatada || '-'}</td>
+                        <td style="padding: 10px; font-weight: bold;">${r.km_realizada ? r.km_realizada.toLocaleString('pt-BR') : 0}</td>
+                        <td style="padding: 10px; color: var(--ccol-blue-bright); font-weight: bold;">${r.km_proxima ? r.km_proxima.toLocaleString('pt-BR') : 0}</td>
+                        <td style="padding: 10px; font-size: 0.75rem; color: var(--text-secondary);">${r.detalhes || '-'}</td>
+                    </tr>
+                `}).join('');
+            }
+        });
+    }
 };
 
 window.fecharModalRevisao = function() {
@@ -776,12 +808,21 @@ window.salvarNovaRevisao = async function() {
     let stringChecks = checks.length > 0 ? `[Checklist: ${checks.join(', ')}] ` : '';
     let descricaoCompleta = stringChecks + detalhes;
 
-    let payload = {
+    // Payload para UPDATE não altera mais o 'km_atual'
+    let payloadUpdate = {
+        data_ultima_revisao: dataUltima,
+        km_ultima_revisao: kmRevisao,
+        km_proxima_revisao: kmProxima,
+        detalhes_ultima_revisao: detalhes
+    };
+
+    // Payload para INSERT define o km_atual inicial igual a revisão para não começar zerado
+    let payloadInsert = {
         placa: placa,
         numero_frota: frota,
         tipo: tipo,
         data_ultima_revisao: dataUltima,
-        km_atual: kmRevisao,
+        km_atual: kmRevisao, 
         km_ultima_revisao: kmRevisao,
         km_proxima_revisao: kmProxima,
         detalhes_ultima_revisao: detalhes,
@@ -789,10 +830,15 @@ window.salvarNovaRevisao = async function() {
     };
 
     if (isTritrem) {
-        payload.data_inspecao = document.getElementById('inputDataInspecao').value || null;
-        payload.data_inspecao_eletromecanica = document.getElementById('inputDataInspEletro').value || null;
-        payload.data_proxima_inspecao = document.getElementById('inputDataProximaInspecao').value || null;
-        payload.quantidade_revisoes = parseInt(document.getElementById('inputQtdRevisoes').value) || 0;
+        payloadUpdate.data_inspecao = document.getElementById('inputDataInspecao').value || null;
+        payloadUpdate.data_inspecao_eletromecanica = document.getElementById('inputDataInspEletro').value || null;
+        payloadUpdate.data_proxima_inspecao = document.getElementById('inputDataProximaInspecao').value || null;
+        payloadUpdate.quantidade_revisoes = parseInt(document.getElementById('inputQtdRevisoes').value) || 0;
+
+        payloadInsert.data_inspecao = payloadUpdate.data_inspecao;
+        payloadInsert.data_inspecao_eletromecanica = payloadUpdate.data_inspecao_eletromecanica;
+        payloadInsert.data_proxima_inspecao = payloadUpdate.data_proxima_inspecao;
+        payloadInsert.quantidade_revisoes = payloadUpdate.quantidade_revisoes;
     }
 
     try {
@@ -802,10 +848,21 @@ window.salvarNovaRevisao = async function() {
         const { data: checkExist } = await queryCheck.maybeSingle();
 
         if (checkExist && checkExist.id) {
-            await window.supabaseClient.from('manutencao_revisoes').update(payload).eq('id', checkExist.id);
+            await window.supabaseClient.from('manutencao_revisoes').update(payloadUpdate).eq('id', checkExist.id);
         } else {
-            await window.supabaseClient.from('manutencao_revisoes').insert([payload]);
+            await window.supabaseClient.from('manutencao_revisoes').insert([payloadInsert]);
         }
+
+        // Salva os dados na tabela do histórico específico
+        await window.supabaseClient.from('manutencao_registro_revisoes').insert([{
+            placa: placa,
+            numero_frota: frota,
+            data_revisao: dataUltima,
+            km_realizada: kmRevisao,
+            km_proxima: kmProxima,
+            detalhes: descricaoCompleta,
+            filial_id: filialId
+        }]);
 
         window.registrarHistorico(placa, frota, kmRevisao, 'REVISAO', descricaoCompleta || 'Revisão registrada via sistema.');
 

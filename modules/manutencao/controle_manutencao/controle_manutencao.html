@@ -182,7 +182,7 @@
             <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 10px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <h4 id="revVeiculoPlaca" style="color: #fff; margin: 0 0 5px 0; font-size: 1.2rem;">FROTA / PLACA</h4>
-                    <p style="color: #10b981; margin: 0; font-size: 0.85rem;">Atualização de KM e Apontamentos</p>
+                    <p style="color: #10b981; margin: 0; font-size: 0.85rem;">Histórico e Apontamento de Revisão</p>
                 </div>
             </div>
 
@@ -239,6 +239,27 @@
                 <label>Defeitos Relatados / Observações</label>
                 <textarea id="inputDetalhesRevisao" rows="3" placeholder="Descreva os serviços executados ou pendências..."></textarea>
             </div>
+
+            <!-- NOVO: HISTÓRICO DE REVISÕES DETALHADO NO MODAL -->
+            <div style="margin-top: 25px;">
+                <label style="color: var(--text-secondary); font-size: 0.85rem; font-weight: bold; text-transform: uppercase;">Histórico de Revisões</label>
+                <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-dim); border-radius: 8px; margin-top: 8px;">
+                    <table class="data-table-modern" style="margin: 0; width: 100%; font-size: 0.85rem;">
+                        <thead style="position: sticky; top: 0; background: #1e293b; z-index: 1;">
+                            <tr>
+                                <th style="padding: 10px;">Data</th>
+                                <th style="padding: 10px;">KM Realizada</th>
+                                <th style="padding: 10px;">Próxima KM</th>
+                                <th style="padding: 10px;">Detalhes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbHistoricoRevisoesModal">
+                            <tr><td colspan="4" style="text-align:center; padding: 15px;"><i class="fas fa-spinner fa-spin"></i> Carregando histórico...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="window.fecharModalRevisao()">Cancelar</button>
