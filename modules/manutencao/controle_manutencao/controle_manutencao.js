@@ -704,7 +704,11 @@ window.abrirModalRevisao = function(id) {
     document.querySelectorAll('.checklist-grid input[type="checkbox"]').forEach(chk => chk.checked = false);
 
     inputDataUltima.value = v.data_ultima_revisao || new Date().toISOString().split('T')[0]; 
-    inputRealizada.value = v.km_atual;
+    
+    // ===== CORREÇÃO: AGORA O CAMPO TRAZ O VALOR DA ÚLTIMA REVISÃO ===== //
+    inputRealizada.value = v.km_ultima_revisao; 
+    // ================================================================== //
+    
     inputDetalhes.value = '';
 
     const divDatas = document.getElementById('divDatasInspecaoTritrem');
@@ -738,7 +742,9 @@ window.abrirModalRevisao = function(id) {
         inputProxima.style.backgroundColor = '';
         inputProxima.style.cursor = '';
         inputRealizada.oninput = null;
-        inputProxima.value = (v.km_proxima_revisao && v.km_proxima_revisao > 0) ? v.km_proxima_revisao : v.km_atual + 10000;
+        
+        // ===== CORREÇÃO PARA MANTER CONSISTÊNCIA ===== //
+        inputProxima.value = (v.km_proxima_revisao && v.km_proxima_revisao > 0) ? v.km_proxima_revisao : v.km_ultima_revisao + 10000;
     }
 
     document.getElementById('modalRegistrarRevisao').classList.add('show');
