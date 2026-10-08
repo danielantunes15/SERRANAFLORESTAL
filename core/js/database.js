@@ -507,7 +507,6 @@ const db = {
     },
 
     async upsertFrotaDocumento(doc) {
-        // Mapeia camelCase (formulário) -> snake_case (banco)
         const payload = injetarFilial({
             placa: (doc.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, ''),
             renavam: doc.renavam || null,
@@ -539,8 +538,6 @@ const db = {
         if (doc.pdf_url !== undefined) payload.pdf_url = doc.pdf_url;
         if (doc.pdf_path !== undefined) payload.pdf_path = doc.pdf_path;
 
-        // ⚠️ onConflict composto por placa + filial_id
-        // Permite a mesma placa existir em filiais diferentes
         const { data, error } = await supabaseClient
             .from('frotas_documentos')
             .upsert([payload], { onConflict: 'placa,filial_id' })
@@ -550,17 +547,12 @@ const db = {
     },
 
     async deleteFrotaDocumento(placa, filialId) {
-        // Se filialId não foi passado, tenta pegar do usuário logado
         if (filialId === undefined && window.currentUser) {
             filialId = window.currentUser.filial_id;
         }
 
-        // Busca o pdf_path antes de apagar
         try {
-            let qBusca = supabaseClient
-                .from('frotas_documentos')
-                .select('pdf_path, filial_id')
-                .eq('placa', placa);
+            let qBusca = supabaseClient.from('frotas_documentos').select('pdf_path, filial_id').eq('placa', placa);
             if (filialId !== null && filialId !== undefined) {
                 qBusca = qBusca.eq('filial_id', filialId);
             }
@@ -576,11 +568,7 @@ const db = {
             console.warn("Erro ao apagar PDF do storage:", e);
         }
 
-        // Apaga o(s) registro(s) — filtra por placa + filial
-        let query = supabaseClient
-            .from('frotas_documentos')
-            .delete()
-            .eq('placa', placa);
+        let query = supabaseClient.from('frotas_documentos').delete().eq('placa', placa);
         if (filialId !== null && filialId !== undefined) {
             query = query.eq('filial_id', filialId);
         }
@@ -588,9 +576,6 @@ const db = {
         if (error) throw error;
     },
 
-    // =========================================================
-    // --- UPLOAD DE PDF DO CRLV PARA O STORAGE ---
-    // =========================================================
     async uploadPdfCRLV(file, placa) {
         if (!file || !placa) throw new Error("Arquivo ou placa não informados.");
         
@@ -598,34 +583,55 @@ const db = {
         const timestamp = Date.now();
         const path = `${placaLimpa}/crlv-${timestamp}.pdf`;
 
-        const { error: errUpload } = await supabaseClient
-            .storage
-            .from('frotas-crlv')
-            .upload(path, file, {
-                cacheControl: '3600',
-                upsert: true,
-                contentType: 'application/pdf'
-            });
+        const { error: errUpload } = await supabaseClient.storage.from('frotas-crlv').upload(path, file, { cacheControl: '3600', upsert: true, contentType: 'application/pdf' });
         if (errUpload) throw errUpload;
 
-        const { data: publicUrlData } = supabaseClient
-            .storage
-            .from('frotas-crlv')
-            .getPublicUrl(path);
+        const { data: publicUrlData } = supabaseClient.storage.from('frotas-crlv').getPublicUrl(path);
 
-        return {
-            path: path,
-            url: publicUrlData.publicUrl
-        };
+        return { path: path, url: publicUrlData.publicUrl };
     },
 
     async deletePdfCRLV(path) {
         if (!path) return;
-        const { error } = await supabaseClient
-            .storage
-            .from('frotas-crlv')
-            .remove([path]);
+        const { error } = await supabaseClient.storage.from('frotas-crlv').remove([path]);
         if (error) console.warn("Erro ao apagar PDF:", error);
+    },
+
+    // =====================================================
+    // LÓGICA DE AET (TABELA ÚNICA: aet_licencas)
+    // =====================================================
+    async getAets() {
+        let query = supabaseClient.from('aet_licencas').select('*, filiais(nome)');
+        const { data, error } = await aplicarFiltroFilial(query);
+        if (error) throw error;
+        return data || [];
+    },
+
+    async upsertAet(dados) {
+        const payload = injetarFilial(dados);
+        const { data, error } = await supabaseClient.from('aet_licencas').upsert([payload], { onConflict: 'numero_aet,tipo,filial_id' });
+        if (error) throw error;
+        return data;
+    },
+
+    async uploadPdfAet(file, numeroAet, tipo) {
+        const pasta = tipo === 'FEDERAL' ? 'federal' : 'estadual';
+        const numeroLimpo = numeroAet.replace(/[^a-zA-Z0-9]/g, '');
+        const filePath = `${pasta}/${numeroLimpo}_${Date.now()}.pdf`;
+        
+        const { data, error } = await supabaseClient.storage.from('frotas-aet').upload(filePath, file);
+        if (error) throw error;
+        
+        const { data: publicData } = supabaseClient.storage.from('frotas-aet').getPublicUrl(filePath);
+        return { path: filePath, url: publicData.publicUrl };
+    },
+
+    async deleteAet(numero, tipo, filialId) {
+        let matchData = { numero_aet: numero, tipo: tipo };
+        if (filialId !== undefined && filialId !== null) matchData.filial_id = filialId;
+        
+        const { error } = await supabaseClient.from('aet_licencas').delete().match(matchData);
+        if (error) throw error;
     }
 };
 

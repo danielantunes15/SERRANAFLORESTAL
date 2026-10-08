@@ -1,6 +1,335 @@
-<div class="content-header">
-    <h2>🪪 Licenças de Trânsito (AET)</h2>
-    <p>Extração automática de AET Federal e Estadual. Persistência 100% no banco de dados.</p>
+<style>
+/* CSS do Layout Moderno e Modal */
+.header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+.header-title h2 {
+    margin: 0 0 5px 0;
+    font-size: 1.5rem;
+    color: #f3f4f6;
+}
+.header-title p {
+    margin: 0;
+    color: var(--text-secondary, #9ca3af);
+    font-size: 0.9rem;
+}
+.btn-import {
+    background-color: #10b981;
+    color: #ffffff;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.btn-import:hover {
+    background-color: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+}
+
+/* MODAIS GERAIS */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+.modal-content {
+    background: var(--card-bg, #1f2937);
+    padding: 30px;
+    border-radius: 12px;
+    width: 100%;
+    position: relative;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    border: 1px solid var(--border-dim, #374151);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+}
+.modal-content.md { max-width: 450px; }
+/* Aumentado de 900px para 1300px e 95% de largura para caber a tabela inteira sem scroll */
+.modal-content.lg { max-width: 1300px; width: 95%; }
+
+.modal-body {
+    overflow-y: auto;
+    padding-right: 5px;
+}
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+.modal-body::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+    border-radius: 4px;
+}
+
+.close-modal {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    cursor: pointer;
+    color: #9ca3af;
+    font-size: 1.5rem;
+    transition: 0.2s;
+    background: transparent;
+    border: none;
+}
+.close-modal:hover {
+    color: #ffffff;
+}
+
+/* ÁREA DE IMPORTAÇÃO */
+.import-select {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    background: #374151;
+    color: #fff;
+    border: 1px solid #4b5563;
+    margin-top: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+.drop-zone {
+    border: 2px dashed #4b5563;
+    padding: 40px 20px;
+    text-align: center;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.02);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+.drop-zone:hover {
+    border-color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.05);
+}
+.drop-zone i {
+    font-size: 3rem;
+    color: #3b82f6;
+    margin-bottom: 5px;
+}
+.file-name-display {
+    color: #60a5fa;
+    font-weight: bold;
+    margin: 5px 0 0 0;
+    word-break: break-all;
+}
+.status-msg {
+    margin-top: 10px;
+    font-weight: 500;
+    text-align: center;
+    min-height: 20px;
+}
+
+/* FORMULÁRIO DE REVISÃO */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.form-group label {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    font-weight: 600;
+}
+.form-control {
+    background: #374151;
+    border: 1px solid #4b5563;
+    color: #fff;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+.form-control:focus {
+    border-color: #3b82f6;
+    outline: none;
+}
+.form-section-title {
+    margin: 25px 0 15px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #374151;
+    color: #60a5fa;
+    font-size: 1.1rem;
+}
+.dynamic-card {
+    background: #1f2937;
+    border: 1px solid #374151;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    position: relative;
+}
+.dynamic-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+.btn-remover {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+.btn-adicionar {
+    background: #374151;
+    color: #fff;
+    border: 1px solid #4b5563;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 20px;
+    transition: 0.2s;
+}
+.btn-adicionar:hover {
+    background: #4b5563;
+}
+.form-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+/* ETIQUETAS E BADGES DA TABELA E MODAL */
+.badge-status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    display: inline-block;
+    margin-top: 4px;
+}
+.badge-green { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+.badge-yellow { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge-red { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+.badge-gray { background: rgba(156, 163, 175, 0.15); color: #9ca3af; border: 1px solid rgba(156, 163, 175, 0.3); }
+
+.placa-tag {
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    font-size: 0.9rem;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+.placa-tag.cavalo {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.placa-tag.reboque {
+    color: #60a5fa;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* MELHORIAS NA TABELA MODERNA */
+.dark-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--card-bg, #1f2937);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+.dark-table th {
+    background: #374151;
+    color: #d1d5db;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 15px;
+    text-align: left;
+}
+.dark-table td {
+    padding: 15px;
+    border-bottom: 1px solid #374151;
+    color: #e5e7eb;
+    vertical-align: middle;
+}
+.dark-table tbody tr {
+    transition: background-color 0.2s ease;
+}
+.dark-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+.dark-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.cell-placa {
+    text-align: center;
+}
+
+/* GRID DE DETALHES NO MODAL */
+.detalhes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 15px;
+    background: rgba(255,255,255,0.02);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #374151;
+}
+.detalhe-item {
+    display: flex;
+    flex-direction: column;
+}
+.detalhe-label {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.detalhe-valor {
+    font-size: 0.95rem;
+    color: #f3f4f6;
+    font-weight: 500;
+}
+</style>
+
+<div class="header-actions">
+    <div class="header-title">
+        <h2>🪪 Licenças de Trânsito (AET)</h2>
+        <p>Extração automática de AET Federal e Estadual. Persistência 100% no banco de dados.</p>
+    </div>
+    <button class="btn-import" onclick="document.getElementById('modalImportacao').style.display='flex'">
+        <i class="fas fa-file-import"></i> Nova Importação
+    </button>
 </div>
 
 <div class="custom-tabs" style="margin-bottom: 20px; display: flex; gap: 10px;">
@@ -10,26 +339,74 @@
 
 <!-- ================= AET FEDERAL ================= -->
 <div id="abaFederal">
-    <div class="card">
-        <h3>Importar AET Federal</h3>
-        <div style="border: 2px dashed var(--border-dim); padding: 30px; text-align: center; border-radius: 8px; cursor: pointer;" id="dropZoneAetFed">
-            <label for="pdfInputAetFed" class="btn-primary-blue" style="cursor: pointer;">Selecionar AET Federal (PDF)</label>
-            <input type="file" id="pdfInputAetFed" accept="application/pdf" hidden />
-            <p id="fileNameAetFed" style="margin-top: 10px; color: var(--ccol-blue-bright); font-weight: bold;"></p>
-        </div>
-        <p id="statusAetFed" style="margin-top: 10px; font-weight: bold; text-align: center;"></p>
+    
+    <!-- Formulário de Revisão AET Federal -->
+    <div class="card" id="formCardAetFed" style="display: none; margin-bottom: 20px;">
+        <h3 style="margin-top: 0; color: #10b981;"><i class="fas fa-check-circle"></i> Revisão de Dados Extraídos</h3>
+        <p style="color: #9ca3af; margin-bottom: 20px;">Verifique e corrija os dados extraídos do PDF antes de salvar no sistema.</p>
+        
+        <form id="aetFedForm">
+            <h4 class="form-section-title">Identificação da AET</h4>
+            <div class="form-grid">
+                <div class="form-group"><label>Nº AET</label><input type="text" name="numeroAET" class="form-control" required /></div>
+                <div class="form-group"><label>Conjunto</label><input type="text" name="conjuntoTipo" class="form-control" /></div>
+                <div class="form-group"><label>Proprietário</label><input type="text" name="proprietario" class="form-control" /></div>
+                <div class="form-group"><label>CNPJ / CPF</label><input type="text" name="cnpjCpf" class="form-control" /></div>
+                <div class="form-group"><label>Validade Início</label><input type="text" name="validadeInicio" class="form-control" /></div>
+                <div class="form-group"><label>Validade Fim</label><input type="text" name="validadeFim" class="form-control" /></div>
+                <div class="form-group"><label>PBTC (t)</label><input type="text" name="pbtcInformado" class="form-control" /></div>
+                <div class="form-group"><label>Comprimento (m)</label><input type="text" name="comprimento" class="form-control" /></div>
+                <div class="form-group" style="grid-column: span 2;"><label>Endereço</label><input type="text" name="endereco" class="form-control" /></div>
+                <div class="form-group"><label>Telefone</label><input type="text" name="telefone" class="form-control" /></div>
+            </div>
+
+            <h4 class="form-section-title">Unidade U1 (Cavalo)</h4>
+            <div class="form-grid">
+                <div class="form-group"><label>Placa</label><input type="text" name="u1_placa" class="form-control" required /></div>
+                <div class="form-group"><label>Chassi</label><input type="text" name="u1_chassi" class="form-control" /></div>
+                <div class="form-group"><label>Marca</label><input type="text" name="u1_marca" class="form-control" /></div>
+                <div class="form-group"><label>Modelo</label><input type="text" name="u1_modelo" class="form-control" /></div>
+                <div class="form-group"><label>Ano Fab.</label><input type="text" name="u1_anoFab" class="form-control" /></div>
+                <div class="form-group"><label>Carroceria</label><input type="text" name="u1_carroceria" class="form-control" /></div>
+                <div class="form-group"><label>Tara (t)</label><input type="text" name="u1_tara" class="form-control" /></div>
+                <div class="form-group"><label>Tração</label><input type="text" name="u1_tracao" class="form-control" /></div>
+                <div class="form-group"><label>Potência (CV)</label><input type="text" name="u1_potencia" class="form-control" /></div>
+                <div class="form-group"><label>CMT (t)</label><input type="text" name="u1_cmt" class="form-control" /></div>
+                <div class="form-group"><label>RENAVAM</label><input type="text" data-campo="renavam" name="u1_renavam" class="form-control" /></div>
+                <div class="form-group"><label>RNTRC</label><input type="text" data-campo="rntrc" name="u1_rntrc" class="form-control" /></div>
+                <div class="form-group"><label>Direção</label><input type="text" name="u1_direcao" class="form-control" /></div>
+                <div class="form-group"><label>Bidirecional</label><input type="text" name="u1_bidirecional" class="form-control" /></div>
+            </div>
+
+            <h4 class="form-section-title">Unidades Complementares (U2, U3, etc.)</h4>
+            <div id="uComplementaresContainer"></div>
+            <button type="button" class="btn-adicionar" id="btnAddUComp"><i class="fas fa-plus"></i> Adicionar Unidade</button>
+
+            <h4 class="form-section-title">Carretas / Reboques Complementares</h4>
+            <div id="cComplementaresContainer"></div>
+            <button type="button" class="btn-adicionar" id="btnAddCComp"><i class="fas fa-plus"></i> Adicionar Carreta</button>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-import"><i class="fas fa-save"></i> Confirmar e Salvar</button>
+                <button type="button" class="btn-secondary-dark" id="btnCancelarAetFed">Cancelar</button>
+            </div>
+        </form>
     </div>
 
-    <div class="card" style="margin-top: 20px;">
-        <h3>AETs Federais Cadastradas</h3>
+    <!-- Tabela AET Federal (Modernizada) -->
+    <div id="tabelaContainerAetFed">
+        <h3 style="margin-top: 0; margin-bottom: 15px;"><i class="fas fa-list"></i> AETs Federais Cadastradas</h3>
         <div class="table-responsive">
             <table class="dark-table" id="tabelaAetFed">
                 <thead>
                     <tr>
                         <th>Nº AET / Filial</th>
-                        <th>Placa U1</th>
                         <th>Conjunto</th>
-                        <th>Validade</th>
+                        <th class="cell-placa">UNIDADE U1</th>
+                        <th class="cell-placa">UNIDADE U2</th>
+                        <th class="cell-placa">UNIDADE U3</th>
+                        <th class="cell-placa">UNIDADE U4</th>
+                        <th>Validade / Status</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -41,27 +418,18 @@
 
 <!-- ================= AET ESTADUAL ================= -->
 <div id="abaEstadual" style="display: none;">
-    <div class="card">
-        <h3>Importar AET Estadual</h3>
-        <div style="border: 2px dashed var(--border-dim); padding: 30px; text-align: center; border-radius: 8px; cursor: pointer;" id="dropZoneAetEst">
-            <label for="pdfInputAetEst" class="btn-primary-blue" style="cursor: pointer;">Selecionar AET Estadual (PDF)</label>
-            <input type="file" id="pdfInputAetEst" accept="application/pdf" hidden />
-            <p id="fileNameAetEst" style="margin-top: 10px; color: var(--ccol-blue-bright); font-weight: bold;"></p>
-        </div>
-        <p id="statusAetEst" style="margin-top: 10px; font-weight: bold; text-align: center;"></p>
-    </div>
-
-    <div class="card" style="margin-top: 20px;">
-        <h3>AETs Estaduais Cadastradas</h3>
+    <!-- Tabela AET Estadual -->
+    <div>
+        <h3 style="margin-top: 0; margin-bottom: 15px;"><i class="fas fa-list"></i> AETs Estaduais Cadastradas</h3>
         <div class="table-responsive">
             <table class="dark-table" id="tabelaAetEst">
                 <thead>
                     <tr>
                         <th>Nº Protocolo / Filial</th>
-                        <th>UF</th>
-                        <th>Placa Cavalo</th>
-                        <th>Validade</th>
-                        <th>Restrição</th>
+                        <th>UF / Restrição</th>
+                        <th class="cell-placa">CAVALO</th>
+                        <th class="cell-placa">REBOQUES PRINCIPAIS</th>
+                        <th>Validade / Status</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -71,6 +439,75 @@
     </div>
 </div>
 
+<!-- ================= MODAL DE IMPORTAÇÃO ================= -->
+<div id="modalImportacao" class="modal-overlay">
+    <div class="modal-content md">
+        <button class="close-modal" onclick="document.getElementById('modalImportacao').style.display='none'">&times;</button>
+        <h3 style="margin-top: 0; color: #fff;"><i class="fas fa-cloud-upload-alt"></i> Importar AET</h3>
+        <p style="color: #9ca3af; font-size: 0.9rem; margin-bottom: 20px;">Selecione o tipo de licença e anexe o arquivo PDF correspondente.</p>
+        
+        <div style="width: 100%;">
+            <label style="font-weight: bold; color: #e5e7eb;">Tipo de Documento:</label>
+            <select id="tipoImportacaoAet" class="import-select">
+                <option value="federal">AET Federal</option>
+                <option value="estadual">AET Estadual</option>
+            </select>
+        </div>
+
+        <!-- Área de Upload Federal -->
+        <div id="boxUploadFed" class="drop-zone" onclick="document.getElementById('pdfInputAetFed').click()" style="display: flex;">
+            <i class="fas fa-file-pdf"></i>
+            <p style="margin: 0; font-weight: bold; color: #ffffff; font-size: 1.1rem;">Selecionar PDF (Federal)</p>
+            <p style="margin: 0; font-size: 0.85rem; color: #9ca3af;">Clique para procurar no computador</p>
+            <input type="file" id="pdfInputAetFed" accept="application/pdf" hidden />
+            <p id="fileNameAetFed" class="file-name-display"></p>
+            <p id="statusAetFed" class="status-msg"></p>
+        </div>
+
+        <!-- Área de Upload Estadual -->
+        <div id="boxUploadEst" class="drop-zone" style="display: none;" onclick="document.getElementById('pdfInputAetEst').click()">
+            <i class="fas fa-file-pdf"></i>
+            <p style="margin: 0; font-weight: bold; color: #ffffff; font-size: 1.1rem;">Selecionar PDF (Estadual)</p>
+            <p style="margin: 0; font-size: 0.85rem; color: #9ca3af;">Clique para procurar no computador</p>
+            <input type="file" id="pdfInputAetEst" accept="application/pdf" hidden />
+            <p id="fileNameAetEst" class="file-name-display"></p>
+            <p id="statusAetEst" class="status-msg"></p>
+        </div>
+    </div>
+</div>
+
+<!-- ================= MODAL DE DETALHES GERAL ================= -->
+<div id="modalDetalhesAet" class="modal-overlay">
+    <div class="modal-content lg">
+        <button class="close-modal" onclick="document.getElementById('modalDetalhesAet').style.display='none'">&times;</button>
+        <h3 id="modalDetalhesTitulo" style="margin-top: 0; color: #fff; border-bottom: 1px solid #374151; padding-bottom: 10px;">
+            Detalhes da AET
+        </h3>
+        <div id="modalDetalhesBody" class="modal-body">
+            <!-- Conteúdo injetado via JS -->
+        </div>
+    </div>
+</div>
+
 <!-- ================= INPUTS ESCONDIDOS PARA ATUALIZAÇÃO ================= -->
 <input type="file" id="inputAtualizarAetFed" accept="application/pdf" style="display: none;" />
 <input type="file" id="inputAtualizarAetEst" accept="application/pdf" style="display: none;" />
+
+<script>
+    // Controle interno do Modal de Importação
+    document.getElementById('tipoImportacaoAet').addEventListener('change', function(e) {
+        if (e.target.value === 'federal') {
+            document.getElementById('boxUploadFed').style.display = 'flex';
+            document.getElementById('boxUploadEst').style.display = 'none';
+        } else {
+            document.getElementById('boxUploadFed').style.display = 'none';
+            document.getElementById('boxUploadEst').style.display = 'flex';
+        }
+    });
+
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) this.style.display = 'none';
+        });
+    });
+</script>
