@@ -1,0 +1,489 @@
+<style>
+/* Estilos Exclusivos do Módulo Cadastros e Documentos */
+.kpi-frotas-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+}
+.kpi-frota-card {
+    background: #1e293b;
+    border: 1px solid var(--border-dim);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
+}
+.kpi-frota-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+.kpi-frota-info h4 {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+.kpi-frota-info .val {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+}
+
+/* Modos de Lançamento (Tabs) */
+.frotas-tabs-header {
+    display: flex;
+    background: #0f172a;
+    border: 1px solid var(--border-dim);
+    border-radius: 10px;
+    padding: 6px;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+.tab-frota-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.tab-frota-btn.active {
+    background: var(--ccol-blue-bright);
+    color: #000;
+    box-shadow: 0 4px 12px rgba(96, 165, 250, 0.3);
+}
+.tab-frota-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+/* Dropzone Moderna */
+.dropzone-moderna {
+    border: 2px dashed rgba(96, 165, 250, 0.4);
+    background: rgba(30, 41, 59, 0.4);
+    border-radius: 12px;
+    padding: 45px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.dropzone-moderna:hover, .dropzone-moderna.dragover {
+    border-color: var(--ccol-blue-bright);
+    background: rgba(96, 165, 250, 0.08);
+    transform: translateY(-2px);
+}
+.dropzone-icon {
+    font-size: 3rem;
+    color: var(--ccol-blue-bright);
+    margin-bottom: 12px;
+}
+
+/* Badges de Veículos */
+.badge-tipo {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.badge-tipo.cavalo { background: rgba(59,130,246,.2); color: #60a5fa; border: 1px solid rgba(59,130,246,.4); }
+.badge-tipo.carreta { background: rgba(34,197,94,.2); color: #4ade80; border: 1px solid rgba(34,197,94,.4); }
+.badge-tipo.tritrem { background: rgba(168,85,247,.2); color: #c084fc; border: 1px solid rgba(168,85,247,.4); }
+.badge-tipo.bitrem { background: rgba(236,72,153,.2); color: #f472b6; border: 1px solid rgba(236,72,153,.4); }
+.badge-tipo.prancha { background: rgba(245,158,11,.2); color: #fbbf24; border: 1px solid rgba(245,158,11,.4); }
+.badge-tipo.grua { background: rgba(234,179,8,.2); color: #facc15; border: 1px solid rgba(234,179,8,.4); }
+.badge-tipo.frota-leve { background: rgba(148,163,184,.2); color: #cbd5e1; border: 1px solid rgba(148,163,184,.4); }
+.badge-tipo.onibus { background: rgba(239,68,68,.2); color: #f87171; border: 1px solid rgba(239,68,68,.4); }
+.badge-tipo.outro { background: rgba(148,163,184,.15); color: #94a3b8; }
+
+.badge-status {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.badge-status.ok { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+.badge-status.warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge-status.danger { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+.badge-filial {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border-dim);
+    color: #cbd5e1;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.tabela-acoes-btn {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-dim);
+    background: #1e293b;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-right: 4px;
+    transition: 0.2s;
+}
+.tabela-acoes-btn:hover { background: #334155; }
+.tabela-acoes-btn.btn-trash { color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+.tabela-acoes-btn.btn-trash:hover { background: rgba(239, 68, 68, 0.2); }
+.tabela-acoes-btn.btn-pdf { color: #60a5fa; border-color: rgba(96, 165, 250, 0.3); }
+.tabela-acoes-btn.btn-pdf:hover { background: rgba(96, 165, 250, 0.2); }
+</style>
+
+<div class="content-header" style="margin-bottom: 25px;">
+    <h2><i class="fas fa-folder-open" style="color: var(--ccol-blue-bright); margin-right: 8px;"></i> Cadastros e Documentos (CRLV)</h2>
+    <p style="color: var(--text-secondary);">Reconhecimento inteligente de CRLV digital em PDF ou lançamento manual estruturado por filial.</p>
+</div>
+
+<!-- CARDS DE ESTATÍSTICAS (KPIs) -->
+<div class="kpi-frotas-container">
+    <div class="kpi-frota-card">
+        <div class="kpi-frota-icon" style="background: rgba(96, 165, 250, 0.15); color: #60a5fa;">
+            <i class="fas fa-truck-moving"></i>
+        </div>
+        <div class="kpi-frota-info">
+            <h4>Total na Frota</h4>
+            <div class="val" id="kpiTotalFrotas">0</div>
+        </div>
+    </div>
+    <div class="kpi-frota-card">
+        <div class="kpi-frota-icon" style="background: rgba(34, 197, 94, 0.15); color: #4ade80;">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="kpi-frota-info">
+            <h4>Documentos em Dia</h4>
+            <div class="val" id="kpiEmDia" style="color: #4ade80;">0</div>
+        </div>
+    </div>
+    <div class="kpi-frota-card">
+        <div class="kpi-frota-icon" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="kpi-frota-info">
+            <h4>Vencem em Breve</h4>
+            <div class="val" id="kpiVencendo" style="color: #fbbf24;">0</div>
+        </div>
+    </div>
+    <div class="kpi-frota-card">
+        <div class="kpi-frota-icon" style="background: rgba(239, 68, 68, 0.15); color: #f87171;">
+            <i class="fas fa-times-circle"></i>
+        </div>
+        <div class="kpi-frota-info">
+            <h4>Vencidos</h4>
+            <div class="val" id="kpiVencidos" style="color: #f87171;">0</div>
+        </div>
+    </div>
+</div>
+
+<!-- ABAS DE ENTRADA (PDF vs MANUAL) -->
+<div class="frotas-tabs-header">
+    <button type="button" class="tab-frota-btn active" id="btnTabImportarPDF" onclick="window.alternarAbaCadastro('pdf')">
+        <i class="fas fa-file-pdf"></i> 1. Importar CRLV em PDF (Automático)
+    </button>
+    <button type="button" class="tab-frota-btn" id="btnTabManual" onclick="window.alternarAbaCadastro('manual')">
+        <i class="fas fa-keyboard"></i> 2. Lançamento Manual de Veículo
+    </button>
+</div>
+
+<!-- ÁREA 1: IMPORTAÇÃO POR PDF -->
+<div class="content-panel" id="painelImportacaoPDF" style="padding: 25px; margin-bottom: 25px;">
+    <div class="dropzone-moderna" id="dropZoneCRLV">
+        <i class="fas fa-cloud-upload-alt dropzone-icon"></i>
+        <h3 style="color: #f8fafc; font-size: 1.25rem; font-weight: 700; margin-bottom: 6px;">
+            Arraste e solte o arquivo do CRLV (PDF) aqui
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;">
+            O sistema lê automaticamente o Renavam, Placa, Chassi, Ano, Espécie e Proprietário.
+        </p>
+        <button type="button" class="btn-primary-blue" style="margin: 0 auto; padding: 12px 25px;" onclick="document.getElementById('pdfInputCRLV').click()">
+            <i class="fas fa-folder-open"></i> Selecionar Arquivo PDF
+        </button>
+        <input type="file" id="pdfInputCRLV" accept="application/pdf" style="display: none;" />
+        <div id="pdfUploadNome" style="margin-top: 15px; font-weight: 700; color: var(--ccol-blue-bright); font-size: 1rem;"></div>
+    </div>
+    
+    <div id="statusLeituraPDF" style="margin-top: 15px; text-align: center; font-weight: 700; font-size: 0.95rem;"></div>
+
+    <div style="margin-top: 15px; text-align: right;">
+        <button type="button" id="btnVerDebugTexto" class="btn-secondary-dark" style="font-size: 0.8rem; padding: 6px 12px;">
+            <i class="fas fa-code"></i> Inspecionar texto extraído
+        </button>
+    </div>
+    <pre id="preDebugTexto" style="display: none; background: #0b1220; padding: 15px; border-radius: 8px; color: #94a3b8; font-size: 0.8rem; max-height: 250px; overflow-y: auto; margin-top: 10px; border: 1px solid var(--border-dim);"></pre>
+</div>
+
+<!-- ÁREA 2: FORMULÁRIO DE REVISÃO E CADASTRO -->
+<div class="content-panel" id="painelFormulario" style="display: none; padding: 25px; margin-bottom: 25px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-dim); padding-bottom: 15px; margin-bottom: 20px;">
+        <h3 style="color: #f8fafc; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-edit" style="color: var(--ccol-green-bright);"></i> Dados do Documento e Veículo
+        </h3>
+        <button type="button" class="btn-secondary-dark" onclick="window.limparFormularioCRLV()" style="font-size: 0.8rem; padding: 6px 14px;">
+            <i class="fas fa-eraser"></i> Limpar Formulário
+        </button>
+    </div>
+
+    <form id="formCRLVVeiculo">
+        <!-- SEÇÃO: HIERARQUIA E IDENTIFICAÇÃO -->
+        <h4 style="color: var(--ccol-blue-bright); font-size: 0.9rem; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px;">
+            <i class="fas fa-sitemap"></i> 1. Unidade e Classificação Operacional
+        </h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 25px;">
+            <div class="form-group-dark">
+                <label>Filial / Unidade de Lotação <span style="color:#ef4444;">*</span></label>
+                <select id="filialSelectForm" name="filial_id" class="dark-select" required>
+                    <option value="">Carregando filiais...</option>
+                </select>
+            </div>
+            <div class="form-group-dark">
+                <label>Tipo de Veículo <span style="color:#ef4444;">*</span></label>
+                <select id="tipoVeiculoSelect" name="tipoVeiculo" class="dark-select" required>
+                    <option value="">Selecione o tipo...</option>
+                    <option value="Cavalo">Cavalo (Caminhão Trator)</option>
+                    <option value="Carreta">Carreta</option>
+                    <option value="Tritrem">Tritrem</option>
+                    <option value="Bitrem">Bitrem</option>
+                    <option value="Rodotrem">Rodotrem</option>
+                    <option value="Prancha">Prancha</option>
+                    <option value="Grua">Grua</option>
+                    <option value="Reboque">Reboque</option>
+                    <option value="Semirreboque">Semirreboque</option>
+                    <option value="Frota Leve">Frota Leve</option>
+                    <option value="Ônibus">Ônibus</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+            <div class="form-group-dark">
+                <label id="labelApelidoForm">Apelido / Identificação Interna</label>
+                <input type="text" id="apelidoInputForm" name="apelido" placeholder="Ex: Cavalo 105, Carreta 02" />
+            </div>
+        </div>
+
+        <!-- SEÇÃO: DADOS DO CRLV EXTRAÍDOS -->
+        <h4 style="color: var(--ccol-blue-bright); font-size: 0.9rem; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px;">
+            <i class="fas fa-id-card"></i> 2. Dados do Registro do Veículo
+        </h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div class="form-group-dark">
+                <label>Placa <span style="color:#ef4444;">*</span></label>
+                <input type="text" name="placa" id="campoPlaca" maxlength="8" style="text-transform: uppercase; font-weight: 700; color: var(--ccol-green-bright);" placeholder="ABC1D23" required />
+            </div>
+            <div class="form-group-dark">
+                <label>Código Renavam</label>
+                <input type="text" name="renavam" placeholder="Nº Renavam" />
+            </div>
+            <div class="form-group-dark">
+                <label>Exercício (Ano CRLV)</label>
+                <input type="number" name="exercicio" min="2000" max="2099" placeholder="Ex: 2026" />
+            </div>
+            <div class="form-group-dark">
+                <label>Ano Fabricação</label>
+                <input type="number" name="anoFabricacao" min="1900" max="2099" placeholder="Ex: 2024" />
+            </div>
+            <div class="form-group-dark">
+                <label>Ano Modelo</label>
+                <input type="number" name="anoModelo" min="1900" max="2099" placeholder="Ex: 2025" />
+            </div>
+            <div class="form-group-dark">
+                <label>Chassi</label>
+                <input type="text" name="chassi" maxlength="17" placeholder="17 caracteres" />
+            </div>
+            <div class="form-group-dark" style="grid-column: span 2;">
+                <label>Marca / Modelo / Versão</label>
+                <input type="text" name="marcaModelo" placeholder="Ex: VOLVO/FH 540 6X4T" />
+            </div>
+            <div class="form-group-dark">
+                <label>Espécie / Tipo</label>
+                <input type="text" name="especieTipo" placeholder="Ex: CARGA / CAMINHAO TRATOR" />
+            </div>
+            <div class="form-group-dark">
+                <label>Cor Predominante</label>
+                <input type="text" name="cor" placeholder="Ex: BRANCA" />
+            </div>
+            <div class="form-group-dark">
+                <label>Combustível</label>
+                <input type="text" name="combustivel" placeholder="Ex: DIESEL" />
+            </div>
+            <div class="form-group-dark">
+                <label>Número do CRV</label>
+                <input type="text" name="numeroCRV" placeholder="Nº do CRV" />
+            </div>
+            <div class="form-group-dark">
+                <label>Potência / Cilindrada</label>
+                <input type="text" name="potencia" placeholder="Ex: 540 CV" />
+            </div>
+            <div class="form-group-dark">
+                <label>Peso Bruto Total (PBT)</label>
+                <input type="text" name="pesoBruto" placeholder="Ex: 74.00" />
+            </div>
+            <div class="form-group-dark" style="grid-column: span 2;">
+                <label>Proprietário (Nome)</label>
+                <input type="text" name="nome" placeholder="Razão Social ou Nome Completo" />
+            </div>
+            <div class="form-group-dark">
+                <label>CPF / CNPJ</label>
+                <input type="text" name="cpfCnpj" placeholder="00.000.000/0000-00" />
+            </div>
+            <div class="form-group-dark">
+                <label>Município de Registro</label>
+                <input type="text" name="local" placeholder="Ex: MUCURI - BA" />
+            </div>
+            <div class="form-group-dark">
+                <label>UF de Registro</label>
+                <select name="uf" id="ufSelectForm" class="dark-select"></select>
+            </div>
+            <div class="form-group-dark">
+                <label>Data de Emissão</label>
+                <input type="text" name="data" placeholder="DD/MM/AAAA" />
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: flex-end; border-top: 1px solid var(--border-dim); padding-top: 20px;">
+            <button type="button" class="btn-secondary-dark" onclick="window.limparFormularioCRLV()">
+                <i class="fas fa-times"></i> Cancelar
+            </button>
+            <button type="submit" class="btn-primary-green" style="padding: 12px 30px; font-size: 1rem;">
+                <i class="fas fa-save"></i> Salvar e Cadastrar Veículo
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- ÁREA 3: TABELA DE VEÍCULOS CADASTRADOS -->
+<div class="content-panel" style="padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+        <h3 style="color: #f8fafc; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-list-check" style="color: var(--ccol-blue-bright);"></i> Veículos e Documentos Cadastrados
+        </h3>
+        
+        <!-- FILTROS DE TABELA -->
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <select id="filtroFilialTabela" class="dark-select" style="width: auto; min-width: 180px;" onchange="window.aplicarFiltrosTabelaCRLV()">
+                <option value="TODAS">Todas as Filiais</option>
+            </select>
+            
+            <select id="filtroStatusTabela" class="dark-select" style="width: auto; min-width: 160px;" onchange="window.aplicarFiltrosTabelaCRLV()">
+                <option value="TODOS">Todos os Status</option>
+                <option value="ok">Em Dia</option>
+                <option value="warn">Vence em Breve</option>
+                <option value="danger">Vencidos</option>
+            </select>
+            
+            <div style="position: relative;">
+                <input type="text" id="buscaTabelaCRLV" placeholder="Buscar placa, modelo..." class="dark-select" style="padding-left: 32px; width: 220px;" oninput="window.aplicarFiltrosTabelaCRLV()" />
+                <i class="fas fa-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-modern-wrapper">
+        <div id="listaVaziaFrotas" style="text-align: center; padding: 40px 20px; color: var(--text-secondary); display: none;">
+            <i class="fas fa-truck" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.3;"></i>
+            <p style="font-size: 1.1rem; font-weight: 600;">Nenhum veículo encontrado com os filtros selecionados.</p>
+            <p style="font-size: 0.85rem;">Importe um CRLV em PDF ou cadastre manualmente acima.</p>
+        </div>
+
+        <table id="tabelaVeiculosFrotas" class="data-table-modern" style="width: 100%;">
+            <thead>
+                <tr>
+                    <th>Filial</th>
+                    <th>Placa</th>
+                    <th>Tipo</th>
+                    <th>Identificação / GO</th>
+                    <th>Marca / Modelo</th>
+                    <th>Exercício</th>
+                    <th>Vencimento</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="corpoTabelaVeiculos"></tbody>
+        </table>
+    </div>
+</div>
+
+<input type="file" id="inputAtualizarArquivoCRLV" accept="application/pdf" style="display: none;" />
+
+<!-- MODAIS -->
+<div id="modalDados" class="modal-overlay" style="display: none;">
+    <div class="custom-modal" style="max-width: 650px;">
+        <div class="modal-header">
+            <h3 id="modalDadosTitulo"><i class="fas fa-info-circle"></i> Detalhes do Veículo</h3>
+            <button type="button" class="close-modal" data-close>&times;</button>
+        </div>
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+            <table class="data-table-modern" style="width: 100%; text-align: left;">
+                <tbody id="modalDadosTbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="modalPdf" class="modal-overlay" style="display: none;">
+    <div class="custom-modal" style="width: 85vw; max-width: 1000px; height: 85vh; display: flex; flex-direction: column;">
+        <div class="modal-header">
+            <h3 id="modalPdfTitulo"><i class="fas fa-file-pdf"></i> Visualizador de Documento</h3>
+            <button type="button" class="close-modal" data-close>&times;</button>
+        </div>
+        <div class="modal-body" style="flex: 1; padding: 0; background: #0f172a; display: flex; flex-direction: column;">
+            <div id="pdfContainer" style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%;">
+                <p style="color: var(--text-secondary); font-style: italic;">Carregando PDF...</p>
+            </div>
+            <div style="padding: 15px; text-align: center; border-top: 1px solid var(--border-dim); background: var(--bg-panel);">
+                <a id="pdfDownload" class="btn-primary-blue" download style="display: none; text-decoration: none; padding: 8px 18px; border-radius: 6px; font-weight: 700;">
+                    <i class="fas fa-download"></i> Baixar Documento PDF
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modalAtualizar" class="modal-overlay" style="display: none;">
+    <div class="custom-modal" style="max-width: 650px;">
+        <div class="modal-header">
+            <h3 id="modalAtualizarTitulo"><i class="fas fa-sync-alt"></i> Atualizar Documento</h3>
+            <button type="button" class="close-modal" data-close>&times;</button>
+        </div>
+        <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+            <p style="color: #fbbf24; background: rgba(245, 158, 11, 0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.9rem; margin-bottom: 15px;">
+                <i class="fas fa-exclamation-triangle"></i> Revise as alterações identificadas no novo documento antes de confirmar:
+            </p>
+            <table class="data-table-modern" style="width: 100%; text-align: left;">
+                <tbody id="modalAtualizarTbody"></tbody>
+            </table>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary-dark" data-close>Cancelar</button>
+            <button type="button" class="btn-primary-green" id="btnConfirmarAtualizacaoCRLV">
+                <i class="fas fa-check"></i> Confirmar Atualização
+            </button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,76 @@
+<div class="content-header">
+    <h2>🪪 Licenças de Trânsito (AET)</h2>
+    <p>Extração automática de AET Federal e Estadual. Persistência 100% no banco de dados.</p>
+</div>
+
+<div class="custom-tabs" style="margin-bottom: 20px; display: flex; gap: 10px;">
+    <button id="btnAbaFederal" class="btn-primary-blue" onclick="alternarAbaAet('federal')">AET Federal</button>
+    <button id="btnAbaEstadual" class="btn-secondary-dark" onclick="alternarAbaAet('estadual')">AET Estadual</button>
+</div>
+
+<!-- ================= AET FEDERAL ================= -->
+<div id="abaFederal">
+    <div class="card">
+        <h3>Importar AET Federal</h3>
+        <div style="border: 2px dashed var(--border-dim); padding: 30px; text-align: center; border-radius: 8px; cursor: pointer;" id="dropZoneAetFed">
+            <label for="pdfInputAetFed" class="btn-primary-blue" style="cursor: pointer;">Selecionar AET Federal (PDF)</label>
+            <input type="file" id="pdfInputAetFed" accept="application/pdf" hidden />
+            <p id="fileNameAetFed" style="margin-top: 10px; color: var(--ccol-blue-bright); font-weight: bold;"></p>
+        </div>
+        <p id="statusAetFed" style="margin-top: 10px; font-weight: bold; text-align: center;"></p>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h3>AETs Federais Cadastradas</h3>
+        <div class="table-responsive">
+            <table class="dark-table" id="tabelaAetFed">
+                <thead>
+                    <tr>
+                        <th>Nº AET / Filial</th>
+                        <th>Placa U1</th>
+                        <th>Conjunto</th>
+                        <th>Validade</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ================= AET ESTADUAL ================= -->
+<div id="abaEstadual" style="display: none;">
+    <div class="card">
+        <h3>Importar AET Estadual</h3>
+        <div style="border: 2px dashed var(--border-dim); padding: 30px; text-align: center; border-radius: 8px; cursor: pointer;" id="dropZoneAetEst">
+            <label for="pdfInputAetEst" class="btn-primary-blue" style="cursor: pointer;">Selecionar AET Estadual (PDF)</label>
+            <input type="file" id="pdfInputAetEst" accept="application/pdf" hidden />
+            <p id="fileNameAetEst" style="margin-top: 10px; color: var(--ccol-blue-bright); font-weight: bold;"></p>
+        </div>
+        <p id="statusAetEst" style="margin-top: 10px; font-weight: bold; text-align: center;"></p>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h3>AETs Estaduais Cadastradas</h3>
+        <div class="table-responsive">
+            <table class="dark-table" id="tabelaAetEst">
+                <thead>
+                    <tr>
+                        <th>Nº Protocolo / Filial</th>
+                        <th>UF</th>
+                        <th>Placa Cavalo</th>
+                        <th>Validade</th>
+                        <th>Restrição</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ================= INPUTS ESCONDIDOS PARA ATUALIZAÇÃO ================= -->
+<input type="file" id="inputAtualizarAetFed" accept="application/pdf" style="display: none;" />
+<input type="file" id="inputAtualizarAetEst" accept="application/pdf" style="display: none;" />

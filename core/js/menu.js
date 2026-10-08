@@ -1,5 +1,4 @@
 // ==================== core/js/menu.js ====================
-
 // ==================== DEFINIÇÃO CENTRAL DE MENUS ====================
 window.MAPA_MENUS = [
     { id: 'escala', label: 'Escala Semanal', setor: 'Logística', icon: 'fas fa-calendar-alt' },
@@ -9,7 +8,12 @@ window.MAPA_MENUS = [
     { id: 'caminhoes', label: 'Conjuntos & Caminhões', setor: 'Logística', icon: 'fas fa-truck' },
     { id: 'documentos_frota', label: 'Documentos da Frota', setor: 'Logística', icon: 'fas fa-file-pdf' },
     
-    // --- MÓDULO: CAMPO (ATUALIZADO) ---
+    // --- MÓDULO: GESTÃO DE FROTAS ---
+    { id: 'frota_cadastros', label: 'Cadastros e Documentos', setor: 'Gestão de Frotas', icon: 'fas fa-folder-open' },
+    { id: 'frota_licencas', label: 'Licenças', setor: 'Gestão de Frotas', icon: 'fas fa-id-card' },
+    { id: 'frota_compatibilidade', label: 'Compatibilidade', setor: 'Gestão de Frotas', icon: 'fas fa-check-double' },
+    
+    // --- MÓDULO: CAMPO ---
     { id: 'campo_escala', label: 'Escala Semanal', setor: 'Campo', icon: 'fas fa-calendar-alt' },
     { id: 'alocacao_campo', label: 'Alocação Geral', setor: 'Campo', icon: 'fas fa-users-cog' },
     { id: 'campo_maquinas', label: 'Máquinas (Frentes)', setor: 'Campo', icon: 'fas fa-tractor' },
@@ -24,8 +28,8 @@ window.MAPA_MENUS = [
     { id: 'cadastro_frota', label: 'Cadastro Frota (O.S.)', setor: 'Manutenção', icon: 'fas fa-truck-moving' },
     { id: 'cadastro_os_classificacoes', label: 'Cadastro Básico (Tipos)', setor: 'Manutenção', icon: 'fas fa-list' },
     { id: 'relatorios_manutencao', label: 'Painel de Relatórios', setor: 'Manutenção', icon: 'fas fa-chart-line' },
-
-    // --- MÓDULO: SSMA (NOVO) ---
+    
+    // --- MÓDULO: SSMA ---
     { id: 'ssma_ordem_servico', label: 'Cadastros Básicos (O.S.)', setor: 'SSMA', icon: 'fas fa-list-alt' },
     { id: 'ssma_colaboradores', label: 'Colaboradores (Exportação)', setor: 'SSMA', icon: 'fas fa-hard-hat' },
     
@@ -80,7 +84,6 @@ window.MAPA_MENUS = [
 ];
 
 const pageCache = {};
-
 const ROTAS = {
     'escala': 'modules/logistica/escala/escala.html',
     'troca_turno': 'modules/logistica/troca_turno/troca_turno.html',
@@ -153,26 +156,28 @@ const ROTAS = {
     'almoxarifado_entregas': 'modules/almoxarifado/almoxarifado_entregas.html',
     'almoxarifado_cadastros': 'modules/almoxarifado/almoxarifado_cadastros.html',
     'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html',
-    'almoxarifado_relatorios': 'modules/almoxarifado/almoxarifado_relatorios.html'
+    'almoxarifado_relatorios': 'modules/almoxarifado/almoxarifado_relatorios.html',
+
+    // --- ROTAS: GESTÃO DE FROTAS ---
+    'frota_cadastros': 'modules/gestao_frotas/cadastros_documentos/cadastros_documentos.html',
+    'frota_licencas': 'modules/gestao_frotas/licencas/licencas.html',
+    'frota_compatibilidade': 'modules/gestao_frotas/compatibilidade/compatibilidade.html'
 };
 
-const VERSAO_SISTEMA = "1.0.22";
+const VERSAO_SISTEMA = "1.0.25";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
     if (!container) return;
-
     let permissoesAtuais = {};
     if (typeof db !== 'undefined' && typeof db.getPermissoesDB === 'function') {
         permissoesAtuais = await db.getPermissoesDB();
     } else if (typeof window.getPermissoes === 'function') {
         permissoesAtuais = window.getPermissoes();
     }
-
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Operacional';
     const userKey = currentUser ? 'user_' + currentUser.id : '';
     const cargoKey = (currentUser && currentUser.cargo_id) ? currentUser.cargo_id.toString() : null;
-
     let meusMenus = [];
     if (cargoKey && permissoesAtuais[cargoKey]) {
         meusMenus = permissoesAtuais[cargoKey];
@@ -184,17 +189,14 @@ window.renderizarMenu = async function() {
         meusMenus = permissoesAtuais[userKey];
     }
     
-    // NOVA LÓGICA DE SUPERADMIN / GLOBAL - Libera acesso a tudo para a base matriz
     const isGlobalAdmin = (currentUser && (currentUser.role === 'SuperAdmin' || currentUser.filial_id === null || currentUser.is_global_session === true));
     const isAdmin = isGlobalAdmin || userRole === 'Admin';
     const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
-
     if (isAdmin) {
         if (!meusMenus.includes('tarifador')) meusMenus.push('tarifador');
     }
     
     let navHtml = '<nav class="main-nav">';
-    
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
     
     setores.forEach(setor => {
@@ -203,10 +205,8 @@ window.renderizarMenu = async function() {
         } else {
             if (setor === 'Global') return;
         }
-
         const menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
         const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
-
         if (temAcessoAoSetor) {
             navHtml += `<div class="nav-dropdown" onmouseleave="fecharDropdown(this)">
                 <button class="nav-item dropdown-toggle" onclick="toggleDropdown(event)">
@@ -221,14 +221,12 @@ window.renderizarMenu = async function() {
                     </button>`;
                 }
             });
-
             navHtml += `</div></div>`;
         }
     });
-
     navHtml += '</nav>';
     container.innerHTML = navHtml;
-
+    
     setTimeout(() => {
         const firstBtn = container.querySelector('.dropdown-item') || container.querySelector('.nav-item');
         if (firstBtn) firstBtn.click();
@@ -251,6 +249,7 @@ window.renderizarMenu = async function() {
 window.getIconSetor = function(setor) {
     const icones = {
         'Logística': 'fas fa-truck',
+        'Gestão de Frotas': 'fas fa-truck-moving',
         'Campo': 'fas fa-tractor',
         'Manutenção': 'fas fa-tools',
         'Almoxarifado': 'fas fa-boxes', 
@@ -278,9 +277,6 @@ window.fecharDropdown = function(dropdownElement) {
 };
 
 window.navegarPara = async function(pagina, elementoClicado) {
-    const isGlobalAdmin = (currentUser && (currentUser.role === 'SuperAdmin' || currentUser.filial_id === null || currentUser.is_global_session === true));
-    const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Operacional';
-
     if (elementoClicado) {
         document.querySelectorAll('.nav-item, .dropdown-item').forEach(el => el.classList.remove('active'));
         elementoClicado.classList.add('active');
@@ -292,31 +288,28 @@ window.navegarPara = async function(pagina, elementoClicado) {
             if (menu) menu.classList.remove('show');
         }
     }
-
+    
     if (pagina === 'painel_tv') {
         if (typeof window.entrarModoTV === 'function') window.entrarModoTV();
     } else {
         if (typeof window.sairModoTV === 'function') window.sairModoTV();
     }
-
+    
     const mainContent = document.getElementById('conteudo-principal');
-
     try {
         if (!pageCache[pagina]) {
             mainContent.innerHTML = '<div style="padding: 20px; text-align: center; color: #fff;"><i class="fas fa-spinner fa-spin"></i> Carregando módulo...</div>';
             
             const caminhoArquivo = ROTAS[pagina];
             if (!caminhoArquivo) throw new Error('Rota não definida para o módulo: ' + pagina);
-
             const response = await fetch(`${caminhoArquivo}?v=${VERSAO_SISTEMA}`);
             if (!response.ok) throw new Error('Página não encontrada');
-
             pageCache[pagina] = await response.text();
         }
         
         mainContent.innerHTML = pageCache[pagina];
 
-        // Inicializadores
+        // Inicializadores de Módulos
         if (pagina === 'gestao_filiais' && typeof window.renderizarGestaoFiliais === 'function') window.renderizarGestaoFiliais();
         if (pagina === 'auditoria_logs' && typeof window.renderizarAuditoriaLogs === 'function') window.renderizarAuditoriaLogs();
         
@@ -334,8 +327,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
         if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();
         if (pagina === 'campo_maquinas' && typeof window.renderizarMaquinasCampo === 'function') window.renderizarMaquinasCampo();
-        
-        // NOVO: Inicializador do módulo Abastecimento Gruas
         if (pagina === 'abastecimento_gruas' && typeof window.initAbastecimentoGruas === 'function') window.initAbastecimentoGruas();
 
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
@@ -343,7 +334,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'controle_manutencao' && typeof window.initControleManutencao === 'function') window.initControleManutencao();
         if (pagina === 'cadastro_os_classificacoes' && typeof window.renderizarCadastroClassificacoes === 'function') window.renderizarCadastroClassificacoes();
         
-        // NOVO: Inicializador SSMA
         if (pagina === 'ssma_ordem_servico') {
             if (typeof window.carregarFiliaisSSMA === 'function') window.carregarFiliaisSSMA();
             if (typeof window.carregarCargosSSMA === 'function') window.carregarCargosSSMA();
@@ -368,10 +358,8 @@ window.navegarPara = async function(pagina, elementoClicado) {
 
         if (pagina === 'rh_painel' && typeof window.initRHPainel === 'function') window.initRHPainel(); 
         if (pagina === 'rh_colaboradores' && typeof window.initRHColaboradores === 'function') window.initRHColaboradores();
-        
         if (pagina === 'rh_absenteismo' && typeof window.initRHAbsenteismo === 'function') window.initRHAbsenteismo();
         if (pagina === 'rh_banco_horas' && typeof window.initRHBancoHoras === 'function') window.initRHBancoHoras();
-        
         if (pagina === 'rh_sorteio' && typeof window.initRHSorteio === 'function') window.initRHSorteio();
         if (pagina === 'rh_relatorios' && typeof window.initRHRelatorios === 'function') window.initRHRelatorios();
         if (pagina === 'rh_configuracoes' && typeof window.initRHConfiguracoes === 'function') window.initRHConfiguracoes();
@@ -382,28 +370,14 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'relatorio_ocorrencias' && typeof window.initRelatorioOcorrencias === 'function') window.initRelatorioOcorrencias();
         
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
-
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
         if (pagina === 'indicadores_serrana' && typeof window.carregarDadosDashboardSerrana === 'function') window.carregarDadosDashboardSerrana();
         if (pagina === 'cadastro_indicadores' && typeof window.initCadastroIndicadores === 'function') window.initCadastroIndicadores();
-
         if (pagina === 'servicos' && typeof window.renderizarTelaServicos === 'function') window.renderizarTelaServicos();
         if (pagina === 'cadastro_frota' && typeof window.renderizarTelaCadastroFrota === 'function') window.renderizarTelaCadastroFrota();
         if (pagina === 'documentos_frota' && typeof window.renderizarTelaDocumentosFrota === 'function') window.renderizarTelaDocumentosFrota();
         if (pagina === 'borracharia' && typeof window.initBorracharia === 'function') window.initBorracharia();
         if (pagina === 'relatorios_manutencao' && typeof window.renderizarTelaRelatoriosManutencao === 'function') window.renderizarTelaRelatoriosManutencao();
-
-        if (pagina === 'relatorio_gerencial') {
-            try { if (typeof carregarDadosOS === 'function') await carregarDadosOS(); } catch(e) {}
-            if (typeof window.atualizarKPIsGlobais === 'function') window.atualizarKPIsGlobais();
-            if (typeof window.renderizarRelatorioGerencialOS === 'function') window.renderizarRelatorioGerencialOS();
-            if (typeof window.renderizarGraficoEvolucaoDM === 'function') window.renderizarGraficoEvolucaoDM();
-            if (typeof window.renderizarGraficoStatusFrotaHorario === 'function') window.renderizarGraficoStatusFrotaHorario();
-            if (typeof window.renderizarGraficoEvolucaoDMDiaria === 'function') window.renderizarGraficoEvolucaoDMDiaria();
-            if (typeof window.renderizarGraficoEvolucaoDMDiariaGrua === 'function') window.renderizarGraficoEvolucaoDMDiariaGrua();
-            if (typeof window.renderizarDMIndividual === 'function') window.renderizarDMIndividual();
-            if (typeof window.renderizarDMIndividualGrua === 'function') window.renderizarDMIndividualGrua();
-        }
 
         if (pagina === 'visao_geral' && typeof window.carregarDadosDashboardAnalitico === 'function') window.carregarDadosDashboardAnalitico();
         if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
@@ -424,8 +398,20 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
         if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
 
+        // INICIALIZADORES DO MÓDULO GESTÃO DE FROTAS
+        if (pagina === 'frota_cadastros') {
+            if (typeof window.initFrotaCadastros === 'function') {
+                window.initFrotaCadastros();
+            }
+        }
+        if (pagina === 'frota_licencas') {
+            if (typeof window.initFrotaLicencas === 'function') window.initFrotaLicencas();
+        }
+        if (pagina === 'frota_compatibilidade') {
+            if (typeof window.initFrotaCompatibilidade === 'function') window.initFrotaCompatibilidade();
+        }
     } catch (error) {
         console.error('Erro ao carregar página:', error);
-        mainContent.innerHTML = `<div style="padding: 20px; text-align: center; color: #ef4444;"><h3>Erro de Navegação</h3></div>`;
+        mainContent.innerHTML = `<div style="padding: 20px; text-align: center; color: #ef4444;"><h3>Erro de Navegação</h3><p>${error.message}</p></div>`;
     }
 };

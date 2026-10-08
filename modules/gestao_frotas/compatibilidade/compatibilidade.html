@@ -1,0 +1,40 @@
+<div class="content-header">
+    <h2>🔍 Simulador de Compatibilidade (Cavalo ⇄ Carretas)</h2>
+    <p>Validação de peso, RNTRC e validade de AETs cruzando a base de dados.</p>
+</div>
+
+<div class="card">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <div class="form-group-dark">
+            <label>Selecione o Cavalo (U1)</label>
+            <select id="compatCavaloSelect" class="dark-select">
+                <option value="">— Carregando Cavalos... —</option>
+            </select>
+        </div>
+        <div class="form-group-dark">
+            <label>Tipo de Conjunto Esperado</label>
+            <select id="compatTipoConjunto" class="dark-select">
+                <option value="">— Automático —</option>
+                <option value="TRITREM">Tritrem</option>
+                <option value="BITREM">Bitrem</option>
+                <option value="RODOTREM">Rodotrem</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="card" id="compatResumoCard" style="display:none; margin-top: 20px;">
+    <h3>📋 Resumo do Cavalo Selecionado</h3>
+    <div id="compatResumoInfo" style="color: var(--text-secondary); line-height: 1.6; margin-top: 10px;"></div>
+</div>
+
+<div class="card" id="compatSimulacaoCard" style="display:none; margin-top: 20px;">
+    <h3>🧪 Simulação de Unidades (Engate)</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;" id="slotsCarretas">
+        <!-- Preenchido via JS -->
+    </div>
+    
+    <div style="margin-top: 20px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-dim);" id="resultadoValidacao">
+        <p style="color: var(--muted);"><i class="fas fa-info-circle"></i> Selecione as carretas para ver a validação automática.</p>
+    </div>
+</div>

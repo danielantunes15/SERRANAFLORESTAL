@@ -177,13 +177,12 @@ const db = {
     // --- MOTORISTAS / COLABORADORES DA ALOCAÇÃO ---
     async getMotoristas() {
         try {
-            // Nova lógica: Puxando do módulo de RH (Duplo filtro na função e exclusão de inativos)
             const query = supabaseClient.from('rh_colaboradores')
                 .select('*')
-                .ilike('funcao', '%MOTORISTA%') // Busca por Motorista
-                .ilike('funcao', '%TRITREM%')   // E que também tenha TRITREM
-                .neq('status', 'Inativo')       // Some da escala automaticamente
-                .neq('status', 'Desligado');    // Some da escala automaticamente
+                .ilike('funcao', '%MOTORISTA%')
+                .ilike('funcao', '%TRITREM%')
+                .neq('status', 'Inativo')
+                .neq('status', 'Desligado');
                 
             const { data, error } = await aplicarFiltroFilial(query);
             if(error) throw error;
@@ -275,7 +274,6 @@ const db = {
         }
     },
     
-    // Processar Lote de Entrada (XML/PDF)
     async processarEntradaLote(itens, nf, fornecedor) {
         let queryCatalogo = supabaseClient.from('almoxarifado_pecas').select('*');
         queryCatalogo = aplicarFiltroFilial(queryCatalogo);
@@ -488,6 +486,146 @@ const db = {
     async deleteClassificacaoOS(id) {
         const { error } = await supabaseClient.from('os_classificacoes').update({ status: 'Inativo' }).eq('id', id);
         if(error) throw error;
+    },
+
+    // =========================================================
+    // --- GESTÃO DE FROTAS: CADASTROS E DOCUMENTOS (CRLV) ---
+    // =========================================================
+    async getFrotasDocumentos() {
+        try {
+            const query = supabaseClient
+                .from('frotas_documentos')
+                .select('*, filiais(nome)')
+                .order('atualizado_em', { ascending: false });
+            const { data, error } = await aplicarFiltroFilial(query);
+            if (error) throw error;
+            return data || [];
+        } catch (e) {
+            console.error("Erro getFrotasDocumentos:", e);
+            return [];
+        }
+    },
+
+    async upsertFrotaDocumento(doc) {
+        // Mapeia camelCase (formulário) -> snake_case (banco)
+        const payload = injetarFilial({
+            placa: (doc.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, ''),
+            renavam: doc.renavam || null,
+            exercicio: doc.exercicio || null,
+            ano_fabricacao: doc.anoFabricacao || null,
+            ano_modelo: doc.anoModelo || null,
+            numero_crv: doc.numeroCRV || null,
+            marca_modelo: doc.marcaModelo || null,
+            especie_tipo: doc.especieTipo || null,
+            chassi: doc.chassi || null,
+            cor: doc.cor || null,
+            combustivel: doc.combustivel || null,
+            potencia: doc.potencia || null,
+            peso_bruto: doc.pesoBruto || null,
+            proprietario_nome: doc.nome || null,
+            cpf_cnpj: doc.cpfCnpj || null,
+            local_registro: doc.local || null,
+            uf: doc.uf || 'BA',
+            data_emissao: doc.data || null,
+            tipo_veiculo: doc.tipoVeiculo || null,
+            apelido: doc.apelido || null,
+            numero_go: doc.numeroGO || null
+        });
+
+        delete payload.data;
+        delete payload.nome;
+        delete payload.local;
+
+        if (doc.pdf_url !== undefined) payload.pdf_url = doc.pdf_url;
+        if (doc.pdf_path !== undefined) payload.pdf_path = doc.pdf_path;
+
+        // ⚠️ onConflict composto por placa + filial_id
+        // Permite a mesma placa existir em filiais diferentes
+        const { data, error } = await supabaseClient
+            .from('frotas_documentos')
+            .upsert([payload], { onConflict: 'placa,filial_id' })
+            .select();
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteFrotaDocumento(placa, filialId) {
+        // Se filialId não foi passado, tenta pegar do usuário logado
+        if (filialId === undefined && window.currentUser) {
+            filialId = window.currentUser.filial_id;
+        }
+
+        // Busca o pdf_path antes de apagar
+        try {
+            let qBusca = supabaseClient
+                .from('frotas_documentos')
+                .select('pdf_path, filial_id')
+                .eq('placa', placa);
+            if (filialId !== null && filialId !== undefined) {
+                qBusca = qBusca.eq('filial_id', filialId);
+            }
+            const { data: registros } = await qBusca;
+
+            if (registros && registros.length > 0) {
+                const paths = registros.map(r => r.pdf_path).filter(Boolean);
+                if (paths.length > 0) {
+                    await supabaseClient.storage.from('frotas-crlv').remove(paths);
+                }
+            }
+        } catch (e) {
+            console.warn("Erro ao apagar PDF do storage:", e);
+        }
+
+        // Apaga o(s) registro(s) — filtra por placa + filial
+        let query = supabaseClient
+            .from('frotas_documentos')
+            .delete()
+            .eq('placa', placa);
+        if (filialId !== null && filialId !== undefined) {
+            query = query.eq('filial_id', filialId);
+        }
+        const { error } = await query;
+        if (error) throw error;
+    },
+
+    // =========================================================
+    // --- UPLOAD DE PDF DO CRLV PARA O STORAGE ---
+    // =========================================================
+    async uploadPdfCRLV(file, placa) {
+        if (!file || !placa) throw new Error("Arquivo ou placa não informados.");
+        
+        const placaLimpa = String(placa).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const timestamp = Date.now();
+        const path = `${placaLimpa}/crlv-${timestamp}.pdf`;
+
+        const { error: errUpload } = await supabaseClient
+            .storage
+            .from('frotas-crlv')
+            .upload(path, file, {
+                cacheControl: '3600',
+                upsert: true,
+                contentType: 'application/pdf'
+            });
+        if (errUpload) throw errUpload;
+
+        const { data: publicUrlData } = supabaseClient
+            .storage
+            .from('frotas-crlv')
+            .getPublicUrl(path);
+
+        return {
+            path: path,
+            url: publicUrlData.publicUrl
+        };
+    },
+
+    async deletePdfCRLV(path) {
+        if (!path) return;
+        const { error } = await supabaseClient
+            .storage
+            .from('frotas-crlv')
+            .remove([path]);
+        if (error) console.warn("Erro ao apagar PDF:", error);
     }
 };
 

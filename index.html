@@ -74,7 +74,6 @@
                 <button id="btnMobileMenu" onclick="toggleMobileMenu()" style="display: none; background: transparent; border: none; color: #fff; font-size: 1.6rem; cursor: pointer; padding: 5px 10px; margin-right: 5px; border-radius: 6px;">
                     <i class="fas fa-bars"></i>
                 </button>
-                <!-- Ajustado com estilo inline para remover fundo azul, bordas e sombras -->
                 <div class="ccol-logo-modern" style="background: transparent !important; box-shadow: none !important; padding: 0 !important; border: none !important;">
                     <img src="assets/logo.png" alt="Serranalog Florestal Logo" class="company-logo-img">
                 </div>
@@ -322,6 +321,7 @@
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- Adicionando importação do PDF.js para os recursos de Gestão de Frota -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     <script src="core/js/database.js"></script>
@@ -370,7 +370,6 @@
     
     <script src="modules/manutencao/controle_manutencao/controle_manutencao.js"></script>
     
-    <!-- NOVO SCRIPT SSMA -->
     <script src="modules/ssma/cadastros/ssma_ordem_servico.js"></script>
     <script src="modules/ssma/colaboradores/ssma_colaboradores.js"></script>
     <script src="modules/ssma/colaboradores/ssma_impressao.js"></script>
@@ -389,7 +388,6 @@
     <script src="modules/rh/painel/rh_painel.js"></script>
     <script src="modules/rh/colaboradores/colaboradores.js"></script>
     
-    <!-- NOVO SCRIPT DE IMPRESSÃO DE EPI -->
     <script src="modules/rh/colaboradores/ficha_epi_impressao.js"></script>
 
     <script src="modules/rh/absenteismo/absenteismo.js"></script>
@@ -434,6 +432,14 @@
     <script src="modules/gerencial/configuracoes_gerenciais/configuracoes_gerenciais.js"></script>
 
     <script src="modules/gerencial/tarifador/tarifador.js"></script>
+
+    <!-- UTILITÁRIOS BASE GESTÃO DE FROTAS -->
+    <script src="modules/gestao_frotas/utils_frotas.js"></script>
+    
+    <!-- MÓDULOS DE GESTÃO DE FROTAS -->
+    <script src="modules/gestao_frotas/cadastros_documentos/cadastros_documentos.js"></script>
+    <script src="modules/gestao_frotas/licencas/licencas.js"></script>
+    <script src="modules/gestao_frotas/compatibilidade/compatibilidade.js"></script>
 
 </body>
 </html>
