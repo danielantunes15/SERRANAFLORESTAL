@@ -1,7 +1,8 @@
 /* =========================================================
    MÓDULO: CADASTROS E DOCUMENTOS (CRLV DIGITAL)
-   - Lançamento manual como padrão.
+   - Lançamento manual como padrão no Modal.
    - Importação inteligente e Anexo opcional dentro do Modal.
+   - Listagem agrupada por Tipo de Veículo (Categoria).
    ========================================================= */
 
 window.initFrotaCadastros = function() {
@@ -10,7 +11,6 @@ window.initFrotaCadastros = function() {
     let pdfBlobPendente = null; 
     let ultimoTextoBruto = "";
     
-    // Variáveis para atualização de documento existente na tabela
     let placaEmAtualizacao = null;
     let filialEmAtualizacao = null;
     let novoPDFEmAtualizacao = null;
@@ -20,11 +20,6 @@ window.initFrotaCadastros = function() {
 
     function tipoUsaGO(tipo) {
         return TIPOS_COM_GO.includes(tipo);
-    }
-
-    function classeTipo(tipo) {
-        if (!tipo) return "outro";
-        return tipo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
     }
 
     function isUsuarioGlobal() {
@@ -269,7 +264,6 @@ window.initFrotaCadastros = function() {
 
             preencherFormularioCRLV(dados);
             
-            // Marca o arquivo para ser salvo
             pdfBlobPendente = file;
             const divNome = document.getElementById("nomeArquivoAnexado");
             document.getElementById("textoNomeArquivo").textContent = file.name;
@@ -335,13 +329,6 @@ window.initFrotaCadastros = function() {
 
         const L = (i) => (linhasLimpa[i] !== undefined ? linhasLimpa[i] : "");
         const U = (i) => L(i).toUpperCase();
-
-        const acharLinha = (regex, inicio = 0) => {
-            for (let i = inicio; i < linhasLimpa.length; i++) {
-                if (regex.test(U(i))) return i;
-            }
-            return -1;
-        };
 
         let renavam = "";
         {
@@ -562,7 +549,9 @@ window.initFrotaCadastros = function() {
             renavam, placa, exercicio, anoFabricacao, anoModelo, numeroCRV,
             marcaModelo, especieTipo, chassi, cor, combustivel, potencia,
             pesoBruto, nome, cpfCnpj, local, data, uf,
-            tipoVeiculo: "", apelido: "", numeroGO: "",
+            tipoVeiculo: "",
+            apelido: "",
+            numeroGO: "",
         };
     }
 
@@ -653,7 +642,6 @@ window.initFrotaCadastros = function() {
         dados.filial_id = parseInt(dados.filial_id, 10);
         dados.atualizado_em = new Date().toISOString();
 
-        // Faz o Botão girar
         const btnSalvar = document.querySelector("#modalCadastroVeiculo .btn-primary-green");
         if(btnSalvar) { btnSalvar.disabled = true; btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; }
 
@@ -707,7 +695,7 @@ window.initFrotaCadastros = function() {
     }
 
     // =====================================================
-    // CARREGAMENTO DA LISTA (sempre do banco)
+    // CARREGAMENTO E RENDERIZAÇÃO DA TABELA AGRUPADA
     // =====================================================
     async function carregarListaVeiculos() {
         let lista = [];
@@ -779,76 +767,117 @@ window.initFrotaCadastros = function() {
     };
 
     function renderizarTabela(lista) {
-        const tbody = document.getElementById("corpoTabelaVeiculos");
+        const container = document.getElementById("corpoTabelasAgrupadas");
         const emptyMsg = document.getElementById("listaVaziaFrotas");
-        const tabela = document.getElementById("tabelaVeiculosFrotas");
-        if (!tbody) return;
+        if (!container) return;
 
-        tbody.innerHTML = "";
+        container.innerHTML = "";
 
         if (lista.length === 0) {
             if (emptyMsg) emptyMsg.style.display = "block";
-            if (tabela) tabela.style.display = "none";
             return;
         }
 
         if (emptyMsg) emptyMsg.style.display = "none";
-        if (tabela) tabela.style.display = "table";
 
-        lista.sort((a, b) => {
-            const da = calcularVencimento(a);
-            const db = calcularVencimento(b);
-            if (!da) return 1;
-            if (!db) return -1;
-            return da - db;
+        // Agrupa os veículos pela categoria/tipo_veiculo
+        const grupos = {};
+        lista.forEach(v => {
+            const tipo = v.tipo_veiculo || "Sem Categoria";
+            if (!grupos[tipo]) grupos[tipo] = [];
+            grupos[tipo].push(v);
         });
 
-        lista.forEach(v => {
-            const venc = calcularVencimento(v);
-            const status = calcularStatus(v);
-            const tipo = v.tipo_veiculo || "";
-            const classeT = classeTipo(tipo);
-            const nomeFilial = mapaFiliais[v.filial_id] || (v.filiais ? v.filiais.nome : "Filial Padrão");
+        // Ordena as categorias em ordem alfabética
+        const categorias = Object.keys(grupos).sort();
+
+        categorias.forEach(categoria => {
+            const veiculos = grupos[categoria];
             
-            let ident = "-";
-            if (tipoUsaGO(tipo) && v.numero_go) {
-                ident = `<strong style="color:var(--ccol-blue-bright);">GO:</strong> ${v.numero_go}`;
-            } else if (v.apelido) {
-                ident = `<span style="font-style: italic; color: #cbd5e1;">${v.apelido}</span>`;
-            }
+            // Ordenar por vencimento mais próximo
+            veiculos.sort((a, b) => {
+                const da = calcularVencimento(a);
+                const db = calcularVencimento(b);
+                if (!da) return 1;
+                if (!db) return -1;
+                return da - db;
+            });
 
-            // Exibir PDF botão apenas se existir url, senão fica desabilitado
-            const temPdf = !!v.pdf_url;
-            const btnPdfClass = temPdf ? 'btn-pdf' : '';
-            const btnPdfStyle = temPdf ? '' : 'opacity: 0.3; cursor: not-allowed;';
-            const acaoPdf = temPdf ? `window.visualizarPdfDocumento('${v.placa}', ${v.filial_id})` : `alert('Sem PDF anexado. Clique em Anexar/Atualizar Documento.')`;
+            let linhasHtml = "";
+            veiculos.forEach(v => {
+                const venc = calcularVencimento(v);
+                const status = calcularStatus(v);
+                const nomeFilial = mapaFiliais[v.filial_id] || (v.filiais ? v.filiais.nome : "Filial Padrão");
+                
+                let ident = "-";
+                if (tipoUsaGO(categoria) && v.numero_go) {
+                    ident = `<strong style="color:var(--ccol-blue-bright);">GO:</strong> ${v.numero_go}`;
+                } else if (v.apelido) {
+                    ident = `<span style="font-style: italic; color: #cbd5e1;">${v.apelido}</span>`;
+                }
 
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td><span class="badge-filial">${nomeFilial}</span></td>
-                <td><strong style="color:#fff; font-size: 0.95rem;">${v.placa}</strong></td>
-                <td><span class="badge-tipo ${classeT}">${tipo || "N/A"}</span></td>
-                <td>${ident}</td>
-                <td>${v.marca_modelo || "-"}</td>
-                <td>${v.exercicio || "-"}</td>
-                <td>${window.formatarData(venc)}</td>
-                <td><span class="badge-status ${status.tipo}">${status.texto}</span></td>
-                <td>
-                    <button class="tabela-acoes-btn" title="Ver Detalhes" onclick="window.abrirModalDadosCRLV('${v.placa}', ${v.filial_id})">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="tabela-acoes-btn ${btnPdfClass}" style="${btnPdfStyle}" title="Visualizar PDF" onclick="${acaoPdf}">
-                        <i class="fas fa-file-pdf"></i>
-                    </button>
-                    <button class="tabela-acoes-btn btn-upload" title="Anexar / Atualizar Documento" onclick="window.solicitarAtualizacaoCRLV('${v.placa}', ${v.filial_id})">
-                        <i class="fas fa-upload"></i>
-                    </button>
-                    <button class="tabela-acoes-btn btn-trash" title="Excluir Veículo" onclick="window.excluirVeiculoCRLV('${v.placa}', ${v.filial_id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
+                const temPdf = !!v.pdf_url;
+                const btnPdfClass = temPdf ? 'btn-pdf' : '';
+                const btnPdfStyle = temPdf ? '' : 'opacity: 0.3; cursor: not-allowed;';
+                const acaoPdf = temPdf ? `window.visualizarPdfDocumento('${v.placa}', ${v.filial_id})` : `alert('Sem PDF anexado. Clique no botão de upload (setinha) para anexar.')`;
+
+                linhasHtml += `
+                    <tr>
+                        <td><span class="badge-filial">${nomeFilial}</span></td>
+                        <td><strong style="color:#fff; font-size: 0.95rem;">${v.placa}</strong></td>
+                        <td>${ident}</td>
+                        <td>${v.marca_modelo || "-"}</td>
+                        <td>${v.exercicio || "-"}</td>
+                        <td>${window.formatarData(venc)}</td>
+                        <td><span class="badge-status ${status.tipo}">${status.texto}</span></td>
+                        <td>
+                            <button class="tabela-acoes-btn" title="Ver Detalhes" onclick="window.abrirModalDadosCRLV('${v.placa}', ${v.filial_id})">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="tabela-acoes-btn ${btnPdfClass}" style="${btnPdfStyle}" title="Visualizar PDF" onclick="${acaoPdf}">
+                                <i class="fas fa-file-pdf"></i>
+                            </button>
+                            <button class="tabela-acoes-btn btn-upload" title="Anexar / Atualizar Documento" onclick="window.solicitarAtualizacaoCRLV('${v.placa}', ${v.filial_id})">
+                                <i class="fas fa-upload"></i>
+                            </button>
+                            <button class="tabela-acoes-btn btn-trash" title="Excluir Veículo" onclick="window.excluirVeiculoCRLV('${v.placa}', ${v.filial_id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // Monta o bloco de tabela para a Categoria
+            const divGrupo = document.createElement("div");
+            divGrupo.style.marginBottom = "25px";
+            divGrupo.innerHTML = `
+                <div class="categoria-header">
+                    <i class="fas fa-layer-group" style="color: var(--ccol-blue-bright);"></i>
+                    ${categoria.toUpperCase()} 
+                    <span style="background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; margin-left: auto;">${veiculos.length} Veículo(s)</span>
+                </div>
+                <div class="table-responsive" style="overflow-x: auto;">
+                    <table class="data-table-modern categoria-table" style="width: 100%; border-collapse: collapse; min-width: 900px;">
+                        <thead>
+                            <tr>
+                                <th>Filial</th>
+                                <th>Placa</th>
+                                <th>Identificação / GO</th>
+                                <th>Marca / Modelo</th>
+                                <th>Exercício</th>
+                                <th>Vencimento</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${linhasHtml}
+                        </tbody>
+                    </table>
+                </div>
             `;
-            tbody.appendChild(tr);
+            container.appendChild(divGrupo);
         });
     }
 
@@ -895,8 +924,8 @@ window.initFrotaCadastros = function() {
 
         tbody.innerHTML = campos.map(([label, val]) => `
             <tr>
-                <td style="color: var(--text-secondary); font-weight: 600; width: 40%;">${label}</td>
-                <td style="color: #fff; font-weight: 500;">${val || "-"}</td>
+                <td style="color: var(--text-secondary); font-weight: 600; width: 40%; border-bottom: 1px solid var(--border-dim); padding: 12px;">${label}</td>
+                <td style="color: #fff; font-weight: 500; border-bottom: 1px solid var(--border-dim); padding: 12px;">${val || "-"}</td>
             </tr>
         `).join("");
 
@@ -929,7 +958,7 @@ window.initFrotaCadastros = function() {
         const antigo = encontrarVeiculo(placaEmAtualizacao, filialEmAtualizacao);
         if (!antigo) {
             alert("Documento não encontrado.");
-            window.fecharModaisFrotas();
+            document.getElementById("modalAtualizar").style.display = "none";
             return;
         }
 
@@ -977,7 +1006,7 @@ window.initFrotaCadastros = function() {
         filialEmAtualizacao = null;
         novoPDFEmAtualizacao = null;
         novosDadosEmAtualizacao = null;
-        window.fecharModaisFrotas();
+        document.getElementById("modalAtualizar").style.display = "none";
         await carregarListaVeiculos();
 
         if (typeof Swal !== "undefined") {
@@ -987,7 +1016,10 @@ window.initFrotaCadastros = function() {
 
     window.excluirVeiculoCRLV = async function(placa, filialId) {
         const v = encontrarVeiculo(placa, filialId);
-        if (!v) { alert("Veículo não encontrado na lista atual."); return; }
+        if (!v) {
+            alert("Veículo não encontrado na lista atual.");
+            return;
+        }
 
         const nomeFilial = mapaFiliais[v.filial_id] || `Filial ID ${v.filial_id}`;
         if (!confirm(`Confirma a exclusão do veículo placa ${placa} da filial "${nomeFilial}"?\n\nO PDF também será removido do Storage.`)) return;

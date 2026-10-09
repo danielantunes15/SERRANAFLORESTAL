@@ -39,6 +39,63 @@
     line-height: 1;
 }
 
+/* Modos de Lançamento (Tabs) */
+.frotas-tabs-header {
+    display: flex;
+    background: #0f172a;
+    border: 1px solid var(--border-dim);
+    border-radius: 10px;
+    padding: 6px;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+.tab-frota-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.tab-frota-btn.active {
+    background: var(--ccol-blue-bright);
+    color: #000;
+    box-shadow: 0 4px 12px rgba(96, 165, 250, 0.3);
+}
+.tab-frota-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+/* Dropzone Moderna */
+.dropzone-moderna {
+    border: 2px dashed rgba(96, 165, 250, 0.4);
+    background: rgba(30, 41, 59, 0.4);
+    border-radius: 12px;
+    padding: 45px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.dropzone-moderna:hover, .dropzone-moderna.dragover {
+    border-color: var(--ccol-blue-bright);
+    background: rgba(96, 165, 250, 0.08);
+    transform: translateY(-2px);
+}
+.dropzone-icon {
+    font-size: 3rem;
+    color: var(--ccol-blue-bright);
+    margin-bottom: 12px;
+}
+
 /* Badges de Veículos */
 .badge-tipo {
     display: inline-block;
@@ -127,6 +184,28 @@
     outline: none;
     box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
 }
+
+/* Agrupamento de Categorias na Tabela */
+.categoria-header {
+    background: #374151;
+    color: #f3f4f6;
+    padding: 12px 20px;
+    margin: 25px 0 0 0;
+    border-radius: 10px 10px 0 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--border-dim);
+    border-bottom: none;
+}
+.categoria-table {
+    margin-top: 0;
+    border-radius: 0 0 10px 10px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
 </style>
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
@@ -179,14 +258,14 @@
     </div>
 </div>
 
-<!-- ÁREA DA TABELA DE VEÍCULOS CADASTRADOS -->
+<!-- ÁREA 3: TABELA DE VEÍCULOS CADASTRADOS (AGRUPADA POR CATEGORIA) -->
 <div class="content-panel" style="padding: 20px;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
         <h3 style="color: #f8fafc; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px; margin: 0;">
             <i class="fas fa-list-check" style="color: var(--ccol-blue-bright);"></i> Veículos Cadastrados
         </h3>
         
-        <!-- FILTROS DE TABELA -->
+        <!-- FILTROS DE TABELA COM DESIGN PADRÃO AJUSTADO -->
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <select id="filtroFilialTabela" class="dark-select" style="width: auto; min-width: 180px;" onchange="window.aplicarFiltrosTabelaCRLV()">
                 <option value="TODAS">Todas as Filiais</option>
@@ -213,22 +292,8 @@
             <p style="font-size: 0.85rem;">Cadastre um veículo utilizando o botão acima.</p>
         </div>
 
-        <table id="tabelaVeiculosFrotas" class="data-table-modern" style="width: 100%;">
-            <thead>
-                <tr>
-                    <th>Filial</th>
-                    <th>Placa</th>
-                    <th>Tipo</th>
-                    <th>Identificação / GO</th>
-                    <th>Marca / Modelo</th>
-                    <th>Exercício</th>
-                    <th>Vencimento</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody id="corpoTabelaVeiculos"></tbody>
-        </table>
+        <!-- As tabelas agrupadas por categoria serão injetadas aqui via JavaScript -->
+        <div id="corpoTabelasAgrupadas"></div>
     </div>
 </div>
 
@@ -403,7 +468,7 @@
 
 <input type="file" id="inputAtualizarArquivoCRLV" accept="application/pdf" style="display: none;" />
 
-<!-- MODAIS DE DETALHES E ATUALIZAÇÃO DA TABELA -->
+<!-- MODAIS -->
 <div id="modalDados" class="modal-overlay" style="display: none;">
     <div class="custom-modal" style="max-width: 650px;">
         <div class="modal-header">
