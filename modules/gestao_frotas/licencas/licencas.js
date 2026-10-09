@@ -1,6 +1,7 @@
 /* =========================================================
    MÓDULO: LICENÇAS — AET Federal e Estadual (CORE & UI)
    - Tabelas Planificadas, Parse Seguro de JSON e Modal Detalhado
+   - Agrupamento visual por Turno de Operação
    ========================================================= */
 
 // =====================================================
@@ -47,6 +48,14 @@ window.initFrotaLicencas = function() {
     let pdfBlobAetEst = null;
     let numeroAetEstEmAtualizacao = null;
     let filialAetEstEmAtualizacao = null;
+
+    // Configuração dos grupos de turnos
+    const gruposTurnoConfig = [
+        { chave: 'DIURNA', titulo: 'Operação Diurna', icone: 'fas fa-sun', cor: '#facc15' },
+        { chave: 'NOTURNA', titulo: 'Operação Noturna', icone: 'fas fa-moon', cor: '#818cf8' },
+        { chave: 'DIURNA E NOTURNA', titulo: 'Operação Diurna e Noturna', icone: 'fas fa-cloud-sun', cor: '#34d399' },
+        { chave: 'OUTROS', titulo: 'Não Informado / Outros', icone: 'fas fa-question-circle', cor: '#9ca3af' }
+    ];
 
     function isUsuarioGlobal() {
         return !!(window.currentUser && (
@@ -112,6 +121,26 @@ window.initFrotaLicencas = function() {
         (filiais || []).forEach(f => { mapaFiliais[f.id] = f.nome; });
     }
 
+    function agruparPorTurno(lista) {
+        const grupos = {
+            'DIURNA': [],
+            'NOTURNA': [],
+            'DIURNA E NOTURNA': [],
+            'OUTROS': []
+        };
+        
+        lista.forEach(a => {
+            const turno = (a.turnoOperacao || '').toUpperCase().trim();
+            if (grupos[turno]) {
+                grupos[turno].push(a);
+            } else {
+                grupos['OUTROS'].push(a);
+            }
+        });
+        
+        return grupos;
+    }
+
     // =====================================================
     // HELPERS PARA MAPEAR PAYLOADS DB (ESTRUTURA RELACIONAL)
     // =====================================================
@@ -121,6 +150,7 @@ window.initFrotaLicencas = function() {
             tipo: 'FEDERAL',
             validade_inicio: dados.validadeInicio,
             validade_fim: dados.validadeFim,
+            turno_operacao: dados.turnoOperacao,
             pdf_url: pdfInfo.url,
             pdf_path: pdfInfo.path,
             
@@ -163,6 +193,7 @@ window.initFrotaLicencas = function() {
             tipo: 'ESTADUAL',
             validade_inicio: dados.validadeInicio,
             validade_fim: dados.validadeFim,
+            turno_operacao: dados.turnoOperacao,
             pdf_url: pdfInfo.url,
             pdf_path: pdfInfo.path,
             
@@ -214,7 +245,8 @@ window.initFrotaLicencas = function() {
         if (inputFed) {
             inputFed.addEventListener("change", async e => {
                 const file = e.target.files[0];
-                if (file) await processarAetFederal(file);
+                const turnoSelecionado = document.getElementById("turnoImportacaoModal").value;
+                if (file) await processarAetFederal(file, turnoSelecionado);
                 inputFed.value = ""; 
             });
         }
@@ -243,7 +275,7 @@ window.initFrotaLicencas = function() {
         }
     }
 
-    async function processarAetFederal(file) {
+    async function processarAetFederal(file, turnoSelecionado) {
         const statusEl = document.getElementById("statusAetFed");
         document.getElementById("fileNameAetFed").textContent = file.name;
         statusEl.innerText = "Extraindo dados do PDF...";
@@ -255,6 +287,11 @@ window.initFrotaLicencas = function() {
             console.log("=== TEXTO BRUTO FEDERAL ===", texto);
 
             const dadosExtraidos = window.AetParser.extrairAetFederal(texto);
+            
+            if (turnoSelecionado) {
+                dadosExtraidos.turnoOperacao = turnoSelecionado;
+            }
+
             console.table(dadosExtraidos);
 
             if (!dadosExtraidos.numeroAET && !dadosExtraidos.u1_placa) {
@@ -280,7 +317,7 @@ window.initFrotaLicencas = function() {
         const form = document.getElementById("aetFedForm");
         const camposSimples = [
             "numeroAET", "conjuntoTipo", "proprietario", "cnpjCpf", "endereco", "telefone",
-            "validadeInicio", "validadeFim", "pbtcInformado", "comprimento",
+            "validadeInicio", "validadeFim", "turnoOperacao", "pbtcInformado", "comprimento",
             "u1_placa", "u1_anoFab", "u1_chassi", "u1_marca", "u1_modelo", "u1_carroceria",
             "u1_tara", "u1_tracao", "u1_potencia", "u1_cmt", "u1_direcao", "u1_renavam",
             "u1_rntrc", "u1_bidirecional"
@@ -418,7 +455,8 @@ window.initFrotaLicencas = function() {
         if (inputEst) {
             inputEst.addEventListener("change", async e => {
                 const file = e.target.files[0];
-                if (file) await processarAetEstadual(file);
+                const turnoSelecionado = document.getElementById("turnoImportacaoModal").value;
+                if (file) await processarAetEstadual(file, turnoSelecionado);
                 inputEst.value = "";
             });
         }
@@ -444,7 +482,7 @@ window.initFrotaLicencas = function() {
         }
     }
 
-    async function processarAetEstadual(file) {
+    async function processarAetEstadual(file, turnoSelecionado) {
         const statusEl = document.getElementById("statusAetEst");
         document.getElementById("fileNameAetEst").textContent = file.name;
         statusEl.innerText = "Extraindo dados do PDF Estadual...";
@@ -456,6 +494,11 @@ window.initFrotaLicencas = function() {
             console.log("=== TEXTO BRUTO ESTADUAL ===", texto);
 
             const dadosExtraidos = window.AetParser.extrairAetEstadual(texto);
+            
+            if (turnoSelecionado) {
+                dadosExtraidos.turnoOperacao = turnoSelecionado;
+            }
+
             console.table(dadosExtraidos);
 
             if (!dadosExtraidos.numeroAET && !dadosExtraidos.placasCavalo) {
@@ -483,7 +526,7 @@ window.initFrotaLicencas = function() {
         const campos = [
             "numeroAET", "uf", "transportador", "endereco", "contato",
             "requerente", "origem", "transportando", "validadeInicio", "validadeFim",
-            "restricaoHorario", "velocidadeMax", "placasCavalo", 
+            "turnoOperacao", "restricaoHorario", "velocidadeMax", "placasCavalo", 
             "placaReb1", "placaReb2", "placaReb3",
             "marca", "modelo", "anoFab", "comprimento", "pesoTotal"
         ];
@@ -572,55 +615,72 @@ window.initFrotaLicencas = function() {
             return;
         }
 
-        listaAetFed.forEach(a => {
-            const nomeFilial = mapaFiliais[a.filial_id] || (a.filiais ? a.filiais.nome : "—");
-            
-            let todosReboques = [];
-            if (a.unidadesComplementares) {
-                a.unidadesComplementares.forEach(u => { if (u.placa) todosReboques.push(u); });
+        const grupos = agruparPorTurno(listaAetFed);
+
+        gruposTurnoConfig.forEach(config => {
+            const itens = grupos[config.chave];
+            if (itens && itens.length > 0) {
+                // Header do Grupo
+                const trGroup = document.createElement("tr");
+                trGroup.innerHTML = `
+                    <td colspan="8" class="group-header" style="border-bottom-color: ${config.cor} !important;">
+                        <i class="${config.icone}" style="color: ${config.cor};"></i> ${config.titulo} (${itens.length})
+                    </td>
+                `;
+                tbody.appendChild(trGroup);
+
+                // Itens do Grupo
+                itens.forEach(a => {
+                    const nomeFilial = mapaFiliais[a.filial_id] || (a.filiais ? a.filiais.nome : "—");
+                    
+                    let todosReboques = [];
+                    if (a.unidadesComplementares) {
+                        a.unidadesComplementares.forEach(u => { if (u.placa) todosReboques.push(u); });
+                    }
+                    if (a.carretasComplementares) {
+                        a.carretasComplementares.forEach(c => { if (c.placa) todosReboques.push(c); });
+                    }
+
+                    const placasVistas = new Set();
+                    todosReboques = todosReboques.filter(r => {
+                        if(placasVistas.has(r.placa)) return false;
+                        placasVistas.add(r.placa);
+                        return true;
+                    });
+
+                    const u1 = a.u1_placa ? `<span class="placa-tag cavalo" title="${a.u1_chassi || ''}">${a.u1_placa}</span>` : "-";
+                    
+                    let u2 = todosReboques[0] ? `<span class="placa-tag reboque" title="${todosReboques[0].chassi || ''}">${todosReboques[0].placa}</span>` : "-";
+                    let u3 = todosReboques[1] ? `<span class="placa-tag reboque" title="${todosReboques[1].chassi || ''}">${todosReboques[1].placa}</span>` : "-";
+                    let u4 = todosReboques[2] ? `<span class="placa-tag reboque" title="${todosReboques[2].chassi || ''}">${todosReboques[2].placa}</span>` : "-";
+
+                    const carretasExtra = todosReboques.length > 3 ? todosReboques.length - 3 : 0;
+                    const extraInfo = carretasExtra > 0 ? `<div style="font-size:0.75rem; color:#9ca3af; margin-top:5px; text-align:center; font-weight:bold;">+ ${carretasExtra} reboques extras</div>` : "";
+
+                    const status = getStatusValidade(a.validade_fim);
+
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td><strong>${a.numero_aet || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
+                        <td>${a.conjuntoTipo || "-"}</td>
+                        <td class="cell-placa">${u1}</td>
+                        <td class="cell-placa">${u2}</td>
+                        <td class="cell-placa">${u3}</td>
+                        <td class="cell-placa">${u4}${extraInfo}</td>
+                        <td>
+                            ${a.validade_inicio || "-"} a <strong>${a.validade_fim || "-"}</strong><br>
+                            <span class="badge-status ${status.classe}">${status.texto}</span>
+                        </td>
+                        <td>
+                            <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
+                            <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
+                            <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
+                            <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
             }
-            if (a.carretasComplementares) {
-                a.carretasComplementares.forEach(c => { if (c.placa) todosReboques.push(c); });
-            }
-
-            const placasVistas = new Set();
-            todosReboques = todosReboques.filter(r => {
-                if(placasVistas.has(r.placa)) return false;
-                placasVistas.add(r.placa);
-                return true;
-            });
-
-            const u1 = a.u1_placa ? `<span class="placa-tag cavalo" title="${a.u1_chassi || ''}">${a.u1_placa}</span>` : "-";
-            
-            let u2 = todosReboques[0] ? `<span class="placa-tag reboque" title="${todosReboques[0].chassi || ''}">${todosReboques[0].placa}</span>` : "-";
-            let u3 = todosReboques[1] ? `<span class="placa-tag reboque" title="${todosReboques[1].chassi || ''}">${todosReboques[1].placa}</span>` : "-";
-            let u4 = todosReboques[2] ? `<span class="placa-tag reboque" title="${todosReboques[2].chassi || ''}">${todosReboques[2].placa}</span>` : "-";
-
-            const carretasExtra = todosReboques.length > 3 ? todosReboques.length - 3 : 0;
-            const extraInfo = carretasExtra > 0 ? `<div style="font-size:0.75rem; color:#9ca3af; margin-top:5px; text-align:center; font-weight:bold;">+ ${carretasExtra} reboques extras</div>` : "";
-
-            const status = getStatusValidade(a.validade_fim);
-
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td><strong>${a.numero_aet || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
-                <td>${a.conjuntoTipo || "-"}</td>
-                <td class="cell-placa">${u1}</td>
-                <td class="cell-placa">${u2}</td>
-                <td class="cell-placa">${u3}</td>
-                <td class="cell-placa">${u4}${extraInfo}</td>
-                <td>
-                    ${a.validade_inicio || "-"} a <strong>${a.validade_fim || "-"}</strong><br>
-                    <span class="badge-status ${status.classe}">${status.texto}</span>
-                </td>
-                <td>
-                    <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
-                    <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
-                    <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
-                    <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
-                </td>
-            `;
-            tbody.appendChild(tr);
         });
     }
 
@@ -634,42 +694,59 @@ window.initFrotaLicencas = function() {
             return;
         }
 
-        listaAetEst.forEach(a => {
-            const nomeFilial = mapaFiliais[a.filial_id] || (a.filiais ? a.filiais.nome : "—");
-            
-            const cavaloHtml = a.placasCavalo ? `<span class="placa-tag cavalo">${a.placasCavalo}</span>` : "-";
+        const grupos = agruparPorTurno(listaAetEst);
 
-            let reboquesHtml = "";
-            if (a.placaReb1) reboquesHtml += `<span class="placa-tag reboque">${a.placaReb1}</span> `;
-            if (a.placaReb2) reboquesHtml += `<span class="placa-tag reboque">${a.placaReb2}</span> `;
-            if (a.placaReb3) reboquesHtml += `<span class="placa-tag reboque">${a.placaReb3}</span> `;
-            
-            const totalAdicional = (a.placasAdicionais ? a.placasAdicionais.length : 0);
-            if (totalAdicional > 0) {
-                reboquesHtml += `<div style="font-size:0.75rem; color:#9ca3af; margin-top:5px; font-weight:bold;">+ ${totalAdicional} placas extras</div>`;
+        gruposTurnoConfig.forEach(config => {
+            const itens = grupos[config.chave];
+            if (itens && itens.length > 0) {
+                // Header do Grupo
+                const trGroup = document.createElement("tr");
+                trGroup.innerHTML = `
+                    <td colspan="6" class="group-header" style="border-bottom-color: ${config.cor} !important;">
+                        <i class="${config.icone}" style="color: ${config.cor};"></i> ${config.titulo} (${itens.length})
+                    </td>
+                `;
+                tbody.appendChild(trGroup);
+
+                // Itens do Grupo
+                itens.forEach(a => {
+                    const nomeFilial = mapaFiliais[a.filial_id] || (a.filiais ? a.filiais.nome : "—");
+                    
+                    const cavaloHtml = a.placasCavalo ? `<span class="placa-tag cavalo">${a.placasCavalo}</span>` : "-";
+
+                    let reboquesHtml = "";
+                    if (a.placaReb1) reboquesHtml += `<span class="placa-tag reboque">${a.placaReb1}</span> `;
+                    if (a.placaReb2) reboquesHtml += `<span class="placa-tag reboque">${a.placaReb2}</span> `;
+                    if (a.placaReb3) reboquesHtml += `<span class="placa-tag reboque">${a.placaReb3}</span> `;
+                    
+                    const totalAdicional = (a.placasAdicionais ? a.placasAdicionais.length : 0);
+                    if (totalAdicional > 0) {
+                        reboquesHtml += `<div style="font-size:0.75rem; color:#9ca3af; margin-top:5px; font-weight:bold;">+ ${totalAdicional} placas extras</div>`;
+                    }
+                    if(!reboquesHtml.trim()) reboquesHtml = "-";
+
+                    const status = getStatusValidade(a.validade_fim);
+
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td><strong>${a.numero_aet || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
+                        <td><strong>${a.uf || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${a.restricaoHorario || "-"}</span></td>
+                        <td class="cell-placa">${cavaloHtml}</td>
+                        <td class="cell-placa">${reboquesHtml}</td>
+                        <td>
+                            ${a.validade_inicio || "-"} a <strong>${a.validade_fim || "-"}</strong><br>
+                            <span class="badge-status ${status.classe}">${status.texto}</span>
+                        </td>
+                        <td>
+                            <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
+                            <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
+                            <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
+                            <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
             }
-            if(!reboquesHtml.trim()) reboquesHtml = "-";
-
-            const status = getStatusValidade(a.validade_fim);
-
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td><strong>${a.numero_aet || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
-                <td><strong>${a.uf || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${a.restricaoHorario || "-"}</span></td>
-                <td class="cell-placa">${cavaloHtml}</td>
-                <td class="cell-placa">${reboquesHtml}</td>
-                <td>
-                    ${a.validade_inicio || "-"} a <strong>${a.validade_fim || "-"}</strong><br>
-                    <span class="badge-status ${status.classe}">${status.texto}</span>
-                </td>
-                <td>
-                    <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
-                    <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
-                    <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
-                    <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
-                </td>
-            `;
-            tbody.appendChild(tr);
         });
     }
 
@@ -693,6 +770,7 @@ window.initFrotaLicencas = function() {
                         <div class="detalhe-item"><span class="detalhe-label">Endereço</span><span class="detalhe-valor">${a.endereco || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Telefone</span><span class="detalhe-valor">${a.telefone || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Validade</span><span class="detalhe-valor">${a.validadeInicio || "-"} a ${a.validadeFim || "-"}</span></div>
+                        <div class="detalhe-item"><span class="detalhe-label">Turno</span><span class="detalhe-valor">${a.turnoOperacao || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">PBTC (t)</span><span class="detalhe-valor">${a.pbtcInformado || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Comprimento (m)</span><span class="detalhe-valor">${a.comprimento || "-"}</span></div>
                     </div>`;
@@ -763,6 +841,7 @@ window.initFrotaLicencas = function() {
                         <div class="detalhe-item"><span class="detalhe-label">Requerente</span><span class="detalhe-valor">${a.requerente || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Origem</span><span class="detalhe-valor">${a.origem || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Validade</span><span class="detalhe-valor">${a.validadeInicio || "-"} a ${a.validadeFim || "-"}</span></div>
+                        <div class="detalhe-item"><span class="detalhe-label">Turno</span><span class="detalhe-valor">${a.turnoOperacao || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Restrição</span><span class="detalhe-valor">${a.restricaoHorario || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Velocidade Máx.</span><span class="detalhe-valor">${a.velocidadeMax || "-"}</span></div>
                     </div>`;
@@ -911,6 +990,7 @@ window.initFrotaLicencas = function() {
                 numeroAET: a.numero_aet,
                 validadeInicio: a.validade_inicio,
                 validadeFim: a.validade_fim,
+                turnoOperacao: a.turno_operacao,
                 proprietario: a.proprietario,
                 cnpjCpf: a.cnpj_cpf,
                 endereco: a.endereco,
@@ -941,6 +1021,7 @@ window.initFrotaLicencas = function() {
                 numeroAET: a.numero_aet,
                 validadeInicio: a.validade_inicio,
                 validadeFim: a.validade_fim,
+                turnoOperacao: a.turno_operacao,
                 uf: a.uf,
                 transportador: a.transportador,
                 endereco: a.endereco,

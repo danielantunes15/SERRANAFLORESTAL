@@ -294,6 +294,22 @@ textarea.form-control {
     text-align: center;
 }
 
+/* HEADERS DE AGRUPAMENTO (TURNOS) */
+.group-header {
+    background-color: #283242 !important;
+    color: #f3f4f6 !important;
+    font-weight: 700 !important;
+    font-size: 1.05rem !important;
+    text-transform: uppercase;
+    padding: 12px 15px !important;
+    text-align: left;
+    letter-spacing: 0.5px;
+}
+.group-header i {
+    margin-right: 8px;
+    font-size: 1.1rem;
+}
+
 /* GRID DE DETALHES NO MODAL */
 .detalhes-grid {
     display: grid;
@@ -353,6 +369,14 @@ textarea.form-control {
                 <div class="form-group"><label>CNPJ / CPF</label><input type="text" name="cnpjCpf" class="form-control" /></div>
                 <div class="form-group"><label>Validade Início</label><input type="text" name="validadeInicio" class="form-control" /></div>
                 <div class="form-group"><label>Validade Fim</label><input type="text" name="validadeFim" class="form-control" /></div>
+                <div class="form-group">
+                    <label>Turno de Operação</label>
+                    <select name="turnoOperacao" class="form-control">
+                        <option value="DIURNA">DIURNA</option>
+                        <option value="NOTURNA">NOTURNA</option>
+                        <option value="DIURNA E NOTURNA">DIURNA E NOTURNA</option>
+                    </select>
+                </div>
                 <div class="form-group"><label>PBTC (t)</label><input type="text" name="pbtcInformado" class="form-control" /></div>
                 <div class="form-group"><label>Comprimento (m)</label><input type="text" name="comprimento" class="form-control" /></div>
                 <div class="form-group" style="grid-column: span 2;"><label>Endereço</label><input type="text" name="endereco" class="form-control" /></div>
@@ -436,6 +460,14 @@ textarea.form-control {
                 <div class="form-group"><label>Transportando</label><input type="text" name="transportando" class="form-control" /></div>
                 <div class="form-group"><label>Validade Início</label><input type="text" name="validadeInicio" class="form-control" /></div>
                 <div class="form-group"><label>Validade Fim</label><input type="text" name="validadeFim" class="form-control" /></div>
+                <div class="form-group">
+                    <label>Turno de Operação</label>
+                    <select name="turnoOperacao" class="form-control">
+                        <option value="DIURNA">DIURNA</option>
+                        <option value="NOTURNA">NOTURNA</option>
+                        <option value="DIURNA E NOTURNA">DIURNA E NOTURNA</option>
+                    </select>
+                </div>
                 <div class="form-group"><label>Restrição de Horário</label><input type="text" name="restricaoHorario" class="form-control" /></div>
                 <div class="form-group"><label>Velocidade Máx.</label><input type="text" name="velocidadeMax" class="form-control" /></div>
             </div>
@@ -500,8 +532,17 @@ textarea.form-control {
     <div class="modal-content md">
         <button class="close-modal" onclick="document.getElementById('modalImportacao').style.display='none'">&times;</button>
         <h3 id="modalImportacaoTitulo" style="margin-top: 0; color: #fff;"><i class="fas fa-cloud-upload-alt"></i> Importar AET</h3>
-        <p style="color: #9ca3af; font-size: 0.9rem; margin-bottom: 20px;">Anexe o arquivo PDF correspondente à licença.</p>
+        <p style="color: #9ca3af; font-size: 0.9rem; margin-bottom: 20px;">Selecione o turno e anexe o arquivo PDF correspondente à licença.</p>
         
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label style="color: #9ca3af; font-weight: 600;">Selecione o Turno da Operação:</label>
+            <select id="turnoImportacaoModal" class="form-control" style="background: #374151; border: 1px solid #4b5563; color: #fff; padding: 10px; border-radius: 6px;">
+                <option value="DIURNA">DIURNA</option>
+                <option value="NOTURNA">NOTURNA</option>
+                <option value="DIURNA E NOTURNA">DIURNA E NOTURNA</option>
+            </select>
+        </div>
+
         <!-- Dropzone Federal -->
         <div id="boxUploadFed" class="drop-zone" onclick="document.getElementById('pdfInputAetFed').click()" style="display: none;">
             <i class="fas fa-file-pdf"></i>

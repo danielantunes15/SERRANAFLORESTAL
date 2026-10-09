@@ -71,6 +71,16 @@ window.AetParser = {
             if (m) { validadeInicio = m[1]; validadeFim = m[2]; }
         }
 
+        // LÓGICA DO TURNO DA AET FEDERAL
+        let turnoOperacao = "DIURNA";
+        if (/POR DO SOL AO AMANHECER/i.test(up) || /TR[ÂA]NSITO\s+NOTURNO/i.test(up)) {
+            turnoOperacao = "NOTURNA";
+        } else if (/TR[ÂA]NSITO\s+DIUTURNO/i.test(up) || /24\s*HORAS/i.test(up)) {
+            turnoOperacao = "DIURNA E NOTURNA";
+        } else if (/AMANHECER\s+AO\s+(?:POR\s+DO\s+SOL|ANOITECER)/i.test(up)) {
+            turnoOperacao = "DIURNA";
+        }
+
         const pbtcInformado = pick([/PBTC\s*INFORMADO\s*\(t\)[\s\|:]*([0-9.,]+)/]);
         const comprimento = pick([/COMPRIMENTO\s*\(m\)[\s\|:]*([0-9.,]+)/]);
 
@@ -169,7 +179,7 @@ window.AetParser = {
 
             bloco = bloco.trim().replace(/\s+/g, " ");
 
-            const carrMatch = bloco.match(/(N[ÃA]O\s*TEM|FLORESTAL|BA[ÚU]|SIDER|GRANELEIRO|TANQUE|CA[ÇC]AMBA)/i);
+            const carrMatch = bloco.match(/(N[ÃA]O\s*TEM|FLORESTAL|BA[ÚU]|SIDER|GRANELEIRO|TANQUE|CA[ÇC]AMBA|TRANS\.?\s*TORAS|PRANCHA)/i);
             if (carrMatch) {
                 u.carroceria = carrMatch[1].toUpperCase();
                 bloco = bloco.replace(carrMatch[0], "").trim();
@@ -206,36 +216,98 @@ window.AetParser = {
         const idxReboques = flat.lastIndexOf("REBOQUES E/OU SEMIRREBOQUES COMPLEMENTARES");
         if (idxReboques !== -1) {
             let blocoReboques = flat.substring(idxReboques).replace(/\|/g, " ").replace(/\s+/g, " ").trim();
-            const regexCarretasGlobal = /([A-Z]{2,3}[0-9][A-Z0-9][0-9]{2})\s+(.*?)\s+((?:19|20)\d{2})\s+([A-HJ-NPR-Z0-9]{17})\s+(\d{9,11})\s+([A-Z0-9]{3,10})\s+([A-ZÀ-Ú]{4,15})\s+(\d{1,2},\d{3})\s+(\d{1,2})\s+(\d{1,2})/g;
+            const regexPlaca = /\b([A-Z]{2,3}[0-9][A-Z0-9][0-9]{2})\b/g;
             let match;
+            let indices = [];
+            while ((match = regexPlaca.exec(blocoReboques)) !== null) {
+                indices.push({ placa: match[1], index: match.index });
+            }
             
-            while ((match = regexCarretasGlobal.exec(blocoReboques)) !== null) {
-                let marcaModelo = match[2].trim();
+            for (let i = 0; i < indices.length; i++) {
+                let start = indices[i].index;
+                let end = (i + 1 < indices.length) ? indices[i + 1].index : blocoReboques.length;
+                let strCarreta = blocoReboques.substring(start, end).replace(/\s+/g, " ").trim();
+                
+                let c = { placa: indices[i].placa };
+                strCarreta = strCarreta.replace(c.placa, "");
+
+                const mChassi = strCarreta.match(/\b([A-HJ-NPR-Z0-9]{17})\b/);
+                c.chassi = mChassi ? mChassi[1] : "";
+                if (c.chassi) strCarreta = strCarreta.replace(c.chassi, "");
+
+                const mAno = strCarreta.match(/\b((?:19|20)\d{2})\b/);
+                c.anoFab = mAno ? mAno[1] : "";
+                if (c.anoFab) strCarreta = strCarreta.replace(c.anoFab, "");
+
+                const mTara = strCarreta.match(/\b(\d{1,2},\d{3})\b/);
+                c.tara = mTara ? mTara[1] : "";
+                if (c.tara) strCarreta = strCarreta.replace(c.tara, "");
+
+                const mLongNums = strCarreta.match(/\b(\d{8,11})\b/g) || [];
+                if (mLongNums.length >= 2) {
+                    if (mLongNums[0].length === 11 && mLongNums[1].length !== 11) {
+                        c.renavam = mLongNums[0];
+                        c.rntrc = mLongNums[1];
+                    } else if (mLongNums[1].length === 11 && mLongNums[0].length !== 11) {
+                        c.renavam = mLongNums[1];
+                        c.rntrc = mLongNums[0];
+                    } else {
+                        c.renavam = mLongNums[0];
+                        c.rntrc = mLongNums[1];
+                    }
+                    strCarreta = strCarreta.replace(mLongNums[0], "").replace(mLongNums[1], "");
+                } else if (mLongNums.length === 1) {
+                    c.renavam = mLongNums[0];
+                    c.rntrc = "";
+                    strCarreta = strCarreta.replace(mLongNums[0], "");
+                } else {
+                    c.renavam = "";
+                    c.rntrc = "";
+                }
+
+                const mCarroceria = strCarreta.match(/(FLORESTAL|BA[ÚU]|SIDER|GRANELEIRO|TANQUE|CA[ÇC]AMBA|TRANS\.?\s*TORAS|PRANCHA)/i);
+                c.carroceria = mCarroceria ? mCarroceria[1].toUpperCase() : "";
+                if (c.carroceria) strCarreta = strCarreta.replace(mCarroceria[0], "");
+
+                const mNumeros = strCarreta.match(/\b(\d{1,2})\b/g);
+                if (mNumeros && mNumeros.length >= 2) {
+                    let n1 = parseInt(mNumeros[0]);
+                    let n2 = parseInt(mNumeros[1]);
+                    c.numEixos = Math.min(n1, n2).toString();
+                    c.pneusPorEixo = Math.max(n1, n2).toString();
+                    strCarreta = strCarreta.replace(new RegExp(`\\b${n1}\\b`), "").replace(new RegExp(`\\b${n2}\\b`), "");
+                } else if (mNumeros && mNumeros.length === 1) {
+                    c.numEixos = mNumeros[0];
+                    c.pneusPorEixo = "";
+                    strCarreta = strCarreta.replace(new RegExp(`\\b${mNumeros[0]}\\b`), "");
+                } else {
+                    c.numEixos = "";
+                    c.pneusPorEixo = "";
+                }
+
+                let leftover = strCarreta.replace(/[^\w\sÀ-Úà-ú]/gi, " ").replace(/\s+/g, " ").trim();
                 let marca = "";
-                let modelo = marcaModelo;
-                const marcasConhecidas = ["FACCHINI", "RANDON", "GUERRA", "LIBRELATO", "NOMA", "KRONE", "VOLVO", "SCANIA", "MERCEDES"];
+                let modelo = "";
+                const marcasConhecidas = ["FACCHINI", "RANDON", "GUERRA", "LIBRELATO", "NOMA", "KRONE", "VOLVO", "SCANIA", "MERCEDES", "MANOS", "RODOFORT"];
                 
                 for (let m of marcasConhecidas) {
-                    if (marcaModelo.toUpperCase().includes(m)) {
+                    if (leftover.toUpperCase().includes(m)) {
                         marca = m;
-                        modelo = marcaModelo.replace(new RegExp(m, 'i'), "").trim();
+                        let regexModelo = new RegExp(m + "\\s+([A-Z0-9 ]+)", "i");
+                        let mMod = leftover.match(regexModelo);
+                        if (mMod && mMod[1]) {
+                            modelo = mMod[1].trim();
+                        } else {
+                            modelo = leftover.replace(new RegExp(m, 'i'), "").trim();
+                        }
                         break;
                     }
                 }
-
-                tempCarretas.push({
-                    placa: match[1],
-                    marca: marca || marcaModelo.split(" ")[0],
-                    modelo: modelo || marcaModelo.split(" ").slice(1).join(" "),
-                    anoFab: match[3],
-                    chassi: match[4],
-                    renavam: match[5],
-                    rntrc: match[6],
-                    carroceria: match[7],
-                    tara: match[8],
-                    numEixos: match[9],
-                    pneusPorEixo: match[10]
-                });
+                
+                c.marca = marca || leftover.split(" ")[0] || "";
+                c.modelo = modelo || leftover.split(" ").slice(1).join(" ") || "";
+                
+                tempCarretas.push(c);
             }
         }
 
@@ -255,7 +327,7 @@ window.AetParser = {
 
         return {
             numeroAET, conjuntoTipo, proprietario, cnpjCpf, endereco, telefone,
-            validadeInicio, validadeFim, pbtcInformado, comprimento,
+            validadeInicio, validadeFim, turnoOperacao, pbtcInformado, comprimento,
             u1_placa: u1.placa || "", u1_anoFab: u1.anoFab || "", u1_chassi: u1.chassi || "",
             u1_marca: u1.marca || "", u1_modelo: u1.modelo || "", u1_carroceria: u1.carroceria || "",
             u1_tara: u1.tara || "", u1_tracao: u1.tracao || "", u1_potencia: u1.potencia || "",
@@ -338,6 +410,18 @@ window.AetParser = {
             restricaoHorario = "Diurna e Noturna";
         } else if (/TR[ÂA]NSITO\s+NOTURNO/i.test(up) || /PER[ÍI]ODO\s+NOTURNO/i.test(up)) {
             restricaoHorario = "Noturna";
+        }
+
+        // LÓGICA DO TURNO DA AET ESTADUAL
+        let turnoOperacao = "DIURNA";
+        if (/RESTRI[ÇC][ÃA]O\s+DE\s+0?8\s+HORAS/i.test(up) || /VESP[ÉE]RAS\s+DE\s+FERIADO/i.test(up)) {
+            turnoOperacao = "DIURNA E NOTURNA";
+        } else if (/TR[ÂA]NSITO\s+DIUTURNO/i.test(up) || /24\s*HORAS/i.test(up)) {
+            turnoOperacao = "DIURNA E NOTURNA";
+        } else if (/TR[ÂA]NSITO\s+NOTURNO/i.test(up) || /PER[ÍI]ODO\s+NOTURNO/i.test(up) || /POR DO SOL AO AMANHECER/i.test(up)) {
+            turnoOperacao = "NOTURNA";
+        } else if (/AMANHECER\s+AO\s+(?:POR\s+DO\s+SOL|ANOITECER)/i.test(up)) {
+            turnoOperacao = "DIURNA";
         }
 
         const velocidadeMax = pick([/VELOCI[D]ADE\s+(?:M[ÁA]XIMA\s+)?(?:SER[ÁA]\s+)?(?:DE\s+)?(\d+(?:[.,]\d+)?)\s*KM\s*\/\s*H/i, /AT[ÉE]\s+A\s+VELOCI[D]ADE\s+DE\s+(\d+(?:[.,]\d+)?)\s*KM\s*\/\s*H/i]);
@@ -423,7 +507,7 @@ window.AetParser = {
 
         return {
             numeroAET, uf, transportador, cnpjCpf: "", endereco, contato, requerente,
-            transportando, origem, validadeInicio, validadeFim, restricaoHorario,
+            transportando, origem, validadeInicio, validadeFim, turnoOperacao, restricaoHorario,
             velocidadeMax, marca, modelo, anoFab, placasCavalo, 
             placaReb1, placaReb2, placaReb3,
             potencia, comprimento, pesoTotal, largura, peso1Unid, altura,
