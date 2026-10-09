@@ -1,6 +1,6 @@
 /* =========================================================
    MÓDULO: LICENÇAS — AET Federal e Estadual (CORE & UI)
-   - Tabelas Planificadas (Relacional) e Correção de Filial
+   - Tabelas Planificadas, Parse Seguro de JSON e Modal Detalhado
    ========================================================= */
 
 // =====================================================
@@ -86,6 +86,19 @@ window.initFrotaLicencas = function() {
         return { texto: "Válida", classe: "badge-green" };
     }
 
+    // Helper robusto para converter JSON do Supabase com segurança
+    function safeParseArray(val) {
+        if (!val) return [];
+        if (typeof val === 'string') {
+            try { 
+                const parsed = JSON.parse(val); 
+                return Array.isArray(parsed) ? parsed : [];
+            } catch(e) { return []; }
+        }
+        if (Array.isArray(val)) return val;
+        return [];
+    }
+
     async function carregarMapaFiliais() {
         let filiais = [];
         try {
@@ -138,8 +151,6 @@ window.initFrotaLicencas = function() {
             carretas_complementares: dados.carretasComplementares
         };
         
-        // Se vier undefined, NÃO colocamos o filial_id no objeto, 
-        // assim o injetarFilial do database.js coloca a filial do usuário.
         if (filialId !== undefined) {
             payload.filial_id = filialId;
         }
@@ -592,21 +603,21 @@ window.initFrotaLicencas = function() {
 
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td><strong>${a.numeroAET || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
+                <td><strong>${a.numero_aet || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
                 <td>${a.conjuntoTipo || "-"}</td>
                 <td class="cell-placa">${u1}</td>
                 <td class="cell-placa">${u2}</td>
                 <td class="cell-placa">${u3}</td>
                 <td class="cell-placa">${u4}${extraInfo}</td>
                 <td>
-                    ${a.validadeInicio || "-"} a <strong>${a.validadeFim || "-"}</strong><br>
+                    ${a.validade_inicio || "-"} a <strong>${a.validade_fim || "-"}</strong><br>
                     <span class="badge-status ${status.classe}">${status.texto}</span>
                 </td>
                 <td>
-                    <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetFed('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
-                    <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetFed('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
-                    <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetFed('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
-                    <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetFed('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
+                    <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
+                    <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
+                    <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
+                    <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -639,23 +650,23 @@ window.initFrotaLicencas = function() {
             }
             if(!reboquesHtml.trim()) reboquesHtml = "-";
 
-            const status = getStatusValidade(a.validadeFim);
+            const status = getStatusValidade(a.validade_fim);
 
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td><strong>${a.numeroAET || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
+                <td><strong>${a.numero_aet || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
                 <td><strong>${a.uf || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${a.restricaoHorario || "-"}</span></td>
                 <td class="cell-placa">${cavaloHtml}</td>
                 <td class="cell-placa">${reboquesHtml}</td>
                 <td>
-                    ${a.validadeInicio || "-"} a <strong>${a.validadeFim || "-"}</strong><br>
+                    ${a.validade_inicio || "-"} a <strong>${a.validade_fim || "-"}</strong><br>
                     <span class="badge-status ${status.classe}">${status.texto}</span>
                 </td>
                 <td>
-                    <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetEst('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
-                    <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetEst('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
-                    <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetEst('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
-                    <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetEst('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
+                    <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
+                    <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
+                    <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
+                    <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -672,7 +683,7 @@ window.initFrotaLicencas = function() {
         const titulo = document.getElementById("modalDetalhesTitulo");
         const body = document.getElementById("modalDetalhesBody");
 
-        titulo.innerHTML = `<i class="fas fa-file-alt"></i> AET Federal nº ${a.numeroAET} <span style="color:#60a5fa; margin-left:10px;">(U1: ${a.u1_placa || "-"})</span>`;
+        titulo.innerHTML = `<i class="fas fa-file-alt"></i> AET Federal nº ${a.numero_aet} <span style="color:#60a5fa; margin-left:10px;">(U1: ${a.u1_placa || "-"})</span>`;
 
         let html = `<h4 class="form-section-title" style="margin-top:0;">Identificação</h4>
                     <div class="detalhes-grid">
@@ -702,54 +713,34 @@ window.initFrotaLicencas = function() {
                     <div class="detalhe-item"><span class="detalhe-label">Direção</span><span class="detalhe-valor">${a.u1_direcao || "-"}</span></div>
                  </div>`;
 
-        let todosReboques = [];
-        if (a.unidadesComplementares) a.unidadesComplementares.forEach(u => { if(u.placa) todosReboques.push(u); });
-        if (a.carretasComplementares) a.carretasComplementares.forEach(c => { if(c.placa) todosReboques.push(c); });
-
-        const placasVistas = new Set([a.u1_placa]);
-        todosReboques = todosReboques.filter(r => {
-            if(!r.placa || placasVistas.has(r.placa)) return false;
-            placasVistas.add(r.placa);
-            return true;
+        const uComps = a.unidadesComplementares || [];
+        uComps.forEach((u, idx) => {
+            if (!u.placa) return;
+            html += `<h4 class="form-section-title">Unidade U${idx + 2}</h4>
+                 <div class="detalhes-grid">
+                    <div class="detalhe-item"><span class="detalhe-label">Placa</span><span class="detalhe-valor"><span class="placa-tag reboque">${u.placa || "-"}</span></span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">Marca / Modelo</span><span class="detalhe-valor">${u.marca || "-"} ${u.modelo || ""}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">Ano Fab.</span><span class="detalhe-valor">${u.anoFab || "-"}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">Chassi</span><span class="detalhe-valor">${u.chassi || "-"}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">RENAVAM</span><span class="detalhe-valor">${u.renavam || "-"}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">RNTRC</span><span class="detalhe-valor">${u.rntrc || "-"}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">Carroceria (Tipo)</span><span class="detalhe-valor">${u.carroceria || "-"}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">Tara (t)</span><span class="detalhe-valor">${u.tara || "-"}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">Eixos</span><span class="detalhe-valor">${u.numEixos || "-"}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">Pneus/Eixo</span><span class="detalhe-valor">${u.pneusPorEixo || "-"}</span></div>
+                 </div>`;
         });
 
-        if (todosReboques.length > 0) {
-            html += `<h4 class="form-section-title" style="color:#fcd34d; margin-top: 25px;">Carretas / Reboques Complementares (${todosReboques.length})</h4>`;
-            
-            html += `<div style="width: 100%; overflow-x: auto; background: var(--card-bg, #1f2937); border-radius: 8px; border: 1px solid #374151; margin-bottom: 20px;">
-                        <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 1100px; font-family: inherit;">
-                        <thead style="background: #374151; color: #d1d5db; font-size: 0.75rem; text-transform: uppercase;">
-                            <tr>
-                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Placa</th>
-                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Marca/Modelo</th>
-                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Ano</th>
-                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Chassi</th>
-                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">RENAVAM</th>
-                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">RNTRC</th>
-                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Carroceria</th>
-                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Tara (t)</th>
-                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Eixos</th>
-                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Pneus/Eixo</th>
-                            </tr>
-                        </thead>
-                        <tbody style="font-size: 0.85rem; color: #e5e7eb;">`;
-            
-            todosReboques.forEach((c, idx) => {
-                const bg = idx % 2 === 0 ? 'background-color: rgba(255,255,255,0.02);' : 'background-color: transparent;';
-                html += `<tr style="border-bottom: 1px solid #374151; ${bg}">
-                            <td style="padding: 12px;"><span class="placa-tag reboque">${c.placa || "-"}</span></td>
-                            <td style="padding: 12px;">${c.marca || "-"} ${c.modelo || ""}</td>
-                            <td style="padding: 12px;">${c.anoFab || c.ano || "-"}</td>
-                            <td style="padding: 12px;">${c.chassi || "-"}</td>
-                            <td style="padding: 12px;">${c.renavam || "-"}</td>
-                            <td style="padding: 12px;">${c.rntrc || "-"}</td>
-                            <td style="padding: 12px;">${c.carroceria || "-"}</td>
-                            <td style="padding: 12px;">${c.tara || "-"}</td>
-                            <td style="padding: 12px;">${c.numEixos || "-"}</td>
-                            <td style="padding: 12px;">${c.pneusPorEixo || "-"}</td>
-                         </tr>`;
-            });
-            html += `</tbody></table></div>`;
+        // Renderiza Carretas Complementares extras apenas com as placas
+        const cComps = a.carretasComplementares || [];
+        if (cComps.length > 0) {
+            const placasValidas = cComps.filter(c => c.placa);
+            if (placasValidas.length > 0) {
+                html += `<h4 class="form-section-title" style="color:#fcd34d; margin-top: 25px;">Carretas / Reboques Complementares (${placasValidas.length})</h4>
+                         <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid #374151; display: flex; flex-wrap: wrap; gap: 5px;">
+                            ${placasValidas.map(c => `<span class="placa-tag reboque">${c.placa}</span>`).join("")}
+                         </div>`;
+            }
         }
 
         body.innerHTML = html;
@@ -763,7 +754,7 @@ window.initFrotaLicencas = function() {
         const titulo = document.getElementById("modalDetalhesTitulo");
         const body = document.getElementById("modalDetalhesBody");
 
-        titulo.innerHTML = `<i class="fas fa-file-alt"></i> AET Estadual nº ${a.numeroAET} <span style="color:#60a5fa; margin-left:10px;">(UF: ${a.uf || "-"})</span>`;
+        titulo.innerHTML = `<i class="fas fa-file-alt"></i> AET Estadual nº ${a.numero_aet} <span style="color:#60a5fa; margin-left:10px;">(UF: ${a.uf || "-"})</span>`;
 
         let html = `<h4 class="form-section-title" style="margin-top:0;">Identificação</h4>
                     <div class="detalhes-grid">
@@ -790,8 +781,8 @@ window.initFrotaLicencas = function() {
 
         if (a.placasAdicionais && a.placasAdicionais.length > 0) {
             html += `<h4 class="form-section-title" style="color:#fcd34d;">Reboques Adicionais (${a.placasAdicionais.length})</h4>
-                     <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid #374151;">
-                        ${a.placasAdicionais.map(p => `<span class="placa-tag reboque">${p}</span>`).join(" ")}
+                     <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: 8px; border: 1px solid #374151; display: flex; flex-wrap: wrap; gap: 5px;">
+                        ${a.placasAdicionais.map(p => `<span class="placa-tag reboque">${p}</span>`).join("")}
                      </div>`;
         }
 
@@ -941,8 +932,8 @@ window.initFrotaLicencas = function() {
                 u1_renavam: a.renavam,
                 u1_rntrc: a.rntrc,
                 u1_bidirecional: a.bidirecional,
-                unidadesComplementares: a.unidades_complementares || [],
-                carretasComplementares: a.carretas_complementares || []
+                unidadesComplementares: safeParseArray(a.unidades_complementares),
+                carretasComplementares: safeParseArray(a.carretas_complementares)
             }));
 
             listaAetEst = todasAsAets.filter(a => a.tipo === 'ESTADUAL').map(a => ({
@@ -977,9 +968,9 @@ window.initFrotaLicencas = function() {
                 pesoCarga: a.peso_carga,
                 pesoAcessorios: a.peso_acessorios,
                 excessoLimite: a.excesso_limite,
-                placasAdicionais: a.placas_adicionais || [],
-                trechos: a.trechos || [],
-                restricoes: a.restricoes || []
+                placasAdicionais: safeParseArray(a.placas_adicionais),
+                trechos: safeParseArray(a.trechos),
+                restricoes: safeParseArray(a.restricoes)
             }));
             
         } catch (e) {
