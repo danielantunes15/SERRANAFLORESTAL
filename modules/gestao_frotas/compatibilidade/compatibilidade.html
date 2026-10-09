@@ -1,40 +1,264 @@
-<div class="content-header">
-    <h2>🔍 Simulador de Compatibilidade (Cavalo ⇄ Carretas)</h2>
-    <p>Validação de peso, RNTRC e validade de AETs cruzando a base de dados.</p>
-</div>
+<style>
+/* =========================================================
+   ESTILOS MODERNOS DO SIMULADOR DE COMPATIBILIDADE
+   ========================================================= */
 
-<div class="card">
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-        <div class="form-group-dark">
-            <label>Selecione o Cavalo (U1)</label>
-            <select id="compatCavaloSelect" class="dark-select">
-                <option value="">— Carregando Cavalos... —</option>
-            </select>
-        </div>
-        <div class="form-group-dark">
-            <label>Tipo de Conjunto Esperado</label>
-            <select id="compatTipoConjunto" class="dark-select">
-                <option value="">— Automático —</option>
-                <option value="TRITREM">Tritrem</option>
-                <option value="BITREM">Bitrem</option>
-                <option value="RODOTREM">Rodotrem</option>
-            </select>
-        </div>
+/* Estrutura Principal */
+.sim-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+/* Painéis (Cards) */
+.sim-panel {
+    background: var(--card-bg, #1e293b);
+    border: 1px solid var(--border-dim, #334155);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+
+.sim-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-dim, #334155);
+    padding-bottom: 12px;
+}
+
+.sim-panel-title {
+    font-size: 1.15rem;
+    color: #f8fafc;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+/* Grid de Layout Dividido (Esquerda: Detalhes, Direita: Simulador) */
+.sim-grid-layout {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 20px;
+    align-items: start;
+}
+@media (max-width: 1024px) {
+    .sim-grid-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Controles de Busca e Botões */
+.sim-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.sim-control-group label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+.sim-select {
+    background-color: #0f172a;
+    border: 1px solid #4b5563;
+    color: #f8fafc;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 1rem;
+    width: 100%;
+    outline: none;
+    transition: all 0.2s;
+}
+.sim-select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.btn-sim-action {
+    background: #374151;
+    color: #fff;
+    border: 1px solid #4b5563;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-sim-action:hover { background: #4b5563; }
+.btn-sim-primary { background: #10b981; border: none; }
+.btn-sim-primary:hover { background: #059669; }
+
+/* Tabela de Detalhes (Cavalo) */
+.sim-details-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.sim-details-table td {
+    padding: 10px 0;
+    border-bottom: 1px dashed #334155;
+    font-size: 0.95rem;
+    color: #e2e8f0;
+}
+.sim-details-table td:first-child {
+    font-weight: 600;
+    color: #94a3b8;
+    width: 45%;
+}
+.sim-details-table tr:last-child td { border-bottom: none; }
+
+/* Slots de Carretas (O Simulador em si) */
+.sim-slots-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+}
+.sim-slot {
+    background: rgba(15, 23, 42, 0.5);
+    border: 2px dashed #4b5563;
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.sim-slot.filled { border-style: solid; }
+.sim-slot.ok { border-color: #10b981; background: rgba(16, 185, 129, 0.05); }
+.sim-slot.warn { border-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
+.sim-slot.error { border-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
+
+.slot-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    color: #cbd5e1;
+    font-size: 1rem;
+}
+.slot-info-box {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    line-height: 1.6;
+}
+.slot-info-box strong { color: #e2e8f0; }
+.slot-status-msg {
+    font-weight: 700;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Placas e Tags */
+.sim-tag {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #4b5563;
+    font-family: monospace;
+    font-size: 0.85rem;
+    margin: 2px;
+}
+.sim-tag.go-tag { color: #60a5fa; background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); }
+
+/* Relatório de Resultado */
+.sim-report {
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #334155;
+    background: rgba(255,255,255,0.02);
+}
+.sim-report h3 { margin: 0 0 15px 0; display: flex; align-items: center; gap: 8px; }
+.sim-report.ok { border-color: #10b981; }
+.sim-report.ok h3 { color: #10b981; }
+.sim-report.warn { border-color: #f59e0b; }
+.sim-report.warn h3 { color: #f59e0b; }
+.sim-report.error { border-color: #ef4444; }
+.sim-report.error h3 { color: #ef4444; }
+
+.sim-report ul { margin: 0; padding-left: 20px; color: #cbd5e1; font-size: 0.95rem; line-height: 1.6; }
+.sim-report li { margin-bottom: 6px; }
+</style>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+    <div>
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-link" style="color: var(--ccol-blue-bright);"></i> 
+            Simulador de Engate (Cavalo ⇄ Carretas)
+        </h2>
+        <p style="color: var(--text-secondary); margin: 5px 0 0 0;">
+            Validação operacional de peso (Tara vs CMT), restrições, carrocerias e validade de licenças.
+        </p>
     </div>
 </div>
 
-<div class="card" id="compatResumoCard" style="display:none; margin-top: 20px;">
-    <h3>📋 Resumo do Cavalo Selecionado</h3>
-    <div id="compatResumoInfo" style="color: var(--text-secondary); line-height: 1.6; margin-top: 10px;"></div>
+<!-- BARRA DE CONTROLE SUPERIOR -->
+<div class="sim-panel" style="margin-bottom: 20px;">
+    <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+        <div class="sim-control-group" style="flex: 1; min-width: 300px;">
+            <label for="compatCavaloSelect">Cavalo Trator (U1)</label>
+            <select id="compatCavaloSelect" class="sim-select">
+                <option value="">— Carregando Banco de Dados... —</option>
+            </select>
+        </div>
+        <button type="button" class="btn-sim-action" id="compatRecarregarEstoque">
+            <i class="fas fa-sync-alt"></i> Sincronizar Banco
+        </button>
+    </div>
 </div>
 
-<div class="card" id="compatSimulacaoCard" style="display:none; margin-top: 20px;">
-    <h3>🧪 Simulação de Unidades (Engate)</h3>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;" id="slotsCarretas">
-        <!-- Preenchido via JS -->
-    </div>
+<div id="simWorkspace" class="sim-grid-layout" style="display: none;">
     
-    <div style="margin-top: 20px; padding: 15px; border-radius: 8px; border: 1px solid var(--border-dim);" id="resultadoValidacao">
-        <p style="color: var(--muted);"><i class="fas fa-info-circle"></i> Selecione as carretas para ver a validação automática.</p>
+    <!-- COLUNA ESQUERDA: DETALHES DO CAVALO -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="sim-panel">
+            <div class="sim-panel-header">
+                <h3 class="sim-panel-title"><i class="fas fa-truck"></i> Dados do Cavalo</h3>
+            </div>
+            <div id="compatResumo"></div>
+        </div>
+
+        <div class="sim-panel">
+            <div class="sim-panel-header">
+                <h3 class="sim-panel-title"><i class="fas fa-paperclip"></i> Vínculos em AETs</h3>
+            </div>
+            <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 0;">Carretas registradas junto a este cavalo em licenças ativas:</p>
+            <div id="compatAtuais" style="margin-top: 10px;"></div>
+        </div>
     </div>
+
+    <!-- COLUNA DIREITA: SIMULADOR E RELATÓRIO -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="sim-panel">
+            <div class="sim-panel-header">
+                <h3 class="sim-panel-title"><i class="fas fa-hammer"></i> Área de Engate</h3>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn-sim-action" id="compatLimparBtn"><i class="fas fa-eraser"></i> Limpar</button>
+                    <button type="button" class="btn-sim-action btn-sim-primary" id="compatValidarBtn"><i class="fas fa-check-double"></i> Gerar Relatório</button>
+                </div>
+            </div>
+            
+            <div class="sim-slots-container" id="compatSimulacao">
+                <!-- Slots renderizados via JS -->
+            </div>
+        </div>
+
+        <div id="compatResultadoContainer" style="display: none;">
+            <!-- Relatório renderizado via JS -->
+        </div>
+    </div>
+
 </div>
