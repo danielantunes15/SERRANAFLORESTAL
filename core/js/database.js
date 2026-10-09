@@ -598,18 +598,25 @@ const db = {
     },
 
     // =====================================================
-    // LÓGICA DE AET (TABELA ÚNICA: aet_licencas)
+    // LÓGICA DE AET (TABELAS PLANIFICADAS RELACIONAIS)
     // =====================================================
     async getAets() {
-        let query = supabaseClient.from('aet_licencas').select('*, filiais(nome)');
-        const { data, error } = await aplicarFiltroFilial(query);
-        if (error) throw error;
-        return data || [];
+        try {
+            const query = supabaseClient.from('aet_licencas').select('*, filiais(nome)');
+            const { data, error } = await aplicarFiltroFilial(query);
+            if (error) throw error;
+            return data || [];
+        } catch (e) {
+            console.error("Erro getAets:", e);
+            throw e;
+        }
     },
 
-    async upsertAet(dados) {
-        const payload = injetarFilial(dados);
-        const { data, error } = await supabaseClient.from('aet_licencas').upsert([payload], { onConflict: 'numero_aet,tipo,filial_id' });
+    async upsertAet(payload) {
+        const payloadFilial = injetarFilial(payload);
+        const { data, error } = await supabaseClient.from('aet_licencas').upsert([payloadFilial], { 
+            onConflict: 'numero_aet, tipo, filial_id' 
+        });
         if (error) throw error;
         return data;
     },

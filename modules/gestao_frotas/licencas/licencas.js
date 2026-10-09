@@ -1,7 +1,11 @@
 /* =========================================================
    MÓDULO: LICENÇAS — AET Federal e Estadual (CORE & UI)
+   - Tabelas Planificadas (Relacional) e Correção de Filial
    ========================================================= */
 
+// =====================================================
+// FUNÇÕES GLOBAIS DE INTERFACE
+// =====================================================
 window.alternarAbaAet = function(aba) {
     document.getElementById('abaFederal').style.display = aba === 'federal' ? 'block' : 'none';
     document.getElementById('abaEstadual').style.display = aba === 'estadual' ? 'block' : 'none';
@@ -28,6 +32,9 @@ window.abrirModalImportacaoDaAbaAtiva = function() {
     document.getElementById('modalImportacao').style.display = 'flex';
 };
 
+// =====================================================
+// INICIALIZAÇÃO DO MÓDULO E LÓGICA DE DADOS
+// =====================================================
 window.initFrotaLicencas = function() {
     let listaAetFed = [];
     let listaAetEst = [];
@@ -90,6 +97,102 @@ window.initFrotaLicencas = function() {
         } catch (e) { console.error("Erro filiais:", e); }
         mapaFiliais = {};
         (filiais || []).forEach(f => { mapaFiliais[f.id] = f.nome; });
+    }
+
+    // =====================================================
+    // HELPERS PARA MAPEAR PAYLOADS DB (ESTRUTURA RELACIONAL)
+    // =====================================================
+    function gerarPayloadFed(dados, pdfInfo, filialId) {
+        const payload = {
+            numero_aet: dados.numeroAET,
+            tipo: 'FEDERAL',
+            validade_inicio: dados.validadeInicio,
+            validade_fim: dados.validadeFim,
+            pdf_url: pdfInfo.url,
+            pdf_path: pdfInfo.path,
+            
+            proprietario: dados.proprietario,
+            cnpj_cpf: dados.cnpjCpf,
+            endereco: dados.endereco,
+            telefone: dados.telefone,
+            pbtc_informado: dados.pbtcInformado,
+            comprimento: dados.comprimento,
+            conjunto_tipo: dados.conjuntoTipo,
+            
+            placa_cavalo: dados.u1_placa,
+            ano_fab: dados.u1_anoFab,
+            chassi: dados.u1_chassi,
+            marca: dados.u1_marca,
+            modelo: dados.u1_modelo,
+            carroceria: dados.u1_carroceria,
+            tara: dados.u1_tara,
+            tracao: dados.u1_tracao,
+            potencia: dados.u1_potencia,
+            cmt: dados.u1_cmt,
+            direcao: dados.u1_direcao,
+            renavam: dados.u1_renavam,
+            rntrc: dados.u1_rntrc,
+            bidirecional: dados.u1_bidirecional,
+            
+            unidades_complementares: dados.unidadesComplementares,
+            carretas_complementares: dados.carretasComplementares
+        };
+        
+        // Se vier undefined, NÃO colocamos o filial_id no objeto, 
+        // assim o injetarFilial do database.js coloca a filial do usuário.
+        if (filialId !== undefined) {
+            payload.filial_id = filialId;
+        }
+        return payload;
+    }
+
+    function gerarPayloadEst(dados, pdfInfo, filialId) {
+        const payload = {
+            numero_aet: dados.numeroAET,
+            tipo: 'ESTADUAL',
+            validade_inicio: dados.validadeInicio,
+            validade_fim: dados.validadeFim,
+            pdf_url: pdfInfo.url,
+            pdf_path: pdfInfo.path,
+            
+            uf: dados.uf,
+            transportador: dados.transportador,
+            endereco: dados.endereco,
+            telefone: dados.contato,
+            requerente: dados.requerente,
+            origem: dados.origem,
+            transportando: dados.transportando,
+            restricao_horario: dados.restricaoHorario,
+            velocidade_max: dados.velocidadeMax,
+            
+            placa_cavalo: dados.placasCavalo,
+            placa_reb1: dados.placaReb1,
+            placa_reb2: dados.placaReb2,
+            placa_reb3: dados.placaReb3,
+            marca: dados.marca,
+            modelo: dados.modelo,
+            ano_fab: dados.anoFab,
+            comprimento: dados.comprimento,
+            peso_total: dados.pesoTotal,
+            largura: dados.largura,
+            peso_1_unid: dados.peso1Unid,
+            altura: dados.altura,
+            peso_2_unid: dados.peso2Unid,
+            largura_total: dados.larguraTotal,
+            peso_carreta: dados.pesoCarreta,
+            peso_carga: dados.pesoCarga,
+            peso_acessorios: dados.pesoAcessorios,
+            excesso_limite: dados.excessoLimite,
+            
+            placas_adicionais: dados.placasAdicionais,
+            trechos: dados.trechos,
+            restricoes: dados.restricoes
+        };
+        
+        if (filialId !== undefined) {
+            payload.filial_id = filialId;
+        }
+        return payload;
     }
 
     // =====================================================
@@ -277,16 +380,7 @@ window.initFrotaLicencas = function() {
                 pdfInfo = await db.uploadPdfAet(pdfBlobAetFed, dados.numeroAET, 'FEDERAL');
             }
 
-            const payload = {
-                numero_aet: dados.numeroAET,
-                tipo: 'FEDERAL',
-                validade_inicio: dados.validadeInicio,
-                validade_fim: dados.validadeFim,
-                pdf_url: pdfInfo.url,
-                pdf_path: pdfInfo.path,
-                dados: dados
-            };
-
+            const payload = gerarPayloadFed(dados, pdfInfo, undefined);
             await db.upsertAet(payload);
             
             alert("AET Federal salva com sucesso!");
@@ -375,7 +469,6 @@ window.initFrotaLicencas = function() {
     function preencherFormularioAetEst(dados) {
         const form = document.getElementById("aetEstForm");
         
-        // Agora mapeamos os três reboques em vez de "placasReboques"
         const campos = [
             "numeroAET", "uf", "transportador", "endereco", "contato",
             "requerente", "origem", "transportando", "validadeInicio", "validadeFim",
@@ -436,16 +529,7 @@ window.initFrotaLicencas = function() {
                 pdfInfo = await db.uploadPdfAet(pdfBlobAetEst, dados.numeroAET, 'ESTADUAL');
             }
 
-            const payload = {
-                numero_aet: dados.numeroAET,
-                tipo: 'ESTADUAL',
-                validade_inicio: dados.validadeInicio,
-                validade_fim: dados.validadeFim,
-                pdf_url: pdfInfo.url,
-                pdf_path: pdfInfo.path,
-                dados: dados
-            };
-
+            const payload = gerarPayloadEst(dados, pdfInfo, undefined);
             await db.upsertAet(payload);
             
             alert("AET Estadual salva com sucesso!");
@@ -508,21 +592,21 @@ window.initFrotaLicencas = function() {
 
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td><strong>${a.numero_aet || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
+                <td><strong>${a.numeroAET || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
                 <td>${a.conjuntoTipo || "-"}</td>
                 <td class="cell-placa">${u1}</td>
                 <td class="cell-placa">${u2}</td>
                 <td class="cell-placa">${u3}</td>
                 <td class="cell-placa">${u4}${extraInfo}</td>
                 <td>
-                    ${a.validade_inicio || "-"} a <strong>${a.validade_fim || "-"}</strong><br>
+                    ${a.validadeInicio || "-"} a <strong>${a.validadeFim || "-"}</strong><br>
                     <span class="badge-status ${status.classe}">${status.texto}</span>
                 </td>
                 <td>
-                    <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
-                    <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
-                    <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
-                    <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetFed('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
+                    <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetFed('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
+                    <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetFed('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
+                    <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetFed('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
+                    <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetFed('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -555,23 +639,23 @@ window.initFrotaLicencas = function() {
             }
             if(!reboquesHtml.trim()) reboquesHtml = "-";
 
-            const status = getStatusValidade(a.validade_fim);
+            const status = getStatusValidade(a.validadeFim);
 
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td><strong>${a.numero_aet || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
+                <td><strong>${a.numeroAET || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${nomeFilial}</span></td>
                 <td><strong>${a.uf || "-"}</strong><br><span style="font-size:0.75rem; color:var(--text-secondary);">${a.restricaoHorario || "-"}</span></td>
                 <td class="cell-placa">${cavaloHtml}</td>
                 <td class="cell-placa">${reboquesHtml}</td>
                 <td>
-                    ${a.validade_inicio || "-"} a <strong>${a.validade_fim || "-"}</strong><br>
+                    ${a.validadeInicio || "-"} a <strong>${a.validadeFim || "-"}</strong><br>
                     <span class="badge-status ${status.classe}">${status.texto}</span>
                 </td>
                 <td>
-                    <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
-                    <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
-                    <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
-                    <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetEst('${a.numero_aet}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
+                    <button class="tabela-acoes-btn" title="Detalhes" onclick="window.abrirDetalhesAetEst('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-eye"></i></button>
+                    <button class="tabela-acoes-btn btn-pdf" title="PDF" onclick="window.visualizarPdfAetEst('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-file-pdf"></i></button>
+                    <button class="tabela-acoes-btn" title="Atualizar" onclick="window.solicitarAtualizacaoAetEst('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-sync-alt"></i></button>
+                    <button class="tabela-acoes-btn btn-trash" title="Excluir" onclick="window.excluirAetEst('${a.numeroAET}', ${a.filial_id})"><i class="fas fa-trash"></i></button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -579,7 +663,7 @@ window.initFrotaLicencas = function() {
     }
 
     // =====================================================
-    // ABRIR DETALHES 
+    // ABRIR DETALHES GERAIS NA TABELA
     // =====================================================
     window.abrirDetalhesAetFed = function(numero, filialId) {
         const a = encontrarAetFed(numero, filialId);
@@ -588,7 +672,7 @@ window.initFrotaLicencas = function() {
         const titulo = document.getElementById("modalDetalhesTitulo");
         const body = document.getElementById("modalDetalhesBody");
 
-        titulo.innerHTML = `<i class="fas fa-file-alt"></i> AET Federal nº ${a.numero_aet} <span style="color:#60a5fa; margin-left:10px;">(U1: ${a.u1_placa || "-"})</span>`;
+        titulo.innerHTML = `<i class="fas fa-file-alt"></i> AET Federal nº ${a.numeroAET} <span style="color:#60a5fa; margin-left:10px;">(U1: ${a.u1_placa || "-"})</span>`;
 
         let html = `<h4 class="form-section-title" style="margin-top:0;">Identificação</h4>
                     <div class="detalhes-grid">
@@ -597,7 +681,7 @@ window.initFrotaLicencas = function() {
                         <div class="detalhe-item"><span class="detalhe-label">CNPJ/CPF</span><span class="detalhe-valor">${a.cnpjCpf || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Endereço</span><span class="detalhe-valor">${a.endereco || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Telefone</span><span class="detalhe-valor">${a.telefone || "-"}</span></div>
-                        <div class="detalhe-item"><span class="detalhe-label">Validade</span><span class="detalhe-valor">${a.validade_inicio || "-"} a ${a.validade_fim || "-"}</span></div>
+                        <div class="detalhe-item"><span class="detalhe-label">Validade</span><span class="detalhe-valor">${a.validadeInicio || "-"} a ${a.validadeFim || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">PBTC (t)</span><span class="detalhe-valor">${a.pbtcInformado || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Comprimento (m)</span><span class="detalhe-valor">${a.comprimento || "-"}</span></div>
                     </div>`;
@@ -679,7 +763,7 @@ window.initFrotaLicencas = function() {
         const titulo = document.getElementById("modalDetalhesTitulo");
         const body = document.getElementById("modalDetalhesBody");
 
-        titulo.innerHTML = `<i class="fas fa-file-alt"></i> AET Estadual nº ${a.numero_aet} <span style="color:#60a5fa; margin-left:10px;">(UF: ${a.uf || "-"})</span>`;
+        titulo.innerHTML = `<i class="fas fa-file-alt"></i> AET Estadual nº ${a.numeroAET} <span style="color:#60a5fa; margin-left:10px;">(UF: ${a.uf || "-"})</span>`;
 
         let html = `<h4 class="form-section-title" style="margin-top:0;">Identificação</h4>
                     <div class="detalhes-grid">
@@ -687,7 +771,7 @@ window.initFrotaLicencas = function() {
                         <div class="detalhe-item"><span class="detalhe-label">Endereço</span><span class="detalhe-valor">${a.endereco || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Requerente</span><span class="detalhe-valor">${a.requerente || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Origem</span><span class="detalhe-valor">${a.origem || "-"}</span></div>
-                        <div class="detalhe-item"><span class="detalhe-label">Validade</span><span class="detalhe-valor">${a.validade_inicio || "-"} a ${a.validade_fim || "-"}</span></div>
+                        <div class="detalhe-item"><span class="detalhe-label">Validade</span><span class="detalhe-valor">${a.validadeInicio || "-"} a ${a.validadeFim || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Restrição</span><span class="detalhe-valor">${a.restricaoHorario || "-"}</span></div>
                         <div class="detalhe-item"><span class="detalhe-label">Velocidade Máx.</span><span class="detalhe-valor">${a.velocidadeMax || "-"}</span></div>
                     </div>`;
@@ -793,16 +877,8 @@ window.initFrotaLicencas = function() {
                     if (!dados.numeroAET) dados.numeroAET = numeroAetFedEmAtualizacao;
                     
                     const upInfo = await db.uploadPdfAet(file, numeroAetFedEmAtualizacao, 'FEDERAL');
-                    const payload = {
-                        numero_aet: dados.numeroAET,
-                        tipo: 'FEDERAL',
-                        filial_id: filialAetFedEmAtualizacao,
-                        validade_inicio: dados.validadeInicio,
-                        validade_fim: dados.validadeFim,
-                        pdf_url: upInfo.url,
-                        pdf_path: upInfo.path,
-                        dados: dados
-                    };
+                    const payload = gerarPayloadFed(dados, upInfo, filialAetFedEmAtualizacao);
+                    
                     await db.upsertAet(payload);
                     alert("AET Federal atualizada com sucesso!");
                     await carregarListas();
@@ -822,16 +898,8 @@ window.initFrotaLicencas = function() {
                     if (!dados.numeroAET) dados.numeroAET = numeroAetEstEmAtualizacao;
                     
                     const upInfo = await db.uploadPdfAet(file, numeroAetEstEmAtualizacao, 'ESTADUAL');
-                    const payload = {
-                        numero_aet: dados.numeroAET,
-                        tipo: 'ESTADUAL',
-                        filial_id: filialAetEstEmAtualizacao,
-                        validade_inicio: dados.validadeInicio,
-                        validade_fim: dados.validadeFim,
-                        pdf_url: upInfo.url,
-                        pdf_path: upInfo.path,
-                        dados: dados
-                    };
+                    const payload = gerarPayloadEst(dados, upInfo, filialAetEstEmAtualizacao);
+
                     await db.upsertAet(payload);
                     alert("AET Estadual atualizada com sucesso!");
                     await carregarListas();
@@ -841,14 +909,78 @@ window.initFrotaLicencas = function() {
     }
 
     // =====================================================
-    // CARREGAR LISTAS DA TABELA ÚNICA
+    // CARREGAR LISTAS E REFAZER O MAP PARA O JAVASCRIPT
     // =====================================================
     async function carregarListas() {
         try {
             const todasAsAets = await db.getAets();
             
-            listaAetFed = todasAsAets.filter(a => a.tipo === 'FEDERAL').map(a => ({ ...a.dados, ...a }));
-            listaAetEst = todasAsAets.filter(a => a.tipo === 'ESTADUAL').map(a => ({ ...a.dados, ...a }));
+            listaAetFed = todasAsAets.filter(a => a.tipo === 'FEDERAL').map(a => ({
+                ...a,
+                numeroAET: a.numero_aet,
+                validadeInicio: a.validade_inicio,
+                validadeFim: a.validade_fim,
+                proprietario: a.proprietario,
+                cnpjCpf: a.cnpj_cpf,
+                endereco: a.endereco,
+                telefone: a.telefone,
+                pbtcInformado: a.pbtc_informado,
+                comprimento: a.comprimento,
+                conjuntoTipo: a.conjunto_tipo,
+                u1_placa: a.placa_cavalo,
+                u1_anoFab: a.ano_fab,
+                u1_chassi: a.chassi,
+                u1_marca: a.marca,
+                u1_modelo: a.modelo,
+                u1_carroceria: a.carroceria,
+                u1_tara: a.tara,
+                u1_tracao: a.tracao,
+                u1_potencia: a.potencia,
+                u1_cmt: a.cmt,
+                u1_direcao: a.direcao,
+                u1_renavam: a.renavam,
+                u1_rntrc: a.rntrc,
+                u1_bidirecional: a.bidirecional,
+                unidadesComplementares: a.unidades_complementares || [],
+                carretasComplementares: a.carretas_complementares || []
+            }));
+
+            listaAetEst = todasAsAets.filter(a => a.tipo === 'ESTADUAL').map(a => ({
+                ...a,
+                numeroAET: a.numero_aet,
+                validadeInicio: a.validade_inicio,
+                validadeFim: a.validade_fim,
+                uf: a.uf,
+                transportador: a.transportador,
+                endereco: a.endereco,
+                contato: a.telefone,
+                requerente: a.requerente,
+                origem: a.origem,
+                transportando: a.transportando,
+                restricaoHorario: a.restricao_horario,
+                velocidadeMax: a.velocidade_max,
+                placasCavalo: a.placa_cavalo,
+                placaReb1: a.placa_reb1,
+                placaReb2: a.placa_reb2,
+                placaReb3: a.placa_reb3,
+                marca: a.marca,
+                modelo: a.modelo,
+                anoFab: a.ano_fab,
+                comprimento: a.comprimento,
+                pesoTotal: a.peso_total,
+                largura: a.largura,
+                peso1Unid: a.peso_1_unid,
+                altura: a.altura,
+                peso2Unid: a.peso_2_unid,
+                larguraTotal: a.largura_total,
+                pesoCarreta: a.peso_carreta,
+                pesoCarga: a.peso_carga,
+                pesoAcessorios: a.peso_acessorios,
+                excessoLimite: a.excesso_limite,
+                placasAdicionais: a.placas_adicionais || [],
+                trechos: a.trechos || [],
+                restricoes: a.restricoes || []
+            }));
             
         } catch (e) {
             console.error("Erro getAets:", e);
