@@ -695,7 +695,7 @@ window.initFrotaCadastros = function() {
     }
 
     // =====================================================
-    // CARREGAMENTO E RENDERIZAÇÃO DA TABELA AGRUPADA
+    // CARREGAMENTO E RENDERIZAÇÃO DA TABELA AGRUPADA E KPIS
     // =====================================================
     async function carregarListaVeiculos() {
         let lista = [];
@@ -720,13 +720,46 @@ window.initFrotaCadastros = function() {
         let vencendo = 0;
         let vencidos = 0;
 
+        let countCavalo = 0;
+        let countCarreta = 0;
+        let countGrua = 0;
+        let countFrotaLeve = 0;
+        let countOutros = 0;
+
         lista.forEach(v => {
             const st = calcularStatus(v);
             if (st.tipo === "ok") emDia++;
             else if (st.tipo === "warn") vencendo++;
             else if (st.tipo === "danger") vencidos++;
+            
+            const tipo = (v.tipo_veiculo || "").toUpperCase();
+            if (tipo === "CAVALO") {
+                countCavalo++;
+            } else if (tipo === "CARRETA") {
+                countCarreta++;
+            } else if (tipo === "GRUA") {
+                countGrua++;
+            } else if (tipo === "FROTA LEVE") {
+                countFrotaLeve++;
+            } else {
+                countOutros++;
+            }
         });
 
+        // Atualização dos novos cards por categoria
+        const elCavalo = document.getElementById("kpiCavalo");
+        const elCarreta = document.getElementById("kpiCarreta");
+        const elGrua = document.getElementById("kpiGrua");
+        const elFrotaLeve = document.getElementById("kpiFrotaLeve");
+        const elOutros = document.getElementById("kpiOutros");
+
+        if (elCavalo) elCavalo.textContent = countCavalo;
+        if (elCarreta) elCarreta.textContent = countCarreta;
+        if (elGrua) elGrua.textContent = countGrua;
+        if (elFrotaLeve) elFrotaLeve.textContent = countFrotaLeve;
+        if (elOutros) elOutros.textContent = countOutros;
+
+        // Atualização dos cards existentes
         const elTot = document.getElementById("kpiTotalFrotas");
         const elOk = document.getElementById("kpiEmDia");
         const elWarn = document.getElementById("kpiVencendo");
