@@ -164,8 +164,81 @@ const ROTAS = {
     'frota_compatibilidade': 'modules/gestao_frotas/compatibilidade/compatibilidade.html'
 };
 
-// ⬇️⬇️⬇️ ALTERAÇÃO 1: Versão incrementada para forçar reload do cache
-const VERSAO_SISTEMA = "1.0.26";
+const VERSAO_SISTEMA = "1.0.27";
+
+// =================================================================
+// CONTROLE DE INICIALIZAÇÃO ÚNICA DO RELATÓRIO GERENCIAL
+// =================================================================
+window.__relatorioGerencialIniciado = false;
+window.__relatorioGerencialTimers = [];
+
+window.initRelatorioGerencial = async function() {
+    // Evita dupla inicialização
+    if (window.__relatorioGerencialIniciado) return;
+    window.__relatorioGerencialIniciado = true;
+    window.__relatorioGerencialTimers = [];
+
+    console.log('[Relatório Gerencial] Iniciando...');
+
+    // Pequeno delay para garantir que o HTML foi injetado no DOM
+    await new Promise(r => setTimeout(r, 150));
+
+    try {
+        // 1) Garante dados base (não bloqueia se alguma função não existir)
+        if (typeof carregarDadosOS === 'function') {
+            try { await carregarDadosOS(); } catch(e) { console.warn('carregarDadosOS falhou:', e); }
+        }
+
+        // 2) Popula selects e KPIs
+        const executarSeguro = (nomeFn) => {
+            if (typeof window[nomeFn] === 'function') {
+                try { window[nomeFn](); } catch(e) { console.warn(nomeFn, 'falhou:', e); }
+            }
+        };
+
+        executarSeguro('atualizarKPIsGlobais');
+        executarSeguro('preencherSelectPlacasDM');
+        executarSeguro('preencherSelectPlacasDMGrua');
+        executarSeguro('preencherMesesDMDiaria');
+        executarSeguro('preencherMesesDMDiariaGrua');
+
+        // Preenche a data do filtro horário com hoje
+        const inpDataHoraria = document.getElementById('filtroDataEspecificaHoraria');
+        if (inpDataHoraria && !inpDataHoraria.value) {
+            const hoje = new Date();
+            const mesStr = String(hoje.getMonth() + 1).padStart(2, '0');
+            const diaStr = String(hoje.getDate()).padStart(2, '0');
+            inpDataHoraria.value = `${hoje.getFullYear()}-${mesStr}-${diaStr}`;
+        }
+
+        // 3) Renderiza os gráficos (com rAF para não travar a UI)
+        await new Promise(r => requestAnimationFrame(r));
+
+        executarSeguro('renderizarGraficoEvolucaoDM');
+        executarSeguro('renderizarGraficoStatusFrotaHorario');
+        executarSeguro('renderizarGraficoEvolucaoDMDiaria');
+        executarSeguro('renderizarGraficoEvolucaoDMDiariaGrua');
+        executarSeguro('renderizarGraficoDMOperacional');
+        executarSeguro('renderizarDMIndividual');
+        executarSeguro('renderizarDMIndividualGrua');
+        executarSeguro('renderizarRelatorioDM');
+        executarSeguro('renderizarRelatorioGerencialOS');
+
+        console.log('[Relatório Gerencial] Renderização concluída.');
+
+    } catch (e) {
+        console.error('[Relatório Gerencial] Erro na inicialização:', e);
+    }
+};
+
+window.destruirRelatorioGerencial = function() {
+    // Limpa timers e libera a flag para permitir reinicializar depois
+    window.__relatorioGerencialTimers.forEach(t => clearInterval(t));
+    window.__relatorioGerencialTimers = [];
+    window.__relatorioGerencialIniciado = false;
+};
+
+// =================================================================
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -278,6 +351,11 @@ window.fecharDropdown = function(dropdownElement) {
 };
 
 window.navegarPara = async function(pagina, elementoClicado) {
+    // SEMPRE que troca de página, destrói timers do relatório
+    if (typeof window.destruirRelatorioGerencial === 'function') {
+        window.destruirRelatorioGerencial();
+    }
+
     if (elementoClicado) {
         document.querySelectorAll('.nav-item, .dropdown-item').forEach(el => el.classList.remove('active'));
         elementoClicado.classList.add('active');
@@ -412,72 +490,11 @@ window.navegarPara = async function(pagina, elementoClicado) {
             if (typeof window.initFrotaCompatibilidade === 'function') window.initFrotaCompatibilidade();
         }
 
-        // ⬇️⬇️⬇️ ALTERAÇÃO 2: Inicializador do Relatório Gerencial
+        // ⬇️ RELATÓRIO GERENCIAL: chama a função única de inicialização
         if (pagina === 'relatorio_gerencial') {
-            setTimeout(async () => {
-                try {
-                    // Garante que os dados base estão carregados
-                    if (typeof carregarDadosOS === 'function') {
-                        await carregarDadosOS();
-                    }
-                    if (typeof carregarDadosFrota === 'function') {
-                        try { await carregarDadosFrota(); } catch(e) {}
-                    }
-                    if (typeof carregarDadosManutencao === 'function') {
-                        try { await carregarDadosManutencao(); } catch(e) {}
-                    }
-
-                    // Popula selects e KPIs
-                    if (typeof window.atualizarKPIsGlobais === 'function') {
-                        window.atualizarKPIsGlobais();
-                    }
-                    if (typeof window.preencherSelectPlacasDM === 'function') {
-                        window.preencherSelectPlacasDM();
-                    }
-                    if (typeof window.preencherSelectPlacasDMGrua === 'function') {
-                        window.preencherSelectPlacasDMGrua();
-                    }
-                    if (typeof window.preencherMesesDMDiaria === 'function') {
-                        window.preencherMesesDMDiaria();
-                    }
-                    if (typeof window.preencherMesesDMDiariaGrua === 'function') {
-                        window.preencherMesesDMDiariaGrua();
-                    }
-                    // Preenche o campo de data do filtro horário com hoje
-                    const inpDataHoraria = document.getElementById('filtroDataEspecificaHoraria');
-                    if (inpDataHoraria && !inpDataHoraria.value) {
-                        const hoje = new Date();
-                        const mesStr = String(hoje.getMonth() + 1).padStart(2, '0');
-                        const diaStr = String(hoje.getDate()).padStart(2, '0');
-                        inpDataHoraria.value = `${hoje.getFullYear()}-${mesStr}-${diaStr}`;
-                    }
-
-                    // Renderiza os gráficos
-                    if (typeof window.renderizarGraficoEvolucaoDM === 'function') {
-                        window.renderizarGraficoEvolucaoDM();
-                    }
-                    if (typeof window.renderizarGraficoEvolucaoDMDiaria === 'function') {
-                        window.renderizarGraficoEvolucaoDMDiaria();
-                    }
-                    if (typeof window.renderizarGraficoEvolucaoDMDiariaGrua === 'function') {
-                        window.renderizarGraficoEvolucaoDMDiariaGrua();
-                    }
-                    if (typeof window.renderizarGraficoStatusFrotaHorario === 'function') {
-                        window.renderizarGraficoStatusFrotaHorario();
-                    }
-                    if (typeof window.renderizarGraficoDMOperacional === 'function') {
-                        window.renderizarGraficoDMOperacional();
-                    }
-                    if (typeof window.renderizarRelatorioGerencialOS === 'function') {
-                        window.renderizarRelatorioGerencialOS();
-                    }
-                    if (typeof window.renderizarRelatorioDM === 'function') {
-                        window.renderizarRelatorioDM();
-                    }
-                } catch (e) {
-                    console.error('Erro ao inicializar Relatório Gerencial:', e);
-                }
-            }, 400);
+            if (typeof window.initRelatorioGerencial === 'function') {
+                window.initRelatorioGerencial();
+            }
         }
     } catch (error) {
         console.error('Erro ao carregar página:', error);

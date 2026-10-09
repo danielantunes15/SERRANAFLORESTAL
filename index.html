@@ -442,65 +442,9 @@
     <script src="modules/gestao_frotas/licencas/licencas_parser.js"></script>
     <script src="modules/gestao_frotas/compatibilidade/compatibilidade.js"></script>
 
-    <!-- ⬇️⬇️⬇️ ALTERAÇÃO 3: Fallback para inicializar o Relatório Gerencial caso o menu.js não consiga -->
-    <script>
-        (function(){
-            let tentativas = 0;
-            const MAX_TENTATIVAS = 60; // 60 segundos
-            const intervalo = setInterval(() => {
-                tentativas++;
-                
-                // Detecta se o painel do Relatório Gerencial está montado
-                const painelDM = document.getElementById('graficoEvolucaoDM');
-                const isRelatorioAberto = painelDM && painelDM.offsetParent !== null;
-                
-                if (isRelatorioAberto) {
-                    try {
-                        if (typeof window.atualizarKPIsGlobais === 'function') {
-                            window.atualizarKPIsGlobais();
-                        }
-                        if (typeof window.preencherSelectPlacasDM === 'function') {
-                            window.preencherSelectPlacasDM();
-                        }
-                        if (typeof window.preencherSelectPlacasDMGrua === 'function') {
-                            window.preencherSelectPlacasDMGrua();
-                        }
-                        if (typeof window.preencherMesesDMDiaria === 'function') {
-                            window.preencherMesesDMDiaria();
-                        }
-                        if (typeof window.preencherMesesDMDiariaGrua === 'function') {
-                            window.preencherMesesDMDiariaGrua();
-                        }
-                        
-                        const inpDataHoraria = document.getElementById('filtroDataEspecificaHoraria');
-                        if (inpDataHoraria && !inpDataHoraria.value) {
-                            const hoje = new Date();
-                            const mesStr = String(hoje.getMonth() + 1).padStart(2, '0');
-                            const diaStr = String(hoje.getDate()).padStart(2, '0');
-                            inpDataHoraria.value = `${hoje.getFullYear()}-${mesStr}-${diaStr}`;
-                        }
-                        
-                        if (typeof window.renderizarGraficoEvolucaoDM === 'function') {
-                            window.renderizarGraficoEvolucaoDM();
-                        }
-                        if (typeof window.renderizarGraficoEvolucaoDMDiaria === 'function') {
-                            window.renderizarGraficoEvolucaoDMDiaria();
-                        }
-                        if (typeof window.renderizarGraficoEvolucaoDMDiariaGrua === 'function') {
-                            window.renderizarGraficoEvolucaoDMDiariaGrua();
-                        }
-                        if (typeof window.renderizarGraficoStatusFrotaHorario === 'function') {
-                            window.renderizarGraficoStatusFrotaHorario();
-                        }
-                    } catch(e) {
-                        console.error('[Fallback Relatório Gerencial] Erro:', e);
-                    }
-                }
-                
-                if (tentativas >= MAX_TENTATIVAS) clearInterval(intervalo);
-            }, 1000);
-        })();
-    </script>
+    <!-- ✅ REMOVIDO: O fallback que rodava a cada 1s por 60s foi eliminado.
+         A inicialização agora é controlada exclusivamente pelo menu.js
+         através de window.initRelatorioGerencial(). -->
 
 </body>
 </html>
