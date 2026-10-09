@@ -1,9 +1,32 @@
 /* =========================================================
-   MÓDULO: LICENÇAS — AET Federal e Estadual
-   - Tabela Única: aet_licencas (JSONB)
-   - Layout de Colunas Específicas para U1, U2, U3, U4
-   - Parser de Extração Contínua (Resolve quebras do PDF do DNIT)
+   MÓDULO: LICENÇAS — AET Federal e Estadual (CORE & UI)
    ========================================================= */
+
+window.alternarAbaAet = function(aba) {
+    document.getElementById('abaFederal').style.display = aba === 'federal' ? 'block' : 'none';
+    document.getElementById('abaEstadual').style.display = aba === 'estadual' ? 'block' : 'none';
+    document.getElementById('btnAbaFederal').className = aba === 'federal' ? 'btn-primary-blue' : 'btn-secondary-dark';
+    document.getElementById('btnAbaEstadual').className = aba === 'estadual' ? 'btn-primary-blue' : 'btn-secondary-dark';
+};
+
+window.abrirModalImportacaoDaAbaAtiva = function() {
+    const abaEstadualVisivel = document.getElementById('abaEstadual').style.display === 'block';
+    const tituloModal = document.getElementById('modalImportacaoTitulo');
+    const boxFed = document.getElementById('boxUploadFed');
+    const boxEst = document.getElementById('boxUploadEst');
+
+    if (abaEstadualVisivel) {
+        tituloModal.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Importar AET Estadual';
+        boxFed.style.display = 'none';
+        boxEst.style.display = 'flex';
+    } else {
+        tituloModal.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Importar AET Federal';
+        boxFed.style.display = 'flex';
+        boxEst.style.display = 'none';
+    }
+    
+    document.getElementById('modalImportacao').style.display = 'flex';
+};
 
 window.initFrotaLicencas = function() {
     let listaAetFed = [];
@@ -14,6 +37,7 @@ window.initFrotaLicencas = function() {
     let numeroAetFedEmAtualizacao = null;
     let filialAetFedEmAtualizacao = null;
 
+    let pdfBlobAetEst = null;
     let numeroAetEstEmAtualizacao = null;
     let filialAetEstEmAtualizacao = null;
 
@@ -39,9 +63,6 @@ window.initFrotaLicencas = function() {
         );
     }
 
-    // =====================================================
-    // FUNÇÕES DE DATA E STATUS
-    // =====================================================
     function getStatusValidade(dataFimStr) {
         if (!dataFimStr) return { texto: "Data Inválida", classe: "badge-gray" };
         
@@ -57,13 +78,6 @@ window.initFrotaLicencas = function() {
         if (diffDias <= 30) return { texto: `Vence em ${diffDias} dias`, classe: "badge-yellow" };
         return { texto: "Válida", classe: "badge-green" };
     }
-
-    window.alternarAbaAet = function(aba) {
-        document.getElementById('abaFederal').style.display = aba === 'federal' ? 'block' : 'none';
-        document.getElementById('abaEstadual').style.display = aba === 'estadual' ? 'block' : 'none';
-        document.getElementById('btnAbaFederal').className = aba === 'federal' ? 'btn-primary-blue' : 'btn-secondary-dark';
-        document.getElementById('btnAbaEstadual').className = aba === 'estadual' ? 'btn-primary-blue' : 'btn-secondary-dark';
-    };
 
     async function carregarMapaFiliais() {
         let filiais = [];
@@ -124,7 +138,10 @@ window.initFrotaLicencas = function() {
 
         try {
             const texto = await window.lerTextoPDF(file);
-            const dadosExtraidos = extrairAetFederal(texto);
+            console.log("=== TEXTO BRUTO FEDERAL ===", texto);
+
+            const dadosExtraidos = window.AetParser.extrairAetFederal(texto);
+            console.table(dadosExtraidos);
 
             if (!dadosExtraidos.numeroAET && !dadosExtraidos.u1_placa) {
                 throw new Error("Não foi possível identificar dados básicos na AET.");
@@ -173,7 +190,7 @@ window.initFrotaLicencas = function() {
         const cont = document.getElementById("uComplementaresContainer");
         const idx = cont.children.length + 2;
         const div = document.createElement("div");
-        div.className = "dynamic-card";
+        div.className = "dynamic-card full-width";
         div.innerHTML = `
             <div class="dynamic-card-header">
                 <strong>Unidade U${idx}</strong>
@@ -181,7 +198,7 @@ window.initFrotaLicencas = function() {
             </div>
             <div class="form-grid">
                 <div class="form-group"><label>Placa</label><input type="text" data-campo="placa" class="form-control" value="${u.placa || ""}" /></div>
-                <div class="form-group"><label>Ano Fab.</label><input type="text" data-campo="anoFab" class="form-control" value="${u.anoFab || ""}" /></div>
+                <div class="form-group"><label>Ano Fab.</label><input type="text" data-campo="anoFab" class="form-control" value="${u.anoFab || u.ano || ""}" /></div>
                 <div class="form-group"><label>Chassi</label><input type="text" data-campo="chassi" class="form-control" value="${u.chassi || ""}" /></div>
                 <div class="form-group"><label>Marca</label><input type="text" data-campo="marca" class="form-control" value="${u.marca || ""}" /></div>
                 <div class="form-group"><label>Modelo</label><input type="text" data-campo="modelo" class="form-control" value="${u.modelo || ""}" /></div>
@@ -205,7 +222,7 @@ window.initFrotaLicencas = function() {
     function adicionarCarretaComplementarFed(c) {
         const cont = document.getElementById("cComplementaresContainer");
         const div = document.createElement("div");
-        div.className = "dynamic-card";
+        div.className = "dynamic-card full-width";
         div.innerHTML = `
             <div class="dynamic-card-header">
                 <strong>Carreta / Reboque</strong>
@@ -215,7 +232,7 @@ window.initFrotaLicencas = function() {
                 <div class="form-group"><label>Placa</label><input type="text" data-campo="placa" class="form-control" value="${c.placa || ""}" /></div>
                 <div class="form-group"><label>Marca</label><input type="text" data-campo="marca" class="form-control" value="${c.marca || ""}" /></div>
                 <div class="form-group"><label>Modelo</label><input type="text" data-campo="modelo" class="form-control" value="${c.modelo || ""}" /></div>
-                <div class="form-group"><label>Ano Fab.</label><input type="text" data-campo="anoFab" class="form-control" value="${c.anoFab || ""}" /></div>
+                <div class="form-group"><label>Ano</label><input type="text" data-campo="ano" class="form-control" value="${c.anoFab || c.ano || ""}" /></div>
                 <div class="form-group"><label>Chassi</label><input type="text" data-campo="chassi" class="form-control" value="${c.chassi || ""}" /></div>
                 <div class="form-group"><label>RENAVAM</label><input type="text" data-campo="renavam" class="form-control" value="${c.renavam || ""}" /></div>
                 <div class="form-group"><label>RNTRC</label><input type="text" data-campo="rntrc" class="form-control" value="${c.rntrc || ""}" /></div>
@@ -289,272 +306,7 @@ window.initFrotaLicencas = function() {
     }
 
     // =====================================================
-    // PARSER AET FEDERAL (Com Estratégia Robusta e Limpa)
-    // =====================================================
-    function extrairAetFederal(textoBruto) {
-        const flat = textoBruto.replace(/\s+/g, " ").trim();
-        const up = flat.toUpperCase();
-        const linhas = textoBruto.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-
-        const pick = (regexes, fonte = up) => {
-            for (const rx of regexes) {
-                const m = fonte.match(rx);
-                if (m && m[1]) return m[1].replace(/\s+/g, " ").trim();
-            }
-            return "";
-        };
-
-        const numeroAET = pick([/A\.?E\.?T\.?\s*N[ºO°]?\s*([0-9]+\/[0-9]+[A-Z]?)/]);
-        const conjuntoTipo = pick([
-            /A\.?E\.?T\.?\s*N[ºO°]?\s*[0-9\/A-Z]+\s+([A-Z0-9\s\+]+?)\s+PROPRIET/i,
-            /(TRITREM\s+\d+\s+EIXOS\s+[A-Z0-9\+]+)/
-        ]);
-
-        let proprietario = "", cnpjCpf = "";
-        {
-            const m1 = up.match(/PROPRIET[ÁA]RIO\s*DO\s*VE[ÍI]CULO\s+(?:CNPJ\s*\/\s*CPF\s+)?(.+?)\s+(\d{2,3}\.\d{3}\.\d{3}\/\d{4}-\d{2})/);
-            if (m1) { proprietario = m1[1].trim(); cnpjCpf = m1[2]; }
-            else {
-                for (let i = 0; i < linhas.length; i++) {
-                    if (/PROPRIET[ÁA]RIO\s*DO\s*VE[ÍI]CULO/.test(linhas[i].toUpperCase())) {
-                        const prox = linhas[i + 1] || "";
-                        const mc = prox.match(/^(.+?)\s+(\d{2,3}\.\d{3}\.\d{3}\/\d{4}-\d{2})/);
-                        if (mc) { proprietario = mc[1].trim(); cnpjCpf = mc[2]; }
-                        break;
-                    }
-                }
-            }
-        }
-
-        let endereco = "", telefone = "";
-        {
-            const m1 = up.match(/ENDERE[ÇC]O\s*\([^)]*\)\s+TELEFONE\s+(.+?)\s+(\(\d{2}\)\s*[\d\s\-]+)/);
-            if (m1) { endereco = m1[1].trim(); telefone = m1[2].trim(); }
-            else {
-                for (let i = 0; i < linhas.length; i++) {
-                    if (/ENDERE[ÇC]O\s*\(/.test(linhas[i].toUpperCase())) {
-                        const prox = linhas[i + 1] || "";
-                        const mfone = prox.match(/(\(\d{2}\)\s*[\d\s\-]+)\s*$/);
-                        if (mfone) {
-                            telefone = mfone[1].trim();
-                            endereco = prox.substring(0, prox.indexOf(telefone)).trim();
-                        } else { endereco = prox.trim(); }
-                        break;
-                    }
-                }
-            }
-        }
-
-        let validadeInicio = "", validadeFim = "";
-        {
-            const m = up.match(/PER[ÍI]ODO\s+DE[:\s]+(\d{2}\/\d{2}\/\d{4})\s+A\s+(\d{2}\/\d{2}\/\d{4})/);
-            if (m) { validadeInicio = m[1]; validadeFim = m[2]; }
-        }
-
-        const pbtcInformado = pick([/PBTC\s*INFORMADO\s*\(t\)[:\s]*([0-9.,]+)/]);
-        const comprimento = pick([/COMPRIMENTO\s*\(m\)[:\s]*([0-9.,]+)/]);
-
-        const linhasUteis = linhas.filter(l => {
-            const u = l.toUpperCase();
-            if (/^DEPARTAMENTO NACIONAL/.test(u)) return false;
-            if (/^DIRETORIA DE INFRA/.test(u)) return false;
-            if (/^COORDENAÇÃO GERAL/.test(u)) return false;
-            if (/^RESOLUÇÃO/.test(u)) return false;
-            if (/^AUTORIZAÇÃO ESPECIAL/.test(u)) return false;
-            if (/^\s*$/.test(l)) return false;
-            if (/^A\.E\.T\./.test(u)) return false;
-            return true;
-        });
-
-        const acharLinha = (regex, inicio = 0) => {
-            for (let i = inicio; i < linhasUteis.length; i++) {
-                if (regex.test(linhasUteis[i].toUpperCase())) return i;
-            }
-            return -1;
-        };
-
-        // Extração por Eliminação - Acha e destrói para sobrar apenas a Marca/Modelo
-        function extrairUnidadePorValor(idxCab, tipo) {
-            const blocoLinhas = [];
-            for (let i = idxCab + 1; i < Math.min(idxCab + 6, linhasUteis.length); i++) {
-                const u = linhasUteis[i].toUpperCase();
-                if (/^UNIDADE\s+U\d+/.test(u)) break;
-                if (/^PERCURSO\b/.test(u)) break;
-                if (/^PLACA\s+ANO\s*FAB/i.test(u)) continue;
-                if (/^TARA\s*\(t\)\s*TRA[ÇC][ÃA]O/i.test(u)) continue;
-                if (/^TARA\s*\(t\)\s*RENAVAM/i.test(u)) continue;
-                blocoLinhas.push(linhasUteis[i]);
-            }
-            
-            let bloco = blocoLinhas.join(" ").toUpperCase().replace(/\s+/g, " ").trim();
-            const u = {};
-
-            u.placa = (bloco.match(/\b([A-Z]{3}[0-9][A-Z][0-9]{2})\b/) || [])[1] || "";
-            bloco = bloco.replace(u.placa, "");
-
-            u.chassi = (bloco.match(/\b([A-HJ-NPR-Z0-9]{17})\b/) || [])[1] || "";
-            bloco = bloco.replace(u.chassi, "");
-
-            u.anoFab = (bloco.match(/\b((?:19|20)\d{2})\b/) || [])[1] || "";
-            bloco = bloco.replace(u.anoFab, "");
-
-            u.tara = (bloco.match(/\b(\d{1,2},\d{3})\b/) || [])[1] || "";
-            bloco = bloco.replace(u.tara, "");
-
-            const tr = bloco.match(/\b(DUPLA|SIMPLES|TANDEM)\s+(\d+X\d+)\b/);
-            if (tr) {
-                u.tracao = `${tr[1]} ${tr[2]}`;
-                bloco = bloco.replace(tr[0], "");
-            }
-
-            const renavam11 = bloco.match(/\b(\d{11})\b/);
-            if (renavam11) { u.renavam = renavam11[1]; bloco = bloco.replace(renavam11[0], ""); }
-            else {
-                const renavam10 = bloco.match(/\b(\d{10})\b/);
-                if (renavam10) { u.renavam = renavam10[1]; bloco = bloco.replace(renavam10[0], ""); }
-            }
-
-            if (tipo === "u1") {
-                const rntrc9 = bloco.match(/\b(\d{9})\b/);
-                if (rntrc9) { u.rntrc = rntrc9[1]; bloco = bloco.replace(rntrc9[0], ""); }
-            } else {
-                const rntrcLetras = bloco.match(/\b(TCP|TAC|ETC|CTC)\b/);
-                if (rntrcLetras) { u.rntrc = rntrcLetras[1]; bloco = bloco.replace(rntrcLetras[0], ""); }
-                else {
-                    const rntrcDig = bloco.match(/\b(\d{6,10})\b/g);
-                    if (rntrcDig && rntrcDig.length) { 
-                        u.rntrc = rntrcDig[rntrcDig.length - 1]; 
-                        bloco = bloco.replace(u.rntrc, ""); 
-                    }
-                }
-            }
-
-            if (tipo === "u1") {
-                const dir = bloco.match(/\b(HIDR[ÁA]ULICA|MEC[ÂA]NICA|EL[ÉE]TRICA)\b/);
-                if (dir) { u.direcao = dir[1].charAt(0) + dir[1].slice(1).toLowerCase(); bloco = bloco.replace(dir[0], ""); }
-
-                const bidir = bloco.match(/\b(N[ÃA]O|SIM)\s*$/);
-                if (bidir) { u.bidirecional = bidir[1].charAt(0) + bidir[1].slice(1).toLowerCase(); bloco = bloco.replace(bidir[0], ""); }
-
-                const potCmt = bloco.match(/\b(\d{2,4})\s+(\d{1,3},\d)\b/);
-                if (potCmt) {
-                    u.potencia = potCmt[1];
-                    u.cmt = potCmt[2];
-                    bloco = bloco.replace(potCmt[0], "");
-                }
-            } else {
-                const dip = bloco.match(/\b(\d)\s+(\d)\s*$/);
-                if (dip) {
-                    u.numEixos = dip[1];
-                    u.pneusPorEixo = dip[2];
-                    bloco = bloco.replace(dip[0], "");
-                }
-            }
-
-            bloco = bloco.trim().replace(/\s+/g, " ");
-
-            // Remove a palavra da Carroceria para sobrar só a Marca e o Modelo
-            const carrMatch = bloco.match(/(N[ÃA]O\s*TEM|FLORESTAL|BA[ÚU]|SIDER|GRANELEIRO|TANQUE|CA[ÇC]AMBA)/i);
-            if (carrMatch) {
-                u.carroceria = carrMatch[1].toUpperCase();
-                bloco = bloco.replace(carrMatch[0], "").trim();
-            }
-
-            const partes = bloco.split(/\s+/);
-            if (partes.length >= 2) {
-                u.marca = partes[0];
-                u.modelo = partes.slice(1).join(" ");
-            } else if (partes.length === 1) {
-                u.marca = partes[0];
-                u.modelo = "";
-            }
-
-            return u;
-        }
-
-        let u1 = {};
-        {
-            const idxU1 = acharLinha(/^UNIDADE\s+U1\b/);
-            if (idxU1 !== -1) u1 = extrairUnidadePorValor(idxU1, "u1");
-        }
-
-        let tempUnidades = [];
-        for (let n = 2; n <= 6; n++) {
-            const idx = acharLinha(new RegExp(`^UNIDADE\\s+U${n}\\b`));
-            if (idx !== -1) {
-                const u = extrairUnidadePorValor(idx, "complementar");
-                if (u && (u.placa || u.chassi)) tempUnidades.push(u);
-            }
-        }
-
-        let tempCarretas = [];
-        
-        // Estratégia GLOBAL: Ignora quebras de linha varrendo o bloco limpo de reboques
-        const idxReboques = flat.lastIndexOf("REBOQUES E/OU SEMIRREBOQUES COMPLEMENTARES");
-        if (idxReboques !== -1) {
-            let blocoReboques = flat.substring(idxReboques).replace(/\|/g, " ").replace(/\s+/g, " ").trim();
-            const regexCarretasGlobal = /([A-Z]{3}[0-9][A-Z0-9][0-9]{2})\s+(.*?)\s+((?:19|20)\d{2})\s+([A-HJ-NPR-Z0-9]{17})\s+(\d{9,11})\s+([A-Z0-9]{3,10})\s+([A-ZÀ-Ú]{4,15})\s+(\d{1,2},\d{3})\s+(\d{1,2})\s+(\d{1,2})/g;
-            let match;
-            
-            while ((match = regexCarretasGlobal.exec(blocoReboques)) !== null) {
-                let marcaModelo = match[2].trim();
-                let marca = "";
-                let modelo = marcaModelo;
-                const marcasConhecidas = ["FACCHINI", "RANDON", "GUERRA", "LIBRELATO", "NOMA", "KRONE", "VOLVO", "SCANIA", "MERCEDES"];
-                
-                for (let m of marcasConhecidas) {
-                    if (marcaModelo.toUpperCase().includes(m)) {
-                        marca = m;
-                        modelo = marcaModelo.replace(new RegExp(m, 'i'), "").trim();
-                        break;
-                    }
-                }
-
-                tempCarretas.push({
-                    placa: match[1],
-                    marca: marca || marcaModelo.split(" ")[0],
-                    modelo: modelo || marcaModelo.split(" ").slice(1).join(" "),
-                    anoFab: match[3],
-                    chassi: match[4],
-                    renavam: match[5],
-                    rntrc: match[6],
-                    carroceria: match[7],
-                    tara: match[8],
-                    numEixos: match[9],
-                    pneusPorEixo: match[10]
-                });
-            }
-        }
-
-        // Consolida e garante as 3 unidades na hierarquia U2, U3 e U4 e joga o resto pras carretas
-        let todosReboquesExtraidos = [];
-        tempUnidades.forEach(u => { if(u.placa) todosReboquesExtraidos.push(u); });
-        tempCarretas.forEach(c => { if(c.placa) todosReboquesExtraidos.push(c); });
-
-        const placasVistas = new Set([u1.placa]);
-        todosReboquesExtraidos = todosReboquesExtraidos.filter(r => {
-            if(!r.placa || placasVistas.has(r.placa)) return false;
-            placasVistas.add(r.placa);
-            return true;
-        });
-
-        const unidadesComplementares = todosReboquesExtraidos.slice(0, 3);
-        const carretasComplementares = todosReboquesExtraidos.slice(3);
-
-        return {
-            numeroAET, conjuntoTipo, proprietario, cnpjCpf, endereco, telefone,
-            validadeInicio, validadeFim, pbtcInformado, comprimento,
-            u1_placa: u1.placa || "", u1_anoFab: u1.anoFab || "", u1_chassi: u1.chassi || "",
-            u1_marca: u1.marca || "", u1_modelo: u1.modelo || "", u1_carroceria: u1.carroceria || "",
-            u1_tara: u1.tara || "", u1_tracao: u1.tracao || "", u1_potencia: u1.potencia || "",
-            u1_cmt: u1.cmt || "", u1_direcao: u1.direcao || "", u1_renavam: u1.renavam || "",
-            u1_rntrc: u1.rntrc || "", u1_bidirecional: u1.bidirecional || "",
-            unidadesComplementares, carretasComplementares
-        };
-    }
-
-    // =====================================================
-    // AET ESTADUAL — IMPORTAÇÃO GERAL
+    // AET ESTADUAL — IMPORTAÇÃO E REVISÃO
     // =====================================================
     function configurarAetEstadual() {
         const inputEst = document.getElementById("pdfInputAetEst");
@@ -565,49 +317,54 @@ window.initFrotaLicencas = function() {
                 inputEst.value = "";
             });
         }
+
+        const btnAddPlaca = document.getElementById("btnAddPlacaEst");
+        if (btnAddPlaca) btnAddPlaca.addEventListener("click", () => adicionarPlacaAdicionalEst({}));
+
+        const btnCancelar = document.getElementById("btnCancelarAetEst");
+        if (btnCancelar) {
+            btnCancelar.addEventListener("click", () => {
+                document.getElementById('formCardAetEst').style.display = 'none';
+                document.getElementById('tabelaContainerAetEst').style.display = 'block';
+                pdfBlobAetEst = null;
+            });
+        }
+
+        const formEst = document.getElementById("aetEstForm");
+        if (formEst) {
+            formEst.addEventListener("submit", async e => {
+                e.preventDefault();
+                await salvarAetEstadualRevisada();
+            });
+        }
     }
 
     async function processarAetEstadual(file) {
         const statusEl = document.getElementById("statusAetEst");
         document.getElementById("fileNameAetEst").textContent = file.name;
-        statusEl.innerText = "Lendo PDF Estadual...";
+        statusEl.innerText = "Extraindo dados do PDF Estadual...";
         statusEl.style.color = "var(--ccol-blue-bright)";
+        pdfBlobAetEst = file;
 
         try {
             const texto = await window.lerTextoPDF(file);
-            const dadosExtraidos = extrairAetEstadual(texto);
+            console.log("=== TEXTO BRUTO ESTADUAL ===", texto);
 
-            if (!dadosExtraidos.numeroAET) throw new Error("Não foi possível identificar a AET Estadual.");
+            const dadosExtraidos = window.AetParser.extrairAetEstadual(texto);
+            console.table(dadosExtraidos);
 
-            let pdfInfo = { url: null, path: null };
-            try {
-                pdfInfo = await db.uploadPdfAet(file, dadosExtraidos.numeroAET, 'ESTADUAL');
-            } catch (err) {
-                console.warn("Erro ao subir PDF da AET Estadual:", err);
+            if (!dadosExtraidos.numeroAET && !dadosExtraidos.placasCavalo) {
+                throw new Error("Não foi possível identificar a AET Estadual.");
             }
 
-            const payload = {
-                numero_aet: dadosExtraidos.numeroAET,
-                tipo: 'ESTADUAL',
-                validade_inicio: dadosExtraidos.validadeInicio,
-                validade_fim: dadosExtraidos.validadeFim,
-                pdf_url: pdfInfo.url,
-                pdf_path: pdfInfo.path,
-                dados: dadosExtraidos
-            };
-
-            await db.upsertAet(payload);
-            statusEl.innerText = "AET Estadual importada com sucesso!";
-            statusEl.style.color = "#10b981";
-            await carregarListas();
+            preencherFormularioAetEst(dadosExtraidos);
             
-            setTimeout(() => {
-                const modal = document.getElementById('modalImportacao');
-                if(modal) modal.style.display = 'none';
-                statusEl.innerText = "";
-                document.getElementById("fileNameAetEst").textContent = "";
-            }, 1500);
-
+            document.getElementById('modalImportacao').style.display = 'none';
+            document.getElementById('tabelaContainerAetEst').style.display = 'none';
+            document.getElementById('formCardAetEst').style.display = 'block';
+            
+            statusEl.innerText = "";
+            document.getElementById("fileNameAetEst").textContent = "";
         } catch (err) {
             console.error(err);
             statusEl.innerText = "Erro: " + err.message;
@@ -615,145 +372,100 @@ window.initFrotaLicencas = function() {
         }
     }
 
-    function extrairAetEstadual(textoBruto) {
-        const flat = textoBruto.replace(/\s+/g, " ").trim();
-        const up = flat.toUpperCase();
-        const linhas = textoBruto.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    function preencherFormularioAetEst(dados) {
+        const form = document.getElementById("aetEstForm");
+        
+        // Agora mapeamos os três reboques em vez de "placasReboques"
+        const campos = [
+            "numeroAET", "uf", "transportador", "endereco", "contato",
+            "requerente", "origem", "transportando", "validadeInicio", "validadeFim",
+            "restricaoHorario", "velocidadeMax", "placasCavalo", 
+            "placaReb1", "placaReb2", "placaReb3",
+            "marca", "modelo", "anoFab", "comprimento", "pesoTotal"
+        ];
+        campos.forEach(k => {
+            if (form.elements[k]) form.elements[k].value = dados[k] || "";
+        });
 
-        const pick = (regexes, fonte = up) => {
-            for (const rx of regexes) {
-                const m = fonte.match(rx);
-                if (m && m[1]) return m[1].replace(/\s+/g, " ").trim();
+        if (form.elements["trechos"]) form.elements["trechos"].value = (dados.trechos || []).join("\n");
+        if (form.elements["restricoes"]) form.elements["restricoes"].value = (dados.restricoes || []).join("\n");
+
+        const cont = document.getElementById("placasAdicionaisContainer");
+        cont.innerHTML = "";
+        (dados.placasAdicionais || []).forEach(p => adicionarPlacaAdicionalEst({ placa: p }));
+    }
+
+    function adicionarPlacaAdicionalEst(p) {
+        const cont = document.getElementById("placasAdicionaisContainer");
+        const div = document.createElement("div");
+        div.className = "dynamic-card";
+        div.innerHTML = `
+            <div class="dynamic-card-header" style="margin-bottom:5px;">
+                <strong>Placa Extra</strong>
+                <button type="button" class="btn-remover"><i class="fas fa-times"></i></button>
+            </div>
+            <input type="text" data-campo="placa" class="form-control" value="${p.placa || ""}" style="width: 200px;" />
+        `;
+        div.querySelector(".btn-remover").addEventListener("click", () => div.remove());
+        cont.appendChild(div);
+    }
+
+    async function salvarAetEstadualRevisada() {
+        const form = document.getElementById("aetEstForm");
+        const btnSubmit = form.querySelector('button[type="submit"]');
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+
+        try {
+            const dados = {};
+            Array.from(form.elements).forEach(el => {
+                if (el.name) dados[el.name] = el.value.trim();
+            });
+
+            dados.trechos = dados.trechos ? dados.trechos.split('\n').map(x => x.trim()).filter(Boolean) : [];
+            dados.restricoes = dados.restricoes ? dados.restricoes.split('\n').map(x => x.trim()).filter(Boolean) : [];
+
+            dados.placasAdicionais = [];
+            document.querySelectorAll("#placasAdicionaisContainer .dynamic-card").forEach(card => {
+                const inp = card.querySelector("input");
+                if (inp && inp.value.trim()) dados.placasAdicionais.push(inp.value.trim().toUpperCase());
+            });
+
+            let pdfInfo = { url: null, path: null };
+            if (pdfBlobAetEst) {
+                pdfInfo = await db.uploadPdfAet(pdfBlobAetEst, dados.numeroAET, 'ESTADUAL');
             }
-            return "";
-        };
 
-        const numeroAET = pick([/^(\d{15,})\s+TRANSPORTADOR/i, /\b(\d{15,})\b/]);
-        let uf = "";
-        {
-            const m = up.match(/\b(BA|ES|MG|SP|RJ|PR|SC|RS|GO|MT|MS|DF|TO|MA|PI|CE|RN|PB|PE|AL|SE|AM|PA|AC|RO|RR|AP)\s+\d{3}/);
-            if (m) uf = m[1];
+            const payload = {
+                numero_aet: dados.numeroAET,
+                tipo: 'ESTADUAL',
+                validade_inicio: dados.validadeInicio,
+                validade_fim: dados.validadeFim,
+                pdf_url: pdfInfo.url,
+                pdf_path: pdfInfo.path,
+                dados: dados
+            };
+
+            await db.upsertAet(payload);
+            
+            alert("AET Estadual salva com sucesso!");
+            document.getElementById('formCardAetEst').style.display = 'none';
+            document.getElementById('tabelaContainerAetEst').style.display = 'block';
+            pdfBlobAetEst = null;
+            form.reset();
+            await carregarListas();
+
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao salvar: " + err.message);
+        } finally {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<i class="fas fa-save"></i> Confirmar e Salvar';
         }
-
-        const transportador = pick([/TRANSPORTADOR[:\s]+(.+?)\s+ENDERE[ÇC]O/i, /TRANSPORTADOR[:\s]+(.+?)\s+(?:RUA|AV\.|AVENIDA|ROD\.)/i]);
-        const endereco = pick([/ENDERE[ÇC]O[:\s]+(.+?)\s+TELEFONE/i, /ENDERE[ÇC]O[:\s]+(.+?)\s*\/\s*comercial/i]);
-        const contato = pick([/TELEFONE\s*\/\s*FAX\s*\/\s*E-?MAIL[:\s]+(.+?)\s+NOME\s+DO\s+REQUERENTE/i, /TELEFONE\s*\/\s*FAX\s*\/\s*E-?MAIL[:\s]+(.+?)\s+NOME/i]);
-        const requerente = pick([/NOME\s+DO\s+REQUERENTE[:\s]+(.+?)\s+TRANSPORTANDO/i]);
-        const transportando = pick([/TRANSPORTANDO[:\s]+(.+?)\s+ORIGEM/i]);
-        const origem = pick([/ORIGEM[:\s]+(.+?)\s+VALIDADE/i]);
-
-        let validadeInicio = "", validadeFim = "";
-        {
-            const m = up.match(/VALIDADE[:\s]+(\d{2}\/\d{2}\/\d{4})\s+AT[ÉE]\s+(\d{2}\/\d{2}\/\d{4})/);
-            if (m) { validadeInicio = m[1]; validadeFim = m[2]; }
-        }
-
-        let restricaoHorario = "";
-        {
-            if (/SEM\s+RESTRI[ÇC][ÃA]O\s+DE\s+HOR[ÁA]RIO/i.test(up)) restricaoHorario = "Sem Restrição";
-            if (/RESTRI[ÇC][ÃA]O\s+DE\s+0?8\s+HORAS/i.test(up) || /VESP[ÉE]RAS\s+DE\s+FERIADO/i.test(up)) {
-                if (restricaoHorario === "Sem Restrição") restricaoHorario = "Diurna e Noturna";
-                else restricaoHorario = "Diurna";
-            }
-            if (/AMANHECER\s+AO\s+(?:POR\s+DO\s+SOL|ANOITECER)/i.test(up)) {
-                if (!restricaoHorario) restricaoHorario = "Diurna";
-            }
-            if (/TR[ÂA]NSITO\s+DIUTURNO/i.test(up) || /24\s*HORAS/i.test(up)) {
-                restricaoHorario = "Diurna e Noturna";
-            }
-            if (/TR[ÂA]NSITO\s+NOTURNO/i.test(up) || /PER[ÍI]ODO\s+NOTURNO/i.test(up)) {
-                if (restricaoHorario === "Diurna") restricaoHorario = "Diurna e Noturna";
-                else restricaoHorario = "Noturna";
-            }
-        }
-
-        const velocidadeMax = pick([/VELOCIDADE\s+(?:M[ÁA]XIMA\s+)?DE\s+(\d+(?:[.,]\d+)?)\s*KM\s*\/\s*H/i, /AT[ÉE]\s+A\s+VELOCIDADE\s+DE\s+(\d+(?:[.,]\d+)?)\s*KM\s*\/\s*H/i]);
-        const marca = pick([/MARCA\s*[:\s]+([A-ZÀ-Ú][A-ZÀ-Ú0-9\s\-\.]+?)\s+MODELO/i]);
-        const modelo = pick([/MODELO\s*[:\s]+(.+?)\s+ANO\s*FAB/i, /MODELO\s*[:\s]+(.+?)\s+ANO\s*FAB\./i]);
-
-        let anoFab = "", placasCavalo = "", potencia = "", placasReboques = "";
-        {
-            const mReb = up.match(/PLACA\s*\(S\)\s*REBOQUES\s+((?:[A-Z0-9]{6,7}\s*\/?\s*)+?)(?=\s+[A-ZÀ-Ú]{4,}|\s+\d)/);
-            if (mReb) placasReboques = mReb[1].replace(/\s+/g, " ").trim();
-
-            const m3 = up.match(/(\d{4})\s+([A-Z]{3}[0-9][A-Z0-9][0-9]{2})\s+(\d{1,4}[.,]?\d{0,2})\s+PLACA\s*\(S\)\s*REBOQUES\s+(.+?)(?=\s+COMPRIMENTO|\s+PESO|\s+LARGURA|\s+ALTURA)/);
-            if (m3) {
-                anoFab = m3[1]; placasCavalo = m3[2]; potencia = m3[3];
-                if (!placasReboques) placasReboques = m3[4].trim();
-            } else {
-                const mAno = up.match(/ANO\s*FAB\.?\s+(\d{4})/);
-                if (mAno) anoFab = mAno[1];
-                const mPlaca = up.match(/\b([A-Z]{3}[0-9][A-Z0-9][0-9]{2})\b/);
-                if (mPlaca) placasCavalo = mPlaca[1];
-            }
-        }
-
-        const comprimento = pick([/COMPRIMENTO\s+DO\s+VE[ÍI]CULO\s+(\d+[.,]?\d*)/]);
-        const pesoTotal = pick([/PESO\s+TOTAL\s+\([^)]*\)\s+(\d+[.,]?\d*)/, /PESO\s+TOTAL\s+(\d+[.,]?\d*)/]);
-        const largura = pick([/LARGURA\s+DO\s+VE[ÍI]CULO\s+(\d+[.,]?\d*)/]);
-        const peso1Unid = pick([/PESO\s+DA\s+1[ºO°]?\s*UNIDADE\s+DE\s+TRA[ÇC][ÃA]O\s+(\d+[.,]?\d*)/]);
-        const altura = pick([/ALTURA\s+TOTAL\s+(\d+[.,]?\d*)/]);
-        const peso2Unid = pick([/PESO\s+DA\s+2[ªA]?\s*UNIDADE\s+DE\s+TRA[ÇC][ÃA]O\s+(\d+[.,]?\d*)/]);
-        const larguraTotal = pick([/LARGURA\s+TOTAL\s+(\d+[.,]?\d*)/]);
-        const pesoCarreta = pick([/PESO\s+DA\s+CARRETA\s+(\d+[.,]?\d*)/]);
-        const pesoCarga = pick([/PESO\s+DA\s+CARGA\s+(\d+[.,]?\d*)/]);
-        const pesoAcessorios = pick([/PESO\s+DOS\s+ACES\.?\s+E\s+CONTRAPESO\s+(\d+[.,]?\d*)/]);
-        const excessoLimite = pick([/EXCESSO\s+S\/\s*LIMITE\s+[\d.,]+t\s+(\d+[.,]?\d*)/]);
-
-        const trechos = [];
-        {
-            const idxSem = up.indexOf("SEM RESTRI");
-            const idxRest = up.indexOf("RESTRI");
-            if (idxSem !== -1) {
-                const fim = idxRest > idxSem ? idxRest : up.length;
-                const bloco = flat.substring(idxSem, fim);
-                const partes = bloco.split(/\s+(?=(?:BA|BR|ES|MG|SP|RJ)\s*\d)/);
-                partes.forEach(p => {
-                    const t = p.trim();
-                    if (t && t.length > 5 && !/^SEM RESTRI/i.test(t)) trechos.push(t);
-                });
-            }
-        }
-
-        const restricoes = [];
-        {
-            const idxRest = up.indexOf("RESTRI");
-            if (idxRest !== -1) {
-                const bloco = flat.substring(idxRest);
-                const frases = bloco.split(/(?<=[.;])\s+/);
-                frases.forEach(f => {
-                    const t = f.trim();
-                    if (t && t.length > 10 && !/^RESTRI[ÇC][ÕO]ES/i.test(t)) restricoes.push(t);
-                });
-            }
-        }
-
-        const placasAdicionais = [];
-        {
-            const idxRel = up.indexOf("RELA");
-            if (idxRel !== -1) {
-                const bloco = flat.substring(idxRel);
-                const rePlaca = /\b([A-Z]{3}[0-9][A-Z0-9][0-9]{2}|[A-Z]{3}[0-9]{4})\b/g;
-                let m;
-                while ((m = rePlaca.exec(bloco)) !== null) {
-                    const p = m[1];
-                    if (!placasAdicionais.includes(p)) placasAdicionais.push(p);
-                }
-            }
-        }
-
-        return {
-            numeroAET, uf, transportador, cnpjCpf: "", endereco, contato, requerente,
-            transportando, origem, validadeInicio, validadeFim, restricaoHorario,
-            velocidadeMax, marca, modelo, anoFab, placasCavalo, placasReboques,
-            potencia, comprimento, pesoTotal, largura, peso1Unid, altura, peso2Unid,
-            larguraTotal, pesoCarreta, pesoCarga, pesoAcessorios, excessoLimite,
-            trechos, restricoes, placasAdicionais
-        };
     }
 
     // =====================================================
-    // RENDERIZAR TABELAS DA AET (COLUNAS ESPECÍFICAS U1/U2/U3/U4)
+    // RENDERIZAR TABELAS
     // =====================================================
     function renderizarTabelaFed() {
         const tbody = document.querySelector("#tabelaAetFed tbody");
@@ -776,7 +488,7 @@ window.initFrotaLicencas = function() {
                 a.carretasComplementares.forEach(c => { if (c.placa) todosReboques.push(c); });
             }
 
-            const placasVistas = new Set([a.u1_placa]);
+            const placasVistas = new Set();
             todosReboques = todosReboques.filter(r => {
                 if(placasVistas.has(r.placa)) return false;
                 placasVistas.add(r.placa);
@@ -832,15 +544,16 @@ window.initFrotaLicencas = function() {
             
             const cavaloHtml = a.placasCavalo ? `<span class="placa-tag cavalo">${a.placasCavalo}</span>` : "-";
 
-            let reboquesP = (a.placasReboques || "").split('/').map(p => p.trim()).filter(Boolean);
-            let reboquesHtml = reboquesP.slice(0, 3).map(p => `<span class="placa-tag reboque">${p}</span>`).join(" ");
+            let reboquesHtml = "";
+            if (a.placaReb1) reboquesHtml += `<span class="placa-tag reboque">${a.placaReb1}</span> `;
+            if (a.placaReb2) reboquesHtml += `<span class="placa-tag reboque">${a.placaReb2}</span> `;
+            if (a.placaReb3) reboquesHtml += `<span class="placa-tag reboque">${a.placaReb3}</span> `;
             
             const totalAdicional = (a.placasAdicionais ? a.placasAdicionais.length : 0);
-            if (reboquesP.length > 3 || totalAdicional > 0) {
-                const totalExtras = (reboquesP.length > 3 ? reboquesP.length - 3 : 0) + totalAdicional;
-                reboquesHtml += `<div style="font-size:0.75rem; color:#9ca3af; margin-top:5px; font-weight:bold;">+ ${totalExtras} placas em detalhes</div>`;
+            if (totalAdicional > 0) {
+                reboquesHtml += `<div style="font-size:0.75rem; color:#9ca3af; margin-top:5px; font-weight:bold;">+ ${totalAdicional} placas extras</div>`;
             }
-            if(!reboquesHtml) reboquesHtml = "-";
+            if(!reboquesHtml.trim()) reboquesHtml = "-";
 
             const status = getStatusValidade(a.validade_fim);
 
@@ -866,7 +579,7 @@ window.initFrotaLicencas = function() {
     }
 
     // =====================================================
-    // ABRIR DETALHES COM MODAL HTML MODERNO (Tabela Blindada)
+    // ABRIR DETALHES 
     // =====================================================
     window.abrirDetalhesAetFed = function(numero, filialId) {
         const a = encontrarAetFed(numero, filialId);
@@ -919,36 +632,37 @@ window.initFrotaLicencas = function() {
         if (todosReboques.length > 0) {
             html += `<h4 class="form-section-title" style="color:#fcd34d; margin-top: 25px;">Carretas / Reboques Complementares (${todosReboques.length})</h4>`;
             
-            html += `<div class="table-responsive" style="margin-bottom: 20px;">
-                        <table class="dark-table" style="min-width: 1100px;">
-                        <thead>
+            html += `<div style="width: 100%; overflow-x: auto; background: var(--card-bg, #1f2937); border-radius: 8px; border: 1px solid #374151; margin-bottom: 20px;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 1100px; font-family: inherit;">
+                        <thead style="background: #374151; color: #d1d5db; font-size: 0.75rem; text-transform: uppercase;">
                             <tr>
-                                <th>Placa</th>
-                                <th>Marca/Modelo</th>
-                                <th>Ano</th>
-                                <th>Chassi</th>
-                                <th>RENAVAM</th>
-                                <th>RNTRC</th>
-                                <th>Carroceria</th>
-                                <th>Tara (t)</th>
-                                <th>Eixos</th>
-                                <th>Pneus/Eixo</th>
+                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Placa</th>
+                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Marca/Modelo</th>
+                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Ano</th>
+                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Chassi</th>
+                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">RENAVAM</th>
+                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">RNTRC</th>
+                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Carroceria</th>
+                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Tara (t)</th>
+                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Eixos</th>
+                                <th style="padding: 12px; border-bottom: 1px solid #4b5563;">Pneus/Eixo</th>
                             </tr>
                         </thead>
-                        <tbody>`;
+                        <tbody style="font-size: 0.85rem; color: #e5e7eb;">`;
             
-            todosReboques.forEach((c) => {
-                html += `<tr>
-                            <td><span class="placa-tag reboque">${c.placa || "-"}</span></td>
-                            <td>${c.marca || "-"} ${c.modelo || ""}</td>
-                            <td>${c.anoFab || c.ano || "-"}</td>
-                            <td>${c.chassi || "-"}</td>
-                            <td>${c.renavam || "-"}</td>
-                            <td>${c.rntrc || "-"}</td>
-                            <td>${c.carroceria || "-"}</td>
-                            <td>${c.tara || "-"}</td>
-                            <td>${c.numEixos || "-"}</td>
-                            <td>${c.pneusPorEixo || "-"}</td>
+            todosReboques.forEach((c, idx) => {
+                const bg = idx % 2 === 0 ? 'background-color: rgba(255,255,255,0.02);' : 'background-color: transparent;';
+                html += `<tr style="border-bottom: 1px solid #374151; ${bg}">
+                            <td style="padding: 12px;"><span class="placa-tag reboque">${c.placa || "-"}</span></td>
+                            <td style="padding: 12px;">${c.marca || "-"} ${c.modelo || ""}</td>
+                            <td style="padding: 12px;">${c.anoFab || c.ano || "-"}</td>
+                            <td style="padding: 12px;">${c.chassi || "-"}</td>
+                            <td style="padding: 12px;">${c.renavam || "-"}</td>
+                            <td style="padding: 12px;">${c.rntrc || "-"}</td>
+                            <td style="padding: 12px;">${c.carroceria || "-"}</td>
+                            <td style="padding: 12px;">${c.tara || "-"}</td>
+                            <td style="padding: 12px;">${c.numEixos || "-"}</td>
+                            <td style="padding: 12px;">${c.pneusPorEixo || "-"}</td>
                          </tr>`;
             });
             html += `</tbody></table></div>`;
@@ -981,7 +695,9 @@ window.initFrotaLicencas = function() {
         html += `<h4 class="form-section-title">Veículos</h4>
                  <div class="detalhes-grid">
                     <div class="detalhe-item"><span class="detalhe-label">Placa Cavalo</span><span class="detalhe-valor"><span class="placa-tag cavalo">${a.placasCavalo || "-"}</span></span></div>
-                    <div class="detalhe-item"><span class="detalhe-label">Placa(s) Reboques</span><span class="detalhe-valor">${(a.placasReboques || "").split('/').map(p => `<span class="placa-tag reboque">${p.trim()}</span>`).join(' ') || "-"}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">Reboque 1</span><span class="detalhe-valor">${a.placaReb1 ? `<span class="placa-tag reboque">${a.placaReb1}</span>` : "-"}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">Reboque 2</span><span class="detalhe-valor">${a.placaReb2 ? `<span class="placa-tag reboque">${a.placaReb2}</span>` : "-"}</span></div>
+                    <div class="detalhe-item"><span class="detalhe-label">Reboque 3</span><span class="detalhe-valor">${a.placaReb3 ? `<span class="placa-tag reboque">${a.placaReb3}</span>` : "-"}</span></div>
                     <div class="detalhe-item"><span class="detalhe-label">Marca/Modelo</span><span class="detalhe-valor">${a.marca || ""} ${a.modelo || ""}</span></div>
                     <div class="detalhe-item"><span class="detalhe-label">Ano</span><span class="detalhe-valor">${a.anoFab || "-"}</span></div>
                     <div class="detalhe-item"><span class="detalhe-label">Comprimento</span><span class="detalhe-valor">${a.comprimento || "-"}</span></div>
@@ -996,14 +712,14 @@ window.initFrotaLicencas = function() {
         }
 
         if (a.trechos && a.trechos.length > 0) {
-            html += `<h4 class="form-section-title" style="color:#9ca3af;">Trechos</h4>
+            html += `<h4 class="form-section-title" style="color:#9ca3af;">Trechos Autorizados</h4>
                      <ul style="color:#e5e7eb; font-size:0.9rem; padding-left: 20px;">
                         ${a.trechos.map(t => `<li style="margin-bottom:5px;">${t}</li>`).join("")}
                      </ul>`;
         }
 
         if (a.restricoes && a.restricoes.length > 0) {
-            html += `<h4 class="form-section-title" style="color:#ef4444;">Restrições</h4>
+            html += `<h4 class="form-section-title" style="color:#ef4444;">Restrições Específicas</h4>
                      <ul style="color:#e5e7eb; font-size:0.9rem; padding-left: 20px;">
                         ${a.restricoes.map(r => `<li style="margin-bottom:5px;">${r}</li>`).join("")}
                      </ul>`;
@@ -1012,7 +728,6 @@ window.initFrotaLicencas = function() {
         body.innerHTML = html;
         document.getElementById('modalDetalhesAet').style.display = 'flex';
     };
-
 
     window.visualizarPdfAetFed = function(numero, filialId) {
         const a = encontrarAetFed(numero, filialId);
@@ -1074,7 +789,7 @@ window.initFrotaLicencas = function() {
                 if (!file || !numeroAetFedEmAtualizacao) return;
                 try {
                     const texto = await window.lerTextoPDF(file);
-                    const dados = extrairAetFederal(texto);
+                    const dados = window.AetParser.extrairAetFederal(texto);
                     if (!dados.numeroAET) dados.numeroAET = numeroAetFedEmAtualizacao;
                     
                     const upInfo = await db.uploadPdfAet(file, numeroAetFedEmAtualizacao, 'FEDERAL');
@@ -1103,7 +818,7 @@ window.initFrotaLicencas = function() {
                 if (!file || !numeroAetEstEmAtualizacao) return;
                 try {
                     const texto = await window.lerTextoPDF(file);
-                    const dados = extrairAetEstadual(texto);
+                    const dados = window.AetParser.extrairAetEstadual(texto);
                     if (!dados.numeroAET) dados.numeroAET = numeroAetEstEmAtualizacao;
                     
                     const upInfo = await db.uploadPdfAet(file, numeroAetEstEmAtualizacao, 'ESTADUAL');
@@ -1154,6 +869,13 @@ window.initFrotaLicencas = function() {
         configurarAetEstadual();
         configurarAtualizacaoHidden();
         await carregarListas();
+        
+        // Garante que os modais fechem ao clicar fora
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) this.style.display = 'none';
+            });
+        });
     }
 
     inicializar();

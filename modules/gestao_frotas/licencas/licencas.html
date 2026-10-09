@@ -66,7 +66,6 @@
     max-height: 90vh;
 }
 .modal-content.md { max-width: 450px; }
-/* Aumentado de 900px para 1300px e 95% de largura para caber a tabela inteira sem scroll */
 .modal-content.lg { max-width: 1300px; width: 95%; }
 
 .modal-body {
@@ -97,17 +96,6 @@
 }
 
 /* ÁREA DE IMPORTAÇÃO */
-.import-select {
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    background: #374151;
-    color: #fff;
-    border: 1px solid #4b5563;
-    margin-top: 8px;
-    font-size: 1rem;
-    cursor: pointer;
-}
 .drop-zone {
     border: 2px dashed #4b5563;
     padding: 40px 20px;
@@ -173,6 +161,10 @@
     border-color: #3b82f6;
     outline: none;
 }
+textarea.form-control {
+    resize: vertical;
+    font-family: inherit;
+}
 .form-section-title {
     margin: 25px 0 15px 0;
     padding-bottom: 5px;
@@ -187,6 +179,12 @@
     border-radius: 8px;
     margin-bottom: 15px;
     position: relative;
+    display: inline-block;
+    margin-right: 10px;
+}
+.dynamic-card.full-width {
+    display: block;
+    margin-right: 0;
 }
 .dynamic-card-header {
     display: flex;
@@ -245,6 +243,7 @@
     font-size: 0.9rem;
     text-align: center;
     letter-spacing: 0.5px;
+    margin: 2px;
 }
 .placa-tag.cavalo {
     color: #10b981;
@@ -327,14 +326,14 @@
         <h2>🪪 Licenças de Trânsito (AET)</h2>
         <p>Extração automática de AET Federal e Estadual. Persistência 100% no banco de dados.</p>
     </div>
-    <button class="btn-import" onclick="document.getElementById('modalImportacao').style.display='flex'">
+    <button class="btn-import" onclick="window.abrirModalImportacaoDaAbaAtiva()">
         <i class="fas fa-file-import"></i> Nova Importação
     </button>
 </div>
 
 <div class="custom-tabs" style="margin-bottom: 20px; display: flex; gap: 10px;">
-    <button id="btnAbaFederal" class="btn-primary-blue" onclick="alternarAbaAet('federal')">AET Federal</button>
-    <button id="btnAbaEstadual" class="btn-secondary-dark" onclick="alternarAbaAet('estadual')">AET Estadual</button>
+    <button id="btnAbaFederal" class="btn-primary-blue" onclick="window.alternarAbaAet('federal')">AET Federal</button>
+    <button id="btnAbaEstadual" class="btn-secondary-dark" onclick="window.alternarAbaAet('estadual')">AET Estadual</button>
 </div>
 
 <!-- ================= AET FEDERAL ================= -->
@@ -372,8 +371,8 @@
                 <div class="form-group"><label>Tração</label><input type="text" name="u1_tracao" class="form-control" /></div>
                 <div class="form-group"><label>Potência (CV)</label><input type="text" name="u1_potencia" class="form-control" /></div>
                 <div class="form-group"><label>CMT (t)</label><input type="text" name="u1_cmt" class="form-control" /></div>
-                <div class="form-group"><label>RENAVAM</label><input type="text" data-campo="renavam" name="u1_renavam" class="form-control" /></div>
-                <div class="form-group"><label>RNTRC</label><input type="text" data-campo="rntrc" name="u1_rntrc" class="form-control" /></div>
+                <div class="form-group"><label>RENAVAM</label><input type="text" name="u1_renavam" class="form-control" /></div>
+                <div class="form-group"><label>RNTRC</label><input type="text" name="u1_rntrc" class="form-control" /></div>
                 <div class="form-group"><label>Direção</label><input type="text" name="u1_direcao" class="form-control" /></div>
                 <div class="form-group"><label>Bidirecional</label><input type="text" name="u1_bidirecional" class="form-control" /></div>
             </div>
@@ -393,7 +392,7 @@
         </form>
     </div>
 
-    <!-- Tabela AET Federal (Modernizada) -->
+    <!-- Tabela AET Federal -->
     <div id="tabelaContainerAetFed">
         <h3 style="margin-top: 0; margin-bottom: 15px;"><i class="fas fa-list"></i> AETs Federais Cadastradas</h3>
         <div class="table-responsive">
@@ -418,8 +417,65 @@
 
 <!-- ================= AET ESTADUAL ================= -->
 <div id="abaEstadual" style="display: none;">
+    
+    <!-- Formulário de Revisão AET Estadual -->
+    <div class="card" id="formCardAetEst" style="display: none; margin-bottom: 20px;">
+        <h3 style="margin-top: 0; color: #10b981;"><i class="fas fa-check-circle"></i> Revisão de Dados Extraídos (Estadual)</h3>
+        <p style="color: #9ca3af; margin-bottom: 20px;">Verifique e corrija os dados extraídos do PDF antes de salvar no sistema.</p>
+        
+        <form id="aetEstForm">
+            <h4 class="form-section-title">Identificação da AET Estadual</h4>
+            <div class="form-grid">
+                <div class="form-group"><label>Nº Protocolo / AET</label><input type="text" name="numeroAET" class="form-control" required /></div>
+                <div class="form-group"><label>UF</label><input type="text" name="uf" class="form-control" /></div>
+                <div class="form-group" style="grid-column: span 2;"><label>Transportador</label><input type="text" name="transportador" class="form-control" /></div>
+                <div class="form-group" style="grid-column: span 2;"><label>Endereço</label><input type="text" name="endereco" class="form-control" /></div>
+                <div class="form-group"><label>Telefone / E-mail</label><input type="text" name="contato" class="form-control" /></div>
+                <div class="form-group"><label>Requerente</label><input type="text" name="requerente" class="form-control" /></div>
+                <div class="form-group"><label>Origem</label><input type="text" name="origem" class="form-control" /></div>
+                <div class="form-group"><label>Transportando</label><input type="text" name="transportando" class="form-control" /></div>
+                <div class="form-group"><label>Validade Início</label><input type="text" name="validadeInicio" class="form-control" /></div>
+                <div class="form-group"><label>Validade Fim</label><input type="text" name="validadeFim" class="form-control" /></div>
+                <div class="form-group"><label>Restrição de Horário</label><input type="text" name="restricaoHorario" class="form-control" /></div>
+                <div class="form-group"><label>Velocidade Máx.</label><input type="text" name="velocidadeMax" class="form-control" /></div>
+            </div>
+
+            <h4 class="form-section-title">Especificações do Veículo</h4>
+            <div class="form-grid">
+                <div class="form-group"><label>Placa Cavalo</label><input type="text" name="placasCavalo" class="form-control" required /></div>
+                <div class="form-group"><label>Placa Reboque 1</label><input type="text" name="placaReb1" class="form-control" /></div>
+                <div class="form-group"><label>Placa Reboque 2</label><input type="text" name="placaReb2" class="form-control" /></div>
+                <div class="form-group"><label>Placa Reboque 3</label><input type="text" name="placaReb3" class="form-control" /></div>
+                <div class="form-group"><label>Marca</label><input type="text" name="marca" class="form-control" /></div>
+                <div class="form-group"><label>Modelo</label><input type="text" name="modelo" class="form-control" /></div>
+                <div class="form-group"><label>Ano Fab.</label><input type="text" name="anoFab" class="form-control" /></div>
+                <div class="form-group"><label>Comprimento (m)</label><input type="text" name="comprimento" class="form-control" /></div>
+                <div class="form-group"><label>Peso Total (t)</label><input type="text" name="pesoTotal" class="form-control" /></div>
+            </div>
+
+            <h4 class="form-section-title">Reboques Adicionais</h4>
+            <div id="placasAdicionaisContainer"></div>
+            <button type="button" class="btn-adicionar" id="btnAddPlacaEst"><i class="fas fa-plus"></i> Adicionar Placa Extra</button>
+
+            <h4 class="form-section-title">Trechos e Restrições Específicas</h4>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Trechos Autorizados (um por linha)</label>
+                <textarea name="trechos" class="form-control" rows="4"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Restrições (uma por linha)</label>
+                <textarea name="restricoes" class="form-control" rows="4"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-import"><i class="fas fa-save"></i> Confirmar e Salvar</button>
+                <button type="button" class="btn-secondary-dark" id="btnCancelarAetEst">Cancelar</button>
+            </div>
+        </form>
+    </div>
+
     <!-- Tabela AET Estadual -->
-    <div>
+    <div id="tabelaContainerAetEst">
         <h3 style="margin-top: 0; margin-bottom: 15px;"><i class="fas fa-list"></i> AETs Estaduais Cadastradas</h3>
         <div class="table-responsive">
             <table class="dark-table" id="tabelaAetEst">
@@ -439,23 +495,15 @@
     </div>
 </div>
 
-<!-- ================= MODAL DE IMPORTAÇÃO ================= -->
+<!-- ================= MODAL DE IMPORTAÇÃO AUTOMATIZADO ================= -->
 <div id="modalImportacao" class="modal-overlay">
     <div class="modal-content md">
         <button class="close-modal" onclick="document.getElementById('modalImportacao').style.display='none'">&times;</button>
-        <h3 style="margin-top: 0; color: #fff;"><i class="fas fa-cloud-upload-alt"></i> Importar AET</h3>
-        <p style="color: #9ca3af; font-size: 0.9rem; margin-bottom: 20px;">Selecione o tipo de licença e anexe o arquivo PDF correspondente.</p>
+        <h3 id="modalImportacaoTitulo" style="margin-top: 0; color: #fff;"><i class="fas fa-cloud-upload-alt"></i> Importar AET</h3>
+        <p style="color: #9ca3af; font-size: 0.9rem; margin-bottom: 20px;">Anexe o arquivo PDF correspondente à licença.</p>
         
-        <div style="width: 100%;">
-            <label style="font-weight: bold; color: #e5e7eb;">Tipo de Documento:</label>
-            <select id="tipoImportacaoAet" class="import-select">
-                <option value="federal">AET Federal</option>
-                <option value="estadual">AET Estadual</option>
-            </select>
-        </div>
-
-        <!-- Área de Upload Federal -->
-        <div id="boxUploadFed" class="drop-zone" onclick="document.getElementById('pdfInputAetFed').click()" style="display: flex;">
+        <!-- Dropzone Federal -->
+        <div id="boxUploadFed" class="drop-zone" onclick="document.getElementById('pdfInputAetFed').click()" style="display: none;">
             <i class="fas fa-file-pdf"></i>
             <p style="margin: 0; font-weight: bold; color: #ffffff; font-size: 1.1rem;">Selecionar PDF (Federal)</p>
             <p style="margin: 0; font-size: 0.85rem; color: #9ca3af;">Clique para procurar no computador</p>
@@ -464,7 +512,7 @@
             <p id="statusAetFed" class="status-msg"></p>
         </div>
 
-        <!-- Área de Upload Estadual -->
+        <!-- Dropzone Estadual -->
         <div id="boxUploadEst" class="drop-zone" style="display: none;" onclick="document.getElementById('pdfInputAetEst').click()">
             <i class="fas fa-file-pdf"></i>
             <p style="margin: 0; font-weight: bold; color: #ffffff; font-size: 1.1rem;">Selecionar PDF (Estadual)</p>
@@ -493,21 +541,4 @@
 <input type="file" id="inputAtualizarAetFed" accept="application/pdf" style="display: none;" />
 <input type="file" id="inputAtualizarAetEst" accept="application/pdf" style="display: none;" />
 
-<script>
-    // Controle interno do Modal de Importação
-    document.getElementById('tipoImportacaoAet').addEventListener('change', function(e) {
-        if (e.target.value === 'federal') {
-            document.getElementById('boxUploadFed').style.display = 'flex';
-            document.getElementById('boxUploadEst').style.display = 'none';
-        } else {
-            document.getElementById('boxUploadFed').style.display = 'none';
-            document.getElementById('boxUploadEst').style.display = 'flex';
-        }
-    });
-
-    document.querySelectorAll('.modal-overlay').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) this.style.display = 'none';
-        });
-    });
-</script>
+<script src="modules/gestao_frotas/licencas/licencas_parser.js"></script>
