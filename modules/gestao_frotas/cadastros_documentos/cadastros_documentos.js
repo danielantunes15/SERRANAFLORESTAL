@@ -1,17 +1,16 @@
 /* =========================================================
    MÓDULO: CADASTROS E DOCUMENTOS (CRLV DIGITAL)
-   - Extração robusta de CRLV-e (DETRAN-BA e DETRAN-ES)
-   - Persistência 100% no Supabase (tabela + storage)
-   - PDF salvo no bucket 'frotas-crlv' e URL guardada no banco
-   - Respeita hierarquia de filial
-   - Permite a MESMA PLACA em filiais diferentes (chave composta placa+filial)
+   - Lançamento manual como padrão.
+   - Importação inteligente e Anexo opcional dentro do Modal.
    ========================================================= */
 
 window.initFrotaCadastros = function() {
     let listaVeiculosMemoria = [];
     let mapaFiliais = {};
-    let pdfBlobPendente = null;
+    let pdfBlobPendente = null; 
     let ultimoTextoBruto = "";
+    
+    // Variáveis para atualização de documento existente na tabela
     let placaEmAtualizacao = null;
     let filialEmAtualizacao = null;
     let novoPDFEmAtualizacao = null;
@@ -36,7 +35,6 @@ window.initFrotaCadastros = function() {
         ));
     }
 
-    // Helper para achar um veículo pela chave composta
     function encontrarVeiculo(placa, filialId) {
         return listaVeiculosMemoria.find(x =>
             x.placa === placa &&
@@ -63,7 +61,6 @@ window.initFrotaCadastros = function() {
         if (!selectForm) return;
 
         const isGlobal = isUsuarioGlobal();
-
         let filiais = [];
         try {
             if (isGlobal && typeof db.getTodasFiliaisAdmin === "function") {
@@ -73,7 +70,6 @@ window.initFrotaCadastros = function() {
             }
         } catch (e) {
             console.error("Erro ao carregar filiais:", e);
-            filiais = [];
         }
 
         mapaFiliais = {};
@@ -111,7 +107,6 @@ window.initFrotaCadastros = function() {
                 selectFiltro.disabled = false;
                 selectFiltro.innerHTML = '<option value="TODAS">Todas as Filiais</option>';
                 filiais.forEach(f => {
-                    mapaFiliais[f.id] = f.nome;
                     selectFiltro.innerHTML += `<option value="${f.id}">${f.nome}</option>`;
                 });
             } else {
@@ -125,7 +120,7 @@ window.initFrotaCadastros = function() {
         const sel = document.getElementById("ufSelectForm");
         if (!sel) return;
         sel.innerHTML = "";
-        const ufs = window.UFS || ["BA", "ES", "MG", "SP", "RJ"];
+        const ufs = window.UFS || ["BA", "ES", "MG", "SP", "RJ", "PR", "SC", "RS", "GO", "MT", "MS", "PE", "CE"];
         ufs.forEach(uf => {
             const opt = document.createElement("option");
             opt.value = uf;
@@ -135,80 +130,82 @@ window.initFrotaCadastros = function() {
     }
 
     // =====================================================
-    // EVENTOS
+    // EVENTOS DO MODAL DE CADASTRO
     // =====================================================
-    function configurarEventosGerais() {
-        const dropZone = document.getElementById("dropZoneCRLV");
-        const inputPdf = document.getElementById("pdfInputCRLV");
+    window.abrirModalCadastroVeiculo = function() {
         const form = document.getElementById("formCRLVVeiculo");
+        if(form) form.reset();
+        atualizarRotuloIdentificacao();
+        popularSelectUFs();
+        if (window.currentUser && window.currentUser.filial_id) {
+            document.getElementById("filialSelectForm").value = window.currentUser.filial_id;
+        }
+        
+        pdfBlobPendente = null;
+        document.getElementById("nomeArquivoAnexado").style.display = "none";
+        document.getElementById("textoNomeArquivo").textContent = "";
+
+        document.getElementById("modalCadastroVeiculo").style.display = "flex";
+    };
+
+    window.fecharModalCadastroVeiculo = function() {
+        document.getElementById("modalCadastroVeiculo").style.display = "none";
+        pdfBlobPendente = null;
+    };
+
+    function configurarEventosGerais() {
         const selTipo = document.getElementById("tipoVeiculoSelect");
-        const btnDebug = document.getElementById("btnVerDebugTexto");
-        const inputAtualizar = document.getElementById("inputAtualizarArquivoCRLV");
-        const btnConfirmarAtualizacao = document.getElementById("btnConfirmarAtualizacaoCRLV");
+        const form = document.getElementById("formCRLVVeiculo");
+        
+        // Entradas de Arquivo
+        const inputAutoFill = document.getElementById("inputAutoFillCRLV");
+        const inputManualAttach = document.getElementById("inputManualAttachCRLV");
+        const inputAtualizarTabela = document.getElementById("inputAtualizarArquivoCRLV");
 
-        if (selTipo) {
-            selTipo.addEventListener("change", atualizarRotuloIdentificacao);
-        }
-
-        if (inputPdf) {
-            inputPdf.addEventListener("change", e => {
-                const file = e.target.files[0];
-                if (file) processarArquivoPDF(file);
-            });
-        }
-
-        if (dropZone) {
-            ["dragenter", "dragover"].forEach(ev => {
-                dropZone.addEventListener(ev, e => {
-                    e.preventDefault();
-                    dropZone.classList.add("dragover");
-                });
-            });
-            ["dragleave", "drop"].forEach(ev => {
-                dropZone.addEventListener(ev, e => {
-                    e.preventDefault();
-                    dropZone.classList.remove("dragover");
-                });
-            });
-            dropZone.addEventListener("drop", e => {
-                const file = e.dataTransfer.files[0];
-                if (file && file.type === "application/pdf") {
-                    processarArquivoPDF(file);
-                } else {
-                    mostrarStatus("Por favor, selecione um arquivo em formato PDF.", "err");
-                }
-            });
-        }
-
-        if (btnDebug) {
-            btnDebug.addEventListener("click", () => {
-                const pre = document.getElementById("preDebugTexto");
-                if (pre.style.display === "block") {
-                    pre.style.display = "none";
-                    btnDebug.innerHTML = '<i class="fas fa-code"></i> Inspecionar texto extraído';
-                } else {
-                    pre.textContent = ultimoTextoBruto || "(Nenhum PDF lido ainda)";
-                    pre.style.display = "block";
-                    btnDebug.innerHTML = '<i class="fas fa-eye-slash"></i> Ocultar texto extraído';
-                }
-            });
-        }
-
+        if (selTipo) selTipo.addEventListener("change", atualizarRotuloIdentificacao);
+        
         if (form) {
             form.removeEventListener("submit", submeterFormularioCRLV);
             form.addEventListener("submit", submeterFormularioCRLV);
         }
 
-        if (inputAtualizar) {
-            inputAtualizar.addEventListener("change", async e => {
+        // 1. IMPORTAÇÃO AUTOMÁTICA (Lê o PDF e preenche os campos)
+        if (inputAutoFill) {
+            inputAutoFill.addEventListener("change", async e => {
                 const file = e.target.files[0];
-                inputAtualizar.value = "";
+                inputAutoFill.value = ""; 
+                if (file) {
+                    processarImportacaoAutomatica(file);
+                }
+            });
+        }
+
+        // 2. ANEXO MANUAL (Apenas guarda o PDF para subir junto com o formulário)
+        if (inputManualAttach) {
+            inputManualAttach.addEventListener("change", e => {
+                const file = e.target.files[0];
+                inputManualAttach.value = "";
+                if (file) {
+                    pdfBlobPendente = file;
+                    const divNome = document.getElementById("nomeArquivoAnexado");
+                    document.getElementById("textoNomeArquivo").textContent = file.name;
+                    divNome.style.display = "inline-flex";
+                }
+            });
+        }
+
+        // 3. ATUALIZAÇÃO / INSERÇÃO DE DOCUMENTO (Na Tabela)
+        if (inputAtualizarTabela) {
+            inputAtualizarTabela.addEventListener("change", async e => {
+                const file = e.target.files[0];
+                inputAtualizarTabela.value = "";
                 if (!file || !placaEmAtualizacao) return;
                 try {
                     novoPDFEmAtualizacao = file;
                     const texto = await window.lerTextoPDF(file);
                     const dados = extrairCamposCRLV(texto);
                     const antigo = encontrarVeiculo(placaEmAtualizacao, filialEmAtualizacao);
+                    
                     if (antigo) {
                         dados.tipoVeiculo = antigo.tipo_veiculo || antigo.tipoVeiculo || "";
                         dados.apelido = antigo.apelido || "";
@@ -217,17 +214,19 @@ window.initFrotaCadastros = function() {
                     }
                     if (!dados.placa) dados.placa = placaEmAtualizacao;
                     dados.placa = dados.placa.toUpperCase();
+                    
                     novosDadosEmAtualizacao = dados;
-                    window.abrirModalAtualizacao(`Documento da Placa ${placaEmAtualizacao}`, antigo, dados, "crlv");
+                    window.abrirModalAtualizacao(`Atualizar Documento: ${placaEmAtualizacao}`, antigo, dados, "crlv");
                 } catch (err) {
                     console.error(err);
-                    alert("Erro ao ler novo PDF: " + err.message);
+                    alert("Erro ao ler PDF selecionado: " + err.message);
                     placaEmAtualizacao = null;
                     filialEmAtualizacao = null;
                 }
             });
         }
 
+        const btnConfirmarAtualizacao = document.getElementById("btnConfirmarAtualizacaoCRLV");
         if (btnConfirmarAtualizacao) {
             btnConfirmarAtualizacao.removeEventListener("click", confirmarAtualizacaoCRLV);
             btnConfirmarAtualizacao.addEventListener("click", confirmarAtualizacaoCRLV);
@@ -249,86 +248,47 @@ window.initFrotaCadastros = function() {
         }
     }
 
-    window.alternarAbaCadastro = function(aba) {
-        const btnPdf = document.getElementById("btnTabImportarPDF");
-        const btnManual = document.getElementById("btnTabManual");
-        const painelPdf = document.getElementById("painelImportacaoPDF");
-        const painelForm = document.getElementById("painelFormulario");
-
-        if (aba === "pdf") {
-            btnPdf.classList.add("active");
-            btnManual.classList.remove("active");
-            painelPdf.style.display = "block";
-            painelForm.style.display = "none";
-        } else {
-            btnManual.classList.add("active");
-            btnPdf.classList.remove("active");
-            painelPdf.style.display = "none";
-            painelForm.style.display = "block";
-            document.getElementById("formCRLVVeiculo").reset();
-            atualizarRotuloIdentificacao();
-            popularSelectUFs();
-            if (window.currentUser && window.currentUser.filial_id) {
-                document.getElementById("filialSelectForm").value = window.currentUser.filial_id;
-            }
-            pdfBlobPendente = null;
+    // =====================================================
+    // PROCESSAMENTO INTELIGENTE DE PDF
+    // =====================================================
+    async function processarImportacaoAutomatica(file) {
+        if (typeof Swal !== "undefined") {
+            Swal.fire({ title: 'Lendo Documento...', text: 'Extraindo dados, aguarde.', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         }
-    };
-
-    window.limparFormularioCRLV = function() {
-        document.getElementById("formCRLVVeiculo").reset();
-        document.getElementById("pdfUploadNome").textContent = "";
-        document.getElementById("statusLeituraPDF").textContent = "";
-        document.getElementById("painelFormulario").style.display = "none";
-        document.getElementById("painelImportacaoPDF").style.display = "block";
-        document.getElementById("btnTabImportarPDF").classList.add("active");
-        document.getElementById("btnTabManual").classList.remove("active");
-        pdfBlobPendente = null;
-    };
-
-    function mostrarStatus(msg, tipo = "") {
-        const el = document.getElementById("statusLeituraPDF");
-        if (!el) return;
-        el.textContent = msg;
-        if (tipo === "err") el.style.color = "#ef4444";
-        else if (tipo === "ok") el.style.color = "var(--ccol-green-bright)";
-        else el.style.color = "var(--ccol-blue-bright)";
-    }
-
-    // =====================================================
-    // PROCESSAMENTO DO PDF
-    // =====================================================
-    async function processarArquivoPDF(file) {
-        document.getElementById("pdfUploadNome").textContent = `Arquivo: ${file.name}`;
-        mostrarStatus("Lendo e decodificando documento digital...", "info");
-        pdfBlobPendente = file;
 
         try {
-            if (typeof window.lerTextoPDF !== "function") {
-                throw new Error("Módulo leitor de PDF não encontrado.");
-            }
+            if (typeof window.lerTextoPDF !== "function") throw new Error("Módulo leitor de PDF não encontrado.");
+            
             const textoCompleto = await window.lerTextoPDF(file);
             ultimoTextoBruto = textoCompleto;
             const dados = extrairCamposCRLV(textoCompleto);
 
             if (!dados.placa && !dados.renavam && !dados.chassi) {
-                throw new Error("Não foi possível identificar placa ou renavam. O PDF pode ser uma imagem escaneada.");
+                throw new Error("Não foi possível identificar dados. O PDF pode ser uma imagem escaneada.");
             }
 
             preencherFormularioCRLV(dados);
-            document.getElementById("painelFormulario").style.display = "block";
-            mostrarStatus("CRLV reconhecido com sucesso! Revise os dados abaixo.", "ok");
-            document.getElementById("painelFormulario").scrollIntoView({ behavior: "smooth" });
+            
+            // Marca o arquivo para ser salvo
+            pdfBlobPendente = file;
+            const divNome = document.getElementById("nomeArquivoAnexado");
+            document.getElementById("textoNomeArquivo").textContent = file.name;
+            divNome.style.display = "inline-flex";
+
+            if (typeof Swal !== "undefined") {
+                Swal.fire({ icon: 'success', title: 'Sucesso!', text: 'Dados extraídos com sucesso. Revise e salve.', timer: 2000, showConfirmButton: false, background: "#1e293b", color: "#f8fafc" });
+            }
+
         } catch (err) {
             console.error(err);
-            mostrarStatus(`Falha na leitura automática: ${err.message}. Você pode usar o "Lançamento Manual".`, "err");
-            document.getElementById("painelFormulario").style.display = "block";
+            if (typeof Swal !== "undefined") {
+                Swal.fire({ icon: 'error', title: 'Erro de Leitura', text: err.message, background: "#1e293b", color: "#f8fafc" });
+            } else {
+                alert("Erro ao extrair: " + err.message);
+            }
         }
     }
 
-    // =====================================================
-    // PARSER CRLV — HÍBRIDO (DETRAN-BA e DETRAN-ES)
-    // =====================================================
     function extrairCamposCRLV(textoBruto) {
         const flat = textoBruto.replace(/\s+/g, " ").trim().toUpperCase();
         const linhas = textoBruto.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
@@ -383,15 +343,6 @@ window.initFrotaCadastros = function() {
             return -1;
         };
 
-        const pegarGrupo = (regex, grupo = 1) => {
-            for (let i = 0; i < linhasLimpa.length; i++) {
-                const m = U(i).match(regex);
-                if (m && m[grupo]) return m[grupo].trim();
-            }
-            return "";
-        };
-
-        // 1. RENAVAM
         let renavam = "";
         {
             let m = flat.match(/C[ÓO]DIGO\s*RENAVAM\s*(\d{9,11})/);
@@ -402,9 +353,7 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        // 2. PLACA + EXERCÍCIO
-        let placa = "";
-        let exercicio = "";
+        let placa = "", exercicio = "";
         {
             let m = flat.match(/PLACA\s*EXERC[ÍI]CIO\s*([A-Z]{3}\d[A-Z]\d{2})\s*(\d{4})/);
             if (m) { placa = m[1]; exercicio = m[2]; }
@@ -426,9 +375,7 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        // 3. ANO FABRICAÇÃO / MODELO
-        let anoFabricacao = "";
-        let anoModelo = "";
+        let anoFabricacao = "", anoModelo = "";
         {
             let m = flat.match(/ANO\s*FABRICA[CÇ][ÃA]O\s*ANO\s*MODELO\s*((?:19|20)\d{2})\s*((?:19|20)\d{2})/);
             if (m) { anoFabricacao = m[1]; anoModelo = m[2]; }
@@ -438,7 +385,6 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        // 4. NÚMERO DO CRV
         let numeroCRV = "";
         {
             let m = flat.match(/N[ÚU]MERO\s*DO\s*CRV\s*(\d{8,14})/);
@@ -449,7 +395,6 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        // 5. CHASSI
         let chassi = "";
         {
             let m = flat.match(/CHASSI\s*([A-HJ-NPR-Z0-9]{17})/);
@@ -460,7 +405,6 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        // 6. MARCA / MODELO
         let marcaModelo = "";
         {
             for (let i = 0; i < linhasLimpa.length; i++) {
@@ -480,7 +424,6 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        // 7. ESPÉCIE / TIPO
         let especieTipo = "";
         {
             for (let i = 0; i < linhasLimpa.length; i++) {
@@ -493,9 +436,7 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        // 8. COR + COMBUSTÍVEL
-        let cor = "";
-        let combustivel = "";
+        let cor = "", combustivel = "";
         {
             const CORES = ["AMARELA","AZUL","BEGE","BRANCA","CINZA","DOURADA","GRENÁ","GRENA",
                 "LARANJA","MARROM","PRATA","PRETA","ROSA","ROXA","VERDE","VERMELHA","VINHO","FANTASIA","INDEFINIDA"];
@@ -527,7 +468,6 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        // 9. POTÊNCIA
         let potencia = "";
         {
             let m = flat.match(/POT[ÊE]NCIA\s*\/\s*CILINDRADA\s*(\d{2,5}\s*CV[A-Z0-9\/*]*)/);
@@ -535,7 +475,6 @@ window.initFrotaCadastros = function() {
             if (m) potencia = m[1].replace(/\*+$/, "").trim();
         }
 
-        // 10. PESO BRUTO
         let pesoBruto = "";
         {
             let m = flat.match(/PESO\s*BRUTO\s*TOTAL\s*(\d{1,3}[.,]\d{1,3})/);
@@ -544,7 +483,6 @@ window.initFrotaCadastros = function() {
             if (m) pesoBruto = m[1];
         }
 
-        // 11. NOME / PROPRIETÁRIO
         let nome = "";
         {
             const idxNome = linhasLimpa.findIndex(l => /^NOME$/i.test(l.trim()));
@@ -574,7 +512,6 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        // 12. CPF / CNPJ
         let cpfCnpj = "";
         {
             let m = flat.match(/(\d{2,3}\.\d{3}\.\d{3}\/\d{4}-\d{2})/);
@@ -586,10 +523,7 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        // 13. LOCAL + UF + DATA
-        let local = "";
-        let ufDetectada = "";
-        let data = "";
+        let local = "", ufDetectada = "", data = "";
         {
             for (let i = 0; i < linhasLimpa.length; i++) {
                 const u = U(i);
@@ -628,9 +562,7 @@ window.initFrotaCadastros = function() {
             renavam, placa, exercicio, anoFabricacao, anoModelo, numeroCRV,
             marcaModelo, especieTipo, chassi, cor, combustivel, potencia,
             pesoBruto, nome, cpfCnpj, local, data, uf,
-            tipoVeiculo: "",
-            apelido: "",
-            numeroGO: "",
+            tipoVeiculo: "", apelido: "", numeroGO: "",
         };
     }
 
@@ -661,7 +593,7 @@ window.initFrotaCadastros = function() {
     }
 
     // =====================================================
-    // VENCIMENTO
+    // VENCIMENTO E STATUS
     // =====================================================
     function calcularVencimento(veiculo) {
         const uf = (veiculo.uf && window.CALENDARIOS && window.CALENDARIOS[veiculo.uf]) ? veiculo.uf : "BA";
@@ -721,72 +653,57 @@ window.initFrotaCadastros = function() {
         dados.filial_id = parseInt(dados.filial_id, 10);
         dados.atualizado_em = new Date().toISOString();
 
+        // Faz o Botão girar
+        const btnSalvar = document.querySelector("#modalCadastroVeiculo .btn-primary-green");
+        if(btnSalvar) { btnSalvar.disabled = true; btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...'; }
+
         // ============ 1. UPLOAD DO PDF PARA O STORAGE ============
         if (pdfBlobPendente) {
             try {
-                if (typeof db.uploadPdfCRLV !== "function") {
-                    throw new Error("db.uploadPdfCRLV não existe.");
-                }
+                if (typeof db.uploadPdfCRLV !== "function") throw new Error("db.uploadPdfCRLV não existe.");
                 const resultado = await db.uploadPdfCRLV(pdfBlobPendente, dados.placa);
                 dados.pdf_url = resultado.url;
                 dados.pdf_path = resultado.path;
-                console.log("📎 PDF enviado ao Storage:", resultado.url);
             } catch (err) {
-                console.error("❌ Falha ao subir PDF:", err);
+                console.error("Falha ao subir PDF:", err);
                 alert("Atenção: não foi possível salvar o PDF no Storage. O cadastro continuará, mas sem PDF anexo.\n\nMotivo: " + err.message);
             }
         }
 
         // ============ 2. UPSERT NO BANCO ============
-        let salvoComSucesso = false;
+        let salvou = false;
         let mensagemErro = "";
 
-        if (typeof db === "undefined") {
-            mensagemErro = "Objeto 'db' não carregado.";
-        } else if (typeof db.upsertFrotaDocumento !== "function") {
-            mensagemErro = "Função db.upsertFrotaDocumento NÃO EXISTE.";
-        } else {
+        if (typeof db !== "undefined" && typeof db.upsertFrotaDocumento === "function") {
             try {
-                console.log("📤 Enviando para o Supabase:", dados);
-                const retorno = await db.upsertFrotaDocumento(dados);
-                console.log("✅ Salvo no Supabase com sucesso:", retorno);
-                salvoComSucesso = true;
+                await db.upsertFrotaDocumento(dados);
+                salvou = true;
             } catch (errDb) {
-                console.error("❌ Falha ao salvar no Supabase:", errDb);
+                console.error("Falha ao salvar no Supabase:", errDb);
                 mensagemErro = errDb.message || JSON.stringify(errDb);
             }
+        } else {
+            mensagemErro = "Erro de conexão com o banco.";
         }
 
-        window.limparFormularioCRLV();
+        window.fecharModalCadastroVeiculo();
         await carregarListaVeiculos();
 
         if (salvoComSucesso) {
             if (typeof Swal !== "undefined") {
-                Swal.fire({
-                    icon: "success",
-                    title: "Veículo Cadastrado!",
-                    text: `O documento da placa ${dados.placa} foi registrado com sucesso.`,
-                    timer: 2000,
-                    showConfirmButton: false,
-                    background: "#1e293b",
-                    color: "#f8fafc"
-                });
+                Swal.fire({ icon: "success", title: "Veículo Cadastrado!", text: `A placa ${dados.placa} foi salva.`, timer: 2000, showConfirmButton: false, background: "#1e293b", color: "#f8fafc" });
             } else {
                 alert(`Veículo ${dados.placa} salvo com sucesso!`);
             }
         } else {
             if (typeof Swal !== "undefined") {
-                Swal.fire({
-                    icon: "error",
-                    title: "Erro ao salvar",
-                    html: `<code style="color:#f87171;">${mensagemErro}</code>`,
-                    background: "#1e293b",
-                    color: "#f8fafc"
-                });
+                Swal.fire({ icon: "error", title: "Erro ao salvar", html: `<code style="color:#f87171;">${mensagemErro}</code>`, background: "#1e293b", color: "#f8fafc" });
             } else {
                 alert(`Erro ao salvar no banco:\n${mensagemErro}`);
             }
         }
+
+        if(btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Veículo'; }
     }
 
     // =====================================================
@@ -798,7 +715,6 @@ window.initFrotaCadastros = function() {
         if (typeof db !== "undefined" && typeof db.getFrotasDocumentos === "function") {
             try {
                 lista = await db.getFrotasDocumentos();
-                console.log("📥 getFrotasDocumentos retornou", lista ? lista.length : 0, "registros");
             } catch (e) {
                 console.error("Erro ao ler do Supabase:", e);
                 lista = [];
@@ -901,7 +817,12 @@ window.initFrotaCadastros = function() {
                 ident = `<span style="font-style: italic; color: #cbd5e1;">${v.apelido}</span>`;
             }
 
-            // Passa placa + filial_id nas chamadas (chave composta)
+            // Exibir PDF botão apenas se existir url, senão fica desabilitado
+            const temPdf = !!v.pdf_url;
+            const btnPdfClass = temPdf ? 'btn-pdf' : '';
+            const btnPdfStyle = temPdf ? '' : 'opacity: 0.3; cursor: not-allowed;';
+            const acaoPdf = temPdf ? `window.visualizarPdfDocumento('${v.placa}', ${v.filial_id})` : `alert('Sem PDF anexado. Clique em Anexar/Atualizar Documento.')`;
+
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td><span class="badge-filial">${nomeFilial}</span></td>
@@ -916,11 +837,11 @@ window.initFrotaCadastros = function() {
                     <button class="tabela-acoes-btn" title="Ver Detalhes" onclick="window.abrirModalDadosCRLV('${v.placa}', ${v.filial_id})">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="tabela-acoes-btn btn-pdf" title="Visualizar PDF" onclick="window.visualizarPdfDocumento('${v.placa}', ${v.filial_id})">
+                    <button class="tabela-acoes-btn ${btnPdfClass}" style="${btnPdfStyle}" title="Visualizar PDF" onclick="${acaoPdf}">
                         <i class="fas fa-file-pdf"></i>
                     </button>
-                    <button class="tabela-acoes-btn" title="Atualizar Documento" onclick="window.solicitarAtualizacaoCRLV('${v.placa}', ${v.filial_id})">
-                        <i class="fas fa-sync-alt"></i>
+                    <button class="tabela-acoes-btn btn-upload" title="Anexar / Atualizar Documento" onclick="window.solicitarAtualizacaoCRLV('${v.placa}', ${v.filial_id})">
+                        <i class="fas fa-upload"></i>
                     </button>
                     <button class="tabela-acoes-btn btn-trash" title="Excluir Veículo" onclick="window.excluirVeiculoCRLV('${v.placa}', ${v.filial_id})">
                         <i class="fas fa-trash"></i>
@@ -932,7 +853,7 @@ window.initFrotaCadastros = function() {
     }
 
     // =====================================================
-    // AÇÕES DA TABELA (com chave composta placa + filial)
+    // AÇÕES DA TABELA E MODAIS
     // =====================================================
     window.abrirModalDadosCRLV = function(placa, filialId) {
         const v = encontrarVeiculo(placa, filialId);
@@ -1060,24 +981,13 @@ window.initFrotaCadastros = function() {
         await carregarListaVeiculos();
 
         if (typeof Swal !== "undefined") {
-            Swal.fire({
-                icon: salvou ? "success" : "error",
-                title: salvou ? "Atualizado!" : "Erro ao atualizar",
-                text: salvou ? "Documento atualizado com sucesso." : `Erro: ${erroMsg}`,
-                timer: 2200,
-                showConfirmButton: false,
-                background: "#1e293b",
-                color: "#f8fafc"
-            });
+            Swal.fire({ icon: salvou ? "success" : "error", title: salvou ? "Atualizado!" : "Erro ao atualizar", text: salvou ? "Documento anexado/atualizado com sucesso." : `Erro: ${erroMsg}`, timer: 2200, showConfirmButton: false, background: "#1e293b", color: "#f8fafc" });
         }
     }
 
     window.excluirVeiculoCRLV = async function(placa, filialId) {
         const v = encontrarVeiculo(placa, filialId);
-        if (!v) {
-            alert("Veículo não encontrado na lista atual.");
-            return;
-        }
+        if (!v) { alert("Veículo não encontrado na lista atual."); return; }
 
         const nomeFilial = mapaFiliais[v.filial_id] || `Filial ID ${v.filial_id}`;
         if (!confirm(`Confirma a exclusão do veículo placa ${placa} da filial "${nomeFilial}"?\n\nO PDF também será removido do Storage.`)) return;
