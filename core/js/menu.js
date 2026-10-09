@@ -164,7 +164,8 @@ const ROTAS = {
     'frota_compatibilidade': 'modules/gestao_frotas/compatibilidade/compatibilidade.html'
 };
 
-const VERSAO_SISTEMA = "1.0.25";
+// ⬇️⬇️⬇️ ALTERAÇÃO 1: Versão incrementada para forçar reload do cache
+const VERSAO_SISTEMA = "1.0.26";
 
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
@@ -409,6 +410,74 @@ window.navegarPara = async function(pagina, elementoClicado) {
         }
         if (pagina === 'frota_compatibilidade') {
             if (typeof window.initFrotaCompatibilidade === 'function') window.initFrotaCompatibilidade();
+        }
+
+        // ⬇️⬇️⬇️ ALTERAÇÃO 2: Inicializador do Relatório Gerencial
+        if (pagina === 'relatorio_gerencial') {
+            setTimeout(async () => {
+                try {
+                    // Garante que os dados base estão carregados
+                    if (typeof carregarDadosOS === 'function') {
+                        await carregarDadosOS();
+                    }
+                    if (typeof carregarDadosFrota === 'function') {
+                        try { await carregarDadosFrota(); } catch(e) {}
+                    }
+                    if (typeof carregarDadosManutencao === 'function') {
+                        try { await carregarDadosManutencao(); } catch(e) {}
+                    }
+
+                    // Popula selects e KPIs
+                    if (typeof window.atualizarKPIsGlobais === 'function') {
+                        window.atualizarKPIsGlobais();
+                    }
+                    if (typeof window.preencherSelectPlacasDM === 'function') {
+                        window.preencherSelectPlacasDM();
+                    }
+                    if (typeof window.preencherSelectPlacasDMGrua === 'function') {
+                        window.preencherSelectPlacasDMGrua();
+                    }
+                    if (typeof window.preencherMesesDMDiaria === 'function') {
+                        window.preencherMesesDMDiaria();
+                    }
+                    if (typeof window.preencherMesesDMDiariaGrua === 'function') {
+                        window.preencherMesesDMDiariaGrua();
+                    }
+                    // Preenche o campo de data do filtro horário com hoje
+                    const inpDataHoraria = document.getElementById('filtroDataEspecificaHoraria');
+                    if (inpDataHoraria && !inpDataHoraria.value) {
+                        const hoje = new Date();
+                        const mesStr = String(hoje.getMonth() + 1).padStart(2, '0');
+                        const diaStr = String(hoje.getDate()).padStart(2, '0');
+                        inpDataHoraria.value = `${hoje.getFullYear()}-${mesStr}-${diaStr}`;
+                    }
+
+                    // Renderiza os gráficos
+                    if (typeof window.renderizarGraficoEvolucaoDM === 'function') {
+                        window.renderizarGraficoEvolucaoDM();
+                    }
+                    if (typeof window.renderizarGraficoEvolucaoDMDiaria === 'function') {
+                        window.renderizarGraficoEvolucaoDMDiaria();
+                    }
+                    if (typeof window.renderizarGraficoEvolucaoDMDiariaGrua === 'function') {
+                        window.renderizarGraficoEvolucaoDMDiariaGrua();
+                    }
+                    if (typeof window.renderizarGraficoStatusFrotaHorario === 'function') {
+                        window.renderizarGraficoStatusFrotaHorario();
+                    }
+                    if (typeof window.renderizarGraficoDMOperacional === 'function') {
+                        window.renderizarGraficoDMOperacional();
+                    }
+                    if (typeof window.renderizarRelatorioGerencialOS === 'function') {
+                        window.renderizarRelatorioGerencialOS();
+                    }
+                    if (typeof window.renderizarRelatorioDM === 'function') {
+                        window.renderizarRelatorioDM();
+                    }
+                } catch (e) {
+                    console.error('Erro ao inicializar Relatório Gerencial:', e);
+                }
+            }, 400);
         }
     } catch (error) {
         console.error('Erro ao carregar página:', error);
