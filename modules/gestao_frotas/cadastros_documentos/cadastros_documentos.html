@@ -157,6 +157,8 @@
 .tabela-acoes-btn.btn-pdf:hover { background: rgba(96, 165, 250, 0.2); }
 .tabela-acoes-btn.btn-upload { color: #10b981; border-color: rgba(16, 185, 129, 0.3); }
 .tabela-acoes-btn.btn-upload:hover { background: rgba(16, 185, 129, 0.2); }
+.tabela-acoes-btn.btn-edit { color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
+.tabela-acoes-btn.btn-edit:hover { background: rgba(245, 158, 11, 0.2); }
 
 /* Ajuste no Input de Busca da Tabela */
 .search-input-container {
@@ -206,11 +208,38 @@
     border-top-left-radius: 0;
     border-top-right-radius: 0;
 }
+
+/* Botão de Ajuda */
+.btn-help {
+    background: rgba(96, 165, 250, 0.1);
+    color: #60a5fa;
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    vertical-align: middle;
+    margin-left: 8px;
+}
+.btn-help:hover {
+    background: rgba(96, 165, 250, 0.2);
+    color: #93c5fd;
+}
 </style>
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
     <div class="content-header" style="margin-bottom: 0;">
-        <h2 style="margin: 0;"><i class="fas fa-folder-open" style="color: var(--ccol-blue-bright); margin-right: 8px;"></i> Cadastros e Documentos (CRLV)</h2>
+        <h2 style="margin: 0;">
+            <i class="fas fa-folder-open" style="color: var(--ccol-blue-bright); margin-right: 8px;"></i> Cadastros e Documentos (CRLV)
+            <button class="btn-help" onclick="window.mostrarAjudaVencimento()" title="Como o vencimento é calculado?">
+                <i class="fas fa-question"></i>
+            </button>
+        </h2>
         <p style="color: var(--text-secondary); margin: 5px 0 0 0;">Gestão da frota com importação inteligente de CRLV ou lançamento manual.</p>
     </div>
     <button class="btn-primary-green" style="padding: 10px 24px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; border: none; font-size: 0.95rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onclick="window.abrirModalCadastroVeiculo()">
@@ -328,7 +357,7 @@
             
             <div class="search-input-container">
                 <i class="fas fa-search"></i>
-                <input type="text" id="buscaTabelaCRLV" placeholder="Buscar placa, modelo..." oninput="window.aplicarFiltrosTabelaCRLV()" />
+                <input type="text" id="buscaTabelaCRLV" placeholder="Buscar placa, apelido..." oninput="window.aplicarFiltrosTabelaCRLV()" />
             </div>
         </div>
     </div>
@@ -569,6 +598,30 @@
             <button type="button" class="btn-primary-green" id="btnConfirmarAtualizacaoCRLV">
                 <i class="fas fa-check"></i> Confirmar Atualização
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ajuda Vencimentos -->
+<div id="modalAjudaVencimento" class="modal-overlay" style="display: none;">
+    <div class="custom-modal" style="max-width: 650px;">
+        <div class="modal-header">
+            <h3 style="margin: 0; color: #60a5fa;"><i class="fas fa-calendar-check"></i> Como funciona o vencimento?</h3>
+            <button type="button" class="close-modal" onclick="document.getElementById('modalAjudaVencimento').style.display='none'">&times;</button>
+        </div>
+        <div class="modal-body" style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.6;">
+            <p>O vencimento do CRLV (Licenciamento Anual) é calculado de forma <strong>automática</strong> pelo sistema com base em dois fatores principais:</p>
+            <ol style="margin-left: 20px; margin-bottom: 15px;">
+                <li><strong>O final da placa do veículo:</strong> (Ex: ABC1D2<span style="color:#10b981; font-weight:bold;">3</span> → Final 3).</li>
+                <li><strong>A UF de registro do veículo:</strong> Cada estado (DETRAN) possui um calendário próprio de vencimento de acordo com o final da placa.</li>
+            </ol>
+            <p>O sistema lê o estado (ex: BA, ES, MG) e o último dígito da placa para determinar a data exata limite para aquele exercício.</p>
+            <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border-dim); margin-top: 15px;">
+                <strong>Exemplo (Estado BA):</strong><br>
+                Placas final 1 e 2 vencem em Julho.<br>
+                Placas final 3 e 4 vencem em Agosto.<br>
+                E assim sucessivamente, seguindo as regras do respectivo DETRAN.
+            </div>
         </div>
     </div>
 </div>

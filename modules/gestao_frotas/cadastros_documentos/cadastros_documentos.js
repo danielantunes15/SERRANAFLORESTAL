@@ -3,6 +3,7 @@
    - Lançamento manual como padrão no Modal.
    - Importação inteligente e Anexo opcional dentro do Modal.
    - Listagem agrupada por Tipo de Veículo (Categoria).
+   - Edição Rápida de Apelido
    ========================================================= */
 
 window.initFrotaCadastros = function() {
@@ -125,7 +126,7 @@ window.initFrotaCadastros = function() {
     }
 
     // =====================================================
-    // EVENTOS DO MODAL DE CADASTRO
+    // EVENTOS DO MODAL DE CADASTRO E AJUDA
     // =====================================================
     window.abrirModalCadastroVeiculo = function() {
         const form = document.getElementById("formCRLVVeiculo");
@@ -146,6 +147,10 @@ window.initFrotaCadastros = function() {
     window.fecharModalCadastroVeiculo = function() {
         document.getElementById("modalCadastroVeiculo").style.display = "none";
         pdfBlobPendente = null;
+    };
+
+    window.mostrarAjudaVencimento = function() {
+        document.getElementById("modalAjudaVencimento").style.display = "flex";
     };
 
     function configurarEventosGerais() {
@@ -226,6 +231,13 @@ window.initFrotaCadastros = function() {
             btnConfirmarAtualizacao.removeEventListener("click", confirmarAtualizacaoCRLV);
             btnConfirmarAtualizacao.addEventListener("click", confirmarAtualizacaoCRLV);
         }
+
+        // Fecha modais ao clicar fora
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) this.style.display = 'none';
+            });
+        });
     }
 
     function atualizarRotuloIdentificacao() {
@@ -613,7 +625,7 @@ window.initFrotaCadastros = function() {
     }
 
     // =====================================================
-    // SUBMISSÃO DO FORMULÁRIO
+    // SUBMISSÃO DO FORMULÁRIO E EDIÇÃO RAPIDA
     // =====================================================
     async function submeterFormularioCRLV(e) {
         e.preventDefault();
@@ -693,6 +705,78 @@ window.initFrotaCadastros = function() {
 
         if(btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Veículo'; }
     }
+
+    window.editarApelidoVeiculo = async function(placa, filialId) {
+        const v = encontrarVeiculo(placa, filialId);
+        if (!v) return;
+
+        const ehGO = tipoUsaGO(v.tipo_veiculo);
+        const valorAtual = ehGO ? (v.numero_go || "") : (v.apelido || "");
+        const labelText = ehGO ? "Número do GO" : "Apelido / Identificação Interna";
+
+        const { value: novoValor } = await Swal.fire({
+            title: `Editar ${labelText}`,
+            input: 'text',
+            inputLabel: `Veículo Placa: ${v.placa}`,
+            inputValue: valorAtual,
+            showCancelButton: true,
+            confirmButtonText: 'Salvar',
+            cancelButtonText: 'Cancelar',
+            background: "#1e293b",
+            color: "#f8fafc",
+            inputValidator: (value) => {
+                if (ehGO && !value) {
+                    return 'O número do GO é obrigatório para este tipo de veículo.';
+                }
+            }
+        });
+
+        if (novoValor !== undefined && novoValor !== valorAtual) {
+            try {
+                // Atualiza o objeto no banco
+                const payload = {
+                    ...v,
+                    tipoVeiculo: v.tipo_veiculo,
+                    anoFabricacao: v.ano_fabricacao,
+                    anoModelo: v.ano_modelo,
+                    numeroCRV: v.numero_crv,
+                    marcaModelo: v.marca_modelo,
+                    especieTipo: v.especie_tipo,
+                    pesoBruto: v.peso_bruto,
+                    cpfCnpj: v.cpf_cnpj,
+                    proprietario_nome: v.proprietario_nome,
+                    nome: v.proprietario_nome,
+                    local: v.local_registro || v.municipio_registro,
+                    data: v.data_emissao,
+                    apelido: ehGO ? "" : novoValor.trim(),
+                    numeroGO: ehGO ? novoValor.trim() : "",
+                    atualizado_em: new Date().toISOString()
+                };
+
+                await db.upsertFrotaDocumento(payload);
+                await carregarListaVeiculos();
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Atualizado!',
+                    text: `${labelText} alterado com sucesso.`,
+                    timer: 1500,
+                    showConfirmButton: false,
+                    background: "#1e293b",
+                    color: "#f8fafc"
+                });
+            } catch (err) {
+                console.error("Erro ao atualizar apelido:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Não foi possível atualizar a identificação: ' + err.message,
+                    background: "#1e293b",
+                    color: "#f8fafc"
+                });
+            }
+        }
+    };
 
     // =====================================================
     // CARREGAMENTO E RENDERIZAÇÃO DA TABELA AGRUPADA E KPIS
@@ -864,6 +948,9 @@ window.initFrotaCadastros = function() {
                         <td>${window.formatarData(venc)}</td>
                         <td><span class="badge-status ${status.tipo}">${status.texto}</span></td>
                         <td>
+                            <button class="tabela-acoes-btn btn-edit" title="Editar Apelido/GO" onclick="window.editarApelidoVeiculo('${v.placa}', ${v.filial_id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
                             <button class="tabela-acoes-btn" title="Ver Detalhes" onclick="window.abrirModalDadosCRLV('${v.placa}', ${v.filial_id})">
                                 <i class="fas fa-eye"></i>
                             </button>
