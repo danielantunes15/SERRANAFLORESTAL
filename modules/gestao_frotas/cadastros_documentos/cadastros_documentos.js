@@ -677,7 +677,7 @@ window.initFrotaCadastros = function() {
         window.fecharModalCadastroVeiculo();
         await carregarListaVeiculos();
 
-        if (salvoComSucesso) {
+        if (salvou) {
             if (typeof Swal !== "undefined") {
                 Swal.fire({ icon: "success", title: "Veículo Cadastrado!", text: `A placa ${dados.placa} foi salva.`, timer: 2000, showConfirmButton: false, background: "#1e293b", color: "#f8fafc" });
             } else {
