@@ -1,4 +1,5 @@
 // ==================== core/js/menu.js ====================
+
 // ==================== DEFINIÇÃO CENTRAL DE MENUS ====================
 window.MAPA_MENUS = [
     { id: 'escala', label: 'Escala Semanal', setor: 'Logística', icon: 'fas fa-calendar-alt' },
@@ -84,6 +85,7 @@ window.MAPA_MENUS = [
 ];
 
 const pageCache = {};
+
 const ROTAS = {
     'escala': 'modules/logistica/escala/escala.html',
     'troca_turno': 'modules/logistica/troca_turno/troca_turno.html',
@@ -157,7 +159,7 @@ const ROTAS = {
     'almoxarifado_cadastros': 'modules/almoxarifado/almoxarifado_cadastros.html',
     'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html',
     'almoxarifado_relatorios': 'modules/almoxarifado/almoxarifado_relatorios.html',
-
+    
     // --- ROTAS: GESTÃO DE FROTAS ---
     'frota_cadastros': 'modules/gestao_frotas/cadastros_documentos/cadastros_documentos.html',
     'frota_licencas': 'modules/gestao_frotas/licencas/licencas.html',
@@ -173,36 +175,28 @@ window.__relatorioGerencialIniciado = false;
 window.__relatorioGerencialTimers = [];
 
 window.initRelatorioGerencial = async function() {
-    // Evita dupla inicialização
     if (window.__relatorioGerencialIniciado) return;
     window.__relatorioGerencialIniciado = true;
     window.__relatorioGerencialTimers = [];
-
     console.log('[Relatório Gerencial] Iniciando...');
-
-    // Pequeno delay para garantir que o HTML foi injetado no DOM
+    
     await new Promise(r => setTimeout(r, 150));
-
     try {
-        // 1) Garante dados base (não bloqueia se alguma função não existir)
         if (typeof carregarDadosOS === 'function') {
             try { await carregarDadosOS(); } catch(e) { console.warn('carregarDadosOS falhou:', e); }
         }
-
-        // 2) Popula selects e KPIs
+        
         const executarSeguro = (nomeFn) => {
             if (typeof window[nomeFn] === 'function') {
                 try { window[nomeFn](); } catch(e) { console.warn(nomeFn, 'falhou:', e); }
             }
         };
-
         executarSeguro('atualizarKPIsGlobais');
         executarSeguro('preencherSelectPlacasDM');
         executarSeguro('preencherSelectPlacasDMGrua');
         executarSeguro('preencherMesesDMDiaria');
         executarSeguro('preencherMesesDMDiariaGrua');
-
-        // Preenche a data do filtro horário com hoje
+        
         const inpDataHoraria = document.getElementById('filtroDataEspecificaHoraria');
         if (inpDataHoraria && !inpDataHoraria.value) {
             const hoje = new Date();
@@ -210,10 +204,8 @@ window.initRelatorioGerencial = async function() {
             const diaStr = String(hoje.getDate()).padStart(2, '0');
             inpDataHoraria.value = `${hoje.getFullYear()}-${mesStr}-${diaStr}`;
         }
-
-        // 3) Renderiza os gráficos (com rAF para não travar a UI)
+        
         await new Promise(r => requestAnimationFrame(r));
-
         executarSeguro('renderizarGraficoEvolucaoDM');
         executarSeguro('renderizarGraficoStatusFrotaHorario');
         executarSeguro('renderizarGraficoEvolucaoDMDiaria');
@@ -223,16 +215,13 @@ window.initRelatorioGerencial = async function() {
         executarSeguro('renderizarDMIndividualGrua');
         executarSeguro('renderizarRelatorioDM');
         executarSeguro('renderizarRelatorioGerencialOS');
-
         console.log('[Relatório Gerencial] Renderização concluída.');
-
     } catch (e) {
         console.error('[Relatório Gerencial] Erro na inicialização:', e);
     }
 };
 
 window.destruirRelatorioGerencial = function() {
-    // Limpa timers e libera a flag para permitir reinicializar depois
     window.__relatorioGerencialTimers.forEach(t => clearInterval(t));
     window.__relatorioGerencialTimers = [];
     window.__relatorioGerencialIniciado = false;
@@ -243,51 +232,101 @@ window.destruirRelatorioGerencial = function() {
 window.renderizarMenu = async function() {
     const container = document.getElementById('menu-container');
     if (!container) return;
+    
     let permissoesAtuais = {};
     if (typeof db !== 'undefined' && typeof db.getPermissoesDB === 'function') {
         permissoesAtuais = await db.getPermissoesDB();
     } else if (typeof window.getPermissoes === 'function') {
         permissoesAtuais = window.getPermissoes();
     }
+    
     const userRole = (currentUser && currentUser.role) ? currentUser.role : 'Operacional';
     const userKey = currentUser ? 'user_' + currentUser.id : '';
     const cargoKey = (currentUser && currentUser.cargo_id) ? currentUser.cargo_id.toString() : null;
+    
     let meusMenus = [];
     if (cargoKey && permissoesAtuais[cargoKey]) {
         meusMenus = permissoesAtuais[cargoKey];
     } else if (permissoesAtuais[userRole]) {
         meusMenus = permissoesAtuais[userRole];
     }
-    
+         
     if (userKey && permissoesAtuais[userKey] && !permissoesAtuais[userKey].includes('__RESET__')) {
         meusMenus = permissoesAtuais[userKey];
     }
-    
+         
     const isGlobalAdmin = (currentUser && (currentUser.role === 'SuperAdmin' || currentUser.filial_id === null || currentUser.is_global_session === true));
     const isAdmin = isGlobalAdmin || userRole === 'Admin';
     const isSessaoCentral = (currentUser.filial_id === null || currentUser.filial_id === 'CENTRAL');
+    
     if (isAdmin) {
         if (!meusMenus.includes('tarifador')) meusMenus.push('tarifador');
     }
+
+    // =========================================================
+    // CONSTRUÇÃO DO MENU DE CONFIGURAÇÕES NO TOPO
+    // =========================================================
+    let topSettingsHtml = '';
+    let hasTopSettings = false;
+    const setoresTopo = ['Global', 'Configurações'];
     
-    let navHtml = '<nav class="main-nav">';
-    const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
-    
-    setores.forEach(setor => {
-        if (isSessaoCentral) {
-            if (setor !== 'Global' && setor !== 'Controladoria' && setor !== 'Configurações') return;
-        } else {
-            if (setor === 'Global') return;
-        }
+    setoresTopo.forEach(setor => {
         const menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
         const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
+
+        if (temAcessoAoSetor && (isSessaoCentral || setor !== 'Global')) {
+            let itensDesteSetor = '';
+            menusDoSetor.forEach(menu => {
+                if (meusMenus.includes(menu.id) || isAdmin) {
+                    hasTopSettings = true;
+                    itensDesteSetor += `<button class="top-settings-item" onclick="navegarPara('${menu.id}', this); fecharTopSettings();">
+                        <i class="${menu.icon}"></i> ${menu.label}
+                    </button>`;
+                }
+            });
+
+            if (itensDesteSetor !== '') {
+                topSettingsHtml += `<div class="top-settings-header">${setor}</div>`;
+                topSettingsHtml += itensDesteSetor;
+            }
+        }
+    });
+
+    const topContainer = document.getElementById('topSettingsContainer');
+    const topMenu = document.getElementById('topSettingsMenu');
+    if (topContainer && topMenu) {
+        if (hasTopSettings) {
+            topMenu.innerHTML = topSettingsHtml;
+            topContainer.style.display = 'flex';
+        } else {
+            topContainer.style.display = 'none';
+        }
+    }
+         
+    // =========================================================
+    // CONSTRUÇÃO DO MENU PRINCIPAL INFERIOR
+    // =========================================================
+    let navHtml = '<nav class="main-nav">';
+    const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
+         
+    setores.forEach(setor => {
+        // Pula os que já foram renderizados na engrenagem do topo
+        if (setoresTopo.includes(setor)) return;
+
+        if (isSessaoCentral) {
+            if (setor !== 'Controladoria') return;
+        }
+        
+        const menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
+        const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
+        
         if (temAcessoAoSetor) {
             navHtml += `<div class="nav-dropdown" onmouseleave="fecharDropdown(this)">
                 <button class="nav-item dropdown-toggle" onclick="toggleDropdown(event)">
                     <i class="${window.getIconSetor(setor)}"></i> ${setor} <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 5px;"></i>
                 </button>
                 <div class="dropdown-menu">`;
-            
+                         
             menusDoSetor.forEach(menu => {
                 if (meusMenus.includes(menu.id) || isAdmin) {
                     navHtml += `<button class="dropdown-item" onclick="navegarPara('${menu.id}', this)">
@@ -300,12 +339,12 @@ window.renderizarMenu = async function() {
     });
     navHtml += '</nav>';
     container.innerHTML = navHtml;
-    
+         
     setTimeout(() => {
         const firstBtn = container.querySelector('.dropdown-item') || container.querySelector('.nav-item');
         if (firstBtn) firstBtn.click();
     }, 100);
-
+    
     setTimeout(() => {
         const menusParaPreCarregar = isAdmin ? window.MAPA_MENUS.map(m => m.id) : meusMenus;
         menusParaPreCarregar.forEach(async (menuId) => {
@@ -350,16 +389,48 @@ window.fecharDropdown = function(dropdownElement) {
     if (menu) menu.classList.remove('show');
 };
 
+// =========================================================
+// FUNÇÕES DO NOVO MENU DE CONFIGURAÇÕES (ENGRENAGEM)
+// =========================================================
+window.toggleTopSettings = function(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('topSettingsMenu');
+    const btn = event.currentTarget;
+    if (menu) {
+        menu.classList.toggle('show');
+        if (menu.classList.contains('show')) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    }
+};
+
+window.fecharTopSettings = function() {
+    const menu = document.getElementById('topSettingsMenu');
+    const btn = document.querySelector('.btn-top-settings');
+    if (menu) menu.classList.remove('show');
+    if (btn) btn.classList.remove('active');
+};
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#topSettingsContainer')) {
+        if (typeof window.fecharTopSettings === 'function') {
+            window.fecharTopSettings();
+        }
+    }
+});
+// =========================================================
+
 window.navegarPara = async function(pagina, elementoClicado) {
-    // SEMPRE que troca de página, destrói timers do relatório
     if (typeof window.destruirRelatorioGerencial === 'function') {
         window.destruirRelatorioGerencial();
     }
-
+    
     if (elementoClicado) {
-        document.querySelectorAll('.nav-item, .dropdown-item').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.nav-item, .dropdown-item, .top-settings-item').forEach(el => el.classList.remove('active'));
         elementoClicado.classList.add('active');
-        
+                 
         if(elementoClicado.classList.contains('dropdown-item')) {
             const dropdown = elementoClicado.closest('.nav-dropdown');
             if (dropdown) dropdown.querySelector('.dropdown-toggle').classList.add('active');
@@ -367,52 +438,52 @@ window.navegarPara = async function(pagina, elementoClicado) {
             if (menu) menu.classList.remove('show');
         }
     }
-    
+         
     if (pagina === 'painel_tv') {
         if (typeof window.entrarModoTV === 'function') window.entrarModoTV();
     } else {
         if (typeof window.sairModoTV === 'function') window.sairModoTV();
     }
-    
+         
     const mainContent = document.getElementById('conteudo-principal');
+    
     try {
         if (!pageCache[pagina]) {
             mainContent.innerHTML = '<div style="padding: 20px; text-align: center; color: #fff;"><i class="fas fa-spinner fa-spin"></i> Carregando módulo...</div>';
-            
+                         
             const caminhoArquivo = ROTAS[pagina];
             if (!caminhoArquivo) throw new Error('Rota não definida para o módulo: ' + pagina);
             const response = await fetch(`${caminhoArquivo}?v=${VERSAO_SISTEMA}`);
             if (!response.ok) throw new Error('Página não encontrada');
             pageCache[pagina] = await response.text();
         }
-        
+                 
         mainContent.innerHTML = pageCache[pagina];
-
-        // Inicializadores de Módulos
+        
         if (pagina === 'gestao_filiais' && typeof window.renderizarGestaoFiliais === 'function') window.renderizarGestaoFiliais();
         if (pagina === 'auditoria_logs' && typeof window.renderizarAuditoriaLogs === 'function') window.renderizarAuditoriaLogs();
-        
+                 
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
         if (pagina === 'troca_turno' && typeof window.renderizarTrocaTurno === 'function') window.renderizarTrocaTurno();
         if (pagina === 'alocacao' && typeof window.renderizarAlocacao === 'function') window.renderizarAlocacao();
         if (pagina === 'caminhoes' && typeof window.renderizarConjuntos === 'function') window.renderizarConjuntos();
-        
+                 
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();
         if (pagina === 'almoxarifado_entregas' && typeof window.renderizarAlmoxarifadoEntregas === 'function') window.renderizarAlmoxarifadoEntregas();
         if (pagina === 'almoxarifado_cadastros' && typeof window.renderizarCadastrosAlmox === 'function') window.renderizarCadastrosAlmox();
         if (pagina === 'requisicao_materiais' && typeof window.renderizarRequisicaoMateriais === 'function') window.renderizarRequisicaoMateriais();
         if (pagina === 'almoxarifado_relatorios' && typeof window.renderizarAlmoxRelatorios === 'function') window.renderizarAlmoxRelatorios();
-
+        
         if (pagina === 'campo_escala' && typeof window.renderizarEscalaCampo === 'function') window.renderizarEscalaCampo();
         if (pagina === 'alocacao_campo' && typeof window.carregarAlocacaoCampo === 'function') window.carregarAlocacaoCampo();
         if (pagina === 'campo_maquinas' && typeof window.renderizarMaquinasCampo === 'function') window.renderizarMaquinasCampo();
         if (pagina === 'abastecimento_gruas' && typeof window.initAbastecimentoGruas === 'function') window.initAbastecimentoGruas();
-
+        
         if (pagina === 'os' && typeof window.alternarTelaOS === 'function') window.alternarTelaOS('lista');
         if (pagina === 'historico_os' && typeof window.initHistoricoOS === 'function') window.initHistoricoOS();
         if (pagina === 'controle_manutencao' && typeof window.initControleManutencao === 'function') window.initControleManutencao();
         if (pagina === 'cadastro_os_classificacoes' && typeof window.renderizarCadastroClassificacoes === 'function') window.renderizarCadastroClassificacoes();
-        
+                 
         if (pagina === 'ssma_ordem_servico') {
             if (typeof window.carregarFiliaisSSMA === 'function') window.carregarFiliaisSSMA();
             if (typeof window.carregarCargosSSMA === 'function') window.carregarCargosSSMA();
@@ -422,19 +493,19 @@ window.navegarPara = async function(pagina, elementoClicado) {
                 formSsma.addEventListener('submit', window.salvarOrdemServicoSSMA);
             }
         }
-        
+                 
         if (pagina === 'ssma_colaboradores' && typeof window.initColaboradoresSSMA === 'function') {
             window.initColaboradoresSSMA();
         }
-
+        
         if (pagina === 'painel_tv') {
-            try { 
-                if (typeof carregarDadosOS === 'function') await carregarDadosOS(); 
-                if (typeof window.iniciarRelogioTV === 'function') window.iniciarRelogioTV();
-                if (typeof window.renderizarCardsTV === 'function') window.renderizarCardsTV();
+            try {
+                 if (typeof carregarDadosOS === 'function') await carregarDadosOS();
+                 if (typeof window.iniciarRelogioTV === 'function') window.iniciarRelogioTV();
+                 if (typeof window.renderizarCardsTV === 'function') window.renderizarCardsTV();
             } catch(e) { console.error("Erro no Painel TV:", e); }
         }
-
+        
         if (pagina === 'rh_painel' && typeof window.initRHPainel === 'function') window.initRHPainel(); 
         if (pagina === 'rh_colaboradores' && typeof window.initRHColaboradores === 'function') window.initRHColaboradores();
         if (pagina === 'rh_absenteismo' && typeof window.initRHAbsenteismo === 'function') window.initRHAbsenteismo();
@@ -442,22 +513,23 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'rh_sorteio' && typeof window.initRHSorteio === 'function') window.initRHSorteio();
         if (pagina === 'rh_relatorios' && typeof window.initRHRelatorios === 'function') window.initRHRelatorios();
         if (pagina === 'rh_configuracoes' && typeof window.initRHConfiguracoes === 'function') window.initRHConfiguracoes();
-        
+                 
         if (pagina === 'centro_custo' && typeof window.initControladoria === 'function') window.initControladoria();
         if (pagina === 'ocorrencias' && typeof window.initOcorrencias === 'function') window.initOcorrencias();
         if (pagina === 'historico_ocorrencias' && typeof window.initHistoricoOcorrencias === 'function') window.initHistoricoOcorrencias();
         if (pagina === 'relatorio_ocorrencias' && typeof window.initRelatorioOcorrencias === 'function') window.initRelatorioOcorrencias();
-        
+                 
         if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
         if (pagina === 'indicadores_serrana' && typeof window.carregarDadosDashboardSerrana === 'function') window.carregarDadosDashboardSerrana();
         if (pagina === 'cadastro_indicadores' && typeof window.initCadastroIndicadores === 'function') window.initCadastroIndicadores();
+        
         if (pagina === 'servicos' && typeof window.renderizarTelaServicos === 'function') window.renderizarTelaServicos();
         if (pagina === 'cadastro_frota' && typeof window.renderizarTelaCadastroFrota === 'function') window.renderizarTelaCadastroFrota();
         if (pagina === 'documentos_frota' && typeof window.renderizarTelaDocumentosFrota === 'function') window.renderizarTelaDocumentosFrota();
         if (pagina === 'borracharia' && typeof window.initBorracharia === 'function') window.initBorracharia();
         if (pagina === 'relatorios_manutencao' && typeof window.renderizarTelaRelatoriosManutencao === 'function') window.renderizarTelaRelatoriosManutencao();
-
+        
         if (pagina === 'visao_geral' && typeof window.carregarDadosDashboardAnalitico === 'function') window.carregarDadosDashboardAnalitico();
         if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
         if (pagina === 'desempenho_frota' && typeof window.initDesempenhoFrota === 'function') window.initDesempenhoFrota();
@@ -467,17 +539,16 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
         if (pagina === 'tarifador' && typeof window.initTarifador === 'function') window.initTarifador();
         if (pagina === 'configuracoes_gerenciais' && typeof window.initConfiguracoesGerenciais === 'function') window.initConfiguracoesGerenciais();
-        
+                 
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();
         if (pagina === 'historico_producao' && typeof window.initHistoricoProducao === 'function') window.initHistoricoProducao();
         if (pagina === 'historico_jornadas' && typeof window.initHistoricoJornadas === 'function') window.initHistoricoJornadas();
         if (pagina === 'configuracoes_gerencial' && typeof window.inicializarConfiguracoesGerencial === 'function') window.inicializarConfiguracoesGerencial();
         if (pagina === 'cadastro_up' && typeof window.initCadastroUP === 'function') window.initCadastroUP();
-        
+                 
         if (pagina === 'gestao_usuarios' && typeof window.renderizarUsuarios === 'function') window.renderizarUsuarios();
         if (pagina === 'gestao_acessos' && typeof window.carregarCheckboxesPermissoes === 'function') window.carregarCheckboxesPermissoes();
-
-        // INICIALIZADORES DO MÓDULO GESTÃO DE FROTAS
+        
         if (pagina === 'frota_cadastros') {
             if (typeof window.initFrotaCadastros === 'function') {
                 window.initFrotaCadastros();
@@ -489,8 +560,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'frota_compatibilidade') {
             if (typeof window.initFrotaCompatibilidade === 'function') window.initFrotaCompatibilidade();
         }
-
-        // ⬇️ RELATÓRIO GERENCIAL: chama a função única de inicialização
+        
         if (pagina === 'relatorio_gerencial') {
             if (typeof window.initRelatorioGerencial === 'function') {
                 window.initRelatorioGerencial();
