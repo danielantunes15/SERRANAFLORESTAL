@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">          
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />     
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>          
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>          
     
     <link rel="stylesheet" href="core/css/global.css">     
     <link rel="stylesheet" href="core/css/auth.css">     
@@ -26,15 +26,15 @@
     <link rel="stylesheet" href="modules/manutencao/relatorios/relatorios.css">          
     <link rel="stylesheet" href="core/css/responsividade.css">          
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>          
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" defer></script>          
     
     <script src="https://cdn.tailwindcss.com"></script>     
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>     
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>     
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0" defer></script>     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script> 
 </head> 
 <body class="dark-mode">     
     <script src="core/js/config_manutencao.js"></script>          
@@ -331,106 +331,106 @@
             }         
         });     
     </script>     
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>          
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>     
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>     
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>          
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>     
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js" defer></script>     
     <!-- Adicionando importação do PDF.js para os recursos de Gestão de Frota -->     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>     
     
-    <script src="core/js/database.js"></script>     
-    <script src="core/js/auth.js"></script>      
-    <script src="core/js/estado.js"></script>     
-    <script src="core/js/menu.js"></script>     
-    <script src="core/js/exportacao.js"></script>     
-    <script src="core/js/app.js"></script>      
+    <script src="core/js/database.js" defer></script>     
+    <script src="core/js/auth.js" defer></script>      
+    <script src="core/js/estado.js" defer></script>     
+    <script src="core/js/menu.js" defer></script>     
+    <script src="core/js/exportacao.js" defer></script>     
+    <script src="core/js/app.js" defer></script>      
     
-    <script src="modules/global/gestao_filiais.js"></script>     
-    <script src="modules/global/auditoria_logs.js"></script>     
-    <script src="modules/configuracoes/gestao_usuarios.js"></script>     
-    <script src="modules/configuracoes/gestao_acessos.js"></script>     
-    <script src="modules/logistica/frota_conjuntos/conjuntos.js"></script>     
-    <script src="modules/logistica/frota_conjuntos/cadastro_frota.js"></script>     
-    <script src="modules/logistica/documentos_frota/documentos_frota.js"></script>     
-    <script src="modules/logistica/escala/escala.js"></script>     
-    <script src="modules/logistica/alocacao/alocacao.js"></script>     
-    <script src="modules/logistica/troca_turno/troca_turno.js"></script>     
-    <script src="modules/logistica/troca_turno/troca_turno_kpis.js"></script>          
-    <script src="modules/campo/maquinas/maquinas.js"></script>     
-    <script src="modules/campo/escala/escala.js"></script>     
-    <script src="modules/logistica/escala/termo_turno.js"></script>          
-    <script src="modules/campo/alocacao/alocacao.js"></script>          
-    <script src="modules/campo/abastecimento_gruas/abastecimento_gruas.js"></script>     
-    <script src="modules/manutencao/ordem_servico/os_core.js"></script>     
-    <script src="modules/manutencao/ordem_servico/os_tabelas.js"></script>     
-    <script src="modules/manutencao/ordem_servico/os_formularios.js?v=9"></script>     
-    <script src="modules/manutencao/ordem_servico/os_impressao.js"></script>     
-    <script src="modules/manutencao/ordem_servico/os_painel.js"></script>          
-    <script src="modules/manutencao/historico_os/historico_os.js"></script>     
-    <script src="modules/manutencao/painel_tv/painel_tv.js"></script>      
-    <script src="modules/manutencao/cadastros/classificacoes.js"></script>     
-    <script src="modules/manutencao/servicos/servicos.js"></script>     
-    <script src="modules/manutencao/borracharia/borracharia.js"></script>     
-    <script src="modules/manutencao/borracharia/borracharia_impressao.js"></script>     
-    <script src="modules/manutencao/relatorios/relatorios.js"></script>          
-    <script src="modules/manutencao/controle_manutencao/controle_manutencao.js"></script>          
-    <script src="modules/ssma/cadastros/ssma_ordem_servico.js"></script>     
-    <script src="modules/ssma/colaboradores/ssma_colaboradores.js"></script>     
-    <script src="modules/ssma/colaboradores/ssma_impressao.js"></script>     
-    <script src="modules/almoxarifado/almoxarifado.js"></script>     
-    <script src="modules/almoxarifado/almoxarifado_entregas.js"></script>     
-    <script src="modules/almoxarifado/almoxarifado_cadastros.js"></script>     
-    <script src="modules/almoxarifado/requisicao_materiais.js"></script>     
-    <script src="modules/almoxarifado/almoxarifado_relatorios.js"></script>     
-    <script src="modules/almoxarifado/almoxarifado_relatorios_impressao.js"></script>     
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>     
-    <script src="modules/almoxarifado/almoxarifado_leitor_camera.js"></script>          
-    <script src="modules/logistica/recados/recados.js"></script>     
-    <script src="modules/rh/painel/rh_painel.js"></script>     
-    <script src="modules/rh/colaboradores/colaboradores.js"></script>          
-    <script src="modules/rh/colaboradores/ficha_epi_impressao.js"></script>     
-    <script src="modules/rh/absenteismo/absenteismo.js"></script>     
-    <script src="modules/rh/banco_horas/banco_horas.js"></script>     
-    <script src="modules/rh/sorteio/sorteio.js"></script>     
-    <script src="modules/rh/configuracoes/rh_configuracoes.js"></script>     
-    <script src="modules/rh/relatorios/relatorios.js"></script>          
-    <script src="modules/indicadores/painel_cliente/indicadores.js"></script>     
-    <script src="modules/indicadores/painel_serrana/indicadores_serrana.js"></script>      
-    <script src="modules/indicadores/relatorio_gerencial/grafico_evolucao_dm.js"></script>     
-    <script src="modules/indicadores/configuracoes/cadastro_indicadores.js"></script>          
-    <script src="modules/monitoramento/configuracoes/utils.js"></script>     
-    <script src="modules/monitoramento/configuracoes/gruas.js"></script>     
-    <script src="modules/monitoramento/configuracoes/metas.js"></script>     
-    <script src="modules/monitoramento/configuracoes/banco_historico.js"></script>     
-    <script src="modules/monitoramento/configuracoes/importacao.js"></script>     
-    <script src="modules/monitoramento/configuracoes/main.js"></script>     
-    <script src="modules/monitoramento/visao_geral/dashboard.js"></script>     
-    <script src="modules/monitoramento/desempenho_grua/desempenho_grua.js"></script>      
-    <script src="modules/monitoramento/operacional/operacional.js"></script>     
-    <script src="modules/monitoramento/historico/historico.js"></script>     
-    <script src="modules/monitoramento/historico_jornadas/historico-jornadas.js"></script>     
-    <script src="modules/monitoramento/jornadas/jornadas_utils.js"></script>     
-    <script src="modules/monitoramento/jornadas/jornadas_api.js"></script>     
-    <script src="modules/monitoramento/jornadas/jornadas_auditoria.js"></script>     
-    <script src="modules/monitoramento/jornadas/jornadas_exportacao.js"></script>     
-    <script src="modules/monitoramento/jornadas/jornadas.js"></script>     
-    <script src="modules/monitoramento/cadastro_up/cadastro_up.js"></script>     
-    <script src="modules/controladoria/centro_custo/centro_custo.js"></script>     
-    <script src="modules/controladoria/ocorrencias/ocorrencias.js"></script>     
-    <script src="modules/controladoria/ocorrencias/ocorrencias_impressao.js"></script>     
-    <script src="modules/controladoria/ocorrencias/historico_ocorrencias.js"></script>     
-    <script src="modules/controladoria/ocorrencias/relatorio_ocorrencias.js"></script>          
-    <script src="modules/gerencial/producao_frota/producao-frota.js"></script>     
-    <script src="modules/gerencial/desempenho_frota/desempenho-frota.js"></script>     
-    <script src="modules/gerencial/visao_executiva/visao_executiva.js"></script>     
-    <script src="modules/gerencial/evolucao_fazendas/evolucao_fazendas.js"></script>     
-    <script src="modules/gerencial/configuracoes_gerenciais/configuracoes_gerenciais.js"></script>     
-    <script src="modules/gerencial/tarifador/tarifador.js"></script>     
+    <script src="modules/global/gestao_filiais.js" defer></script>     
+    <script src="modules/global/auditoria_logs.js" defer></script>     
+    <script src="modules/configuracoes/gestao_usuarios.js" defer></script>     
+    <script src="modules/configuracoes/gestao_acessos.js" defer></script>     
+    <script src="modules/logistica/frota_conjuntos/conjuntos.js" defer></script>     
+    <script src="modules/logistica/frota_conjuntos/cadastro_frota.js" defer></script>     
+    <script src="modules/logistica/documentos_frota/documentos_frota.js" defer></script>     
+    <script src="modules/logistica/escala/escala.js" defer></script>     
+    <script src="modules/logistica/alocacao/alocacao.js" defer></script>     
+    <script src="modules/logistica/troca_turno/troca_turno.js" defer></script>     
+    <script src="modules/logistica/troca_turno/troca_turno_kpis.js" defer></script>          
+    <script src="modules/campo/maquinas/maquinas.js" defer></script>     
+    <script src="modules/campo/escala/escala.js" defer></script>     
+    <script src="modules/logistica/escala/termo_turno.js" defer></script>          
+    <script src="modules/campo/alocacao/alocacao.js" defer></script>          
+    <script src="modules/campo/abastecimento_gruas/abastecimento_gruas.js" defer></script>     
+    <script src="modules/manutencao/ordem_servico/os_core.js" defer></script>     
+    <script src="modules/manutencao/ordem_servico/os_tabelas.js" defer></script>     
+    <script src="modules/manutencao/ordem_servico/os_formularios.js?v=9" defer></script>     
+    <script src="modules/manutencao/ordem_servico/os_impressao.js" defer></script>     
+    <script src="modules/manutencao/ordem_servico/os_painel.js" defer></script>          
+    <script src="modules/manutencao/historico_os/historico_os.js" defer></script>     
+    <script src="modules/manutencao/painel_tv/painel_tv.js" defer></script>      
+    <script src="modules/manutencao/cadastros/classificacoes.js" defer></script>     
+    <script src="modules/manutencao/servicos/servicos.js" defer></script>     
+    <script src="modules/manutencao/borracharia/borracharia.js" defer></script>     
+    <script src="modules/manutencao/borracharia/borracharia_impressao.js" defer></script>     
+    <script src="modules/manutencao/relatorios/relatorios.js" defer></script>          
+    <script src="modules/manutencao/controle_manutencao/controle_manutencao.js" defer></script>          
+    <script src="modules/ssma/cadastros/ssma_ordem_servico.js" defer></script>     
+    <script src="modules/ssma/colaboradores/ssma_colaboradores.js" defer></script>     
+    <script src="modules/ssma/colaboradores/ssma_impressao.js" defer></script>     
+    <script src="modules/almoxarifado/almoxarifado.js" defer></script>     
+    <script src="modules/almoxarifado/almoxarifado_entregas.js" defer></script>     
+    <script src="modules/almoxarifado/almoxarifado_cadastros.js" defer></script>     
+    <script src="modules/almoxarifado/requisicao_materiais.js" defer></script>     
+    <script src="modules/almoxarifado/almoxarifado_relatorios.js" defer></script>     
+    <script src="modules/almoxarifado/almoxarifado_relatorios_impressao.js" defer></script>     
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript" defer></script>     
+    <script src="modules/almoxarifado/almoxarifado_leitor_camera.js" defer></script>          
+    <script src="modules/logistica/recados/recados.js" defer></script>     
+    <script src="modules/rh/painel/rh_painel.js" defer></script>     
+    <script src="modules/rh/colaboradores/colaboradores.js" defer></script>          
+    <script src="modules/rh/colaboradores/ficha_epi_impressao.js" defer></script>     
+    <script src="modules/rh/absenteismo/absenteismo.js" defer></script>     
+    <script src="modules/rh/banco_horas/banco_horas.js" defer></script>     
+    <script src="modules/rh/sorteio/sorteio.js" defer></script>     
+    <script src="modules/rh/configuracoes/rh_configuracoes.js" defer></script>     
+    <script src="modules/rh/relatorios/relatorios.js" defer></script>          
+    <script src="modules/indicadores/painel_cliente/indicadores.js" defer></script>     
+    <script src="modules/indicadores/painel_serrana/indicadores_serrana.js" defer></script>      
+    <script src="modules/indicadores/relatorio_gerencial/grafico_evolucao_dm.js" defer></script>     
+    <script src="modules/indicadores/configuracoes/cadastro_indicadores.js" defer></script>          
+    <script src="modules/monitoramento/configuracoes/utils.js" defer></script>     
+    <script src="modules/monitoramento/configuracoes/gruas.js" defer></script>     
+    <script src="modules/monitoramento/configuracoes/metas.js" defer></script>     
+    <script src="modules/monitoramento/configuracoes/banco_historico.js" defer></script>     
+    <script src="modules/monitoramento/configuracoes/importacao.js" defer></script>     
+    <script src="modules/monitoramento/configuracoes/main.js" defer></script>     
+    <script src="modules/monitoramento/visao_geral/dashboard.js" defer></script>     
+    <script src="modules/monitoramento/desempenho_grua/desempenho_grua.js" defer></script>      
+    <script src="modules/monitoramento/operacional/operacional.js" defer></script>     
+    <script src="modules/monitoramento/historico/historico.js" defer></script>     
+    <script src="modules/monitoramento/historico_jornadas/historico-jornadas.js" defer></script>     
+    <script src="modules/monitoramento/jornadas/jornadas_utils.js" defer></script>     
+    <script src="modules/monitoramento/jornadas/jornadas_api.js" defer></script>     
+    <script src="modules/monitoramento/jornadas/jornadas_auditoria.js" defer></script>     
+    <script src="modules/monitoramento/jornadas/jornadas_exportacao.js" defer></script>     
+    <script src="modules/monitoramento/jornadas/jornadas.js" defer></script>     
+    <script src="modules/monitoramento/cadastro_up/cadastro_up.js" defer></script>     
+    <script src="modules/controladoria/centro_custo/centro_custo.js" defer></script>     
+    <script src="modules/controladoria/ocorrencias/ocorrencias.js" defer></script>     
+    <script src="modules/controladoria/ocorrencias/ocorrencias_impressao.js" defer></script>     
+    <script src="modules/controladoria/ocorrencias/historico_ocorrencias.js" defer></script>     
+    <script src="modules/controladoria/ocorrencias/relatorio_ocorrencias.js" defer></script>          
+    <script src="modules/gerencial/producao_frota/producao-frota.js" defer></script>     
+    <script src="modules/gerencial/desempenho_frota/desempenho-frota.js" defer></script>     
+    <script src="modules/gerencial/visao_executiva/visao_executiva.js" defer></script>     
+    <script src="modules/gerencial/evolucao_fazendas/evolucao_fazendas.js" defer></script>     
+    <script src="modules/gerencial/configuracoes_gerenciais/configuracoes_gerenciais.js" defer></script>     
+    <script src="modules/gerencial/tarifador/tarifador.js" defer></script>     
     <!-- UTILITÁRIOS BASE GESTÃO DE FROTAS -->     
-    <script src="modules/gestao_frotas/utils_frotas.js"></script>          
+    <script src="modules/gestao_frotas/utils_frotas.js" defer></script>          
     <!-- MÓDULOS DE GESTÃO DE FROTAS -->     
-    <script src="modules/gestao_frotas/cadastros_documentos/cadastros_documentos.js"></script>     
-    <script src="modules/gestao_frotas/licencas/licencas.js"></script>     
-    <script src="modules/gestao_frotas/licencas/licencas_parser.js"></script>     
-    <script src="modules/gestao_frotas/compatibilidade/compatibilidade.js"></script>     
+    <script src="modules/gestao_frotas/cadastros_documentos/cadastros_documentos.js" defer></script>     
+    <script src="modules/gestao_frotas/licencas/licencas.js" defer></script>     
+    <script src="modules/gestao_frotas/licencas/licencas_parser.js" defer></script>     
+    <script src="modules/gestao_frotas/compatibilidade/compatibilidade.js" defer></script>     
 </body> 
 </html>

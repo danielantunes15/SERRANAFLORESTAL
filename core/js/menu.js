@@ -271,7 +271,7 @@ window.renderizarMenu = async function() {
     const setoresTopo = ['Global', 'Configurações'];
     
     setoresTopo.forEach(setor => {
-        const menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
+        let menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
         const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
 
         if (temAcessoAoSetor && (isSessaoCentral || setor !== 'Global')) {
@@ -310,14 +310,16 @@ window.renderizarMenu = async function() {
     const setores = [...new Set(window.MAPA_MENUS.map(m => m.setor))];
          
     setores.forEach(setor => {
-        // Pula os que já foram renderizados na engrenagem do topo
         if (setoresTopo.includes(setor)) return;
 
         if (isSessaoCentral) {
-            if (setor !== 'Controladoria') return;
+            if (setor !== 'Controladoria' && setor !== 'Logística' && setor !== 'Gestão de Frotas' && setor !== 'Campo' && setor !== 'Manutenção' && setor !== 'SSMA' && setor !== 'Almoxarifado' && setor !== 'RH' && setor !== 'Indicadores' && setor !== 'Monitoramento' && setor !== 'Gerencial') {
+               // Apenas permite os setores desejados na visão central. Controladoria e outros podem ser limitados se necessário.
+               // Aqui estamos permitindo que eles renderizem na ordem do array MAPA_MENUS
+            }
         }
         
-        const menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
+        let menusDoSetor = window.MAPA_MENUS.filter(m => m.setor === setor);
         const temAcessoAoSetor = isAdmin || menusDoSetor.some(m => meusMenus.includes(m.id));
         
         if (temAcessoAoSetor) {
@@ -340,9 +342,39 @@ window.renderizarMenu = async function() {
     navHtml += '</nav>';
     container.innerHTML = navHtml;
          
+    // =========================================================
+    // Renderização da Tela de Boas-Vindas (Home)
+    // =========================================================
     setTimeout(() => {
-        const firstBtn = container.querySelector('.dropdown-item') || container.querySelector('.nav-item');
-        if (firstBtn) firstBtn.click();
+        const mainContent = document.getElementById('conteudo-principal');
+        if (mainContent) {
+            let nomeUsuario = 'Colaborador';
+            
+            // Pega o primeiro nome do usuário logado e formata (Ex: DANIEL.RIBEIRO -> Daniel)
+            if (typeof currentUser !== 'undefined' && currentUser && currentUser.username) {
+                nomeUsuario = currentUser.username.split('.')[0];
+                nomeUsuario = nomeUsuario.charAt(0).toUpperCase() + nomeUsuario.slice(1).toLowerCase();
+            }
+
+            // Injeta o HTML da Tela de Boas Vindas no painel principal
+            mainContent.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 70vh; text-align: center; animation: fadeInDrop 0.5s ease-out;">
+                    <div style="background: rgba(255,255,255,0.02); padding: 50px 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 600px; width: 100%;">
+                        <img src="assets/logo.png" alt="Serranalog Florestal" style="width: 220px; margin: 0 auto 30px auto;" onerror="this.style.display='none'">
+                        <h2 style="font-size: 2rem; color: #f8fafc; margin-bottom: 15px; font-weight: 700;">
+                            Bem-vindo, <span style="color: var(--ccol-blue-bright);">${nomeUsuario}</span>!
+                        </h2>
+                        <p style="color: #ffffff; font-size: 1.05rem; line-height: 1.6; margin-bottom: 30px;">
+                            Você está conectado ao Sistema de Gestão Florestal.
+                        </p>
+                        <div style="display: inline-block; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); padding: 10px 20px; border-radius: 50px; color: var(--ccol-blue-bright); font-size: 0.9rem;">
+                            <i class="fas fa-hand-pointer" style="margin-right: 8px;"></i>
+                            Selecione um módulo no menu acima para iniciar.
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
     }, 100);
     
     setTimeout(() => {
