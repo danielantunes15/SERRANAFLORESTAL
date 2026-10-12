@@ -333,8 +333,12 @@ window.renderizarEscalaCampo = function() {
                         </tr>
                      </thead><tbody>`;
 
-            // ORDENAÇÃO: 1º Dia, 2º Noite, 3º Folga (baseado no primeiro dia da tabela), e depois pelo horário
+            // ORDENAÇÃO: 1º Data Início da Escala (data_ancora), 2º Dia, 3º Noite, 4º Folga
             ops.sort((a,b) => {
+                let dataInicioA = a.data_ancora ? a.data_ancora.split('T')[0] : '9999-12-31';
+                let dataInicioB = b.data_ancora ? b.data_ancora.split('T')[0] : '9999-12-31';
+                if (dataInicioA !== dataInicioB) return dataInicioA.localeCompare(dataInicioB);
+
                 const dKey = diasRender[0].dateKey;
                 const escA = matrizEscala[a.id][dKey];
                 const escB = matrizEscala[b.id][dKey];
@@ -596,6 +600,10 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
             
             // Ordenação idêntica ao painel web
             ops.sort((a,b) => {
+                let dataInicioA = a.data_ancora ? a.data_ancora.split('T')[0] : '9999-12-31';
+                let dataInicioB = b.data_ancora ? b.data_ancora.split('T')[0] : '9999-12-31';
+                if (dataInicioA !== dataInicioB) return dataInicioA.localeCompare(dataInicioB);
+
                 const dKey = window.currentDatasCampo[0].dateKey;
                 const escA = matrizEscala[a.id][dKey];
                 const escB = matrizEscala[b.id][dKey];
@@ -662,6 +670,10 @@ window.exportarEscalaCampoExcel = function() {
 
     let excelOps = [...window.equipeCampo];
     excelOps.sort((a,b) => {
+        let dataInicioA = a.data_ancora ? a.data_ancora.split('T')[0] : '9999-12-31';
+        let dataInicioB = b.data_ancora ? b.data_ancora.split('T')[0] : '9999-12-31';
+        if (dataInicioA !== dataInicioB) return dataInicioA.localeCompare(dataInicioB);
+
         const dKey = dateStrs[0];
         const escA = matrizEscala[a.id] ? matrizEscala[a.id][dKey] : null;
         const escB = matrizEscala[b.id] ? matrizEscala[b.id][dKey] : null;
