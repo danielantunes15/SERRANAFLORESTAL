@@ -301,6 +301,8 @@ window.renderizarEscalaCampo = function() {
         if (membrosFrente.length === 0) return;
 
         let isFolguistasFrente = frente.nome && frente.nome.toUpperCase().includes('FOLGUISTA');
+        let isMecanicoFrente = frente.nome && (frente.nome.toUpperCase().includes('MECÂNICO') || frente.nome.toUpperCase().includes('MECANICO'));
+        let headerColuna1 = isMecanicoFrente ? 'Frente de Serviço' : 'Máquina / Cargo';
 
         html += `<div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #3b82f6; border-radius: 8px; margin-bottom: 30px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">`;
         html += `<div style="background: #1e293b; padding: 12px 20px; font-size: 1.1rem; font-weight: 800; color: #3b82f6; border-bottom: 2px solid #3b82f6; text-transform: uppercase;">
@@ -324,7 +326,7 @@ window.renderizarEscalaCampo = function() {
             html += `<table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem; min-width: 1050px;">`;
             html += `<thead>
                         <tr style="background-color: rgba(0, 0, 0, 0.4); color: #94a3b8; text-transform: uppercase; font-size: 0.75rem;">
-                            <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">Máquina / Cargo</th>
+                            <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 10%;">${headerColuna1}</th>
                             <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 6%;">Ciclo</th>
                             <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 6%;">Papel</th>
                             <th style="padding: 12px 8px; border: 1px solid rgba(255,255,255,0.05); width: 8%;">Turno Início</th>
@@ -366,8 +368,22 @@ window.renderizarEscalaCampo = function() {
 
             ops.forEach(op => {
                 let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Liderança' : (op.maquina_especifica || 'Sem Máquina');
-                if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; } 
-                else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') { nomeMaqVisual = 'Cobrir M1 e M2'; }
+                
+                if (isMecanicoFrente && op.funcao !== 'Líder de Campo') {
+                    if (op.equipe === 'Folguista') {
+                        nomeMaqVisual = 'Cobrir F1 e F2';
+                    } else {
+                        if (op.maquina_especifica === 'Máquina 1' && frente.numero_frota_1) nomeMaqVisual = frente.numero_frota_1;
+                        else if (op.maquina_especifica === 'Máquina 2' && frente.numero_frota_2) nomeMaqVisual = frente.numero_frota_2;
+                        else if (op.maquina_especifica === 'Máquina 3' && frente.numero_frota_3) nomeMaqVisual = frente.numero_frota_3;
+                    }
+                }
+                else if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { 
+                    nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; 
+                } 
+                else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo') { 
+                    nomeMaqVisual = 'Cobrir M1 e M2'; 
+                }
 
                 let colorMaq = op.funcao === 'Líder de Campo' ? '#fbbf24' : '#34d399';
 
@@ -583,6 +599,8 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
         let membrosFrente = window.equipeCampo.filter(op => String(op.maquina_id) === String(maq.id));
         if (membrosFrente.length === 0) return;
         let isFolguistasFrente = maq.nome && maq.nome.toUpperCase().includes('FOLGUISTA');
+        let isMecanicoFrente = maq.nome && (maq.nome.toUpperCase().includes('MECÂNICO') || maq.nome.toUpperCase().includes('MECANICO'));
+        let headerColuna1 = isMecanicoFrente ? 'Frente de Serviço' : 'Máquina/Liderança';
         
         let hasAny = false;
         window.funcoesSelecionadasEscala.forEach(funcaoNome => {
@@ -596,7 +614,7 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
             let ops = membrosFrente.filter(op => op.funcao === funcaoNome);
             if (ops.length === 0) return;
             
-            html += `<h4 style="margin:5px 0;">Função: ${funcaoNome}</h4><table><thead><tr><th style="width:12%;">Máquina/Liderança</th><th style="width:8%;">Ciclo</th><th style="width:8%;">Regime</th><th style="width:8%;">Turno Início</th><th style="text-align:left;">Nome</th>${window.currentDatasCampo.map(d => `<th style="width:7%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
+            html += `<h4 style="margin:5px 0;">Função: ${funcaoNome}</h4><table><thead><tr><th style="width:12%;">${headerColuna1}</th><th style="width:8%;">Ciclo</th><th style="width:8%;">Regime</th><th style="width:8%;">Turno Início</th><th style="text-align:left;">Nome</th>${window.currentDatasCampo.map(d => `<th style="width:7%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
             
             // Ordenação idêntica ao painel web
             ops.sort((a,b) => {
@@ -631,8 +649,23 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
             
             ops.forEach(op => {
                 let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-                if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; } 
-                else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) { nomeMaqVisual = 'Cobrir M1/M2'; }
+                
+                if (isMecanicoFrente && op.funcao !== 'Líder de Campo') {
+                    if (op.equipe === 'Folguista') {
+                        nomeMaqVisual = 'Cobrir F1 e F2';
+                    } else {
+                        if (op.maquina_especifica === 'Máquina 1' && maq.numero_frota_1) nomeMaqVisual = maq.numero_frota_1;
+                        else if (op.maquina_especifica === 'Máquina 2' && maq.numero_frota_2) nomeMaqVisual = maq.numero_frota_2;
+                        else if (op.maquina_especifica === 'Máquina 3' && maq.numero_frota_3) nomeMaqVisual = maq.numero_frota_3;
+                    }
+                }
+                else if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { 
+                    nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; 
+                } 
+                else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) { 
+                    nomeMaqVisual = 'Cobrir M1/M2'; 
+                }
+
                 html += `<tr><td>${nomeMaqVisual}</td><td>${op.tipo_escala || '4x2'}</td><td>${op.equipe||'-'}</td><td>${op.turno||'-'}</td><td style="text-align:left;"><b>${op.nome}</b></td>`;
                 window.currentDatasCampo.forEach(d => {
                     const esc = matrizEscala[op.id][d.dateKey];
@@ -657,7 +690,7 @@ window.exportarEscalaCampoExcel = function() {
     const inputData = document.getElementById('campoDataEscala');
     let dataBase = inputData && inputData.value ? new Date(inputData.value + 'T00:00:00') : new Date();
     const ano = dataBase.getFullYear(), mes = dataBase.getMonth(), diasNoMes = new Date(ano, mes + 1, 0).getDate();
-    let csvContent = "\uFEFFFrente;Função;Máquina;Ciclo;Turno Início;Regime;Operador";
+    let csvContent = "\uFEFFFrente;Função;Máquina/Frente de Serviço;Ciclo;Turno Início;Regime;Operador";
     
     let dateStrs = [];
     for (let dia = 1; dia <= diasNoMes; dia++) {
@@ -703,13 +736,31 @@ window.exportarEscalaCampoExcel = function() {
     excelOps.forEach(op => {
         let nomeFrente = "Reserva", mq = window.maquinasCampo.find(m => String(m.id) === String(op.maquina_id));
         let isFolguistasFrente = false;
+        let isMecanicoFrente = false;
         if(mq) {
             nomeFrente = mq.nome || `Frente ${mq.id}`;
             if (mq.nome && mq.nome.toUpperCase().includes('FOLGUISTA')) isFolguistasFrente = true;
+            if (mq.nome && (mq.nome.toUpperCase().includes('MECÂNICO') || mq.nome.toUpperCase().includes('MECANICO'))) isMecanicoFrente = true;
         }
+
         let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-        if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; } 
-        else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) { nomeMaqVisual = 'Cobrir M1/M2'; }
+        
+        if (isMecanicoFrente && op.funcao !== 'Líder de Campo') {
+            if (op.equipe === 'Folguista') {
+                nomeMaqVisual = 'Cobrir F1 e F2';
+            } else if (mq) {
+                if (op.maquina_especifica === 'Máquina 1' && mq.numero_frota_1) nomeMaqVisual = mq.numero_frota_1;
+                else if (op.maquina_especifica === 'Máquina 2' && mq.numero_frota_2) nomeMaqVisual = mq.numero_frota_2;
+                else if (op.maquina_especifica === 'Máquina 3' && mq.numero_frota_3) nomeMaqVisual = mq.numero_frota_3;
+            }
+        }
+        else if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { 
+            nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; 
+        } 
+        else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) { 
+            nomeMaqVisual = 'Cobrir M1/M2'; 
+        }
+
         let linha = `${nomeFrente};${op.funcao || '-'};${nomeMaqVisual};${op.tipo_escala||'4x2'};${op.turno||'-'};${op.equipe||'-'};${op.nome}`;
         for (let dia = 1; dia <= diasNoMes; dia++) {
             const dStr = dateStrs[dia - 1];
@@ -741,11 +792,32 @@ window.gerarRelatorioImpressaoCampo = function() {
         const esc = matrizEscala[op.id][dStr];
         if (esc.statusEscala !== 'FOLGA' && esc.statusEscala !== 'F') {
             let m = window.maquinasCampo.find(x => String(x.id) === String(op.maquina_id));
-            let isFolguistasFrente = false; let nFront = "Reserva";
-            if (m) { nFront = m.nome; if (m.nome && m.nome.toUpperCase().includes('FOLGUISTA')) isFolguistasFrente = true; }
+            let isFolguistasFrente = false; let isMecanicoFrente = false; let nFront = "Reserva";
+            
+            if (m) { 
+                nFront = m.nome; 
+                if (m.nome && m.nome.toUpperCase().includes('FOLGUISTA')) isFolguistasFrente = true; 
+                if (m.nome && (m.nome.toUpperCase().includes('MECÂNICO') || m.nome.toUpperCase().includes('MECANICO'))) isMecanicoFrente = true;
+            }
+
             let nomeMaqVisual = op.funcao === 'Líder de Campo' ? 'Líder' : (op.maquina_especifica || 'Sem Máquina');
-            if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; } 
-            else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) { nomeMaqVisual = 'Cobrir M1/M2'; }
+            
+            if (isMecanicoFrente && op.funcao !== 'Líder de Campo') {
+                if (op.equipe === 'Folguista') {
+                    nomeMaqVisual = 'Cobrir F1 e F2';
+                } else if (m) {
+                    if (op.maquina_especifica === 'Máquina 1' && m.numero_frota_1) nomeMaqVisual = m.numero_frota_1;
+                    else if (op.maquina_especifica === 'Máquina 2' && m.numero_frota_2) nomeMaqVisual = m.numero_frota_2;
+                    else if (op.maquina_especifica === 'Máquina 3' && m.numero_frota_3) nomeMaqVisual = m.numero_frota_3;
+                }
+            }
+            else if (isFolguistasFrente && op.funcao !== 'Líder de Campo') { 
+                nomeMaqVisual = op.maquina_especifica ? `Cobrir ${op.maquina_especifica} (F6 e F5)` : 'Cobrir F6 e F5'; 
+            } 
+            else if (op.equipe === 'Folguista' && op.funcao !== 'Líder de Campo' && !isFolguistasFrente) { 
+                nomeMaqVisual = 'Cobrir M1/M2'; 
+            }
+
             let turnoExibicao = (op.tipo_escala === '4x2 Alternado' || op.tipo_escala === '4x2v') ? esc.turno : (op.turno||'-');
             trabs.push({ n: op.nome, f: nFront, func: op.funcao || '-', m: nomeMaqVisual, c: op.tipo_escala||'4x2', t: turnoExibicao, v: esc.statusEscala });
         }
