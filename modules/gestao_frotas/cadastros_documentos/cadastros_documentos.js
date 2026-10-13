@@ -19,7 +19,6 @@ window.initFrotaCadastros = function() {
 
     const TIPOS_COM_GO = ["Semirreboque", "Carreta", "Prancha", "Bitrem", "Tritrem", "Rodotrem", "Reboque"];
 
-    // FUNÇÃO QUE FALTOU: Verifica se o tipo de veículo precisa de GO
     function tipoUsaGO(tipo) {
         return TIPOS_COM_GO.includes(tipo);
     }
@@ -135,7 +134,7 @@ window.initFrotaCadastros = function() {
             1: { mes: 3, dia: 31 }, 2: { mes: 3, dia: 31 }, 3: { mes: 3, dia: 31 },
             4: { mes: 3, dia: 31 }, 5: { mes: 3, dia: 31 }, 6: { mes: 3, dia: 31 },
             7: { mes: 3, dia: 31 }, 8: { mes: 3, dia: 31 }, 9: { mes: 3, dia: 31 },
-            0: { mes: 3, dia: 31 } // PI costuma ter um calendário único
+            0: { mes: 3, dia: 31 }
         },
         PR: {
             1: { mes: 8, dia: 31 }, 2: { mes: 8, dia: 31 }, 3: { mes: 9, dia: 30 },
@@ -819,7 +818,7 @@ window.initFrotaCadastros = function() {
         const diffDias = Math.ceil((venc - hoje) / (1000 * 60 * 60 * 24));
         if (diffDias < 0) return { tipo: "danger", texto: `Vencido (${Math.abs(diffDias)}d)` };
         if (diffDias <= 60) return { tipo: "warn", texto: `Vence em ${diffDias}d` };
-        return { tipo: "ok", texto: `Em dia (${diffDias}d)` };
+        return { tipo: "ok", texto: "Em dia" };
     }
 
     // =====================================================
@@ -1182,7 +1181,7 @@ window.initFrotaCadastros = function() {
                                 <th>Identificação / GO</th>
                                 <th>Marca / Modelo</th>
                                 <th>Exercício</th>
-                                <th>Vencimento</th>
+                                <th>Válido até</th>
                                 <th>Status</th>
                                 <th>Ações</th>
                             </tr>
@@ -1234,7 +1233,7 @@ window.initFrotaCadastros = function() {
             ["Município de Registro", v.local_registro || v.municipio_registro],
             ["UF de Registro", v.uf],
             ["Data de Emissão", v.data_emissao],
-            ["Data de Vencimento", window.formatarData(calcularVencimento(v))],
+            ["Válido até", window.formatarData(calcularVencimento(v))],
             ["Status do Documento", calcularStatus(v).texto]
         ];
 
