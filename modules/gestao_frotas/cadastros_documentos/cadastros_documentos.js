@@ -77,10 +77,11 @@ window.initFrotaCadastros = function() {
             0: { mes: 12, dia: 31 }
         },
         ES: {
-            1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
-            4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
-            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
-            0: { mes: 12, dia: 31 }
+            // Ajustado para refletir o calendário do Detran-ES (Finais 1 a 5 em Setembro)
+            1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 9, dia: 30 },
+            4: { mes: 9, dia: 30 }, 5: { mes: 9, dia: 30 }, 6: { mes: 10, dia: 31 },
+            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
+            0: { mes: 11, dia: 30 }
         },
         GO: {
             1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
