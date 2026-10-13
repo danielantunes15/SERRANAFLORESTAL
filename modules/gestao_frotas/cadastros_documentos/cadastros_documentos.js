@@ -19,6 +19,68 @@ window.initFrotaCadastros = function() {
 
     const TIPOS_COM_GO = ["Carreta", "Prancha", "Bitrem", "Tritrem", "Rodotrem", "Reboque", "Semirreboque"];
 
+    // =====================================================
+    // TABELA NACIONAL DE VENCIMENTO DO CRLV (POR UF E FINAL DE PLACA)
+    // =====================================================
+    window.CALENDARIOS = {
+        // Regra Padrão Básica para estados sem distinção específica mapeada no sistema
+        PADRAO: {
+            0: { mes: 12, dia: 31 }, 1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 },
+            3: { mes: 10, dia: 31 }, 4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 },
+            6: { mes: 11, dia: 30 }, 7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 },
+            9: { mes: 12, dia: 31 }
+        },
+        // SÃO PAULO - Carros de Passeio (Frota Leve)
+        SP_LEVE: {
+            1: { mes: 7, dia: 31 }, 2: { mes: 7, dia: 31 }, 3: { mes: 8, dia: 31 },
+            4: { mes: 8, dia: 31 }, 5: { mes: 9, dia: 30 }, 6: { mes: 9, dia: 30 },
+            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
+            0: { mes: 12, dia: 31 }
+        },
+        // SÃO PAULO - Caminhões / Tratores (Pesados)
+        SP_PESADO: {
+            1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
+            4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
+        // BAHIA
+        BA: {
+            1: { mes: 7, dia: 31 }, 2: { mes: 7, dia: 31 }, 3: { mes: 8, dia: 31 },
+            4: { mes: 8, dia: 31 }, 5: { mes: 9, dia: 30 }, 6: { mes: 9, dia: 30 },
+            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
+            0: { mes: 11, dia: 30 }
+        },
+        // MINAS GERAIS
+        MG: {
+            1: { mes: 8, dia: 31 }, 2: { mes: 8, dia: 31 }, 3: { mes: 8, dia: 31 },
+            4: { mes: 9, dia: 30 }, 5: { mes: 9, dia: 30 }, 6: { mes: 9, dia: 30 },
+            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 10, dia: 31 },
+            0: { mes: 10, dia: 31 }
+        },
+        // ESPÍRITO SANTO
+        ES: {
+            1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
+            4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
+        // RIO DE JANEIRO
+        RJ: {
+            0: { mes: 5, dia: 31 }, 1: { mes: 5, dia: 31 }, 2: { mes: 5, dia: 31 },
+            3: { mes: 6, dia: 30 }, 4: { mes: 6, dia: 30 }, 5: { mes: 6, dia: 30 },
+            6: { mes: 7, dia: 31 }, 7: { mes: 7, dia: 31 }, 8: { mes: 8, dia: 31 },
+            9: { mes: 8, dia: 31 }
+        },
+        // PARANÁ
+        PR: {
+            1: { mes: 8, dia: 31 }, 2: { mes: 8, dia: 31 }, 3: { mes: 9, dia: 30 },
+            4: { mes: 9, dia: 30 }, 5: { mes: 9, dia: 30 }, 6: { mes: 10, dia: 31 },
+            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
+            0: { mes: 11, dia: 30 }
+        }
+    };
+
     function tipoUsaGO(tipo) {
         return TIPOS_COM_GO.includes(tipo);
     }
@@ -116,7 +178,7 @@ window.initFrotaCadastros = function() {
         const sel = document.getElementById("ufSelectForm");
         if (!sel) return;
         sel.innerHTML = "";
-        const ufs = window.UFS || ["BA", "ES", "MG", "SP", "RJ", "PR", "SC", "RS", "GO", "MT", "MS", "PE", "CE"];
+        const ufs = window.UFS || ["BA", "ES", "MG", "SP", "RJ", "PR", "SC", "RS", "GO", "MT", "MS", "PE", "CE", "AC", "AL", "AM", "AP", "DF", "MA", "PA", "PB", "PI", "RN", "RO", "RR", "SE", "TO"];
         ufs.forEach(uf => {
             const opt = document.createElement("option");
             opt.value = uf;
@@ -555,7 +617,7 @@ window.initFrotaCadastros = function() {
             }
         }
 
-        const uf = (ufDetectada && window.CALENDARIOS && window.CALENDARIOS[ufDetectada]) ? ufDetectada : "BA";
+        const uf = ufDetectada || "BA";
 
         return {
             renavam, placa, exercicio, anoFabricacao, anoModelo, numeroCRV,
@@ -597,12 +659,26 @@ window.initFrotaCadastros = function() {
     // VENCIMENTO E STATUS
     // =====================================================
     function calcularVencimento(veiculo) {
-        const uf = (veiculo.uf && window.CALENDARIOS && window.CALENDARIOS[veiculo.uf]) ? veiculo.uf : "BA";
-        const cal = window.CALENDARIOS ? window.CALENDARIOS[uf] : null;
+        const uf = veiculo.uf || "BA";
+        let chaveCalendario = uf;
+
+        // Se for SP, aplica a regra diferenciada de Caminhão/Trator vs Frota Leve
+        if (uf === "SP") {
+            const tipoUpper = (veiculo.tipo_veiculo || veiculo.tipoVeiculo || "").toUpperCase();
+            // Verifica se é veículo pesado
+            if (/(CAVALO|CARRETA|TRITREM|BITREM|RODOTREM|PRANCHA|GRUA|REBOQUE|SEMIRREBOQUE|CAMINHÃO|TRATOR)/.test(tipoUpper)) {
+                chaveCalendario = "SP_PESADO";
+            } else {
+                chaveCalendario = "SP_LEVE";
+            }
+        }
+
+        const cal = window.CALENDARIOS ? (window.CALENDARIOS[chaveCalendario] || window.CALENDARIOS.PADRAO) : null;
         if (!cal) return null;
 
         const placaLimpa = (veiculo.placa || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
         if (placaLimpa.length < 7) return null;
+        
         const ultimoDigito = parseInt(placaLimpa[placaLimpa.length - 1], 10);
         if (isNaN(ultimoDigito) || !cal[ultimoDigito]) return null;
 
@@ -610,7 +686,10 @@ window.initFrotaCadastros = function() {
         if (!exercicio) return null;
 
         const regra = cal[ultimoDigito];
-        return new Date(exercicio, regra.mes - 1, regra.dia);
+        
+        // CORREÇÃO APLICADA AQUI: 
+        // O vencimento do documento do exercício atual vai até a data limite do próximo ano.
+        return new Date(exercicio + 1, regra.mes - 1, regra.dia);
     }
 
     function calcularStatus(veiculo) {
