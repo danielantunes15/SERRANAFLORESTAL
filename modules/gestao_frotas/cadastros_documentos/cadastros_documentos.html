@@ -249,13 +249,12 @@
 
 <!-- CARDS DE ESTATÍSTICAS (KPIs) -->
 <div class="kpi-frotas-container">
-    <!-- Novas Categorias -->
     <div class="kpi-frota-card">
         <div class="kpi-frota-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">
             <i class="fas fa-truck"></i>
         </div>
         <div class="kpi-frota-info">
-            <h4>Cavalo</h4>
+            <h4>Cavalo Mecânico</h4>
             <div class="val" id="kpiCavalo">0</div>
         </div>
     </div>
@@ -264,7 +263,7 @@
             <i class="fas fa-trailer"></i>
         </div>
         <div class="kpi-frota-info">
-            <h4>Carreta</h4>
+            <h4>Semirreboque</h4>
             <div class="val" id="kpiCarreta">0</div>
         </div>
     </div>
@@ -413,15 +412,14 @@
                         <label>Tipo de Veículo <span style="color:#ef4444;">*</span></label>
                         <select id="tipoVeiculoSelect" name="tipoVeiculo" class="dark-select" required>
                             <option value="">Selecione o tipo...</option>
-                            <option value="Cavalo">Cavalo (Caminhão Trator)</option>
-                            <option value="Carreta">Carreta</option>
+                            <option value="Cavalo Mecânico">Cavalo Mecânico (Trator)</option>
+                            <option value="Semirreboque">Semirreboque</option>
                             <option value="Tritrem">Tritrem</option>
                             <option value="Bitrem">Bitrem</option>
                             <option value="Rodotrem">Rodotrem</option>
                             <option value="Prancha">Prancha</option>
                             <option value="Grua">Grua</option>
                             <option value="Reboque">Reboque</option>
-                            <option value="Semirreboque">Semirreboque</option>
                             <option value="Frota Leve">Frota Leve</option>
                             <option value="Ônibus">Ônibus</option>
                             <option value="Outro">Outro</option>
@@ -613,21 +611,12 @@
             <p>O vencimento do CRLV (Licenciamento Anual) é calculado de forma <strong>automática</strong> pelo sistema com base em dois fatores principais:</p>
             <ol style="margin-left: 20px; margin-bottom: 15px;">
                 <li><strong>O final da placa do veículo:</strong> (Ex: ABC1D2<span style="color:#10b981; font-weight:bold;">3</span> → Final 3).</li>
-                <li><strong>A UF de registro do veículo:</strong> Cada estado (DETRAN) possui um calendário próprio de vencimento de acordo com o final da placa.</li>
+                <li><strong>A UF de registro do veículo:</strong> O sistema possui o calendário completo de licenciamento de todos os 27 estados do Brasil (DETRAN).</li>
             </ol>
-            <p>O sistema lê o estado (ex: SP, BA, ES, MG) e o último dígito da placa para determinar a data exata limite para aquele exercício.</p>
+            <p>O sistema lê o estado (ex: SP, BA, MG, SC, etc) e o último dígito da placa para determinar a data exata limite para aquele exercício.</p>
             <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border-dim); margin-top: 15px;">
-                <strong>Exemplo (Estado SP - Caminhões e Tratores):</strong><br>
-                Placas final 1 e 2 vencem em Setembro.<br>
-                Placas final 3, 4 e 5 vencem em Outubro.<br>
-                Placas final 6, 7 e 8 vencem em Novembro.<br>
-                Placas final 9 e 0 vencem em Dezembro.
-            </div>
-            <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid var(--border-dim); margin-top: 10px;">
-                <strong>Exemplo (Estado SP - Frota Leve):</strong><br>
-                Placas final 1 e 2 vencem em Julho.<br>
-                Placas final 3 e 4 vencem em Agosto.<br>
-                E assim sucessivamente.
+                <strong>Nota sobre o Exercício:</strong><br>
+                Se você importar um CRLV com Exercício 2026, significa que o documento de 2026 já foi pago e está vigente. O sistema calculará automaticamente o prazo de validade deste documento até a data limite exigida pelo Detran no <strong>ano seguinte (2027)</strong>.
             </div>
         </div>
     </div>

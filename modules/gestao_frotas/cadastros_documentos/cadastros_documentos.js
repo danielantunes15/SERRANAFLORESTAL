@@ -17,73 +17,193 @@ window.initFrotaCadastros = function() {
     let novoPDFEmAtualizacao = null;
     let novosDadosEmAtualizacao = null;
 
-    const TIPOS_COM_GO = ["Carreta", "Prancha", "Bitrem", "Tritrem", "Rodotrem", "Reboque", "Semirreboque"];
+    const TIPOS_COM_GO = ["Semirreboque", "Carreta", "Prancha", "Bitrem", "Tritrem", "Rodotrem", "Reboque"];
+
+    // FUNÇÃO QUE FALTOU: Verifica se o tipo de veículo precisa de GO
+    function tipoUsaGO(tipo) {
+        return TIPOS_COM_GO.includes(tipo);
+    }
 
     // =====================================================
     // TABELA NACIONAL DE VENCIMENTO DO CRLV (POR UF E FINAL DE PLACA)
+    // Cobertura completa de todos os estados (27 UFs)
     // =====================================================
     window.CALENDARIOS = {
-        // Regra Padrão Básica para estados sem distinção específica mapeada no sistema
-        PADRAO: {
-            0: { mes: 12, dia: 31 }, 1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 },
-            3: { mes: 10, dia: 31 }, 4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 },
-            6: { mes: 11, dia: 30 }, 7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 },
-            9: { mes: 12, dia: 31 }
-        },
-        // SÃO PAULO - Carros de Passeio (Frota Leve)
-        SP_LEVE: {
-            1: { mes: 7, dia: 31 }, 2: { mes: 7, dia: 31 }, 3: { mes: 8, dia: 31 },
-            4: { mes: 8, dia: 31 }, 5: { mes: 9, dia: 30 }, 6: { mes: 9, dia: 30 },
-            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
-            0: { mes: 12, dia: 31 }
-        },
-        // SÃO PAULO - Caminhões / Tratores (Pesados)
-        SP_PESADO: {
+        PADRAO: { // Caso falhe, joga para o fim do ano de forma conservadora
             1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
             4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
             7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
             0: { mes: 12, dia: 31 }
         },
-        // BAHIA
+        AC: {
+            1: { mes: 8, dia: 31 }, 2: { mes: 8, dia: 31 }, 3: { mes: 9, dia: 30 },
+            4: { mes: 9, dia: 30 }, 5: { mes: 10, dia: 31 }, 6: { mes: 10, dia: 31 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
+        AL: {
+            1: { mes: 8, dia: 31 }, 2: { mes: 8, dia: 31 }, 3: { mes: 9, dia: 30 },
+            4: { mes: 9, dia: 30 }, 5: { mes: 10, dia: 31 }, 6: { mes: 10, dia: 31 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
+        AM: {
+            1: { mes: 5, dia: 31 }, 2: { mes: 6, dia: 30 }, 3: { mes: 7, dia: 31 },
+            4: { mes: 8, dia: 31 }, 5: { mes: 9, dia: 30 }, 6: { mes: 10, dia: 31 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
+        AP: {
+            1: { mes: 8, dia: 31 }, 2: { mes: 8, dia: 31 }, 3: { mes: 9, dia: 30 },
+            4: { mes: 9, dia: 30 }, 5: { mes: 10, dia: 31 }, 6: { mes: 10, dia: 31 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
         BA: {
             1: { mes: 7, dia: 31 }, 2: { mes: 7, dia: 31 }, 3: { mes: 8, dia: 31 },
             4: { mes: 8, dia: 31 }, 5: { mes: 9, dia: 30 }, 6: { mes: 9, dia: 30 },
             7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
             0: { mes: 11, dia: 30 }
         },
-        // MINAS GERAIS
-        MG: {
-            1: { mes: 8, dia: 31 }, 2: { mes: 8, dia: 31 }, 3: { mes: 8, dia: 31 },
-            4: { mes: 9, dia: 30 }, 5: { mes: 9, dia: 30 }, 6: { mes: 9, dia: 30 },
-            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 10, dia: 31 },
-            0: { mes: 10, dia: 31 }
+        CE: {
+            1: { mes: 3, dia: 10 }, 2: { mes: 4, dia: 10 }, 3: { mes: 5, dia: 10 },
+            4: { mes: 6, dia: 10 }, 5: { mes: 7, dia: 10 }, 6: { mes: 8, dia: 10 },
+            7: { mes: 9, dia: 10 }, 8: { mes: 10, dia: 10 }, 9: { mes: 11, dia: 10 },
+            0: { mes: 12, dia: 10 }
         },
-        // ESPÍRITO SANTO
+        DF: {
+            1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
+            4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
         ES: {
             1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
             4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
             7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
             0: { mes: 12, dia: 31 }
         },
-        // RIO DE JANEIRO
+        GO: {
+            1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
+            4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
+        MA: {
+            1: { mes: 3, dia: 31 }, 2: { mes: 3, dia: 31 }, 3: { mes: 4, dia: 30 },
+            4: { mes: 4, dia: 30 }, 5: { mes: 5, dia: 31 }, 6: { mes: 5, dia: 31 },
+            7: { mes: 6, dia: 30 }, 8: { mes: 6, dia: 30 }, 9: { mes: 7, dia: 31 },
+            0: { mes: 7, dia: 31 }
+        },
+        MG: {
+            1: { mes: 8, dia: 31 }, 2: { mes: 8, dia: 31 }, 3: { mes: 8, dia: 31 },
+            4: { mes: 9, dia: 30 }, 5: { mes: 9, dia: 30 }, 6: { mes: 9, dia: 30 },
+            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 10, dia: 31 },
+            0: { mes: 10, dia: 31 }
+        },
+        MS: {
+            1: { mes: 4, dia: 30 }, 2: { mes: 4, dia: 30 }, 3: { mes: 5, dia: 31 },
+            4: { mes: 5, dia: 31 }, 5: { mes: 6, dia: 30 }, 6: { mes: 6, dia: 30 },
+            7: { mes: 7, dia: 31 }, 8: { mes: 7, dia: 31 }, 9: { mes: 8, dia: 31 },
+            0: { mes: 8, dia: 31 }
+        },
+        MT: {
+            1: { mes: 3, dia: 31 }, 2: { mes: 3, dia: 31 }, 3: { mes: 3, dia: 31 },
+            4: { mes: 4, dia: 30 }, 5: { mes: 4, dia: 30 }, 6: { mes: 4, dia: 30 },
+            7: { mes: 5, dia: 31 }, 8: { mes: 5, dia: 31 }, 9: { mes: 5, dia: 31 },
+            0: { mes: 6, dia: 30 }
+        },
+        PA: {
+            1: { mes: 3, dia: 31 }, 2: { mes: 4, dia: 30 }, 3: { mes: 4, dia: 30 },
+            4: { mes: 5, dia: 31 }, 5: { mes: 6, dia: 30 }, 6: { mes: 7, dia: 31 },
+            7: { mes: 8, dia: 31 }, 8: { mes: 9, dia: 30 }, 9: { mes: 10, dia: 31 },
+            0: { mes: 11, dia: 30 }
+        },
+        PB: {
+            1: { mes: 3, dia: 31 }, 2: { mes: 4, dia: 30 }, 3: { mes: 5, dia: 31 },
+            4: { mes: 6, dia: 30 }, 5: { mes: 7, dia: 31 }, 6: { mes: 8, dia: 31 },
+            7: { mes: 9, dia: 30 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
+            0: { mes: 12, dia: 31 }
+        },
+        PE: {
+            1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
+            4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
+        PI: {
+            1: { mes: 3, dia: 31 }, 2: { mes: 3, dia: 31 }, 3: { mes: 3, dia: 31 },
+            4: { mes: 3, dia: 31 }, 5: { mes: 3, dia: 31 }, 6: { mes: 3, dia: 31 },
+            7: { mes: 3, dia: 31 }, 8: { mes: 3, dia: 31 }, 9: { mes: 3, dia: 31 },
+            0: { mes: 3, dia: 31 } // PI costuma ter um calendário único
+        },
+        PR: {
+            1: { mes: 8, dia: 31 }, 2: { mes: 8, dia: 31 }, 3: { mes: 9, dia: 30 },
+            4: { mes: 9, dia: 30 }, 5: { mes: 9, dia: 30 }, 6: { mes: 10, dia: 31 },
+            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
+            0: { mes: 11, dia: 30 }
+        },
         RJ: {
             0: { mes: 5, dia: 31 }, 1: { mes: 5, dia: 31 }, 2: { mes: 5, dia: 31 },
             3: { mes: 6, dia: 30 }, 4: { mes: 6, dia: 30 }, 5: { mes: 6, dia: 30 },
             6: { mes: 7, dia: 31 }, 7: { mes: 7, dia: 31 }, 8: { mes: 8, dia: 31 },
             9: { mes: 8, dia: 31 }
         },
-        // PARANÁ
-        PR: {
-            1: { mes: 8, dia: 31 }, 2: { mes: 8, dia: 31 }, 3: { mes: 9, dia: 30 },
-            4: { mes: 9, dia: 30 }, 5: { mes: 9, dia: 30 }, 6: { mes: 10, dia: 31 },
-            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
+        RN: {
+            1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
+            4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
+        RO: {
+            1: { mes: 3, dia: 31 }, 2: { mes: 4, dia: 30 }, 3: { mes: 5, dia: 31 },
+            4: { mes: 6, dia: 30 }, 5: { mes: 7, dia: 31 }, 6: { mes: 8, dia: 31 },
+            7: { mes: 9, dia: 30 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
+            0: { mes: 12, dia: 31 }
+        },
+        RR: {
+            1: { mes: 3, dia: 31 }, 2: { mes: 4, dia: 30 }, 3: { mes: 5, dia: 31 },
+            4: { mes: 6, dia: 30 }, 5: { mes: 7, dia: 31 }, 6: { mes: 8, dia: 31 },
+            7: { mes: 9, dia: 30 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
+            0: { mes: 12, dia: 31 }
+        },
+        RS: {
+            1: { mes: 4, dia: 30 }, 2: { mes: 4, dia: 30 }, 3: { mes: 4, dia: 30 },
+            4: { mes: 5, dia: 31 }, 5: { mes: 5, dia: 31 }, 6: { mes: 5, dia: 31 },
+            7: { mes: 6, dia: 30 }, 8: { mes: 6, dia: 30 }, 9: { mes: 7, dia: 31 },
+            0: { mes: 7, dia: 31 }
+        },
+        SC: {
+            1: { mes: 1, dia: 31 }, 2: { mes: 2, dia: 28 }, 3: { mes: 3, dia: 31 },
+            4: { mes: 4, dia: 30 }, 5: { mes: 5, dia: 31 }, 6: { mes: 6, dia: 30 },
+            7: { mes: 7, dia: 31 }, 8: { mes: 8, dia: 31 }, 9: { mes: 9, dia: 30 },
+            0: { mes: 10, dia: 31 }
+        },
+        SE: {
+            1: { mes: 3, dia: 31 }, 2: { mes: 4, dia: 30 }, 3: { mes: 5, dia: 31 },
+            4: { mes: 6, dia: 30 }, 5: { mes: 7, dia: 31 }, 6: { mes: 8, dia: 31 },
+            7: { mes: 9, dia: 30 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
             0: { mes: 11, dia: 30 }
+        },
+        SP_LEVE: {
+            1: { mes: 7, dia: 31 }, 2: { mes: 7, dia: 31 }, 3: { mes: 8, dia: 31 },
+            4: { mes: 8, dia: 31 }, 5: { mes: 9, dia: 30 }, 6: { mes: 9, dia: 30 },
+            7: { mes: 10, dia: 31 }, 8: { mes: 10, dia: 31 }, 9: { mes: 11, dia: 30 },
+            0: { mes: 12, dia: 31 }
+        },
+        SP_PESADO: {
+            1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
+            4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
+        },
+        TO: {
+            1: { mes: 9, dia: 30 }, 2: { mes: 9, dia: 30 }, 3: { mes: 10, dia: 31 },
+            4: { mes: 10, dia: 31 }, 5: { mes: 10, dia: 31 }, 6: { mes: 11, dia: 30 },
+            7: { mes: 11, dia: 30 }, 8: { mes: 11, dia: 30 }, 9: { mes: 12, dia: 31 },
+            0: { mes: 12, dia: 31 }
         }
     };
-
-    function tipoUsaGO(tipo) {
-        return TIPOS_COM_GO.includes(tipo);
-    }
 
     function isUsuarioGlobal() {
         return !!(window.currentUser && (
@@ -641,13 +761,13 @@ window.initFrotaCadastros = function() {
         const tipoSel = form.elements["tipoVeiculo"];
         if (tipoSel && !tipoSel.value) {
             const textoAnalise = `${dados.especieTipo || ""} ${dados.marcaModelo || ""}`.toUpperCase();
-            if (/TRATOR|CAVALO|TRACAO|TRAÇÃO/i.test(textoAnalise)) tipoSel.value = "Cavalo";
+            if (/TRATOR|CAVALO|TRACAO|TRAÇÃO/i.test(textoAnalise)) tipoSel.value = "Cavalo Mecânico";
             else if (/TRITREM/i.test(textoAnalise)) tipoSel.value = "Tritrem";
             else if (/BITREM/i.test(textoAnalise)) tipoSel.value = "Bitrem";
             else if (/RODOTREM/i.test(textoAnalise)) tipoSel.value = "Rodotrem";
             else if (/PRANCHA/i.test(textoAnalise)) tipoSel.value = "Prancha";
             else if (/GRUA/i.test(textoAnalise)) tipoSel.value = "Grua";
-            else if (/SEMIRREBOQUE|CARRETA/i.test(textoAnalise)) tipoSel.value = "Carreta";
+            else if (/SEMIRREBOQUE|CARRETA/i.test(textoAnalise)) tipoSel.value = "Semirreboque";
             else if (/REBOQUE/i.test(textoAnalise)) tipoSel.value = "Reboque";
             else if (/ONIBUS|ÔNIBUS/i.test(textoAnalise)) tipoSel.value = "Ônibus";
             else if (/CAMINHONETE|AUTOMOVEL|UTILITARIO/i.test(textoAnalise)) tipoSel.value = "Frota Leve";
@@ -687,8 +807,7 @@ window.initFrotaCadastros = function() {
 
         const regra = cal[ultimoDigito];
         
-        // CORREÇÃO APLICADA AQUI: 
-        // O vencimento do documento do exercício atual vai até a data limite do próximo ano.
+        // Vencimento ocorre no ano SEGUINTE ao exercício pago.
         return new Date(exercicio + 1, regra.mes - 1, regra.dia);
     }
 
@@ -896,9 +1015,9 @@ window.initFrotaCadastros = function() {
             else if (st.tipo === "danger") vencidos++;
             
             const tipo = (v.tipo_veiculo || "").toUpperCase();
-            if (tipo === "CAVALO") {
+            if (tipo === "CAVALO MECÂNICO" || tipo === "CAVALO MECANICO" || tipo === "CAVALO") {
                 countCavalo++;
-            } else if (tipo === "CARRETA") {
+            } else if (tipo === "SEMIRREBOQUE" || tipo === "CARRETA") {
                 countCarreta++;
             } else if (tipo === "GRUA") {
                 countGrua++;
@@ -909,7 +1028,6 @@ window.initFrotaCadastros = function() {
             }
         });
 
-        // Atualização dos novos cards por categoria
         const elCavalo = document.getElementById("kpiCavalo");
         const elCarreta = document.getElementById("kpiCarreta");
         const elGrua = document.getElementById("kpiGrua");
@@ -922,7 +1040,6 @@ window.initFrotaCadastros = function() {
         if (elFrotaLeve) elFrotaLeve.textContent = countFrotaLeve;
         if (elOutros) elOutros.textContent = countOutros;
 
-        // Atualização dos cards existentes
         const elTot = document.getElementById("kpiTotalFrotas");
         const elOk = document.getElementById("kpiEmDia");
         const elWarn = document.getElementById("kpiVencendo");
