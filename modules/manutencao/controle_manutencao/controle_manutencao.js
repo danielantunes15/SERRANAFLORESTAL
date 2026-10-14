@@ -820,30 +820,21 @@ window.abrirModalRevisao = async function(id) {
         document.getElementById('inputQtdRevisoes').value = 0;
     }
 
-    if (isGrua) {
-        const intervaloHoras = parseInt(window.horimetroIntervaloFilial) || 500;
-        inputProxima.readOnly = true;
-        inputProxima.style.backgroundColor = 'rgba(0,0,0,0.2)'; 
-        inputProxima.style.cursor = 'not-allowed';
+    // Mantém o campo Próxima (KM/Horímetro) SEMPRE bloqueado para edição manual,
+    // calculando automaticamente a partir do parâmetro da filial
+    inputProxima.readOnly = true;
+    inputProxima.style.backgroundColor = 'rgba(0,0,0,0.2)'; 
+    inputProxima.style.cursor = 'not-allowed';
 
-        inputRealizada.oninput = function() {
-            const realizada = parseInt(inputRealizada.value) || 0;
-            inputProxima.value = realizada + intervaloHoras;
-        };
-        inputRealizada.dispatchEvent(new Event('input'));
-    } else {
-        const intervaloKm = parseInt(window.kmIntervaloFilial) || 40000;
-        inputProxima.readOnly = false;
-        inputProxima.style.backgroundColor = '';
-        inputProxima.style.cursor = '';
+    const intervaloAplicado = isGrua 
+        ? (parseInt(window.horimetroIntervaloFilial) || 500) 
+        : (parseInt(window.kmIntervaloFilial) || 40000);
 
-        // Ao alterar a KM Realizada, soma automaticamente o intervalo configurado da filial
-        inputRealizada.oninput = function() {
-            const realizada = parseInt(inputRealizada.value) || 0;
-            inputProxima.value = realizada + intervaloKm;
-        };
-        inputRealizada.dispatchEvent(new Event('input'));
-    }
+    inputRealizada.oninput = function() {
+        const realizada = parseInt(inputRealizada.value) || 0;
+        inputProxima.value = realizada + intervaloAplicado;
+    };
+    inputRealizada.dispatchEvent(new Event('input'));
 
     document.getElementById('modalRegistrarRevisao').classList.add('show');
 
@@ -890,10 +881,17 @@ window.salvarNovaRevisao = async function() {
     const tipo = document.getElementById('revVeiculoTipoValor').value;
     const dataUltima = document.getElementById('inputDataUltimaRevisao').value || null;
     const kmRevisao = parseInt(document.getElementById('inputKmRevisaoRealizada').value);
-    const kmProxima = parseInt(document.getElementById('inputKmProximaRevisao').value);
 
     const filialId = window.obterFilialUsuarioLogadoRev();
     const isTritrem = String(tipo).toUpperCase().includes('TRITREM');
+    const isGrua = String(tipo).toUpperCase().includes('GRUA');
+
+    const intervaloAplicado = isGrua 
+        ? (parseInt(window.horimetroIntervaloFilial) || 500) 
+        : (parseInt(window.kmIntervaloFilial) || 40000);
+
+    // Garante que o valor salvo seja sempre a soma exata do parâmetro da filial
+    const kmProxima = kmRevisao + intervaloAplicado;
 
     let detalhes = document.getElementById('inputDetalhesRevisao').value.trim();
 
