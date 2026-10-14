@@ -4,6 +4,8 @@ window.veiculosRevisaoDb = [];
 window.veiculosRevisaoFiltrados = [];
 window.abaAtivaManutencao = 'lista';
 window.paradasProgramadas = []; 
+window.kmIntervaloFilial = 40000;
+window.horimetroIntervaloFilial = 500;
 
 window.obterFilialUsuarioLogadoRev = function() {
     return (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') 
@@ -17,6 +19,93 @@ window.formatarDataHoraCerta = function(isoString) {
     return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+// ======================= PARÂMETROS DE KM POR FILIAL =======================
+window.carregarParametrosKmFilial = async function() {
+    const filialId = window.obterFilialUsuarioLogadoRev() || 0;
+    try {
+        const { data, error } = await window.supabaseClient
+            .from('manutencao_parametros_revisao')
+            .select('km_intervalo, horimetro_intervalo')
+            .eq('filial_id', filialId)
+            .maybeSingle();
+
+        if (!error && data) {
+            window.kmIntervaloFilial = parseInt(data.km_intervalo) || 40000;
+            window.horimetroIntervaloFilial = parseInt(data.horimetro_intervalo) || 500;
+        } else {
+            window.kmIntervaloFilial = 40000;
+            window.horimetroIntervaloFilial = 500;
+        }
+    } catch (e) {
+        console.error("Erro ao carregar parâmetros de revisão da filial:", e);
+        window.kmIntervaloFilial = 40000;
+        window.horimetroIntervaloFilial = 500;
+    }
+};
+
+window.abrirModalParametrosKm = async function() {
+    await window.carregarParametrosKmFilial();
+    const inputKm = document.getElementById('inputConfigKmIntervalo');
+    const inputHorimetro = document.getElementById('inputConfigHorimetroIntervalo');
+    
+    if (inputKm) inputKm.value = window.kmIntervaloFilial;
+    if (inputHorimetro) inputHorimetro.value = window.horimetroIntervaloFilial;
+
+    document.getElementById('modalParametrosKm').classList.add('show');
+};
+
+window.fecharModalParametrosKm = function() {
+    document.getElementById('modalParametrosKm').classList.remove('show');
+};
+
+window.salvarParametrosKm = async function() {
+    const kmVal = parseInt(document.getElementById('inputConfigKmIntervalo').value);
+    const horimetroVal = parseInt(document.getElementById('inputConfigHorimetroIntervalo').value) || 500;
+    const filialId = window.obterFilialUsuarioLogadoRev() || 0;
+
+    if (isNaN(kmVal) || kmVal <= 0) {
+        return alert("Informe uma quilometragem válida maior que zero.");
+    }
+
+    try {
+        const { data: check } = await window.supabaseClient
+            .from('manutencao_parametros_revisao')
+            .select('id')
+            .eq('filial_id', filialId)
+            .maybeSingle();
+
+        if (check && check.id) {
+            const { error } = await window.supabaseClient
+                .from('manutencao_parametros_revisao')
+                .update({
+                    km_intervalo: kmVal,
+                    horimetro_intervalo: horimetroVal,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', check.id);
+            if (error) throw error;
+        } else {
+            const { error } = await window.supabaseClient
+                .from('manutencao_parametros_revisao')
+                .insert([{
+                    filial_id: filialId,
+                    km_intervalo: kmVal,
+                    horimetro_intervalo: horimetroVal
+                }]);
+            if (error) throw error;
+        }
+
+        window.kmIntervaloFilial = kmVal;
+        window.horimetroIntervaloFilial = horimetroVal;
+
+        alert("Intervalo de revisão salvo com sucesso para esta filial!");
+        window.fecharModalParametrosKm();
+    } catch (e) {
+        console.error("Erro ao salvar parâmetros de KM:", e);
+        alert("Erro ao salvar os parâmetros no banco de dados. Verifique se a tabela foi criada.");
+    }
+};
+
 window.initControleManutencao = async function() {
     console.log("Módulo Central de Manutenção Inicializado.");
     const elPlaca = document.getElementById('filtroPlacaRevisao');
@@ -24,6 +113,7 @@ window.initControleManutencao = async function() {
     if (elPlaca) elPlaca.value = '';
     if (elStatus) elStatus.value = '';
 
+    await window.carregarParametrosKmFilial();
     await window.carregarVeiculosManutencao(true);
 };
 
@@ -33,6 +123,8 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
     try {
         const tbody = document.getElementById('tbControleRevisoes');
         if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Sincronizando dados e montando inteligência...</td></tr>`;
+
+        await window.carregarParametrosKmFilial();
 
         if (forcarSincronizacao) {
             await window.sincronizarComPlanilhaGoogle();
@@ -678,9 +770,11 @@ window.salvarNovoKm = async function() {
 };
 
 // ======================= MODAL: REGISTRAR REVISÃO =======================
-window.abrirModalRevisao = function(id) {
+window.abrirModalRevisao = async function(id) {
     const v = window.veiculosRevisaoDb.find(x => String(x.id) === String(id));
     if(!v) return;
+
+    await window.carregarParametrosKmFilial();
 
     const isGrua = String(v.tipo).toUpperCase().includes('GRUA');
     const isTritrem = String(v.tipo).toUpperCase().includes('TRITREM');
@@ -703,11 +797,11 @@ window.abrirModalRevisao = function(id) {
 
     document.querySelectorAll('.checklist-grid input[type="checkbox"]').forEach(chk => chk.checked = false);
 
-    inputDataUltima.value = v.data_ultima_revisao || new Date().toISOString().split('T')[0]; 
+    inputDataUltima.value = new Date().toISOString().split('T')[0]; 
     
-    // ===== CORREÇÃO: AGORA O CAMPO TRAZ O VALOR DA ÚLTIMA REVISÃO ===== //
-    inputRealizada.value = v.km_ultima_revisao; 
-    // ================================================================== //
+    // Puxa o KM Atual (ou o da última revisão caso o atual seja menor) como base para a revisão realizada agora
+    const kmBaseRealizada = (v.km_atual && v.km_atual > v.km_ultima_revisao) ? v.km_atual : (v.km_ultima_revisao || 0);
+    inputRealizada.value = kmBaseRealizada;
     
     inputDetalhes.value = '';
 
@@ -717,7 +811,7 @@ window.abrirModalRevisao = function(id) {
         document.getElementById('inputDataInspecao').value = v.data_inspecao || '';
         document.getElementById('inputDataInspEletro').value = v.data_inspecao_eletromecanica || '';
         document.getElementById('inputDataProximaInspecao').value = v.data_proxima_inspecao || '';
-        document.getElementById('inputQtdRevisoes').value = v.quantidade_revisoes || 0;
+        document.getElementById('inputQtdRevisoes').value = (parseInt(v.quantidade_revisoes) || 0) + 1;
     } else {
         divDatas.style.display = 'none';
         document.getElementById('inputDataInspecao').value = '';
@@ -727,24 +821,28 @@ window.abrirModalRevisao = function(id) {
     }
 
     if (isGrua) {
+        const intervaloHoras = parseInt(window.horimetroIntervaloFilial) || 500;
         inputProxima.readOnly = true;
         inputProxima.style.backgroundColor = 'rgba(0,0,0,0.2)'; 
         inputProxima.style.cursor = 'not-allowed';
 
         inputRealizada.oninput = function() {
-            const ultima = parseInt(inputRealizada.value) || 0;
-            const proximaRevisao500 = ultima + 500;
-            inputProxima.value = proximaRevisao500;
+            const realizada = parseInt(inputRealizada.value) || 0;
+            inputProxima.value = realizada + intervaloHoras;
         };
         inputRealizada.dispatchEvent(new Event('input'));
     } else {
+        const intervaloKm = parseInt(window.kmIntervaloFilial) || 40000;
         inputProxima.readOnly = false;
         inputProxima.style.backgroundColor = '';
         inputProxima.style.cursor = '';
-        inputRealizada.oninput = null;
-        
-        // ===== CORREÇÃO PARA MANTER CONSISTÊNCIA ===== //
-        inputProxima.value = (v.km_proxima_revisao && v.km_proxima_revisao > 0) ? v.km_proxima_revisao : v.km_ultima_revisao + 10000;
+
+        // Ao alterar a KM Realizada, soma automaticamente o intervalo configurado da filial
+        inputRealizada.oninput = function() {
+            const realizada = parseInt(inputRealizada.value) || 0;
+            inputProxima.value = realizada + intervaloKm;
+        };
+        inputRealizada.dispatchEvent(new Event('input'));
     }
 
     document.getElementById('modalRegistrarRevisao').classList.add('show');
@@ -814,7 +912,6 @@ window.salvarNovaRevisao = async function() {
     let stringChecks = checks.length > 0 ? `[Checklist: ${checks.join(', ')}] ` : '';
     let descricaoCompleta = stringChecks + detalhes;
 
-    // Payload para UPDATE não altera mais o 'km_atual'
     let payloadUpdate = {
         data_ultima_revisao: dataUltima,
         km_ultima_revisao: kmRevisao,
@@ -822,7 +919,6 @@ window.salvarNovaRevisao = async function() {
         detalhes_ultima_revisao: detalhes
     };
 
-    // Payload para INSERT define o km_atual inicial igual a revisão para não começar zerado
     let payloadInsert = {
         placa: placa,
         numero_frota: frota,
@@ -848,12 +944,15 @@ window.salvarNovaRevisao = async function() {
     }
 
     try {
-        let queryCheck = window.supabaseClient.from('manutencao_revisoes').select('id').eq('placa', placa);
+        let queryCheck = window.supabaseClient.from('manutencao_revisoes').select('id, km_atual').eq('placa', placa);
         if (filialId !== null) queryCheck = queryCheck.eq('filial_id', filialId);
         
         const { data: checkExist } = await queryCheck.maybeSingle();
 
         if (checkExist && checkExist.id) {
+            if (kmRevisao > (parseInt(checkExist.km_atual) || 0)) {
+                payloadUpdate.km_atual = kmRevisao;
+            }
             await window.supabaseClient.from('manutencao_revisoes').update(payloadUpdate).eq('id', checkExist.id);
         } else {
             await window.supabaseClient.from('manutencao_revisoes').insert([payloadInsert]);
