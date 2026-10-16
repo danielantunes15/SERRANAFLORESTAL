@@ -14,6 +14,23 @@ window.initRelatorioOcorrencias = async function() {
     await window.carregarDadosRelatorio();
 };
 
+window.togglePeriodoRel = function() {
+    const tipo = document.getElementById('tipoPeriodoRel').value;
+    const grupoMesAno = document.getElementById('grupoMesAnoRel');
+    const filtroMes = document.getElementById('filtroMesRel');
+    const filtroAno = document.getElementById('filtroAnoRel');
+    
+    if (tipo === 'todo') {
+        grupoMesAno.style.display = 'none';
+        filtroMes.value = '';
+        filtroAno.value = '';
+    } else {
+        grupoMesAno.style.display = 'flex';
+        // Define o ano atual como padrão
+        filtroAno.value = new Date().getFullYear().toString();
+    }
+};
+
 window.carregarDadosRelatorio = async function() {
     const tbody = document.getElementById('tbodyRelatorioOcorrencias');
     if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 30px;"><i class="fas fa-spinner fa-spin"></i> Sincronizando dados com o servidor...</td></tr>';
@@ -31,6 +48,19 @@ window.carregarDadosRelatorio = async function() {
         if (error) throw error;
         
         window.dadosOcorrenciasRelatorio = data || [];
+        
+        // Define mês e ano atuais como padrão
+        const mesAtual = (new Date().getMonth() + 1).toString().padStart(2, '0');
+        const anoAtual = new Date().getFullYear().toString();
+        const selectMes = document.getElementById('filtroMesRel');
+        const selectAno = document.getElementById('filtroAnoRel');
+        const tipoPeriodo = document.getElementById('tipoPeriodoRel');
+        
+        if(tipoPeriodo) tipoPeriodo.value = 'mes';
+        if(selectMes) selectMes.value = mesAtual;
+        if(selectAno) selectAno.value = anoAtual;
+        window.togglePeriodoRel();
+
         window.filtrarEAtualizarDashboard(); 
     } catch (error) {
         console.error("Erro ao carregar relatório:", error);
@@ -39,6 +69,9 @@ window.carregarDadosRelatorio = async function() {
 };
 
 window.limparFiltrosRelatorio = function() {
+    document.getElementById('tipoPeriodoRel').value = 'mes';
+    window.togglePeriodoRel();
+    
     document.getElementById('filtroMesRel').value = '';
     const anoAtual = new Date().getFullYear().toString();
     const selectAno = document.getElementById('filtroAnoRel');
@@ -52,6 +85,7 @@ window.limparFiltrosRelatorio = function() {
 };
 
 window.filtrarEAtualizarDashboard = function() {
+    const tipoPeriodo = document.getElementById('tipoPeriodoRel') ? document.getElementById('tipoPeriodoRel').value : 'mes';
     const mesFiltro = document.getElementById('filtroMesRel').value; 
     const anoFiltro = document.getElementById('filtroAnoRel').value;
     const dataEspecifica = document.getElementById('filtroDataEspecificaRel').value;
@@ -63,7 +97,7 @@ window.filtrarEAtualizarDashboard = function() {
         // Filtro de Data (Prioriza data específica se preenchida)
         if (dataEspecifica) {
             if (o.data_ocorrido !== dataEspecifica) return false;
-        } else {
+        } else if (tipoPeriodo === 'mes') {
             // Filtro normal por Mês/Ano
             if (o.data_ocorrido) {
                 const partes = o.data_ocorrido.split('-'); 
@@ -104,16 +138,18 @@ window.filtrarEAtualizarDashboard = function() {
 window.determinarCausador = function(oco) {
     let causadorReal = oco.nome_envolvido || 'Não Identificado';
     let setorReal = oco.setor || '-';
+    let funcaoReal = oco.funcao || '-';
     let isExterno = false;
 
     if (oco.is_responsavel === true) {
-        return { nome: causadorReal, setor: setorReal, isExterno: false };
+        return { nome: causadorReal, setor: setorReal, funcao: funcaoReal, isExterno: false };
     }
 
     if (oco.ocorrencia_outros_envolvidos && Array.isArray(oco.ocorrencia_outros_envolvidos)) {
         const causadorOutro = oco.ocorrencia_outros_envolvidos.find(e => e.is_responsavel === true);
         if (causadorOutro) {
             setorReal = causadorOutro.setor || '-';
+            funcaoReal = causadorOutro.funcao || '-';
             if (causadorOutro.tipo_envolvido === 'TERCEIRO') {
                 isExterno = true;
                 causadorReal = causadorOutro.nome || 'Outros (Terceiros)';
@@ -121,11 +157,11 @@ window.determinarCausador = function(oco) {
             } else {
                 causadorReal = causadorOutro.nome;
             }
-            return { nome: causadorReal, setor: setorReal, isExterno: isExterno };
+            return { nome: causadorReal, setor: setorReal, funcao: funcaoReal, isExterno: isExterno };
         }
     }
 
-    return { nome: causadorReal, setor: setorReal, isExterno: isExterno };
+    return { nome: causadorReal, setor: setorReal, funcao: funcaoReal, isExterno: isExterno };
 };
 
 window.atualizarKPIsRelatorio = function() {
@@ -340,7 +376,7 @@ window.renderizarGraficosRelatorio = function() {
                     ]),
                     borderRadius: [4, 4, 0, 0] 
                 },
-                label: { // Valor da quantidade acima da barra
+                label: { 
                     show: true, 
                     position: 'top', 
                     color: '#f8fafc', 
@@ -466,4 +502,102 @@ window.renderizarGraficosRelatorio = function() {
     window.addEventListener('resize', () => {
         chartMeses.resize(); chartTipos.resize(); chartCausadores.resize(); chartOrigem.resize();
     });
+};
+
+// ============================================================================
+// FUNÇÃO EXPORTAR PARA EXCEL (Gerando um CSV compatível com acentos no Excel)
+// ============================================================================
+window.exportarOcorrenciasExcel = function() {
+    if (!window.dadosFiltradosRelatorio || window.dadosFiltradosRelatorio.length === 0) {
+        alert("Não há dados filtrados para exportar.");
+        return;
+    }
+
+    // Prefixo BOM (\uFEFF) para garantir que o Excel entenda a formatação UTF-8
+    let csv = '\uFEFF';
+    
+    // Nomes das colunas do cabeçalho
+    const colunas = [
+        "Protocolo", "Data Ocorrido", "Hora", "Local/Projeto", 
+        "Nome Envolvido Principal", "Função Envolvido Principal", "Setor Envolvido Principal",
+        "Causador Principal (Culpado)", "Função / Cargo (Causador)", "Setor (Causador)", "Origem do Causador",
+        "Placa", "Modelo", "Empresa", "Nº OS", 
+        "Tipo Ocorrência", "Status", "Prejuízo Estimado (R$)", 
+        "Descrição dos Fatos", "Prevenção de Falha", "Gestor Imediato", "Gerente"
+    ];
+    
+    csv += colunas.join(';') + '\n';
+
+    window.dadosFiltradosRelatorio.forEach(o => {
+        const protocolo = String(o.id).padStart(4, '0');
+        const dataFmt = o.data_ocorrido ? o.data_ocorrido.split('-').reverse().join('/') : '-';
+        const hora = o.hora_ocorrido || '-';
+        
+        // Dados do Envolvido Principal
+        const nomeEnvolvido = o.nome_envolvido || '-';
+        const funcaoEnvolvido = o.funcao || '-';
+        const setorEnvolvido = o.setor || '-';
+        
+        // Dados do Verdadeiro Causador (quem teve a caixinha marcada)
+        const causador = window.determinarCausador(o);
+        const origemCausador = causador.isExterno ? 'Terceiro' : 'Interno';
+
+        const placa = o.placa || '-';
+        const modelo = o.modelo || '-';
+        const empresa = o.empresa || '-';
+        const os = o.numero_os || '-';
+        const local = o.local_projeto || '-';
+        const tipo = o.tipo_ocorrencia || '-';
+        const status = o.status || 'Aberta';
+        
+        // Formata o número para R$ (1500,50) para que o Excel entenda como Moeda
+        const prejuizo = parseFloat(o.valor_prejuizo) || 0;
+        const prejuizoFmt = prejuizo.toFixed(2).replace('.', ',');
+        
+        // Função auxiliar para evitar quebra de linha em textareas e blindar células CSV
+        const cleanStr = (str) => {
+            if (!str) return '-';
+            return '"' + String(str).replace(/"/g, '""').replace(/\n/g, ' ') + '"';
+        };
+
+        const linha = [
+            protocolo, 
+            dataFmt, 
+            hora, 
+            cleanStr(local), 
+            cleanStr(nomeEnvolvido),
+            cleanStr(funcaoEnvolvido),
+            cleanStr(setorEnvolvido),
+            cleanStr(causador.nome),
+            cleanStr(causador.funcao),
+            cleanStr(causador.setor),
+            origemCausador,
+            cleanStr(placa), 
+            cleanStr(modelo), 
+            cleanStr(empresa), 
+            cleanStr(os), 
+            cleanStr(tipo), 
+            cleanStr(status), 
+            prejuizoFmt,
+            cleanStr(o.descricao_fatos), 
+            cleanStr(o.prevencao_falha), 
+            cleanStr(o.gestor_imediato), 
+            cleanStr(o.gerente)
+        ];
+
+        csv += linha.join(';') + '\n';
+    });
+
+    // Cria e baixa o ficheiro XLS via blob CSV
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'relatorio_ocorrencias_avarias.csv');
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 };

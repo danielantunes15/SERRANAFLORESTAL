@@ -65,19 +65,32 @@
         <h2 style="color: #f8fafc; margin: 0; font-weight: 700; letter-spacing: -0.5px;">
             <i class="fas fa-chart-pie" style="color: #60a5fa; margin-right: 10px;"></i> Dashboard de Ocorrências e Avarias
         </h2>
-        <button class="btn-primary-blue" onclick="window.initRelatorioOcorrencias()" style="border-radius: 8px; font-weight: 600;">
-            <i class="fas fa-sync-alt"></i> Atualizar Dados
-        </button>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-primary-green" onclick="window.exportarOcorrenciasExcel()" style="border-radius: 8px; font-weight: 600; background-color: #10b981; border: none; color: white; padding: 10px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-file-excel"></i> Exportar Excel
+            </button>
+            <button class="btn-primary-blue" onclick="window.initRelatorioOcorrencias()" style="border-radius: 8px; font-weight: 600; padding: 10px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-sync-alt"></i> Atualizar Dados
+            </button>
+        </div>
     </div>
 
     <div class="rel-dashboard-container">
         <!-- BARRA DE FILTROS -->
         <div class="rel-filter-bar">
-            <div class="rel-filter-group" style="flex: 1.5;">
+            <div class="rel-filter-group" style="flex: 1;">
+                <label>Período de Busca</label>
+                <select id="tipoPeriodoRel" class="dark-select" onchange="window.togglePeriodoRel()">
+                    <option value="mes">Mês Específico</option>
+                    <option value="todo">Todo o Período</option>
+                </select>
+            </div>
+
+            <div class="rel-filter-group" id="grupoMesAnoRel" style="flex: 1.5;">
                 <label>Mês / Ano</label>
                 <div style="display: flex; gap: 8px;">
-                    <select id="filtroMesRel" class="dark-select" onchange="window.filtrarEAtualizarDashboard()" style="flex: 1.5;">
-                        <option value="">Todos</option>
+                    <select id="filtroMesRel" class="dark-select" style="flex: 1.5;">
+                        <option value="">Mês</option>
                         <option value="01">Jan</option>
                         <option value="02">Fev</option>
                         <option value="03">Mar</option>
@@ -91,7 +104,7 @@
                         <option value="11">Nov</option>
                         <option value="12">Dez</option>
                     </select>
-                    <select id="filtroAnoRel" class="dark-select" onchange="window.filtrarEAtualizarDashboard()" style="flex: 1;">
+                    <select id="filtroAnoRel" class="dark-select" style="flex: 1;">
                         <option value="">Ano</option>
                         <option value="2025">2025</option>
                         <option value="2026" selected>2026</option>
@@ -102,12 +115,12 @@
 
             <div class="rel-filter-group" style="flex: 1;">
                 <label>Data Específica</label>
-                <input type="date" id="filtroDataEspecificaRel" onchange="window.filtrarEAtualizarDashboard()" title="Se preenchido, ignora o filtro de mês/ano">
+                <input type="date" id="filtroDataEspecificaRel" title="Se preenchido, ignora o filtro de mês/ano">
             </div>
 
             <div class="rel-filter-group" style="flex: 1;">
                 <label>Status</label>
-                <select id="filtroStatusRel" class="dark-select" onchange="window.filtrarEAtualizarDashboard()">
+                <select id="filtroStatusRel" class="dark-select">
                     <option value="Todos">Todos</option>
                     <option value="Aberta">Aberta</option>
                     <option value="Em Análise">Em Análise</option>
@@ -120,13 +133,16 @@
                 <label>Busca Específica</label>
                 <div style="position: relative;">
                     <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: #64748b;"></i>
-                    <input type="text" id="filtroBuscaRel" class="search-input-dark" placeholder="Protocolo, Placa, Causador..." onkeyup="window.filtrarEAtualizarDashboard()" style="padding-left: 35px; width: 100%;">
+                    <input type="text" id="filtroBuscaRel" class="search-input-dark" placeholder="Protocolo, Placa, Causador..." style="padding-left: 35px; width: 100%;">
                 </div>
             </div>
 
-            <div class="rel-filter-group" style="flex: 0;">
-                <button class="btn-secondary-dark" onclick="window.limparFiltrosRelatorio()" style="height: 42px; border-radius: 8px;">
-                    <i class="fas fa-eraser"></i> Limpar
+            <div class="rel-filter-group" style="flex: 0; display: flex; flex-direction: row; gap: 8px;">
+                <button class="btn-primary-green" onclick="window.filtrarEAtualizarDashboard()" style="height: 42px; border-radius: 8px; padding: 0 20px; font-weight: bold; white-space: nowrap;">
+                    <i class="fas fa-search"></i> Buscar
+                </button>
+                <button class="btn-secondary-dark" onclick="window.limparFiltrosRelatorio()" style="height: 42px; border-radius: 8px;" title="Limpar Filtros">
+                    <i class="fas fa-eraser"></i>
                 </button>
             </div>
         </div>
