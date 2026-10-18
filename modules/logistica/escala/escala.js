@@ -119,7 +119,7 @@ window.popularSelectMotoristas = function() {
     const valorAtual = select.value;
     let html = '<option value="">Selecione o motorista...</option>';
     
-    const motoristasOrdenados = [...motoristas].sort((a, b) => a.nome.localeCompare(b.nome));
+    const motoristasOrdenados = [...motoristas].sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
     motoristasOrdenados.forEach(m => { html += `<option value="${m.nome}">${m.nome}</option>`; });
     
     select.innerHTML = html;
@@ -215,7 +215,7 @@ window.calcularEscalaMatematica = function(motorista, dateKey) {
 }
 
 window.getEscalaDiaComputada = function(motorista, dateKey) {
-    if (escalas[motorista.id] && escalas[motorista.id][dateKey] && escalas[motorista.id][dateKey].status === 'manual') {
+    if (typeof escalas !== 'undefined' && escalas[motorista.id] && escalas[motorista.id][dateKey] && escalas[motorista.id][dateKey].status === 'manual') {
         return escalas[motorista.id][dateKey];
     }
     return window.calcularEscalaMatematica(motorista, dateKey);
@@ -275,7 +275,7 @@ window.renderizarEscalaLinhares = function(diasRender) {
             const stateA = getShiftState(a, diasRender[0].dateKey);
             const stateB = getShiftState(b, diasRender[0].dateKey);
             if (stateA !== stateB) return stateA - stateB; // Dia -> Noite -> Folga
-            return a.nome.localeCompare(b.nome);
+            return (a.nome || '').localeCompare(b.nome || '');
         }).forEach(m => {
             const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
             
@@ -498,13 +498,13 @@ window.renderizarEscala = async function() {
         let numeroDisplay = conj.isSemFrota ? 'SEM FROTA / RESERVAS' : `CONJUNTO ${String(conj.id).padStart(2, '0')}`;
 
         const grupoDia = motoristasDoConjunto.filter(m => ['A', 'B', 'C'].includes(window.getEq(m)))
-            .sort((a, b) => window.pesoEquipe(window.getEq(a)) - window.pesoEquipe(window.getEq(b)) || a.nome.localeCompare(b.nome));
+            .sort((a, b) => window.pesoEquipe(window.getEq(a)) - window.pesoEquipe(window.getEq(b)) || (a.nome || '').localeCompare(b.nome || ''));
             
         const grupoNoite = motoristasDoConjunto.filter(m => ['D', 'E', 'F'].includes(window.getEq(m)))
-            .sort((a, b) => window.pesoEquipe(window.getEq(a)) - window.pesoEquipe(window.getEq(b)) || a.nome.localeCompare(b.nome));
+            .sort((a, b) => window.pesoEquipe(window.getEq(a)) - window.pesoEquipe(window.getEq(b)) || (a.nome || '').localeCompare(b.nome || ''));
             
         const outros = motoristasDoConjunto.filter(m => !['A', 'B', 'C', 'D', 'E', 'F'].includes(window.getEq(m)))
-            .sort((a, b) => a.nome.localeCompare(b.nome));
+            .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
 
         html += `<div style="background: rgba(15, 23, 42, 0.4); border-radius: 8px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">`;
         html += `<div style="background: #0f172a; padding: 12px 20px; font-size: 1.1rem; font-weight: 800; color: #fff; border-bottom: 2px solid #3b82f6; text-align: left; letter-spacing: 1px;">
@@ -892,7 +892,9 @@ window.handleEscalaChange = async function(e) {
         if (novoCaminhao === 'AUTO') {
             try {
                 await db.deleteEscalaDia(idExcecao);
-                if (escalas[m.id]) delete escalas[m.id][data];
+                if (typeof escalas !== 'undefined') {
+                    if (escalas[m.id]) delete escalas[m.id][data];
+                }
                 window.renderizarEscala(); 
             } catch (err) { console.error(err); }
             return;
@@ -908,6 +910,7 @@ window.handleEscalaChange = async function(e) {
                 status: 'manual' 
             });
 
+            if (typeof escalas === 'undefined') window.escalas = {};
             if (!escalas[m.id]) escalas[m.id] = {};
             escalas[m.id][data] = { turno: m.turno, caminhao: novoCaminhao, status: 'manual' };
             
@@ -1331,7 +1334,7 @@ window.fecharModalBancoHoras = function() {
     document.getElementById('modalBancoHoras').classList.remove('show');
 };
 
-window.carregarDadosBancoHoras = function() {
+window.carregarDadosBancoHoras = async function() {
     const dataStr = document.getElementById('bhData').value;
     const selMotorista = document.getElementById('bhMotorista');
     const selCaminhao = document.getElementById('bhCaminhao');
@@ -1341,6 +1344,8 @@ window.carregarDadosBancoHoras = function() {
         selCaminhao.innerHTML = '<option value="">Selecione uma data primeiro...</option>';
         return;
     }
+
+    selCaminhao.innerHTML = '<option value="">Carregando veículos...</option>';
 
     let htmlMot = '<option value="" style="background-color: #1e293b; color: #ffffff;">Selecione o motorista de folga...</option>';
     let htmlCam = '<option value="" style="background-color: #1e293b; color: #ffffff;">Selecione o veículo...</option>';
@@ -1356,47 +1361,95 @@ window.carregarDadosBancoHoras = function() {
         }
     });
 
-    motoristasFolga.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(m => {
+    motoristasFolga.sort((a,b) => String(a.nome).localeCompare(String(b.nome))).forEach(m => {
         htmlMot += `<option value="${m.id}" style="background-color: #1e293b; color: #ffffff;">${m.nome} (Folga)</option>`;
     });
     selMotorista.innerHTML = htmlMot;
 
-    let alocacoesHoje = {};
-    motoristas.forEach(m => {
-        const aus = window.getAusenciaNoDia(m.id, dataStr);
-        const esc = window.getEscalaDiaComputada(m, dataStr);
-        if (esc.caminhao !== 'F' && esc.caminhao !== 'T') {
-            if (!alocacoesHoje[esc.caminhao]) alocacoesHoje[esc.caminhao] = [];
-            alocacoesHoje[esc.caminhao].push({ motorista: m, ausencia: aus });
+    try {
+        let query = window.supabaseClient.from('frotas_manutencao').select('cavalo, frota, categoria').eq('status', 'Ativo');
+        if (typeof window.aplicarFiltroFilial === 'function') {
+            query = window.aplicarFiltroFilial(query);
         }
-    });
+        
+        const { data: frotasDB, error } = await query;
+        
+        let caminhoesOptions = [];
+        
+        if (!error && frotasDB && frotasDB.length > 0) {
+            frotasDB.forEach(f => {
+                // TRAVA RESTRITA: Só adiciona se tiver a categoria TRITREM
+                if (!f.categoria || !f.categoria.toUpperCase().includes('TRITREM')) {
+                    return; // Pula todos os outros
+                }
 
-    let caminhoesOptions = [];
-    conjuntos.forEach(conj => {
-        if (conj.caminhoes) {
-            conj.caminhoes.forEach(cam => {
-                const placa = typeof cam === 'string' ? cam : cam.placa;
+                const placa = f.cavalo;
+                const desc = placa; // Já sabemos que é Tritrem, exibe apenas a placa
+                
                 let statusCam = 'Livre (Sem Motorista)';
                 let color = '#10b981'; 
 
-                if (alocacoesHoje[placa]) {
-                    let todosAusentes = alocacoesHoje[placa].every(x => x.ausencia);
-                    if (todosAusentes) {
-                        statusCam = `Motorista Ausente (${alocacoesHoje[placa].map(x => x.ausencia).join(', ')})`;
-                        color = '#f59e0b'; 
-                    } else {
-                        statusCam = `Ocupado (${alocacoesHoje[placa].filter(x => !x.ausencia).map(x => x.motorista.nome.split(' ')[0]).join(', ')})`;
-                        color = '#ef4444'; 
+                let verificadores = [placa];
+                if (f.frota) verificadores.push(f.frota);
+
+                // Busca quem está escalado neste carro hoje para descobrir status (livre/ocupado/faltou)
+                let alocacoesHoje = {};
+                motoristas.forEach(m => {
+                    const aus = window.getAusenciaNoDia(m.id, dataStr);
+                    const esc = window.getEscalaDiaComputada(m, dataStr);
+                    if (esc.caminhao !== 'F' && esc.caminhao !== 'T') {
+                        if (!alocacoesHoje[esc.caminhao]) alocacoesHoje[esc.caminhao] = [];
+                        alocacoesHoje[esc.caminhao].push({ motorista: m, ausencia: aus });
                     }
+                });
+
+                let ocupadoPor = [];
+                let ausentes = [];
+                
+                verificadores.forEach(v => {
+                    if (alocacoesHoje[v]) {
+                        alocacoesHoje[v].forEach(x => {
+                            if (x.ausencia) ausentes.push(x.ausencia);
+                            else ocupadoPor.push(x.motorista.nome.split(' ')[0]);
+                        });
+                    }
+                });
+
+                if (ocupadoPor.length > 0) {
+                    statusCam = `Ocupado (${ocupadoPor.join(', ')})`;
+                    color = '#ef4444';
+                } else if (ausentes.length > 0) {
+                    statusCam = `Motorista Ausente (${ausentes.join(', ')})`;
+                    color = '#f59e0b';
                 }
-                caminhoesOptions.push({ placa: placa, status: statusCam, color: color });
+
+                caminhoesOptions.push({ placa: String(placa), desc: String(desc), status: statusCam, color: color });
             });
         }
-    });
 
-    caminhoesOptions.sort((a,b) => a.placa.localeCompare(b.placa)).forEach(c => {
-        htmlCam += `<option value="${c.placa}" style="background-color: #1e293b; color: ${c.color}; font-weight: bold;">${c.placa} - ${c.status}</option>`;
-    });
+        // Evita placas duplicadas na visualização do select
+        const uniqueOptions = [];
+        const mapOptions = new Map();
+        for (const item of caminhoesOptions) {
+            if(!mapOptions.has(item.placa)){
+                mapOptions.set(item.placa, true);
+                uniqueOptions.push(item);
+            }
+        }
+
+        if (uniqueOptions.length === 0) {
+            htmlCam += `<option value="">Nenhum TRITREM disponível ou cadastrado.</option>`;
+        } else {
+            uniqueOptions.sort((a,b) => String(a.desc).localeCompare(String(b.desc))).forEach(c => {
+                htmlCam += `<option value="${c.placa}" style="background-color: #1e293b; color: ${c.color}; font-weight: bold;">${c.desc} - ${c.status}</option>`;
+            });
+        }
+        
+    } catch(e) {
+        console.error("Erro ao carregar veículos: ", e);
+        htmlCam += `<option value="">Erro ao carregar veículos</option>`;
+    }
+
     selCaminhao.innerHTML = htmlCam;
 };
 
@@ -1487,6 +1540,7 @@ window.salvarBancoHoras = async function() {
             status: 'manual'
         });
 
+        if (typeof escalas === 'undefined') window.escalas = {};
         if (!escalas[motId]) escalas[motId] = {};
         escalas[motId][dataStr] = { turno: turno, caminhao: caminhao, status: 'manual' };
 
