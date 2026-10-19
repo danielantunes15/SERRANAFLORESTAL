@@ -403,31 +403,6 @@ window.initProducaoFrota = async function() {
         return maisProximo ? maisProximo.tarifa : 0;
     }
 
-    function atualizarPaineisReceita(f5, f6) {
-        const formatarDinheiro = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const formatarNumero = (valor) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                 
-        document.getElementById('f5_transporte_rs').innerText = formatarDinheiro(f5.recTranspTotal);
-        document.getElementById('f5_carregamento_rs').innerText = formatarDinheiro(f5.recCarregTotal);
-        document.getElementById('f5_receita_total').innerText = formatarDinheiro(f5.recTranspTotal + f5.recCarregTotal);
-        document.getElementById('f5_vol_transportado').innerText = formatarNumero(f5.volTransp);
-        document.getElementById('f5_vol_carregado').innerText = formatarNumero(f5.volCarreg);
-        document.getElementById('f5_qtd_viagens').innerText = f5.viagens;
-        document.getElementById('f5_distancias').innerText = `${formatarNumero(f5.asfalto)} km / ${formatarNumero(f5.terra)} km`;
-        document.getElementById('f5_tarifa_transporte').innerText = formatarNumero(f5.tarifaT);
-        document.getElementById('f5_tarifa_carregamento').innerText = formatarNumero(f5.tarifaC);
-                 
-        document.getElementById('f6_transporte_rs').innerText = formatarDinheiro(f6.recTranspTotal);
-        document.getElementById('f6_carregamento_rs').innerText = formatarDinheiro(f6.recCarregTotal);
-        document.getElementById('f6_receita_total').innerText = formatarDinheiro(f6.recTranspTotal + f6.recCarregTotal);
-        document.getElementById('f6_vol_transportado').innerText = formatarNumero(f6.volTransp);
-        document.getElementById('f6_vol_carregado').innerText = formatarNumero(f6.volCarreg);
-        document.getElementById('f6_qtd_viagens').innerText = f6.viagens;
-        document.getElementById('f6_distancias').innerText = `${formatarNumero(f6.asfalto)} km / ${formatarNumero(f6.terra)} km`;
-        document.getElementById('f6_tarifa_transporte').innerText = formatarNumero(f6.tarifaT);
-        document.getElementById('f6_tarifa_carregamento').innerText = formatarNumero(f6.tarifaC);
-    }
-
     function processarFiltrosEExibir() {
         const overlay = document.getElementById('loadingOverlay');
         if (overlay) overlay.classList.remove('hidden');
@@ -529,8 +504,6 @@ window.initProducaoFrota = async function() {
                 let tTranspViagens = 0, tTranspVol = 0, tTranspRec = 0;
                 let tCarregViagens = 0, tCarregVol = 0, tCarregRec = 0;
                 let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
-                let f5 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0, totalAsfalto: 0, totalTerra: 0, recTranspTotal: 0, recCarregTotal: 0 };
-                let f6 = { volTransp: 0, volCarreg: 0, viagens: 0, asfalto: 0, terra: 0, tarifaT: 0, tarifaC: 0, totalAsfalto: 0, totalTerra: 0, recTranspTotal: 0, recCarregTotal: 0 };
                                  
                 dadosFiltradosAtual.forEach(registro => {
                     const d = registro.dtFimDescarFabrica || registro.dataDaBaseExcel || registro.created_at;
@@ -576,16 +549,6 @@ window.initProducaoFrota = async function() {
                     let nomeFazendaReal = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "";
                     let nomeFrente = infoGrua ? infoGrua.frente.toUpperCase() : (registro.frente ? String(registro.frente).toUpperCase() : '');
                                          
-                    let isF5 = nomeFrente.includes('5') || nomeFazendaReal.includes('ALCOBAÇA') || nomeFazendaReal.includes('ALCOBACA');
-                    let isF6 = nomeFrente.includes('6') || nomeFazendaReal.includes('PORTELA');
-                    if (isF5) {
-                        if (isSerrana) { f5.volTransp += v; f5.viagens++; f5.totalAsfalto += asfalto; f5.totalTerra += terra; f5.recTranspTotal += recTransporte; }
-                        if (isNossaGrua) { f5.volCarreg += v; f5.recCarregTotal += recCarregamento; }
-                    } else if (isF6) {
-                        if (isSerrana) { f6.volTransp += v; f6.viagens++; f6.totalAsfalto += asfalto; f6.totalTerra += terra; f6.recTranspTotal += recTransporte; }
-                        if (isNossaGrua) { f6.volCarreg += v; f6.recCarregTotal += recCarregamento; }
-                    }
-                                         
                     let nomeCategoria = "DESCONHECIDO";
                     if (isSerranaFull && isNossaGruaFull) {
                         let ordem = infoGrua.ordem || 'CX';
@@ -630,16 +593,6 @@ window.initProducaoFrota = async function() {
                     });
                 });
                                  
-                f5.tarifaT = f5.volTransp > 0 ? (f5.recTranspTotal / f5.volTransp) : 0;
-                f6.tarifaT = f6.volTransp > 0 ? (f6.recTranspTotal / f6.volTransp) : 0;
-                f5.tarifaC = f5.volCarreg > 0 ? (f5.recCarregTotal / f5.volCarreg) : 0;
-                f6.tarifaC = f6.volCarreg > 0 ? (f6.recCarregTotal / f6.volCarreg) : 0;
-                                 
-                f5.asfalto = f5.viagens > 0 ? (f5.totalAsfalto / f5.viagens) : 0;
-                f5.terra = f5.viagens > 0 ? (f5.totalTerra / f5.viagens) : 0;
-                f6.asfalto = f6.viagens > 0 ? (f6.totalAsfalto / f6.viagens) : 0;
-                f6.terra = f6.viagens > 0 ? (f6.totalTerra / f6.viagens) : 0;
-                                 
                 dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => {
                     if (a.placa === b.placa) return b.viagens - a.viagens; 
                     return a.placa.localeCompare(b.placa); 
@@ -668,8 +621,25 @@ window.initProducaoFrota = async function() {
                                  
                 const metaPeriodoTransporte = metaTransporteDiaria * diasNoPeriodoTransp;
                 const metaPeriodoCarregamento = metaCarregamentoDiaria * diasNoPeriodoCarreg;
-                const percTransPeriodo = metaPeriodoTransporte > 0 ? ((tTranspRec / metaPeriodoTransporte) * 100) : 0;
-                const percCarrPeriodo = metaPeriodoCarregamento > 0 ? ((tCarregRec / metaPeriodoCarregamento) * 100) : 0;
+                
+                // --- INÍCIO ALTERAÇÃO PRO-RATA (Meta proporcional à data atual) ---
+                let dataHojeFim = new Date();
+                dataHojeFim.setHours(23, 59, 59, 999);
+                let timeHoje = dataHojeFim.getTime();
+                
+                let diasDecorridosTransp = timeInicioTransp > timeHoje ? 0 : Math.max(1, Math.ceil((Math.min(timeFimTransp, timeHoje) - timeInicioTransp) / (1000 * 60 * 60 * 24)));
+                let diasDecorridosCarreg = timeInicioCarreg > timeHoje ? 0 : Math.max(1, Math.ceil((Math.min(timeFimCarreg, timeHoje) - timeInicioCarreg) / (1000 * 60 * 60 * 24)));
+                
+                diasDecorridosTransp = Math.min(diasDecorridosTransp, diasNoPeriodoTransp);
+                diasDecorridosCarreg = Math.min(diasDecorridosCarreg, diasNoPeriodoCarreg);
+                
+                const metaAteHojeTransporte = metaTransporteDiaria * diasDecorridosTransp;
+                const metaAteHojeCarregamento = metaCarregamentoDiaria * diasDecorridosCarreg;
+
+                const percTransPeriodo = metaAteHojeTransporte > 0 ? ((tTranspRec / metaAteHojeTransporte) * 100) : 0;
+                const percCarrPeriodo = metaAteHojeCarregamento > 0 ? ((tCarregRec / metaAteHojeCarregamento) * 100) : 0;
+                // --- FIM ALTERAÇÃO PRO-RATA ---
+                
                 const percTransHoje = metaTransporteDiaria > 0 ? ((hojeTransporte / metaTransporteDiaria) * 100) : 0;
                 const percCarrHoje = metaCarregamentoDiaria > 0 ? ((hojeCarregamento / metaCarregamentoDiaria) * 100) : 0;
                                  
@@ -677,8 +647,10 @@ window.initProducaoFrota = async function() {
                 document.getElementById('valCarregReceita').innerText = formatMoney(tCarregRec);
                 document.getElementById('kpi-transporte-hoje').innerText = formatMoney(hojeTransporte);
                 document.getElementById('kpi-carregamento-hoje').innerText = formatMoney(hojeCarregamento);
-                document.getElementById('desc-transporte-periodo').innerText = `Meta Período (${diasNoPeriodoTransp}d): ${formatMoney(metaPeriodoTransporte)}`;
-                document.getElementById('desc-carregamento-periodo').innerText = `Meta Período (${diasNoPeriodoCarreg}d): ${formatMoney(metaPeriodoCarregamento)}`;
+                
+                document.getElementById('desc-transporte-periodo').innerText = `Meta Atual (${diasDecorridosTransp}d): ${formatMoney(metaAteHojeTransporte)} | Total (${diasNoPeriodoTransp}d): ${formatMoney(metaPeriodoTransporte)}`;
+                document.getElementById('desc-carregamento-periodo').innerText = `Meta Atual (${diasDecorridosCarreg}d): ${formatMoney(metaAteHojeCarregamento)} | Total (${diasNoPeriodoCarreg}d): ${formatMoney(metaPeriodoCarregamento)}`;
+                
                 document.getElementById('desc-transporte-hoje').innerText = `Meta Diária: ${formatMoney(metaTransporteDiaria)}`;
                 document.getElementById('desc-carregamento-hoje').innerText = `Meta Diária: ${formatMoney(metaCarregamentoDiaria)}`;
                                  
@@ -720,7 +692,6 @@ window.initProducaoFrota = async function() {
                 desenharGraficosEvolucao(dadosEvolucao);
                 desenharGrafico7DiasFixo();
                                  
-                atualizarPaineisReceita(f5, f6); 
                 renderizarTabela(dadosAgrupadosAtual);
                 atualizarPainelDinamico(dadosEnriquecidos);
                                  
