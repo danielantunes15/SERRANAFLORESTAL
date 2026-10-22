@@ -24,11 +24,30 @@ function toNumber(val) {
     return isNaN(num) ? 0 : num;
 }
 
-function isGruaSerrana(gruaString, cacheProprias) {
-    let g = String(gruaString || '').trim().toUpperCase().replace(/[-\s]/g, '');
-    if (!g || g === 'NULL') return false;
-    if (cacheProprias.has(g)) return true;
-    if (g.startsWith('GSR')) return true;
+// NOVA FUNÇÃO ULTRA-RESILIENTE PARA IDENTIFICAR GRUAS PRÓPRIAS INDEPENDENTE DA FILIAL
+function checkIsNossaGrua(v, cacheProprias) {
+    const keysToCheck = ['grua', 'equipamento_carregamento', 'cod_grua', 'codigo_grua', 'loader', 'equipamento', 'maquina', 'frente', 'frente_trabalho', 'regional'];
+    const chavesReais = Object.keys(v);
+    
+    for (let nomeProcurado of keysToCheck) {
+        const chaveEncontrada = chavesReais.find(k => k.toLowerCase() === nomeProcurado.toLowerCase());
+        if (chaveEncontrada && v[chaveEncontrada] !== null && v[chaveEncontrada] !== undefined) {
+            // Limpa absolutamente tudo que não for letra ou número
+            let g = String(v[chaveEncontrada]).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (g && g !== 'NULL' && g !== 'NAOINFORMADO') {
+                // 1. Check exato no cache ou se começa com GSR
+                if (cacheProprias.has(g) || g.startsWith('GSR')) {
+                    return true;
+                }
+                // 2. Check parcial (Ex: Viagem diz "FRENTE03LINHARES" e a grua cadastrada é "FRENTE03")
+                for (let cachedCode of cacheProprias) {
+                    if (cachedCode.length >= 2 && g.includes(cachedCode)) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
     return false;
 }
 
@@ -265,14 +284,14 @@ window.atualizarDadosExecutivos = async function() {
             };
         });
 
-        // FIX: Tratamento robusto para considerar acentos e espaços nas configurações de gruas (corrige o problema de Linhares não exibir carregamento)
+        // Limpeza extremamente robusta do cache de gruas (Alfanumérico total)
         let gruasPropriasCache = new Set();
         if (gruasData) {
             gruasData.forEach(g => {
                 const tipo = String(g.tipo_frente || '').toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                 if (tipo.includes('PROPRIA') && g.codigos) {
                     g.codigos.split(',').forEach(c => {
-                        const cod = c.trim().toUpperCase().replace(/[-\s]/g, '');
+                        const cod = c.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
                         if (cod && cod !== 'OUTRAS' && cod !== 'OUTROS' && cod !== '0') {
                             gruasPropriasCache.add(cod);
                         }
@@ -428,15 +447,15 @@ window.atualizarDadosExecutivos = async function() {
             let isMesFiltroTransp = (trTime >= startTransp.getTime() && trTime <= endTransp.getTime());
             let isMesFiltroCarreg = (trTime >= startCarreg.getTime() && trTime <= endCarreg.getTime());
                           
-            let tr = getCampo(v, ['transportadora', 'transportador', 'empresa_transporte']).trim().toUpperCase();
+            let tr = getCampo(v, ['transportadora', 'transportador', 'empresa_transporte', 'fornecedor']).trim().toUpperCase();
             let isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG') || tr.includes('SERRANA');
+            
+            // NOVO MÉTODO ULTRA-RESILIENTE PARA PEGAR GRUAS EM QUALQUER FILIAL
+            let isNossaGrua = checkIsNossaGrua(v, gruasPropriasCache);
                          
-            let gruaRaw = getCampo(v, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']);
-            let isNossaGrua = isGruaSerrana(gruaRaw, gruasPropriasCache);
-                         
-            let vol = toNumber(getCampo(v, ['volumeReal', 'pesoLiquido']));
-            let asfalto = toNumber(getCampo(v, ['distanciaAsfalto']));
-            let terra = toNumber(getCampo(v, ['distanciaTerra']));
+            let vol = toNumber(getCampo(v, ['volumeReal', 'volume', 'pesoLiquido', 'peso_liquido']));
+            let asfalto = toNumber(getCampo(v, ['distanciaAsfalto', 'distancia_asfalto']));
+            let terra = toNumber(getCampo(v, ['distanciaTerra', 'distancia_chao']));
                          
             let tarifador = getTarifador(v.filial_id);
             let precoCarregamento = tarifador ? parseFloat(tarifador.preco_carregamento) || 0 : 0;
