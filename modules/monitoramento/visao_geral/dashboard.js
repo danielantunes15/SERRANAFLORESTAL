@@ -676,7 +676,7 @@ function renderizarTabelaComparativo(dadosFiltrados) {
     const setMapeadas = new Set(todasViagensValidas.map(d => d.id || d.movimento));
     
     // Captura as viagens que a filial rodou mas a grua não estava cadastrada no sistema
-    let dadosNaoMapeados = dadosFiltrados.filter(d => !setMapeadas.has(d.id || d.movimento));
+    let dadosNaoMapeados = dadosFiltrados.filter(d => !setMapeadas.has(d.id || d.movimento) && isTransportadoraPropria(d));
     
     if (dadosNaoMapeados.length > 0) {
         let cenarioNaoMapeado = {
