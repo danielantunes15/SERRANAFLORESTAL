@@ -55,81 +55,42 @@ window.atualizarIndicadoresEscalaHorario = function(dataRef) {
     let contagemDia = {}; 
     let contagemNoite = {};
     let totalDia = 0; let totalNoite = 0;
-    const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
 
     mLista.forEach(m => {
-        if (isLinhares) {
-            const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
-            if (isBlocked || !m.data_ancora) return; 
+        if (typeof window.getEscalaDiaComputada === 'function') {
+            const esc = window.getEscalaDiaComputada(m, dataRef);
+            if (esc && esc.caminhao && esc.caminhao !== 'F' && esc.caminhao.toUpperCase() !== 'FOLGA') {
+                let turnoDbValue = esc.turno || m.turno || '';
+                let horarioInicio = esc.inicio || m.inicio_turno || '';
+                
+                let isNoiteEq = false;
+                let eq = typeof window.getEq === 'function' ? window.getEq(m) : (m.equipe || '');
+                if (['D','E','F'].includes(eq)) isNoiteEq = true;
 
-            const dDate = new Date(dataRef + "T12:00:00");
-            const strAncora = m.data_ancora.split('T')[0];
-            const dataAncora = new Date(strAncora + 'T12:00:00');
-            const utcAncora = Date.UTC(dataAncora.getFullYear(), dataAncora.getMonth(), dataAncora.getDate());
-            const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
-            const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
-            const ciclo12 = ((diffDays % 12) + 12) % 12;
-
-            let estado = 2; // 2 = Folga
-            if (ciclo12 < 4) estado = 0; // 0 = Dia
-            else if (ciclo12 >= 6 && ciclo12 < 10) estado = 1; // 1 = Noite
-
-            if (estado !== 2) { 
-                let horario = '';
-                if (m.turno && m.turno !== '-') {
-                    const ciclos = typeof window.getCiclos === 'function' ? window.getCiclos() : [];
-                    let cicloMatch = ciclos.find(c => c.dbValue === m.turno);
-                    horario = cicloMatch ? (estado === 0 ? cicloMatch.labelDia : cicloMatch.labelNoite) : m.turno;
+                let turnoLabel = turnoDbValue;
+                if (typeof window.getCiclos === 'function') {
+                    let cMatch = window.getCiclos().find(c => c.dbValue === turnoDbValue);
+                    if (cMatch) turnoLabel = isNoiteEq ? cMatch.labelNoite : cMatch.labelDia;
+                }
+                
+                if (!horarioInicio) {
+                    const timeMatch = turnoLabel.match(/\b(\d{2}:\d{2})\b/);
+                    horarioInicio = timeMatch ? timeMatch[1] : (isNoiteEq ? '18:00' : '06:00');
                 } else {
-                    horario = estado === 0 ? '06:00' : '18:00';
+                    horarioInicio = String(horarioInicio).substring(0, 5); 
                 }
 
-                if (estado === 0) {
-                    if(!contagemDia[horario]) contagemDia[horario] = [];
-                    contagemDia[horario].push(m.nome);
-                    totalDia++;
-                } else {
-                    if(!contagemNoite[horario]) contagemNoite[horario] = [];
-                    contagemNoite[horario].push(m.nome);
+                let horaInt = parseInt(horarioInicio.split(':')[0], 10);
+                let isNoiteFinal = (horaInt >= 12 && horaInt <= 23);
+
+                if (isNoiteFinal) {
+                    if(!contagemNoite[horarioInicio]) contagemNoite[horarioInicio] = [];
+                    contagemNoite[horarioInicio].push(m.nome);
                     totalNoite++;
-                }
-            }
-        } else {
-            if (typeof window.getEscalaDiaComputada === 'function') {
-                const esc = window.getEscalaDiaComputada(m, dataRef);
-                if (esc && esc.caminhao && esc.caminhao !== 'F' && esc.caminhao.toUpperCase() !== 'FOLGA') {
-                    let turnoDbValue = esc.turno || m.turno || '';
-                    let horarioInicio = esc.inicio || m.inicio_turno || '';
-                    
-                    let isNoiteEq = false;
-                    let eq = typeof window.getEq === 'function' ? window.getEq(m) : (m.equipe || '');
-                    if (['D','E','F'].includes(eq)) isNoiteEq = true;
-
-                    let turnoLabel = turnoDbValue;
-                    if (typeof window.getCiclos === 'function') {
-                        let cMatch = window.getCiclos().find(c => c.dbValue === turnoDbValue);
-                        if (cMatch) turnoLabel = isNoiteEq ? cMatch.labelNoite : cMatch.labelDia;
-                    }
-                    
-                    if (!horarioInicio) {
-                        const timeMatch = turnoLabel.match(/\b(\d{2}:\d{2})\b/);
-                        horarioInicio = timeMatch ? timeMatch[1] : (isNoiteEq ? '18:00' : '06:00');
-                    } else {
-                        horarioInicio = String(horarioInicio).substring(0, 5); 
-                    }
-
-                    let horaInt = parseInt(horarioInicio.split(':')[0], 10);
-                    let isNoiteFinal = (horaInt >= 12 && horaInt <= 23);
-
-                    if (isNoiteFinal) {
-                        if(!contagemNoite[horarioInicio]) contagemNoite[horarioInicio] = [];
-                        contagemNoite[horarioInicio].push(m.nome);
-                        totalNoite++;
-                    } else {
-                        if(!contagemDia[horarioInicio]) contagemDia[horarioInicio] = [];
-                        contagemDia[horarioInicio].push(m.nome);
-                        totalDia++;
-                    }
+                } else {
+                    if(!contagemDia[horarioInicio]) contagemDia[horarioInicio] = [];
+                    contagemDia[horarioInicio].push(m.nome);
+                    totalDia++;
                 }
             }
         }
@@ -323,7 +284,6 @@ window.carregarTrocasDoDia = async function() {
     const tbody = document.getElementById('tbodyTrocaTurno');
     if (!tbody || !dataRef) return;
     
-    const isLinhares = (typeof currentUser !== 'undefined' && currentUser && String(currentUser.filial_id) === '7');
     window.atualizarIndicadoresEscalaHorario(dataRef);
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px;">Processando frotas, turnos e ordens de serviço...</td></tr>`;
     
@@ -364,67 +324,45 @@ window.carregarTrocasDoDia = async function() {
             if (data) registros = data;
         } catch(e) {}
 
-        if (isLinhares) {
-            const { data: frotaLinhares } = await window.supabaseClient.from('frotas_manutencao')
-                .select('*').eq('filial_id', 7).eq('categoria', 'TRITREM');
+        const cLista = (typeof conjuntos !== 'undefined') ? conjuntos : (window.conjuntos || []);
+        if (cLista.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#f1c40f;">Nenhum Conjunto encontrado.</td></tr>`;
+            return;
+        }
 
-            if (!frotaLinhares || frotaLinhares.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#f1c40f;">Nenhuma frota TRITREM encontrada.</td></tr>`;
-                return;
-            }
-
-            frotaLinhares.forEach((f) => {
-                const placaNorm = f.cavalo ? String(f.cavalo).trim().toUpperCase() : '-';
-                const go = f.frota || '-';
-                const conjId = f.numero_frota || '-';
+        cLista.forEach(conj => {
+            if (!conj.caminhoes || conj.caminhoes.length === 0) return;
+            conj.caminhoes.forEach((cam, idxCam) => {
+                const placa = typeof cam === 'string' ? cam : cam.placa;
+                const go = typeof cam === 'string' ? '-' : (cam.go || '-');
+                const placaNorm = String(placa).trim().toUpperCase();
                 
                 let osAberta = ordensAbertas.find(o => String(o.placa).trim().toUpperCase() === placaNorm);
-                let isManutencao = !!osAberta || (f.status && (f.status.toUpperCase().includes('MANUT') || f.status.toUpperCase().includes('OFICINA')));
+                let isManutencao = !!osAberta || (typeof cam !== 'string' && cam.status && (cam.status.toUpperCase().includes('MANUT') || cam.status.toUpperCase().includes('OFICINA')));
                 
-                linhasData.push({ conjId: conjId, go: go, placaNorm: placaNorm, esc: { nome: null, turno: 'Turno 1', originalTurno: 'Turno 1', eq: '' }, idxTurno: 0, isManutencao });
-                linhasData.push({ conjId: conjId, go: go, placaNorm: placaNorm, esc: { nome: null, turno: 'Turno 2', originalTurno: 'Turno 2', eq: '' }, idxTurno: 1, isManutencao });
-            });
-        } else {
-            const cLista = (typeof conjuntos !== 'undefined') ? conjuntos : (window.conjuntos || []);
-            if (cLista.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#f1c40f;">Nenhum Conjunto encontrado.</td></tr>`;
-                return;
-            }
-
-            cLista.forEach(conj => {
-                if (!conj.caminhoes || conj.caminhoes.length === 0) return;
-                conj.caminhoes.forEach((cam, idxCam) => {
-                    const placa = typeof cam === 'string' ? cam : cam.placa;
-                    const go = typeof cam === 'string' ? '-' : (cam.go || '-');
-                    const placaNorm = String(placa).trim().toUpperCase();
-                    
-                    let osAberta = ordensAbertas.find(o => String(o.placa).trim().toUpperCase() === placaNorm);
-                    let isManutencao = !!osAberta || (typeof cam !== 'string' && cam.status && (cam.status.toUpperCase().includes('MANUT') || cam.status.toUpperCase().includes('OFICINA')));
-                    
-                    let motoristasHoje = [];
-                    mLista.forEach(m => {
-                        if (typeof window.getEscalaDiaComputada === 'function') {
-                            const escDia = window.getEscalaDiaComputada(m, dataRef);
-                            if (String(escDia.caminhao).trim().toUpperCase() === placaNorm && escDia.caminhao !== 'F') {
-                                let originalTurno = escDia.turno || m.turno || 'Indefinido';
-                                let turnoFormatado = originalTurno;
-                                let eq = typeof window.getEq === 'function' ? window.getEq(m) : (m.equipe || '');
-                                if (typeof window.getCiclos === 'function') {
-                                    let cMatch = window.getCiclos().find(c => c.dbValue === originalTurno);
-                                    if (cMatch) turnoFormatado = ['D','E','F'].includes(eq) ? cMatch.labelNoite : cMatch.labelDia;
-                                }
-                                motoristasHoje.push({ nome: m.nome, turno: turnoFormatado, originalTurno: originalTurno, eq: eq });
+                let motoristasHoje = [];
+                mLista.forEach(m => {
+                    if (typeof window.getEscalaDiaComputada === 'function') {
+                        const escDia = window.getEscalaDiaComputada(m, dataRef);
+                        if (String(escDia.caminhao).trim().toUpperCase() === placaNorm && escDia.caminhao !== 'F') {
+                            let originalTurno = escDia.turno || m.turno || 'Indefinido';
+                            let turnoFormatado = originalTurno;
+                            let eq = typeof window.getEq === 'function' ? window.getEq(m) : (m.equipe || '');
+                            if (typeof window.getCiclos === 'function') {
+                                let cMatch = window.getCiclos().find(c => c.dbValue === originalTurno);
+                                if (cMatch) turnoFormatado = ['D','E','F'].includes(eq) ? cMatch.labelNoite : cMatch.labelDia;
                             }
+                            motoristasHoje.push({ nome: m.nome, turno: turnoFormatado, originalTurno: originalTurno, eq: eq });
                         }
-                    });
-                    
-                    if (motoristasHoje.length === 0) motoristasHoje.push({ nome: null, turno: 'Sem Escala', originalTurno: 'Sem Escala', eq: '' });
-                    motoristasHoje.forEach((esc, idxTurno) => {
-                        linhasData.push({ conjId: conj.id || conj.codigo || '-', go: go, placaNorm: placaNorm, esc: esc, idxTurno: idxTurno, isManutencao });
-                    });
+                    }
+                });
+                
+                if (motoristasHoje.length === 0) motoristasHoje.push({ nome: null, turno: 'Sem Escala', originalTurno: 'Sem Escala', eq: '' });
+                motoristasHoje.forEach((esc, idxTurno) => {
+                    linhasData.push({ conjId: conj.id || conj.codigo || '-', go: go, placaNorm: placaNorm, esc: esc, idxTurno: idxTurno, isManutencao });
                 });
             });
-        }
+        });
 
         linhasData.forEach((linha) => {
             let horaMinutos = 0; let isNoite = false;
@@ -533,7 +471,7 @@ window.carregarTrocasDoDia = async function() {
                     motoristaProxSalvo = esc.nome || '';
                     if (ultimoReg) {
                         motoristaAtualSalvo = ultimoReg.motorista_assumiu || '';
-                    } else if (!isLinhares) {
+                    } else {
                         let parceiro = truck.turnos.find(l => l.esc.nome && l.esc.nome !== esc.nome);
                         if (parceiro) motoristaAtualSalvo = parceiro.esc.nome;
                     }
@@ -737,134 +675,141 @@ window.carregarTrocasDoDia = async function() {
             else if (activeShift.statusKb === 2) { countConcluido++; listConcluido.push(htmlCard); }
         });
 
-        if (isLinhares) {
-            let motoristasEscaladosHoje = new Set();
-            Object.keys(kanbanPorPlaca).forEach(placa => {
-                kanbanPorPlaca[placa].forEach(shift => {
-                    if (shift.nomeAssumiu && shift.nomeAssumiu !== 'Escala Vazia' && shift.statusKb < 2) motoristasEscaladosHoje.add(shift.nomeAssumiu);
-                });
+        const motoristasAlocadosTrabalhando = new Set();
+        linhasData.forEach(linha => {
+            if (linha.esc && linha.esc.nome) {
+                motoristasAlocadosTrabalhando.add(linha.esc.nome);
+            }
+        });
+
+        const parseDateTime = (dateStr, timeStr, turno) => {
+            if (!dateStr || !timeStr) return null;
+            let dt = new Date(`${dateStr}T${timeStr.substring(0,5)}:00`);
+            let hour = parseInt(timeStr.substring(0,2));
+            if ((turno === 'Turno 2' || turno === 'Noite' || String(turno).toUpperCase().includes('NOITE')) && hour < 12) dt.setDate(dt.getDate() + 1);
+            return dt;
+        };
+
+        const getDriverLatestEvent = (nomeMotorista) => {
+            let latestTime = 0; let event = null;
+            registros.forEach(r => {
+                if (r.motorista_assumiu === nomeMotorista && r.horario_assumiu) {
+                    let dtA = parseDateTime(r.data_referencia, r.horario_assumiu, r.turno_referencia || r.turno_previsto);
+                    if (dtA && dtA.getTime() > latestTime) { latestTime = dtA.getTime(); event = { type: 'A', dt: dtA, record: r }; }
+                }
+                if (r.motorista_entregou === nomeMotorista && r.horario_entregou) {
+                    let dtE = parseDateTime(r.data_referencia, r.horario_entregou, r.turno_referencia || r.turno_previsto);
+                    if (dtE && dtE.getTime() > latestTime) { latestTime = dtE.getTime(); event = { type: 'E', dt: dtE, record: r }; }
+                }
             });
+            return event;
+        };
 
-            const parseDateTime = (dateStr, timeStr, turno) => {
-                if (!dateStr || !timeStr) return null;
-                let dt = new Date(`${dateStr}T${timeStr.substring(0,5)}:00`);
-                let hour = parseInt(timeStr.substring(0,2));
-                if ((turno === 'Turno 2' || turno === 'Noite' || String(turno).toUpperCase().includes('NOITE')) && hour < 12) dt.setDate(dt.getDate() + 1);
-                return dt;
-            };
-
-            const getDriverLatestEvent = (nomeMotorista) => {
-                let latestTime = 0; let event = null;
-                registros.forEach(r => {
-                    if (r.motorista_assumiu === nomeMotorista && r.horario_assumiu) {
-                        let dtA = parseDateTime(r.data_referencia, r.horario_assumiu, r.turno_referencia || r.turno_previsto);
-                        if (dtA && dtA.getTime() > latestTime) { latestTime = dtA.getTime(); event = { type: 'A', dt: dtA, record: r }; }
+        mListaOrdenada.forEach(m => {
+            const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
+            if (isBlocked) return;
+            
+            let deFolga = false;
+            let turnoStr = 'Disponível';
+            
+            if (typeof window.getEscalaDiaComputada === 'function') {
+                const esc = window.getEscalaDiaComputada(m, dataRef);
+                if (esc.caminhao === 'F') deFolga = true;
+                
+                let eq = typeof window.getEq === 'function' ? window.getEq(m) : (m.equipe || '');
+                if (esc.turno) {
+                    if (typeof window.getCiclos === 'function') {
+                        let cMatch = window.getCiclos().find(c => c.dbValue === esc.turno);
+                        if (cMatch) {
+                            turnoStr = ['D','E','F'].includes(eq) ? cMatch.labelNoite : cMatch.labelDia;
+                        } else {
+                            turnoStr = esc.turno;
+                        }
+                    } else {
+                        turnoStr = esc.turno;
                     }
-                    if (r.motorista_entregou === nomeMotorista && r.horario_entregou) {
-                        let dtE = parseDateTime(r.data_referencia, r.horario_entregou, r.turno_referencia || r.turno_previsto);
-                        if (dtE && dtE.getTime() > latestTime) { latestTime = dtE.getTime(); event = { type: 'E', dt: dtE, record: r }; }
-                    }
-                });
-                return event;
-            };
+                }
+            }
 
-            mListaOrdenada.forEach(m => {
-                const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
-                if (isBlocked || !m.data_ancora) return;
+            if (deFolga) return;
+            if (motoristasAlocadosTrabalhando.has(m.nome)) return;
 
-                const dDate = new Date(dataRef + "T12:00:00");
-                const strAncora = m.data_ancora.split('T')[0];
-                const dataAncora = new Date(strAncora + 'T12:00:00');
-                const utcAncora = Date.UTC(dataAncora.getFullYear(), dataAncora.getMonth(), dataAncora.getDate());
-                const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
-                const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
-                const ciclo12 = ((diffDays % 12) + 12) % 12;
+            let lastEvent = getDriverLatestEvent(m.nome);
+            if (lastEvent && lastEvent.type === 'A') return; 
 
-                let estado = 2; // folga
-                if (ciclo12 < 4) estado = 0; // Dia
-                else if (ciclo12 >= 6 && ciclo12 < 10) estado = 1; // Noite
+            let regDisp = registros.find(r => r.data_referencia === dataRef && r.cavalo === 'RESERVA' && r.motorista_entregou === m.nome);
+            let cidadeStr = m.cidade || 'N/I';
 
-                if (estado === 2) return; 
-                if (motoristasEscaladosHoje.has(m.nome)) return; 
+            if (regDisp) {
+                countConcluido++;
+                listConcluido.push(`
+                    <div class="kanban-card">
+                        <div class="kb-placa">RESERVA <span style="font-size:0.7rem; font-weight:normal; background: rgba(16, 185, 129, 0.25); color: #4ade80; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(16,185,129,0.5);"><i class="fas fa-check"></i> ${turnoStr}</span></div>
+                        <div class="kb-info"><i class="fas fa-user" style="color:#a855f7; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
+                        <div class="kb-info"><i class="fas fa-city" style="color:#94a3b8; width:15px;"></i> Cidade: <span style="color:#cbd5e1;">${cidadeStr}</span></div>
+                        <div class="kb-status-time"><span><i class="far fa-clock"></i> Concluído às: ${regDisp.horario_entregou ? regDisp.horario_entregou.substring(0,5) : '--:--'}</span></div>
+                    </div>
+                `);
+                return;
+            }
 
-                let lastEvent = getDriverLatestEvent(m.nome);
-                if (lastEvent && lastEvent.type === 'A') return; 
+            let isResting = false; let missingHours = 0; let missingMins = 0;
+            let readyTimeStr = '--:--'; let readyTime = null; 
+            let idleTimeMs = Infinity; let idleTimeText = 'Livre (Sem registro recente)';
 
-                let regDisp = registros.find(r => r.data_referencia === dataRef && r.cavalo === 'RESERVA' && r.motorista_entregou === m.nome);
-                let turnoStr = estado === 0 ? 'Dia' : 'Noite';
-                let cidadeStr = m.cidade || 'N/I';
+            if (lastEvent && lastEvent.type === 'E') {
+                let now = new Date();
+                let diffMs = now.getTime() - lastEvent.dt.getTime();
+                
+                if (diffMs >= 0 && diffMs < (11 * 3600000)) { 
+                    isResting = true;
+                    let timeNeededMs = (11 * 3600000) - diffMs;
+                    missingHours = Math.floor(timeNeededMs / 3600000);
+                    missingMins = Math.floor((timeNeededMs % 3600000) / 60000);
+                    readyTime = new Date(now.getTime() + timeNeededMs);
+                    readyTimeStr = String(readyTime.getHours()).padStart(2, '0') + ':' + String(readyTime.getMinutes()).padStart(2, '0');
+                } else if (diffMs >= (11 * 3600000)) {
+                    idleTimeMs = diffMs - (11 * 3600000);
+                    let idleH = Math.floor(idleTimeMs / 3600000);
+                    let idleM = Math.floor((idleTimeMs % 3600000) / 60000);
+                    idleTimeText = `Ocioso há <b>${idleH}h ${idleM}m</b>`;
+                }
+            }
 
-                if (regDisp) {
-                    countConcluido++;
-                    listConcluido.push(`
-                        <div class="kanban-card">
-                            <div class="kb-placa">RESERVA <span style="font-size:0.7rem; font-weight:normal; background: rgba(16, 185, 129, 0.25); color: #4ade80; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(16,185,129,0.5);"><i class="fas fa-check"></i> ${turnoStr}</span></div>
-                            <div class="kb-info"><i class="fas fa-user" style="color:#a855f7; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
+            if (isResting) {
+                countAndamento++;
+                listAndamento.push({
+                    html: `
+                        <div class="kanban-card" style="border-left-color: #f59e0b;">
+                            <div class="kb-placa">EM DESCANSO <span style="font-size:0.7rem; font-weight:normal; background: rgba(245, 158, 11, 0.25); color: #fbbf24; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245,158,11,0.5);"><i class="fas fa-bed"></i> 11h</span></div>
+                            <div class="kb-info"><i class="fas fa-user" style="color:#fbbf24; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
                             <div class="kb-info"><i class="fas fa-city" style="color:#94a3b8; width:15px;"></i> Cidade: <span style="color:#cbd5e1;">${cidadeStr}</span></div>
-                            <div class="kb-status-time"><span><i class="far fa-clock"></i> Concluído às: ${regDisp.horario_entregou ? regDisp.horario_entregou.substring(0,5) : '--:--'}</span></div>
-                        </div>
-                    `);
-                    return;
-                }
-
-                let isResting = false; let missingHours = 0; let missingMins = 0;
-                let readyTimeStr = '--:--'; let readyTime = null; 
-                let idleTimeMs = Infinity; let idleTimeText = 'Livre (Sem registro recente)';
-
-                if (lastEvent && lastEvent.type === 'E') {
-                    let now = new Date();
-                    let diffMs = now.getTime() - lastEvent.dt.getTime();
-                    
-                    if (diffMs >= 0 && diffMs < (11 * 3600000)) { 
-                        isResting = true;
-                        let timeNeededMs = (11 * 3600000) - diffMs;
-                        missingHours = Math.floor(timeNeededMs / 3600000);
-                        missingMins = Math.floor((timeNeededMs % 3600000) / 60000);
-                        readyTime = new Date(now.getTime() + timeNeededMs);
-                        readyTimeStr = String(readyTime.getHours()).padStart(2, '0') + ':' + String(readyTime.getMinutes()).padStart(2, '0');
-                    } else if (diffMs >= (11 * 3600000)) {
-                        idleTimeMs = diffMs - (11 * 3600000);
-                        let idleH = Math.floor(idleTimeMs / 3600000);
-                        let idleM = Math.floor((idleTimeMs % 3600000) / 60000);
-                        idleTimeText = `Ocioso há <b>${idleH}h ${idleM}m</b>`;
-                    }
-                }
-
-                if (isResting) {
-                    countAndamento++;
-                    listAndamento.push({
-                        html: `
-                            <div class="kanban-card" style="border-left-color: #f59e0b;">
-                                <div class="kb-placa">EM DESCANSO <span style="font-size:0.7rem; font-weight:normal; background: rgba(245, 158, 11, 0.25); color: #fbbf24; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245,158,11,0.5);"><i class="fas fa-bed"></i> 11h</span></div>
-                                <div class="kb-info"><i class="fas fa-user" style="color:#fbbf24; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
-                                <div class="kb-info"><i class="fas fa-city" style="color:#94a3b8; width:15px;"></i> Cidade: <span style="color:#cbd5e1;">${cidadeStr}</span></div>
-                                <div class="kb-status-time" style="margin-top:8px; border-top:none; display:block;">
-                                    <div style="background: rgba(245, 158, 11, 0.15); padding: 6px; border-radius: 6px; border: 1px solid rgba(245,158,11,0.3); text-align: center; color: #fcd34d;">
-                                        <div style="font-size:0.75rem; margin-bottom:3px;">Faltam <b>${missingHours}h ${missingMins}m</b></div>
-                                        <div style="font-size:0.85rem; font-weight:bold;">Pronto às ${readyTimeStr}</div>
-                                    </div>
+                            <div class="kb-status-time" style="margin-top:8px; border-top:none; display:block;">
+                                <div style="background: rgba(245, 158, 11, 0.15); padding: 6px; border-radius: 6px; border: 1px solid rgba(245,158,11,0.3); text-align: center; color: #fcd34d;">
+                                    <div style="font-size:0.75rem; margin-bottom:3px;">Faltam <b>${missingHours}h ${missingMins}m</b></div>
+                                    <div style="font-size:0.85rem; font-weight:bold;">Pronto às ${readyTimeStr}</div>
                                 </div>
                             </div>
-                        `,
-                        sortValue: readyTime.getTime()
-                    });
-                } else {
-                    countDisponivel++;
-                    listDisponivel.push({
-                        html: `
-                            <div class="kanban-card" style="border-left-color: #a855f7;">
-                                <div class="kb-placa">DISPONÍVEL <span style="font-size:0.7rem; font-weight:normal; background: rgba(168, 85, 247, 0.25); color: #d8b4fe; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(168,85,247,0.5);"><i class="fas fa-user-clock"></i> ${turnoStr}</span></div>
-                                <div class="kb-info"><i class="fas fa-user" style="color:#a855f7; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
-                                <div class="kb-info"><i class="fas fa-city" style="color:#94a3b8; width:15px;"></i> Cidade: <span style="color:#cbd5e1;">${cidadeStr}</span></div>
-                                <div class="kb-info"><i class="fas fa-hourglass-half" style="color:#fcd34d; width:15px;"></i> <span style="color:#cbd5e1;">${idleTimeText}</span></div>
-                                <button class="btn-primary-green" style="width: 100%; margin-top: 10px; padding: 8px; font-size: 0.8rem;" onclick="concluirTurnoReserva('${m.nome}', '${turnoStr}')"><i class="fas fa-check"></i> Concluir Turno</button>
-                            </div>
-                        `,
-                        idleTimeMs: idleTimeMs
-                    });
-                }
-            });
-        }
+                        </div>
+                    `,
+                    sortValue: readyTime.getTime()
+                });
+            } else {
+                countDisponivel++;
+                listDisponivel.push({
+                    html: `
+                        <div class="kanban-card" style="border-left-color: #a855f7;">
+                            <div class="kb-placa">DISPONÍVEL <span style="font-size:0.7rem; font-weight:normal; background: rgba(168, 85, 247, 0.25); color: #d8b4fe; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(168,85,247,0.5);"><i class="fas fa-user-clock"></i> ${turnoStr}</span></div>
+                            <div class="kb-info"><i class="fas fa-user" style="color:#a855f7; width:15px;"></i> Motorista: <span style="color:#fff;">${m.nome}</span></div>
+                            <div class="kb-info"><i class="fas fa-city" style="color:#94a3b8; width:15px;"></i> Cidade: <span style="color:#cbd5e1;">${cidadeStr}</span></div>
+                            <div class="kb-info"><i class="fas fa-hourglass-half" style="color:#fcd34d; width:15px;"></i> <span style="color:#cbd5e1;">${idleTimeText}</span></div>
+                            <button class="btn-primary-green" style="width: 100%; margin-top: 10px; padding: 8px; font-size: 0.8rem;" onclick="concluirTurnoReserva('${m.nome}', '${turnoStr}')"><i class="fas fa-check"></i> Concluir Turno</button>
+                        </div>
+                    `,
+                    idleTimeMs: idleTimeMs
+                });
+            }
+        });
         
         document.getElementById('kb-col-disponivel').innerHTML = listDisponivel.sort((a, b) => b.idleTimeMs - a.idleTimeMs).map(i => i.html).join('');
         document.getElementById('kb-count-disponivel').innerText = countDisponivel;

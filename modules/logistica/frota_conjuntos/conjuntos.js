@@ -62,67 +62,119 @@ window.adicionarConjunto = async function() {
 
     if (!idInput) { alert('Informe o ID do Conjunto!'); return; }
     const idNum = parseInt(idInput);
-    if (conjuntos.find(c => c.id === idNum)) { alert('Este Conjunto já existe!'); return; }
+    if (conjuntos.find(c => c.id === idNum)) { alert('Este Conjunto já existe na sua tela!'); return; }
 
     let caminhoesArr = [];
     if(c1Placa) caminhoesArr.push({ placa: c1Placa, frota: c1Frota });
     if(c2Placa) caminhoesArr.push({ placa: c2Placa, frota: c2Frota });
 
-    const novoConjunto = { id: idNum, caminhoes: caminhoesArr };
-    conjuntos.push(novoConjunto);
+    let novoConjunto = { id: idNum, caminhoes: caminhoesArr };
+    
+    // Injeta a filial no objeto de forma padronizada
+    if (typeof window.injetarFilial === 'function') {
+        novoConjunto = window.injetarFilial(novoConjunto);
+    }
 
-    await db.addConjunto(novoConjunto);
-    salvarBackupLocal();
-    
-    document.getElementById('conjuntoId').value = '';
-    document.getElementById('caminhao1Placa').value = '';
-    document.getElementById('caminhao1Frota').value = '';
-    document.getElementById('caminhao2Placa').value = '';
-    document.getElementById('caminhao2Frota').value = '';
-    
-    renderizarConjuntos();
-    if(typeof renderizarAlocacao === 'function') renderizarAlocacao();
-    if(typeof atualizarStats === 'function') atualizarStats();
-    
-    alert('Conjunto criado com sucesso!');
+    try {
+        if (window.supabaseClient) {
+            const { error } = await window.supabaseClient.from('conjuntos').insert([novoConjunto]);
+            if (error) throw error;
+        } else {
+            const res = await db.addConjunto(novoConjunto);
+            if (res && res.error) throw res.error;
+        }
+
+        // SÓ ADICIONA NO ARRAY E LIMPA A TELA SE O BANCO DE DADOS CONFIRMAR O SUCESSO
+        conjuntos.push(novoConjunto);
+        if (typeof salvarBackupLocal === 'function') salvarBackupLocal();
+        
+        document.getElementById('conjuntoId').value = '';
+        document.getElementById('caminhao1Placa').value = '';
+        document.getElementById('caminhao1Frota').value = '';
+        document.getElementById('caminhao2Placa').value = '';
+        document.getElementById('caminhao2Frota').value = '';
+        
+        renderizarConjuntos();
+        if(typeof renderizarAlocacao === 'function') renderizarAlocacao();
+        if(typeof atualizarStats === 'function') atualizarStats();
+        
+        alert('Conjunto criado com sucesso!');
+
+    } catch (err) {
+        console.error("Erro ao salvar conjunto:", err);
+        alert('Ocorreu um erro ao salvar o conjunto no banco de dados. Verifique o console.');
+    }
 }
 
 window.removerConjunto = async function(id) {
-    // REMOVIDO O BLOQUEIO DE ADMIN: Qualquer usuário com acesso à tela agora pode excluir
     if (!confirm('Deseja excluir este conjunto inteiro?')) return;
     
-    conjuntos = conjuntos.filter(c => c.id !== id);
-    await db.deleteConjunto(id);
-    
-    await db.addLog('Exclusão de Conjunto', `O Conjunto ID ${id} foi inteiramente apagado.`);
-    if(typeof renderizarLogs === 'function') renderizarLogs();
-    
-    salvarBackupLocal();
-    renderizarConjuntos();
-    if(typeof renderizarAlocacao === 'function') renderizarAlocacao();
-    if(typeof atualizarStats === 'function') atualizarStats();
+    try {
+        // Exclusão protegida pelo filial_id do usuário logado
+        if (window.supabaseClient && window.currentUser && window.currentUser.filial_id) {
+            const { error } = await window.supabaseClient.from('conjuntos')
+                .delete()
+                .eq('id', id)
+                .eq('filial_id', window.currentUser.filial_id);
+            if (error) throw error;
+        } else if (typeof db.deleteConjunto === 'function') {
+            await db.deleteConjunto(id); // Fallback caso não use o cliente Supabase direto
+        }
+
+        conjuntos = conjuntos.filter(c => c.id !== id);
+        
+        if (typeof db !== 'undefined' && typeof db.addLog === 'function') {
+            await db.addLog('Exclusão de Conjunto', `O Conjunto ID ${id} foi inteiramente apagado.`);
+        }
+        if (typeof renderizarLogs === 'function') renderizarLogs();
+        
+        if (typeof salvarBackupLocal === 'function') salvarBackupLocal();
+        renderizarConjuntos();
+        if (typeof renderizarAlocacao === 'function') renderizarAlocacao();
+        if (typeof atualizarStats === 'function') atualizarStats();
+        
+    } catch (e) {
+        console.error("Erro ao excluir conjunto:", e);
+        alert("Erro ao excluir o conjunto do banco de dados.");
+    }
 }
 
 window.removerCaminhao = async function(conjId, index) {
-    // REMOVIDO O BLOQUEIO DE ADMIN: Qualquer usuário com acesso à tela agora pode remover
     const c = conjuntos.find(x => x.id === conjId);
     if (!c) return;
     
     const camRemovido = c.caminhoes[index].placa || c.caminhoes[index];
     c.caminhoes.splice(index, 1);
-    await db.updateConjunto(conjId, c.caminhoes);
     
-    await db.addLog('Remoção de Caminhão', `Caminhão Placa ${camRemovido} removido do Conjunto ${conjId}.`);
-    if(typeof renderizarLogs === 'function') renderizarLogs();
+    try {
+        // Atualização protegida pelo filial_id do usuário logado
+        if (window.supabaseClient && window.currentUser && window.currentUser.filial_id) {
+            const { error } = await window.supabaseClient.from('conjuntos')
+                .update({ caminhoes: c.caminhoes })
+                .eq('id', conjId)
+                .eq('filial_id', window.currentUser.filial_id);
+            if (error) throw error;
+        } else if (typeof db.updateConjunto === 'function') {
+            await db.updateConjunto(conjId, c.caminhoes);
+        }
 
-    salvarBackupLocal();
-    renderizarConjuntos();
-    if(typeof renderizarAlocacao === 'function') renderizarAlocacao();
-    if(typeof atualizarStats === 'function') atualizarStats();
+        if (typeof db !== 'undefined' && typeof db.addLog === 'function') {
+            await db.addLog('Remoção de Caminhão', `Caminhão Placa ${camRemovido} removido do Conjunto ${conjId}.`);
+        }
+        if (typeof renderizarLogs === 'function') renderizarLogs();
+
+        if (typeof salvarBackupLocal === 'function') salvarBackupLocal();
+        renderizarConjuntos();
+        if (typeof renderizarAlocacao === 'function') renderizarAlocacao();
+        if (typeof atualizarStats === 'function') atualizarStats();
+        
+    } catch (e) {
+        console.error("Erro ao remover caminhão:", e);
+        alert("Erro ao atualizar o conjunto no banco de dados.");
+    }
 }
 
 window.editarCaminhao = async function(conjId, index) {
-    // NOVA FUNÇÃO: Permite a edição direta da Placa e da Frota do caminhão
     const c = conjuntos.find(x => x.id === conjId);
     if (!c) return;
     
@@ -131,10 +183,10 @@ window.editarCaminhao = async function(conjId, index) {
     const frotaAtual = typeof camAtual === 'string' ? '' : (camAtual.frota || camAtual.go || '');
 
     const novaPlaca = prompt("Digite a nova Placa do caminhão:", placaAtual);
-    if (novaPlaca === null) return; // O usuário cancelou a ação
+    if (novaPlaca === null) return; 
     
     const novaFrota = prompt("Digite a nova Frota do caminhão (opcional):", frotaAtual);
-    if (novaFrota === null) return; // O usuário cancelou a ação
+    if (novaFrota === null) return; 
 
     const placaFormatada = novaPlaca.trim().toUpperCase();
     if (!placaFormatada) {
@@ -142,17 +194,34 @@ window.editarCaminhao = async function(conjId, index) {
         return;
     }
 
-    // Atualiza o objeto com os novos dados
     c.caminhoes[index] = { placa: placaFormatada, frota: novaFrota.trim() };
-    await db.updateConjunto(conjId, c.caminhoes);
-
-    await db.addLog('Edição de Caminhão', `Caminhão alterado no Conjunto ${conjId}: de ${placaAtual} para ${placaFormatada}.`);
-    if(typeof renderizarLogs === 'function') renderizarLogs();
     
-    salvarBackupLocal();
-    renderizarConjuntos();
-    if(typeof renderizarAlocacao === 'function') renderizarAlocacao();
-    if(typeof atualizarStats === 'function') atualizarStats();
+    try {
+        // Atualização protegida pelo filial_id do usuário logado
+        if (window.supabaseClient && window.currentUser && window.currentUser.filial_id) {
+            const { error } = await window.supabaseClient.from('conjuntos')
+                .update({ caminhoes: c.caminhoes })
+                .eq('id', conjId)
+                .eq('filial_id', window.currentUser.filial_id);
+            if (error) throw error;
+        } else if (typeof db.updateConjunto === 'function') {
+            await db.updateConjunto(conjId, c.caminhoes);
+        }
+
+        if (typeof db !== 'undefined' && typeof db.addLog === 'function') {
+            await db.addLog('Edição de Caminhão', `Caminhão alterado no Conjunto ${conjId}: de ${placaAtual} para ${placaFormatada}.`);
+        }
+        if (typeof renderizarLogs === 'function') renderizarLogs();
+        
+        if (typeof salvarBackupLocal === 'function') salvarBackupLocal();
+        renderizarConjuntos();
+        if (typeof renderizarAlocacao === 'function') renderizarAlocacao();
+        if (typeof atualizarStats === 'function') atualizarStats();
+        
+    } catch (e) {
+        console.error("Erro ao editar caminhão:", e);
+        alert("Erro ao atualizar o conjunto no banco de dados.");
+    }
 }
 
 window.adicionarCaminhaoAoConjunto = async function(conjId) {
@@ -167,10 +236,25 @@ window.adicionarCaminhaoAoConjunto = async function(conjId) {
     if(!c.caminhoes) c.caminhoes = [];
     c.caminhoes.push({ placa, frota });
 
-    await db.updateConjunto(conjId, c.caminhoes);
-    
-    salvarBackupLocal();
-    renderizarConjuntos();
-    if(typeof renderizarAlocacao === 'function') renderizarAlocacao();
-    if(typeof atualizarStats === 'function') atualizarStats();
+    try {
+        // Atualização protegida pelo filial_id do usuário logado
+        if (window.supabaseClient && window.currentUser && window.currentUser.filial_id) {
+            const { error } = await window.supabaseClient.from('conjuntos')
+                .update({ caminhoes: c.caminhoes })
+                .eq('id', conjId)
+                .eq('filial_id', window.currentUser.filial_id);
+            if (error) throw error;
+        } else if (typeof db.updateConjunto === 'function') {
+            await db.updateConjunto(conjId, c.caminhoes);
+        }
+
+        if (typeof salvarBackupLocal === 'function') salvarBackupLocal();
+        renderizarConjuntos();
+        if (typeof renderizarAlocacao === 'function') renderizarAlocacao();
+        if (typeof atualizarStats === 'function') atualizarStats();
+        
+    } catch (e) {
+        console.error("Erro ao adicionar caminhão:", e);
+        alert("Erro ao atualizar o conjunto no banco de dados.");
+    }
 }
