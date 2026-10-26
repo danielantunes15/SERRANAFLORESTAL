@@ -1,10 +1,7 @@
 // ==================== MÓDULO: ALOCAÇÃO GERAL E HISTÓRICO ====================
 
-window.dadosHistoricoMemoria = []; // Cache para a pesquisa da aba de histórico
+window.dadosHistoricoMemoria = []; 
 
-// ============================================================================
-// CONTROLE DE ABAS
-// ============================================================================
 window.alternarAbaAlocacao = function(aba) {
     document.getElementById('btnAbaAlocacao').classList.remove('active');
     document.getElementById('btnAbaHistorico').classList.remove('active');
@@ -22,9 +19,6 @@ window.alternarAbaAlocacao = function(aba) {
     }
 };
 
-// ============================================================================
-// RENDERIZAÇÃO DA ALOCAÇÃO ATUAL
-// ============================================================================
 window.renderizarIndicadorTrocaTurno = function() {
     const container = document.getElementById('indicadorTrocaTurno');
     if (!container) return;
@@ -168,14 +162,24 @@ window.renderizarAlocacao = function() {
         return motComTurno ? motComTurno.turno : "ZZY"; 
     };
 
+    const getNomeConjuntoDisplay = (c) => {
+        if (c && c.caminhoes && c.caminhoes.length > 0) {
+            let cam1 = c.caminhoes[0];
+            let cam2 = c.caminhoes.length > 1 ? c.caminhoes[1] : null;
+            let p1 = (typeof cam1 === 'string') ? cam1 : (cam1.placa || '');
+            let p2 = cam2 ? ((typeof cam2 === 'string') ? cam2 : (cam2.placa || '')) : '';
+            if (p1 && p2 && p1 !== p2) return `${p1} | ${p2}`;
+            if (p1) return p1;
+        }
+        return `Conjunto ${String(c.id).padStart(2, '0')}`;
+    };
+
     const motoristasOrdenados = [...motoristas].sort((a, b) => {
         const conjA = a.conjuntoId ? Number(a.conjuntoId) : 999999;
         const conjB = b.conjuntoId ? Number(b.conjuntoId) : 999999;
         
-        // 1º Nível de agrupamento: Conjunto
         if (conjA !== conjB) return conjA - conjB;
         
-        // 2º Nível de agrupamento Padrão: Horário/Turno
         const turnoA = getTurnoConjunto(a.conjuntoId);
         const turnoB = getTurnoConjunto(b.conjuntoId);
         const horaA = turnoA.match(/\d+/) ? parseInt(turnoA.match(/\d+/)[0], 10) : 9999;
@@ -193,13 +197,14 @@ window.renderizarAlocacao = function() {
     let html = '';
     let lastGroup = null; 
     
+    const isFilial7 = (window.currentUser && String(window.currentUser.filial_id) === '7');
+
     motoristasOrdenados.forEach(m => {
         const isBlocked = m.masterDrive === 'Não' || m.destra === 'Não' || m.status === 'Férias' || m.status === 'Afastado';
         const currentConjunto = m.conjuntoId ? Number(m.conjuntoId) : 'sem_conjunto';
         let eq = window.getEq(m);
         let currentGroup = currentConjunto;
 
-        // Criação de Cabeçalho Agrupador
         if (currentGroup !== lastGroup) {
             const dbValOriginal = getTurnoConjunto(m.conjuntoId);
             let badgeTexto = "S/ Horário";
@@ -208,7 +213,12 @@ window.renderizarAlocacao = function() {
                 badgeTexto = cl ? `Iniciando às ${cl.base}` : dbValOriginal;
             }
 
-            const tituloConjunto = m.conjuntoId ? `CONJUNTO ${String(m.conjuntoId).padStart(2, '0')}` : `RESERVAS / SEM CONJUNTO`;
+            let tituloConjunto = `RESERVAS / SEM CONJUNTO`;
+            if (m.conjuntoId) {
+                const conj = conjuntos.find(c => String(c.id) === String(m.conjuntoId));
+                if (conj) tituloConjunto = getNomeConjuntoDisplay(conj);
+            }
+
             const btnReset = m.conjuntoId ? `<button onclick="window.resetarCicloConjunto(${m.conjuntoId})" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 4px 12px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: bold; transition: 0.2s;">ZERAR CICLO</button>` : '';
             
             let selectTurnoGlobal = '';
@@ -225,6 +235,9 @@ window.renderizarAlocacao = function() {
             let badgeHorario = '';
             if (dbValOriginal !== 'ZZZ' && dbValOriginal !== 'ZZY') {
                 badgeHorario = `<span style="background: #3b82f6; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; margin-right: 12px;"><i class="far fa-clock"></i> ${badgeTexto}</span>`;
+            }
+            if (isFilial7) {
+                badgeHorario += `<span style="background: #10b981; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; margin-right: 12px;"><i class="fas fa-sync-alt"></i> Rev. Dinâmico 4x2</span>`;
             }
 
             html += `
@@ -286,6 +299,7 @@ window.renderizarAlocacao = function() {
         window.getCiclos().forEach(c => {
             let labelVisual = isNoite ? c.labelNoite : c.labelDia;
             if (eq === '-') labelVisual = c.labelDia; 
+            if (isFilial7) labelVisual = `${c.labelDia} / ${c.labelNoite}`;
             let selected = (m.turno === c.dbValue) ? 'selected' : '';
             opcoesIndividual += `<option value="${c.dbValue}" ${selected}>${labelVisual}</option>`;
         });
@@ -294,9 +308,10 @@ window.renderizarAlocacao = function() {
             ${isBlocked ? '<option value="-">-</option>' : opcoesIndividual}
         </select>`;
         
+        // Geração do dropdown com o nome correto dos conjuntos
         let conjuntoSelect = `<select class="select-aloc-conjunto select-turno" data-id="${m.id}" ${isBlocked ? 'disabled' : ''} style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px;">
             <option value="">Não Alocado</option>
-            ${isBlocked ? '' : conjuntos.map(c => `<option value="${c.id}" ${String(m.conjuntoId) === String(c.id) ? 'selected' : ''}>Conjunto${String(c.id).padStart(2, '0')}</option>`).join('')}
+            ${isBlocked ? '' : conjuntos.map(c => `<option value="${c.id}" ${String(m.conjuntoId) === String(c.id) ? 'selected' : ''}>${getNomeConjuntoDisplay(c)}</option>`).join('')}
         </select>`;
         
         let botaoManual = '';
@@ -707,9 +722,6 @@ window.filtrarTabelaHistorico = function() {
     window.montarTabelaHistorico(filtrados);
 };
 
-// ============================================================================
-// VISUALIZADOR DA LINHA DO TEMPO (MODAL)
-// ============================================================================
 window.verLinhaTempoAlocacao = function(idMotorista) {
     const m = motoristas.find(x => String(x.id) === String(idMotorista));
     if (!m || !m.historico_alocacao) return;

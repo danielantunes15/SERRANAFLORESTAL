@@ -2,7 +2,6 @@
 
 window.getEq = function(m) { return m && m.equipe ? m.equipe.trim().toUpperCase() : '-'; };
 
-// Suporte global para as equipes de A até T.
 window.pesoEquipe = function(eq) { 
     return {'A':1,'B':2,'C':3,'D':4,'E':5,'F':6,'G':7,'H':8,'I':9,'J':10,'K':11,'L':12,'M':13,'N':14,'O':15,'P':16,'Q':17,'R':18,'S':19,'T':20}[eq] || 99; 
 };
@@ -11,17 +10,14 @@ window.SISTEMA_CICLOS = [];
 window.ausenciasGlobais = [];
 window.bancoHorasGlobais = [];
 
-// Função global para pegar a hora local correta e evitar o fuso de +3h do UTC
 window.obterDataHoraLocalParaDB = function() {
     const data = new Date();
-    const tzoffset = data.getTimezoneOffset() * 60000; // offset em milissegundos
-    return new Date(data.getTime() - tzoffset).toISOString().slice(0, 19); // Retorna YYYY-MM-DDTHH:mm:ss (Sem o Z do UTC)
+    const tzoffset = data.getTimezoneOffset() * 60000;
+    return new Date(data.getTime() - tzoffset).toISOString().slice(0, 19); 
 };
 
-// Função global de formatação para evitar o erro de minutos cortados (ex: 11:1)
 window.formatarDataHoraCerta = function(isoString) {
     if (!isoString) return '';
-    // Remove o 'Z' do final para forçar o JavaScript a entender que a data já é local e não somar/subtrair 3 horas
     const cleanString = isoString.endsWith('Z') ? isoString.slice(0, -1) : isoString;
     const d = new Date(cleanString);
     return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -137,29 +133,48 @@ window.getStatusMotorista = function(m, dDate) {
     const utcAtual = Date.UTC(dDate.getFullYear(), dDate.getMonth(), dDate.getDate());
     const diffDays = Math.round((utcAtual - utcAncora) / (1000 * 60 * 60 * 24));
     
-    const cicloDia = ((diffDays % 6) + 6) % 6;
-    return cicloDia < 4 ? 'TRAB' : 'F';
+    const isFilial7 = (window.currentUser && String(window.currentUser.filial_id) === '7');
+    
+    if (isFilial7) {
+        const ciclo12 = ((diffDays % 12) + 12) % 12;
+        if (ciclo12 < 4) return 'TRAB_DIA';
+        if (ciclo12 >= 4 && ciclo12 < 6) return 'F';
+        if (ciclo12 >= 6 && ciclo12 < 10) return 'TRAB_NOITE';
+        return 'F';
+    } else {
+        const cicloDia = ((diffDays % 6) + 6) % 6;
+        return cicloDia < 4 ? 'TRAB' : 'F';
+    }
 }
 
 window.calcularEscalaMatematica = function(motorista, dateKey) {
-    // Retorno Base de Bloqueios
     if (!motorista.data_ancora || motorista.masterDrive === 'Não' || motorista.destra === 'Não' || motorista.status === 'Férias' || motorista.status === 'Afastado') {
-        return { caminhao: 'F', turno: motorista.turno, status: 'fallback', shift: 'F' };
+        return { caminhao: 'F', turno: motorista.turno, status: 'fallback', shift: 'F', turnoDinamico: '-' };
     }
 
     const dDate = new Date(dateKey + 'T00:00:00');
 
-    // Lógica Padrão
     const statusMot = window.getStatusMotorista(motorista, dDate);
-    if (statusMot === 'F') return { caminhao: 'F', turno: motorista.turno, status: 'fallback', shift: 'F' };
+    if (statusMot === 'F') return { caminhao: 'F', turno: motorista.turno, status: 'fallback', shift: 'F', turnoDinamico: '-' };
 
     const eq = window.getEq(motorista);
+    let shiftFormatado = 'TRAB';
+    let turnoDin = motorista.turno;
+    
+    const isFilial7 = (window.currentUser && String(window.currentUser.filial_id) === '7');
+    if (isFilial7 && motorista.turno && motorista.turno !== '-') {
+        let cicloMatch = window.getCiclos().find(c => c.dbValue === motorista.turno);
+        if (cicloMatch) {
+            turnoDin = (statusMot === 'TRAB_DIA') ? cicloMatch.labelDia : cicloMatch.labelNoite;
+        }
+    }
+
     if (motorista.conjuntoId && eq === '-') {
-        return { caminhao: 'F', turno: motorista.turno, status: 'fallback', shift: 'TRAB' };
+        return { caminhao: 'F', turno: motorista.turno, status: 'fallback', shift: 'TRAB', turnoDinamico: turnoDin };
     }
 
     const conjunto = conjuntos.find(c => String(c.id) === String(motorista.conjuntoId));
-    if (!conjunto || !conjunto.caminhoes) return { caminhao: 'T', turno: motorista.turno, status: 'fallback', shift: 'TRAB' };
+    if (!conjunto || !conjunto.caminhoes) return { caminhao: 'T', turno: motorista.turno, status: 'fallback', shift: 'TRAB', turnoDinamico: turnoDin };
 
     let placa1 = conjunto.caminhoes.length > 0 ? (typeof conjunto.caminhoes[0] === 'string' ? conjunto.caminhoes[0] : conjunto.caminhoes[0].placa) : 'F';
     let placa2 = conjunto.caminhoes.length > 1 ? (typeof conjunto.caminhoes[1] === 'string' ? conjunto.caminhoes[1] : conjunto.caminhoes[1].placa) : placa1;
@@ -188,9 +203,9 @@ window.calcularEscalaMatematica = function(motorista, dateKey) {
         else statusCaminhao = placa1;
     }
     
-    if (statusCaminhao === 'TRAB') statusCaminhao = 'T';
+    if (statusCaminhao === 'TRAB' || statusCaminhao === 'TRAB_DIA' || statusCaminhao === 'TRAB_NOITE') statusCaminhao = 'T';
 
-    return { caminhao: statusCaminhao, turno: motorista.turno, status: 'auto', shift: 'TRAB' };
+    return { caminhao: statusCaminhao, turno: motorista.turno, status: 'auto', shift: 'TRAB', turnoDinamico: turnoDin };
 }
 
 window.getEscalaDiaComputada = function(motorista, dateKey) {
@@ -203,6 +218,7 @@ window.getEscalaDiaComputada = function(motorista, dateKey) {
 window.renderizarEscala = async function() {
     const container = document.getElementById('escalaContainer');
     const filtroSelectEl = document.getElementById('filtroConjuntoEscala');
+    const isFilial7 = (window.currentUser && String(window.currentUser.filial_id) === '7');
     
     await window.carregarAusenciasGlobais();
     window.popularSelectMotoristas();
@@ -267,9 +283,6 @@ window.renderizarEscala = async function() {
 
     let html = '';
 
-    // ========================================================
-    // BOTÕES ALINHADOS À DIREITA LADO A LADO COM GAP
-    // ========================================================
     html += `<div style="display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-bottom: 20px;">
                 <button id="btnNotificacaoParada" onclick="window.abrirModalParadasLogistica()" title="Visualizar Paradas Solicitadas pela Oficina" style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; color: #fbbf24; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-size: 0.9rem; font-weight: bold; transition: all 0.3s; display: flex; align-items: center; gap: 8px;">
                     <i class="fas fa-hand-paper"></i> Paradas Programadas (Oficina)
@@ -328,7 +341,7 @@ window.renderizarEscala = async function() {
                 let eq = window.getEq(m);
                 
                 let displayTurno = m.turno || '-';
-                if (m.turno && m.turno !== '-') {
+                if (!isFilial7 && m.turno && m.turno !== '-') {
                     let cicloMatch = window.getCiclos().find(c => c.dbValue === m.turno);
                     if (cicloMatch) {
                         if (['A', 'B', 'C'].includes(eq)) displayTurno = cicloMatch.labelDia;
@@ -358,8 +371,10 @@ window.renderizarEscala = async function() {
                 if (m.status === 'Férias') flagStatusRH = ' <span style="font-size:0.6rem; background:#f59e0b; color:#fff; padding:2px 4px; border-radius:3px;">FÉRIAS</span>';
                 if (m.status === 'Afastado') flagStatusRH = ' <span style="font-size:0.6rem; background:#ef4444; color:#fff; padding:2px 4px; border-radius:3px;">AFASTADO</span>';
 
+                let horarioFixoDisplay = !isFilial7 ? `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #38bdf8; font-weight: bold;">${displayTurno}</td>` : `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #10b981; font-weight: bold;">Revezamento</td>`;
+
                 rowsHtml += `<tr style="background-color: transparent; border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;">`;
-                rowsHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); color: #38bdf8; font-weight: bold;">${displayTurno}</td>`;
+                rowsHtml += horarioFixoDisplay;
                 rowsHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: bold; color: #93c5fd;">${goStr}</td>`;
                 rowsHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 800; color: #f8fafc;">${eq !== '-' ? eq : ''}</td>`;
                 rowsHtml += `<td style="padding: 8px; border: 1px solid rgba(255,255,255,0.05); font-weight: 600; color: #cbd5e1;">${posicaoStr}</td>`;
@@ -374,6 +389,7 @@ window.renderizarEscala = async function() {
                 diasRender.forEach(d => {
                     const ausencia = window.getAusenciaNoDia(m.id, d.dateKey);
                     let bgCell, colorCell, borderSide, opcoes, selectDisabled;
+                    let esc = window.getEscalaDiaComputada(m, d.dateKey);
                     
                     if (ausencia) {
                         bgCell = ausencia === 'FALTA' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)';
@@ -383,9 +399,8 @@ window.renderizarEscala = async function() {
                         
                         opcoes = `<option value="${ausencia}" selected style="background: #1e293b; color: ${colorCell};">${ausencia}</option>`;
                     } else {
-                        const escala = window.getEscalaDiaComputada(m, d.dateKey);
-                        const isFolga = escala.caminhao === 'F';
-                        const isManual = escala.status === 'manual';
+                        const isFolga = esc.caminhao === 'F';
+                        const isManual = esc.status === 'manual';
                         
                         bgCell = isFolga ? 'rgba(249, 115, 22, 0.15)' : 'rgba(59, 130, 246, 0.15)';
                         colorCell = isFolga ? '#fb923c' : '#93c5fd';
@@ -397,12 +412,12 @@ window.renderizarEscala = async function() {
                         }
                         
                         opcoes = `<option value="F" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fff;">F</option>`;
-                        opcoes += `<option value="T" ${escala.caminhao === 'T' || escala.caminhao === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #fff;">T</option>`;
+                        opcoes += `<option value="T" ${esc.caminhao === 'T' || esc.caminhao === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #fff;">T</option>`;
                         
                         if (!conj.isSemFrota) {
                             conj.caminhoes?.forEach(cam => {
                                 const placa = typeof cam === 'string' ? cam : cam.placa;
-                                opcoes += `<option value="${placa}" ${escala.caminhao === placa ? 'selected' : ''} style="background: #1e293b; color: #fff;">${placa}</option>`;
+                                opcoes += `<option value="${placa}" ${esc.caminhao === placa ? 'selected' : ''} style="background: #1e293b; color: #fff;">${placa}</option>`;
                             });
                         }
                         
@@ -412,8 +427,14 @@ window.renderizarEscala = async function() {
                         selectDisabled = isBlocked;
                     }
 
+                    let labelHorario = '';
+                    if (isFilial7 && esc.turnoDinamico && esc.turnoDinamico !== '-') {
+                         labelHorario = `<div style="font-size:0.65rem; color:#6ee7b7; font-weight:bold; margin-bottom:2px;">${esc.turnoDinamico}</div>`;
+                    }
+
                     rowsHtml += `<td style="padding: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: ${borderSide}; border-right: ${borderSide}; background-color: ${bgCell}; text-align: center; vertical-align: middle;">
-                        <select class="select-escala-excel" data-motorista="${m.id}" data-data="${d.dateKey}" ${selectDisabled ? 'disabled' : ''} style="width: 100%; padding: 6px 0; background: transparent; border: none; color: ${colorCell}; font-weight: 800; font-size: 0.9rem; text-align: center; appearance: none; cursor: pointer; outline: none; text-align-last: center;">
+                        ${labelHorario}
+                        <select class="select-escala-excel" data-motorista="${m.id}" data-data="${d.dateKey}" ${selectDisabled ? 'disabled' : ''} style="width: 100%; padding: 4px 0; background: transparent; border: none; color: ${colorCell}; font-weight: 800; font-size: 0.9rem; text-align: center; appearance: none; cursor: pointer; outline: none; text-align-last: center;">
                             ${isBlocked && !ausencia ? '<option value="F">Bloq</option>' : opcoes}
                         </select>
                     </td>`;
@@ -423,8 +444,8 @@ window.renderizarEscala = async function() {
             return rowsHtml;
         };
 
-        html += renderRows(grupoDia, '☀️ TURNO DO DIA (EQUIPES A, B, C)');
-        html += renderRows(grupoNoite, '🌙 TURNO DA NOITE (EQUIPES D, E, F)');
+        html += renderRows(grupoDia, '☀️ EQUIPES A, B, C (INÍCIO DIA NA REFERÊNCIA)');
+        html += renderRows(grupoNoite, '🌙 EQUIPES D, E, F (INÍCIO NOITE NA REFERÊNCIA)');
         html += renderRows(outros, '📋 OUTROS / SEM TURNO FIXO');
         
         html += `</tbody></table></div></div>`;
@@ -432,7 +453,6 @@ window.renderizarEscala = async function() {
 
     container.innerHTML = html;
     
-    // Roda a verificação de Paradas Programadas assim que o grid terminar de montar o botão
     window.verificarParadasPendentesLogistica();
     
     document.querySelectorAll('.select-escala-excel').forEach(select => select.addEventListener('change', window.handleEscalaChange));
@@ -443,11 +463,6 @@ window.renderizarEscala = async function() {
     }
 }
 
-// =========================================================================
-// INTEGRAÇÃO: VISTO E CONFIRMAÇÃO DE PARADAS PROGRAMADAS PELA LOGÍSTICA
-// =========================================================================
-
-// Helper interno que extrai o nome do usuário logado de forma garantida
 function obterNomeUsuarioLogadoParaParadas() {
     if (window.currentUser && (window.currentUser.nome_completo || window.currentUser.nome || window.currentUser.username)) {
         return window.currentUser.nome_completo || window.currentUser.nome || window.currentUser.username;
@@ -509,7 +524,7 @@ window.carregarListaParadasLogistica = async function() {
         let query = window.supabaseClient.from('manutencao_paradas_programadas')
             .select('*')
             .order('data_programada', { ascending: false })
-            .limit(5); // LIMITADO APENAS ÀS 5 ÚLTIMAS CONFORME SOLICITADO
+            .limit(5); 
             
         if (filialId !== null) query = query.eq('filial_id', filialId);
         
@@ -562,7 +577,6 @@ window.carregarListaParadasLogistica = async function() {
             } else if (statLog === 'Parou') {
                 statusLogHtml = `<span style="color: #10b981; font-weight:bold;"><i class="fas fa-check"></i> Parou</span><br><small style="color:var(--text-secondary); font-size:0.7rem;">Por: ${p.confirmado_por}</small>`;
             } else {
-                // QUADRO DE OBSERVAÇÃO QUANDO "NÃO PAROU" COM O MOTIVO
                 let motivoNaoParouHtml = p.motivo_nao_parou ? 
                     `<div style="margin-top: 6px; padding: 6px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; color: #fca5a5; font-size: 0.75rem; line-height: 1.3; text-align: left; max-width: 200px;">
                         <strong>Motivo:</strong> ${p.motivo_nao_parou}
@@ -596,7 +610,7 @@ window.confirmarAcaoParadaLogistica = async function(id, acao) {
 
     if (acao === 'Não Parou') {
         motivoNaoParou = prompt(`Confirma registrar que o veículo "Não Parou"?\n\nPor favor, informe o motivo obrigatório:`);
-        if (motivoNaoParou === null) return; // O usuário clicou em cancelar
+        if (motivoNaoParou === null) return; 
         if (motivoNaoParou.trim() === '') {
             alert("Ação cancelada: É obrigatório informar o motivo de não ter parado.");
             return;
@@ -755,7 +769,7 @@ window.imprimirRelatorioEscalaSemanal = function() {
     </head>
     <body>
         <div class="header">
-            <h1>Serrana Florestal - Escala Automática 4x2</h1>
+            <h1>Serrana Florestal - Escala Automática</h1>
             <p><strong>Semana Iniciada em: ${window.currentDatas[0].diaNum}</strong></p>
         </div>
     `;
@@ -807,6 +821,10 @@ window.imprimirRelatorioEscalaSemanal = function() {
                         const isF = esc.caminhao === 'F';
                         valorExibicao = isF ? 'F' : esc.caminhao;
                         cellClass = isF ? 'folga' : 'trab';
+                        
+                        if (esc.turnoDinamico && esc.turnoDinamico !== '-') {
+                            valorExibicao += `<br><span style="font-size:8px;">${esc.turnoDinamico}</span>`;
+                        }
                     }
                     
                     tHtml += `<td class="${cellClass}">${valorExibicao}</td>`;
@@ -818,8 +836,8 @@ window.imprimirRelatorioEscalaSemanal = function() {
 
         html += `<div class="trinca-box"><div class="trinca-num">CONJUNTO ${String(conj.id).padStart(2, '0')}</div>`;
         html += `<table><thead><tr><th style="width:11%;">HORÁRIO</th><th style="width:11%;">FROTA/PLACA</th><th style="width:5%;">EQ</th><th style="width:11%;">POSIÇÃO</th><th style="text-align:left;">COLABORADOR</th>${window.currentDatas.map(d => `<th style="width:8%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
-        html += renderTable(gDia, 'TURNO DO DIA (EQUIPES A, B, C)', 'dia-bg');
-        html += renderTable(gNoite, 'TURNO DA NOITE (EQUIPES D, E, F)', 'noite-bg');
+        html += renderTable(gDia, 'EQUIPES A, B, C (DIA NA REF)', 'dia-bg');
+        html += renderTable(gNoite, 'EQUIPES D, E, F (NOITE NA REF)', 'noite-bg');
         html += `</tbody></table></div>`;
     });
 
@@ -904,6 +922,9 @@ window.exportarEscalaMensalExcel = async function() {
             } else {
                 const escalaDia = window.getEscalaDiaComputada(m, dataAtualStr);
                 valorExibicao = escalaDia.caminhao === 'F' ? 'F' : escalaDia.caminhao;
+                if (escalaDia.turnoDinamico && escalaDia.turnoDinamico !== '-') {
+                    valorExibicao += ` (${escalaDia.turnoDinamico})`;
+                }
             }
             
             linha += `;${valorExibicao}`;
@@ -973,7 +994,9 @@ window.gerarRelatorioImpressao = async function() {
         const trinca = m.conjuntoId ? String(m.conjuntoId).padStart(2, '0') : 'S/F';
 
         let relTurno = m.turno || '-';
-        if (m.turno && m.turno !== '-') {
+        if (escala.turnoDinamico && escala.turnoDinamico !== '-') {
+            relTurno = escala.turnoDinamico;
+        } else if (m.turno && m.turno !== '-') {
             let cMatch = window.getCiclos().find(c => c.dbValue === m.turno);
             if (cMatch) {
                 relTurno = (['A','B','C'].includes(eq)) ? cMatch.labelDia : cMatch.labelNoite;
@@ -1120,13 +1143,12 @@ window.carregarDadosBancoHoras = async function() {
         
         if (!error && frotasDB && frotasDB.length > 0) {
             frotasDB.forEach(f => {
-                // TRAVA RESTRITA: Só adiciona se tiver a categoria TRITREM
                 if (!f.categoria || !f.categoria.toUpperCase().includes('TRITREM')) {
-                    return; // Pula todos os outros
+                    return; 
                 }
 
                 const placa = f.cavalo;
-                const desc = placa; // Já sabemos que é Tritrem, exibe apenas a placa
+                const desc = placa; 
                 
                 let statusCam = 'Livre (Sem Motorista)';
                 let color = '#10b981'; 
@@ -1134,7 +1156,6 @@ window.carregarDadosBancoHoras = async function() {
                 let verificadores = [placa];
                 if (f.frota) verificadores.push(f.frota);
 
-                // Busca quem está escalado neste carro hoje para descobrir status (livre/ocupado/faltou)
                 let alocacoesHoje = {};
                 motoristas.forEach(m => {
                     const aus = window.getAusenciaNoDia(m.id, dataStr);
@@ -1169,7 +1190,6 @@ window.carregarDadosBancoHoras = async function() {
             });
         }
 
-        // Evita placas duplicadas na visualização do select
         const uniqueOptions = [];
         const mapOptions = new Map();
         for (const item of caminhoesOptions) {
