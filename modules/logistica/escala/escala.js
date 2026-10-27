@@ -994,7 +994,7 @@ window.gerarRelatorioImpressao = async function() {
         const trinca = m.conjuntoId ? String(m.conjuntoId).padStart(2, '0') : 'S/F';
 
         let relTurno = m.turno || '-';
-        if (escala.turnoDinamico && escala.turnoDinamico !== '-') {
+        if (escala.turnoDinamico && escala.turnoDinamico !== '-' && escala.turnoDinamico !== m.turno) {
             relTurno = escala.turnoDinamico;
         } else if (m.turno && m.turno !== '-') {
             let cMatch = window.getCiclos().find(c => c.dbValue === m.turno);
