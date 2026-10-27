@@ -68,6 +68,7 @@
     .almo-form-group input:read-only { background: #334155; cursor: not-allowed; }
     
     .input-table-sm { width: 100%; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 4px; padding: 5px; outline: none; }
+    .almo-pagination { padding: 15px; display: flex; justify-content: center; gap: 8px; background: #0f172a; border-top: 1px solid #334155; border-radius: 0 0 12px 12px; }
 </style>
 
 <div class="almo-container">
@@ -118,12 +119,14 @@
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('notas', this)"><i class="fas fa-file-invoice-dollar"></i> Notas Fiscais</button>
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('movimentacoes', this)"><i class="fas fa-exchange-alt"></i> Histórico & Auditoria</button>
             <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('pneus', this)"><i class="fas fa-tire"></i> Gestão de Pneus</button>
+            <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('kits', this)"><i class="fas fa-layer-group"></i> Kits de Revisão</button>
         </div>
         <div class="almo-search">
             <i class="fas fa-search"></i>
             <input type="text" id="almoSearchInput" onkeyup="filtrarAlmoxarifado()" placeholder="Pesquisar em qualquer aba...">
         </div>
     </div>
+    
     <div id="abaEstoque" class="almo-table-container">
         <table class="almo-table">
             <thead>
@@ -144,7 +147,9 @@
             </thead>
             <tbody id="tabelaPecasBody"></tbody>
         </table>
+        <div id="paginacaoEstoque" class="almo-pagination"></div>
     </div>
+    
     <div id="abaNotas" class="almo-table-container" style="display: none;">
         <table class="almo-table">
             <thead>
@@ -161,6 +166,7 @@
             <tbody id="tabelaNotasBody"></tbody>
         </table>
     </div>
+    
     <div id="abaMovimentacoes" class="almo-table-container" style="display: none;">
         <table class="almo-table">
             <thead>
@@ -178,6 +184,7 @@
             <tbody id="tabelaMovimentacoesBody"></tbody>
         </table>
     </div>
+    
     <div id="abaPneus" class="almo-table-container" style="display: none;">
         <table class="almo-table">
             <thead>
@@ -193,6 +200,23 @@
                 </tr>
             </thead>
             <tbody id="tabelaPneusBody"></tbody>
+        </table>
+    </div>
+
+    <div id="abaKits" class="almo-table-container" style="display: none;">
+        <div style="padding: 15px; border-bottom: 1px solid #334155; display: flex; gap: 10px;">
+            <button class="btn-modern btn-success" onclick="abrirModalKit()"><i class="fas fa-plus"></i> Novo KIT</button>
+        </div>
+        <table class="almo-table">
+            <thead>
+                <tr>
+                    <th>Nome do KIT</th>
+                    <th>Descrição</th>
+                    <th>Total de Peças</th>
+                    <th style="text-align: right;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaKitsBody"></tbody>
         </table>
     </div>
 </div>
@@ -251,6 +275,92 @@
             </div>
             
             <button type="submit" class="btn-modern btn-success" style="width: 100%; justify-content: center; padding: 12px; font-size: 1.05rem;"><i class="fas fa-save"></i> Gravar Peça</button>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL CADASTRAR KIT -->
+<div id="modalKit" class="almo-modal">
+    <div class="almo-modal-content" style="max-width: 800px;">
+        <span class="almo-close" onclick="fecharModalAlmox('modalKit')">&times;</span>
+        <h3 id="modalKitTitulo">Montar Novo KIT</h3>
+        <form id="formKit" onsubmit="salvarKit(event)">
+            <input type="hidden" id="kitId">
+            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                <div class="almo-form-group" style="flex: 1;">
+                    <label>Nome do KIT</label>
+                    <input type="text" id="kitNome" placeholder="Ex: Kit Revisão 10.000km" required>
+                </div>
+                <div class="almo-form-group" style="flex: 2;">
+                    <label>Descrição / Aplicação</label>
+                    <input type="text" id="kitDescricao" placeholder="Ex: Filtros e óleo para revisão preventiva" required>
+                </div>
+            </div>
+            
+            <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px dashed #475569;">
+                <h4 style="margin-top: 0; color: #60a5fa; margin-bottom: 10px;">Adicionar Peças ao KIT</h4>
+                <div style="display: flex; gap: 10px; align-items: flex-end;">
+                    <div class="almo-form-group" style="flex: 3; margin-bottom: 0;">
+                        <label>Selecionar Peça</label>
+                        <select id="kitPecaSelecionada"></select>
+                    </div>
+                    <div class="almo-form-group" style="flex: 1; margin-bottom: 0;">
+                        <label>Quantidade</label>
+                        <input type="number" step="0.01" id="kitPecaQtd" value="1" min="0.01">
+                    </div>
+                    <button type="button" class="btn-modern btn-success" style="padding: 10px;" onclick="adicionarPecaKit()"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+
+            <div class="almo-table-container" style="max-height: 250px; overflow-y: auto; margin-bottom: 20px;">
+                <table class="almo-table" style="font-size: 0.85rem;">
+                    <thead style="position: sticky; top: 0; z-index: 10;">
+                        <tr><th>Código</th><th>Peça</th><th>Qtd no KIT</th><th style="text-align: center;">Remover</th></tr>
+                    </thead>
+                    <tbody id="tabelaKitItensBody"></tbody>
+                </table>
+            </div>
+            
+            <button type="submit" class="btn-modern btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 1.05rem;"><i class="fas fa-save"></i> Salvar KIT</button>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL REQUISITAR KIT -->
+<div id="modalRequisitarKit" class="almo-modal">
+    <div class="almo-modal-content" style="max-width: 600px;">
+        <span class="almo-close" onclick="fecharModalAlmox('modalRequisitarKit')">&times;</span>
+        <h3><i class="fas fa-clipboard-check" style="color: #60a5fa;"></i> Requisitar KIT</h3>
+        <p style="color: #cbd5e1; margin-bottom: 20px;">O sistema dará baixa automática em todos os itens que compõem o <strong id="reqKitNome" style="color: #fff;"></strong>.</p>
+        <form id="formRequisitarKit" onsubmit="confirmarRequisicaoKit(event)">
+            <input type="hidden" id="reqKitId">
+            <div class="almo-form-group">
+                <label>Destino do KIT</label>
+                <select id="reqKitTipoSaida" onchange="toggleReqKitSaida()">
+                    <option value="frota">Aplicação em Caminhão / Máquina (Requer O.S)</option>
+                    <option value="setor">Consumo Interno (Centro de Custo)</option>
+                </select>
+            </div>
+            
+            <div id="reqKitFrotaDiv" style="display: flex; gap: 15px; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+                <div class="almo-form-group" style="flex: 1;">
+                    <label>Nº da O.S. (Obrigatório)</label>
+                    <input type="number" id="reqKitOS" placeholder="Aperte Enter p/ buscar a Placa">
+                </div>
+                <div class="almo-form-group" style="flex: 1;">
+                    <label>Frota Destino</label>
+                    <input type="text" id="reqKitCavalo" placeholder="Aguardando O.S..." readonly>
+                </div>
+            </div>
+            
+            <div id="reqKitSetorDiv" style="display: none; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+                <div class="almo-form-group">
+                    <label>Centro de Custo / Setor</label>
+                    <select id="reqKitCentroCusto" style="width: 100%;"></select>
+                </div>
+            </div>
+
+            <button type="submit" id="btnConfirmarReqKit" class="btn-modern btn-warning" style="width: 100%; justify-content: center; padding: 12px; font-size: 1.05rem;"><i class="fas fa-check-double"></i> Confirmar Saída do KIT</button>
         </form>
     </div>
 </div>

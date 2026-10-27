@@ -2,9 +2,15 @@
 let pecasEstoque = [];
 let movimentacoesEstoque = [];
 let pneusEstoque = [];
+let kitsEstoque = [];
 
 let abaAtualAlmox = 'estoque';
 let itensLoteAtual = [];
+let itensKitAtual = [];
+
+let paginaAtualEstoque = 1;
+const itensPorPaginaEstoque = 15;
+let listaPecasAtual = [];
 
 window.renderizarAlmoxarifado = async function() {
     await carregarDadosAlmoxarifado();
@@ -20,12 +26,18 @@ async function carregarDadosAlmoxarifado() {
             if (typeof window.aplicarFiltroFilial === 'function') queryPneus = window.aplicarFiltroFilial(queryPneus);
             const { data: pneus } = await queryPneus;
             pneusEstoque = pneus || [];
+            
+            let queryKits = window.supabaseClient.from('almoxarifado_kits').select('*').order('created_at', { ascending: false });
+            if (typeof window.aplicarFiltroFilial === 'function') queryKits = window.aplicarFiltroFilial(queryKits);
+            const { data: kits } = await queryKits;
+            kitsEstoque = kits || [];
         }
 
         atualizarTabelaPecas(pecasEstoque);
         atualizarTabelaMovimentacoes(movimentacoesEstoque);
         atualizarTabelaNotas(movimentacoesEstoque);
         atualizarTabelaPneus(pneusEstoque);
+        atualizarTabelaKits(kitsEstoque);
         
         atualizarKPIsAlmoxarifado();
     } catch (e) { console.error("Erro ao carregar almoxarifado", e); }
@@ -57,10 +69,16 @@ async function preencherSelectsCadastrosBasicos() {
     }
 }
 
-function atualizarTabelaPecas(listaPecas) {
+function atualizarTabelaPecas(listaPecas, pagina = 1) {
+    listaPecasAtual = listaPecas;
+    paginaAtualEstoque = pagina;
+    
     const tbody = document.getElementById('tabelaPecasBody');
-    if (!tbody) return;
+    const divPaginacao = document.getElementById('paginacaoEstoque');
+    if (!tbody || !divPaginacao) return;
+    
     tbody.innerHTML = '';
+    divPaginacao.innerHTML = '';
     
     if(listaPecas.length === 0) { 
         tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma peça encontrada.</td></tr>'; 
@@ -80,12 +98,18 @@ function atualizarTabelaPecas(listaPecas) {
     itensProcessados.sort((a,b) => b.valor_total - a.valor_total);
 
     let somaAcumulada = 0;
-
     itensProcessados.forEach(peca => {
         somaAcumulada += peca.valor_total;
         let perc = (somaAcumulada / (valorTotalGlobal || 1)) * 100;
         peca.curva = perc <= 80 ? 'A' : (perc <= 95 ? 'B' : 'C');
+    });
 
+    const totalPaginas = Math.ceil(itensProcessados.length / itensPorPaginaEstoque);
+    const inicio = (pagina - 1) * itensPorPaginaEstoque;
+    const fim = inicio + itensPorPaginaEstoque;
+    const itensPagina = itensProcessados.slice(inicio, fim);
+
+    itensPagina.forEach(peca => {
         const min = parseFloat(peca.estoque_minimo) || 0;
         const estaBaixo = peca.quantidade_numerica <= min;
         const statusHtml = estaBaixo ? `<span class="badge badge-alert"><i class="fas fa-exclamation-circle"></i> Baixo</span>` : `<span class="badge badge-ok"><i class="fas fa-check"></i> Normal</span>`;
@@ -118,6 +142,15 @@ function atualizarTabelaPecas(listaPecas) {
         `;
         tbody.appendChild(tr);
     });
+
+    for(let i = 1; i <= totalPaginas; i++) {
+        const btn = document.createElement('button');
+        btn.className = `btn-modern ${i === pagina ? 'btn-primary' : 'btn-dark'}`;
+        btn.style.padding = '6px 12px';
+        btn.innerText = i;
+        btn.onclick = () => atualizarTabelaPecas(listaPecasAtual, i);
+        divPaginacao.appendChild(btn);
+    }
 }
 
 function atualizarTabelaNotas(listaMovimentacoes) {
@@ -277,6 +310,34 @@ function atualizarTabelaPneus(lista) {
     });
 }
 
+function atualizarTabelaKits(lista) {
+    const tbody = document.getElementById('tabelaKitsBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if(lista.length === 0) { tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhum KIT cadastrado.</td></tr>'; return; }
+
+    lista.forEach(kit => {
+        let itensParsed = [];
+        try {
+            if (typeof kit.itens === 'string') itensParsed = JSON.parse(kit.itens);
+            else if (Array.isArray(kit.itens)) itensParsed = kit.itens;
+        } catch (e) { itensParsed = []; }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-weight:bold; color:#fff;">${kit.nome}</td>
+            <td style="color:#cbd5e1;">${kit.descricao || '-'}</td>
+            <td style="color:#94a3b8; font-weight:bold;">${itensParsed.length} peças</td>
+            <td style="text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
+                <button type="button" title="Requisitar KIT" class="btn-action-sm btn-warning" onclick='abrirRequisitarKit(${JSON.stringify(kit).replace(/'/g, "&apos;")})'><i class="fas fa-dolly"></i> Requisitar</button>
+                <button type="button" title="Editar KIT" class="btn-action-sm btn-edit" onclick='editarKit(${JSON.stringify(kit).replace(/'/g, "&apos;")})'><i class="fas fa-pen"></i></button>
+                <button type="button" title="Excluir" class="btn-action-sm btn-delete" onclick='deletarKit(${kit.id})'><i class="fas fa-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
 function atualizarKPIsAlmoxarifado() {
     let valorTotal = 0, itensBaixos = 0;
     
@@ -317,13 +378,14 @@ window.filtrarAlmoxarifado = function() {
     else if (abaAtualAlmox === 'notas') atualizarTabelaNotas(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo) || (m.usuario||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'movimentacoes') atualizarTabelaMovimentacoes(movimentacoesEstoque.filter(m => (m.nota_fiscal||'').toLowerCase().includes(termo) || (m.fornecedor||'').toLowerCase().includes(termo) || (m.cavalo||'').toLowerCase().includes(termo) || (m.setor_destino||'').toLowerCase().includes(termo) || (m.usuario||'').toLowerCase().includes(termo)));
     else if (abaAtualAlmox === 'pneus') atualizarTabelaPneus(pneusEstoque.filter(p => (p.num_fogo||'').toLowerCase().includes(termo) || (p.cavalo_atual||'').toLowerCase().includes(termo)));
+    else if (abaAtualAlmox === 'kits') atualizarTabelaKits(kitsEstoque.filter(k => (k.nome||'').toLowerCase().includes(termo) || (k.descricao||'').toLowerCase().includes(termo)));
 }
 
 window.mudarAbaAlmoxarifado = function(abaId, btn) {
     abaAtualAlmox = abaId;
     document.querySelectorAll('.almo-tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    ['estoque','notas','movimentacoes','pneus'].forEach(id => {
+    ['estoque','notas','movimentacoes','pneus','kits'].forEach(id => {
         const element = document.getElementById('aba'+id.charAt(0).toUpperCase() + id.slice(1));
         if(element) element.style.display = (id === abaId ? 'block' : 'none');
     });
@@ -331,16 +393,29 @@ window.mudarAbaAlmoxarifado = function(abaId, btn) {
 }
 
 window.carregarCentrosCustoAlmox = async function() {
-    const selectCC = document.getElementById('movCentroCusto');
-    if (!selectCC || !window.supabaseClient) return;
-    selectCC.innerHTML = '<option value="">Carregando...</option>';
+    const selects = [document.getElementById('movCentroCusto'), document.getElementById('reqKitCentroCusto')];
+    if (!window.supabaseClient) return;
+    
+    selects.forEach(selectCC => {
+        if(selectCC) selectCC.innerHTML = '<option value="">Carregando...</option>';
+    });
+
     try {
         let query = window.supabaseClient.from('centro_custo').select('id, nome, codigo').eq('status', 'Ativo');
         if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
         const { data } = await query;
-        if (data && data.length > 0) { selectCC.innerHTML = '<option value="" disabled selected>-- Selecione o Centro de Custo --</option>' + data.map(cc => `<option value="${cc.nome}">[${cc.codigo}] ${cc.nome}</option>`).join(''); } 
-        else { selectCC.innerHTML = '<option value="" disabled>Nenhum Centro Cadastrado nesta Filial</option>'; }
-    } catch (e) { selectCC.innerHTML = '<option value="" disabled>Erro ao carregar</option>'; }
+        const optionsHtml = data && data.length > 0 
+            ? '<option value="" disabled selected>-- Selecione o Centro de Custo --</option>' + data.map(cc => `<option value="${cc.nome}">[${cc.codigo}] ${cc.nome}</option>`).join('')
+            : '<option value="" disabled>Nenhum Centro Cadastrado nesta Filial</option>';
+        
+        selects.forEach(selectCC => {
+            if(selectCC) selectCC.innerHTML = optionsHtml;
+        });
+    } catch (e) { 
+        selects.forEach(selectCC => {
+            if(selectCC) selectCC.innerHTML = '<option value="" disabled>Erro ao carregar</option>';
+        });
+    }
 }
 
 window.toggleTipoSaida = function() {
@@ -706,6 +781,8 @@ window.deletarPeca = async function(id) {
     }
 }
 
+// ================= GESTÃO DE PNEUS =================
+
 window.abrirModalPneu = function() { document.getElementById('formPneu').reset(); document.getElementById('pneuId').value = ''; document.getElementById('modalPneu').style.display = 'flex'; }
 window.editarPneu = function(pneu) {
     document.getElementById('pneuId').value = pneu.id;
@@ -760,6 +837,221 @@ window.executarAcaoPneu = async function(e) {
     try { await window.supabaseClient.from('almoxarifado_pneus').update(updPneu).eq('id', pneuId); await window.supabaseClient.from('almoxarifado_pneus_mov').insert(hist); fecharModalAlmox('modalAcaoPneu'); await carregarDadosAlmoxarifado(); alert("Sucesso!"); } catch(err) { alert("Erro"); }
 }
 
+// ================= GESTÃO DE KITS =================
+
+window.abrirModalKit = function() {
+    document.getElementById('formKit').reset();
+    document.getElementById('kitId').value = '';
+    document.getElementById('modalKitTitulo').innerText = 'Montar Novo KIT';
+    itensKitAtual = [];
+    preencherSelectPecas('kitPecaSelecionada');
+    renderizarItensKit();
+    document.getElementById('modalKit').style.display = 'flex';
+}
+
+window.editarKit = function(kit) {
+    document.getElementById('formKit').reset();
+    document.getElementById('kitId').value = kit.id;
+    document.getElementById('kitNome').value = kit.nome;
+    document.getElementById('kitDescricao').value = kit.descricao || '';
+    document.getElementById('modalKitTitulo').innerText = 'Editar KIT';
+    
+    try {
+        itensKitAtual = typeof kit.itens === 'string' ? JSON.parse(kit.itens) : kit.itens;
+    } catch(e) {
+        itensKitAtual = [];
+    }
+    if (!Array.isArray(itensKitAtual)) itensKitAtual = [];
+    
+    preencherSelectPecas('kitPecaSelecionada');
+    renderizarItensKit();
+    document.getElementById('modalKit').style.display = 'flex';
+}
+
+window.adicionarPecaKit = function() {
+    const pecaId = document.getElementById('kitPecaSelecionada').value;
+    const qtd = parseFloat(document.getElementById('kitPecaQtd').value);
+    
+    if (!pecaId || isNaN(qtd) || qtd <= 0) { alert("Selecione uma peça e informe uma quantidade válida."); return; }
+    
+    const peca = pecasEstoque.find(p => p.id == pecaId);
+    if (!peca) return;
+    
+    const existente = itensKitAtual.find(i => i.peca_id == pecaId);
+    if (existente) {
+        existente.quantidade += qtd;
+    } else {
+        itensKitAtual.push({ peca_id: peca.id, codigo: peca.codigo, nome: peca.nome, quantidade: qtd });
+    }
+    
+    renderizarItensKit();
+    document.getElementById('kitPecaSelecionada').value = '';
+    document.getElementById('kitPecaQtd').value = '1';
+}
+
+window.removerPecaKit = function(pecaId) {
+    itensKitAtual = itensKitAtual.filter(i => i.peca_id != pecaId);
+    renderizarItensKit();
+}
+
+window.renderizarItensKit = function() {
+    const tbody = document.getElementById('tabelaKitItensBody');
+    tbody.innerHTML = '';
+    if (itensKitAtual.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 15px; color: #94a3b8;">Nenhuma peça adicionada ao KIT.</td></tr>';
+        return;
+    }
+    itensKitAtual.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="color:#60a5fa;">${item.codigo || '-'}</td>
+            <td style="color:#f8fafc;">${item.nome}</td>
+            <td style="color:#cbd5e1; font-weight:bold;">${item.quantidade}</td>
+            <td style="text-align: center;"><button type="button" class="btn-action-sm btn-delete" onclick="removerPecaKit(${item.peca_id})"><i class="fas fa-trash"></i></button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+window.salvarKit = async function(e) {
+    e.preventDefault();
+    if(itensKitAtual.length === 0) { alert("O KIT precisa ter pelo menos uma peça."); return; }
+    
+    const id = document.getElementById('kitId').value;
+    let kitInput = {
+        nome: document.getElementById('kitNome').value.trim(),
+        descricao: document.getElementById('kitDescricao').value.trim(),
+        itens: JSON.stringify(itensKitAtual)
+    };
+    if (id) kitInput.id = id;
+    if (typeof window.injetarFilial === 'function') kitInput = window.injetarFilial(kitInput);
+
+    try {
+        await window.supabaseClient.from('almoxarifado_kits').upsert(kitInput);
+        fecharModalAlmox('modalKit');
+        await carregarDadosAlmoxarifado();
+        alert("KIT salvo com sucesso!");
+    } catch (err) { console.error(err); alert("Erro ao salvar KIT."); }
+}
+
+window.deletarKit = async function(id) {
+    if (confirm("Deseja realmente excluir este KIT? Isso não afetará as movimentações passadas.")) {
+        try {
+            await window.supabaseClient.from('almoxarifado_kits').delete().eq('id', id);
+            await carregarDadosAlmoxarifado();
+        } catch(e) { alert("Erro ao excluir KIT."); }
+    }
+}
+
+window.abrirRequisitarKit = function(kit) {
+    document.getElementById('formRequisitarKit').reset();
+    document.getElementById('reqKitId').value = kit.id;
+    document.getElementById('reqKitNome').innerText = kit.nome;
+    
+    document.getElementById('reqKitTipoSaida').value = 'frota';
+    window.carregarCentrosCustoAlmox();
+    toggleReqKitSaida();
+    
+    const inputOS = document.getElementById('reqKitOS');
+    if (inputOS) {
+        inputOS.onchange = async function() {
+            const osId = inputOS.value.trim();
+            const cavaloInput = document.getElementById('reqKitCavalo');
+            if (!osId) { cavaloInput.value = ''; return; }
+            
+            cavaloInput.value = "Buscando Placa...";
+            try {
+                const { data } = await window.supabaseClient.from('ordens_servico').select('placa').eq('id', osId).maybeSingle();
+                if (data && data.placa) {
+                    cavaloInput.value = data.placa;
+                    cavaloInput.style.color = '#10b981'; setTimeout(() => { cavaloInput.style.color = '#fff'; }, 2000);
+                } else { cavaloInput.value = "OS NÃO ENCONTRADA"; }
+            } catch (e) { cavaloInput.value = "ERRO AO BUSCAR"; }
+        };
+    }
+    
+    document.getElementById('modalRequisitarKit').style.display = 'flex';
+}
+
+window.toggleReqKitSaida = function() {
+    const tipo = document.getElementById('reqKitTipoSaida').value;
+    if (tipo === 'frota') {
+        document.getElementById('reqKitFrotaDiv').style.display = 'flex'; document.getElementById('reqKitSetorDiv').style.display = 'none';
+        document.getElementById('reqKitOS').required = true; document.getElementById('reqKitCentroCusto').required = false; document.getElementById('reqKitCentroCusto').value = '';
+    } else {
+        document.getElementById('reqKitFrotaDiv').style.display = 'none'; document.getElementById('reqKitSetorDiv').style.display = 'block';
+        document.getElementById('reqKitOS').required = false; document.getElementById('reqKitCentroCusto').required = true; document.getElementById('reqKitCavalo').value = ''; document.getElementById('reqKitOS').value = '';
+    }
+}
+
+window.confirmarRequisicaoKit = async function(e) {
+    e.preventDefault();
+    const kitId = document.getElementById('reqKitId').value;
+    const kit = kitsEstoque.find(k => k.id == kitId);
+    if (!kit) return;
+    
+    let itensParsed = [];
+    try { itensParsed = typeof kit.itens === 'string' ? JSON.parse(kit.itens) : kit.itens; } catch(e) {}
+    
+    // Validar estoque
+    let errosEstoque = [];
+    itensParsed.forEach(itemKit => {
+        const pecaReal = pecasEstoque.find(p => p.id == itemKit.peca_id);
+        if (!pecaReal || pecaReal.quantidade < itemKit.quantidade) {
+            errosEstoque.push(`${itemKit.nome} (Falta: ${(itemKit.quantidade - (pecaReal ? pecaReal.quantidade : 0)).toFixed(2)})`);
+        }
+    });
+    
+    if (errosEstoque.length > 0) {
+        alert("Estoque insuficiente para os seguintes itens do KIT:\n" + errosEstoque.join('\n'));
+        return;
+    }
+
+    const btnSubmit = document.getElementById('btnConfirmarReqKit');
+    btnSubmit.disabled = true; btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...';
+
+    const tipoSaidaDestino = document.getElementById('reqKitTipoSaida').value;
+    let cavaloVal = null, setorVal = null, osVal = null;
+
+    if (tipoSaidaDestino === 'frota') {
+        osVal = document.getElementById('reqKitOS').value;
+        cavaloVal = document.getElementById('reqKitCavalo').value.toUpperCase();
+        if(!cavaloVal || cavaloVal === "OS NÃO ENCONTRADA") { 
+            alert("Atenção: OS inválida."); 
+            btnSubmit.disabled = false; btnSubmit.innerHTML = '<i class="fas fa-check-double"></i> Confirmar Saída do KIT';
+            return; 
+        }
+    } else {
+        setorVal = document.getElementById('reqKitCentroCusto').value;
+    }
+
+    try {
+        for (const itemKit of itensParsed) {
+            const pecaReal = pecasEstoque.find(p => p.id == itemKit.peca_id);
+            await db.addMovimentacao({
+                peca_id: itemKit.peca_id, 
+                tipo: 'saida', 
+                quantidade: itemKit.quantidade, 
+                valor_unitario: pecaReal.preco_medio,
+                cavalo: cavaloVal, 
+                setor_destino: setorVal, 
+                os_id: osVal, 
+                usuario: window.currentUser ? window.currentUser.username : 'Sistema',
+                data_movimentacao: new Date().toISOString()
+            });
+        }
+        
+        fecharModalAlmox('modalRequisitarKit');
+        await carregarDadosAlmoxarifado();
+        alert("Requisicão de KIT concluída com sucesso!");
+    } catch(err) {
+        console.error(err);
+        alert("Erro ao requisitar o KIT.");
+    } finally {
+        btnSubmit.disabled = false; btnSubmit.innerHTML = '<i class="fas fa-check-double"></i> Confirmar Saída do KIT';
+    }
+}
+
 window.fecharModalAlmox = function(id) { document.getElementById(id).style.display = 'none'; }
 
 // ================= LÓGICA DO QR CODE (ATUALIZADA E REDIMENSIONADA) =================
@@ -775,7 +1067,6 @@ window.imprimirQRCode = function(peca) {
     document.getElementById('qrItemNome').innerText = peca.nome;
     document.getElementById('qrItemCodigo').innerText = peca.codigo;
     
-    // Esconde o filtro de categoria por que vai imprimir só um
     if (document.getElementById('qrFiltroCategoriaContainer')) {
         document.getElementById('qrFiltroCategoriaContainer').style.display = 'none';
     }
@@ -790,7 +1081,6 @@ window.abrirModalQrLote = function() {
     document.getElementById('modalQrTitulo').innerHTML = '<i class="fas fa-qrcode" style="color:#8b5cf6;"></i> Imprimir QR Codes (Em Lote)';
     document.getElementById('qrItemUnicoContainer').style.display = 'none';
 
-    // Popula o select com as categorias dinamicamente
     const selectCat = document.getElementById('qrCategoriaFiltro');
     if (selectCat) {
         const categorias = [...new Set(pecasEstoque.map(p => p.categoria).filter(Boolean))].sort();
@@ -799,7 +1089,6 @@ window.abrirModalQrLote = function() {
         selectCat.value = '';
     }
     
-    // Mostra o container do filtro
     if (document.getElementById('qrFiltroCategoriaContainer')) {
         document.getElementById('qrFiltroCategoriaContainer').style.display = 'block';
     }
@@ -843,7 +1132,6 @@ window.executarGeracaoQr = function() {
         const catFiltro = document.getElementById('qrCategoriaFiltro') ? document.getElementById('qrCategoriaFiltro').value : '';
         let pecasComCodigo = pecasEstoque.filter(p => p.codigo && p.codigo.trim() !== '');
         
-        // Aplica o filtro de categoria
         if (catFiltro !== '') {
             pecasComCodigo = pecasComCodigo.filter(p => p.categoria === catFiltro);
         }
