@@ -493,6 +493,7 @@ window.prepararModalMovimentacao = function(tipo) {
 
 function preencherSelectPecas(idElemento) {
     const select = document.getElementById(idElemento);
+    if (!select) return;
     select.innerHTML = '<option value="">-- Selecione um lote/peça --</option>';
     pecasEstoque.forEach(p => {
         let txtValidade = p.data_validade ? ` | Val: ${p.data_validade.split('-').reverse().join('/')}` : '';
@@ -837,14 +838,109 @@ window.executarAcaoPneu = async function(e) {
     try { await window.supabaseClient.from('almoxarifado_pneus').update(updPneu).eq('id', pneuId); await window.supabaseClient.from('almoxarifado_pneus_mov').insert(hist); fecharModalAlmox('modalAcaoPneu'); await carregarDadosAlmoxarifado(); alert("Sucesso!"); } catch(err) { alert("Erro"); }
 }
 
-// ================= GESTÃO DE KITS =================
+// ================= GESTÃO DE KITS E AUTOCOMPLETE =================
+
+let timerPecasKitDebounce;
+window.filtrarPecasKitDebounced = function(forcarMostrar = false) {
+    clearTimeout(timerPecasKitDebounce);
+    timerPecasKitDebounce = setTimeout(() => {
+        filtrarPecasKitExec(forcarMostrar);
+    }, 300);
+};
+
+function filtrarPecasKitExec(forcarMostrar = false) {
+    const input = document.getElementById('pesquisaPecaKit');
+    const container = document.getElementById('listaPecasKitCustom');
+    const btnLimpar = document.getElementById('btnLimparPesquisaKit');
+
+    if (!input || !container) return;
+
+    const termo = input.value.trim().toLowerCase();
+
+    if (termo.length > 0 && btnLimpar) btnLimpar.style.display = 'block';
+    else if (btnLimpar) btnLimpar.style.display = 'none';
+
+    if (termo.length === 0 && !forcarMostrar) {
+        container.style.display = 'none';
+        return;
+    }
+
+    let filtradas = pecasEstoque.filter(p => {
+        return termo === "" || (p.nome && p.nome.toLowerCase().includes(termo)) || (p.codigo && p.codigo.toLowerCase().includes(termo));
+    });
+
+    let msgLimite = '';
+    if (filtradas.length > 50 && termo === "") {
+        filtradas = filtradas.slice(0, 50);
+        msgLimite = `<div style="padding:10px; text-align:center; color:#fbbf24; font-size:0.85rem; background:rgba(245, 158, 11, 0.1); border-bottom:1px solid #334155;">Mostrando as 50 primeiras peças. Digite para buscar.</div>`;
+    }
+
+    if (filtradas.length === 0) {
+        container.innerHTML = '<div style="padding:15px; text-align:center; color:#94a3b8;">Nenhuma peça encontrada.</div>';
+    } else {
+        container.innerHTML = msgLimite + filtradas.map(x => {
+            const codigo = x.codigo ? x.codigo : '';
+            return `
+            <div class="peca-item" onclick="selecionarPecaKitCustom(${x.id}, '${(x.nome || '').replace(/'/g, "\\'")}', '${codigo}')">
+                <div class="peca-item-info">
+                    <span class="peca-item-nome">${x.nome}</span>
+                    ${codigo ? `<span class="peca-item-codigo"><i class="fas fa-barcode"></i> ${codigo}</span>` : ''}
+                </div>
+                <div class="peca-item-estoque">
+                    <i class="fas fa-box"></i> ${x.quantidade} ${x.unidade||'UN'}
+                </div>
+            </div>`;
+        }).join('');
+    }
+    container.style.display = 'block';
+}
+
+window.selecionarPecaKitCustom = function(id, nome, codigo) {
+    document.getElementById('kitPecaSelecionadaId').value = id;
+    const desc = codigo ? `[${codigo}] ${nome}` : nome;
+    document.getElementById('pesquisaPecaKit').value = desc;
+    document.getElementById('listaPecasKitCustom').style.display = 'none';
+    document.getElementById('kitPecaQtd').focus();
+    document.getElementById('kitPecaQtd').select();
+};
+
+window.limparPesquisaPecaKit = function() {
+    const inputPeca = document.getElementById('pesquisaPecaKit');
+    const inputId = document.getElementById('kitPecaSelecionadaId');
+    const listaCustom = document.getElementById('listaPecasKitCustom');
+    const btnLimpar = document.getElementById('btnLimparPesquisaKit');
+
+    if(inputPeca) inputPeca.value = '';
+    if(inputId) inputId.value = '';
+    if(listaCustom) listaCustom.style.display = 'none';
+    if(btnLimpar) btnLimpar.style.display = 'none';
+};
+
+window.toggleListaPecasKit = function() {
+    const container = document.getElementById('listaPecasKitCustom');
+    if (container.style.display === 'block') {
+        container.style.display = 'none';
+    } else {
+        document.getElementById('pesquisaPecaKit').focus();
+        filtrarPecasKitDebounced(true);
+    }
+};
+
+document.addEventListener('click', function(e) {
+    const searchBox = document.getElementById('pesquisaPecaKit');
+    const list = document.getElementById('listaPecasKitCustom');
+    const btnShow = document.getElementById('btnMostrarListaKit');
+    if(searchBox && list && e.target !== searchBox && !list.contains(e.target) && e.target !== btnShow && !(btnShow && btnShow.contains(e.target))) {
+        list.style.display = 'none';
+    }
+});
 
 window.abrirModalKit = function() {
     document.getElementById('formKit').reset();
     document.getElementById('kitId').value = '';
     document.getElementById('modalKitTitulo').innerText = 'Montar Novo KIT';
     itensKitAtual = [];
-    preencherSelectPecas('kitPecaSelecionada');
+    limparPesquisaPecaKit();
     renderizarItensKit();
     document.getElementById('modalKit').style.display = 'flex';
 }
@@ -863,16 +959,16 @@ window.editarKit = function(kit) {
     }
     if (!Array.isArray(itensKitAtual)) itensKitAtual = [];
     
-    preencherSelectPecas('kitPecaSelecionada');
+    limparPesquisaPecaKit();
     renderizarItensKit();
     document.getElementById('modalKit').style.display = 'flex';
 }
 
 window.adicionarPecaKit = function() {
-    const pecaId = document.getElementById('kitPecaSelecionada').value;
+    const pecaId = document.getElementById('kitPecaSelecionadaId').value;
     const qtd = parseFloat(document.getElementById('kitPecaQtd').value);
     
-    if (!pecaId || isNaN(qtd) || qtd <= 0) { alert("Selecione uma peça e informe uma quantidade válida."); return; }
+    if (!pecaId || isNaN(qtd) || qtd <= 0) { alert("Selecione uma peça na lista de pesquisa e informe uma quantidade válida."); return; }
     
     const peca = pecasEstoque.find(p => p.id == pecaId);
     if (!peca) return;
@@ -885,7 +981,7 @@ window.adicionarPecaKit = function() {
     }
     
     renderizarItensKit();
-    document.getElementById('kitPecaSelecionada').value = '';
+    limparPesquisaPecaKit();
     document.getElementById('kitPecaQtd').value = '1';
 }
 
@@ -1054,7 +1150,7 @@ window.confirmarRequisicaoKit = async function(e) {
 
 window.fecharModalAlmox = function(id) { document.getElementById(id).style.display = 'none'; }
 
-// ================= LÓGICA DO QR CODE (ATUALIZADA E REDIMENSIONADA) =================
+// ================= LÓGICA DO QR CODE =================
 window.qrModoAtual = null;
 window.qrPecaAtual = null;
 
