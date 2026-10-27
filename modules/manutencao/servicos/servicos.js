@@ -2,6 +2,7 @@
 
 let mOS_Atual = null;
 let mOS_PecasCache = [];
+let mOS_KitsCache = [];
 let mOS_ListaGeral = [];
 let mOS_Requisicoes = []; 
 let mOS_FrotasCache = []; // Cache global de frotas
@@ -9,6 +10,10 @@ let mOS_AbaAtiva = 'aceite';
 let mapaSOSMecanicoInstance = null;
 window.mecanicoNomeCompletoCache = null; 
 let mMecanicosCache = []; 
+
+// Variáveis para gerenciar o Modal de Revisão de Kit
+window.itensKitRevisaoAtual = [];
+window.kitRevisaoContexto = {};
 
 window.renderizarTelaServicos = async function() {
     try {
@@ -28,8 +33,6 @@ window.renderizarTelaServicos = async function() {
         }
 
         if (mMecanicosCache.length === 0) {
-            // Busca o(s) ID(s) do setor de Manutenção
-            // Usa ilike('%Manuten%') para abranger "Manutenção", "MANUTENÇÃO", etc., em todas as filiais
             const { data: setoresData } = await window.supabaseClient
                 .from('setores')
                 .select('id')
@@ -38,7 +41,6 @@ window.renderizarTelaServicos = async function() {
             if (setoresData && setoresData.length > 0) {
                 const setoresIds = setoresData.map(s => s.id);
                 
-                // Busca os colaboradores vinculados a qualquer um dos setores encontrados, apenas ativos e em ordem alfabética
                 let queryColaboradores = window.supabaseClient
                     .from('rh_colaboradores')
                     .select('nome')
@@ -66,7 +68,13 @@ window.renderizarTelaServicos = async function() {
             mOS_PecasCache = cachePecas || [];
         }
 
-        // Cache das frotas para exibir GO e placas extras
+        if (mOS_KitsCache.length === 0) {
+            let qKits = window.supabaseClient.from('almoxarifado_kits').select('*');
+            if (typeof window.aplicarFiltroFilial === 'function') qKits = window.aplicarFiltroFilial(qKits);
+            const { data: cacheKits } = await qKits;
+            mOS_KitsCache = cacheKits || [];
+        }
+
         if (mOS_FrotasCache.length === 0) {
             let qFrotas = window.supabaseClient.from('frotas_manutencao').select('*');
             if (typeof window.aplicarFiltroFilial === 'function') qFrotas = window.aplicarFiltroFilial(qFrotas);
@@ -159,7 +167,6 @@ function mecanicoAtualizarContadores() {
     document.getElementById('countSOS').innerText = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S')).length;
 }
 
-// Helper para montar as informações de GO e Carretas nos cards
 function mecanicoObterInfoFrota(placa) {
     if (!placa) return '';
     const frota = mOS_FrotasCache.find(f => f.cavalo === placa || f.go === placa);
@@ -309,19 +316,13 @@ function mecanicoRenderizarTabelas() {
     }
 }
 
-// ==========================================
-// FUNÇÕES PARA ASSUMIR SERVIÇO COM MODAL
-// ==========================================
 window.abrirModalAssumirOS = function(id, placa) {
     const inputId = document.getElementById('assumirOsId');
     const spanPlaca = document.getElementById('assumirOsPlaca');
     const select = document.getElementById('selMecanicoAssumir');
     const modal = document.getElementById('modalAssumirOS');
 
-    if (!inputId || !select || !modal) {
-        alert("Erro: O layout do Modal não foi encontrado. Atualize a página (pressione F5 ou limpe o cache) e verifique o arquivo servicos.html.");
-        return;
-    }
+    if (!inputId || !select || !modal) return;
 
     inputId.value = id;
     if (spanPlaca) spanPlaca.innerText = placa;
@@ -355,7 +356,17 @@ window.confirmarAssumirOS = async function(e) {
     const id = document.getElementById('assumirOsId').value;
     const nomeParaSalvar = document.getElementById('selMecanicoAssumir').value;
     
-    if (!confirm(`Deseja assumir esta O.S. como ${nomeParaSalvar}?`)) return;
+    const res = await Swal.fire({
+        title: 'Assumir O.S.',
+        text: `Deseja assumir esta O.S. como ${nomeParaSalvar}?`,
+        icon: 'question',
+        showCancelButton: true,
+        background: '#1e293b', color: '#fff',
+        confirmButtonColor: '#3b82f6', cancelButtonColor: '#475569',
+        confirmButtonText: 'Sim, Assumir', cancelButtonText: 'Cancelar'
+    });
+    
+    if(!res.isConfirmed) return;
     
     try {
         const { error } = await window.supabaseClient.from('ordens_servico').update({ 
@@ -366,13 +377,11 @@ window.confirmarAssumirOS = async function(e) {
         
         if (error) throw error;
         
-        alert('O.S. Assumida com sucesso!');
+        Swal.fire({icon: 'success', title: 'Sucesso', text: 'O.S. Assumida com sucesso!', background: '#1e293b', color: '#fff', timer: 2000, showConfirmButton: false});
         fecharModalAssumirOS();
         await renderizarTelaServicos();
         mecanicoMudarAba('abertas'); 
-    } catch (err) { 
-        alert("Erro ao tentar assumir a O.S."); 
-    }
+    } catch (err) { Swal.fire({icon: 'error', title: 'Erro', text: 'Erro ao tentar assumir a O.S.', background: '#1e293b', color: '#fff'}); }
 };
 
 window.abrirModalFinalizarOS = function(id, placa) {
@@ -392,7 +401,17 @@ window.mecanicoConfirmarFinalizacao = async function(e) {
     const dataConclusao = document.getElementById('finDataConclusao').value;
     const obsOficina = document.getElementById('finObservacoes').value.trim();
 
-    if(!confirm('Tem certeza que deseja FINALIZAR esta O.S.?')) return;
+    const res = await Swal.fire({
+        title: 'Finalizar O.S.',
+        text: 'Tem certeza que deseja FINALIZAR esta O.S.? O veículo será liberado.',
+        icon: 'warning',
+        showCancelButton: true,
+        background: '#1e293b', color: '#fff',
+        confirmButtonColor: '#10b981', cancelButtonColor: '#475569',
+        confirmButtonText: 'Sim, Concluir', cancelButtonText: 'Cancelar'
+    });
+    
+    if(!res.isConfirmed) return;
 
     try {
         const osOriginal = mOS_ListaGeral.find(o => o.id == id);
@@ -405,21 +424,32 @@ window.mecanicoConfirmarFinalizacao = async function(e) {
 
         if(error) throw error;
 
-        alert('O.S. Finalizada com sucesso!');
+        Swal.fire({icon: 'success', title: 'Concluída!', text: 'O.S. Finalizada com sucesso!', background: '#1e293b', color: '#fff', timer: 2000, showConfirmButton: false});
         fecharModalFinalizarOS();
         await renderizarTelaServicos(); 
-    } catch(err) { alert('Erro ao tentar finalizar a O.S.'); }
+    } catch(err) { Swal.fire({icon: 'error', title: 'Erro', text: 'Erro ao tentar finalizar a O.S.', background: '#1e293b', color: '#fff'}); }
 };
 
 window.mecanicoDevolverOS = async function(id, placa) {
-    if (!confirm(`Deseja DEVOLVER a O.S. para disponíveis?`)) return;
+    const res = await Swal.fire({
+        title: 'Devolver O.S.',
+        text: 'Deseja DEVOLVER a O.S. para disponíveis?',
+        icon: 'warning',
+        showCancelButton: true,
+        background: '#1e293b', color: '#fff',
+        confirmButtonColor: '#ef4444', cancelButtonColor: '#475569',
+        confirmButtonText: 'Sim, Devolver', cancelButtonText: 'Cancelar'
+    });
+    
+    if(!res.isConfirmed) return;
+    
     try {
         await window.supabaseClient.from('ordens_servico').update({ 
             status: 'Aguardando Oficina', mecanico_responsavel: null, data_inicio_manutencao: null
         }).eq('id', id);
         await renderizarTelaServicos();
         mecanicoMudarAba('aceite');
-    } catch (e) { alert("Erro ao devolver OS."); }
+    } catch (e) { Swal.fire({icon: 'error', title: 'Erro', text: 'Erro ao devolver OS.', background: '#1e293b', color: '#fff'}); }
 };
 
 window.mecanicoAbrirApontamento = async function(id, placa, previsao) {
@@ -465,6 +495,7 @@ window.mecanicoAbrirApontamento = async function(id, placa, previsao) {
     if (modal) modal.style.display = 'flex';
     
     await mecanicoCarregarPecas();
+    mecanicoCarregarKits();
     await mecanicoMontarPlacasTritrem(placa);
     mecanicoAtualizarTabelasModal();
 };
@@ -496,9 +527,14 @@ window.mecanicoSalvarPrevisaoOS = async function() {
     const inputPrev = document.getElementById('aponPrevisaoGlobal');
     if (!inputPrev) return;
     const novaPrev = inputPrev.value;
-    if(!novaPrev) return alert("Defina a data prevista.");
+    
+    if(!novaPrev) {
+        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Defina a data e hora previstas.', background: '#1e293b', color: '#fff'});
+        return;
+    }
+    
     await window.supabaseClient.from('ordens_servico').update({ previsao_entrega: novaPrev }).eq('id', mOS_Atual);
-    alert("Previsão salva!");
+    Swal.fire({icon: 'success', title: 'Ok', text: 'Previsão salva com sucesso!', background: '#1e293b', color: '#fff', timer: 1500, showConfirmButton: false});
 };
 
 window.mecanicoAddTextoServico = function(texto) {
@@ -523,11 +559,20 @@ window.mecanicoAddServico = async function() {
     const previsao = elPrev ? elPrev.value : 'Ver Previsão Global';
     const mecExecutante = elMecServ ? elMecServ.value : mecanicoPegarUsuario();
     
-    if (elPrev && !elPrev.value) return alert("Defina a Previsão no topo antes de adicionar serviços.");
+    if (elPrev && !elPrev.value) {
+        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Defina a Previsão no topo antes de adicionar serviços.', background: '#1e293b', color: '#fff'});
+        return;
+    }
     
     const checks = document.querySelectorAll('.chk-comp-servico:checked');
-    if (!desc) return alert("Descreva o serviço ou selecione um atalho.");
-    if (checks.length === 0) return alert("Marque ao menos um compartimento.");
+    if (!desc) {
+        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Descreva o serviço ou selecione um atalho.', background: '#1e293b', color: '#fff'});
+        return;
+    }
+    if (checks.length === 0) {
+        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Marque ao menos um compartimento.', background: '#1e293b', color: '#fff'});
+        return;
+    }
 
     const comps = Array.from(checks).map(c => c.value).join(' / ');
     const descricaoFinal = `[${comps}] ${desc}`;
@@ -545,6 +590,140 @@ window.mecanicoAddServico = async function() {
     mecanicoAtualizarTabelasModal();
 };
 
+function mecanicoCarregarKits() {
+    const selectKit = document.getElementById('aponKitSelecionado');
+    if (!selectKit) return;
+    selectKit.innerHTML = '<option value="">Selecione um KIT...</option>' + 
+        mOS_KitsCache.map(k => `<option value="${k.id}">${k.nome}</option>`).join('');
+}
+
+// ---------------------------------------------------------------------
+// ROTINA DE REVISÃO E LANÇAMENTO DE KIT NO PAINEL DO MECÂNICO
+// ---------------------------------------------------------------------
+
+window.mecanicoAddKit = function() {
+    const kitId = document.getElementById('aponKitSelecionado').value;
+    const elComp = document.getElementById('aponCompartimentoPeca');
+    const elMecPeca = document.getElementById('aponMecanicoPeca');
+
+    if (!kitId) {
+        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Selecione um KIT para lançar.', background: '#1e293b', color: '#fff'});
+        return;
+    }
+
+    const kit = mOS_KitsCache.find(k => k.id == kitId);
+    if (!kit) return Swal.fire({icon: 'error', title: 'Erro', text: 'Kit não encontrado.', background: '#1e293b', color: '#fff'});
+
+    const comp = elComp ? elComp.value : 'GERAL';
+    const mecSolicitante = elMecPeca ? elMecPeca.value : mecanicoPegarUsuario();
+
+    let itensParsed = [];
+    try { itensParsed = typeof kit.itens === 'string' ? JSON.parse(kit.itens) : kit.itens; } catch(e) {}
+
+    if (itensParsed.length === 0) {
+        Swal.fire({icon: 'error', title: 'Erro', text: 'Este KIT não possui peças cadastradas.', background: '#1e293b', color: '#fff'});
+        return;
+    }
+
+    // Copia profunda dos itens para o estado do modal
+    window.itensKitRevisaoAtual = JSON.parse(JSON.stringify(itensParsed));
+    window.kitRevisaoContexto = { comp, mecanico: mecSolicitante };
+
+    document.getElementById('nomeKitRevisao').innerText = kit.nome;
+    window.renderizarItensKitRevisao();
+    document.getElementById('modalRevisaoKit').style.display = 'flex';
+};
+
+window.fecharModalRevisaoKit = function() {
+    document.getElementById('modalRevisaoKit').style.display = 'none';
+    // Limpa a seleção do Kit no painel debaixo para permitir que o usuário possa selecionar de novo se quiser
+    const selKit = document.getElementById('aponKitSelecionado');
+    if(selKit) selKit.value = '';
+};
+
+window.renderizarItensKitRevisao = function() {
+    const container = document.getElementById('listaItensKitRevisao');
+    if (!container) return;
+
+    if (window.itensKitRevisaoAtual.length === 0) {
+        container.innerHTML = '<p style="padding:15px; text-align:center; color:#f87171;">Todos os itens foram removidos. Cancele a operação fechando a janela.</p>';
+        return;
+    }
+
+    container.innerHTML = window.itensKitRevisaoAtual.map((item, index) => {
+        const codigo = item.codigo ? `[${item.codigo}] ` : '';
+        return `
+        <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; gap: 10px;">
+            <div style="flex: 1; line-height: 1.3;">
+                <strong style="color:#fff; font-size: 0.95rem;">${codigo}${item.nome}</strong>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="display: flex; align-items: center; background: #0f172a; border: 1px solid #475569; border-radius: 8px; overflow: hidden;">
+                    <input type="number" step="0.01" min="0.01" value="${item.quantidade}" 
+                        onchange="window.itensKitRevisaoAtual[${index}].quantidade = parseFloat(this.value)"
+                        style="width: 70px; background: transparent; border: none; color: #fff; text-align: center; padding: 8px; outline: none; font-weight: bold;">
+                </div>
+                <button type="button" onclick="mecanicoRemoverItemKitRevisao(${index})" style="background:rgba(239,68,68,0.1); border:1px solid #ef4444; color:#ef4444; font-size:1.1rem; padding:8px 12px; border-radius:8px; cursor: pointer;">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+};
+
+window.mecanicoRemoverItemKitRevisao = function(index) {
+    window.itensKitRevisaoAtual.splice(index, 1);
+    window.renderizarItensKitRevisao();
+};
+
+window.mecanicoConfirmarKitRevisao = async function() {
+    if (window.itensKitRevisaoAtual.length === 0) {
+        Swal.fire({icon: 'warning', title: 'Atenção', text: 'O KIT está vazio. Cancele a operação ou adicione peças manualmente.', background: '#1e293b', color: '#fff'});
+        return;
+    }
+
+    let inserts = [];
+    window.itensKitRevisaoAtual.forEach(item => {
+        if(item.quantidade > 0) {
+            let insertPeca = { 
+                os_id: mOS_Atual, 
+                peca_id: item.peca_id, 
+                quantidade: item.quantidade, 
+                compartimento: window.kitRevisaoContexto.comp, 
+                status: 'Pendente',
+                mecanico: window.kitRevisaoContexto.mecanico
+            };
+            if (typeof window.injetarFilial === 'function') insertPeca = window.injetarFilial(insertPeca);
+            inserts.push(insertPeca);
+        }
+    });
+
+    if (inserts.length === 0) {
+        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Nenhuma quantidade válida encontrada para ser lançada.', background: '#1e293b', color: '#fff'});
+        return;
+    }
+
+    let res = await window.supabaseClient.from('os_pecas_utilizadas').insert(inserts);
+
+    if(res.error) {
+        Swal.fire({icon: 'error', title: 'Erro', text: "Erro ao requisitar KIT: " + res.error.message, background: '#1e293b', color: '#fff'});
+        return;
+    }
+
+    window.fecharModalRevisaoKit();
+    
+    Swal.fire({
+        icon: 'success', title: 'Lançado!', 
+        text: 'KIT requisitado com sucesso ao almoxarifado.', 
+        background: '#1e293b', color: '#fff', timer: 2000, showConfirmButton: false
+    });
+    
+    renderizarTelaServicos();
+    mecanicoAtualizarTabelasModal();
+};
+
+// ---------------------------------------------------------------------
+
 window.mecanicoToggleLista = function() {
     const container = document.getElementById('listaPecasCustom');
     const inputPeca = document.getElementById('pesquisaPeca');
@@ -554,11 +733,19 @@ window.mecanicoToggleLista = function() {
         container.style.display = 'none';
     } else {
         inputPeca.focus();
-        mecanicoFiltrarPecas(true);
+        mecanicoFiltrarPecasDebounced(true);
     }
 };
 
-window.mecanicoFiltrarPecas = function(forcarMostrar = false) {
+let timerPecasDebounce;
+window.mecanicoFiltrarPecasDebounced = function(forcarMostrar = false) {
+    clearTimeout(timerPecasDebounce);
+    timerPecasDebounce = setTimeout(() => {
+        mecanicoFiltrarPecasExec(forcarMostrar);
+    }, 300);
+};
+
+function mecanicoFiltrarPecasExec(forcarMostrar = false) {
     const input = document.getElementById('pesquisaPeca');
     const elCat = document.getElementById('filtroCategoriaPeca');
     const container = document.getElementById('listaPecasCustom');
@@ -587,9 +774,10 @@ window.mecanicoFiltrarPecas = function(forcarMostrar = false) {
     });
 
     let msgLimite = '';
-    if (filtradas.length > 100 && termo === "") {
-        filtradas = filtradas.slice(0, 100);
-        msgLimite = `<div style="padding:10px; text-align:center; color:#fbbf24; font-size:0.85rem; background:rgba(245, 158, 11, 0.1); border-bottom:1px solid #334155;">Mostrando as 100 primeiras peças. Digite para buscar mais.</div>`;
+    // Limite otimizado para tablets (50 itens de renderização inicial)
+    if (filtradas.length > 50 && termo === "") {
+        filtradas = filtradas.slice(0, 50);
+        msgLimite = `<div style="padding:10px; text-align:center; color:#fbbf24; font-size:0.85rem; background:rgba(245, 158, 11, 0.1); border-bottom:1px solid #334155;">Mostrando as primeiras 50 peças. Digite para buscar.</div>`;
     }
 
     if (filtradas.length === 0) {
@@ -611,7 +799,7 @@ window.mecanicoFiltrarPecas = function(forcarMostrar = false) {
     }
     
     container.style.display = 'block';
-};
+}
 
 window.mecanicoSelecionarPecaCustom = function(id, nome, codigo) {
     const inputId = document.getElementById('aponPecaId');
@@ -667,7 +855,8 @@ window.mecanicoAddPeca = async function() {
     const qtd = parseFloat(elQtd.value);
 
     if (!pecaIdVal || qtd <= 0) {
-        return alert("Por favor, pesquise e SELECIONE a peça clicando nela na lista, e informe a quantidade.");
+        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Por favor, pesquise e SELECIONE a peça clicando nela na lista, e informe a quantidade.', background: '#1e293b', color: '#fff'});
+        return;
     }
     
     const pecaId = Number(pecaIdVal);
@@ -685,11 +874,17 @@ window.mecanicoAddPeca = async function() {
 
     let res = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
 
-    if(res.error) return alert("Erro ao requisitar peça. Mensagem do BD: " + res.error.message);
+    if(res.error) {
+        Swal.fire({icon: 'error', title: 'Erro', text: "Erro ao requisitar peça. Mensagem do BD: " + res.error.message, background: '#1e293b', color: '#fff'});
+        return;
+    }
 
     elQtd.value = '1';
     mecanicoLimparPesquisaPeca();
     
+    const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, background: '#1e293b', color: '#fff' });
+    Toast.fire({ icon: 'success', title: 'Peça solicitada!' });
+
     renderizarTelaServicos();
     mecanicoAtualizarTabelasModal();
 };
@@ -767,7 +962,17 @@ function mecanicoPegarUsuario() {
 }
 
 window.mecanicoRemoverServico = async (id) => { 
-    if(confirm("Deseja remover esta Mão de Obra?")) { 
+    const res = await Swal.fire({
+        title: 'Remover Serviço',
+        text: 'Deseja realmente remover esta Mão de Obra?',
+        icon: 'warning',
+        showCancelButton: true,
+        background: '#1e293b', color: '#fff',
+        confirmButtonColor: '#ef4444', cancelButtonColor: '#475569',
+        confirmButtonText: 'Sim, Remover'
+    });
+    
+    if(res.isConfirmed) { 
         await window.supabaseClient.from('os_servicos_executados').delete().eq('id', id); 
         mecanicoAtualizarTabelasModal();
     } 

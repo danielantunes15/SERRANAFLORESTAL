@@ -46,12 +46,13 @@
 .serv-tab-btn.active .badge-count { background: #6366f1; color: #fff; }
 .serv-tab-btn.active-sos .badge-count { background: #f97316; color: #fff; }
 
-/* Grid de Cards */
+/* Grid de Cards - Otimizado para performance */
 .grid-cards-container {
     display: grid;
     grid-template-columns: 1fr;
     gap: 15px;
     padding-bottom: 20px;
+    transform: translateZ(0);
 }
 @media(min-width: 768px) {
     .grid-cards-container { grid-template-columns: repeat(2, 1fr); }
@@ -70,7 +71,7 @@
     flex-direction: column;
     justify-content: space-between;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-    transition: transform 0.1s ease;
+    will-change: transform;
 }
 .tablet-card:active { transform: scale(0.98); }
 
@@ -85,11 +86,12 @@
     .card-actions.row-tablet button { flex: 1; }
 }
 
-/* Modals Responsivos */
+/* Modals Responsivos (Sem backdrop-filter para melhorar performance no tablet) */
 .modal-overlay-fullscreen {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(4px);
+    background: rgba(15, 23, 42, 0.95);
     display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 10px;
+    transform: translateZ(0);
 }
 
 .custom-modal-responsive {

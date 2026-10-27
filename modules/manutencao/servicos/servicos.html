@@ -101,16 +101,32 @@
                 </div>
 
                 <div class="box-apontamento">
-                    <h4 style="color:#10b981; margin-top:0; border-bottom:1px solid #334155; padding-bottom:8px; font-size: 1.1rem;"><i class="fas fa-cubes"></i> Requisitar Peças</h4>
+                    <h4 style="color:#10b981; margin-top:0; border-bottom:1px solid #334155; padding-bottom:8px; font-size: 1.1rem;"><i class="fas fa-cubes"></i> Requisitar Peças e Kits</h4>
                     
+                    <div style="display: flex; gap: 10px; margin-top: 10px; border-bottom: 1px dashed #334155; padding-bottom: 10px; margin-bottom: 10px;">
+                        <div style="flex: 1;">
+                            <label class="label-oficina" style="color: #34d399;"><i class="fas fa-user-tag"></i> Solicitante</label>
+                            <select id="aponMecanicoPeca" class="input-otimizado" style="margin-bottom: 0; padding: 12px;"></select>
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="label-oficina">Aplicação (Local)</label>
+                            <select id="aponCompartimentoPeca" class="input-otimizado" style="margin-bottom: 0; padding: 12px;"></select>
+                        </div>
+                    </div>
+
                     <div style="margin-top: 10px; border-bottom: 1px dashed #334155; padding-bottom: 10px; margin-bottom: 10px;">
-                        <label class="label-oficina" style="color: #34d399;"><i class="fas fa-user-tag"></i> Mecânico Solicitante</label>
-                        <select id="aponMecanicoPeca" class="input-otimizado" style="margin-bottom: 0; padding: 12px;"></select>
+                        <label class="label-oficina" style="color: #8b5cf6;"><i class="fas fa-layer-group"></i> Lançar KIT Completo</label>
+                        <div style="display: flex; gap: 10px;">
+                            <select id="aponKitSelecionado" class="input-otimizado" style="margin-bottom: 0; padding: 12px; flex: 1;">
+                                <option value="">Selecione um KIT...</option>
+                            </select>
+                            <button class="btn-acao-grande" style="background: #8b5cf6; color: white; width: auto; min-height: 45px; padding: 0 15px;" onclick="mecanicoAddKit()"><i class="fas fa-bolt"></i> Inserir KIT</button>
+                        </div>
                     </div>
 
                     <div style="margin-top: 10px;">
-                        <label class="label-oficina">Categoria da Peça (Opcional)</label>
-                        <select id="filtroCategoriaPeca" class="input-otimizado" style="margin-bottom: 12px; padding: 12px;" onchange="mecanicoFiltrarPecas(true)">
+                        <label class="label-oficina">Peça Avulsa (Categoria Opcional)</label>
+                        <select id="filtroCategoriaPeca" class="input-otimizado" style="margin-bottom: 12px; padding: 12px;" onchange="mecanicoFiltrarPecasDebounced(true)">
                             <option value="">Buscar em Todas</option>
                         </select>
                     </div>
@@ -119,7 +135,7 @@
                         <label class="label-oficina">Selecionar ou Pesquisar Peça</label>
                         <div class="input-com-icone">
                             <i class="fas fa-search icone-busca"></i>
-                            <input type="text" id="pesquisaPeca" class="input-otimizado" style="margin-bottom: 12px; padding-top: 13px; padding-bottom: 13px;" placeholder="Digite ou clique na seta..." onkeyup="mecanicoFiltrarPecas()" onclick="mecanicoFiltrarPecas(true)" autocomplete="off">
+                            <input type="text" id="pesquisaPeca" class="input-otimizado" style="margin-bottom: 12px; padding-top: 13px; padding-bottom: 13px;" placeholder="Digite ou clique na seta..." onkeyup="mecanicoFiltrarPecasDebounced()" onclick="mecanicoFiltrarPecasDebounced(true)" autocomplete="off">
                             <div style="position: absolute; right: 8px; top: 12px; display: flex; gap: 5px;">
                                 <button id="btnLimparPesquisa" class="btn-icone-input" style="color: #ef4444; display:none;" onclick="mecanicoLimparPesquisaPeca()"><i class="fas fa-times"></i></button>
                                 <button id="btnMostrarLista" class="btn-icone-input" style="color: #3b82f6;" onclick="mecanicoToggleLista()"><i class="fas fa-chevron-down"></i></button>
@@ -132,22 +148,41 @@
 
                     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                         <div style="flex: 1;">
-                            <label class="label-oficina">Onde vai a peça?</label>
-                            <select id="aponCompartimentoPeca" class="input-otimizado" style="margin-bottom: 0; padding: 12px;"></select>
-                        </div>
-                        <div style="width: 100px;">
                             <label class="label-oficina">Qtd</label>
                             <input type="number" step="0.01" id="aponQtdPeca" value="1" class="input-otimizado" style="margin-bottom: 0; padding: 12px;" min="0.01">
                         </div>
+                        <button class="btn-acao-grande" style="background: #10b981; color: white; min-height: 45px; flex: 2;" onclick="mecanicoAddPeca()"><i class="fas fa-plus"></i> Add Peça</button>
                     </div>
 
-                    <button class="btn-acao-grande" style="background: #10b981; color: white; min-height: 45px;" onclick="mecanicoAddPeca()"><i class="fas fa-paper-plane"></i> Pedir ao Almoxarifado</button>
-                    
                     <div class="lista-lancamentos" style="margin-top:15px;" id="tabelaPecasLancadas"></div>
                 </div>
             </div>
             
             <input type="hidden" id="nomeMecanicoLabel" value="">
+        </div>
+    </div>
+</div>
+
+<!-- MODAL REVISÃO E CONFIRMAÇÃO DE KIT -->
+<div id="modalRevisaoKit" class="modal-overlay-fullscreen" style="display: none; z-index: 10000;">
+    <div class="custom-modal-responsive modal-pequeno">
+        <div class="modal-header-responsive">
+            <h3 style="color: #8b5cf6;"><i class="fas fa-layer-group"></i> Confirmar Itens do KIT</h3>
+            <button class="close-btn-responsive" onclick="fecharModalRevisaoKit()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body-scroll">
+            <div class="box-apontamento" style="background: rgba(139, 92, 246, 0.1); border-color: #8b5cf6; padding: 15px; border-radius: 10px;">
+                <h4 id="nomeKitRevisao" style="color:#fff; margin-top:0; font-size: 1.2rem; margin-bottom: 5px;"></h4>
+                <p style="color:#cbd5e1; font-size: 0.9rem; margin: 0;">Ajuste as quantidades ou remova as peças que não serão utilizadas neste atendimento.</p>
+            </div>
+            
+            <div class="lista-lancamentos" id="listaItensKitRevisao" style="flex: 1; max-height: 40vh; overflow-y: auto;">
+                <!-- Itens renderizados via JS -->
+            </div>
+
+            <button type="button" class="btn-acao-grande" style="background: #8b5cf6; color: white; margin-top: 15px; flex-shrink: 0;" onclick="mecanicoConfirmarKitRevisao()">
+                <i class="fas fa-check-double"></i> CONFIRMAR E LANÇAR
+            </button>
         </div>
     </div>
 </div>
