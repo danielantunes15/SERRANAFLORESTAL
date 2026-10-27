@@ -306,6 +306,25 @@ window.carregarSelectCavalosOS = async function() {
 };
 
 window.salvarNovaOS = async function() {
+    if (window.isSavingOS) return;
+    window.isSavingOS = true;
+
+    const btnSalvar = document.querySelector('button[onclick="salvarNovaOS()"]');
+    const textoOriginalBtn = btnSalvar ? btnSalvar.innerHTML : '';
+
+    if (btnSalvar) {
+        btnSalvar.disabled = true;
+        btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 1.4rem;"></i> Salvando...';
+    }
+
+    const resetBtnState = () => {
+        window.isSavingOS = false;
+        if (btnSalvar) {
+            btnSalvar.disabled = false;
+            btnSalvar.innerHTML = textoOriginalBtn || '<i class="fas fa-paper-plane" style="font-size: 1.4rem;"></i> Salvar e Abrir Ordem de Serviço';
+        }
+    };
+
     const tipoRef = document.getElementById('osTipoReferencia').value;
     const placa = document.getElementById('osPlaca').value.trim().toUpperCase();
     let motorista = document.getElementById('osMotorista').value;
@@ -319,6 +338,7 @@ window.salvarNovaOS = async function() {
 
     if (!placa || !data_abertura || !tipo) {
         alert("Preencha ao menos a Placa (Cavalo ou GO), Data de Abertura e a Classificação (Tipo de Serviço).");
+        resetBtnState();
         return;
     }
 
@@ -327,6 +347,7 @@ window.salvarNovaOS = async function() {
     
     if (modoEntrada === 'imediata' && dataSelecionada > agora) {
         alert("Modo Entrada Imediata selecionado, mas a data/hora colocada está no futuro.");
+        resetBtnState();
         return;
     }
 
@@ -345,6 +366,7 @@ window.salvarNovaOS = async function() {
         
         if (!coordsLink) {
             alert("Para chamados de S.O.S, é obrigatório clicar no mapa ou inserir a coordenada do veículo.");
+            resetBtnState();
             return;
         }
         
@@ -451,17 +473,20 @@ window.salvarNovaOS = async function() {
         const { error } = await supabaseClient.from('ordens_servico').insert([pacoteDadosOS]);
         if (error) {
             alert('Erro na gravação (400).\nDetalhes: ' + error.message);
+            resetBtnState();
             return;
         }
         
         await carregarDadosOS();
         
+        resetBtnState();
         if (tipo.toUpperCase().includes('SINISTRO')) alternarTelaOS('sinistro');
         else if (modoEntrada === 'agendada') alternarTelaOS('historico');
         else alternarTelaOS('lista');
         
     } catch (error) {
         alert("Falha na conexão ao tentar salvar a Ordem de Serviço.");
+        resetBtnState();
     }
 };
 
