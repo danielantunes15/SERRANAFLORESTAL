@@ -154,11 +154,11 @@ const ROTAS = {
     'gestao_usuarios': 'modules/configuracoes/gestao_usuarios.html',
     'gestao_acessos': 'modules/configuracoes/gestao_acessos.html',
     
-    'almoxarifado': 'modules/almoxarifado/almoxarifado.html',
-    'almoxarifado_entregas': 'modules/almoxarifado/almoxarifado_entregas.html',
-    'almoxarifado_cadastros': 'modules/almoxarifado/almoxarifado_cadastros.html',
-    'requisicao_materiais': 'modules/almoxarifado/requisicao_materiais.html',
-    'almoxarifado_relatorios': 'modules/almoxarifado/almoxarifado_relatorios.html',
+    'almoxarifado': 'modules/almoxarifado/gestao_estoque/almoxarifado.html',
+    'almoxarifado_entregas': 'modules/almoxarifado/entregas_requisicoes/almoxarifado_entregas.html',
+    'almoxarifado_cadastros': 'modules/almoxarifado/cadastros/almoxarifado_cadastros.html',
+    'requisicao_materiais': 'modules/almoxarifado/requisitar_material/requisicao_materiais.html',
+    'almoxarifado_relatorios': 'modules/almoxarifado/painel_relatorios/almoxarifado_relatorios.html',
     
     // --- ROTAS: GESTÃO DE FROTAS ---
     'frota_cadastros': 'modules/gestao_frotas/cadastros_documentos/cadastros_documentos.html',
