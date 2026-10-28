@@ -36,8 +36,8 @@
         
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
             <button class="btn-primary-blue" onclick="window.abrirModalParadasProgramadas()"><i class="fas fa-calendar-alt"></i> Paradas Programadas</button>
-            <button class="btn-secondary-dark" onclick="window.abrirModalParametrosKm()" style="border-color: #3b82f6; color: #60a5fa;" title="Configurar KM de Revisão da Filial">
-                <i class="fas fa-sliders-h"></i> Intervalo Revisão
+            <button class="btn-secondary-dark" onclick="window.abrirModalParametrosKm()" style="border-color: #3b82f6; color: #60a5fa;" title="Configurar Intervalos da Filial">
+                <i class="fas fa-sliders-h"></i> INTERVALOS
             </button>
             <button class="btn-primary-green" onclick="window.importarPlanilhaKm()"><i class="fas fa-file-excel"></i> Importar KMs</button>
             
@@ -126,6 +126,10 @@
             <div class="form-group-dark" style="margin-top: 12px;">
                 <label>Intervalo para Gruas (Horímetro) *</label>
                 <input type="number" id="inputConfigHorimetroIntervalo" placeholder="Ex: 500" style="font-size: 1.1rem; font-weight: bold; color: var(--ccol-blue-bright);">
+            </div>
+            <div class="form-group-dark" style="margin-top: 12px;">
+                <label>Intervalo Insp. Eletromecânica (Dias) *</label>
+                <input type="number" id="inputConfigDiasEletroIntervalo" placeholder="Ex: 90" style="font-size: 1.1rem; font-weight: bold; color: #8b5cf6;">
             </div>
         </div>
         <div class="modal-footer">
@@ -244,7 +248,7 @@
                     </div>
                     <div class="form-group-dark">
                         <label class="label-compacta">Próx. Insp. Eletromec.</label>
-                        <input type="date" id="inputDataProximaInspecao" class="input-compacto">
+                        <input type="date" id="inputDataProximaInspecao" class="input-compacto" readonly style="background-color: rgba(0,0,0,0.2); cursor: not-allowed; color: #f59e0b; font-weight: bold;" title="Calculado automaticamente em dias">
                     </div>
                     <div class="form-group-dark">
                         <label class="label-compacta" style="color: #10b981;">Qtd. Revisões</label>
@@ -349,3 +353,4 @@
         </div>
     </div>
 </div>
+```<FollowUp></FollowUp>

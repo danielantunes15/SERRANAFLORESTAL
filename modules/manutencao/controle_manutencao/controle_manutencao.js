@@ -6,6 +6,7 @@ window.abaAtivaManutencao = 'lista';
 window.paradasProgramadas = []; 
 window.kmIntervaloFilial = 40000;
 window.horimetroIntervaloFilial = 500;
+window.diasIntervaloEletroFilial = 90;
 
 window.obterFilialUsuarioLogadoRev = function() {
     return (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') 
@@ -19,27 +20,30 @@ window.formatarDataHoraCerta = function(isoString) {
     return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-// ======================= PARÂMETROS DE KM POR FILIAL =======================
+// ======================= PARÂMETROS DE INTERVALOS POR FILIAL =======================
 window.carregarParametrosKmFilial = async function() {
     const filialId = window.obterFilialUsuarioLogadoRev() || 0;
     try {
         const { data, error } = await window.supabaseClient
             .from('manutencao_parametros_revisao')
-            .select('km_intervalo, horimetro_intervalo')
+            .select('km_intervalo, horimetro_intervalo, dias_inspecao_eletro')
             .eq('filial_id', filialId)
             .maybeSingle();
 
         if (!error && data) {
             window.kmIntervaloFilial = parseInt(data.km_intervalo) || 40000;
             window.horimetroIntervaloFilial = parseInt(data.horimetro_intervalo) || 500;
+            window.diasIntervaloEletroFilial = parseInt(data.dias_inspecao_eletro) || 90;
         } else {
             window.kmIntervaloFilial = 40000;
             window.horimetroIntervaloFilial = 500;
+            window.diasIntervaloEletroFilial = 90;
         }
     } catch (e) {
         console.error("Erro ao carregar parâmetros de revisão da filial:", e);
         window.kmIntervaloFilial = 40000;
         window.horimetroIntervaloFilial = 500;
+        window.diasIntervaloEletroFilial = 90;
     }
 };
 
@@ -47,9 +51,11 @@ window.abrirModalParametrosKm = async function() {
     await window.carregarParametrosKmFilial();
     const inputKm = document.getElementById('inputConfigKmIntervalo');
     const inputHorimetro = document.getElementById('inputConfigHorimetroIntervalo');
+    const inputDiasEletro = document.getElementById('inputConfigDiasEletroIntervalo');
     
     if (inputKm) inputKm.value = window.kmIntervaloFilial;
     if (inputHorimetro) inputHorimetro.value = window.horimetroIntervaloFilial;
+    if (inputDiasEletro) inputDiasEletro.value = window.diasIntervaloEletroFilial;
 
     document.getElementById('modalParametrosKm').classList.add('show');
 };
@@ -61,6 +67,7 @@ window.fecharModalParametrosKm = function() {
 window.salvarParametrosKm = async function() {
     const kmVal = parseInt(document.getElementById('inputConfigKmIntervalo').value);
     const horimetroVal = parseInt(document.getElementById('inputConfigHorimetroIntervalo').value) || 500;
+    const diasEletroVal = parseInt(document.getElementById('inputConfigDiasEletroIntervalo')?.value) || 90;
     const filialId = window.obterFilialUsuarioLogadoRev() || 0;
 
     if (isNaN(kmVal) || kmVal <= 0) {
@@ -80,6 +87,7 @@ window.salvarParametrosKm = async function() {
                 .update({
                     km_intervalo: kmVal,
                     horimetro_intervalo: horimetroVal,
+                    dias_inspecao_eletro: diasEletroVal,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', check.id);
@@ -90,19 +98,21 @@ window.salvarParametrosKm = async function() {
                 .insert([{
                     filial_id: filialId,
                     km_intervalo: kmVal,
-                    horimetro_intervalo: horimetroVal
+                    horimetro_intervalo: horimetroVal,
+                    dias_inspecao_eletro: diasEletroVal
                 }]);
             if (error) throw error;
         }
 
         window.kmIntervaloFilial = kmVal;
         window.horimetroIntervaloFilial = horimetroVal;
+        window.diasIntervaloEletroFilial = diasEletroVal;
 
-        alert("Intervalo de revisão salvo com sucesso para esta filial!");
+        alert("Intervalos de revisão salvos com sucesso para esta filial!");
         window.fecharModalParametrosKm();
     } catch (e) {
         console.error("Erro ao salvar parâmetros de KM:", e);
-        alert("Erro ao salvar os parâmetros no banco de dados. Verifique se a tabela foi criada.");
+        alert("Erro ao salvar os parâmetros no banco de dados. Verifique se a tabela foi atualizada com a nova coluna.");
     }
 };
 
@@ -822,18 +832,33 @@ window.abrirModalRevisao = async function(id) {
     inputDetalhes.value = '';
 
     const divDatas = document.getElementById('divDatasInspecaoTritrem');
+    const inputDataInspEletro = document.getElementById('inputDataInspEletro');
+    const inputDataProximaInspecao = document.getElementById('inputDataProximaInspecao');
+
     if (isTritrem) {
         divDatas.style.display = 'block';
         document.getElementById('inputDataInspecao').value = v.data_inspecao || '';
-        document.getElementById('inputDataInspEletro').value = v.data_inspecao_eletromecanica || '';
-        document.getElementById('inputDataProximaInspecao').value = v.data_proxima_inspecao || '';
+        inputDataInspEletro.value = v.data_inspecao_eletromecanica || '';
+        inputDataProximaInspecao.value = v.data_proxima_inspecao || '';
         document.getElementById('inputQtdRevisoes').value = (parseInt(v.quantidade_revisoes) || 0) + 1;
+
+        // Auto calcula data da proxima inspecao eletromecanica quando o campo altera
+        inputDataInspEletro.onchange = function() {
+            if (inputDataInspEletro.value) {
+                let d = new Date(inputDataInspEletro.value + 'T00:00:00'); 
+                d.setDate(d.getDate() + (parseInt(window.diasIntervaloEletroFilial) || 90));
+                inputDataProximaInspecao.value = d.toISOString().split('T')[0];
+            } else {
+                inputDataProximaInspecao.value = '';
+            }
+        };
     } else {
         divDatas.style.display = 'none';
         document.getElementById('inputDataInspecao').value = '';
-        document.getElementById('inputDataInspEletro').value = '';
-        document.getElementById('inputDataProximaInspecao').value = '';
+        inputDataInspEletro.value = '';
+        inputDataProximaInspecao.value = '';
         document.getElementById('inputQtdRevisoes').value = 0;
+        inputDataInspEletro.onchange = null;
     }
 
     // Mantém o campo Próxima (KM/Horímetro) SEMPRE bloqueado para edição manual,
