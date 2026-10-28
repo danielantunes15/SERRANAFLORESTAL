@@ -7,6 +7,7 @@ window.paradasProgramadas = [];
 window.kmIntervaloFilial = 40000;
 window.horimetroIntervaloFilial = 500;
 window.diasIntervaloEletroFilial = 90;
+window.diasIntervaloEletroComboioFilial = 180;
 
 window.obterFilialUsuarioLogadoRev = function() {
     return (window.currentUser && window.currentUser.filial_id && window.currentUser.filial_id !== 'CENTRAL') 
@@ -26,7 +27,7 @@ window.carregarParametrosKmFilial = async function() {
     try {
         const { data, error } = await window.supabaseClient
             .from('manutencao_parametros_revisao')
-            .select('km_intervalo, horimetro_intervalo, dias_inspecao_eletro')
+            .select('km_intervalo, horimetro_intervalo, dias_inspecao_eletro, dias_inspecao_eletro_comboio')
             .eq('filial_id', filialId)
             .maybeSingle();
 
@@ -34,16 +35,19 @@ window.carregarParametrosKmFilial = async function() {
             window.kmIntervaloFilial = parseInt(data.km_intervalo) || 40000;
             window.horimetroIntervaloFilial = parseInt(data.horimetro_intervalo) || 500;
             window.diasIntervaloEletroFilial = parseInt(data.dias_inspecao_eletro) || 90;
+            window.diasIntervaloEletroComboioFilial = parseInt(data.dias_inspecao_eletro_comboio) || 180;
         } else {
             window.kmIntervaloFilial = 40000;
             window.horimetroIntervaloFilial = 500;
             window.diasIntervaloEletroFilial = 90;
+            window.diasIntervaloEletroComboioFilial = 180;
         }
     } catch (e) {
         console.error("Erro ao carregar parâmetros de revisão da filial:", e);
         window.kmIntervaloFilial = 40000;
         window.horimetroIntervaloFilial = 500;
         window.diasIntervaloEletroFilial = 90;
+        window.diasIntervaloEletroComboioFilial = 180;
     }
 };
 
@@ -52,10 +56,12 @@ window.abrirModalParametrosKm = async function() {
     const inputKm = document.getElementById('inputConfigKmIntervalo');
     const inputHorimetro = document.getElementById('inputConfigHorimetroIntervalo');
     const inputDiasEletro = document.getElementById('inputConfigDiasEletroIntervalo');
+    const inputDiasEletroComboio = document.getElementById('inputConfigDiasEletroComboioIntervalo');
     
     if (inputKm) inputKm.value = window.kmIntervaloFilial;
     if (inputHorimetro) inputHorimetro.value = window.horimetroIntervaloFilial;
     if (inputDiasEletro) inputDiasEletro.value = window.diasIntervaloEletroFilial;
+    if (inputDiasEletroComboio) inputDiasEletroComboio.value = window.diasIntervaloEletroComboioFilial;
 
     document.getElementById('modalParametrosKm').classList.add('show');
 };
@@ -68,6 +74,7 @@ window.salvarParametrosKm = async function() {
     const kmVal = parseInt(document.getElementById('inputConfigKmIntervalo').value);
     const horimetroVal = parseInt(document.getElementById('inputConfigHorimetroIntervalo').value) || 500;
     const diasEletroVal = parseInt(document.getElementById('inputConfigDiasEletroIntervalo')?.value) || 90;
+    const diasEletroComboioVal = parseInt(document.getElementById('inputConfigDiasEletroComboioIntervalo')?.value) || 180;
     const filialId = window.obterFilialUsuarioLogadoRev() || 0;
 
     if (isNaN(kmVal) || kmVal <= 0) {
@@ -88,6 +95,7 @@ window.salvarParametrosKm = async function() {
                     km_intervalo: kmVal,
                     horimetro_intervalo: horimetroVal,
                     dias_inspecao_eletro: diasEletroVal,
+                    dias_inspecao_eletro_comboio: diasEletroComboioVal,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', check.id);
@@ -99,7 +107,8 @@ window.salvarParametrosKm = async function() {
                     filial_id: filialId,
                     km_intervalo: kmVal,
                     horimetro_intervalo: horimetroVal,
-                    dias_inspecao_eletro: diasEletroVal
+                    dias_inspecao_eletro: diasEletroVal,
+                    dias_inspecao_eletro_comboio: diasEletroComboioVal
                 }]);
             if (error) throw error;
         }
@@ -107,6 +116,7 @@ window.salvarParametrosKm = async function() {
         window.kmIntervaloFilial = kmVal;
         window.horimetroIntervaloFilial = horimetroVal;
         window.diasIntervaloEletroFilial = diasEletroVal;
+        window.diasIntervaloEletroComboioFilial = diasEletroComboioVal;
 
         alert("Intervalos de revisão salvos com sucesso para esta filial!");
         window.fecharModalParametrosKm();
@@ -154,7 +164,7 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
         const veiculosFiltrados = (frotas || []).filter(v => {
             const cat = String(v.categoria || '').toUpperCase();
             const status = String(v.status || '').toUpperCase();
-            return (cat.includes('TRITREM') || cat.includes('GRUA') || cat.includes('CARRETA')) && status !== 'INATIVO';
+            return (cat.includes('TRITREM') || cat.includes('GRUA') || cat.includes('CARRETA') || cat.includes('PRANCHA') || cat.includes('COMBOIO')) && status !== 'INATIVO';
         });
 
         let queryRevisoes = window.supabaseClient.from('manutencao_revisoes').select('*');
@@ -378,8 +388,8 @@ window.renderizarControleManutencao = function() {
         return d;
     };
 
-    // Ordem personalizada das categorias: GRUA, TRITREM, CARRETA e depois as demais
-    const ordemCategorias = { 'GRUA': 1, 'TRITREM': 2, 'CARRETA': 3 };
+    // Ordem personalizada das categorias: GRUA, TRITREM, CARRETA, PRANCHA, COMBOIO
+    const ordemCategorias = { 'GRUA': 1, 'TRITREM': 2, 'CARRETA': 3, 'PRANCHA': 4, 'COMBOIO': 5 };
 
     Object.keys(gruposCategoria).sort((a, b) => {
         const valA = ordemCategorias[a] || 99;
@@ -390,6 +400,7 @@ window.renderizarControleManutencao = function() {
     }).forEach(categoria => {
         const veiculosDoGrupo = gruposCategoria[categoria];
         const isGrua = categoria.includes('GRUA');
+        const exibeInspecao = !isGrua;
         const s_und = isGrua ? 'h' : 'km';
 
         veiculosDoGrupo.sort((a, b) => {
@@ -443,7 +454,7 @@ window.renderizarControleManutencao = function() {
             let datasHtml = '<span style="color: var(--text-secondary); font-size: 0.8rem;">Não aplicável</span>';
             let qtdRevisoesHtml = '<span style="color: var(--text-secondary); font-size: 0.8rem;">-</span>';
 
-            if (isTritrem) {
+            if (exibeInspecao) {
                 let alertaDiasHtml = '';
                 if (v.data_proxima_inspecao) {
                     const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
@@ -803,7 +814,8 @@ window.abrirModalRevisao = async function(id) {
     await window.carregarParametrosKmFilial();
 
     const isGrua = String(v.tipo).toUpperCase().includes('GRUA');
-    const isTritrem = String(v.tipo).toUpperCase().includes('TRITREM');
+    const isComboio = String(v.tipo).toUpperCase().includes('COMBOIO');
+    const exibeInspecao = !isGrua;
     const lblTexto = isGrua ? 'Horímetro' : 'KM';
 
     document.getElementById('lblRevRealizadaTexto').innerText = lblTexto;
@@ -831,22 +843,23 @@ window.abrirModalRevisao = async function(id) {
     
     inputDetalhes.value = '';
 
-    const divDatas = document.getElementById('divDatasInspecaoTritrem');
+    const divDatas = document.getElementById('divDatasInspecaoGeral');
     const inputDataInspEletro = document.getElementById('inputDataInspEletro');
     const inputDataProximaInspecao = document.getElementById('inputDataProximaInspecao');
 
-    if (isTritrem) {
+    if (exibeInspecao) {
         divDatas.style.display = 'block';
         document.getElementById('inputDataInspecao').value = v.data_inspecao || '';
         inputDataInspEletro.value = v.data_inspecao_eletromecanica || '';
         inputDataProximaInspecao.value = v.data_proxima_inspecao || '';
         document.getElementById('inputQtdRevisoes').value = (parseInt(v.quantidade_revisoes) || 0) + 1;
 
-        // Auto calcula data da proxima inspecao eletromecanica quando o campo altera
+        // Auto calcula data da proxima inspecao eletromecanica quando o campo altera dependendo se é Comboio ou não
         inputDataInspEletro.onchange = function() {
             if (inputDataInspEletro.value) {
                 let d = new Date(inputDataInspEletro.value + 'T00:00:00'); 
-                d.setDate(d.getDate() + (parseInt(window.diasIntervaloEletroFilial) || 90));
+                const diasSomar = isComboio ? (parseInt(window.diasIntervaloEletroComboioFilial) || 180) : (parseInt(window.diasIntervaloEletroFilial) || 90);
+                d.setDate(d.getDate() + diasSomar);
                 inputDataProximaInspecao.value = d.toISOString().split('T')[0];
             } else {
                 inputDataProximaInspecao.value = '';
@@ -924,8 +937,8 @@ window.salvarNovaRevisao = async function() {
     const kmRevisao = parseInt(document.getElementById('inputKmRevisaoRealizada').value);
 
     const filialId = window.obterFilialUsuarioLogadoRev();
-    const isTritrem = String(tipo).toUpperCase().includes('TRITREM');
     const isGrua = String(tipo).toUpperCase().includes('GRUA');
+    const exibeInspecao = !isGrua;
 
     const intervaloAplicado = isGrua 
         ? (parseInt(window.horimetroIntervaloFilial) || 500) 
@@ -970,7 +983,7 @@ window.salvarNovaRevisao = async function() {
         filial_id: filialId
     };
 
-    if (isTritrem) {
+    if (exibeInspecao) {
         payloadUpdate.data_inspecao = document.getElementById('inputDataInspecao').value || null;
         payloadUpdate.data_inspecao_eletromecanica = document.getElementById('inputDataInspEletro').value || null;
         payloadUpdate.data_proxima_inspecao = document.getElementById('inputDataProximaInspecao').value || null;

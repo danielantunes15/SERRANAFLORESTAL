@@ -81,7 +81,7 @@
                     <th style="width: 18%;">Equipamento / Placas</th>
                     <th style="width: 8%;">Categoria</th>
                     <th style="width: 25%;">Progresso / Score de Risco</th>
-                    <th style="width: 17%;">Inspeção (TRITREM)</th>
+                    <th style="width: 17%;">Inspeção e Elétrica</th>
                     <th style="width: 8%; text-align: center;">Revisões</th>
                     <th style="width: 10%; text-align: center;">Status da Máquina</th>
                     <th style="width: 14%; text-align: right;">Ações Rápidas</th>
@@ -117,7 +117,7 @@
         </div>
         <div class="modal-body">
             <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px;">
-                Configure a quantidade de quilômetros (ou horas) que será somada automaticamente ao registrar uma nova revisão nesta filial.
+                Configure a quantidade de quilômetros (ou horas) e dias que será somada automaticamente ao registrar uma nova revisão ou inspeção nesta filial.
             </p>
             <div class="form-group-dark">
                 <label>Intervalo para Veículos / Tritrem (KM) *</label>
@@ -128,8 +128,12 @@
                 <input type="number" id="inputConfigHorimetroIntervalo" placeholder="Ex: 500" style="font-size: 1.1rem; font-weight: bold; color: var(--ccol-blue-bright);">
             </div>
             <div class="form-group-dark" style="margin-top: 12px;">
-                <label>Intervalo Insp. Eletromecânica (Dias) *</label>
+                <label>Intervalo Insp. Eletromecânica Padrão (Dias) *</label>
                 <input type="number" id="inputConfigDiasEletroIntervalo" placeholder="Ex: 90" style="font-size: 1.1rem; font-weight: bold; color: #8b5cf6;">
+            </div>
+            <div class="form-group-dark" style="margin-top: 12px;">
+                <label>Intervalo Insp. Eletromecânica Comboio (Dias) *</label>
+                <input type="number" id="inputConfigDiasEletroComboioIntervalo" placeholder="Ex: 180" style="font-size: 1.1rem; font-weight: bold; color: #ec4899;">
             </div>
         </div>
         <div class="modal-footer">
@@ -235,8 +239,8 @@
                 </div>
             </div>
 
-            <div id="divDatasInspecaoTritrem" style="display: none; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                <h5 style="color: var(--ccol-blue-bright); margin: 0 0 12px 0; font-size: 0.95rem;"><i class="fas fa-clipboard-check"></i> Controle de Inspeção e Elétrica (TRITREM)</h5>
+            <div id="divDatasInspecaoGeral" style="display: none; background: rgba(59, 130, 246, 0.05); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                <h5 style="color: var(--ccol-blue-bright); margin: 0 0 12px 0; font-size: 0.95rem;"><i class="fas fa-clipboard-check"></i> Controle de Inspeção e Elétrica</h5>
                 <div class="form-grid-conjunto" style="grid-template-columns: repeat(4, 1fr); gap: 10px;">
                     <div class="form-group-dark">
                         <label class="label-compacta">Insp. Mecânica</label>
@@ -353,4 +357,3 @@
         </div>
     </div>
 </div>
-```<FollowUp></FollowUp>
