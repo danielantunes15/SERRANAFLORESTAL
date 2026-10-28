@@ -110,8 +110,10 @@ window.initBancoHistorico = function() {
                         colunaDataRef = 'data_saida_patio'; 
                     }
 
+                    // CORREÇÃO: Garante que a trava de filial seja aplicada mesmo para Admins, 
+                    // a menos que estejam no modo global (numericFilialId === null).
                     const aplicarTravaFilial = (queryObj) => {
-                        if (numericFilialId !== null && !isGlobalAdmin) {
+                        if (numericFilialId !== null) {
                             return queryObj.eq('filial_id', numericFilialId);
                         }
                         return queryObj;
@@ -249,9 +251,9 @@ window.carregarHistoricoImportacoes = async function() {
         
         const user = window.currentUser || {};
         const filialIdAtual = (user.filial_id !== null && user.filial_id !== undefined) ? String(user.filial_id) : null;
-        const isGlobalAdmin = (user.role === 'SuperAdmin' || user.role === 'Admin');
-
-        if (filialIdAtual !== null && !isGlobalAdmin) {
+        
+        // CORREÇÃO: Garante que os logs sejam filtrados pela filial atual selecionada, independentemente de ser Admin
+        if (filialIdAtual !== null) {
             query = query.eq('filial_id', filialIdAtual);
         }
 
