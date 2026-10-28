@@ -144,7 +144,7 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
         const veiculosFiltrados = (frotas || []).filter(v => {
             const cat = String(v.categoria || '').toUpperCase();
             const status = String(v.status || '').toUpperCase();
-            return (cat.includes('TRITREM') || cat.includes('GRUA')) && status !== 'INATIVO';
+            return (cat.includes('TRITREM') || cat.includes('GRUA') || cat.includes('CARRETA')) && status !== 'INATIVO';
         });
 
         let queryRevisoes = window.supabaseClient.from('manutencao_revisoes').select('*');
@@ -188,6 +188,7 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
                 id: frota.id,
                 placa: placaPrincipal,
                 numero_frota: frotaNum,
+                go: frota.go || '',
                 tipo: tipoVeiculo,
                 compartimentos: compartimentos.length > 0 ? compartimentos.join(' / ') : 'Sem compartimentos atrelados',
                 data_ultima_revisao: rev.data_ultima_revisao || null,
@@ -228,7 +229,8 @@ window.filtrarRevisoesManutencao = function() {
     window.veiculosRevisaoFiltrados = window.veiculosRevisaoDb.filter(v => {
         const matchBusca = (v.placa && v.placa.toLowerCase().includes(termo)) || 
                            (v.numero_frota && v.numero_frota.toLowerCase().includes(termo)) ||
-                           (v.compartimentos && v.compartimentos.toLowerCase().includes(termo));
+                           (v.compartimentos && v.compartimentos.toLowerCase().includes(termo)) ||
+                           (v.go && v.go.toLowerCase().includes(termo));
         
         const infoStatus = window.determinarStatusRevisao(v);
         const matchStatus = statusDesejado === '' || infoStatus.status === statusDesejado;
@@ -366,7 +368,16 @@ window.renderizarControleManutencao = function() {
         return d;
     };
 
-    Object.keys(gruposCategoria).sort((a, b) => a.localeCompare(b)).forEach(categoria => {
+    // Ordem personalizada das categorias: GRUA, TRITREM, CARRETA e depois as demais
+    const ordemCategorias = { 'GRUA': 1, 'TRITREM': 2, 'CARRETA': 3 };
+
+    Object.keys(gruposCategoria).sort((a, b) => {
+        const valA = ordemCategorias[a] || 99;
+        const valB = ordemCategorias[b] || 99;
+        
+        if (valA !== valB) return valA - valB;
+        return a.localeCompare(b);
+    }).forEach(categoria => {
         const veiculosDoGrupo = gruposCategoria[categoria];
         const isGrua = categoria.includes('GRUA');
         const s_und = isGrua ? 'h' : 'km';
@@ -388,9 +399,14 @@ window.renderizarControleManutencao = function() {
             const info = window.determinarStatusRevisao(v);
             const isTritrem = String(v.tipo).toUpperCase().includes('TRITREM');
             
+            let textoFrota = `Frota: ${v.numero_frota}`;
+            if (isTritrem && v.go && v.go !== 'N/A' && v.numero_frota !== v.go) {
+                textoFrota += ` | Nº GO: ${v.go}`;
+            }
+
             let idVeiculoHtml = `
                 <div style="font-weight: 800; color: #fff; font-size: 1.2rem; letter-spacing: 1px; cursor: pointer; text-decoration: underline; text-decoration-color: var(--text-secondary);" onclick="window.abrirPainelHistorico('${v.placa}')" title="Ver Histórico">${v.placa}</div>
-                <div style="color: var(--ccol-blue-bright); font-size: 0.85rem; font-weight: bold;">Frota: ${v.numero_frota}</div>
+                <div style="color: var(--ccol-blue-bright); font-size: 0.85rem; font-weight: bold;">${textoFrota}</div>
                 ${!isGrua ? `<div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 3px;"><i class="fas fa-link"></i> ${v.compartimentos}</div>` : ''}
             `;
 
