@@ -15,14 +15,16 @@
             <!-- Filtro de Filial -->
             <div class="bg-slate-900 border border-slate-600 rounded-lg px-2 py-1 flex items-center shadow-inner">
                 <i class="fas fa-building text-slate-400 ml-2"></i>
-                <select id="execFiltroFilial" class="bg-transparent border-none text-white font-bold px-3 py-1 outline-none cursor-pointer">
+                <select id="execFiltroFilial" class="bg-slate-900 border-none text-white font-bold px-3 py-1 outline-none cursor-pointer">
                     <option value="T">Todas as Filiais</option>
                 </select>
             </div>
-            <!-- Filtro de Período -->
+            <!-- Filtro de Período Quinzenal/Mensal -->
             <div class="bg-slate-900 border border-slate-600 rounded-lg px-2 py-1 flex items-center shadow-inner">
                 <i class="fas fa-calendar-alt text-slate-400 ml-2"></i>
-                <input type="month" id="execFiltroMes" class="bg-transparent border-none text-white font-bold px-3 py-1 outline-none cursor-pointer">
+                <select id="execFiltroPeriodo" class="bg-slate-900 border-none text-white font-bold px-3 py-1 outline-none cursor-pointer w-48 sm:w-64">
+                    <option value="">Carregando períodos...</option>
+                </select>
             </div>
             <!-- Botão Atualizar -->
             <button onclick="window.atualizarDadosExecutivos()" id="btnAtualizarExec" class="bg-purple-600 hover:bg-purple-500 px-6 py-2.5 rounded-lg text-white font-bold transition-all shadow-md flex items-center gap-2">
@@ -117,7 +119,7 @@
             <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
             <div class="flex justify-between items-start mb-4">
                 <div>
-                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Carregamento (Período)</p>
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Carregamento (Mês)</p>
                     <h3 id="valCarregReceita" class="text-2xl font-black text-white mt-1">R$ 0,00</h3>
                 </div>
                 <div class="bg-slate-900 p-2 rounded-lg border border-slate-700 text-emerald-400"><i class="fas fa-tractor"></i></div>
@@ -180,6 +182,34 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" id="containerCardsFiliais">
             <div class="col-span-full text-center text-slate-500 py-10 font-bold">
                 <i class="fas fa-spinner fa-spin mr-2"></i> Aguardando dados...
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabela Próximos Pagamentos (Previsão de Fluxo) -->
+    <div class="mt-10 mb-8">
+        <h3 class="text-lg font-black mb-6 border-b border-slate-700 pb-3 flex items-center gap-3 text-white uppercase tracking-wider">
+            <i class="fas fa-hand-holding-usd text-emerald-400"></i> Próximos Valores a Receber (Ciclos Abertos)
+        </h3>
+        <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col">
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="min-w-full text-sm text-left">
+                    <thead class="bg-slate-900/95 text-slate-400 font-semibold uppercase text-[11px] tracking-wider border-b border-slate-700">
+                        <tr>
+                            <th class="px-6 py-4">Filial</th>
+                            <th class="px-6 py-4 text-center">Período Transp. (Aberto)</th>
+                            <th class="px-6 py-4 text-right text-sky-400">Transp. Acumulado</th>
+                            <th class="px-6 py-4 text-center">Período Carreg. (Aberto)</th>
+                            <th class="px-6 py-4 text-right text-emerald-400">Carreg. Acumulado</th>
+                            <th class="px-6 py-4 text-right text-purple-400 font-bold">Total a Receber</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyProximosPagamentos" class="divide-y divide-slate-800/80 text-slate-300">
+                        <tr>
+                            <td colspan="6" class="text-center p-8 text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i> Aguardando processamento...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

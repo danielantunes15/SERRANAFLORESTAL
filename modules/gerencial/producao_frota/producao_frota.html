@@ -13,7 +13,7 @@
     
     <section class="animate-fade-in space-y-6">                  
         
-        <!-- BARRA DE FILTROS (Compacta em uma única linha) -->
+        <!-- BARRA DE FILTROS COMPLETA (Misto: Dropdown + Datas Manuais) -->
         <div class="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 shadow-lg flex flex-nowrap items-end gap-3 overflow-x-auto custom-scrollbar w-full">
             
             <div class="flex flex-col min-w-[170px] shrink-0">
@@ -23,15 +23,15 @@
                 </select>
             </div>
 
-            <!-- Filtro Mês Fechamento -->
-            <div class="flex flex-col min-w-[120px] shrink-0">
-                <label class="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1.5"><i class="fas fa-calendar-alt"></i> Mês Ref.</label>
-                <select id="filtroMes" class="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white text-xs font-bold outline-none focus:border-amber-500 shadow-inner cursor-pointer w-full">
-                    <option value="PERSONALIZADO">Carregando...</option>
+            <!-- Filtro Rápido (Quinzenas e Mês) -->
+            <div class="flex flex-col min-w-[200px] shrink-0 border-l border-slate-700/50 pl-3">
+                <label class="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1.5"><i class="fas fa-filter"></i> Filtro Rápido</label>
+                <select id="filtroPeriodoQuinzenal" class="bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-white text-xs font-bold outline-none focus:border-amber-500 shadow-inner cursor-pointer w-full">
+                    <option value="">Personalizado...</option>
                 </select>
             </div>
             
-            <!-- Transporte -->
+            <!-- Datas: Transporte -->
             <div class="flex flex-col border-l border-slate-700/50 pl-3 shrink-0">
                 <label class="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1.5 text-center"><i class="fas fa-truck"></i> Transporte</label>
                 <div class="flex items-center gap-1.5">
@@ -41,7 +41,7 @@
                 </div>
             </div>
 
-            <!-- Carregamento -->
+            <!-- Datas: Carregamento -->
             <div class="flex flex-col border-l border-slate-700/50 pl-3 shrink-0">
                 <label class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1.5 text-center"><i class="fas fa-tractor"></i> Carregamento</label>
                 <div class="flex items-center gap-1.5">
@@ -159,7 +159,7 @@
             <div id="chart7DiasFixo" style="width: 100%; height: 380px;"></div>
         </div>
         
-        <!-- ÁREA DE GRÁFICOS (Separados, Full Width com DIVs reais) -->
+        <!-- ÁREA DE GRÁFICOS -->
         <div class="flex flex-col gap-8 mt-8 mb-8">                          
             <!-- Evolução Transporte vs Meta -->
             <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl p-6 border border-slate-700/50 w-full">
@@ -173,7 +173,6 @@
                         <span class="flex items-center gap-1.5"><span class="w-5 h-1 bg-amber-400"></span> Meta Diária</span>
                     </div>
                 </div>
-                <!-- O Echarts precisa de uma div com tamanho e não um canvas -->
                 <div id="chartTransporteEvolucao" style="width: 100%; height: 400px;"></div>
             </div>
             
@@ -189,7 +188,6 @@
                         <span class="flex items-center gap-1.5"><span class="w-5 h-1 bg-amber-400"></span> Meta Diária</span>
                     </div>
                 </div>
-                <!-- O Echarts precisa de uma div com tamanho e não um canvas -->
                 <div id="chartCarregamentoEvolucao" style="width: 100%; height: 400px;"></div>
             </div>
             
@@ -200,7 +198,6 @@
                         <i class="fas fa-chart-column text-indigo-400 mr-3 text-xl"></i> Comparativo de Volume Físico (m³): Transportado vs Carregado
                     </h3>
                 </div>
-                <!-- O Echarts precisa de uma div com tamanho e não um canvas -->
                 <div id="chartVolumes" style="width: 100%; height: 400px;"></div>
             </div>
         </div>

@@ -2,9 +2,9 @@
 var execChartComparativo = null;
 var execChartEvolucao = null;
 var execChart7Dias = null;
-const tarifaCache = new Map();
+const exec_tarifaCache = new Map();
 
-function getCampo(obj, possiveisNomes) {
+function exec_getCampo(obj, possiveisNomes) {
     if (!obj) return '';
     const chavesReais = Object.keys(obj);
     for (let nomeProcurado of possiveisNomes) {
@@ -16,7 +16,7 @@ function getCampo(obj, possiveisNomes) {
     return '';
 }
 
-function toNumber(val) {
+function exec_toNumber(val) {
     if (val === null || val === undefined || val === '') return 0;
     if (typeof val === 'number') return val;
     let strLimpa = String(val).replace('R$', '').trim().replace(',', '.');
@@ -24,22 +24,18 @@ function toNumber(val) {
     return isNaN(num) ? 0 : num;
 }
 
-// NOVA FUNÇÃO ULTRA-RESILIENTE PARA IDENTIFICAR GRUAS PRÓPRIAS INDEPENDENTE DA FILIAL
-function checkIsNossaGrua(v, cacheProprias) {
+function exec_checkIsNossaGrua(v, cacheProprias) {
     const keysToCheck = ['grua', 'equipamento_carregamento', 'cod_grua', 'codigo_grua', 'loader', 'equipamento', 'maquina', 'frente', 'frente_trabalho', 'regional'];
     const chavesReais = Object.keys(v);
     
     for (let nomeProcurado of keysToCheck) {
         const chaveEncontrada = chavesReais.find(k => k.toLowerCase() === nomeProcurado.toLowerCase());
         if (chaveEncontrada && v[chaveEncontrada] !== null && v[chaveEncontrada] !== undefined) {
-            // Limpa absolutamente tudo que não for letra ou número
             let g = String(v[chaveEncontrada]).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
             if (g && g !== 'NULL' && g !== 'NAOINFORMADO') {
-                // 1. Check exato no cache ou se começa com GSR
                 if (cacheProprias.has(g) || g.startsWith('GSR')) {
                     return true;
                 }
-                // 2. Check parcial (Ex: Viagem diz "FRENTE03LINHARES" e a grua cadastrada é "FRENTE03")
                 for (let cachedCode of cacheProprias) {
                     if (cachedCode.length >= 2 && g.includes(cachedCode)) {
                         return true;
@@ -51,7 +47,7 @@ function checkIsNossaGrua(v, cacheProprias) {
     return false;
 }
 
-function converterDataExcel(dataStr) {
+function exec_converterDataExcel(dataStr) {
     if (!dataStr) return new Date(NaN);
     const str = String(dataStr).trim();
     if(str.includes('T')) return new Date(str);
@@ -66,38 +62,56 @@ function converterDataExcel(dataStr) {
     return new Date(str);
 }
 
-const formatarDataChave = (dateObj) => {
+function exec_formatarDataChave(dateObj) {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
     const d = String(dateObj.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 }
 
-// Retorna Data Inicio de Acordo com o Corte da Filial (Transporte)
-function getStartDateTransp(ano, mesNum, diaFechamento) {
-    if (diaFechamento >= 28) return new Date(ano, mesNum - 1, 1);
-    return new Date(ano, mesNum - 2, diaFechamento + 1);
+function exec_getDatasCorte(ano, mesNum, tipo, corte1, corte2) {
+    let inicio, fim;
+    if (tipo === 'Q1') {
+        inicio = new Date(ano, mesNum - 2, corte2 + 1, 0, 0, 0);
+        fim = new Date(ano, mesNum - 1, corte1, 23, 59, 59, 999);
+    } else if (tipo === 'Q2') {
+        inicio = new Date(ano, mesNum - 1, corte1 + 1, 0, 0, 0);
+        fim = new Date(ano, mesNum - 1, corte2, 23, 59, 59, 999);
+    } else { // Mês Completo
+        inicio = new Date(ano, mesNum - 2, corte2 + 1, 0, 0, 0);
+        fim = new Date(ano, mesNum - 1, corte2, 23, 59, 59, 999);
+    }
+    return { inicio, fim };
 }
 
-// Retorna Data Fim de Acordo com o Corte da Filial (Transporte)
-function getEndDateTransp(ano, mesNum, diaFechamento) {
-    if (diaFechamento >= 28) return new Date(ano, mesNum, 0, 23, 59, 59);
-    return new Date(ano, mesNum - 1, diaFechamento, 23, 59, 59);
+// Auxiliares para o Fluxo Futuro (Ciclos Abertos)
+function exec_getCicloAbertoTransporte(dataRef, corte1, corte2) {
+    let ano = dataRef.getFullYear();
+    let mes = dataRef.getMonth();
+    let dia = dataRef.getDate();
+    let inicio, fim;
+    if (dia <= corte1) {
+        inicio = new Date(ano, mes - 1, corte2 + 1, 0, 0, 0);
+        fim = new Date(ano, mes, corte1, 23, 59, 59, 999);
+    } else if (dia <= corte2) {
+        inicio = new Date(ano, mes, corte1 + 1, 0, 0, 0);
+        fim = new Date(ano, mes, corte2, 23, 59, 59, 999);
+    } else {
+        inicio = new Date(ano, mes, corte2 + 1, 0, 0, 0);
+        fim = new Date(ano, mes + 1, corte1, 23, 59, 59, 999);
+    }
+    return { inicio, fim };
 }
 
-// Retorna Data Inicio de Acordo com o Mês (Carregamento sempre do dia 1 ao fim do mes)
-function getStartDateCarreg(ano, mesNum) {
-    return new Date(ano, mesNum - 1, 1);
+function exec_getCicloAbertoCarregamento(dataRef) {
+    let ano = dataRef.getFullYear();
+    let mes = dataRef.getMonth();
+    let inicio = new Date(ano, mes, 1, 0, 0, 0);
+    let fim = new Date(ano, mes + 1, 0, 23, 59, 59, 999);
+    return { inicio, fim };
 }
 
-function getEndDateCarreg(ano, mesNum) {
-    return new Date(ano, mesNum, 0, 23, 59, 59);
-}
-
-// ==========================================
-// CÁLCULO INTELIGENTE DE TARIFA (RAIO + MATRIZ)
-// ==========================================
-function calcularTarifaExata(tarifador, asfalto, terra) {
+function exec_calcularTarifaExata(tarifador, asfalto, terra) {
     if (!tarifador || !tarifador.dados || !Array.isArray(tarifador.dados)) return 0;
     let asf = parseFloat(String(asfalto).replace(',','.')) || 0;
     let ter = parseFloat(String(terra).replace(',','.')) || 0;
@@ -130,30 +144,70 @@ function calcularTarifaExata(tarifador, asfalto, terra) {
     return maisProximo ? (parseFloat(maisProximo.tarifa) || 0) : 0;
 }
 
-function getTarifaRapida(tarifador, asfalto, terra) {
+function exec_getTarifaRapida(tarifador, asfalto, terra) {
     if (!tarifador || !tarifador.dados) return 0;
     const key = `${tarifador.id}_${asfalto}_${terra}`;
-    if (tarifaCache.has(key)) return tarifaCache.get(key);
+    if (exec_tarifaCache.has(key)) return exec_tarifaCache.get(key);
      
-    const tarifa = calcularTarifaExata(tarifador, asfalto, terra);
-    tarifaCache.set(key, tarifa);
+    const tarifa = exec_calcularTarifaExata(tarifador, asfalto, terra);
+    exec_tarifaCache.set(key, tarifa);
     return tarifa;
 }
 
-// Carregar Filtros Iniciais
-window.initVisaoExecutiva = async function() {
-    const inputMes = document.getElementById('execFiltroMes');
-    if (inputMes) {
-        const hoje = new Date();
-        const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-        inputMes.value = `${hoje.getFullYear()}-${mes}`;
+function exec_popularDropdownPeriodosExecutivo() {
+    const select = document.getElementById('execFiltroPeriodo');
+    if(!select) return;
+    
+    let opsHtml = '';
+    const hoje = new Date();
+    const nomeMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    
+    for(let i = -1; i < 6; i++) {
+        let dataRef = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+        let ano = dataRef.getFullYear();
+        let mes = dataRef.getMonth(); 
+        let mesNome = nomeMeses[mes];
+        
+        opsHtml += `<option value="${ano}-${mes+1}-M" style="background-color: #0f172a; color: #38bdf8; font-weight: bold;">⭐ ${mesNome.toUpperCase()}/${String(ano).slice(2)} (MÊS COMPLETO)</option>`;
+        opsHtml += `<option value="${ano}-${mes+1}-Q1" style="background-color: #1e293b; color: #f8fafc;">&nbsp;&nbsp;&nbsp;↳ 1ª Quinzena (Q1)</option>`;
+        opsHtml += `<option value="${ano}-${mes+1}-Q2" style="background-color: #1e293b; color: #f8fafc;">&nbsp;&nbsp;&nbsp;↳ 2ª Quinzena (Q2)</option>`;
     }
     
-    await carregarFiliaisExecutiva();
+    select.innerHTML = opsHtml;
+    
+    let defaultQ1End = 5;
+    let defaultQ2End = 20;
+    let diaHoje = hoje.getDate();
+    let mesHoje = hoje.getMonth() + 1;
+    let anoHoje = hoje.getFullYear();
+    
+    if (diaHoje <= defaultQ1End) {
+        select.value = `${anoHoje}-${mesHoje}-Q1`;
+    } else if (diaHoje <= defaultQ2End) {
+        select.value = `${anoHoje}-${mesHoje}-Q2`;
+    } else {
+        let proxMes = new Date(anoHoje, mesHoje, 1);
+        select.value = `${proxMes.getFullYear()}-${proxMes.getMonth()+1}-Q1`;
+    }
+}
+
+window.initVisaoExecutiva = async function() {
+    exec_popularDropdownPeriodosExecutivo();
+    
+    const selectPeriodo = document.getElementById('execFiltroPeriodo');
+    if (selectPeriodo) {
+        selectPeriodo.addEventListener('change', window.atualizarDadosExecutivos);
+    }
+    const selectFilial = document.getElementById('execFiltroFilial');
+    if (selectFilial) {
+        selectFilial.addEventListener('change', window.atualizarDadosExecutivos);
+    }
+    
+    await exec_carregarFiliaisExecutiva();
     window.atualizarDadosExecutivos();
 }
 
-async function carregarFiliaisExecutiva() {
+async function exec_carregarFiliaisExecutiva() {
     const currentUser = window.currentUser || {};
     const isGlobalAdmin = (currentUser.role === 'SuperAdmin' || currentUser.filial_id == 4 || currentUser.filial_id === null);
     
@@ -163,14 +217,14 @@ async function carregarFiliaisExecutiva() {
     const { data } = await q;
     const select = document.getElementById('execFiltroFilial');
     if (select && data) {
-        select.innerHTML = isGlobalAdmin ? '<option value="T">Todas as Filiais</option>' : '';
+        select.innerHTML = isGlobalAdmin ? '<option value="T" style="background-color: #1e293b; color: #f8fafc;">Todas as Filiais</option>' : '';
         data.forEach(f => {
-            select.innerHTML += `<option value="${f.id}">${f.nome}</option>`;
+            select.innerHTML += `<option value="${f.id}" style="background-color: #1e293b; color: #f8fafc;">${f.nome}</option>`;
         });
     }
 }
 
-function aplicarBadgeMeta(id, percent) {
+function exec_aplicarBadgeMeta(id, percent) {
     const el = document.getElementById(id);
     if (!el) return;
     el.innerText = percent.toFixed(1) + '%';
@@ -181,8 +235,13 @@ function aplicarBadgeMeta(id, percent) {
 }
 
 window.atualizarDadosExecutivos = async function() {
-    const inputMes = document.getElementById('execFiltroMes');
-    const mesFiltro = inputMes ? inputMes.value : '';
+    const selectPeriodo = document.getElementById('execFiltroPeriodo');
+    const periodoValue = selectPeriodo ? selectPeriodo.value : '';
+    if (!periodoValue) return;
+
+    const [anoStr, mesStr, tipoPeriodo] = periodoValue.split('-');
+    let anoAtual = parseInt(anoStr);
+    let mesAtual = parseInt(mesStr);
     
     const selectFilial = document.getElementById('execFiltroFilial');
     const filialSelecionada = selectFilial ? selectFilial.value : 'T';
@@ -259,18 +318,19 @@ window.atualizarDadosExecutivos = async function() {
         let metaGlobalCarregDiaria = 0;
         let metasPorFilial = {};
 
-        // Recuperar configuracoes e dias de corte das filiais
         filiaisDB.forEach(f => {
             let mTransp = 0;
             let mCarreg = 0;
-            let dFechamento = 25; // Padrão SERRANA
+            let dCorte1 = 5;
+            let dCorte2 = 20;
 
             if (metasDB) {
                 let found = metasDB.find(x => String(x.filial_id) === String(f.id));
                 if (found) {
                     mTransp = parseFloat(found.meta_diaria_transporte || 0);
                     mCarreg = parseFloat(found.meta_diaria_carregamento || 0);
-                    dFechamento = parseInt(found.dia_fechamento || 25);
+                    if(found.dia_fechamento_1) dCorte1 = parseInt(found.dia_fechamento_1);
+                    if(found.dia_fechamento_2) dCorte2 = parseInt(found.dia_fechamento_2);
                 }
             }
 
@@ -280,11 +340,11 @@ window.atualizarDadosExecutivos = async function() {
                 transp: mTransp, 
                 carreg: mCarreg, 
                 total: mTransp + mCarreg,
-                dia_corte: dFechamento
+                dia_corte1: dCorte1,
+                dia_corte2: dCorte2
             };
         });
 
-        // Limpeza extremamente robusta do cache de gruas (Alfanumérico total)
         let gruasPropriasCache = new Set();
         if (gruasData) {
             gruasData.forEach(g => {
@@ -299,9 +359,6 @@ window.atualizarDadosExecutivos = async function() {
                 }
             });
         }
-
-        let anoAtual = parseInt(mesFiltro.split('-')[0]);
-        let mesAtual = parseInt(mesFiltro.split('-')[1]);
                  
         const nomeMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
         let arrayMeses = [];
@@ -312,7 +369,6 @@ window.atualizarDadosExecutivos = async function() {
             arrayMeses.push({ key: key, label: label, totalFat: 0 });
         }
 
-        // Ampliamos a margem de busca temporal por 'created_at' (8 meses)
         let dataInicioHist = new Date(anoAtual, mesAtual - 8, 1);
         let strInicioHist = `${dataInicioHist.getFullYear()}-${String(dataInicioHist.getMonth() + 1).padStart(2, '0')}-01T00:00:00`;
         let dataFimHist = new Date(anoAtual, mesAtual + 1, 0); 
@@ -347,40 +403,29 @@ window.atualizarDadosExecutivos = async function() {
             if (!data || data.length < step) { fetchMore = false; }
         }
 
-        // Configuração de datas do Período Atual para metas
-        let timeInicioTransp = new Date(anoAtual, mesAtual - 2, 26).getTime();
-        let timeFimTransp = new Date(anoAtual, mesAtual - 1, 25, 23, 59, 59).getTime();
-        let timeInicioCarreg = new Date(anoAtual, mesAtual - 1, 1).getTime();
-        let timeFimCarreg = new Date(anoAtual, mesAtual, 0, 23, 59, 59).getTime();
-
-        let diasNoPeriodoTransp = Math.max(1, Math.ceil(Math.abs(timeFimTransp - timeInicioTransp) / (1000 * 60 * 60 * 24)));
-        let diasNoPeriodoCarreg = Math.max(1, Math.ceil(Math.abs(timeFimCarreg - timeInicioCarreg) / (1000 * 60 * 60 * 24)));
-
         let dmGlobalMediaMes = 0;
         let dmsFiliaisAtivas = [];
-
-        if (mesFiltro) {
-            const ultimoDia = new Date(anoAtual, mesAtual, 0).getDate(); 
-            const dataInicioDM = `${mesFiltro}-01`;
-            const dataFimDM = `${mesFiltro}-${String(ultimoDia).padStart(2,'0')}`;
+        
+        const ultimoDia = new Date(anoAtual, mesAtual, 0).getDate(); 
+        const dataInicioDM = `${anoAtual}-${String(mesAtual).padStart(2,'0')}-01`;
+        const dataFimDM = `${anoAtual}-${String(mesAtual).padStart(2,'0')}-${String(ultimoDia).padStart(2,'0')}`;
                          
-            let qDM = window.supabaseClient.from('dm_operacional').select('carros_rodaram, total_frota, filial_id').gte('data_registro', dataInicioDM).lte('data_registro', dataFimDM);
-            if (filialSelecionada && filialSelecionada !== 'T') qDM = qDM.eq('filial_id', filialSelecionada);
-            else if (!isGlobalAdmin && userFilialId) qDM = qDM.eq('filial_id', userFilialId);
+        let qDM = window.supabaseClient.from('dm_operacional').select('carros_rodaram, total_frota, filial_id').gte('data_registro', dataInicioDM).lte('data_registro', dataFimDM);
+        if (filialSelecionada && filialSelecionada !== 'T') qDM = qDM.eq('filial_id', filialSelecionada);
+        else if (!isGlobalAdmin && userFilialId) qDM = qDM.eq('filial_id', userFilialId);
             
-            const { data: dmDB } = await qDM;
-            if (dmDB && dmDB.length > 0) {
-                filiaisDB.forEach(f => {
-                    const dmFilial = dmDB.filter(d => String(d.filial_id) === String(f.id));
-                    let tPerc = 0, vDays = 0;
-                    dmFilial.forEach(reg => {
-                        let rodou = Number(reg.carros_rodaram) || 0;
-                        let total = Number(reg.total_frota) || 0;
-                        if (total > 0) { tPerc += (rodou / total) * 100; vDays++; }
-                    });
-                    if (vDays > 0) dmsFiliaisAtivas.push({ filial_id: f.id, dm: tPerc / vDays });
+        const { data: dmDB } = await qDM;
+        if (dmDB && dmDB.length > 0) {
+            filiaisDB.forEach(f => {
+                const dmFilial = dmDB.filter(d => String(d.filial_id) === String(f.id));
+                let tPerc = 0, vDays = 0;
+                dmFilial.forEach(reg => {
+                    let rodou = Number(reg.carros_rodaram) || 0;
+                    let total = Number(reg.total_frota) || 0;
+                    if (total > 0) { tPerc += (rodou / total) * 100; vDays++; }
                 });
-            }
+                if (vDays > 0) dmsFiliaisAtivas.push({ filial_id: f.id, dm: tPerc / vDays });
+            });
         }
 
         let filiaisDataMap = {};          
@@ -390,7 +435,7 @@ window.atualizarDadosExecutivos = async function() {
         const dias7 = [];
         for (let i = 7; i >= 1; i--) {
             const d = new Date(hojeObj.getFullYear(), hojeObj.getMonth(), hojeObj.getDate() - i);
-            let k = formatarDataChave(d);
+            let k = exec_formatarDataChave(d);
             dias7.push(k);
             agrupamento7Dias[k] = { recTransp: 0, recCarreg: 0, filiais: {} };
             filiaisDB.forEach(f => { agrupamento7Dias[k].filiais[f.id] = { total: 0 }; });
@@ -398,15 +443,25 @@ window.atualizarDadosExecutivos = async function() {
 
         const dataOntem = new Date();
         dataOntem.setDate(dataOntem.getDate() - 1);
-        const keyD1 = formatarDataChave(dataOntem);
+        const keyD1 = exec_formatarDataChave(dataOntem);
 
         let kpiTranspPeriodo = 0, kpiCarregPeriodo = 0;
         let kpiTranspHoje = 0, kpiCarregHoje = 0;
         let kpiVolTransp = 0, kpiVolCarreg = 0;
         let kpiViagensTransp = 0, kpiViagensCarreg = 0;
 
-        let totalDiasPeriodoTranspGlobal = 0;
-        let totalDiasPeriodoCarregGlobal = 0;
+        // MAPA PARA PRÓXIMOS PAGAMENTOS (CICLO ABERTO DE HOJE REAL)
+        let fluxoReceber = {};
+        const hojeReal = new Date();
+        filiaisDB.forEach(f => {
+            let cfgF = metasPorFilial[f.id] || { dia_corte1: 5, dia_corte2: 20, transp: 0, carreg: 0 };
+            fluxoReceber[f.id] = {
+                corteTransp: exec_getCicloAbertoTransporte(hojeReal, cfgF.dia_corte1, cfgF.dia_corte2),
+                corteCarreg: exec_getCicloAbertoCarregamento(hojeReal),
+                transpAcumulado: 0,
+                carregAcumulado: 0
+            };
+        });
 
         function getTarifador(filialId) {
             if (!tarifadoresAtivos || tarifadoresAtivos.length === 0) return null;
@@ -417,7 +472,10 @@ window.atualizarDadosExecutivos = async function() {
             return tarifadoresAtivos[0]; 
         }
 
-        tarifaCache.clear(); 
+        exec_tarifaCache.clear(); 
+
+        let inicioMesCarregamento = new Date(anoAtual, mesAtual - 1, 1, 0, 0, 0);
+        let fimMesCarregamento = new Date(anoAtual, mesAtual, 0, 23, 59, 59, 999);
 
         for (let i = 0; i < todasViagens.length; i++) {
             let v = todasViagens[i];
@@ -428,55 +486,46 @@ window.atualizarDadosExecutivos = async function() {
             let dataViagemStr = v.dtFimDescarFabrica || v.dataDaBaseExcel || (v.created_at ? v.created_at.split('T')[0] : null);
             if (!dataViagemStr) continue;
                          
-            let dateObj = converterDataExcel(dataViagemStr);
+            let dateObj = exec_converterDataExcel(dataViagemStr);
             if (isNaN(dateObj.getTime())) continue;
             
-            let keyViagemNormal = formatarDataChave(dateObj);
+            let keyViagemNormal = exec_formatarDataChave(dateObj);
             let trTime = dateObj.getTime();
 
-            // Puxar data de corte específica da Filial (metas_gerenciais)
-            let cfgFilial = metasPorFilial[v.filial_id] || { dia_corte: 25 };
-            let dCorte = cfgFilial.dia_corte;
-
-            // Datas do ciclo desta viagem/filial para o mês do filtro
-            let startTransp = getStartDateTransp(anoAtual, mesAtual, dCorte);
-            let endTransp = getEndDateTransp(anoAtual, mesAtual, dCorte);
-            let startCarreg = getStartDateCarreg(anoAtual, mesAtual);
-            let endCarreg = getEndDateCarreg(anoAtual, mesAtual);
-
-            let isMesFiltroTransp = (trTime >= startTransp.getTime() && trTime <= endTransp.getTime());
-            let isMesFiltroCarreg = (trTime >= startCarreg.getTime() && trTime <= endCarreg.getTime());
-                          
-            let tr = getCampo(v, ['transportadora', 'transportador', 'empresa_transporte', 'fornecedor']).trim().toUpperCase();
-            let isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG') || tr.includes('SERRANA');
+            let cfgFilial = metasPorFilial[v.filial_id] || { dia_corte1: 5, dia_corte2: 20 };
+            let datasCorte = exec_getDatasCorte(anoAtual, mesAtual, tipoPeriodo, cfgFilial.dia_corte1, cfgFilial.dia_corte2);
             
-            // NOVO MÉTODO ULTRA-RESILIENTE PARA PEGAR GRUAS EM QUALQUER FILIAL
-            let isNossaGrua = checkIsNossaGrua(v, gruasPropriasCache);
+            let isMesFiltroTransp = (trTime >= datasCorte.inicio.getTime() && trTime <= datasCorte.fim.getTime());
+            let isMesFiltroCarreg = (trTime >= inicioMesCarregamento.getTime() && trTime <= fimMesCarregamento.getTime());
+                          
+            let tr = exec_getCampo(v, ['transportadora', 'transportador', 'empresa_transporte', 'fornecedor']).trim().toUpperCase();
+            let isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG') || tr.includes('SERRANA');
+            let isNossaGrua = exec_checkIsNossaGrua(v, gruasPropriasCache);
                          
-            let vol = toNumber(getCampo(v, ['volumeReal', 'volume', 'pesoLiquido', 'peso_liquido']));
-            let asfalto = toNumber(getCampo(v, ['distanciaAsfalto', 'distancia_asfalto']));
-            let terra = toNumber(getCampo(v, ['distanciaTerra', 'distancia_chao']));
+            let vol = exec_toNumber(exec_getCampo(v, ['volumeReal', 'volume', 'pesoLiquido', 'peso_liquido']));
+            let asfalto = exec_toNumber(exec_getCampo(v, ['distanciaAsfalto', 'distancia_asfalto']));
+            let terra = exec_toNumber(exec_getCampo(v, ['distanciaTerra', 'distancia_chao']));
                          
             let tarifador = getTarifador(v.filial_id);
             let precoCarregamento = tarifador ? parseFloat(tarifador.preco_carregamento) || 0 : 0;
                          
             let recTransp = 0;
+            let recCarreg = 0;
+
             if (isSerrana) {
-                let tarifa = getTarifaRapida(tarifador, asfalto, terra);
+                let tarifa = exec_getTarifaRapida(tarifador, asfalto, terra);
                 recTransp = vol * tarifa;
                 if (recTransp === 0) {
-                    let tarifaAlternativa = toNumber(getCampo(v, ['tarifa', 'valorTarifa', 'valortarifa', 'preco', 'valor_tarifa', 'tarifaAplicada']));
-                    let receitaAlternativa = toNumber(getCampo(v, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
+                    let tarifaAlternativa = exec_toNumber(exec_getCampo(v, ['tarifa', 'valorTarifa', 'valortarifa', 'preco', 'valor_tarifa', 'tarifaAplicada']));
+                    let receitaAlternativa = exec_toNumber(exec_getCampo(v, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
                     if (receitaAlternativa > 0) recTransp = receitaAlternativa;
                     else if (tarifaAlternativa > 0 && vol > 0) recTransp = tarifaAlternativa * vol;
                 }
                 
-                // Mapeia mes historico (6 meses do grafico) de forma simplificada
                 let mesLabelHis = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
                 let mesChartT = arrayMeses.find(m => m.key === mesLabelHis);
                 if (mesChartT) mesChartT.totalFat += recTransp;
 
-                // Consolidação no card DRE (Respeitando a Data de Corte)
                 if (isMesFiltroTransp) {
                     if (!filiaisDataMap[v.filial_id]) filiaisDataMap[v.filial_id] = { producao: 0, faturamento: 0, recTransp: 0, recCarreg: 0, volTransp: 0, volCarreg: 0, vTransp: 0, vCarreg: 0 };
                     filiaisDataMap[v.filial_id].producao += vol;
@@ -496,13 +545,12 @@ window.atualizarDadosExecutivos = async function() {
                 }
             }
                          
-            let recCarreg = isNossaGrua ? (vol * precoCarregamento) : 0;
+            recCarreg = isNossaGrua ? (vol * precoCarregamento) : 0;
             if (isNossaGrua) {
                 let mesLabelHisC = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
                 let mesChartC = arrayMeses.find(m => m.key === mesLabelHisC);
                 if (mesChartC) mesChartC.totalFat += recCarreg;
 
-                // Consolidação no card DRE
                 if (isMesFiltroCarreg) {
                     if (!filiaisDataMap[v.filial_id]) filiaisDataMap[v.filial_id] = { producao: 0, faturamento: 0, recTransp: 0, recCarreg: 0, volTransp: 0, volCarreg: 0, vTransp: 0, vCarreg: 0 };
                     filiaisDataMap[v.filial_id].faturamento += recCarreg;
@@ -520,30 +568,46 @@ window.atualizarDadosExecutivos = async function() {
                     if (agrupamento7Dias[keyViagemNormal].filiais[v.filial_id]) agrupamento7Dias[keyViagemNormal].filiais[v.filial_id].total += recCarreg;
                 }
             }
+
+            // Alimentando o fluxo futuro (Apenas viagens da vida real no ciclo aberto atual de hoje)
+            let fluxo = fluxoReceber[v.filial_id];
+            if (fluxo) {
+                if (isSerrana && trTime >= fluxo.corteTransp.inicio.getTime() && trTime <= fluxo.corteTransp.fim.getTime()) {
+                    fluxo.transpAcumulado += recTransp;
+                }
+                if (isNossaGrua && trTime >= fluxo.corteCarreg.inicio.getTime() && trTime <= fluxo.corteCarreg.fim.getTime()) {
+                    fluxo.carregAcumulado += recCarreg;
+                }
+            }
         }
 
         let filiaisData = [];
         let totalFatGlobal = 0;
         let totalProdGlobal = 0;
         let countDm = 0;
+        
+        let metaPeriodoTransporteTotal = 0;
+        let metaPeriodoCarregamentoTotal = 0;
 
         for (let filial of filiaisDB) {
             let metricas = filiaisDataMap[filial.id] || { producao: 0, faturamento: 0, recTransp: 0, recCarreg: 0, volTransp: 0, volCarreg: 0, vTransp: 0, vCarreg: 0 };
             
-            // Calculo da Meta Diária Global para exibir no Front
-            let cfgF = metasPorFilial[filial.id] || { dia_corte: 25 };
-            let tStartT = getStartDateTransp(anoAtual, mesAtual, cfgF.dia_corte).getTime();
-            let tEndT = getEndDateTransp(anoAtual, mesAtual, cfgF.dia_corte).getTime();
-            let dTs = Math.max(1, Math.ceil(Math.abs(tEndT - tStartT) / (1000 * 60 * 60 * 24)));
+            let cfgF = metasPorFilial[filial.id] || { dia_corte1: 5, dia_corte2: 20, transp: 0, carreg: 0 };
+            let datasC = exec_getDatasCorte(anoAtual, mesAtual, tipoPeriodo, cfgF.dia_corte1, cfgF.dia_corte2);
             
-            let tStartC = getStartDateCarreg(anoAtual, mesAtual).getTime();
-            let tEndC = getEndDateCarreg(anoAtual, mesAtual).getTime();
-            let dCs = Math.max(1, Math.ceil(Math.abs(tEndC - tStartC) / (1000 * 60 * 60 * 24)));
+            let dNumTransp = Math.max(1, Math.ceil((datasC.fim.getTime() - datasC.inicio.getTime()) / (1000 * 60 * 60 * 24)));
+            let dNumCarreg = Math.max(1, Math.ceil((fimMesCarregamento.getTime() - inicioMesCarregamento.getTime()) / (1000 * 60 * 60 * 24)));
             
-            if (metricas.faturamento > 0 || metricas.producao > 0) {
-                totalDiasPeriodoTranspGlobal = dTs; // Usa do ultimo como média, ou podemos fazer media
-                totalDiasPeriodoCarregGlobal = dCs;
-            }
+            let timeHoje = new Date().getTime();
+            
+            let diasDecTransp = datasC.inicio.getTime() > timeHoje ? 0 : Math.max(1, Math.ceil((Math.min(datasC.fim.getTime(), timeHoje) - datasC.inicio.getTime()) / (1000 * 60 * 60 * 24)));
+            diasDecTransp = Math.min(diasDecTransp, dNumTransp);
+
+            let diasDecCarreg = inicioMesCarregamento.getTime() > timeHoje ? 0 : Math.max(1, Math.ceil((Math.min(fimMesCarregamento.getTime(), timeHoje) - inicioMesCarregamento.getTime()) / (1000 * 60 * 60 * 24)));
+            diasDecCarreg = Math.min(diasDecCarreg, dNumCarreg);
+
+            metaPeriodoTransporteTotal += (cfgF.transp * diasDecTransp);
+            metaPeriodoCarregamentoTotal += (cfgF.carreg * diasDecCarreg);
 
             let dmReal = 0;
             let findDm = dmsFiliaisAtivas.find(d => String(d.filial_id) === String(filial.id));
@@ -567,7 +631,6 @@ window.atualizarDadosExecutivos = async function() {
                 }
             }
             
-            // Só conta para média de DM se tiver faturamento ou produção
             if (metricas.faturamento > 0 || metricas.producao > 0) {
                 dmGlobalMediaMes += dmReal;
                 countDm++;
@@ -575,11 +638,12 @@ window.atualizarDadosExecutivos = async function() {
 
             totalFatGlobal += metricas.faturamento;
             totalProdGlobal += metricas.producao;
+            
             filiaisData.push({
                 id: filial.id,
                 nome: filial.nome,
                 cidade: filial.cidade || filial.nome,
-                dia_corte: cfgF.dia_corte,
+                datas_corte: datasC,
                 faturamento: metricas.faturamento,
                 producao: metricas.producao,
                 recTransp: metricas.recTransp,
@@ -597,52 +661,48 @@ window.atualizarDadosExecutivos = async function() {
         const activeBranches = filiaisData.filter(f => f.faturamento > 0 || f.producao > 0).length;
         let mediaDMGlobal = countDm > 0 ? Number((dmGlobalMediaMes / countDm).toFixed(1)) : 0;
 
-        // Atualizar KPIs Tops Globais
         const formatMoney = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
         if (document.getElementById('kpiFatGlobal')) document.getElementById('kpiFatGlobal').innerText = formatMoney(totalFatGlobal);
         if (document.getElementById('kpiProdGlobal')) document.getElementById('kpiProdGlobal').innerText = totalProdGlobal.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' m³';
         if (document.getElementById('kpiDmGlobal')) document.getElementById('kpiDmGlobal').innerText = mediaDMGlobal + '%'; 
         if (document.getElementById('kpiFiliaisAtivas')) document.getElementById('kpiFiliaisAtivas').innerText = activeBranches.toString();
-
-        const metaPeriodoTransporte = metaGlobalTranspDiaria * Math.max(1, totalDiasPeriodoTranspGlobal);
-        const metaPeriodoCarregamento = metaGlobalCarregDiaria * Math.max(1, totalDiasPeriodoCarregGlobal);
         
         document.getElementById('valTranspReceita').innerText = formatMoney(kpiTranspPeriodo);
         document.getElementById('valCarregReceita').innerText = formatMoney(kpiCarregPeriodo);
         document.getElementById('kpi-transporte-hoje').innerText = formatMoney(kpiTranspHoje);
         document.getElementById('kpi-carregamento-hoje').innerText = formatMoney(kpiCarregHoje);
-        document.getElementById('desc-transporte-periodo').innerText = `Meta Período: ${formatMoney(metaPeriodoTransporte)}`;
-        document.getElementById('desc-carregamento-periodo').innerText = `Meta Período: ${formatMoney(metaPeriodoCarregamento)}`;
-        document.getElementById('desc-transporte-hoje').innerText = `Meta Diária: ${formatMoney(metaGlobalTranspDiaria)}`;
-        document.getElementById('desc-carregamento-hoje').innerText = `Meta Diária: ${formatMoney(metaGlobalCarregDiaria)}`;
+        
+        document.getElementById('desc-transporte-periodo').innerText = `Meta Acumulada: ${formatMoney(metaPeriodoTransporteTotal)}`;
+        document.getElementById('desc-carregamento-periodo').innerText = `Meta Acumulada: ${formatMoney(metaPeriodoCarregamentoTotal)}`;
+        document.getElementById('desc-transporte-hoje').innerText = `Meta Diária Combinada: ${formatMoney(metaGlobalTranspDiaria)}`;
+        document.getElementById('desc-carregamento-hoje').innerText = `Meta Diária Combinada: ${formatMoney(metaGlobalCarregDiaria)}`;
 
         document.getElementById('valTranspVolume').innerText = kpiVolTransp.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
         document.getElementById('valCarregVolume').innerText = kpiVolCarreg.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
         document.getElementById('valTranspViagens').innerText = kpiViagensTransp.toLocaleString('pt-BR');
         document.getElementById('valCarregViagens').innerText = kpiViagensCarreg.toLocaleString('pt-BR');
 
-        aplicarBadgeMeta('badge-transporte-periodo', metaPeriodoTransporte > 0 ? (kpiTranspPeriodo / metaPeriodoTransporte)*100 : 0);
-        aplicarBadgeMeta('badge-carregamento-periodo', metaPeriodoCarregamento > 0 ? (kpiCarregPeriodo / metaPeriodoCarregamento)*100 : 0);
-        aplicarBadgeMeta('badge-transporte-hoje', metaGlobalTranspDiaria > 0 ? (kpiTranspHoje / metaGlobalTranspDiaria)*100 : 0);
-        aplicarBadgeMeta('badge-carregamento-hoje', metaGlobalCarregDiaria > 0 ? (kpiCarregHoje / metaGlobalCarregDiaria)*100 : 0);
+        exec_aplicarBadgeMeta('badge-transporte-periodo', metaPeriodoTransporteTotal > 0 ? (kpiTranspPeriodo / metaPeriodoTransporteTotal)*100 : 0);
+        exec_aplicarBadgeMeta('badge-carregamento-periodo', metaPeriodoCarregamentoTotal > 0 ? (kpiCarregPeriodo / metaPeriodoCarregamentoTotal)*100 : 0);
+        exec_aplicarBadgeMeta('badge-transporte-hoje', metaGlobalTranspDiaria > 0 ? (kpiTranspHoje / metaGlobalTranspDiaria)*100 : 0);
+        exec_aplicarBadgeMeta('badge-carregamento-hoje', metaGlobalCarregDiaria > 0 ? (kpiCarregHoje / metaGlobalCarregDiaria)*100 : 0);
 
         // Cards DRE Expandidos
         let cardsHtml = '';
         filiaisData.forEach(filial => {
-            if (filial.faturamento === 0 && filial.producao === 0 && filialSelecionada === 'T') return; // Esconde filiais sem dados
+            if (filial.faturamento === 0 && filial.producao === 0 && filialSelecionada === 'T') return; 
             
             let statusBadge = filial.status === 'Operacional' 
                  ? '<span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-1 rounded-full border border-emerald-500/20"><i class="fas fa-check"></i> NORMAL</span>' 
                  : '<span class="bg-amber-500/10 text-amber-400 text-[10px] font-bold px-2 py-1 rounded-full border border-amber-500/20"><i class="fas fa-exclamation-triangle"></i> ATENÇÃO DM</span>';
                          
-            // Textos de Corte
-            let sTranspD = getStartDateTransp(anoAtual, mesAtual, filial.dia_corte);
-            let eTranspD = getEndDateTransp(anoAtual, mesAtual, filial.dia_corte);
-            let sStr = `${String(sTranspD.getDate()).padStart(2,'0')}/${String(sTranspD.getMonth()+1).padStart(2,'0')}`;
-            let eStr = `${String(eTranspD.getDate()).padStart(2,'0')}/${String(eTranspD.getMonth()+1).padStart(2,'0')}`;
+            let sStrTransp = `${String(filial.datas_corte.inicio.getDate()).padStart(2,'0')}/${String(filial.datas_corte.inicio.getMonth()+1).padStart(2,'0')}`;
+            let eStrTransp = `${String(filial.datas_corte.fim.getDate()).padStart(2,'0')}/${String(filial.datas_corte.fim.getMonth()+1).padStart(2,'0')}`;
 
-            // Comparativo de DM da filial vs Media
+            let sStrCarreg = `01/${String(mesAtual).padStart(2,'0')}`;
+            let eStrCarreg = `${String(fimMesCarregamento.getDate()).padStart(2,'0')}/${String(mesAtual).padStart(2,'0')}`;
+
             let difDm = (filial.dm - mediaDMGlobal).toFixed(1);
             let dmCompareHtml = difDm >= 0 
                 ? `<span class="text-emerald-400 text-[10px] ml-2"><i class="fas fa-arrow-up"></i> +${difDm}% da Méd</span>` 
@@ -662,26 +722,30 @@ window.atualizarDadosExecutivos = async function() {
                                          
                     <div class="space-y-3">
                         <div class="flex justify-between items-end border-b border-slate-700/50 pb-2">
-                            <span class="text-slate-400 text-xs font-bold uppercase"><i class="fas fa-sack-dollar text-emerald-400"></i> Faturamento Mensal</span>
+                            <span class="text-slate-400 text-xs font-bold uppercase"><i class="fas fa-sack-dollar text-emerald-400"></i> Faturamento Período</span>
                             <span class="font-black text-emerald-400 text-[19px] font-mono">${formatMoney(filial.faturamento)}</span>
                         </div>
                         <div class="grid grid-cols-2 gap-3 border-b border-slate-700/50 pb-3">
-                            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700">
-                                <span class="text-sky-400 text-[10px] font-black tracking-widest uppercase block mb-1">TRANSPORTE</span>
-                                <span class="text-white text-base font-mono block font-bold">${formatMoney(filial.recTransp)}</span>
-                                <span class="text-slate-400 text-[11px] font-mono block mt-1"><i class="fas fa-cube text-slate-500"></i> ${filial.volTransp.toLocaleString('pt-BR',{maximumFractionDigits:1})} m³</span>
-                                <span class="text-slate-400 text-[11px] font-mono block"><i class="fas fa-truck text-slate-500"></i> ${filial.vTransp} viag</span>
+                            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700 flex flex-col justify-between">
+                                <div>
+                                    <span class="text-sky-400 text-[10px] font-black tracking-widest uppercase block mb-1">TRANSPORTE</span>
+                                    <span class="text-white text-base font-mono block font-bold">${formatMoney(filial.recTransp)}</span>
+                                    <span class="text-slate-400 text-[11px] font-mono block mt-1"><i class="fas fa-cube text-slate-500"></i> ${filial.volTransp.toLocaleString('pt-BR',{maximumFractionDigits:1})} m³</span>
+                                    <span class="text-slate-400 text-[11px] font-mono block"><i class="fas fa-truck text-slate-500"></i> ${filial.vTransp} viag</span>
+                                </div>
                                 <div class="mt-2 pt-2 border-t border-slate-700/50">
-                                    <span class="text-slate-500 text-[9px] uppercase font-bold block"><i class="fas fa-calendar-check"></i> Corte: ${sStr} a ${eStr}</span>
+                                    <span class="text-slate-500 text-[9px] uppercase font-bold block"><i class="fas fa-calendar-check"></i> Ref: ${sStrTransp} a ${eStrTransp}</span>
                                 </div>
                             </div>
-                            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700">
-                                <span class="text-emerald-400 text-[10px] font-black tracking-widest uppercase block mb-1">CARREGAM.</span>
-                                <span class="text-white text-base font-mono block font-bold">${formatMoney(filial.recCarreg)}</span>
-                                <span class="text-slate-400 text-[11px] font-mono block mt-1"><i class="fas fa-cube text-slate-500"></i> ${filial.volCarreg.toLocaleString('pt-BR',{maximumFractionDigits:1})} m³</span>
-                                <span class="text-slate-400 text-[11px] font-mono block"><i class="fas fa-tractor text-slate-500"></i> ${filial.vCarreg} viag</span>
+                            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-700 flex flex-col justify-between">
+                                <div>
+                                    <span class="text-emerald-400 text-[10px] font-black tracking-widest uppercase block mb-1">CARREGAM.</span>
+                                    <span class="text-white text-base font-mono block font-bold">${formatMoney(filial.recCarreg)}</span>
+                                    <span class="text-slate-400 text-[11px] font-mono block mt-1"><i class="fas fa-cube text-slate-500"></i> ${filial.volCarreg.toLocaleString('pt-BR',{maximumFractionDigits:1})} m³</span>
+                                    <span class="text-slate-400 text-[11px] font-mono block"><i class="fas fa-tractor text-slate-500"></i> ${filial.vCarreg} viag</span>
+                                </div>
                                 <div class="mt-2 pt-2 border-t border-slate-700/50">
-                                    <span class="text-slate-500 text-[9px] uppercase font-bold block"><i class="fas fa-calendar-check"></i> Mês Calendário</span>
+                                    <span class="text-emerald-500/70 text-[9px] uppercase font-bold block"><i class="fas fa-calendar-check"></i> Ref: ${sStrCarreg} a ${eStrCarreg}</span>
                                 </div>
                             </div>
                         </div>
@@ -699,12 +763,66 @@ window.atualizarDadosExecutivos = async function() {
 
         if (containerCards) containerCards.innerHTML = cardsHtml || `<div class="col-span-full text-center text-slate-500 py-10 font-bold">Nenhum dado encontrado no período para as filiais selecionadas.</div>`;
 
+        // Renderiza Tabela de Fluxo Futuro (Próximos Pagamentos) com Totalizador
+        const tbodyFluxo = document.getElementById('tbodyProximosPagamentos');
+        if (tbodyFluxo) {
+            let fluxoHtml = '';
+            let somaGlobalTransp = 0;
+            let somaGlobalCarreg = 0;
+            let somaGlobalTotal = 0;
+
+            filiaisData.forEach(filial => {
+                let f = fluxoReceber[filial.id];
+                if (!f) return;
+                if (f.transpAcumulado === 0 && f.carregAcumulado === 0 && filialSelecionada === 'T') return;
+                
+                let strInicioT = `${String(f.corteTransp.inicio.getDate()).padStart(2,'0')}/${String(f.corteTransp.inicio.getMonth()+1).padStart(2,'0')}`;
+                let strFimT = `${String(f.corteTransp.fim.getDate()).padStart(2,'0')}/${String(f.corteTransp.fim.getMonth()+1).padStart(2,'0')}`;
+                let strPeriodoT = `${strInicioT} a ${strFimT}`;
+
+                let strInicioC = `${String(f.corteCarreg.inicio.getDate()).padStart(2,'0')}/${String(f.corteCarreg.inicio.getMonth()+1).padStart(2,'0')}`;
+                let strFimC = `${String(f.corteCarreg.fim.getDate()).padStart(2,'0')}/${String(f.corteCarreg.fim.getMonth()+1).padStart(2,'0')}`;
+                let strPeriodoC = `${strInicioC} a ${strFimC}`;
+                
+                let totalPrevisto = f.transpAcumulado + f.carregAcumulado;
+                
+                somaGlobalTransp += f.transpAcumulado;
+                somaGlobalCarreg += f.carregAcumulado;
+                somaGlobalTotal += totalPrevisto;
+                
+                fluxoHtml += `
+                    <tr class="hover:bg-slate-700/30 transition-colors">
+                        <td class="px-6 py-4 font-bold text-white uppercase">${filial.nome}</td>
+                        <td class="px-6 py-4 text-center text-slate-400 font-mono text-xs"><span class="text-slate-200 font-bold bg-slate-900 px-2 py-1 border border-slate-700 rounded">${strPeriodoT}</span></td>
+                        <td class="px-6 py-4 text-right text-sky-400 font-mono font-bold">${formatMoney(f.transpAcumulado)}</td>
+                        <td class="px-6 py-4 text-center text-slate-400 font-mono text-xs"><span class="text-slate-200 font-bold bg-slate-900 px-2 py-1 border border-slate-700 rounded">${strPeriodoC}</span></td>
+                        <td class="px-6 py-4 text-right text-emerald-400 font-mono font-bold">${formatMoney(f.carregAcumulado)}</td>
+                        <td class="px-6 py-4 text-right text-purple-400 font-mono font-black bg-purple-500/10">${formatMoney(totalPrevisto)}</td>
+                    </tr>
+                `;
+            });
+
+            if (fluxoHtml !== '') {
+                fluxoHtml += `
+                    <tr class="bg-slate-800/80 font-black text-base border-t-2 border-slate-600">
+                        <td class="px-6 py-4 text-white text-right uppercase tracking-widest" colspan="2">Total Geral a Receber:</td>
+                        <td class="px-6 py-4 text-right text-sky-400 font-mono">${formatMoney(somaGlobalTransp)}</td>
+                        <td class="px-6 py-4 text-center text-slate-400 font-mono text-xs"></td>
+                        <td class="px-6 py-4 text-right text-emerald-400 font-mono">${formatMoney(somaGlobalCarreg)}</td>
+                        <td class="px-6 py-4 text-right text-purple-400 font-mono bg-purple-500/20 shadow-inner">${formatMoney(somaGlobalTotal)}</td>
+                    </tr>
+                `;
+            }
+
+            tbodyFluxo.innerHTML = fluxoHtml || `<tr><td colspan="6" class="text-center p-6 text-slate-500 font-bold">Nenhum valor projetado para os ciclos atuais.</td></tr>`;
+        }
+
         let mesesParaGrafico = arrayMeses.map(m => m.label);
         let valoresFaturamentoHist = arrayMeses.map(m => parseFloat(m.totalFat.toFixed(2)));
                  
-        renderizarGraficoComparativo(filiaisData);
-        renderizarGraficoEvolucao(mesesParaGrafico, valoresFaturamentoHist);
-        renderizarGrafico7DiasFixo(dias7, agrupamento7Dias, metaGlobalTranspDiaria + metaGlobalCarregDiaria, metasPorFilial, filiaisDB);
+        exec_renderizarGraficoComparativo(filiaisData);
+        exec_renderizarGraficoEvolucao(mesesParaGrafico, valoresFaturamentoHist);
+        exec_renderizarGrafico7DiasFixo(dias7, agrupamento7Dias, metaGlobalTranspDiaria + metaGlobalCarregDiaria, metasPorFilial, filiaisDB);
 
     } catch (error) {
         console.error('Erro ao buscar dados executivos no banco:', error);
@@ -724,7 +842,7 @@ window.atualizarDadosExecutivos = async function() {
     }
 }
 
-function renderizarGrafico7DiasFixo(dias7, agrupamento7Dias, metaTotalVal, metasPorFilial, filiaisDB) {
+function exec_renderizarGrafico7DiasFixo(dias7, agrupamento7Dias, metaTotalVal, metasPorFilial, filiaisDB) {
     const dom7Dias = document.getElementById('chart7DiasFixoExecutivo');
     if (!dom7Dias) return;
 
@@ -739,7 +857,6 @@ function renderizarGrafico7DiasFixo(dias7, agrupamento7Dias, metaTotalVal, metas
     const dataTotalDiario = dias7.map(k => agrupamento7Dias[k].recTransp + agrupamento7Dias[k].recCarreg);
     const dataMetaCombinada = dias7.map(() => metaTotalVal);
 
-    // Identificar a pior filial no acumulado de 7 dias
     let pioresFiliaisSet = new Set();
     dias7.forEach(k => {
         let piorPerc = 100;
@@ -827,7 +944,7 @@ function renderizarGrafico7DiasFixo(dias7, agrupamento7Dias, metaTotalVal, metas
     window.addEventListener('resize', () => execChart7Dias.resize());
 }
 
-function renderizarGraficoComparativo(dados) {
+function exec_renderizarGraficoComparativo(dados) {
     const chartDom = document.getElementById('graficoComparativoFiliais');
     if (!chartDom) return;
          
@@ -891,7 +1008,7 @@ function renderizarGraficoComparativo(dados) {
     window.addEventListener('resize', () => execChartComparativo.resize());
 }
 
-function renderizarGraficoEvolucao(meses, valores) {
+function exec_renderizarGraficoEvolucao(meses, valores) {
     const chartDom = document.getElementById('graficoEvolucaoGlobal');
     if (!chartDom) return;
          

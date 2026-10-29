@@ -69,23 +69,39 @@
 
             <!-- Bloco 2: Ciclo de Fechamento -->
             <div class="pt-4 border-t border-slate-700/50">
-                <h4 class="text-slate-300 font-semibold mb-4 text-sm uppercase tracking-wider border-l-2 border-sky-500 pl-2 mt-4">Período de Faturamento</h4>
+                <h4 class="text-slate-300 font-semibold mb-4 text-sm uppercase tracking-wider border-l-2 border-sky-500 pl-2 mt-4">Período de Faturamento (Quinzenal)</h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     
-                    <!-- Dia de Fechamento -->
+                    <!-- 1º Dia de Fechamento -->
                     <div class="space-y-2">
-                        <label for="dia_fechamento" class="block text-sm font-medium text-slate-300">
-                            Dia de Fechamento do Mês
+                        <label for="dia_fechamento_1" class="block text-sm font-medium text-slate-300">
+                            1º Dia de Fechamento (Q1)
                         </label>
                         <div class="relative group">
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <i class="fas fa-calendar-check text-slate-500 group-focus-within:text-sky-500 transition-colors"></i>
                             </div>
-                            <input type="number" min="1" max="31" id="dia_fechamento" name="dia_fechamento" 
+                            <input type="number" min="1" max="31" id="dia_fechamento_1" name="dia_fechamento_1" 
                                 class="w-full pl-12 pr-4 py-3 bg-[#0f172a]/80 border border-slate-700 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all shadow-inner"
-                                placeholder="Ex: 25" required>
+                                placeholder="Ex: 5" required>
                         </div>
-                        <p class="text-xs text-slate-500 ml-1"><i class="fas fa-info-circle mr-1"></i>Dia que encerra o ciclo (ex: 25). O painel usará isso para auto-filtrar.</p>
+                        <p class="text-xs text-slate-500 ml-1"><i class="fas fa-info-circle mr-1"></i>Dia que encerra a primeira quinzena do mês.</p>
+                    </div>
+
+                    <!-- 2º Dia de Fechamento -->
+                    <div class="space-y-2">
+                        <label for="dia_fechamento_2" class="block text-sm font-medium text-slate-300">
+                            2º Dia de Fechamento (Q2)
+                        </label>
+                        <div class="relative group">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <i class="fas fa-calendar-check text-slate-500 group-focus-within:text-sky-500 transition-colors"></i>
+                            </div>
+                            <input type="number" min="1" max="31" id="dia_fechamento_2" name="dia_fechamento_2" 
+                                class="w-full pl-12 pr-4 py-3 bg-[#0f172a]/80 border border-slate-700 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all shadow-inner"
+                                placeholder="Ex: 20" required>
+                        </div>
+                        <p class="text-xs text-slate-500 ml-1"><i class="fas fa-info-circle mr-1"></i>Dia que encerra a segunda quinzena do mês.</p>
                     </div>
 
                 </div>

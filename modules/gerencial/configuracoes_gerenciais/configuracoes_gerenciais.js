@@ -5,7 +5,8 @@ window.initConfiguracoesGerenciais = function() {
 
     const inputMetaDiaTransporte = document.getElementById('meta_diaria_transporte');
     const inputMetaDiaCarregamento = document.getElementById('meta_diaria_carregamento');
-    const inputDiaFechamento = document.getElementById('dia_fechamento'); // NOVO
+    const inputDiaFechamento1 = document.getElementById('dia_fechamento_1'); // Q1
+    const inputDiaFechamento2 = document.getElementById('dia_fechamento_2'); // Q2
     const btnCancelar = document.getElementById('btn-cancelar-metas');
     const alertContainer = document.getElementById('alert-container-metas');
     const labelFilial = document.getElementById('label-filial-atual');
@@ -57,7 +58,8 @@ window.initConfiguracoesGerenciais = function() {
             filial_id: filialAtual,
             meta_diaria_transporte: extrairFloatMoeda(inputMetaDiaTransporte.value).toFixed(2),
             meta_diaria_carregamento: extrairFloatMoeda(inputMetaDiaCarregamento.value).toFixed(2),
-            dia_fechamento: parseInt(inputDiaFechamento.value, 10) || 25 // NOVO
+            dia_fechamento_1: parseInt(inputDiaFechamento1.value, 10) || 5,
+            dia_fechamento_2: parseInt(inputDiaFechamento2.value, 10) || 20
         };
 
         salvarMetas(dadosMetas);
@@ -75,7 +77,7 @@ window.initConfiguracoesGerenciais = function() {
             
             if (!dbClient) {
                 const metasSalvas = JSON.parse(localStorage.getItem(`metas_gerenciais_${filialAtual}`));
-                if (metasSalvas) preencherCampos(metasSalvas.meta_diaria_transporte, metasSalvas.meta_diaria_carregamento, metasSalvas.dia_fechamento);
+                if (metasSalvas) preencherCampos(metasSalvas.meta_diaria_transporte, metasSalvas.meta_diaria_carregamento, metasSalvas.dia_fechamento_1, metasSalvas.dia_fechamento_2);
                 return;
             }
 
@@ -90,7 +92,7 @@ window.initConfiguracoesGerenciais = function() {
             }
             
             if (data) {
-                preencherCampos(data.meta_diaria_transporte, data.meta_diaria_carregamento, data.dia_fechamento);
+                preencherCampos(data.meta_diaria_transporte, data.meta_diaria_carregamento, data.dia_fechamento_1, data.dia_fechamento_2);
             }
         } catch (error) {
             console.error("Erro ao carregar metas do banco:", error);
@@ -98,14 +100,16 @@ window.initConfiguracoesGerenciais = function() {
         }
     }
 
-    function preencherCampos(transporte, carregamento, diaFechamento) {
+    function preencherCampos(transporte, carregamento, diaFechamento1, diaFechamento2) {
         const valTransporte = parseFloat(transporte || 0);
         const valCarregamento = parseFloat(carregamento || 0);
-        const valDiaFechamento = parseInt(diaFechamento || 25);
+        const valDiaFechamento1 = parseInt(diaFechamento1 || 5);
+        const valDiaFechamento2 = parseInt(diaFechamento2 || 20);
         
         inputMetaDiaTransporte.value = valTransporte.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         inputMetaDiaCarregamento.value = valCarregamento.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        inputDiaFechamento.value = valDiaFechamento;
+        inputDiaFechamento1.value = valDiaFechamento1;
+        inputDiaFechamento2.value = valDiaFechamento2;
     }
 
     async function salvarMetas(dados) {
