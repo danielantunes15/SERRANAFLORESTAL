@@ -1,4 +1,4 @@
-<div class="max-w-[96rem] mx-auto px-6 py-8 bg-[#0f172a] min-h-screen">
+<div class="max-w-[96rem] mx-auto px-6 py-8 bg-[#0f172a] min-h-screen relative">
     
     <!-- Cabeçalho -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 backdrop-blur-sm gap-4">
@@ -212,6 +212,13 @@
                 </table>
             </div>
         </div>
+    </div>
+
+    <!-- OVERLAY DE CARREGAMENTO -->
+    <div id="loadingOverlay" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm hidden">
+        <i class="fas fa-circle-notch fa-spin text-purple-500 text-6xl mb-4"></i>
+        <h2 class="text-white text-2xl font-bold tracking-widest uppercase">Processando Dados Executivos</h2>
+        <p class="text-purple-400 mt-2 font-mono text-sm">Isso pode levar alguns segundos, aguarde...</p>
     </div>
 
 </div>
