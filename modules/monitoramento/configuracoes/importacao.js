@@ -92,7 +92,7 @@ window.processarImportacaoBracell = async function(input) {
             const workbook = XLSX.read(data, { type: 'array' });
             
             let dadosCompletosParaSalvar = [];
-            const abas = ['SP', 'MG'];
+            const abas = ['PRODUTIVIDADE'];
 
             abas.forEach(nomeAba => {
                 if (workbook.SheetNames.includes(nomeAba)) {
@@ -100,13 +100,14 @@ window.processarImportacaoBracell = async function(input) {
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
 
                     jsonData.forEach(row => {
-                        if (!row['Ordem de busca'] || !row['Equipamento cavalo']) return;
+                        const ordemStr = row['ORDEM'] ? String(row['ORDEM']).trim() : '';
+                        const cavaloStr = row['PLACA CAVALO'] ? String(row['PLACA CAVALO']).trim() : '';
+                        
+                        if (!ordemStr || !cavaloStr) return;
 
-                        const ordemStr = String(row['Ordem de busca']).trim();
-                        const cavaloStr = String(row['Equipamento cavalo']).trim();
                         const chaveUnica = `${ordemStr}_${cavaloStr}`;
                         
-                        const dataChegadaStr = formatarDataExcel(row['Data chegada balança']);
+                        const dataChegadaStr = formatarDataExcel(row['CHEGADA BALANCA']);
                         const dataBaseExcel = dataChegadaStr ? dataChegadaStr.split(' ')[0] : 'Desconhecida';
 
                         const registro = {
@@ -114,31 +115,31 @@ window.processarImportacaoBracell = async function(input) {
                             dataLancamento: new Date().toLocaleDateString('pt-PT'),
                             dataDaBaseExcel: dataBaseExcel,
                             placa: cavaloStr,
-                            transportadora: row['Fornecedor'] ? String(row['Fornecedor']).trim() : 'BRACELL',
+                            transportadora: row['FORNECEDOR'] ? String(row['FORNECEDOR']).trim() : 'BRACELL',
                             
-                            pesoLiquido: window.parseNumero(row['Peso Liquido']),
-                            peso_na_entrada: window.parseNumero(row['Peso bruto']), 
-                            volumeReal: window.parseNumero(row['Volume']),
-                            distanciaAsfalto: window.parseNumero(row['Distancia Asfalto']),
-                            distanciaTerra: window.parseNumero(row['Distancia Chão']),
+                            pesoLiquido: window.parseNumero(row['PESO LIQUIDO']),
+                            peso_na_entrada: window.parseNumero(row['PESO BRUTO']), 
+                            volumeReal: window.parseNumero(row['VOLUME']),
+                            distanciaAsfalto: window.parseNumero(row['DISTANCIA ASFALTO']),
+                            distanciaTerra: window.parseNumero(row['DISTANCIA CHAO']),
                             
                             ordem_busca: ordemStr,
-                            ctm: row['CTM'] ? String(row['CTM']).trim() : null,
-                            nota_fiscal: row['Nota Fiscal'] ? String(row['Nota Fiscal']).trim() : null,
+                            ctm: null,
+                            nota_fiscal: row['NOTA FISCAL'] ? String(row['NOTA FISCAL']).trim() : null,
                             data_chegada_balanca: dataChegadaStr,
-                            data_saida_patio: formatarDataExcel(row['Data saida patio']),
-                            tipo_conjunto: row['Tipo de conjunto'] ? String(row['Tipo de conjunto']).trim() : null,
-                            fornecedor: row['Fornecedor'] ? String(row['Fornecedor']).trim() : null,
+                            data_saida_patio: formatarDataExcel(row['SAIDA PATIO']),
+                            tipo_conjunto: row['CONJUNTO'] ? String(row['CONJUNTO']).trim() : null,
+                            fornecedor: row['FORNECEDOR'] ? String(row['FORNECEDOR']).trim() : null,
                             equipamento_cavalo: cavaloStr,
-                            peso_bruto: window.parseNumero(row['Peso bruto']), 
-                            tara: window.parseNumero(row['Tara']),
-                            projeto: row['Projeto'] ? String(row['Projeto']).trim() : null,
-                            talhao: row['Talhão'] ? String(row['Talhão']).trim() : null,
-                            distancia_total: window.parseNumero(row['Distancia Total']),
-                            regional: row['Regional'] ? String(row['Regional']).trim() : null,
+                            peso_bruto: window.parseNumero(row['PESO BRUTO']), 
+                            tara: window.parseNumero(row['TARA']),
+                            projeto: row['PROJETO'] ? String(row['PROJETO']).trim() : null,
+                            talhao: row['TALHAO'] ? String(row['TALHAO']).trim() : null,
+                            distancia_total: window.parseNumero(row['DISTANCIA TOTAL']),
+                            regional: row['REGIONAL'] ? String(row['REGIONAL']).trim() : null,
                             cte: row['CTE'] ? String(row['CTE']).trim() : null,
-                            chave_acesso: row['Chave de acesso'] ? String(row['Chave de acesso']).trim() : null,
-                            valor_cte: window.parseNumero(row['VALOR DO CTE']),
+                            chave_acesso: null,
+                            valor_cte: window.parseNumero(row['VALOR CTE']),
                             
                             filial_id: 5,
                             chave_unica: chaveUnica
@@ -150,7 +151,7 @@ window.processarImportacaoBracell = async function(input) {
             });
 
             if (dadosCompletosParaSalvar.length === 0) {
-                throw new Error('Nenhum dado válido encontrado nas abas "SP" ou "MG".');
+                throw new Error('Nenhum dado válido encontrado na aba "PRODUTIVIDADE". Verifique se as colunas ORDEM e PLACA CAVALO estão preenchidas.');
             }
 
             const chavesExcel = dadosCompletosParaSalvar.map(r => r.chave_unica);
@@ -191,7 +192,7 @@ window.processarImportacaoBracell = async function(input) {
 
                 await window.supabaseClient.from('historico_importacoes').insert([{
                     dataLancamento: dataLocalExata,
-                    dataBase: 'Viagens Bracell (SP/MG)',
+                    dataBase: 'Viagens Bracell (PRODUTIVIDADE)',
                     qtdViagens: registrosNovos.length,
                     usuario: usuarioLogado,
                     filial_id: filialLogada
