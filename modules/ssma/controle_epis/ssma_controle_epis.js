@@ -11,7 +11,7 @@ window.initControleEPIs = async function() {
     document.getElementById('epiDataFim').value = hoje.toISOString().split('T')[0];
 
     await carregarDadosDBEPI();
-    atualizarAlertasEstoqueEPI(); // Atualiza painel inferior de estoque
+    atualizarAlertasEstoqueEPI(); // Atualiza painel inferior de estoque detalhado
     aplicarFiltrosEPI();
     
     window.removeEventListener('resize', resizeEpiCharts);
@@ -74,11 +74,15 @@ async function carregarDadosDBEPI() {
 }
 
 function atualizarAlertasEstoqueEPI() {
-    let totalEstoque = 0;
+    const formatMoeda = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+    let totalEstoqueQtd = 0;
+    let valorImobilizado = 0;
     let itensCriticos = 0;
+    let itensAtencao = 0;
     let htmlTabela = '';
 
-    // Ordenar peças pela urgência (quantidade - minimo)
+    // Ordenar peças pela urgência (quantidade em relação ao mínimo)
     const pecasOrdenadas = [...window.epiDados.pecas].sort((a,b) => {
         const saldoA = parseFloat(a.quantidade || 0) - parseFloat(a.estoque_minimo || 0);
         const saldoB = parseFloat(b.quantidade || 0) - parseFloat(b.estoque_minimo || 0);
@@ -88,39 +92,73 @@ function atualizarAlertasEstoqueEPI() {
     pecasOrdenadas.forEach(p => {
         const qtd = parseFloat(p.quantidade || 0);
         const min = parseFloat(p.estoque_minimo || 0);
-        totalEstoque += qtd;
+        const preco = parseFloat(p.preco_medio || 0);
+        
+        totalEstoqueQtd += qtd;
+        valorImobilizado += (qtd * preco);
 
         const critico = qtd <= min;
-        if (critico) itensCriticos++;
+        const atencao = !critico && (qtd <= min * 1.3); // Margem de 30% acima do mínimo é atenção
 
-        // Renderiza na tabela de alertas todos os EPIs (com destaque para os críticos)
-        if (critico || qtd <= (min * 1.2)) { // Mostra críticos ou quase críticos
-            const badge = critico ? `<span class="badge critico">Repor Imediato</span>` : `<span class="badge pendente">Atenção</span>`;
-            const cor = critico ? 'color: #ef4444;' : 'color: #f59e0b;';
-            
-            htmlTabela += `<tr>
-                <td style="color: #94a3b8;">${p.codigo || '-'}</td>
-                <td style="font-weight: 600; color: #f8fafc;">${p.nome}</td>
-                <td style="text-align:center; font-weight: bold; ${cor}">${qtd} ${p.unidade||'UN'}</td>
-                <td style="text-align:center; color: #94a3b8;">${min} ${p.unidade||'UN'}</td>
-                <td>${badge}</td>
-            </tr>`;
+        if (critico) itensCriticos++;
+        if (atencao) itensAtencao++;
+
+        // Cálculo da barra de progresso (Mínimo = 50% da barra para dar noção visual de folga)
+        let pct = min > 0 ? (qtd / (min * 2)) * 100 : 100;
+        if(pct > 100) pct = 100;
+        
+        let colorClass = 'green';
+        let badge = `<span class="badge ok">Saudável</span>`;
+        if (critico) { 
+            colorClass = 'red'; 
+            badge = `<span class="badge critico">Repor Imediato</span>`; 
+        } else if (atencao) { 
+            colorClass = 'orange'; 
+            badge = `<span class="badge pendente">Atenção</span>`; 
+        }
+
+        // Renderiza todos os itens, mas o gestor vê os piores primeiro pelo sort
+        htmlTabela += `<tr>
+            <td style="color: #94a3b8;">${p.codigo || '-'}</td>
+            <td style="font-weight: 600; color: #f8fafc;">${p.nome}</td>
+            <td style="text-align:right; color: #a855f7; font-weight:600;">${formatMoeda(preco)}</td>
+            <td>
+                <div class="progress-wrapper">
+                    <div class="progress-fill ${colorClass}" style="width: ${pct}%;"></div>
+                </div>
+                <div class="stock-meta">
+                    <span>Atual: <strong>${qtd} ${p.unidade||'UN'}</strong></span>
+                    <span>Mín: ${min}</span>
+                </div>
+            </td>
+            <td style="text-align:center;">${badge}</td>
+        </tr>`;
+    });
+
+    if(htmlTabela === '') htmlTabela = `<tr><td colspan="5" style="text-align:center; color:#10b981; padding: 20px;"><i class="fas fa-check-circle"></i> Nenhum EPI cadastrado no sistema.</td></tr>`;
+
+    // Calcular giro (Consumo últimos 30 dias globais, independente do filtro de data)
+    const hoje = new Date();
+    const data30d = new Date(hoje.setDate(hoje.getDate() - 30)).toISOString().split('T')[0];
+    
+    let consumoQtd30d = 0;
+    let consumoValor30d = 0;
+    
+    window.epiDados.movimentacoes.forEach(m => {
+        if(m.data_movimentacao.split('T')[0] >= data30d) {
+            let q = parseFloat(m.quantidade || 0);
+            consumoQtd30d += q;
+            consumoValor30d += (q * parseFloat(m.valor_unitario || 0));
         }
     });
 
-    if(htmlTabela === '') htmlTabela = `<tr><td colspan="5" style="text-align:center; color:#10b981;"><i class="fas fa-check-circle"></i> Todos os EPIs estão com estoque saudável.</td></tr>`;
-
-    // Calcular giro (Consumo últimos 30 dias globais, ignorando filtro de tela)
-    const hoje = new Date();
-    const data30d = new Date(hoje.setDate(hoje.getDate() - 30)).toISOString().split('T')[0];
-    const consumo30d = window.epiDados.movimentacoes.reduce((acc, m) => {
-        if(m.data_movimentacao.split('T')[0] >= data30d) return acc + parseFloat(m.quantidade || 0);
-        return acc;
-    }, 0);
-
-    document.getElementById('kpiEstoqueTotal').innerText = totalEstoque.toString();
+    document.getElementById('kpiEstoqueFinanceiro').innerText = formatMoeda(valorImobilizado);
+    document.getElementById('kpiEstoqueTotalQtd').innerText = `${totalEstoqueQtd} unidades em estoque`;
     document.getElementById('kpiEstoqueCritico').innerText = itensCriticos.toString();
-    document.getElementById('kpiTendenciaGiro').innerText = consumo30d + ' un/mês';
+    document.getElementById('kpiEstoqueAtencao').innerText = itensAtencao.toString();
+    document.getElementById('kpiTendenciaGiro').innerText = formatMoeda(consumoValor30d);
+    document.getElementById('kpiTendenciaGiroQtd').innerText = `Consumo de ${consumoQtd30d} unidades`;
+    
     document.getElementById('tbodyAlertasEstoque').innerHTML = htmlTabela;
 }
 
@@ -205,7 +243,6 @@ function renderizarGraficosEPI(movs) {
         const colab = (m.setor_destino || 'NÃO INFORMADO').replace(/colaborador:\s*/i, '').trim().toUpperCase();
         const data = m.data_movimentacao.split('T')[0];
 
-        // Agora guarda objeto com volume e valor
         if (!mapEpis[nomeEpi]) mapEpis[nomeEpi] = { qtd: 0, val: 0 };
         mapEpis[nomeEpi].qtd += qtd;
         mapEpis[nomeEpi].val += valor;
@@ -214,10 +251,10 @@ function renderizarGraficosEPI(movs) {
         mapEvolucao[data] = (mapEvolucao[data] || 0) + valor;
     });
 
-    // 1. Gráfico de Barras: Top 5 EPIs (Volume) com Tooltip Rico (Volume e R$)
+    // 1. Gráfico de Barras: Top 5 EPIs (Volume e R$)
     const topEpis = Object.keys(mapEpis)
         .map(k => ({name: k, qtd: mapEpis[k].qtd, val: mapEpis[k].val}))
-        .sort((a,b) => b.qtd - a.qtd) // Ordena por Volume
+        .sort((a,b) => b.qtd - a.qtd) 
         .slice(0, 5)
         .reverse(); 
 
@@ -225,12 +262,15 @@ function renderizarGraficosEPI(movs) {
         tooltip: { 
             trigger: 'axis', 
             axisPointer: { type: 'shadow' },
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            borderColor: '#334155',
+            textStyle: { color: '#f8fafc' },
             formatter: function(params) {
                 const data = params[0].data;
                 const formatMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.custo);
-                return `<strong>${params[0].name}</strong><br/>
-                        Volume (Qtd): ${data.value}<br/>
-                        <span style="color:#10b981; font-weight:bold;">Custo Total: ${formatMoeda}</span>`;
+                return `<strong style="color:#3b82f6;">${params[0].name}</strong><br/>
+                        <span style="color:#94a3b8;">Volume (Qtd):</span> ${data.value}<br/>
+                        <span style="color:#94a3b8;">Custo Total:</span> <span style="color:#10b981; font-weight:bold;">${formatMoeda}</span>`;
             }
         },
         grid: { left: '2%', right: '8%', bottom: '2%', top: '2%', containLabel: true },
@@ -254,7 +294,16 @@ function renderizarGraficosEPI(movs) {
         .slice(0, 5);
 
     initEChart('chartTopColab', {
-        tooltip: { trigger: 'item', formatter: '{b}<br/>R$ {c} ({d}%)' },
+        tooltip: { 
+            trigger: 'item', 
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            borderColor: '#334155',
+            textStyle: { color: '#f8fafc' },
+            formatter: function(params) {
+                const formatMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(params.value);
+                return `<strong>${params.name}</strong><br/>Custo: <span style="color:#10b981; font-weight:bold;">${formatMoeda}</span> (${params.percent}%)`;
+            }
+        },
         legend: { orient: 'vertical', right: '0%', top: 'center', textStyle: { color: '#94a3b8', fontSize: 10 } },
         color: ['#10b981', '#3b82f6', '#f59e0b', '#a855f7', '#ef4444'],
         series: [{
@@ -276,7 +325,16 @@ function renderizarGraficosEPI(movs) {
     });
 
     initEChart('chartEvolucao', {
-        tooltip: { trigger: 'axis', formatter: '{b0}<br/><span style="font-weight:bold;color:#10b981;">Custo: R$ {c0}</span>' },
+        tooltip: { 
+            trigger: 'axis',
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            borderColor: '#334155',
+            textStyle: { color: '#f8fafc' },
+            formatter: function(params) {
+                const formatMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(params[0].value);
+                return `${params[0].name}<br/>Custo: <span style="color:#10b981; font-weight:bold;">${formatMoeda}</span>`;
+            }
+        },
         grid: { left: '2%', right: '3%', bottom: '5%', top: '10%', containLabel: true },
         xAxis: { type: 'category', boundaryGap: false, data: datasFormatadas, axisLabel: { color: '#94a3b8' } },
         yAxis: { type: 'value', splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: '#94a3b8' } },
@@ -346,7 +404,7 @@ function renderizarTabelasEPI(reqs, movs) {
         });
     });
 
-    // Ordenar do mais recente para o mais antigo e guardar para exportação
+    // Ordenar do mais recente para o mais antigo e guardar para exportação Excel
     registros.sort((a,b) => new Date(b.data) - new Date(a.data));
     window.epiRegistrosFiltrados = registros;
 
@@ -366,7 +424,7 @@ function renderizarTabelasEPI(reqs, movs) {
                 <td><span class="badge ${badgeClass}">${r.status}</span></td>
             </tr>`;
         });
-        if(top5.length === 0) htmlRecentes = '<tr><td colspan="5" style="text-align:center;">Nenhum registro.</td></tr>';
+        if(top5.length === 0) htmlRecentes = '<tr><td colspan="5" style="text-align:center; padding: 20px;">Nenhum registro encontrado.</td></tr>';
         tbodyRecentes.innerHTML = htmlRecentes;
     }
 
@@ -386,7 +444,7 @@ function renderizarTabelasEPI(reqs, movs) {
                 <td style="color:#94a3b8;">${r.resp || 'Sistema'}</td>
             </tr>`;
         });
-        if(registros.length === 0) htmlHist = '<tr><td colspan="7" style="text-align:center; padding: 20px;">Nenhum histórico encontrado para os filtros.</td></tr>';
+        if(registros.length === 0) htmlHist = '<tr><td colspan="7" style="text-align:center; padding: 20px;">Nenhum histórico encontrado para os filtros aplicados.</td></tr>';
         tbodyHistorico.innerHTML = htmlHist;
     }
 }
@@ -401,7 +459,7 @@ window.fecharHistoricoEPI = function() {
     if(modal) modal.style.display = 'none';
 }
 
-// Exportação Excel
+// Exportação Excel - Histórico Completo
 window.exportarExcelEPI = function() {
     if (!window.epiRegistrosFiltrados || window.epiRegistrosFiltrados.length === 0) {
         Swal.fire({ icon: 'info', title: 'Atenção', text: 'Não há dados para exportar com os filtros atuais.', background: '#1e293b', color: '#fff' });
@@ -425,6 +483,16 @@ window.exportarExcelEPI = function() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Controle de EPIs");
         XLSX.writeFile(wb, "Relatorio_Controle_EPIs.xlsx");
+        
+        Swal.fire({
+            icon: 'success',
+            title: 'Exportação Concluída',
+            text: 'O arquivo Excel foi baixado com sucesso.',
+            background: '#1e293b',
+            color: '#fff',
+            timer: 2000,
+            showConfirmButton: false
+        });
     } catch (error) {
         console.error("Erro ao gerar Excel:", error);
         Swal.fire({ icon: 'error', title: 'Erro', text: 'Falha ao exportar para Excel.', background: '#1e293b', color: '#fff' });

@@ -69,6 +69,14 @@
     .badge.critico { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
     .badge.ok { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
 
+    /* Barra de Progresso de Estoque */
+    .progress-wrapper { width: 100%; background: #334155; border-radius: 10px; height: 8px; overflow: hidden; margin-top: 6px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
+    .progress-fill { height: 100%; border-radius: 10px; transition: width 0.4s ease; }
+    .progress-fill.red { background: linear-gradient(90deg, #ef4444, #b91c1c); }
+    .progress-fill.orange { background: linear-gradient(90deg, #f59e0b, #b45309); }
+    .progress-fill.green { background: linear-gradient(90deg, #10b981, #047857); }
+    .stock-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; margin-top: 4px; font-weight: 600; }
+
     /* Modal Histórico */
     .epi-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(5px); animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -189,43 +197,54 @@
         </div>
     </div>
 
-    <!-- NOVA SEÇÃO: Gestão de Estoque e Alertas -->
+    <!-- NOVA SEÇÃO AVANÇADA: Gestão de Estoque e Alertas -->
     <div class="panel-modern" style="margin-top: 25px;">
-        <div class="panel-title"><i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i> Alertas de Estoque e Tendências (Tempo Real)</div>
+        <div class="panel-title"><i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i> Gestão de Estoque e Alertas (Tempo Real)</div>
         
-        <div class="epi-kpis" style="margin-bottom: 15px; grid-template-columns: repeat(3, 1fr);">
+        <div class="epi-kpis" style="margin-bottom: 20px; grid-template-columns: repeat(4, 1fr);">
             <div class="kpi-card blue" style="padding: 15px;">
                 <div class="kpi-header">
-                    <div class="kpi-title">Total de EPIs em Estoque</div>
-                    <div class="kpi-icon-box" style="width:30px; height:30px; font-size:1rem;"><i class="fas fa-boxes"></i></div>
+                    <div class="kpi-title">Capital Imobilizado (EPI)</div>
+                    <div class="kpi-icon-box" style="width:30px; height:30px; font-size:1rem;"><i class="fas fa-dollar-sign"></i></div>
                 </div>
-                <div class="kpi-value" id="kpiEstoqueTotal" style="font-size: 1.5rem;">0</div>
+                <div class="kpi-value" id="kpiEstoqueFinanceiro" style="font-size: 1.5rem;">R$ 0,00</div>
+                <div class="kpi-subtitle" id="kpiEstoqueTotalQtd">0 itens em estoque</div>
             </div>
             <div class="kpi-card red" style="padding: 15px;">
                 <div class="kpi-header">
-                    <div class="kpi-title">Itens em Nível Crítico (Falta)</div>
+                    <div class="kpi-title">Itens em Alerta Crítico</div>
                     <div class="kpi-icon-box" style="width:30px; height:30px; font-size:1rem;"><i class="fas fa-exclamation"></i></div>
                 </div>
                 <div class="kpi-value" id="kpiEstoqueCritico" style="font-size: 1.5rem;">0</div>
+                <div class="kpi-subtitle">Estoque zerado ou abaixo do mín.</div>
             </div>
             <div class="kpi-card orange" style="padding: 15px;">
                 <div class="kpi-header">
-                    <div class="kpi-title">Giro / Consumo Médio (30d)</div>
+                    <div class="kpi-title">Itens em Atenção</div>
+                    <div class="kpi-icon-box" style="width:30px; height:30px; font-size:1rem;"><i class="fas fa-exclamation-circle"></i></div>
+                </div>
+                <div class="kpi-value" id="kpiEstoqueAtencao" style="font-size: 1.5rem;">0</div>
+                <div class="kpi-subtitle">Próximos ao estoque mínimo</div>
+            </div>
+            <div class="kpi-card green" style="padding: 15px;">
+                <div class="kpi-header">
+                    <div class="kpi-title">Giro Financeiro (30d)</div>
                     <div class="kpi-icon-box" style="width:30px; height:30px; font-size:1rem;"><i class="fas fa-sync"></i></div>
                 </div>
-                <div class="kpi-value" id="kpiTendenciaGiro" style="font-size: 1.5rem;">0 un/mês</div>
+                <div class="kpi-value" id="kpiTendenciaGiro" style="font-size: 1.5rem;">R$ 0,00</div>
+                <div class="kpi-subtitle" id="kpiTendenciaGiroQtd">Consumo de 0 unidades</div>
             </div>
         </div>
 
-        <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
             <table class="table-modern">
-                <thead>
+                <thead style="position: sticky; top: 0; z-index: 10;">
                     <tr>
-                        <th>Código</th>
-                        <th>Equipamento (EPI)</th>
-                        <th style="text-align:center;">Estoque Atual</th>
-                        <th style="text-align:center;">Estoque Mín. Ideal</th>
-                        <th>Status</th>
+                        <th style="width: 10%;">Código</th>
+                        <th style="width: 35%;">Equipamento (EPI)</th>
+                        <th style="text-align:right; width: 10%;">Custo Un.</th>
+                        <th style="width: 30%;">Nível de Saúde do Estoque</th>
+                        <th style="text-align:center; width: 15%;">Status</th>
                     </tr>
                 </thead>
                 <tbody id="tbodyAlertasEstoque">
