@@ -5,7 +5,8 @@
     
     /* Header */
     .epi-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px; }
-    .epi-header h2 { margin: 0; font-size: 1.8rem; font-weight: 800; display: flex; align-items: center; gap: 12px; background: linear-gradient(90deg, #10b981, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    /* Correção do aviso do VS Code adicionando background-clip: text; */
+    .epi-header h2 { margin: 0; font-size: 1.8rem; font-weight: 800; display: flex; align-items: center; gap: 12px; background: linear-gradient(90deg, #10b981, #3b82f6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
     
     .btn-action { background: #3b82f6; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
     .btn-action:hover { background: #2563eb; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4); }
