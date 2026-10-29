@@ -33,6 +33,7 @@ window.MAPA_MENUS = [
     // --- MÓDULO: SSMA ---
     { id: 'ssma_ordem_servico', label: 'Cadastros Básicos (O.S.)', setor: 'SSMA', icon: 'fas fa-list-alt' },
     { id: 'ssma_colaboradores', label: 'Colaboradores (Exportação)', setor: 'SSMA', icon: 'fas fa-hard-hat' },
+    { id: 'ssma_controle_epis', label: 'Controle de EPI\'s', setor: 'SSMA', icon: 'fas fa-shield-alt' },
     
     // --- MÓDULO INDEPENDENTE: ALMOXARIFADO ---
     { id: 'almoxarifado', label: 'Gestão de Estoque', setor: 'Almoxarifado', icon: 'fas fa-boxes' },
@@ -110,6 +111,7 @@ const ROTAS = {
     
     'ssma_ordem_servico': 'modules/ssma/cadastros/ssma_ordem_servico.html',
     'ssma_colaboradores': 'modules/ssma/colaboradores/ssma_colaboradores.html',
+    'ssma_controle_epis': 'modules/ssma/controle_epis/ssma_controle_epis.html',
     
     'rh_painel': 'modules/rh/painel/rh_painel.html',
     'rh_colaboradores': 'modules/rh/colaboradores/colaboradores.html',
@@ -528,6 +530,10 @@ window.navegarPara = async function(pagina, elementoClicado) {
                  
         if (pagina === 'ssma_colaboradores' && typeof window.initColaboradoresSSMA === 'function') {
             window.initColaboradoresSSMA();
+        }
+
+        if (pagina === 'ssma_controle_epis' && typeof window.initControleEPIs === 'function') {
+            window.initControleEPIs();
         }
         
         if (pagina === 'painel_tv') {
