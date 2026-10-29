@@ -168,8 +168,8 @@ function exec_popularDropdownPeriodosExecutivo() {
         let mesNome = nomeMeses[mes];
         
         opsHtml += `<option value="${ano}-${mes+1}-M" style="background-color: #0f172a; color: #38bdf8; font-weight: bold;">⭐ ${mesNome.toUpperCase()}/${String(ano).slice(2)} (MÊS COMPLETO)</option>`;
-        opsHtml += `<option value="${ano}-${mes+1}-Q1" style="background-color: #1e293b; color: #f8fafc;">&nbsp;&nbsp;&nbsp;↳ 1ª Quinzena (Q1)</option>`;
         opsHtml += `<option value="${ano}-${mes+1}-Q2" style="background-color: #1e293b; color: #f8fafc;">&nbsp;&nbsp;&nbsp;↳ 2ª Quinzena (Q2)</option>`;
+        opsHtml += `<option value="${ano}-${mes+1}-Q1" style="background-color: #1e293b; color: #f8fafc;">&nbsp;&nbsp;&nbsp;↳ 1ª Quinzena (Q1)</option>`;
     }
     
     select.innerHTML = opsHtml;
@@ -238,7 +238,6 @@ window.atualizarDadosExecutivos = async function() {
     const periodoValue = selectPeriodo ? selectPeriodo.value : '';
     if (!periodoValue) return;
 
-    // Declarações movidas para fora do bloco try para garantir escopo na clausula finally
     const overlay = document.getElementById('loadingOverlay');
     const btnRefresh = document.getElementById('btnAtualizarExec');
     const containerCards = document.getElementById('containerCardsFiliais');
