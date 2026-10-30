@@ -745,6 +745,11 @@ window.mecanicoFiltrarPecasDebounced = function(forcarMostrar = false) {
     }, 300);
 };
 
+// ADICIONADO: Alias para evitar erro de cache no domínio onde o HTML ainda procura o nome antigo da função
+window.mecanicoFiltrarPecas = function(forcarMostrar = false) {
+    window.mecanicoFiltrarPecasDebounced(forcarMostrar);
+};
+
 function mecanicoFiltrarPecasExec(forcarMostrar = false) {
     const input = document.getElementById('pesquisaPeca');
     const elCat = document.getElementById('filtroCategoriaPeca');
