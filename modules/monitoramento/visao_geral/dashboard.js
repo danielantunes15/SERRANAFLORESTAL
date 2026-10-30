@@ -366,7 +366,7 @@ async function loadDashboardDataInit() {
             ? window.currentUser.filial_id 
             : 1;
             
-        let queryMeta = window.supabaseClient.from('metas_globais').select('*').eq('id', filialIdMetas).single();
+        let queryMeta = window.supabaseClient.from('metas_globais').select('*').eq('id', filialIdMetas).maybeSingle();
         const { data: metasData } = await queryMeta;
         if (metasData) {
             metasGlobaisObj = metasData;
@@ -570,7 +570,7 @@ function renderizarTabelaComparativo(dadosFiltrados) {
     let cenarios = [];
 
     // ==============================================================
-    // MONTAGEM DA TABELA (DIVISÃO BRACELL VS SUZANO)
+    // MONTAGEM DA TABELA (DIVISÃO BRACELL VS VERACEL VS SUZANO)
     // ==============================================================
     if (filialId === 5) {
         // LÓGICA BRACELL: Agrupa pela coluna REGIONAL
@@ -591,8 +591,28 @@ function renderizarTabelaComparativo(dadosFiltrados) {
             });
         });
 
+    } else if (filialId === 6) {
+        // LÓGICA VERACEL (ID 6): Agrupa por Projeto e Fornecedor (Transportadora)
+        // A Veracel não tem Gruas no mesmo padrão da Suzano, usa "Dcr Fornecedor"
+        const fornecedoresUnicos = [...new Set(dadosFiltrados.map(d => String(d.transportadora || 'DESCONHECIDO').toUpperCase().trim()))].sort();
+
+        fornecedoresUnicos.forEach((forn, index) => {
+            const style = colorVariants[index % colorVariants.length];
+            let dadosCenario = dadosFiltrados.filter(d => String(d.transportadora || 'DESCONHECIDO').toUpperCase().trim() === forn);
+            
+            cenarios.push({
+                nome: forn,
+                tipo: 'FORNECEDOR',
+                style: style,
+                icon: 'fa-truck',
+                dados: dadosCenario,
+                stats: calcStats(dadosCenario),
+                ordemLabel: `OP ${index+1}`
+            });
+        });
+
     } else {
-        // LÓGICA SUZANO: Agrupa por Gruas e Frente
+        // LÓGICA SUZANO: Agrupa por Gruas e Frente (Padrão Original)
         let cenariosPropria = [];
         let cenariosOutros = [];
 
@@ -671,14 +691,14 @@ function renderizarTabelaComparativo(dadosFiltrados) {
     });
 
     // ==============================================================
-    // SALVA-VIDAS: Cobre as Frentes Não Mapeadas (Gruas Não Cadastradas)
+    // SALVA-VIDAS: Cobre as Frentes Não Mapeadas
     // ==============================================================
     const setMapeadas = new Set(todasViagensValidas.map(d => d.id || d.movimento));
     
     // Captura as viagens que a filial rodou mas a grua não estava cadastrada no sistema
     let dadosNaoMapeados = dadosFiltrados.filter(d => !setMapeadas.has(d.id || d.movimento) && isTransportadoraPropria(d));
     
-    if (dadosNaoMapeados.length > 0) {
+    if (dadosNaoMapeados.length > 0 && filialId !== 6) { // Veracel já agrupa por transportadora direto
         let cenarioNaoMapeado = {
             nome: 'FRENTES NÃO MAPEADAS (Gruas sem cadastro)',
             tipo: 'SEM CADASTRO',
@@ -935,7 +955,7 @@ function loadDashboardData() {
 
     function isViagemPropriaDashboard(d) {
         const filialId = window.currentUser ? parseInt(window.currentUser.filial_id) : null;
-        if (filialId === 5) return true; // Cobre Bracell
+        if (filialId === 5 || filialId === 6) return true; // Cobre Bracell e Veracel
 
         const transp = String(d.transportadora || '').trim().toUpperCase();
         return transp.includes(transpPropriaConfig) || transp === transpPropriaConfig;

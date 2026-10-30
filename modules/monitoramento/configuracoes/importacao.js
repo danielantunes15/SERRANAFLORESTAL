@@ -3,7 +3,7 @@
 // ==========================================
 
 // =========================================================================
-// FUNÇÕES UTILITÁRIAS GLOBAIS
+// FUNÇÕES UTILITÁRIAS GLOBAIS E SANITIZADORES
 // =========================================================================
 window.obterDataHoraLocal = function() {
     const now = new Date();
@@ -42,6 +42,11 @@ window.parseNumero = function(valor) {
     if (typeof valor === 'number') return valor;
     let str = String(valor).trim().replace(/\./g, '').replace(',', '.');
     return parseFloat(str) || null;
+};
+
+window.sanitizeString = function(str) {
+    if (str === null || str === undefined) return null;
+    return String(str).replace(/\0/g, '').trim();
 };
 
 // =========================================================================
@@ -105,7 +110,7 @@ window.processarImportacaoBracell = async function(input) {
                         
                         if (!ordemStr || !cavaloStr) return;
 
-                        const chaveUnica = `${ordemStr}_${cavaloStr}`;
+                        const chaveUnica = `${ordemStr}_${cavaloStr}`.replace(/[^a-zA-Z0-9]/g, '');
                         
                         const dataChegadaStr = formatarDataExcel(row['CHEGADA BALANCA']);
                         const dataBaseExcel = dataChegadaStr ? dataChegadaStr.split(' ')[0] : 'Desconhecida';
@@ -142,7 +147,7 @@ window.processarImportacaoBracell = async function(input) {
                             valor_cte: window.parseNumero(row['VALOR CTE']),
                             
                             filial_id: 5,
-                            chave_unica: chaveUnica
+                            chave_unica: `BRACELL_${chaveUnica}`
                         };
 
                         dadosCompletosParaSalvar.push(registro);
@@ -154,28 +159,39 @@ window.processarImportacaoBracell = async function(input) {
                 throw new Error('Nenhum dado válido encontrado na aba "PRODUTIVIDADE". Verifique se as colunas ORDEM e PLACA CAVALO estão preenchidas.');
             }
 
-            const chavesExcel = dadosCompletosParaSalvar.map(r => r.chave_unica);
+            const unicos = [];
+            const setChavesUnicas = new Set();
+            dadosCompletosParaSalvar.forEach(r => {
+                if (!setChavesUnicas.has(r.chave_unica)) {
+                    setChavesUnicas.add(r.chave_unica);
+                    unicos.push(r);
+                }
+            });
+            dadosCompletosParaSalvar = unicos;
+
+            // Busca chaves existentes paginada (Evita Erro 400 da URL limite)
             let chavesJaNoBanco = new Set();
-            
-            const queryBatchSize = 1000;
-            for (let i = 0; i < chavesExcel.length; i += queryBatchSize) {
-                const loteChaves = chavesExcel.slice(i, i + queryBatchSize);
-                const { data: dadosBanco, error: errBusca } = await window.supabaseClient
+            let startBusca = 0; 
+            const stepBusca = 1000;
+            while (true) {
+                const { data: dbData, error: errBusca } = await window.supabaseClient
                     .from('historico_viagens')
                     .select('chave_unica')
-                    .in('chave_unica', loteChaves);
-
+                    .eq('filial_id', 5)
+                    .range(startBusca, startBusca + stepBusca - 1);
+                
                 if (errBusca) throw errBusca;
-                if (dadosBanco) {
-                    dadosBanco.forEach(d => chavesJaNoBanco.add(d.chave_unica));
-                }
+                if (!dbData || dbData.length === 0) break;
+                dbData.forEach(d => { if(d.chave_unica) chavesJaNoBanco.add(d.chave_unica); });
+                if (dbData.length < stepBusca) break;
+                startBusca += stepBusca;
             }
 
             const registrosNovos = dadosCompletosParaSalvar.filter(r => !chavesJaNoBanco.has(r.chave_unica));
             const qtdRepetidos = dadosCompletosParaSalvar.length - registrosNovos.length;
 
             if (registrosNovos.length > 0) {
-                const insertBatchSize = 1000;
+                const insertBatchSize = 500;
                 for (let i = 0; i < registrosNovos.length; i += insertBatchSize) {
                     const loteInsert = registrosNovos.slice(i, i + insertBatchSize);
                     const { error: errInsert } = await window.supabaseClient
@@ -237,11 +253,16 @@ window.processarImportacaoBracell = async function(input) {
 
         } catch (err) {
             console.error("Erro na importação Bracell:", err);
+            let msgErro = "Erro desconhecido.";
+            if (err.message) msgErro = err.message;
+            else if (err.details || err.hint) msgErro = `${err.details || ''} ${err.hint || ''}`;
+            else msgErro = JSON.stringify(err);
+
             if (errorMsgDiv) {
-                errorMsgDiv.innerText = "Erro: " + err.message;
+                errorMsgDiv.innerText = "Erro: " + msgErro;
                 errorMsgDiv.classList.remove('hidden');
             } else {
-                alert("Erro: " + err.message);
+                alert("Erro: " + msgErro);
             }
         } finally {
             if (loadingSpinner) { loadingSpinner.classList.add('hidden'); loadingSpinner.classList.remove('flex'); }
@@ -369,8 +390,9 @@ window.processAndSaveJornadasFile = async function(file) {
         if (typeof carregarHistoricoImportacoes === 'function') carregarHistoricoImportacoes(); 
         
     } catch (err) {
-        if(errorMsgDiv) { errorMsgDiv.innerText = "Erro: " + err.message; errorMsgDiv.classList.remove('hidden'); } 
-        else alert("Erro: " + err.message);
+        const msgErro = err.message || JSON.stringify(err);
+        if(errorMsgDiv) { errorMsgDiv.innerText = "Erro: " + msgErro; errorMsgDiv.classList.remove('hidden'); } 
+        else alert("Erro: " + msgErro);
     } finally {
         if(loadingSpinner) { loadingSpinner.classList.add('hidden'); loadingSpinner.classList.remove('flex'); }
     }
@@ -383,7 +405,6 @@ function parseSheetToData(sheet) {
     const rawData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
     if (!rawData || rawData.length === 0) throw new Error("Planilha vazia.");
 
-    // Detecta dinamicamente se o usuário está acessando a filial de Linhares (ID 7)
     const isLinhares = (window.currentUser && String(window.currentUser.filial_id) === '7');
 
     const normKeys = Object.keys(rawData[0]).map(k => ({ orig: k, norm: typeof normalizeStr === 'function' ? normalizeStr(k) : k.toLowerCase() }));
@@ -396,13 +417,11 @@ function parseSheetToData(sheet) {
         return null;
     }
 
-    // MAPEAMENTO INTELIGENTE DAS COLUNAS (Adapta as chaves baseadas na Filial)
     const movimentoKey = findKey(['movimento', 'id_movimento']);
     const transpKey = findKey(['transportadora', 'nome da transportadora']);
     const placaKey = findKey(['placa do cavalo', 'placa cavalo', 'placa']);
     const upKey = findKey(['up', 'u.p', 'u.p.', 'unidade de producao', 'unidade de produção', 'código up', 'codigo up']);
     
-    // As colunas abaixo alteram o dicionário de busca se o usuário for Filial 7 (Linhares)
     const pesoLiqKey = findKey(isLinhares ? ['líquido', 'liquido'] : ['peso liquido', 'peso líquido', 'peso_liquido']); 
     const pesoBrutoKey = findKey(isLinhares ? ['peso entr'] : ['Peso na Entrada', 'peso na entrada', 'peso bruto', 'pbtc']); 
     const volumeKey = findKey(isLinhares ? ['vol real'] : ['volume real', 'volume_real', 'volume']);
@@ -440,7 +459,6 @@ function parseSheetToData(sheet) {
         let rawDtSaida;
         let rawHrSaida;
 
-        // ISOLAMENTO DE REGRA: Prioriza DtFimDesFb apenas para filial Linhares (ID 7)
         if (isLinhares) {
             rawDtSaida = getValue(dtFimDescarFabKey) || getValue(dtSaidaBaseKey) || getValue(dtSaidaFabKey);
             rawHrSaida = getValue(hrFimDescarFabKey) || getValue(hrSaidaFabKey);
@@ -500,16 +518,16 @@ function parseSheetToData(sheet) {
             movimento: String(getValue(movimentoKey) || `MOV-GEN-${Date.now()}-${idx}`),
             dataDaBaseExcel: strDataBase,
             dataLancamento: new Date().toLocaleDateString('pt-PT'),
-            transportadora: String(getValue(transpKey) || "Outras").trim(),
-            placa: String(getValue(placaKey) || "-").trim(),
+            transportadora: window.sanitizeString(getValue(transpKey) || "Outras"),
+            placa: window.sanitizeString(getValue(placaKey) || "-"),
             
             pesoLiquido: valorPesoLiquido,
             peso_na_entrada: valorPesoBruto,
             volumeReal: valorVolumeReal,
             rpv: calculoRpv,
             
-            grua: String(getValue(gruaKey) || "-").trim(),
-            up: String(getValue(upKey) || "-").trim(),
+            grua: window.sanitizeString(getValue(gruaKey) || "-"),
+            up: window.sanitizeString(getValue(upKey) || "-"),
             distanciaAsfalto: parserNum(getValue(distAsfaltoKey)),
             distanciaTerra: parserNum(getValue(distTerraKey)),
             
@@ -557,7 +575,8 @@ window.processAndSaveFile = async function(file) {
 
         let transpPropriaConfig = 'SERRANALOG';
         try {
-            const { data: metasData } = await window.supabaseClient.from('metas_globais').select('transp_propria').eq('id', 1).single();
+            const filialQueryId = window.currentUser && window.currentUser.filial_id ? window.currentUser.filial_id : 1;
+            const { data: metasData } = await window.supabaseClient.from('metas_globais').select('transp_propria').eq('id', filialQueryId).maybeSingle();
             if (metasData && metasData.transp_propria) {
                 transpPropriaConfig = metasData.transp_propria.trim().toUpperCase();
             }
@@ -579,7 +598,7 @@ window.processAndSaveFile = async function(file) {
             });
         }
 
-        const operacaoRows = newRows.filter(row => {
+        let operacaoRows = newRows.filter(row => {
             const transp = String(row.transportadora || '').trim().toUpperCase();
             const grua = String(row.grua || '').trim().toUpperCase();
             
@@ -595,6 +614,16 @@ window.processAndSaveFile = async function(file) {
         }
 
         let linhasDescartadas = newRows.length - operacaoRows.length;
+
+        const unicos = [];
+        const setChaves = new Set();
+        operacaoRows.forEach(r => {
+            if (!setChaves.has(r.movimento)) {
+                setChaves.add(r.movimento);
+                unicos.push(r);
+            }
+        });
+        operacaoRows = unicos;
 
         let existingIds = [];
         let startVia = 0; const stepVia = 1000;
@@ -648,8 +677,12 @@ window.processAndSaveFile = async function(file) {
                                 `${datasEncontradas[0]} a ${datasEncontradas[datasEncontradas.length - 1]}`;
         }
 
-        const { error: insErr } = await window.supabaseClient.from('historico_viagens').insert(viagensNovasArray);
-        if (insErr) throw insErr;
+        const insertBatchSize = 500;
+        for (let i = 0; i < viagensNovasArray.length; i += insertBatchSize) {
+            const loteInsert = viagensNovasArray.slice(i, i + insertBatchSize);
+            const { error: errInsert } = await window.supabaseClient.from('historico_viagens').insert(loteInsert);
+            if (errInsert) throw errInsert;
+        }
 
         await window.supabaseClient.from('historico_importacoes').insert([{ 
             "dataBase": `Viagens: ${strHistoricoDatas}`, 
@@ -673,16 +706,237 @@ window.processAndSaveFile = async function(file) {
         if (typeof carregarHistoricoImportacoes === 'function') carregarHistoricoImportacoes(); 
         
     } catch (err) {
-        if(errorMsgDiv) { errorMsgDiv.innerText = "Erro: " + err.message; errorMsgDiv.classList.remove('hidden'); } else alert("Erro: " + err.message);
+        let msgErro = "Erro desconhecido.";
+        if (err.message) msgErro = err.message;
+        else if (err.details || err.hint) msgErro = `${err.details || ''} ${err.hint || ''}`;
+        else msgErro = JSON.stringify(err);
+
+        if(errorMsgDiv) { errorMsgDiv.innerText = "Erro: " + msgErro; errorMsgDiv.classList.remove('hidden'); } 
+        else alert("Erro: " + msgErro);
     } finally {
         if(loadingSpinner) { loadingSpinner.classList.add('hidden'); loadingSpinner.classList.remove('flex'); }
     }
 };
 
 // =========================================================================
-// 4. PLACEHOLDERS (Módulos em Desenvolvimento)
+// 4. IMPORTAÇÃO VERACEL (EUNÁPOLIS - FILIAL 6)
 // =========================================================================
-window.processarImportacaoVeracel = async function(input) { alert('Importação de viagens Veracel em desenvolvimento'); };
+window.processarImportacaoVeracel = async function(input) {
+    let file = null;
+    if (input instanceof File) file = input;
+    else if (input && input.target && input.target.files) file = input.target.files[0];
+    
+    if (!file) return;
+
+    const errorMsgDiv = document.getElementById('errorMsgVeracel');
+    const loadingSpinner = document.getElementById('loadingSpinnerVeracel');
+    
+    if (errorMsgDiv) errorMsgDiv.classList.add('hidden'); 
+    if (loadingSpinner) { loadingSpinner.classList.remove('hidden'); loadingSpinner.classList.add('flex'); }
+
+    if (typeof XLSX === 'undefined') {
+        if(errorMsgDiv) {
+            errorMsgDiv.innerText = "A biblioteca Excel (XLSX) não está carregada.";
+            errorMsgDiv.classList.remove('hidden');
+        } else {
+            alert("A biblioteca Excel (XLSX) não está carregada.");
+        }
+        if (loadingSpinner) { loadingSpinner.classList.add('hidden'); loadingSpinner.classList.remove('flex'); }
+        return;
+    }
+
+    const formatarDataExcel = (valor) => {
+        if (valor === undefined || valor === null || valor === '') return null;
+        if (typeof valor === 'number') {
+            const dateObj = XLSX.SSF.parse_date_code(valor);
+            const d = String(dateObj.d).padStart(2, '0');
+            const m = String(dateObj.m).padStart(2, '0');
+            const y = dateObj.y;
+            const h = String(dateObj.H).padStart(2, '0');
+            const min = String(dateObj.M).padStart(2, '0');
+            return `${d}/${m}/${y} ${h}:${min}`;
+        }
+        return String(valor).trim();
+    };
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            const nomeAba = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[nomeAba];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+
+            let dadosCompletosParaSalvar = [];
+
+            jsonData.forEach((row, idx) => {
+                const guiaStr = row['Guia CEM'] ? String(row['Guia CEM']).trim() : '';
+                const cavaloStr = row['Dcr Equipamento Cavalo'] ? String(row['Dcr Equipamento Cavalo']).trim() : '';
+                
+                if (!guiaStr && !cavaloStr) return;
+
+                const dataChegadaStr = formatarDataExcel(row['Data Chegada Balanca']);
+                const horaChegadaStr = row['Hora Chegada Balanca'] ? String(row['Hora Chegada Balanca']).trim() : '';
+                const dataBaseExcel = dataChegadaStr ? dataChegadaStr.split(' ')[0] : 'Desconhecida';
+                
+                // HIGIENIZAÇÃO DA CHAVE: Evita Erro 400 da API removendo barras e espaços
+                const safeGuia = window.sanitizeString(guiaStr).replace(/[^a-zA-Z0-9]/g, '');
+                const safeCavalo = window.sanitizeString(cavaloStr).replace(/[^a-zA-Z0-9]/g, '');
+                const safeData = window.sanitizeString(dataBaseExcel).replace(/[^a-zA-Z0-9]/g, '');
+                
+                const chaveUnica = `VERACEL_${safeGuia}_${safeCavalo}_${safeData}`;
+
+                const registro = {
+                    movimento: `MOV-VER-${Date.now()}-${idx}`,
+                    dataLancamento: new Date().toLocaleDateString('pt-PT'),
+                    dataDaBaseExcel: dataBaseExcel,
+                    placa: window.sanitizeString(cavaloStr),
+                    equipamento_cavalo: window.sanitizeString(cavaloStr),
+                    transportadora: row['Dcr Fornecedor'] ? window.sanitizeString(row['Dcr Fornecedor']) : 'VERACEL',
+                    fornecedor: row['Dcr Fornecedor'] ? window.sanitizeString(row['Dcr Fornecedor']) : null,
+                    
+                    pesoLiquido: window.parseNumero(row['Peso Liquido']),
+                    peso_na_entrada: window.parseNumero(row['Peso Bruto']), 
+                    peso_bruto: window.parseNumero(row['Peso Bruto']),
+                    tara: window.parseNumero(row['Tara']),
+                    volumeReal: window.parseNumero(row['Vlr Volume']),
+                    
+                    distanciaAsfalto: window.parseNumero(row['Distância Asfalto (km)']),
+                    distanciaTerra: window.parseNumero(row['Distância Chão (km)']),
+                    distancia_total: window.parseNumero(row['Vlr Distancia']),
+                    
+                    nota_fiscal: window.sanitizeString(guiaStr),
+                    data_chegada_balanca: dataChegadaStr ? `${dataChegadaStr} ${horaChegadaStr}`.trim() : null,
+                    tipo_conjunto: row['Dcr Tipo Conjunto'] ? window.sanitizeString(row['Dcr Tipo Conjunto']) : null,
+                    projeto: row['Nom Projeto'] ? window.sanitizeString(row['Nom Projeto']) : null,
+                    talhao: row['Cd Talhao'] ? window.sanitizeString(row['Cd Talhao']) : null,
+                    
+                    filial_id: 6,
+                    chave_unica: chaveUnica
+                };
+
+                if(registro.pesoLiquido > 0 || registro.volumeReal > 0) {
+                    dadosCompletosParaSalvar.push(registro);
+                }
+            });
+
+            if (dadosCompletosParaSalvar.length === 0) {
+                throw new Error('Nenhum dado válido encontrado. Verifique se as colunas estão corretas e possuem valores de peso/volume.');
+            }
+
+            // Desduplicação Interna (Impede que planilhas com dados repetidos quebrem o lote)
+            const unicos = [];
+            const setChaves = new Set();
+            dadosCompletosParaSalvar.forEach(r => {
+                if (!setChaves.has(r.chave_unica)) {
+                    setChaves.add(r.chave_unica);
+                    unicos.push(r);
+                }
+            });
+            dadosCompletosParaSalvar = unicos;
+
+            // Busca as chaves do banco de forma segura para não estourar a URL (Erro 400 evitado)
+            let chavesJaNoBanco = new Set();
+            let startBusca = 0; 
+            const stepBusca = 1000;
+            while (true) {
+                const { data: dbData, error: errBusca } = await window.supabaseClient
+                    .from('historico_viagens')
+                    .select('chave_unica')
+                    .eq('filial_id', 6)
+                    .range(startBusca, startBusca + stepBusca - 1);
+                
+                if (errBusca) throw errBusca;
+                if (!dbData || dbData.length === 0) break;
+                dbData.forEach(d => { if(d.chave_unica) chavesJaNoBanco.add(d.chave_unica); });
+                if (dbData.length < stepBusca) break;
+                startBusca += stepBusca;
+            }
+
+            const registrosNovos = dadosCompletosParaSalvar.filter(r => !chavesJaNoBanco.has(r.chave_unica));
+            const qtdRepetidos = dadosCompletosParaSalvar.length - registrosNovos.length;
+
+            if (registrosNovos.length > 0) {
+                const insertBatchSize = 500; // Reduzido para evitar sobrecarga (Timeout 400)
+                for (let i = 0; i < registrosNovos.length; i += insertBatchSize) {
+                    const loteInsert = registrosNovos.slice(i, i + insertBatchSize);
+                    const { error: errInsert } = await window.supabaseClient
+                        .from('historico_viagens')
+                        .insert(loteInsert);
+                    if (errInsert) throw errInsert;
+                }
+
+                const dataLocalExata = window.obterDataHoraLocal();
+                const usuarioLogado = window.currentUser ? (window.currentUser.nome_completo || window.currentUser.username) : 'Sistema';
+                
+                await window.supabaseClient.from('historico_importacoes').insert([{
+                    dataLancamento: dataLocalExata,
+                    dataBase: 'Viagens Veracell',
+                    qtdViagens: registrosNovos.length,
+                    usuario: usuarioLogado,
+                    filial_id: 6
+                }]);
+
+                if(typeof window.carregarHistoricoImportacoes === 'function') {
+                    window.carregarHistoricoImportacoes();
+                }
+            }
+
+            if (typeof Swal !== 'undefined') {
+                if (registrosNovos.length === 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atenção: Nenhuma viagem nova!',
+                        html: `A planilha contém <b>${dadosCompletosParaSalvar.length}</b> viagens, mas <b>todas</b> já haviam sido importadas anteriormente.`,
+                        background: '#1e293b', color: '#f8fafc'
+                    });
+                } else if (qtdRepetidos > 0) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Importação Parcial',
+                        html: `<span style="color:#10b981; font-weight:bold;">${registrosNovos.length} novas viagens cadastradas.</span><br><br><span style="color:#ef4444;">Atenção: ${qtdRepetidos} linhas ignoradas pois já existiam.</span>`,
+                        background: '#1e293b', color: '#f8fafc'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sucesso!',
+                        text: `${registrosNovos.length} registros enviados com sucesso.`,
+                        background: '#1e293b', color: '#f8fafc'
+                    });
+                }
+            } else {
+                alert(`Sucesso! ${registrosNovos.length} viagens importadas.`);
+            }
+
+        } catch (err) {
+            console.error("Erro na importação Veracel:", err);
+            // Captura profunda do erro para não retornar apenas [Object]
+            let msgErro = "Erro desconhecido.";
+            if (err.message) msgErro = err.message;
+            else if (err.details || err.hint) msgErro = `${err.details || ''} ${err.hint || ''}`;
+            else msgErro = JSON.stringify(err);
+
+            if (errorMsgDiv) { 
+                errorMsgDiv.innerText = "Erro: " + msgErro; 
+                errorMsgDiv.classList.remove('hidden'); 
+            } else { 
+                alert("Erro: " + msgErro); 
+            }
+        } finally {
+            if (loadingSpinner) { loadingSpinner.classList.add('hidden'); loadingSpinner.classList.remove('flex'); }
+            if (input && input.target) { input.target.value = ""; }
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
+};
+
+// =========================================================================
+// 5. PLACEHOLDERS (Módulos em Desenvolvimento)
+// =========================================================================
 window.processAndSaveJornadasFileVeracel = async function(file) { alert('Importação de jornadas Veracel em desenvolvimento'); };
 window.processAndSaveEventosFileVeracel = async function(file) { alert('Importação de eventos Veracel em desenvolvimento'); };
 window.processAndSaveJornadasFileBracell = async function(file) { alert('Importação de jornadas Bracell em desenvolvimento'); };
