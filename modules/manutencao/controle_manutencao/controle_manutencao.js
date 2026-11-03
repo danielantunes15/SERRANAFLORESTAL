@@ -173,15 +173,9 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
         if (errRev) throw errRev;
 
         window.veiculosRevisaoDb = veiculosFiltrados.map(frota => {
-            const tipoVeiculo = frota.categoria || 'N/A';
-            
-            let placaPrincipal = frota.cavalo || frota.go || 'N/A';
-            // Correção: Para CARRETA priorizar o número GO, ignorando o campo cavalo
-            if (tipoVeiculo.toUpperCase().includes('CARRETA')) {
-                placaPrincipal = frota.go || frota.numero_frota || 'N/A';
-            }
-            
+            const placaPrincipal = frota.cavalo || frota.go || 'N/A';
             const frotaNum = frota.numero_frota || frota.go || 'N/A';
+            const tipoVeiculo = frota.categoria || 'N/A';
             const rev = revisoes.find(r => r.placa === placaPrincipal || r.numero_frota === frotaNum) || {};
             
             let compartimentos = [];
@@ -1295,13 +1289,7 @@ window.sincronizarComPlanilhaGoogle = async function() {
                                 if (filialId !== null) queryFrota = queryFrota.eq('filial_id', filialId);
                                 const { data: f } = await queryFrota.maybeSingle();
                                 if (f) {
-                                    let placaReal = f.cavalo || f.go || frotaId;
-                                    
-                                    // CORREÇÃO: Ajuste também na sincronização para considerar o GO na CARRETA
-                                    if (String(f.categoria || '').toUpperCase().includes('CARRETA')) {
-                                        placaReal = f.go || f.numero_frota || frotaId;
-                                    }
-                                    
+                                    const placaReal = f.cavalo || f.go || frotaId;
                                     const numFrotaReal = f.numero_frota || f.go || frotaId;
 
                                     let checkDeNovo = window.supabaseClient.from('manutencao_revisoes').select('id, km_atual').or(`placa.eq."${placaReal}",numero_frota.eq."${numFrotaReal}"`);
