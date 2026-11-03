@@ -172,11 +172,22 @@ window.carregarVeiculosManutencao = async function(forcarSincronizacao = false) 
         const { data: revisoes, error: errRev } = await queryRevisoes;
         if (errRev) throw errRev;
 
+        // OTIMIZAÇÃO: Criação de um Mapa de revisões para busca O(1)
+        const revisoesMap = new Map();
+        if (revisoes) {
+            revisoes.forEach(r => {
+                if(r.placa) revisoesMap.set(r.placa, r);
+                if(r.numero_frota) revisoesMap.set(r.numero_frota, r);
+            });
+        }
+
         window.veiculosRevisaoDb = veiculosFiltrados.map(frota => {
             const placaPrincipal = frota.cavalo || frota.go || 'N/A';
             const frotaNum = frota.numero_frota || frota.go || 'N/A';
             const tipoVeiculo = frota.categoria || 'N/A';
-            const rev = revisoes.find(r => r.placa === placaPrincipal || r.numero_frota === frotaNum) || {};
+            
+            // OTIMIZAÇÃO: Consulta no Map em vez de usar .find() no loop
+            const rev = revisoesMap.get(placaPrincipal) || revisoesMap.get(frotaNum) || {};
             
             let compartimentos = [];
             if(frota.carreta1) compartimentos.push(frota.carreta1);
@@ -263,7 +274,8 @@ window.filtrarRevisoesManutencao = function() {
 };
 
 window.gerarBadgeStatusVeiculo = function(placa) {
-    const parada = (window.paradasProgramadas || []).find(p => p.placa === placa && p.status === 'Pendente');
+    // OTIMIZAÇÃO: Consultas de map em vez de array.find() estão construídas no renderizador
+    const parada = window.mapParadas ? window.mapParadas.get(placa) : null;
     
     let btnAcao = '';
     if (parada) {
@@ -273,21 +285,7 @@ window.gerarBadgeStatusVeiculo = function(placa) {
         btnAcao = `<button class="btn-secondary-dark input-compacto" style="margin-top: 6px; width: 100%; border-color: #f59e0b; color: #f59e0b; border-radius: 6px;" onclick="window.abrirModalAgendarParada('${placa}')"><i class="fas fa-hand-paper"></i> Solicitar Parada</button>`;
     }
 
-    if (typeof window.ordensServico === 'undefined' || !window.ordensServico) {
-        return `
-            <div class="veiculo-info-status" style="margin-top: 8px;">
-                <span class="badge-status-rev" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); text-transform: none; font-size: 0.8rem; width: 100%; justify-content: center;">
-                    <i class="fas fa-truck-moving"></i> Em Operação
-                </span>
-                ${btnAcao}
-            </div>`;
-    }
-
-    const osAberta = window.ordensServico.find(o => 
-        (o.placa === placa || o.go === placa) && 
-        o.status !== 'Concluída' && 
-        o.status !== 'Agendada'
-    );
+    const osAberta = window.mapOSAberta ? window.mapOSAberta.get(placa) : null;
 
     if (!osAberta) {
         return `
@@ -367,11 +365,25 @@ window.renderizarControleManutencao = function() {
     if(document.getElementById('totRevAtencao')) document.getElementById('totRevAtencao').innerText = totAtencao;
     if(document.getElementById('totRevAtrasadas')) document.getElementById('totRevAtrasadas').innerText = totAtrasada;
 
-    tbody.innerHTML = '';
-
     if (window.veiculosRevisaoFiltrados.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-secondary);">Nenhum veículo corresponde aos filtros aplicados.</td></tr>`;
         return;
+    }
+
+    // OTIMIZAÇÃO: Preparar Maps para lookup rápido em tempo O(1) de paradas e ordensServico
+    window.mapParadas = new Map();
+    (window.paradasProgramadas || []).forEach(p => {
+        if (p.status === 'Pendente' && p.placa) window.mapParadas.set(p.placa, p);
+    });
+
+    window.mapOSAberta = new Map();
+    if (window.ordensServico) {
+        window.ordensServico.forEach(o => {
+            if (o.status !== 'Concluída' && o.status !== 'Agendada') {
+                if (o.placa) window.mapOSAberta.set(o.placa, o);
+                if (o.go) window.mapOSAberta.set(o.go, o);
+            }
+        });
     }
 
     const gruposCategoria = {};
@@ -388,13 +400,14 @@ window.renderizarControleManutencao = function() {
         return d;
     };
 
-    // Ordem personalizada das categorias: GRUA, TRITREM, CARRETA, PRANCHA, COMBOIO
     const ordemCategorias = { 'GRUA': 1, 'TRITREM': 2, 'CARRETA': 3, 'PRANCHA': 4, 'COMBOIO': 5 };
+
+    // OTIMIZAÇÃO: Usar um Document Fragment (ou string gigante) para não forçar reflow no navegador
+    const fragment = document.createDocumentFragment();
 
     Object.keys(gruposCategoria).sort((a, b) => {
         const valA = ordemCategorias[a] || 99;
         const valB = ordemCategorias[b] || 99;
-        
         if (valA !== valB) return valA - valB;
         return a.localeCompare(b);
     }).forEach(categoria => {
@@ -414,19 +427,22 @@ window.renderizarControleManutencao = function() {
                 <i class="fas fa-layer-group"></i> CATEGORIA: ${categoria} <span style="font-size: 0.85rem; color: var(--text-secondary); margin-left: 10px;">(${veiculosDoGrupo.length} equipamentos)</span>
             </td>
         `;
-        tbody.appendChild(trHeader);
+        fragment.appendChild(trHeader);
 
         veiculosDoGrupo.forEach(v => {
             const info = window.determinarStatusRevisao(v);
             const isTritrem = String(v.tipo).toUpperCase().includes('TRITREM');
+            const isCarreta = String(v.tipo).toUpperCase().includes('CARRETA');
             
             let textoFrota = `Frota: ${v.numero_frota}`;
             if (isTritrem && v.go && v.go !== 'N/A' && v.numero_frota !== v.go) {
                 textoFrota += ` | Nº GO: ${v.go}`;
             }
 
+            let tituloExibicao = (isCarreta && v.go && v.go !== 'N/A') ? v.go : v.placa;
+
             let idVeiculoHtml = `
-                <div style="font-weight: 800; color: #fff; font-size: 1.2rem; letter-spacing: 1px; cursor: pointer; text-decoration: underline; text-decoration-color: var(--text-secondary);" onclick="window.abrirPainelHistorico('${v.placa}')" title="Ver Histórico">${v.placa}</div>
+                <div style="font-weight: 800; color: #fff; font-size: 1.2rem; letter-spacing: 1px; cursor: pointer; text-decoration: underline; text-decoration-color: var(--text-secondary);" onclick="window.abrirPainelHistorico('${v.placa}')" title="Ver Histórico">${tituloExibicao}</div>
                 <div style="color: var(--ccol-blue-bright); font-size: 0.85rem; font-weight: bold;">${textoFrota}</div>
                 ${!isGrua ? `<div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 3px;"><i class="fas fa-link"></i> ${v.compartimentos}</div>` : ''}
             `;
@@ -489,14 +505,6 @@ window.renderizarControleManutencao = function() {
                 `;
             }
 
-            let badgeHtml = `
-                <div style="display:flex; flex-direction:column; gap:8px;">
-                    <div class="badge-status-rev" style="background: ${info.bg}; color: ${info.cor}; border: 1px solid ${info.cor}; justify-content:center;">
-                        <i class="${info.icon}"></i> ${info.status}
-                    </div>
-                </div>
-            `;
-
             let btnLabelKm = isGrua ? 'Horímetro' : 'KM';
             let acoesHtml = `
                 <div style="display: flex; flex-direction:column; gap: 8px; align-items: flex-end;">
@@ -522,9 +530,12 @@ window.renderizarControleManutencao = function() {
                 <td style="text-align: center; vertical-align: middle;">${window.gerarBadgeStatusVeiculo(v.placa)}</td>
                 <td>${acoesHtml}</td>
             `;
-            tbody.appendChild(tr);
+            fragment.appendChild(tr);
         });
     });
+
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
 };
 
 // ======================= LÓGICA DE PARADAS PROGRAMADAS =======================
