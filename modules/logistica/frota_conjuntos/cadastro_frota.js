@@ -33,13 +33,11 @@ window.alternarAbaFrota = function(aba) {
 window.mudouCategoria = function(categoria, prefix) {
     const divCavalo = document.getElementById(prefix + 'DivCavalo');
     const divNumFrota = document.getElementById(prefix + 'DivNumeroFrota');
-    const divMeta   = document.getElementById(prefix + 'DivMeta');
     const divGo     = document.getElementById(prefix + 'DivGo');
     const divC1     = document.getElementById(prefix + 'DivC1');
     const divC2     = document.getElementById(prefix + 'DivC2');
     const divC3     = document.getElementById(prefix + 'DivC3');
 
-    // Lógica para controle do campo Status dinâmico
     const statusSelect = document.getElementById(prefix + 'Status');
     if (statusSelect) {
         const currentVal = statusSelect.value;
@@ -56,19 +54,17 @@ window.mudouCategoria = function(categoria, prefix) {
         }
     }
 
-    if(!divMeta) return;
+    if (!divCavalo) return; // Segurança
 
-    if (divCavalo) divCavalo.classList.remove('hidden-field');
-    if (divNumFrota) divNumFrota.classList.remove('hidden-field');
+    divCavalo.classList.remove('hidden-field');
+    divNumFrota.classList.remove('hidden-field');
 
-    divMeta.classList.add('hidden-field');
     divGo.classList.add('hidden-field');
     divC1.classList.add('hidden-field');
     divC2.classList.add('hidden-field');
     divC3.classList.add('hidden-field');
 
     if (categoria === 'TRITREM') {
-        divMeta.classList.remove('hidden-field');
         divGo.classList.remove('hidden-field');
         divC1.classList.remove('hidden-field');
         divC2.classList.remove('hidden-field');
@@ -77,12 +73,12 @@ window.mudouCategoria = function(categoria, prefix) {
         divGo.classList.remove('hidden-field');
         divC1.classList.remove('hidden-field');
     } else if (categoria === 'GRUA') {
-        if (divCavalo) divCavalo.classList.add('hidden-field');
-        if (divNumFrota) divNumFrota.classList.add('hidden-field');
+        divCavalo.classList.add('hidden-field');
+        divNumFrota.classList.add('hidden-field');
         divGo.classList.remove('hidden-field');
     } else if (categoria === 'CARRETA') {
-        if (divCavalo) divCavalo.classList.add('hidden-field');
-        if (divNumFrota) divNumFrota.classList.add('hidden-field');
+        divCavalo.classList.add('hidden-field');
+        divNumFrota.classList.add('hidden-field');
         divGo.classList.remove('hidden-field');
         divC1.classList.remove('hidden-field');
         divC2.classList.remove('hidden-field');
@@ -178,7 +174,7 @@ function renderizarTabelaCadastroFrota() {
             `;
         } else {
             let cabecalhoDinamico = '';
-            if (cat === 'TRITREM') cabecalhoDinamico = '<th>Nº GO</th><th>Meta</th><th>Carreta 1</th><th>Carreta 2</th><th>Carreta 3</th>';
+            if (cat === 'TRITREM') cabecalhoDinamico = '<th>Nº GO</th><th>Carreta 1</th><th>Carreta 2</th><th>Carreta 3</th>';
             else if (cat === 'PRANCHA') cabecalhoDinamico = '<th>Nº GO</th><th>Carreta 1</th>'; 
             else if (cat === 'GRUA') cabecalhoDinamico = '<th>Nº GO</th>'; 
 
@@ -211,7 +207,7 @@ function renderizarTabelaCadastroFrota() {
 
         const renderizarLinhaTabela = (frota) => {
             const statusTexto = frota.status || 'Ativo';
-            let statusCor = '#22c55e'; // Default Ativo
+            let statusCor = '#22c55e'; 
             if (statusTexto === 'Inativo') statusCor = '#ef4444';
             else if (statusTexto === 'Reserva') statusCor = '#f59e0b';
             
@@ -245,7 +241,6 @@ function renderizarTabelaCadastroFrota() {
                 if (cat === 'TRITREM') {
                     colunasDinamicas = `
                         <td style="font-weight: bold;">${frota.go || '-'}</td>
-                        <td style="font-weight: bold; color: #fbbf24;">${frota.meta || '-'}</td>
                         <td>${frota.carreta1 || '-'}</td>
                         <td>${frota.carreta2 || '-'}</td>
                         <td>${frota.carreta3 || '-'}</td>
@@ -284,12 +279,10 @@ function renderizarTabelaCadastroFrota() {
             return trHtml;
         };
 
-        // Renderiza os principais (Ativos/Inativos)
         listaPrincipal.forEach(frota => {
             htmlSecao += renderizarLinhaTabela(frota);
         });
 
-        // Adiciona o divisor e renderiza os Reservas apenas na categoria TRITREM
         if (cat === 'TRITREM' && listaReserva.length > 0) {
             htmlSecao += `
                 <tr>
@@ -338,7 +331,6 @@ window.salvarFrotaManutencao = async function() {
         if (existente) return alert("Já existe um cadastro para esta placa/frota. Use a opção de editar.");
     }
 
-    const metaStr = (categoria === 'TRITREM') ? document.getElementById('osFrotaMeta').value.trim() : null;
     const carreta1 = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'CARRETA') ? document.getElementById('osFrotaCarreta1').value.trim().toUpperCase() : null;
     const carreta2 = (categoria === 'TRITREM' || categoria === 'CARRETA') ? document.getElementById('osFrotaCarreta2').value.trim().toUpperCase() : null;
     const carreta3 = (categoria === 'TRITREM' || categoria === 'CARRETA') ? document.getElementById('osFrotaCarreta3').value.trim().toUpperCase() : null;
@@ -349,8 +341,7 @@ window.salvarFrotaManutencao = async function() {
             numero_frota: numero_frota,
             descricao,
             status, data_inicial, cor, categoria, 
-            go, carreta1, carreta2, carreta3,
-            meta: metaStr ? parseInt(metaStr) : null 
+            go, carreta1, carreta2, carreta3
         };
         if (typeof window.injetarFilial === 'function') payload = window.injetarFilial(payload);
         
@@ -393,7 +384,6 @@ window.editarFrotaManutencao = function(id) {
     }
 
     document.getElementById('editFrotaGo').value = frota.go || '';
-    document.getElementById('editFrotaMeta').value = frota.meta || '';
     document.getElementById('editFrotaCarreta1').value = frota.carreta1 || '';
     document.getElementById('editFrotaCarreta2').value = frota.carreta2 || '';
     document.getElementById('editFrotaCarreta3').value = frota.carreta3 || '';
@@ -429,7 +419,6 @@ window.salvarEdicaoFrota = async function() {
         if (!cavalo) return alert("O Número GO (Nº GO) é obrigatório.");
     }
 
-    const metaStr = (categoria === 'TRITREM') ? document.getElementById('editFrotaMeta').value.trim() : null;
     const carreta1 = (categoria === 'TRITREM' || categoria === 'PRANCHA' || categoria === 'CARRETA') ? document.getElementById('editFrotaCarreta1').value.trim().toUpperCase() : null;
     const carreta2 = (categoria === 'TRITREM' || categoria === 'CARRETA') ? document.getElementById('editFrotaCarreta2').value.trim().toUpperCase() : null;
     const carreta3 = (categoria === 'TRITREM' || categoria === 'CARRETA') ? document.getElementById('editFrotaCarreta3').value.trim().toUpperCase() : null;
@@ -440,8 +429,7 @@ window.salvarEdicaoFrota = async function() {
             numero_frota: numero_frota,
             descricao, 
             status, data_inicial, cor, categoria, 
-            go, carreta1, carreta2, carreta3,
-            meta: metaStr ? parseInt(metaStr) : null 
+            go, carreta1, carreta2, carreta3
         };
 
         const { error } = await supabaseClient.from('frotas_manutencao').update(payload).eq('id', id);
@@ -567,8 +555,6 @@ window.confirmarTransferenciaFrota = async function() {
 };
 
 
-// ================== LÓGICA DE SUBSTITUIÇÃO (RESERVA <-> ATIVO) ==================
-
 window.abrirModalSubstituicaoFrota = function(idReserva) {
     const frotaReserva = frotasManutencao.find(f => f.id === idReserva);
     if (!frotaReserva) return;
@@ -626,10 +612,10 @@ window.exportarFrotaManutencaoExcel = function() {
     if (frotasManutencao.length === 0) return alert("Não há dados para exportar.");
     
     let csvContent = "\uFEFF"; 
-    csvContent += "Status;Data Inicial;Categoria;Nº Frota;Cavalo;Descrição;Cor;Meta;Nº GO;Carreta 1;Carreta 2;Carreta 3\n";
+    csvContent += "Status;Data Inicial;Categoria;Nº Frota;Cavalo;Descrição;Cor;Nº GO;Carreta 1;Carreta 2;Carreta 3\n";
     frotasManutencao.forEach(f => {
         let d = f.data_inicial || '2026-04-01';
-        let linha = [f.status||'Ativo', d, f.categoria||'', f.numero_frota||'', f.cavalo||'', f.descricao||'', f.cor||'', f.meta||'', f.go||'', f.carreta1||'', f.carreta2||'', f.carreta3||''].join(";");
+        let linha = [f.status||'Ativo', d, f.categoria||'', f.numero_frota||'', f.cavalo||'', f.descricao||'', f.cor||'', f.go||'', f.carreta1||'', f.carreta2||'', f.carreta3||''].join(";");
         csvContent += linha + "\n";
     });
 
