@@ -216,9 +216,18 @@ window.carregarMetasPeriodo = async function(isFilter = false) {
                 const dataIniFormatada = item.data_inicial.split('-').reverse().join('/');
                 const nomeFrente = item.config_gruas ? item.config_gruas.frente : '<span class="text-slate-500 italic">Deletada / Geral</span>';
                 
-                let btnFechar = '';
+                let botoesAcao = '';
+                
+                // O botão de Editar e Encerrar SÓ aparecem nas metas abertas
                 if (!item.data_final) {
-                    btnFechar = `<button onclick="window.fecharMetaPeriodo(${item.id})" class="text-amber-400 hover:text-amber-300 mr-3" title="Encerrar Período da Meta"><i class="fas fa-calendar-check"></i> Encerrar</button>`;
+                    botoesAcao = `
+                        <button onclick="window.editarMetaPeriodo(${item.id}, ${item.meta_viagens})" class="text-sky-400 hover:text-sky-300 mr-3" title="Editar Valor da Meta">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button onclick="window.fecharMetaPeriodo(${item.id})" class="text-amber-400 hover:text-amber-300 mr-3" title="Encerrar Período da Meta">
+                            <i class="fas fa-calendar-check"></i> Encerrar
+                        </button>
+                    `;
                 }
 
                 tbody.insertAdjacentHTML('beforeend', `
@@ -228,8 +237,10 @@ window.carregarMetasPeriodo = async function(isFilter = false) {
                         <td class="px-4 py-2">${dataFimFormatada}</td>
                         <td class="px-4 py-2 font-bold text-sky-400">${item.meta_viagens}</td>
                         <td class="px-4 py-2 text-right whitespace-nowrap">
-                            ${btnFechar}
-                            <button onclick="window.deletarMetaPeriodo(${item.id})" class="text-rose-500 hover:text-rose-400" title="Excluir Definitivamente"><i class="fas fa-trash"></i></button>
+                            ${botoesAcao}
+                            <button onclick="window.deletarMetaPeriodo(${item.id})" class="text-rose-500 hover:text-rose-400" title="Excluir Definitivamente">
+                                <i class="fas fa-trash"></i>
+                            </button>
                         </td>
                     </tr>
                 `);
@@ -318,6 +329,54 @@ window.salvarMetaPeriodo = async function() {
     }
 };
 
+window.editarMetaPeriodo = async function(id, valorAtual) {
+    const { value: novaMeta, isConfirmed } = await Swal.fire({
+        title: '<span style="color: #38bdf8;">Editar Meta Ativa</span>',
+        html: `
+            <div style="text-align: left; color: #cbd5e1; font-size: 0.95rem; margin-bottom: 15px;">
+                Atualize o valor de viagens projetadas/dia para esta frente:
+            </div>
+            <input type="number" step="0.01" id="swal-input-nova-meta" class="w-full bg-slate-900 border border-slate-600 rounded px-4 py-2 text-white outline-none focus:border-sky-500" value="${valorAtual}">
+        `,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonColor: '#0284c7',
+        cancelButtonColor: '#334155',
+        confirmButtonText: '<i class="fas fa-save mr-1"></i> Salvar Alteração',
+        cancelButtonText: 'Cancelar',
+        background: '#1e293b',
+        color: '#f8fafc',
+        preConfirm: () => {
+            const val = document.getElementById('swal-input-nova-meta').value;
+            if (!val) {
+                Swal.showValidationMessage('A meta não pode ficar em branco!');
+                return false;
+            }
+            return val;
+        }
+    });
+
+    if (isConfirmed && novaMeta) {
+        try {
+            Swal.fire({ title: 'Salvando...', background: '#1e293b', color: '#f8fafc', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+
+            const { error } = await window.supabaseClient
+                .from('metas_viagens_periodo')
+                .update({ meta_viagens: parseFloat(novaMeta) })
+                .eq('id', id);
+                
+            if (error) throw error;
+            
+            const isFiltrado = document.getElementById('filtro_meta_ini')?.value || document.getElementById('filtro_meta_fim')?.value;
+            window.carregarMetasPeriodo(isFiltrado);
+            
+            Swal.fire({ icon: 'success', title: 'Atualizada!', text: 'O valor da meta foi atualizado com sucesso.', background: '#1e293b', color: '#f8fafc', timer: 2000, showConfirmButton: false });
+        } catch (err) {
+            Swal.fire({ icon: 'error', title: 'Erro', text: err.message, background: '#1e293b', color: '#f8fafc' });
+        }
+    }
+};
+
 window.fecharMetaPeriodo = async function(id) {
     const hoje = new Date().toISOString().split('T')[0];
     
@@ -358,7 +417,6 @@ window.fecharMetaPeriodo = async function(id) {
                 
             if (error) throw error;
             
-            // Recarrega de acordo com o filtro atual (se a pessoa estiver vendo tudo, não reseta)
             const isFiltrado = document.getElementById('filtro_meta_ini').value || document.getElementById('filtro_meta_fim').value;
             window.carregarMetasPeriodo(isFiltrado);
             
