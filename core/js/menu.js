@@ -61,7 +61,6 @@ window.MAPA_MENUS = [
     { id: 'cadastro_indicadores', label: 'Cadastro Indicadores', setor: 'Indicadores', icon: 'fas fa-list-alt' },
     
     { id: 'visao_geral', label: 'Visão Geral (Analítico)', setor: 'Monitoramento', icon: 'fas fa-chart-pie' },
-    { id: 'operacional', label: 'Metas Operacionais', setor: 'Monitoramento', icon: 'fas fa-chart-line' },
     { id: 'desempenho_grua', label: 'Desempenho de Gruas', setor: 'Monitoramento', icon: 'fas fa-truck-loading' },
     { id: 'jornadas', label: 'Monitoramento de Jornadas', setor: 'Monitoramento', icon: 'fas fa-user-clock' },
     { id: 'historico_producao', label: 'Histórico de Produção', setor: 'Monitoramento', icon: 'fas fa-database' },
@@ -137,7 +136,6 @@ const ROTAS = {
     'auditoria_logs': 'modules/global/auditoria_logs.html',
     
     'visao_geral': 'modules/monitoramento/visao_geral/visao_geral.html',
-    'operacional': 'modules/monitoramento/operacional/operacional.html',
     'desempenho_grua': 'modules/monitoramento/desempenho_grua/desempenho_grua.html',
     
     'producao_frota': 'modules/gerencial/producao_frota/producao_frota.html', 
@@ -316,8 +314,7 @@ window.renderizarMenu = async function() {
 
         if (isSessaoCentral) {
             if (setor !== 'Controladoria' && setor !== 'Logística' && setor !== 'Gestão de Frotas' && setor !== 'Campo' && setor !== 'Manutenção' && setor !== 'SSMA' && setor !== 'Almoxarifado' && setor !== 'RH' && setor !== 'Indicadores' && setor !== 'Monitoramento' && setor !== 'Gerencial') {
-               // Apenas permite os setores desejados na visão central. Controladoria e outros podem ser limitados se necessário.
-               // Aqui estamos permitindo que eles renderizem na ordem do array MAPA_MENUS
+               // Apenas permite os setores desejados na visão central
             }
         }
         
@@ -352,13 +349,11 @@ window.renderizarMenu = async function() {
         if (mainContent) {
             let nomeUsuario = 'Colaborador';
             
-            // Pega o primeiro nome do usuário logado e formata (Ex: DANIEL.RIBEIRO -> Daniel)
             if (typeof currentUser !== 'undefined' && currentUser && currentUser.username) {
                 nomeUsuario = currentUser.username.split('.')[0];
                 nomeUsuario = nomeUsuario.charAt(0).toUpperCase() + nomeUsuario.slice(1).toLowerCase();
             }
 
-            // Injeta o HTML da Tela de Boas Vindas no painel principal
             mainContent.innerHTML = `
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 70vh; text-align: center; animation: fadeInDrop 0.5s ease-out;">
                     <div style="background: rgba(255,255,255,0.02); padding: 50px 40px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 600px; width: 100%;">
@@ -569,7 +564,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'relatorios_manutencao' && typeof window.renderizarTelaRelatoriosManutencao === 'function') window.renderizarTelaRelatoriosManutencao();
         
         if (pagina === 'visao_geral' && typeof window.carregarDadosDashboardAnalitico === 'function') window.carregarDadosDashboardAnalitico();
-        if (pagina === 'operacional' && typeof window.initOperacional === 'function') window.initOperacional();
         if (pagina === 'desempenho_frota' && typeof window.initDesempenhoFrota === 'function') window.initDesempenhoFrota();
         if (pagina === 'desempenho_grua' && typeof window.initDesempenhoGrua === 'function') window.initDesempenhoGrua();
         if (pagina === 'producao_frota' && typeof window.initProducaoFrota === 'function') window.initProducaoFrota();
