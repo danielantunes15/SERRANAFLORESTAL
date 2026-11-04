@@ -9,6 +9,7 @@ Chart.defaults.font.family = "'Inter', sans-serif";
 let fullHistoricoData = [];
 let metasGlobaisObj = null; 
 let configGruasObj = []; 
+let metasPeriodoObj = []; 
 
 // Força a inicialização automática no Dia Anterior (D-1)
 let activeQuickFilter = 'D-1'; 
@@ -371,8 +372,14 @@ async function loadDashboardDataInit() {
         if (metasData) {
             metasGlobaisObj = metasData;
         }
+
+        let queryMetasP = window.supabaseClient.from('metas_viagens_periodo').select('*').eq('filial_id', filialIdMetas);
+        const { data: metasPeriodoData } = await queryMetasP;
+        if (metasPeriodoData) {
+            metasPeriodoObj = metasPeriodoData;
+        }
     } catch(e) {
-        console.error("Erro ao puxar metas globais no dashboard:", e);
+        console.error("Erro ao puxar metas globais/período no dashboard:", e);
     }
 
     try {
@@ -573,7 +580,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
     // MONTAGEM DA TABELA (DIVISÃO BRACELL VS VERACEL VS SUZANO)
     // ==============================================================
     if (filialId === 5) {
-        // LÓGICA BRACELL: Agrupa pela coluna REGIONAL
         const regionaisUnicas = [...new Set(dadosFiltrados.map(d => String(d.regional || 'SEM REGIONAL').toUpperCase().trim()))].sort();
         
         regionaisUnicas.forEach((reg, index) => {
@@ -592,8 +598,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         });
 
     } else if (filialId === 6) {
-        // LÓGICA VERACEL (ID 6): Agrupa por Projeto e Fornecedor (Transportadora)
-        // A Veracel não tem Gruas no mesmo padrão da Suzano, usa "Dcr Fornecedor"
         const fornecedoresUnicos = [...new Set(dadosFiltrados.map(d => String(d.transportadora || 'DESCONHECIDO').toUpperCase().trim()))].sort();
 
         fornecedoresUnicos.forEach((forn, index) => {
@@ -612,7 +616,6 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         });
 
     } else {
-        // LÓGICA SUZANO: Agrupa por Gruas e Frente (Padrão Original)
         let cenariosPropria = [];
         let cenariosOutros = [];
 
@@ -690,15 +693,10 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         todasViagensValidas = todasViagensValidas.concat(c.dados);
     });
 
-    // ==============================================================
-    // SALVA-VIDAS: Cobre as Frentes Não Mapeadas
-    // ==============================================================
     const setMapeadas = new Set(todasViagensValidas.map(d => d.id || d.movimento));
-    
-    // Captura as viagens que a filial rodou mas a grua não estava cadastrada no sistema
     let dadosNaoMapeados = dadosFiltrados.filter(d => !setMapeadas.has(d.id || d.movimento) && isTransportadoraPropria(d));
     
-    if (dadosNaoMapeados.length > 0 && filialId !== 6) { // Veracel já agrupa por transportadora direto
+    if (dadosNaoMapeados.length > 0 && filialId !== 6) { 
         let cenarioNaoMapeado = {
             nome: 'FRENTES NÃO MAPEADAS (Gruas sem cadastro)',
             tipo: 'SEM CADASTRO',
@@ -1030,68 +1028,99 @@ function loadDashboardData() {
     let msTotalPeriodo = fimParaCalculo.getTime() - inicioPeriodo.getTime();
     if (msTotalPeriodo <= 0) msTotalPeriodo = 1;
 
-    let frotasTritrem = frotasParaMeta.filter(f => f.status && f.status.trim().toUpperCase() === 'ATIVO' && f.categoria && f.categoria.toUpperCase() === 'TRITREM');
-    let totalFrotaBase = frotasTritrem.length > 0 ? frotasTritrem.length : ((metasGlobaisObj && metasGlobaisObj.tamanho_frota) ? metasGlobaisObj.tamanho_frota : 0);
+    // IDENTIFICAÇÃO DOS CARROS QUE RODARAM E SUAS FRENTES (Base para Metas)
+    const mapaPlacasRodaram = new Map();
+    cardsData.forEach(d => {
+        const p = String(d.placa).trim().toUpperCase();
+        if (p && p !== '-' && p !== 'DESCONHECIDA') {
+            if (!mapaPlacasRodaram.has(p)) {
+                let frentePlaca = 'GERAL';
+                if (configGruasObj && d.grua) {
+                    const gruaStr = String(d.grua).trim().toUpperCase();
+                    const fEncontrada = configGruasObj.find(cf => {
+                        const codigos = (cf.codigos || '').split(',').map(c => c.trim().toUpperCase());
+                        return codigos.includes(gruaStr);
+                    });
+                    if (fEncontrada) frentePlaca = fEncontrada.frente;
+                }
+                mapaPlacasRodaram.set(p, frentePlaca);
+            }
+        }
+    });
 
-    let somaDispNoDiaMs = 0;
-    let totalMsExistenciaPeriodo = 0;
+    const carrosQueRodaram = Array.from(mapaPlacasRodaram.keys());
+    const totalCarros = carrosQueRodaram.length;
+
     let metaTotalViagens = 0;
+    let somaDispNoDiaMs = 0;
+    let totalMsExistenciaPeriodo = totalCarros * msTotalPeriodo;
 
-    if (frotasTritrem.length > 0) {
-        frotasTritrem.forEach(frota => {
-            let frotaInicioStr = frota.data_inicial ? frota.data_inicial.split('T')[0] : '2026-04-01';
-            let parts = frotaInicioStr.split('-');
-            let dtEntradaVeiculo = new Date(parts[0], parts[1]-1, parts[2], 0, 0, 0);
-            
-            let overlapDispInicio = dtEntradaVeiculo > inicioPeriodo ? dtEntradaVeiculo : inicioPeriodo;
-            let tempoDisp = fimParaCalculo.getTime() - overlapDispInicio.getTime();
-            
-            if (tempoDisp < 0) tempoDisp = 0;
+    // Função para obter meta da frente na data filtrada
+    function getMetaFrenteData(nomeFrente, dataRef) {
+        let frenteId = null;
+        if (configGruasObj) {
+            const f = configGruasObj.find(x => x.frente && x.frente.toUpperCase() === nomeFrente.toUpperCase());
+            if (f) frenteId = f.id;
+        }
+        
+        let metaValor = null;
+        if (frenteId && metasPeriodoObj && metasPeriodoObj.length > 0) {
+            const metasFrente = metasPeriodoObj.filter(m => m.frente_id === frenteId);
+            for (let m of metasFrente) {
+                const dIni = new Date(m.data_inicial + "T00:00:00");
+                const dFim = m.data_final ? new Date(m.data_final + "T23:59:59") : new Date(2099, 11, 31);
+                if (dataRef >= dIni && dataRef <= dFim) {
+                    metaValor = parseFloat(m.meta_viagens);
+                    break;
+                }
+            }
+        }
+        
+        // Fallback caso não haja meta configurada para a frente naquele período
+        if (metaValor === null && metasGlobaisObj && metasGlobaisObj.v_prog) {
+            metaValor = parseFloat(metasGlobaisObj.v_prog);
+        }
+        return metaValor || 0;
+    }
 
-            const placaFrotaNorm = (frota.cavalo || frota.placa || frota.placa_cavalo || '').trim().toUpperCase().replace(/-/g, '');
-            let manutencaoCavalo = 0;
+    carrosQueRodaram.forEach(placa => {
+        // Multiplica a meta encontrada x Quantidade de Dias Ativos no Filtro
+        const f = mapaPlacasRodaram.get(placa);
+        const metaDiaria = getMetaFrenteData(f, inicioPeriodo);
+        metaTotalViagens += (metaDiaria * diasConsideradosCalc);
 
-            if (placaFrotaNorm && tempoDisp > 0 && osParaMeta && osParaMeta.length > 0) {
-                osParaMeta.forEach(os => {
-                    let isOSInativa = (os.inativa === 1 || os.inativa === '1' || os.inativa === true);
-                    if (isOSInativa) return;
-                    
-                    const status = os.status ? os.status.trim().toUpperCase() : '';
-                    if (status === 'CANCELADA' || status === 'AGENDADA') return;
-                    
-                    const placaOS = (os.placa || os.placa_cavalo || os.veiculo || os.cavalo || '').trim().toUpperCase().replace(/-/g, '');
-                    
-                    if (!placaOS || !placaFrotaNorm) return;
-                    if (placaOS !== placaFrotaNorm) return; 
-
+        let manutencaoCavalo = 0;
+        if (osParaMeta && osParaMeta.length > 0) {
+            osParaMeta.forEach(os => {
+                let isOSInativa = (os.inativa === 1 || os.inativa === '1' || os.inativa === true);
+                if (isOSInativa) return;
+                
+                const status = os.status ? os.status.trim().toUpperCase() : '';
+                if (status === 'CANCELADA' || status === 'AGENDADA') return;
+                
+                const placaOS = (os.placa || os.placa_cavalo || os.veiculo || os.cavalo || '').trim().toUpperCase().replace(/-/g, '');
+                const placaFormatada = placa.replace(/-/g, '');
+                
+                if (placaOS === placaFormatada) {
                     let dtAbertura = os.data_abertura ? tratarFusoDB(os.data_abertura) : null;
                     if (!dtAbertura) return; 
 
                     let dtConclusaoOS = os.data_conclusao ? tratarFusoDB(os.data_conclusao) : agora;
 
-                    let startOverlap = Math.max(dtAbertura.getTime(), overlapDispInicio.getTime());
+                    let startOverlap = Math.max(dtAbertura.getTime(), inicioPeriodo.getTime());
                     let endOverlap = Math.min(dtConclusaoOS.getTime(), fimParaCalculo.getTime());
 
                     if (startOverlap < endOverlap) {
                         manutencaoCavalo += (endOverlap - startOverlap);
                     }
-                });
-            }
+                }
+            });
+        }
 
-            let dispNoDiaMs = tempoDisp - manutencaoCavalo;
-            if (dispNoDiaMs < 0) dispNoDiaMs = 0;
-
-            somaDispNoDiaMs += dispNoDiaMs;
-            totalMsExistenciaPeriodo += tempoDisp;
-
-            let metaVeiculo = frota.meta ? parseFloat(frota.meta) : 0;
-            let proporcaoPeriodo = dispNoDiaMs / (24 * 60 * 60 * 1000); 
-            metaTotalViagens += (metaVeiculo * proporcaoPeriodo);
-        });
-    } else if (totalFrotaBase > 0) {
-        totalMsExistenciaPeriodo = totalFrotaBase * msTotalPeriodo;
-        somaDispNoDiaMs = totalMsExistenciaPeriodo;
-    }
+        let dispNoDiaMs = msTotalPeriodo - manutencaoCavalo;
+        if (dispNoDiaMs < 0) dispNoDiaMs = 0;
+        somaDispNoDiaMs += dispNoDiaMs;
+    });
 
     metaTotalViagens = Math.round(metaTotalViagens);
 
@@ -1123,7 +1152,7 @@ function loadDashboardData() {
         elMetaTexto.innerHTML = `
             <span class="${corDm} font-bold text-[12px]" title="Disponibilidade Mecânica Real e Média de Veículos Disponíveis">DM: ${percentDM.toFixed(2)}% (${mediaVeiculosDispStr})</span> 
             <span class="text-slate-600 mx-[6px]">|</span> 
-            <span class="${corMetaStr} font-bold text-[12px]" title="Meta ajustada pela DM">META: ${metaTotalViagens}</span>
+            <span class="${corMetaStr} font-bold text-[12px]" title="Meta Dinâmica por Veículo x Período">META: ${metaTotalViagens}</span>
         `;
         elMetaTexto.classList.remove('hidden');
         elMetaTexto.className = "mt-auto pt-3 border-t border-slate-700/50 flex items-center uppercase tracking-wider block whitespace-nowrap overflow-hidden text-ellipsis";
