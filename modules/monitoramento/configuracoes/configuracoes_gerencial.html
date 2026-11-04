@@ -15,10 +15,9 @@
             </div>
             <div class="p-6 flex flex-col gap-6 bg-slate-900/50">
                 <h4 class="text-sky-400 font-bold text-xs uppercase border-b border-slate-700 pb-2">Metas de Produção e Base</h4>
-                <div class="grid grid-cols-1 md:grid-cols-6 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
                     <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block" title="Usado para definir a frente Própria vs ASN">Transp. Própria</label><input type="text" id="cfg_transp_propria" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500 uppercase font-bold text-sky-300" placeholder="Ex: SERRANALOG"></div>
                     <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Tamanho da Frota</label><input type="number" step="0.01" id="cfg_tamanho_frota" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500" placeholder="Ex: 50"></div>
-                    <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Viagens/Dia (Caminhão)</label><input type="number" step="0.01" id="cfg_v_prog" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500"></div>
                     <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Volume Diário Global</label><input type="number" step="0.01" id="cfg_vol_prog" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500"></div>
                     <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Caixa Média (m³)</label><input type="number" step="0.01" id="cfg_cx_prog" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500"></div>
                     <div><label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">PBTC Médio (t)</label><input type="number" step="0.01" id="cfg_pbtc" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white outline-none focus:border-sky-500"></div>
@@ -33,6 +32,7 @@
             </div>
         </div>
 
+        <!-- Mapeamento Dinâmico de Frentes e Gruas -->
         <div class="glass-card rounded-2xl border border-sky-700/50 shadow-xl overflow-hidden mt-6 mb-6">
             <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
                 <h3 class="font-bold text-white tracking-wide text-[13px] uppercase">
@@ -53,6 +53,87 @@
             <div class="p-6 bg-slate-900/50">
                 <div id="container_frentes_dinamico" class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     </div>
+            </div>
+        </div>
+
+        <!-- NOVO CARD: Metas de Viagens por Período por Frente -->
+        <div class="glass-card rounded-2xl border border-amber-700/50 shadow-xl overflow-hidden mt-6">
+            <div class="bg-slate-800/80 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="font-bold text-white tracking-wide text-[13px] uppercase">
+                    <i class="fas fa-calendar-alt text-amber-400 mr-2"></i> Metas de Viagens por Frente e Período
+                </h3>
+                <div class="flex gap-2">
+                    <button onclick="window.toggleFiltroMetas()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 px-3 rounded shadow transition-colors text-xs whitespace-nowrap" title="Filtrar Histórico">
+                        <i class="fas fa-filter"></i> Filtrar
+                    </button>
+                    <button onclick="window.salvarMetaPeriodo()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-1.5 px-4 rounded shadow transition-colors text-xs whitespace-nowrap">
+                        <i class="fas fa-save mr-1"></i> Salvar Meta
+                    </button>
+                </div>
+            </div>
+
+            <!-- PAINEL DE FILTRO OCULTO POR PADRÃO -->
+            <div id="painel_filtro_metas" class="hidden bg-slate-800/50 px-6 py-4 border-b border-slate-700">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="text-[10px] text-amber-400 font-bold mb-1 w-full border-b border-slate-700 pb-1">
+                        <i class="fas fa-search mr-1"></i> Buscar no Histórico (Por Padrão exibe apenas metas em aberto)
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 block">Filtro: Data Início</label>
+                        <input type="date" id="filtro_meta_ini" class="w-36 bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white text-xs outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 uppercase font-bold mb-1 block">Filtro: Data Fim</label>
+                        <input type="date" id="filtro_meta_fim" class="w-36 bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white text-xs outline-none focus:border-amber-500">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="window.carregarMetasPeriodo(true)" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-1.5 px-4 rounded shadow transition-colors text-xs">
+                            Buscar
+                        </button>
+                        <button onclick="window.limparFiltroMetas()" class="bg-slate-700 hover:bg-rose-900/50 text-slate-300 hover:text-rose-400 border border-slate-600 font-bold py-1.5 px-4 rounded shadow transition-colors text-xs">
+                            Limpar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 bg-slate-900/50 flex flex-col">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div>
+                        <label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Frente</label>
+                        <select id="nova_meta_frente" class="w-full bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-white text-xs outline-none focus:border-amber-500">
+                            <option value="">Carregando frentes...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Data Inicial</label>
+                        <input type="date" id="nova_meta_dt_ini" class="w-full bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-white text-xs outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Data Final (Opcional)</label>
+                        <input type="date" id="nova_meta_dt_fim" class="w-full bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-white text-xs outline-none focus:border-amber-500" title="Deixe em branco para manter a meta ativa indefinidamente">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 uppercase font-bold mb-1 block">Meta Viagens (Ex: 1.74)</label>
+                        <input type="number" step="0.01" id="nova_meta_viagens" class="w-full bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-white text-xs outline-none focus:border-amber-500">
+                    </div>
+                </div>
+                <!-- Box com scroll para não poluir a tela se houver muitos registros -->
+                <div class="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar border border-slate-700/50 rounded-lg">
+                    <table class="min-w-full text-xs text-left">
+                        <thead class="bg-slate-900/95 text-slate-400 uppercase text-[10px] border-b border-slate-700 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-4 py-2">Frente</th>
+                                <th class="px-4 py-2">Data Inicial</th>
+                                <th class="px-4 py-2">Data Final</th>
+                                <th class="px-4 py-2">Meta (Viagens/Dia)</th>
+                                <th class="px-4 py-2 text-right">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista_metas_periodo" class="divide-y divide-slate-800/80 text-slate-300">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -233,7 +314,6 @@
                     <option value="viagens_dia">Apagar Viagens (Dia Específico)</option>
                     <option value="eventos">Apagar Eventos (TUDO)</option>
                 </select>
-                <!-- Entradas que aparecem dinamicamente -->
                 <input type="month" id="mesExclusao" style="display: none;" class="bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-bold rounded px-4 py-2 outline-none cursor-pointer">
                 <input type="date" id="diaExclusao" style="display: none;" class="bg-rose-950/80 border border-rose-800 text-rose-200 text-xs font-bold rounded px-4 py-2 outline-none cursor-pointer">
                 
@@ -243,8 +323,8 @@
     </section>
 </div>
 
-<!-- SCRIPT DE FILTRO DE SESSÕES POR USUÁRIO -->
 <script>
+    // Filtro visual das abas de importação apenas
     setTimeout(() => {
         const user = window.currentUser || {};
         const role = user.role || '';
@@ -254,13 +334,11 @@
         const secaoBracell = document.getElementById('secao-importacao-bracell');
         const secaoVeracel = document.getElementById('secao-importacao-veracel');
         
-        // Libera tudo para Admin e SuperAdmin
         if (role === 'SuperAdmin' || role === 'Admin') {
             if(secaoSuzano) secaoSuzano.classList.remove('hidden');
             if(secaoBracell) secaoBracell.classList.remove('hidden');
             if(secaoVeracel) secaoVeracel.classList.remove('hidden');
         } else {
-            // Filtro por Filial ID (1, 5, 6, 7)
             if (filialId === 1 || filialId === 7) {
                 if(secaoSuzano) secaoSuzano.classList.remove('hidden');
             } else if (filialId === 5) {
