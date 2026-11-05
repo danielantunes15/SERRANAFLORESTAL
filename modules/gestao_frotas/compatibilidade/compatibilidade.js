@@ -1,8 +1,7 @@
 /* =========================================================
    COMPATIBILIDADE E CADASTRO DE ENGATES (GO)
-   - Interface com Abas estilo Novo Cadastro
-   - Visão Híbrida: Mostra Engates e Veículos Livres (Desengatados)
-   - Proteção rigorosa contra dados nulos
+   - Exclusivo para Cadastros e Documentos (frotas_documentos)
+   - Tabela Frotas Engates (frotas_engates)
    ========================================================= */
 
 window.initFrotaCompatibilidade = async function() {
@@ -115,7 +114,7 @@ window.initFrotaCompatibilidade = async function() {
                 'CAVALO': [], 'CARRETA': [], 'Sem Categoria': []
             };
 
-            // 1. Processa Engates Reais (Já atrelados no banco)
+            // 1. Processa Engates Reais
             dbEngatesSalvos.forEach(f => {
                 const cat = f.categoria ? f.categoria.toUpperCase() : 'Sem Categoria';
                 if (categoriasAgrupadas[cat]) {
@@ -123,7 +122,7 @@ window.initFrotaCompatibilidade = async function() {
                 }
             });
 
-            // 2. Cria Cavalos "Livres" dinamicamente da frotas_documentos
+            // 2. Cria Cavalos "Livres"
             const cavalosDocumentos = dbDocumentos.filter(d => {
                 const tipo = safeUpper(d.tipo_veiculo);
                 const esp = safeUpper(d.especie_tipo);
@@ -144,7 +143,7 @@ window.initFrotaCompatibilidade = async function() {
                 }
             });
 
-            // 3. Cria Carretas (GOs) "Livres" dinamicamente da frotas_documentos
+            // 3. Cria Carretas (GOs) "Livres"
             const carretasDocumentos = dbDocumentos.filter(d => {
                 const tipo = safeUpper(d.tipo_veiculo);
                 const esp = safeUpper(d.especie_tipo);
@@ -183,7 +182,6 @@ window.initFrotaCompatibilidade = async function() {
                 const listaOriginal = categoriasAgrupadas[cat];
                 if (listaOriginal.length === 0) return;
 
-                // Ordenação Alfabética/Numérica
                 listaOriginal.sort((a, b) => {
                     const numA = (a.numero_go || a.numero_frota || a.placa_cavalo || '').toString();
                     const numB = (b.numero_go || b.numero_frota || b.placa_cavalo || '').toString();
@@ -199,7 +197,7 @@ window.initFrotaCompatibilidade = async function() {
                 } else if (cat === 'CAVALO') {
                     tituloComplemento = ' <span style="font-size:0.8rem; color:#10b981; font-weight:normal;">(Cavalos Disponíveis)</span>';
                     theadHTML = `<tr><th>Status</th><th>Nº Frota</th><th>Placa (Cavalo)</th><th style="text-align: right;">Ações</th></tr>`;
-                } else { // TRITREM e afins
+                } else {
                     tituloComplemento = ' <span style="font-size:0.8rem; color:#facc15; font-weight:normal;">(Conjuntos Formados)</span>';
                     theadHTML = `<tr><th>Status</th><th>Nº Frota</th><th>Placa (Cavalo)</th><th>Nº GO</th><th>Carreta 1</th><th>Carreta 2</th><th>Carreta 3</th><th style="text-align: right;">Ações</th></tr>`;
                 }
@@ -289,7 +287,6 @@ window.initFrotaCompatibilidade = async function() {
         }
     }
 
-    // Exclusão manual direta (só pra limpeza, geralmente não precisa usar)
     window.excluirEngateSalvo = async function(id) {
         if (!confirm("Deseja excluir este registro manual? Os veículos não serão apagados, apenas ficarão livres.")) return;
         try {
@@ -305,9 +302,7 @@ window.initFrotaCompatibilidade = async function() {
     // =========================================================
     window.desengatarConjunto = async function(id) {
         if (!confirm("Deseja desengatar este conjunto? O Cavalo e o GO voltarão a aparecer como 'Livres' em suas tabelas originais.")) return;
-        
         try {
-            // Apenas apagando o engate, os veículos viram "virtuais livres" automaticamente na lista!
             const { error } = await window.supabaseClient.from('frotas_engates').delete().eq('id', id);
             if (error) throw error;
             
@@ -334,7 +329,6 @@ window.initFrotaCompatibilidade = async function() {
         const selectDestino = document.getElementById('selectFrotaDestinoCompat');
         selectDestino.innerHTML = '<option value="">Selecione um Cavalo Livre...</option>';
         
-        // Pega todos os cavalos que estão livres
         const cavalosLivres = dbDocumentos.filter(d => {
             const tipo = safeUpper(d.tipo_veiculo);
             const esp = safeUpper(d.especie_tipo);
@@ -369,7 +363,6 @@ window.initFrotaCompatibilidade = async function() {
         if (!engateOrigem) return;
 
         try {
-            // Apenas atualiza a placa do cavalo no registro de engate
             await window.supabaseClient.from('frotas_engates')
                 .update({ placa_cavalo: novaPlacaCavalo })
                 .eq('id', engateOrigem.id);
@@ -382,7 +375,7 @@ window.initFrotaCompatibilidade = async function() {
     };
 
     // =========================================================
-    // POPULAR SELECTS DA TELA NOVO ENGATE (SIMULADOR)
+    // ABA 2: POPULAR SELECTS DA TELA NOVO ENGATE (SIMULADOR)
     // =========================================================
     function popularSelectCavalos() {
         const sel = document.getElementById("compatCavaloSelect");
@@ -429,16 +422,26 @@ window.initFrotaCompatibilidade = async function() {
         });
 
         if (goMap.size > 0) {
-            goMap.forEach((obj, goStr) => {
+            const group = document.createElement("optgroup");
+            group.label = ` CARRETAS CADASTRADAS POR GO (${goMap.size})`;
+            
+            // TRANSFORMA O MAPA EM ARRAY E ORDENA A-Z NUMERICAMENTE
+            const gosOrdenados = Array.from(goMap.keys()).sort((a, b) => {
+                return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            gosOrdenados.forEach(goStr => {
+                const obj = goMap.get(goStr);
                 const jaEngatado = dbEngatesSalvos.find(e => safeUpper(e.numero_go) === goStr);
                 if (!jaEngatado) {
                     const opt = document.createElement("option");
                     opt.value = goStr; 
                     const placasUnicas = [...new Set(obj.placas)]; 
-                    opt.textContent = `${goStr} (Placas: ${placasUnicas.join(', ') || 'S/Placa'})`;
-                    selGO.appendChild(opt);
+                    opt.textContent = `${goStr} (Placas: ${placasUnicas.join(', ') || 'Sem Placa'})`;
+                    group.appendChild(opt);
                 }
             });
+            selGO.appendChild(group);
         }
     }
 
@@ -627,10 +630,7 @@ window.initFrotaCompatibilidade = async function() {
         if (typeof window.injetarFilial === 'function') payload = window.injetarFilial(payload);
 
         try {
-            // Se esse Cavalo já estava gravado solto, exclui para não duplicar
             if (cavaloPlaca) await window.supabaseClient.from('frotas_engates').delete().eq('placa_cavalo', cavaloPlaca);
-            
-            // Se esse GO já estava gravado solto, exclui para não duplicar
             if (goSelecionado) await window.supabaseClient.from('frotas_engates').delete().eq('numero_go', goSelecionado);
 
             const { error } = await window.supabaseClient.from('frotas_engates').insert([payload]);
