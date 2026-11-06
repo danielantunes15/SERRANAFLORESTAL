@@ -55,7 +55,7 @@ window.carregarDadosEscalaCampo = async function() {
         const pMaquinas = queryMaquinas;
 
         const funcoesAtuais = await window.buscarFuncoesConfiguradasDB();
-        window.funcoesSelecionadasEscala = funcoesAtuais; // Sincroniza a memória local da escala
+        window.funcoesSelecionadasEscala = funcoesAtuais; 
 
         let queryEquipe = window.supabaseClient.from('rh_colaboradores')
             .select('*')
@@ -114,11 +114,9 @@ window.calcularEscalaCampoMatematica = function(operador, dateKey) {
         statusTrabalho = 'FOLGA';
     }
 
-    // Calcula o turno dinâmico da viradinha a partir da data ancora
     let turnoDinamico = operador.turno;
     if (operador.tipo_escala === '4x2 Alternado' || operador.tipo_escala === '4x2v') {
         let cicloAtual = Math.floor(diffDays / cicloTotal);
-        // Se o ciclo atual for ímpar, ele inverte o horário
         if (Math.abs(cicloAtual % 2) === 1) { 
             if (turnoDinamico === '06:00 - 18:00') turnoDinamico = '18:00 - 06:00';
             else if (turnoDinamico === '18:00 - 06:00') turnoDinamico = '06:00 - 18:00';
@@ -335,7 +333,6 @@ window.renderizarEscalaCampo = function() {
                         </tr>
                      </thead><tbody>`;
 
-            // ORDENAÇÃO: 1º Data Início da Escala (data_ancora), 2º Dia, 3º Noite, 4º Folga
             ops.sort((a,b) => {
                 let dataInicioA = a.data_ancora ? a.data_ancora.split('T')[0] : '9999-12-31';
                 let dataInicioB = b.data_ancora ? b.data_ancora.split('T')[0] : '9999-12-31';
@@ -401,24 +398,32 @@ window.renderizarEscalaCampo = function() {
                     
                     let isDia = escala.turno && (escala.turno.startsWith('06:00') || escala.turno.startsWith('07:00'));
                     
-                    // CORES CLARAS PARA DIA E ESCURAS PARA NOITE
                     let bgCell = 'rgba(16, 185, 129, 0.15)';
                     if (isFolga) {
                         bgCell = 'rgba(249, 115, 22, 0.15)'; 
                     } else if (isDia) {
-                        bgCell = 'rgba(16, 185, 129, 0.25)'; // Claro
+                        bgCell = 'rgba(16, 185, 129, 0.25)'; // Dia é mais claro
                     } else {
-                        bgCell = 'rgba(0, 0, 0, 0.4)'; // Escuro
+                        bgCell = 'rgba(0, 0, 0, 0.4)'; // Noite é mais escuro
                     }
 
                     let colorCell = isFolga ? '#fb923c' : (isDia ? '#10b981' : '#34d399');
                     let borderSide = isFolga ? '1px solid rgba(249, 115, 22, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)';
                     if (isManual) { bgCell = 'rgba(168, 85, 247, 0.15)'; borderSide = '1px solid rgba(168, 85, 247, 0.5)'; }
                     
-                    let opcoes = `<option value="F" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fb923c;">F</option>`;
+                    let opcoes = `<option value="F|FOLGA" ${isFolga ? 'selected' : ''} style="background: #1e293b; color: #fb923c;">F (Folga)</option>`;
                     
+                    // FUNÇÃO PARA ADICIONAR AS OPÇÕES COM SELEÇÃO DE TURNO EMBUTIDA
+                    const addOp = (valStr, labelStr) => {
+                        let isSelectedDia = (escala.statusEscala === valStr && isDia && !isFolga) ? 'selected' : '';
+                        let isSelectedNoite = (escala.statusEscala === valStr && !isDia && !isFolga) ? 'selected' : '';
+                        
+                        opcoes += `<option value="${valStr}|DIA" ${isSelectedDia} style="background: #1e293b; color: #34d399;">☀ ${labelStr}</option>`;
+                        opcoes += `<option value="${valStr}|NOITE" ${isSelectedNoite} style="background: #1e293b; color: #60a5fa;">☾ ${labelStr}</option>`;
+                    };
+
                     if (op.funcao === 'Líder de Campo' && !isFolguistasFrente) {
-                        opcoes += `<option value="LÍDER" ${escala.statusEscala === 'LÍDER' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">LÍDER</option>`;
+                        addOp("LÍDER", "LÍDER");
                     } else {
                         if (isFolguistasFrente) {
                             window.maquinasCampo.forEach(mAll => {
@@ -426,32 +431,30 @@ window.renderizarEscalaCampo = function() {
                                 let fnome = mAll.nome || `F${mAll.id}`; fnome = fnome.replace(/Frente\s*/i, 'F');
                                 
                                 if (op.funcao === 'Líder de Campo') {
-                                    let v = `[${fnome}]LÍDER`;
-                                    opcoes += `<option value="${v}" ${escala.statusEscala === v ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${v}</option>`;
+                                    addOp(`[${fnome}]LÍDER`, `[${fnome}]LÍDER`);
                                 } else {
-                                    if (mAll.numero_frota_1) { let v = `[${fnome}]${mAll.numero_frota_1}`; if(!opcoes.includes(`value="${v}"`)) opcoes += `<option value="${v}" ${escala.statusEscala === v ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${v}</option>`; }
-                                    if (mAll.numero_frota_2) { let v = `[${fnome}]${mAll.numero_frota_2}`; if(!opcoes.includes(`value="${v}"`)) opcoes += `<option value="${v}" ${escala.statusEscala === v ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${v}</option>`; }
-                                    if (mAll.numero_frota_3) { let v = `[${fnome}]${mAll.numero_frota_3}`; if(!opcoes.includes(`value="${v}"`)) opcoes += `<option value="${v}" ${escala.statusEscala === v ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${v}</option>`; }
-                                    let vRes = `[${fnome}] RESERVA`;
-                                    if(!opcoes.includes(`value="${vRes}"`)) opcoes += `<option value="${vRes}" ${escala.statusEscala === vRes ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${vRes}</option>`;
+                                    if (mAll.numero_frota_1) addOp(`[${fnome}]${mAll.numero_frota_1}`, `[${fnome}]${mAll.numero_frota_1}`);
+                                    if (mAll.numero_frota_2) addOp(`[${fnome}]${mAll.numero_frota_2}`, `[${fnome}]${mAll.numero_frota_2}`);
+                                    if (mAll.numero_frota_3) addOp(`[${fnome}]${mAll.numero_frota_3}`, `[${fnome}]${mAll.numero_frota_3}`);
+                                    addOp(`[${fnome}] RESERVA`, `[${fnome}] RESERVA`);
                                 }
                             });
-                            opcoes += `<option value="COBERTURA" ${escala.statusEscala === 'COBERTURA' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">COBERTURA</option>`;
-                            opcoes += `<option value="TRAB" ${escala.statusEscala === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">TRAB</option>`;
+                            addOp("COBERTURA", "COBERTURA");
+                            addOp("TRAB", "TRAB");
                         } else {
-                            if(frente.numero_frota_1) opcoes += `<option value="${frente.numero_frota_1}" ${escala.statusEscala === frente.numero_frota_1 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_1}</option>`;
-                            if(frente.numero_frota_2) opcoes += `<option value="${frente.numero_frota_2}" ${escala.statusEscala === frente.numero_frota_2 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_2}</option>`;
-                            if(frente.numero_frota_3) opcoes += `<option value="${frente.numero_frota_3}" ${escala.statusEscala === frente.numero_frota_3 ? 'selected' : ''} style="background: #1e293b; color: #34d399;">${frente.numero_frota_3}</option>`;
-                            opcoes += `<option value="RESERVA" ${escala.statusEscala === 'RESERVA' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">RESERVA</option>`;
-                            opcoes += `<option value="TRAB" ${escala.statusEscala === 'TRAB' ? 'selected' : ''} style="background: #1e293b; color: #34d399;">TRAB</option>`;
+                            if(frente.numero_frota_1) addOp(frente.numero_frota_1, frente.numero_frota_1);
+                            if(frente.numero_frota_2) addOp(frente.numero_frota_2, frente.numero_frota_2);
+                            if(frente.numero_frota_3) addOp(frente.numero_frota_3, frente.numero_frota_3);
+                            addOp("RESERVA", "RESERVA");
+                            addOp("TRAB", "TRAB");
                         }
                     }
 
-                    if (isManual) opcoes += `<option value="AUTO" style="background: #0f172a; color: #fbbf24; font-weight: bold;"> Voltar p/ Auto</option>`;
+                    if (isManual) opcoes += `<option value="AUTO|AUTO" style="background: #0f172a; color: #fbbf24; font-weight: bold;">🔄 Voltar p/ Auto</option>`;
 
                     let turnoDisplay = '';
-                    if ((op.tipo_escala === '4x2 Alternado' || op.tipo_escala === '4x2v') && !isFolga) {
-                        turnoDisplay = `<div style="font-size: 0.65rem; margin-top: -4px; opacity: 0.8; color: ${isDia ? '#fbbf24' : '#94a3b8'};">${isDia ? '☀ ' + escala.turno : '☾ ' + escala.turno}</div>`;
+                    if (!isFolga && escala.turno && escala.turno !== '-') {
+                        turnoDisplay = `<div style="font-size: 0.65rem; margin-top: -4px; opacity: 0.8; color: ${isDia ? '#fbbf24' : '#94a3b8'};">${isDia ? '☀ ' : '☾ '}${escala.turno}</div>`;
                     }
 
                     html += `<td style="padding: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: ${borderSide}; border-right: ${borderSide}; background-color: ${bgCell}; text-align: center;">
@@ -518,7 +521,9 @@ async function handleEscalaCampoChange(e) {
     const select = e.target;
     const operadorIdStr = String(select.dataset.operador); 
     const data = select.dataset.data;
-    const novoStatusEscala = select.value;
+    
+    // Quebra o valor enviado pelo option ("MÁQUINA|TURNO")
+    const [novoStatusEscala, turnoEscolhido] = select.value.split('|');
     
     const op = window.equipeCampo.find(o => String(o.id) === operadorIdStr);
     
@@ -539,9 +544,19 @@ async function handleEscalaCampoChange(e) {
         }
 
         try {
-            // Pegar o turno dinâmico exato daquele dia caso ele seja do ciclo alternado,
-            // garantindo que ele não salve a exceção com turno errado.
-            const turnoExatoDia = window.calcularEscalaCampoMatematica(op, data).turno;
+            // Lógica que processa se foi selecionado DIA ou NOITE
+            let turnoExatoDia = '-';
+            
+            if (novoStatusEscala !== 'F' && novoStatusEscala !== 'FOLGA') {
+                if (turnoEscolhido === 'DIA') {
+                    // Puxa o horário normal de dia do usuário (ou força o genérico se não tiver)
+                    turnoExatoDia = (op.turno && op.turno.includes('07')) ? '07:00 - 19:00' : '06:00 - 18:00';
+                } else if (turnoEscolhido === 'NOITE') {
+                    turnoExatoDia = (op.turno && op.turno.includes('19')) ? '19:00 - 07:00' : '18:00 - 06:00';
+                } else {
+                    turnoExatoDia = window.calcularEscalaCampoMatematica(op, data).turno;
+                }
+            }
 
             let payload = { 
                 id: idExcecao, 
@@ -616,7 +631,6 @@ window.imprimirRelatorioEscalaSemanalCampo = function() {
             
             html += `<h4 style="margin:5px 0;">Função: ${funcaoNome}</h4><table><thead><tr><th style="width:12%;">${headerColuna1}</th><th style="width:8%;">Ciclo</th><th style="width:8%;">Regime</th><th style="width:8%;">Turno Início</th><th style="text-align:left;">Nome</th>${window.currentDatasCampo.map(d => `<th style="width:7%;">${d.diaTexto}<br>${d.diaNum}</th>`).join('')}</tr></thead><tbody>`;
             
-            // Ordenação idêntica ao painel web
             ops.sort((a,b) => {
                 let dataInicioA = a.data_ancora ? a.data_ancora.split('T')[0] : '9999-12-31';
                 let dataInicioB = b.data_ancora ? b.data_ancora.split('T')[0] : '9999-12-31';
@@ -818,7 +832,7 @@ window.gerarRelatorioImpressaoCampo = function() {
                 nomeMaqVisual = 'Cobrir M1/M2'; 
             }
 
-            let turnoExibicao = (op.tipo_escala === '4x2 Alternado' || op.tipo_escala === '4x2v') ? esc.turno : (op.turno||'-');
+            let turnoExibicao = esc.turno || '-';
             trabs.push({ n: op.nome, f: nFront, func: op.funcao || '-', m: nomeMaqVisual, c: op.tipo_escala||'4x2', t: turnoExibicao, v: esc.statusEscala });
         }
     });
