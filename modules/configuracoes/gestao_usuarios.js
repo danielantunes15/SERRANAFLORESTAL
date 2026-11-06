@@ -2,13 +2,13 @@
 
 let listaUsuarios = [];
 
-// NOVA FUNÇÃO: Reconhece o Administrador Global independente do nome do cargo
+// Reconhece o Administrador Global independente do nome do cargo
 window.isUsuarioGlobal = function() {
     if (!window.currentUser) return false;
     return (window.currentUser.role === 'SuperAdmin' || window.currentUser.filial_id === null || window.currentUser.is_global_session === true);
 };
 
-// Função global de segurança para checar se a ação é permitida (caso tentem forçar via console)
+// Função global de segurança para checar se a ação é permitida
 window.verificarPermissaoAcao = function(targetUser) {
     if (!window.currentUser) return false;
     // Administrador Global pode tudo
@@ -22,7 +22,6 @@ window.verificarPermissaoAcao = function(targetUser) {
     }
     
     // Trava 2: Bloqueio de Filial e Matriz
-    // Se a filial_id do alvo for diferente da do usuário logado (incluindo null que é a Matriz)
     if (targetUser.filial_id != window.currentUser.filial_id) {
         alert('⚠️ Acesso Negado: Você não tem permissão para alterar usuários de outras filiais ou da Matriz Global.');
         return false;
@@ -55,7 +54,6 @@ window.carregarFiliaisFormulario = async function() {
     } else if (window.currentUser) {
         const fValue = window.currentUser.filial_id === null ? 'CENTRAL' : window.currentUser.filial_id;
         
-        // Tenta descobrir o nome correto da filial do usuário não-global
         let nomeFilial = 'Minha Filial Base';
         if (filiaisBanco && filiaisBanco.length > 0) {
             const filialEncontrada = filiaisBanco.find(f => f.id == fValue);
@@ -107,6 +105,42 @@ window.carregarCargosParaFilial = async function(filialId) {
     }
 };
 
+// Busca Inteligente na Tabela
+window.filtrarUsuariosTabela = function(termo) {
+    termo = termo.toLowerCase().trim();
+    const tbody = document.getElementById('tabelaUsuarios');
+    if (!tbody) return;
+
+    const rows = tbody.querySelectorAll('tr.user-row');
+    let hasVisibleUser = false;
+
+    rows.forEach(row => {
+        const textContent = row.innerText.toLowerCase();
+        if (textContent.includes(termo)) {
+            row.style.display = '';
+            hasVisibleUser = true;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Trata os cabeçalhos de grupos (Filiais)
+    const groupHeaders = tbody.querySelectorAll('tr.group-header');
+    groupHeaders.forEach(header => {
+        let nextSibling = header.nextElementSibling;
+        let showHeader = false;
+
+        while (nextSibling && !nextSibling.classList.contains('group-header')) {
+            if (nextSibling.classList.contains('user-row') && nextSibling.style.display !== 'none') {
+                showHeader = true;
+                break;
+            }
+            nextSibling = nextSibling.nextElementSibling;
+        }
+        header.style.display = showHeader ? '' : 'none';
+    });
+};
+
 window.renderizarUsuarios = async function() {
     const tbody = document.getElementById('tabelaUsuarios');
     if (!tbody) return;
@@ -127,9 +161,6 @@ window.renderizarUsuarios = async function() {
 
         const todosUsuarios = await db.getUsuarios('TODAS'); 
         
-        // ==========================================
-        // BUSCA NOMES DAS FILIAIS PARA MAPEAMENTO
-        // ==========================================
         let filiaisBanco = [];
         try {
             if (typeof db !== 'undefined' && typeof db.getTodasFiliaisAdmin === 'function') {
@@ -137,7 +168,6 @@ window.renderizarUsuarios = async function() {
             }
         } catch (e) { console.error("Erro ao carregar filiais banco", e); }
 
-        // CONTROLE DO FILTRO PARA ADMINS GLOBAIS
         const filtroContainer = document.getElementById('filtroFilialContainer');
         const filtroSelect = document.getElementById('filtroUsuariosFilial');
         
@@ -153,24 +183,20 @@ window.renderizarUsuarios = async function() {
         if (!window.isUsuarioGlobal()) {
             const filialAtiva = window.currentUser.filial_id;
             
-            // 1. Isola apenas a filial de quem está acessando
             if (filialAtiva !== null && filialAtiva !== 'CENTRAL') {
                 listaUsuarios = todosUsuarios.filter(u => u.filial_id == filialAtiva);
             } else {
                 listaUsuarios = todosUsuarios.filter(u => u.filial_id === null);
             }
 
-            // 2. NOVA TRAVA: Esconde completamente qualquer usuário que seja SuperAdmin
             listaUsuarios = listaUsuarios.filter(u => {
                 const isTargetSuperAdmin = (u.role === 'SuperAdmin' || (u.cargos && u.cargos.nivel_acesso === 'SuperAdmin'));
                 return !isTargetSuperAdmin;
             });
 
         } else {
-            // Se for Administrador Global logado, ele vê todo mundo
             listaUsuarios = todosUsuarios; 
             
-            // Aplica o filtro selecionado (se houver)
             if (filtroSelect && filtroSelect.value !== 'TODAS') {
                 const fVal = filtroSelect.value === 'CENTRAL' ? null : parseInt(filtroSelect.value);
                 listaUsuarios = listaUsuarios.filter(u => u.filial_id === fVal);
@@ -178,27 +204,28 @@ window.renderizarUsuarios = async function() {
         }
 
         if (listaUsuarios.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Nenhum usuário encontrado para o filtro atual.</td></tr>'; return;
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 30px; color: var(--text-secondary);">Nenhum usuário encontrado para o filtro atual.</td></tr>'; return;
         }
 
-        // ==========================================
-        // AGRUPAMENTO E SEPARAÇÃO DOS USUÁRIOS POR FILIAL
-        // ==========================================
+        // ORDENAÇÃO ALFABÉTICA
+        listaUsuarios.sort((a, b) => {
+            const nomeA = (a.nome_completo || a.username || '').toLowerCase();
+            const nomeB = (b.nome_completo || b.username || '').toLowerCase();
+            return nomeA.localeCompare(nomeB);
+        });
+
         const filiaisMap = new Map();
         filiaisMap.set('CENTRAL', { nome: 'Matriz Corporativa', items: [] });
         
-        // Mapeia os nomes das filiais vindos do banco
         if (filiaisBanco && filiaisBanco.length > 0) {
             filiaisBanco.forEach(f => {
                 filiaisMap.set(Number(f.id), { nome: f.nome, items: [] });
             });
         }
 
-        // Organiza a lista nas respectivas caixas da Filial
         listaUsuarios.forEach(u => {
             const fKey = u.filial_id === null ? 'CENTRAL' : Number(u.filial_id);
             if (!filiaisMap.has(fKey)) {
-                // Fallback de segurança se o nome da filial não estiver no array global
                 const fallbackNome = (u.filiais && u.filiais.nome) ? u.filiais.nome : `Filial ID: ${fKey}`;
                 filiaisMap.set(fKey, { nome: fallbackNome, items: [] });
             }
@@ -208,11 +235,11 @@ window.renderizarUsuarios = async function() {
         let htmlFinal = '';
 
         filiaisMap.forEach((group, fKey) => {
-            if (group.items.length === 0) return; // Se não tem usuário, não mostra a filial
+            if (group.items.length === 0) return;
             
             htmlFinal += `
-                <tr style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
-                    <td colspan="5" style="padding: 15px 12px; font-weight: 700; color: #38bdf8; font-size: 1.1rem; letter-spacing: 0.5px; border-top: 20px solid transparent; background-clip: padding-box;">
+                <tr class="group-header" style="background: rgba(15, 23, 42, 0.9); border-bottom: 2px solid #3b82f6;">
+                    <td colspan="5" style="padding: 12px 20px; text-align: left; font-weight: 700; color: #38bdf8; font-size: 1rem; letter-spacing: 0.5px; border-top: 15px solid transparent; background-clip: padding-box;">
                         <i class="fas fa-building" style="margin-right: 8px;"></i> ${group.nome}
                     </td>
                 </tr>
@@ -229,56 +256,71 @@ window.renderizarUsuarios = async function() {
                 
                 let statusBadge = '';
                 if (!isAtivo) {
-                    statusBadge = `<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid #ef4444;">Inativo</span>`;
+                    statusBadge = `<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 5px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 500;">Inativo</span>`;
                 } else if (u.primeiro_acesso) {
-                    statusBadge = `<span style="background: rgba(251, 146, 60, 0.1); color: var(--ccol-rust-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-rust-bright);">Pendente (1º Acesso)</span>`;
+                    statusBadge = `<span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 5px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 500;">1º Acesso</span>`;
                 } else {
-                    statusBadge = `<span style="background: rgba(61, 220, 132, 0.1); color: var(--ccol-green-bright); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; border: 1px solid var(--ccol-green-bright);">Ativo</span>`;
+                    statusBadge = `<span style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 5px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 500;">Ativo</span>`;
                 }
                 
-                const filialNome = u.filial_id === null ? '<span style="color:#fde047; font-weight:bold;">Corporativo / Global</span>' : group.nome;
+                const filialNome = u.filial_id === null ? '<span style="color:#fde047; font-weight:500;">Corporativo</span>' : group.nome;
                 
                 const nomeDoCargo = (u.cargo_id && mapaCargos[u.cargo_id]) 
                     ? mapaCargos[u.cargo_id] 
-                    : (u.cargos ? u.cargos.nome : (u.role || 'Sem Cargo Definido'));
+                    : (u.cargos ? u.cargos.nome : (u.role || 'Sem Cargo'));
                 
                 let botoesAcao = '';
                 if (isLocked) {
                     botoesAcao = `
-                        <button disabled style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); padding: 5px 10px; border-radius: 4px; cursor: not-allowed; font-size: 0.75rem; margin-right: 5px;" title="Acesso bloqueado">🔒 Restrito</button>
+                        <button disabled style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.2); width: 32px; height: 32px; border-radius: 6px; cursor: not-allowed; font-size: 0.85rem;" title="Acesso bloqueado"><i class="fas fa-lock"></i></button>
                     `;
                 } else {
                     const btnStatus = isAtivo 
-                        ? `<button onclick="window.alternarStatusUsuario(${u.id}, 'Inativo')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Inativar Usuário">🚫 Inativar</button>`
-                        : `<button onclick="window.alternarStatusUsuario(${u.id}, 'Ativo')" style="background: rgba(61, 220, 132, 0.1); border: 1px solid #3ddc84; color: #3ddc84; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Reativar Usuário">✅ Ativar</button>`;
+                        ? `<button onclick="window.alternarStatusUsuario(${u.id}, 'Inativo')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;" title="Inativar Usuário" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'"><i class="fas fa-ban"></i></button>`
+                        : `<button onclick="window.alternarStatusUsuario(${u.id}, 'Ativo')" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;" title="Reativar Usuário" onmouseover="this.style.background='rgba(16, 185, 129, 0.2)'" onmouseout="this.style.background='rgba(16, 185, 129, 0.1)'"><i class="fas fa-check"></i></button>`;
 
                     botoesAcao = `
-                        <button onclick="window.abrirModalEdicaoUsuario(${u.id})" style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; color: #3b82f6; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-right: 5px;" title="Editar informações ou aplicar promoção">✏️ Editar</button>
-                        <button onclick="window.resetarSenhaUsuario(${u.id})" style="background: rgba(255,255,255,0.05); border: 1px solid #fde047; color: #fde047; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;" title="Voltar a senha para 12345">🔄 Resetar</button>
-                        ${btnStatus}
-                        <button onclick="window.excluirUsuario(${u.id})" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 5px;" title="Excluir Permanentemente">🗑️</button>
+                        <div style="display: flex; gap: 6px; justify-content: flex-end; padding-right: 20px;">
+                            <button onclick="window.abrirModalEdicaoUsuario(${u.id})" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: #3b82f6; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;" title="Editar informações do colaborador" onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'" onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'"><i class="fas fa-edit"></i></button>
+                            
+                            <button onclick="window.resetarSenhaUsuario(${u.id})" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;" title="Resetar senha para 12345" onmouseover="this.style.background='rgba(245, 158, 11, 0.2)'" onmouseout="this.style.background='rgba(245, 158, 11, 0.1)'"><i class="fas fa-key"></i></button>
+                            
+                            ${btnStatus}
+                            
+                            <button onclick="window.excluirUsuario(${u.id})" style="background: rgba(239, 68, 68, 0.05); border: 1px solid transparent; color: #ef4444; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; margin-left: 5px;" title="Excluir Permanentemente" onmouseover="this.style.background='rgba(239, 68, 68, 0.2)'; this.style.borderColor='rgba(239, 68, 68, 0.3)';" onmouseout="this.style.background='rgba(239, 68, 68, 0.05)'; this.style.borderColor='transparent';"><i class="fas fa-trash-alt"></i></button>
+                        </div>
                     `;
                 }
 
+                // A MÁGICA DO ALINHAMENTO ESTÁ NESTA PRIMEIRA <td>
                 htmlFinal += `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 12px; padding-left: 20px;">
-                        <div style="font-weight: bold; color: var(--ccol-blue-bright);">${u.nome_completo || 'Sem Nome Cadastrado'} ${isCurrent ? '(Você)' : ''}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-secondary);"><i class="fas fa-sign-in-alt"></i> ${u.username}</div>
+                <tr class="user-row" style="border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.2s;">
+                    <td style="padding: 12px 20px; text-align: left;">
+                        <div style="font-weight: 600; color: #f8fafc; font-size: 0.95rem; margin-bottom: 4px;">
+                            ${u.nome_completo || '<span style="color:#94a3b8;font-style:italic;">Sem Nome Cadastrado</span>'} 
+                            ${isCurrent ? '<span style="color:var(--ccol-blue-bright); font-size:0.75rem; margin-left:5px;">(Você)</span>' : ''}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--ccol-blue-bright); display: flex; align-items: center; justify-content: flex-start; gap: 5px;">
+                            <i class="fas fa-user-circle"></i> ${u.username}
+                        </div>
                     </td>
-                    <td><span class="badge-role" style="font-size: 0.75rem; background: #3b82f6;">${nomeDoCargo}</span></td>
-                    <td style="font-size: 0.8rem; color: #cbd5e1;">${filialNome}</td>
-                    <td>${statusBadge}</td>
-                    <td>${botoesAcao}</td>
+                    <td style="text-align: center;"><span style="font-size: 0.8rem; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.1);">${nomeDoCargo}</span></td>
+                    <td style="font-size: 0.8rem; color: #94a3b8; text-align: center;">${filialNome}</td>
+                    <td style="text-align: center;">${statusBadge}</td>
+                    <td style="text-align: right;">${botoesAcao}</td>
                 </tr>`;
             });
         });
 
         tbody.innerHTML = htmlFinal;
 
+        // Limpa a busca ao re-renderizar para evitar bugs visuais
+        const inputBusca = document.getElementById('buscaUsuario');
+        if (inputBusca) inputBusca.value = '';
+
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = '<tr><td colspan="5" style="color: #ef4444;">Erro ao carregar dados dos usuários.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #ef4444;">Erro ao carregar dados dos usuários.</td></tr>';
     }
 };
 
@@ -329,11 +371,9 @@ window.adicionarUsuario = async function() {
 
         await db.addUsuario(novoUsuarioObj);
         
-        // ---------- AUDITORIA: INSERINDO LOG DE CRIAÇÃO ----------
         if (typeof window.registrarLogAuditoria === 'function') {
             window.registrarLogAuditoria('Gestão de Usuários', 'Criação de Usuário', `Novo usuário de sistema cadastrado: ${nomeCompleto} (${nome}) (Permissão Base: ${systemRole})`);
         }
-        // --------------------------------------------------------
 
         document.getElementById('novoNomeCompleto').value = '';
         document.getElementById('novoUsername').value = '';
@@ -354,11 +394,9 @@ window.resetarSenhaUsuario = async function(id) {
     if(confirm(`Deseja resetar a senha deste usuário para "12345"? Ele precisará criar uma nova senha ao logar.`)) {
         await db.updateUsuarioSenhaEReset(id, "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5");
         
-        // ---------- AUDITORIA: INSERINDO LOG DE RESET ----------
         if (typeof window.registrarLogAuditoria === 'function') {
             window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Segurança', `Senha do usuário ${u.username} foi resetada para a senha padrão.`);
         }
-        // -------------------------------------------------------
 
         alert(`Senha resetada com sucesso.`); 
         window.renderizarUsuarios();
@@ -372,18 +410,14 @@ window.excluirUsuario = async function(id) {
     if(confirm(`🚨 ATENÇÃO: Deseja EXCLUIR permanentemente o acesso deste usuário e o desvincular do organograma?`)) {
         await db.deleteUsuario(id);
         
-        // ---------- AUDITORIA: INSERINDO LOG DE EXCLUSÃO ----------
         if (typeof window.registrarLogAuditoria === 'function') {
             window.registrarLogAuditoria('Gestão de Usuários', 'Exclusão de Usuário', `O usuário ${u.username} foi excluído permanentemente do sistema.`);
         }
-        // ---------------------------------------------------------
 
         alert('Usuário desvinculado e excluído com sucesso.'); 
         window.renderizarUsuarios();
     }
 };
-
-// ==================== LÓGICAS DO MODAL DE EDIÇÃO E PROMOÇÕES ====================
 
 window.abrirModalEdicaoUsuario = async function(id) {
     const u = listaUsuarios.find(user => user.id === id);
@@ -412,7 +446,6 @@ window.abrirModalEdicaoUsuario = async function(id) {
     } else {
         const fValue = window.currentUser.filial_id === null ? 'CENTRAL' : window.currentUser.filial_id;
         
-        // Busca o nome para não mostrar ID
         let nomeFilial = 'Minha Filial Base';
         if (u.filiais && u.filiais.nome) {
             nomeFilial = u.filiais.nome;
@@ -513,11 +546,9 @@ window.salvarEdicaoUsuario = async function() {
 
         if (error) throw error;
 
-        // ---------- AUDITORIA: INSERINDO LOG DE ATUALIZAÇÃO ----------
         if (typeof window.registrarLogAuditoria === 'function') {
             window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Usuário', `Dados e permissões atualizadas para o usuário: ${nomeCompleto} (${nome}) (Novo cargo: ${cargoNome})`);
         }
-        // -------------------------------------------------------------
 
         alert('✅ Cadastro do funcionário atualizado e readequado no organograma com sucesso!');
         window.fecharModalEdicaoUsuario();
@@ -538,11 +569,9 @@ window.alternarStatusUsuario = async function(id, novoStatus) {
         try {
             await db.updateUsuarioStatus(id, novoStatus);
             
-            // ---------- AUDITORIA: INSERINDO LOG DE STATUS ----------
             if (typeof window.registrarLogAuditoria === 'function') {
                 window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Segurança', `O status do usuário ${u.username} foi alterado para ${novoStatus}.`);
             }
-            // -------------------------------------------------------
 
             alert(`✅ Status do usuário alterado para ${novoStatus} com sucesso.`); 
             window.renderizarUsuarios();
