@@ -194,10 +194,16 @@ async function mapearFazendasUPs() {
 function configurarEventosEvolucao() {
     const btnFiltrar = document.getElementById('btnFiltrarEvolucao');
     if(btnFiltrar) btnFiltrar.addEventListener('click', processarFiltrosEExibirEvolucao);
+    
     const btnExcel = document.getElementById('btnExportarEvolucao');
     if(btnExcel) btnExcel.addEventListener('click', exportarExcelEvolucao);
+    
+    const btnExportarUPs = document.getElementById('btnExportarUPs');
+    if(btnExportarUPs) btnExportarUPs.addEventListener('click', exportarExcelUPs);
+
     const btnPNG = document.getElementById('btnExportarPNG');
     if(btnPNG) btnPNG.addEventListener('click', exportarTelaParaPNG);
+    
     const filtroFazenda = document.getElementById('filtroFazenda');
     if(filtroFazenda) {
         filtroFazenda.addEventListener('change', processarFiltrosEExibirEvolucao);
@@ -362,6 +368,7 @@ function calcularAgrupamentosERenderizar() {
     let totFaturamentoGlobal = 0;
     const agrupamentoDiario = {};
     const agrupamentoFazenda = {};
+    const agrupamentoUP = {};
     const agrupamentoNaoVinculadas = {}; 
     const agrupamentoCardsFazenda = {}; 
 
@@ -427,6 +434,38 @@ function calcularAgrupamentosERenderizar() {
         agrupamentoFazenda[chaveGrupo].faturamentoCarregamento += (isNossaGrua ? faturamentoCalcC : 0); 
         agrupamentoFazenda[chaveGrupo].scoreDMT += dmt;
 
+        // Agrupamento Detalhado por UP
+        if (codUp && codUp !== '' && codUp !== '-' && codUp !== 'NULL') {
+            if (!agrupamentoUP[codUp]) {
+                agrupamentoUP[codUp] = {
+                    up: codUp,
+                    fazenda: nomeDaFazenda,
+                    viagensTransp: 0,
+                    volumeTransp: 0,
+                    faturamentoTransp: 0,
+                    viagensCarreg: 0,
+                    volumeCarreg: 0,
+                    faturamentoCarreg: 0,
+                    somaAsfalto: 0,
+                    somaTerra: 0,
+                    somaDMT: 0
+                };
+            }
+            if (isSerrana) {
+                agrupamentoUP[codUp].viagensTransp += 1;
+                agrupamentoUP[codUp].volumeTransp += vol;
+                agrupamentoUP[codUp].faturamentoTransp += faturamentoCalcT;
+                agrupamentoUP[codUp].somaAsfalto += asfalto;
+                agrupamentoUP[codUp].somaTerra += terra;
+                agrupamentoUP[codUp].somaDMT += dmt;
+            }
+            if (isNossaGrua) {
+                agrupamentoUP[codUp].viagensCarreg += 1;
+                agrupamentoUP[codUp].volumeCarreg += vol;
+                agrupamentoUP[codUp].faturamentoCarreg += faturamentoCalcC;
+            }
+        }
+
         if (!agrupamentoCardsFazenda[nomeDaFazenda]) {
             agrupamentoCardsFazenda[nomeDaFazenda] = {
                 fazenda: nomeDaFazenda,
@@ -469,12 +508,14 @@ function calcularAgrupamentosERenderizar() {
     });
 
     const listaOrdenadaFazendas = Object.values(agrupamentoFazenda).sort((a,b) => b.volume - a.volume);
+    const listaOrdenadaUPs = Object.values(agrupamentoUP).filter(u => u.viagensTransp > 0 || u.viagensCarreg > 0).sort((a,b) => (b.volumeTransp + b.volumeCarreg) - (a.volumeTransp + a.volumeCarreg));
     const listaCardsFazendas = Object.values(agrupamentoCardsFazenda).sort((a,b) => b.faturamentoTotalNosso - a.faturamentoTotalNosso);
     const listaUPsNaoVinculadas = Object.values(agrupamentoNaoVinculadas).sort((a,b) => b.volume - a.volume);
 
     renderizarQuadroLadoALado(listaCardsFazendas, totFaturamentoGlobal, precoCarregamentoBase);
     renderizarGraficosEvolucao(agrupamentoDiario, listaOrdenadaFazendas);
     renderizarTabelaEvolucao(listaOrdenadaFazendas);
+    renderizarTabelaUPs(listaOrdenadaUPs, precoCarregamentoBase);
     renderizarUPsNaoVinculadas(listaUPsNaoVinculadas); 
 }
 
@@ -739,6 +780,40 @@ function renderizarTabelaEvolucao(dados) {
     });
 }
 
+function renderizarTabelaUPs(dados, precoCarregamentoBase) {
+    const tbody = document.getElementById('tbodyEvolucaoUPs');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    if(dados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center p-8 text-slate-500">Nenhum registro encontrado.</td></tr>`;
+        return;
+    }
+    dados.forEach(d => {
+        const asfaltoMedio = d.viagensTransp > 0 ? (d.somaAsfalto / d.viagensTransp) : 0;
+        const terraMedio = d.viagensTransp > 0 ? (d.somaTerra / d.viagensTransp) : 0;
+        const dmtMedio = d.viagensTransp > 0 ? (d.somaDMT / d.viagensTransp) : 0;
+        
+        const tarifaTransp = d.volumeTransp > 0 ? (d.faturamentoTransp / d.volumeTransp) : 0;
+        const tarifaCarreg = d.volumeCarreg > 0 ? (d.faturamentoCarreg / d.volumeCarreg) : 0;
+        const faturamentoTotal = d.faturamentoTransp + d.faturamentoCarreg;
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-700/30 transition-colors";
+        tr.innerHTML = `
+            <td class="px-6 py-3 text-white font-bold text-xs uppercase">${d.up}</td>
+            <td class="px-6 py-3 text-slate-300 text-xs uppercase">${d.fazenda}</td>
+            <td class="px-6 py-3 text-right text-sky-400 font-mono font-bold">${d.volumeTransp.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+            <td class="px-6 py-3 text-right text-slate-400 font-mono">R$ ${tarifaTransp.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td class="px-6 py-3 text-right text-emerald-400 font-mono font-bold">${d.volumeCarreg.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+            <td class="px-6 py-3 text-right text-slate-400 font-mono">R$ ${tarifaCarreg.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td class="px-6 py-3 text-right text-amber-600 font-mono">${asfaltoMedio.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} / ${terraMedio.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+            <td class="px-6 py-3 text-right text-amber-400 font-mono">${dmtMedio.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+            <td class="px-6 py-3 text-right text-sky-300 font-mono font-bold">R$ ${faturamentoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
 function renderizarUPsNaoVinculadas(ups) {
     const tbody = document.getElementById('tbodyUpsNaoVinculadas');
     if(!tbody) return;
@@ -833,5 +908,111 @@ function exportarExcelEvolucao() {
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelArr), "Evolucao_Fazendas");
-    XLSX.writeFile(wb, `Relatorio_Evolucao_Fazendas_${new Date().getTime()}.xlsx`);
+    XLSX.writeFile(wb, `Relatorio_Fazendas_e_Transportadoras_${new Date().getTime()}.xlsx`);
+}
+
+window.exportarExcelUPs = function() {
+    if(!dadosFiltradosEvolucao || dadosFiltradosEvolucao.length === 0) {
+        alert("Sem dados para exportar."); return;
+    }
+    if (typeof XLSX === 'undefined') {
+        alert("Biblioteca XLSX não disponível."); return;
+    }
+
+    let precoCarregamentoBase = 0;
+    if (tarifadorAtivoGlobalEvolucao && tarifadorAtivoGlobalEvolucao.preco_carregamento) {
+        precoCarregamentoBase = parseFloat(tarifadorAtivoGlobalEvolucao.preco_carregamento) || 0;
+    }
+
+    const objUPs = {};
+    dadosFiltradosEvolucao.forEach(r => {
+        const codUp = String(getCampo(r, ['up'])).trim().toUpperCase();
+        if (!codUp || codUp === '-' || codUp === 'NULL') return;
+
+        const transpAgrupada = classificarTransportadora(getCampo(r, ['transportadora', 'transportador', 'empresa_transporte']));
+        const isSerrana = transpAgrupada === 'SERRANALOG TRANSPORTES LTDA';
+        const isNossaGrua = isGruaSerrana(getCampo(r, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']));
+
+        let nomeDaFazenda = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "NÃO VINCULADA";
+        
+        const vol = toNumber(getCampo(r, ['volumeReal', 'pesoLiquido']));
+        const asfalto = toNumber(getCampo(r, ['distanciaAsfalto']));
+        const terra = toNumber(getCampo(r, ['distanciaTerra']));
+        const dmt = asfalto + terra;
+
+        let tarifaCalcT = 0;
+        let faturamentoCalcT = 0;
+        if (isSerrana && tarifadorAtivoGlobalEvolucao) {
+            tarifaCalcT = calcularTarifaTransporteEvolucao(asfalto, terra);
+            faturamentoCalcT = tarifaCalcT * vol;
+        } else if (isSerrana) {
+            tarifaCalcT = toNumber(getCampo(r, ['tarifa', 'valorTarifa', 'valortarifa', 'preco', 'valor_tarifa', 'tarifaAplicada']));
+            faturamentoCalcT = toNumber(getCampo(r, ['valorFaturado', 'valorfaturado', 'faturamento', 'receita', 'valorTotal', 'valortotal', 'valor_faturado']));
+            if (faturamentoCalcT === 0 && tarifaCalcT > 0 && vol > 0) faturamentoCalcT = tarifaCalcT * vol;
+        }
+
+        let tarifaCalcC = isNossaGrua ? precoCarregamentoBase : 0;
+        let faturamentoCalcC = isNossaGrua ? (vol * tarifaCalcC) : 0;
+
+        if (!objUPs[codUp]) {
+            objUPs[codUp] = {
+                UP: codUp,
+                Fazenda: nomeDaFazenda,
+                ViagensTransp: 0,
+                VolumeTransp: 0,
+                FaturamentoTransp: 0,
+                ViagensCarreg: 0,
+                VolumeCarreg: 0,
+                FaturamentoCarreg: 0,
+                SomaAsfalto: 0,
+                SomaTerra: 0,
+                SomaDMT: 0
+            };
+        }
+
+        if (isSerrana) {
+            objUPs[codUp].ViagensTransp += 1;
+            objUPs[codUp].VolumeTransp += vol;
+            objUPs[codUp].FaturamentoTransp += faturamentoCalcT;
+            objUPs[codUp].SomaAsfalto += asfalto;
+            objUPs[codUp].SomaTerra += terra;
+            objUPs[codUp].SomaDMT += dmt;
+        }
+        if (isNossaGrua) {
+            objUPs[codUp].ViagensCarreg += 1;
+            objUPs[codUp].VolumeCarreg += vol;
+            objUPs[codUp].FaturamentoCarreg += faturamentoCalcC;
+        }
+    });
+
+    const excelArr = Object.values(objUPs)
+        .filter(u => u.ViagensTransp > 0 || u.ViagensCarreg > 0)
+        .map(i => {
+            const dmtMedio = i.ViagensTransp > 0 ? (i.SomaDMT / i.ViagensTransp) : 0;
+            const asfaltoMedio = i.ViagensTransp > 0 ? (i.SomaAsfalto / i.ViagensTransp) : 0;
+            const terraMedio = i.ViagensTransp > 0 ? (i.SomaTerra / i.ViagensTransp) : 0;
+            const tarifaTransp = i.VolumeTransp > 0 ? (i.FaturamentoTransp / i.VolumeTransp) : 0;
+            const tarifaCarreg = i.VolumeCarreg > 0 ? (i.FaturamentoCarreg / i.VolumeCarreg) : 0;
+            
+            return {
+                "UP": i.UP,
+                "Fazenda Vinculada": i.Fazenda,
+                "Nº Viagens (Transporte)": i.ViagensTransp,
+                "Volume Transportado (m³)": parseFloat(i.VolumeTransp.toFixed(2)),
+                "Tarifa Média Transporte (R$/m³)": parseFloat(tarifaTransp.toFixed(2)),
+                "Faturamento Transporte (R$)": parseFloat(i.FaturamentoTransp.toFixed(2)),
+                "Nº Viagens (Carregamento)": i.ViagensCarreg,
+                "Volume Carregado (m³)": parseFloat(i.VolumeCarreg.toFixed(2)),
+                "Tarifa Carregamento (R$/m³)": parseFloat(tarifaCarreg.toFixed(2)),
+                "Faturamento Carregamento (R$)": parseFloat(i.FaturamentoCarreg.toFixed(2)),
+                "Distância Asfalto (km)": parseFloat(asfaltoMedio.toFixed(1)),
+                "Distância Terra (km)": parseFloat(terraMedio.toFixed(1)),
+                "DMT Médio (km)": parseFloat(dmtMedio.toFixed(1)),
+                "Faturamento Total (R$)": parseFloat((i.FaturamentoTransp + i.FaturamentoCarreg).toFixed(2))
+            };
+        });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(excelArr), "Relatorio_UPs");
+    XLSX.writeFile(wb, `Relatorio_Analitico_UPs_${new Date().getTime()}.xlsx`);
 }
