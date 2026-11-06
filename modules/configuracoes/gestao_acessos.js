@@ -9,16 +9,15 @@ window.isUsuarioGlobalAcessos = function() {
 window.mudarFilialContexto = async function() {
     const selectFilialContexto = document.getElementById('selectFilialContextoPermissao');
     if (!selectFilialContexto || !selectFilialContexto.value) return;
-
     window.filialContextoPermissao = selectFilialContexto.value;
-
+    
     // Habilita os selects de cargo e usuário após a escolha
     document.getElementById('selectPerfilPermissao').disabled = false;
     document.getElementById('selectUsuarioPermissao').disabled = false;
-
+    
     // Limpa a matriz visual para não exibir permissões antigas
     document.getElementById('container-permissoes-menus').innerHTML = '';
-
+    
     // Recarrega as listas baseado na nova filial selecionada
     await window.carregarPerfisPermissao();
     await window.carregarSelectUsuariosPermissoes();
@@ -27,7 +26,7 @@ window.mudarFilialContexto = async function() {
 
 window.carregarPerfisPermissao = async function() {
     const selectPerfil = document.getElementById('selectPerfilPermissao');
-    if (!selectPerfil) return; 
+    if (!selectPerfil) return;
 
     let filialId = window.filialContextoPermissao;
     if (filialId === undefined) {
@@ -51,6 +50,7 @@ window.carregarPerfisPermissao = async function() {
         if (error) throw error;
 
         let options = '<option value="" disabled selected>-- Selecione o Cargo --</option>';
+
         if (data && data.length > 0) {
             const cargosAgrupados = {};
             data.forEach(cargo => {
@@ -67,6 +67,7 @@ window.carregarPerfisPermissao = async function() {
         } else {
             options = '<option value="" disabled selected>Nenhum Cargo Encontrado nesta Filial</option>';
         }
+
         selectPerfil.innerHTML = options;
         
     } catch (error) {
@@ -130,6 +131,7 @@ window.carregarSelectUsuariosPermissoes = async function() {
         } else {
             options = '<option value="" disabled selected>Nenhum usuário encontrado</option>';
         }
+
         selectUser.innerHTML = options;
     } catch (e) {
         console.error("Erro ao carregar usuários:", e);
@@ -145,12 +147,11 @@ window.carregarCheckboxesPermissoes = async function() {
 
     const isSuperOuMatriz4 = (window.currentUser && (window.isUsuarioGlobalAcessos() || window.currentUser.filial_id == 4));
 
-    // 1. INICIALIZAÇÃO DINÂMICA: Intercepta o primeiro carregamento feito pelo menu.js
-    // CORREÇÃO: Utilizando dataset.inicializado para evitar o loop infinito no onChange do Select
+    // INICIALIZAÇÃO DINÂMICA
     if (containerFilial && selectFilialContexto && !selectFilialContexto.dataset.inicializado) {
         
-        selectFilialContexto.dataset.inicializado = "true"; // Evita que esse bloco rode 2 vezes e resete o select
-        
+        selectFilialContexto.dataset.inicializado = "true"; // Evita loop no onChange do Select
+
         if (isSuperOuMatriz4) {
             containerFilial.style.display = 'block';
             try {
@@ -163,14 +164,12 @@ window.carregarCheckboxesPermissoes = async function() {
                 selectFilialContexto.innerHTML = options;
             } catch (e) { console.error("Erro ao carregar filiais:", e); }
             
-            // Exibe aviso para forçar a escolha da filial
             document.getElementById('container-permissoes-menus').innerHTML = `
                 <div style="grid-column: 1 / -1; background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); padding: 15px 20px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
                     <i class="fas fa-info-circle"></i> <strong>Selecione uma filial no topo da tela para configurar os acessos.</strong>
                 </div>`;
-            return; // Pausa a renderização até a filial ser selecionada
+            return; 
         } else {
-            // Usuário comum (ID normal não 4): define o contexto e carrega direto
             containerFilial.style.display = 'none';
             window.filialContextoPermissao = window.currentUser.filial_id === null ? 'CENTRAL' : window.currentUser.filial_id;
             if(selectPerfil) selectPerfil.disabled = false;
@@ -181,12 +180,10 @@ window.carregarCheckboxesPermissoes = async function() {
         }
     }
 
-    // 2. Impede continuar se for Admin ou Filial 4 e ainda não tiver selecionado
     if (isSuperOuMatriz4 && (!selectFilialContexto || !selectFilialContexto.value)) {
         return;
     }
 
-    // 3. Renderização normal das caixinhas
     const container = document.getElementById('container-permissoes-menus');
     if (!container || !window.MAPA_MENUS) return;
 
@@ -242,8 +239,8 @@ window.carregarCheckboxesPermissoes = async function() {
     }
 
     const isSuperAdmin = window.isUsuarioGlobalAcessos();
-    let html = '';
 
+    let html = '';
     if (!alvo) {
         html += `
         <div style="grid-column: 1 / -1; background: rgba(59, 130, 246, 0.1); color: var(--ccol-blue-bright); padding: 15px 20px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3); margin-bottom: 10px; display: flex; align-items: center; gap: 15px;">
@@ -328,12 +325,27 @@ window.salvarPermissoes = async function() {
 
         if (typeof db.updatePermissoesDB === 'function') {
             if (tipo === 'perfil') {
+                const selectPerfil = document.getElementById('selectPerfilPermissao');
+                const cargoOption = selectPerfil.options[selectPerfil.selectedIndex];
+                const roleString = cargoOption.getAttribute('data-role');
+                
                 const idsParaAtualizar = alvo.split(',');
                 for (const id of idsParaAtualizar) {
                     await db.updatePermissoesDB(id, novasPermissoes);
+                    // Atualiza o cache global da matriz em memória para entrar em vigor instântaneamente
+                    if (window.permissoesGlobais) window.permissoesGlobais[id] = novasPermissoes;
                 }
+                
+                // Fallback Corretivo: Para usuários criados antes da implementação dos IDs de cargo
+                if (roleString) {
+                    await db.updatePermissoesDB(roleString, novasPermissoes);
+                    if (window.permissoesGlobais) window.permissoesGlobais[roleString] = novasPermissoes;
+                }
+
             } else {
                 await db.updatePermissoesDB(alvo, novasPermissoes);
+                // Atualiza o cache global
+                if (window.permissoesGlobais) window.permissoesGlobais[alvo] = novasPermissoes;
             }
         } else {
             alert("A função db.updatePermissoesDB não foi encontrada no database.js.");
@@ -345,7 +357,6 @@ window.salvarPermissoes = async function() {
         if (typeof window.renderizarMenu === 'function') {
             window.renderizarMenu();
         }
-
     } catch (error) {
         console.error("Erro ao salvar permissões:", error);
         alert("❌ Ocorreu um erro ao tentar salvar as permissões.");
