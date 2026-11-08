@@ -1,5 +1,5 @@
 // ==========================================
-// js/producao-frota.js - PRODUÇÃO E FATURAMENTO COM METAS E FILTROS COMPLETOS
+// js/producao-frota.js - PRODUÇÃO E FATURAMENTO (ZERO LAG NAS TROCAS DE FILTRO)
 // ==========================================
 if(typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
     Chart.register(ChartDataLabels);
@@ -31,6 +31,13 @@ var diaCorte2 = 20;
 const TOLERANCIA_ASFALTO_KM = 2.0; 
 const TOLERANCIA_TERRA_KM = 2.0; 
 
+// Caches de Alta Performance em Memória
+const dateCache = new Map();
+const tarifaCache = new Map();
+var cacheJanelaMin = null;
+var cacheJanelaMax = null;
+var cacheFilialId = undefined;
+
 function getSupabaseClient() {
     if (typeof window.supabaseClient !== 'undefined') return window.supabaseClient;
     if (typeof window.db !== 'undefined' && typeof window.db.from === 'function') return window.db; 
@@ -42,6 +49,9 @@ function getSupabaseClient() {
 
 function getCampo(obj, possiveisNomes) {
     if (!obj) return '';
+    for (let nome of possiveisNomes) {
+        if (obj[nome] !== undefined && obj[nome] !== null && obj[nome] !== '') return obj[nome];
+    }
     const chavesReais = Object.keys(obj);
     for (let nomeProcurado of possiveisNomes) {
         const chaveEncontrada = chavesReais.find(k => k.toLowerCase() === nomeProcurado.toLowerCase());
@@ -54,7 +64,7 @@ function getCampo(obj, possiveisNomes) {
 
 function toNumber(val) {
     if (val === null || val === undefined || val === '') return 0;
-    if (typeof val === 'number') return val;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
     let strLimpa = String(val).replace('R$', '').trim().replace(',', '.');
     let num = parseFloat(strLimpa);
     return isNaN(num) ? 0 : num;
@@ -62,7 +72,7 @@ function toNumber(val) {
 
 function getInfoGruaSerrana(gruaString) {
     let g = String(gruaString || '').trim().toUpperCase().replace(/[-\s]/g, '');
-    if (!g || g === 'NULL') return null;
+    if (!g || g === 'NULL' || g === '-') return null;
          
     if (gruasPropriasCache.has(g)) {
         return gruasPropriasCache.get(g);
@@ -87,26 +97,81 @@ function formatarDataChave(dateObj) {
 
 function converterDataString(dataStr) {
     if (!dataStr) return new Date(0);
+    const info = getFastDateInfo(dataStr);
+    return info.ts > 0 ? new Date(info.ts) : new Date(NaN);
+}
+
+function getFastDateInfo(dataStr) {
+    if (!dataStr) return { ts: 0, key: '' };
+    if (dateCache.has(dataStr)) return dateCache.get(dataStr);
+    
+    let time = 0;
+    let key = '';
     try {
-        if (typeof dataStr === 'string' && dataStr.includes('/')) {
-            const p = dataStr.split('/');
-            if (p.length === 3) return new Date(p[2], parseInt(p[1]) - 1, p[0]);
+        const str = String(dataStr).trim();
+        if (str.includes('/')) {
+            const p = str.split(' ')[0].split('/');
+            if (p.length === 3) {
+                let y = parseInt(p[2], 10);
+                if (y < 100) y += 2000;
+                let m = parseInt(p[1], 10);
+                let d = parseInt(p[0], 10);
+                time = new Date(y, m - 1, d).getTime();
+                key = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            }
+        } else if (str.includes('-')) {
+            const p2 = str.split('T')[0].split(' ')[0].split('-');
+            if (p2.length >= 3) {
+                let y = parseInt(p2[0], 10) > 1000 ? parseInt(p2[0], 10) : parseInt(p2[2], 10);
+                let m = parseInt(p2[1], 10);
+                let d = parseInt(p2[0], 10) > 1000 ? parseInt(p2[2].substring(0, 2), 10) : parseInt(p2[0], 10);
+                if (y < 100) y += 2000;
+                time = new Date(y, m - 1, d).getTime();
+                key = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            }
+        } else {
+            const dt = new Date(str);
+            time = dt.getTime();
+            if (!isNaN(time)) key = formatarDataChave(dt);
         }
-        if (typeof dataStr === 'string' && dataStr.includes('-')) {
-            const p2 = dataStr.split('-');
-            if (p2.length >= 3) return new Date(p2[0], parseInt(p2[1]) - 1, p2[2].substring(0,2));
-        }
-        return new Date(dataStr);
-    } catch(e) {
-        return new Date(NaN);
+    } catch (e) {
+        time = 0;
     }
+    
+    if (isNaN(time)) {
+        time = 0;
+        key = '';
+    }
+    const result = { ts: time, key: key };
+    dateCache.set(dataStr, result);
+    return result;
+}
+
+function getFastTime(dataStr) {
+    return getFastDateInfo(dataStr).ts;
+}
+
+// Reutiliza a instância do ECharts se o elemento DOM for o mesmo (Evita travamento de dispose/init)
+function obterInstanciaECharts(domElement, instanciaAtual) {
+    if (!domElement) return null;
+    if (instanciaAtual && instanciaAtual.getDom() === domElement && !instanciaAtual.isDisposed()) {
+        return instanciaAtual;
+    }
+    if (instanciaAtual && !instanciaAtual.isDisposed()) {
+        instanciaAtual.dispose();
+    }
+    return echarts.init(domElement);
 }
 
 window.initProducaoFrota = async function() {
-    console.log("[PRODUCAO] Módulo iniciado.");
-         
+    console.log("[PRODUCAO] Módulo iniciado (Modo Zero-Lag).");
+    
     const overlay = document.getElementById('loadingOverlay');
-    if (overlay) overlay.classList.remove('hidden');
+    if (overlay) overlay.classList.add('hidden');
+    
+    cacheJanelaMin = null;
+    cacheJanelaMax = null;
+    tarifaCache.clear();
     
     configurarEventos();
          
@@ -117,12 +182,11 @@ window.initProducaoFrota = async function() {
     ]);
     
     popularDropdownQuinzenas();
-         
-    buscarTodosDadosSupabase();
+    await buscarTodosDadosSupabase();
 
     function configurarEventos() {
         const btnFiltros = document.getElementById('btnAplicarFiltros');
-        if(btnFiltros) btnFiltros.addEventListener('click', processarFiltrosEExibir);
+        if(btnFiltros) btnFiltros.addEventListener('click', () => agendarProcessamento(false));
                  
         const btnExcel = document.getElementById('btnExportarExcel');
         if(btnExcel) btnExcel.addEventListener('click', exportarParaExcel);
@@ -130,12 +194,17 @@ window.initProducaoFrota = async function() {
         const btnResProd = document.getElementById('btnExportarResumoProd');
         if(btnResProd) btnResProd.addEventListener('click', exportarResumoDiarioExcel);
         
+        const selectTransp = document.getElementById('filtroTransportadora');
+        if(selectTransp) {
+            selectTransp.addEventListener('change', () => agendarProcessamento(false));
+        }
+
         const selectPeriodo = document.getElementById('filtroPeriodoQuinzenal');
         if(selectPeriodo) {
             selectPeriodo.addEventListener('change', (e) => {
                 if (e.target.value !== "") {
                     aplicarDatasNosInputs(e.target.value);
-                    processarFiltrosEExibir();
+                    agendarProcessamento(false);
                 }
             });
         }
@@ -154,6 +223,17 @@ window.initProducaoFrota = async function() {
             if (chartVolumesObj) chartVolumesObj.resize();
             if (chart7DiasObj) chart7DiasObj.resize(); 
          });
+    }
+
+    // Deixa o navegador fechar o dropdown/calendário suavemente antes de atualizar a tela
+    function agendarProcessamento(forcarRecarga) {
+        const tStatus = document.getElementById('tabelaStatus');
+        if (tStatus) tStatus.innerText = "Atualizando...";
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                processarFiltrosEExibir(forcarRecarga);
+            }, 10);
+        });
     }
 
     function popularDropdownQuinzenas() {
@@ -195,8 +275,8 @@ window.initProducaoFrota = async function() {
         Array.from(select.options).forEach(opt => {
             if(!opt.value) return;
             let [inicio, fim] = opt.value.split('|');
-            let tInicio = converterDataString(inicio).getTime();
-            let dFim = new Date(converterDataString(fim).getTime());
+            let tInicio = getFastTime(inicio);
+            let dFim = new Date(getFastTime(fim));
             dFim.setHours(23, 59, 59, 999); 
             
             if(hoje.getTime() >= tInicio && hoje.getTime() <= dFim.getTime() && !opt.text.includes("MÊS COMPLETO")) {
@@ -233,7 +313,7 @@ window.initProducaoFrota = async function() {
             const filialAtual = (typeof currentUser !== 'undefined' && currentUser.filial_id) ? currentUser.filial_id : 'CENTRAL';
                          
             if (client) {
-                const { data, error } = await client
+                const { data } = await client
                     .from('metas_gerenciais')
                     .select('*')
                     .eq('filial_id', filialAtual)
@@ -276,6 +356,7 @@ window.initProducaoFrota = async function() {
                          
             if (data && data.length > 0) {
                 tarifadorAtivoGlobal = data[0];
+                tarifaCache.clear();
                 const precoCarreg = parseFloat(tarifadorAtivoGlobal.preco_carregamento) || 0;
                                  
                 if(displayNome) displayNome.innerText = `${tarifadorAtivoGlobal.nome} (Carregamento: R$ ${precoCarreg.toFixed(2)})`;
@@ -285,6 +366,7 @@ window.initProducaoFrota = async function() {
                 }
             } else {
                 tarifadorAtivoGlobal = null;
+                tarifaCache.clear();
                 if(displayNome) displayNome.innerText = "Nenhum Tarifador Ativo";
                 if(badge) {
                     badge.classList.remove('bg-indigo-600/20', 'text-indigo-400', 'border-indigo-500/50', 'bg-emerald-600/20', 'text-emerald-400', 'border-emerald-500/50');
@@ -298,20 +380,20 @@ window.initProducaoFrota = async function() {
 
     async function mapearFazendasUPs() {
         const client = getSupabaseClient();
-        const tStatus = document.getElementById('tabelaStatus');
         if(!client) return;
-        if(tStatus) tStatus.innerText = "Sincronizando UPs e Fazendas...";
         dicionarioUpFazenda = {}; 
 
         try {
-            const { data: tbFazendas } = await client.from('monitoramento_fazendas').select('id, nome');
+            const [resFaz, resUps] = await Promise.all([
+                client.from('monitoramento_fazendas').select('id, nome'),
+                client.from('monitoramento_ups').select('codigo, fazenda_id')
+            ]);
             const mapFaz = {};
-            if (tbFazendas) {
-                tbFazendas.forEach(f => mapFaz[f.id] = f.nome);
+            if (resFaz.data) {
+                resFaz.data.forEach(f => mapFaz[f.id] = f.nome);
             }
-            const { data: tbUps } = await client.from('monitoramento_ups').select('codigo, fazenda_id');
-            if (tbUps) {
-                tbUps.forEach(u => {
+            if (resUps.data) {
+                resUps.data.forEach(u => {
                     const codUp = String(u.codigo).trim().toUpperCase();
                     if (u.fazenda_id && mapFaz[u.fazenda_id]) {
                         dicionarioUpFazenda[codUp] = mapFaz[u.fazenda_id];
@@ -329,13 +411,10 @@ window.initProducaoFrota = async function() {
                  
         if (!client) {
             if(tStatus) tStatus.innerText = "Erro de conexão com o banco.";
-            const overlay = document.getElementById('loadingOverlay');
-            if (overlay) overlay.classList.add('hidden');
             return;
         }
                  
         try {
-            if(tStatus) tStatus.innerText = "Baixando configurações de Gruas...";
             const { data: gruasData } = await client.from('config_gruas').select('codigos, tipo_frente, ordem, frente');
                          
             gruasPropriasCache = new Map();
@@ -357,14 +436,11 @@ window.initProducaoFrota = async function() {
                 });
             }
                          
-            popularDropdownTransportadoras(); 
-            processarFiltrosEExibir();
+            await processarFiltrosEExibir(true);
                      
         } catch (e) {
             console.error("[PRODUCAO] Erro global na busca:", e);
             if(tStatus) tStatus.innerText = "Erro ao carregar dados.";
-            const overlay = document.getElementById('loadingOverlay');
-            if (overlay) overlay.classList.add('hidden');
         }
     }
 
@@ -375,8 +451,8 @@ window.initProducaoFrota = async function() {
                          
             const transpSet = new Set();
             dados.forEach(d => {
-                const tName = getCampo(d, ['transportadora', 'transportador', 'empresa_transporte']);
-                if (tName) transpSet.add(tName.trim().toUpperCase());
+                const tName = d.transportadora;
+                if (tName && tName !== '-' && tName !== 'N/A') transpSet.add(tName);
             });
                          
             const currentVal = select.value;
@@ -390,14 +466,19 @@ window.initProducaoFrota = async function() {
         } catch(e) {}
     }
 
+    // Cálculo de tarifa com Memoization (Não recalcula a mesma distância duas vezes)
     function calcularTarifaTransporte(asfalto, terra) {
         if (!tarifadorAtivoGlobal || !tarifadorAtivoGlobal.dados) return 0;
-        let asfaltoVal = parseFloat(String(asfalto).replace(',','.')) || 0;
-        let terraVal = parseFloat(String(terra).replace(',','.')) || 0;
+        const chaveCache = `${asfalto}_${terra}`;
+        if (tarifaCache.has(chaveCache)) return tarifaCache.get(chaveCache);
+
+        let asfaltoVal = typeof asfalto === 'number' ? asfalto : (parseFloat(String(asfalto).replace(',','.')) || 0);
+        let terraVal = typeof terra === 'number' ? terra : (parseFloat(String(terra).replace(',','.')) || 0);
         const dadosMatriz = tarifadorAtivoGlobal.dados;
         
         if (dadosMatriz.length === 0) return 0;
 
+        let resultado = 0;
         if (dadosMatriz[0].is_raio || dadosMatriz[0].raio_inicial !== undefined) {
             let distanciaTotal = asfaltoVal + terraVal;
             let distArredondada = Math.round(distanciaTotal * 100) / 100;
@@ -409,336 +490,424 @@ window.initProducaoFrota = async function() {
                 faixa = ordenados.find(t => t.raio_final >= distArredondada);
                 if(!faixa) faixa = ordenados[ordenados.length - 1]; 
             }
-            return faixa ? parseFloat(faixa.tarifa) : 0;
+            resultado = faixa ? parseFloat(faixa.tarifa) : 0;
+        } else {
+            const exato = dadosMatriz.find(t => Math.abs(t.asfalto - asfaltoVal) < 0.001 && Math.abs(t.terra - terraVal) < 0.001);
+            if (exato) {
+                resultado = exato.tarifa;
+            } else {
+                let maisProximo = null;
+                let menorDistancia = Infinity;
+                         
+                for (let i = 0; i < dadosMatriz.length; i++) {
+                    const t = dadosMatriz[i];
+                    const da = t.asfalto - asfaltoVal;
+                    const dt = t.terra - terraVal;
+                    const distSq = (da * da) + (dt * dt);
+                    if (distSq < menorDistancia) {
+                        menorDistancia = distSq;
+                        maisProximo = t;
+                    }
+                }
+                resultado = maisProximo ? maisProximo.tarifa : 0;
+            }
         }
 
-        const exato = dadosMatriz.find(t => Math.abs(t.asfalto - asfaltoVal) < 0.001 && Math.abs(t.terra - terraVal) < 0.001);
-        if (exato) return exato.tarifa;
-                 
-        let maisProximo = null;
-        let menorDistancia = Infinity;
-                 
-        dadosMatriz.forEach(t => {
-            const distancia = Math.sqrt(Math.pow(t.asfalto - asfaltoVal, 2) + Math.pow(t.terra - terraVal, 2));
-            if (distancia < menorDistancia) {
-                menorDistancia = distancia;
-                maisProximo = t;
-            }
-        });
-        return maisProximo ? maisProximo.tarifa : 0;
+        tarifaCache.set(chaveCache, resultado);
+        return resultado;
     }
 
-    function processarFiltrosEExibir() {
-        const overlay = document.getElementById('loadingOverlay');
-        if (overlay) overlay.classList.remove('hidden');
+    async function carregarDadosDoServidor(minTime, maxTime) {
+        const client = getSupabaseClient();
+        const filialQuery = (window.currentUser && window.currentUser.filial_id !== undefined && window.currentUser.filial_id !== null) 
+                            ? parseInt(window.currentUser.filial_id, 10) 
+                            : null;
+
+        // Se o período selecionado já está dentro da janela em cache na RAM, retorna em 0ms sem ir na rede!
+        if (
+            dadosHistoricoGlobal.length > 0 &&
+            cacheFilialId === filialQuery &&
+            cacheJanelaMin !== null &&
+            cacheJanelaMax !== null &&
+            minTime >= cacheJanelaMin &&
+            maxTime <= cacheJanelaMax
+        ) {
+            return;
+        }
+
+        // Pré-carrega 400 dias (mais de 1 ano inteiro) no pacote JSON compacto!
+        // Assim, qualquer troca de quinzena/mês que o usuário fizer depois será 100% em memória local (0ms de rede).
+        let janelaMinDate = new Date(minTime);
+        janelaMinDate.setDate(janelaMinDate.getDate() - 400);
+        let janelaMaxDate = new Date(maxTime);
+        janelaMaxDate.setDate(janelaMaxDate.getDate() + 15);
+
+        let strMinISO = janelaMinDate.toISOString().split('T')[0] + 'T00:00:00';
+        let strMaxISO = janelaMaxDate.toISOString().split('T')[0] + 'T23:59:59';
+
+        const { data: rpcJson, error: rpcErr } = await client.rpc('get_producao_agrupada_json', {
+            p_filial_id: filialQuery,
+            p_data_inicio: strMinISO,
+            p_data_fim: strMaxISO
+        });
+
+        if (!rpcErr && Array.isArray(rpcJson)) {
+            dadosHistoricoGlobal = rpcJson.map(r => {
+                const dInfo = getFastDateInfo(r.d);
+                const tr = (r.tr || 'N/A').trim().toUpperCase();
+                const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG') || tr.includes('SERRANA');
+                const infoGrua = getInfoGruaSerrana(r.g);
+                return {
+                    dataViagem: r.d,
+                    _ts: dInfo.ts,
+                    _keyData: dInfo.key,
+                    placa: (r.p || 'N/A').trim().toUpperCase(),
+                    transportadora: tr,
+                    _isSerrana: isSerrana,
+                    grua: r.g,
+                    _infoGrua: infoGrua,
+                    _isNossaGrua: !!infoGrua,
+                    distanciaAsfalto: toNumber(r.a),
+                    distanciaTerra: toNumber(r.te),
+                    up: (r.u || '').trim().toUpperCase(),
+                    qtdViagens: parseInt(r.q, 10) || 1,
+                    volumeReal: toNumber(r.v),
+                    valor_cte: toNumber(r.c)
+                };
+            });
+
+            cacheJanelaMin = janelaMinDate.getTime();
+            cacheJanelaMax = janelaMaxDate.getTime();
+            cacheFilialId = filialQuery;
+            popularDropdownTransportadoras(dadosHistoricoGlobal);
+            return;
+        }
+
+        console.warn("[PRODUCAO] RPC não encontrada ou falhou, usando fallback:", rpcErr?.message);
         
-        setTimeout(async () => {
-            try {
-                const tStatus = document.getElementById('tabelaStatus');
-                if(tStatus) tStatus.innerText = "Iniciando processamento...";
-                                 
-                const elFiltroTransp = document.getElementById('filtroTransportadora');
-                const filtroTransp = elFiltroTransp ? elFiltroTransp.value : '';
-                                 
-                const strInicioTransp = document.getElementById('dataInicioTransp')?.value || '';
-                const strFimTransp = document.getElementById('dataFimTransp')?.value || '';
-                const strInicioCarreg = document.getElementById('dataInicioCarreg')?.value || '';
-                const strFimCarreg = document.getElementById('dataFimCarreg')?.value || '';
-                
-                if (!strInicioTransp || !strFimTransp || !strInicioCarreg || !strFimCarreg) {
-                    mostrarAlerta("Selecione períodos válidos para Transporte e Carregamento nas datas.", "error");
-                    if (overlay) overlay.classList.add('hidden');
-                    return;
-                }
-                                 
-                let timeInicioTransp = new Date(strInicioTransp.split('-')[0], parseInt(strInicioTransp.split('-')[1]) - 1, strInicioTransp.split('-')[2]).getTime();
-                let timeFimTransp = new Date(strFimTransp.split('-')[0], parseInt(strFimTransp.split('-')[1]) - 1, strFimTransp.split('-')[2], 23, 59, 59).getTime();
-                let timeInicioCarreg = new Date(strInicioCarreg.split('-')[0], parseInt(strInicioCarreg.split('-')[1]) - 1, strInicioCarreg.split('-')[2]).getTime();
-                let timeFimCarreg = new Date(strFimCarreg.split('-')[0], parseInt(strFimCarreg.split('-')[1]) - 1, strFimCarreg.split('-')[2], 23, 59, 59).getTime();
-                                 
-                let minTime = Math.min(timeInicioTransp, timeInicioCarreg);
-                let maxTime = Math.max(timeFimTransp, timeFimCarreg);
-                let dataHoje = new Date();
-                let timeSeteDiasAtras = new Date(dataHoje.getFullYear(), dataHoje.getMonth(), dataHoje.getDate() - 7).getTime();
-                minTime = Math.min(minTime, timeSeteDiasAtras);
-                maxTime = Math.max(maxTime, dataHoje.getTime());
-                
-                let minDateObj = new Date(minTime);
-                minDateObj.setDate(minDateObj.getDate() - 15); 
-                let strMin = minDateObj.toISOString().split('T')[0] + 'T00:00:00';
-                let maxDateObj = new Date(maxTime);
-                maxDateObj.setDate(maxDateObj.getDate() + 5);
-                let strMax = maxDateObj.toISOString().split('T')[0] + 'T23:59:59';
-                
-                const client = getSupabaseClient();
-                
-                if(tStatus) tStatus.innerText = "Contando registros...";
-                let queryCount = client.from('historico_viagens').select('*', { count: 'exact', head: true })
-                    .gte('created_at', strMin).lte('created_at', strMax);
-                if (typeof window.aplicarFiltroLocal === 'function') queryCount = window.aplicarFiltroLocal(queryCount);
-                
-                const { count, error: countErr } = await queryCount;
-                if (countErr) throw countErr;
+        let minFallback = new Date(minTime);
+        minFallback.setDate(minFallback.getDate() - 15);
+        let strMinFb = minFallback.toISOString().split('T')[0] + 'T00:00:00';
 
-                let dadosMes = [];
-                
-                if (count > 0) {
-                    if(tStatus) tStatus.innerText = `Baixando ${count} viagens (Modo Turbo)...`;
-                    const step = 1000;
-                    const promises = [];
-                    for (let from = 0; from < count; from += step) {
-                        let q = client.from('historico_viagens')
-                            .select('transportadora, placa, pesoLiquido, volumeReal, distanciaAsfalto, distanciaTerra, grua, frente, created_at, dtFimDescarFabrica, dataDaBaseExcel, up, valor_cte')
-                            .gte('created_at', strMin)
-                            .lte('created_at', strMax)
-                            .range(from, from + step - 1);
-                        if (typeof window.aplicarFiltroLocal === 'function') q = window.aplicarFiltroLocal(q);
-                        promises.push(q);
-                    }
-                    
-                    const responses = await Promise.all(promises);
-                    responses.forEach(res => {
-                        if (res.data) dadosMes = dadosMes.concat(res.data);
-                    });
-                }
-                
-                dadosHistoricoGlobal = dadosMes; 
-                popularDropdownTransportadoras(dadosHistoricoGlobal); 
-                                 
-                let diasNoPeriodoTransp = Math.max(1, Math.ceil(Math.abs(timeFimTransp - timeInicioTransp) / (1000 * 60 * 60 * 24)));
-                let diasNoPeriodoCarreg = Math.max(1, Math.ceil(Math.abs(timeFimCarreg - timeInicioCarreg) / (1000 * 60 * 60 * 24)));
-                                 
-                dadosFiltradosAtual = dadosHistoricoGlobal.filter(registro => {
-                    const tr = getCampo(registro, ['transportadora', 'transportador', 'empresa_transporte']).trim().toUpperCase();
-                    const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG') || tr.includes('SERRANA');
-                                         
-                    const gruaRaw = getCampo(registro, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']);
-                    const infoGrua = getInfoGruaSerrana(gruaRaw);
-                    const isNossaGrua = !!infoGrua;
-                                         
-                    if (!isSerrana && !isNossaGrua) return false;
-                    if (filtroTransp === 'SOMENTE_SERRANA' && !isSerrana) return false;
-                    if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) return false;
-                    if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) return false;
-                                         
-                    const dataViagem = registro.dtFimDescarFabrica || registro.dataDaBaseExcel || registro.created_at;
-                    if (dataViagem) {
-                        const dateObj = converterDataString(dataViagem);
-                        if(isNaN(dateObj.getTime())) return false;
-                        const trTime = dateObj.getTime();
-                        const inTransp = trTime >= timeInicioTransp && trTime <= timeFimTransp;
-                        const inCarreg = trTime >= timeInicioCarreg && trTime <= timeFimCarreg;
-                        if (!inTransp && !inCarreg) return false;
-                    } else { return false; }
-                    return true;
-                });
-                                 
-                const agrupamentoTabela = {};
-                const agrupamentoFrente = {};
-                const agrupamentoDiario = {};
-                                 
-                let tTranspViagens = 0, tTranspVol = 0, tTranspRec = 0;
-                let tCarregViagens = 0, tCarregVol = 0, tCarregRec = 0;
-                let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
-                                 
-                dadosFiltradosAtual.forEach(registro => {
-                    const d = registro.dtFimDescarFabrica || registro.dataDaBaseExcel || registro.created_at;
-                    const dateVal = converterDataString(d);
-                    const trTime = dateVal.getTime();
-                    const keyData = formatarDataChave(dateVal);
-                                         
-                    const inTranspPeriod = trTime >= timeInicioTransp && trTime <= timeFimTransp;
-                    const inCarregPeriod = trTime >= timeInicioCarreg && trTime <= timeFimCarreg;
-                    const pl = getCampo(registro, ['placa']).trim().toUpperCase() || 'N/A';
-                    const tr = getCampo(registro, ['transportadora', 'transportador', 'empresa_transporte']).trim().toUpperCase() || 'N/A';
-                    const isSerranaFull = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG') || tr.includes('SERRANA');
-                                         
-                    const gruaRaw = getCampo(registro, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']);
-                    const infoGrua = getInfoGruaSerrana(gruaRaw);
-                    const isNossaGruaFull = !!infoGrua;
-                                         
-                    const isSerrana = isSerranaFull && inTranspPeriod;
-                    const isNossaGrua = isNossaGruaFull && inCarregPeriod;
-                    if (!isSerrana && !isNossaGrua) return;
-                                         
-                    const v = toNumber(getCampo(registro, ['volumeReal', 'pesoLiquido']));
-                    const asfalto = toNumber(getCampo(registro, ['distanciaAsfalto']));
-                    const terra = toNumber(getCampo(registro, ['distanciaTerra']));
-                    const codUp = String(getCampo(registro, ['up'])).trim().toUpperCase();
-                                         
-                    let tarifaTransporte = 0;
-                    let recTransporte = 0;
-                    
-                    if (isSerrana && tarifadorAtivoGlobal) {
-                        tarifaTransporte = calcularTarifaTransporte(asfalto, terra);
-                        recTransporte = tarifaTransporte * v;
-                    } else if (isSerrana) {
-                        recTransporte = toNumber(getCampo(registro, ['valor_cte']));
-                        if (v > 0) tarifaTransporte = recTransporte / v;
-                    }
-                    let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
-                    let totalReceitaItem = recTransporte + recCarregamento;
-                                         
-                    if (isSerrana) { tTranspViagens++; tTranspVol += v; tTranspRec += recTransporte; }
-                    if (isNossaGrua) { tCarregViagens++; tCarregVol += v; tCarregRec += recCarregamento; }
-                                         
-                    let nomeFazendaReal = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "";
-                    
-                    let nomeCategoria = "DESCONHECIDO";
-                    if (isSerranaFull && isNossaGruaFull) {
-                        let ordem = infoGrua.ordem || 'CX';
-                        let frenteNome = infoGrua.frente || 'FRENTE DESCONHECIDA';
-                        nomeCategoria = `${ordem}: SERRANA - ${frenteNome}`.toUpperCase();
-                    } else if (!isSerranaFull && isNossaGruaFull) {
-                        let nomeTr = tr.split(' ')[0];
-                        nomeCategoria = `${nomeTr}: TRANSP. ${tr}`.toUpperCase();
-                    } else if (isSerranaFull && !isNossaGruaFull) {
-                        if (nomeFazendaReal) {
-                            nomeCategoria = `TRANSP SERRANA - FAZ. ${nomeFazendaReal}`.toUpperCase();
-                        } else {
-                            nomeCategoria = `OUTRAS FRENTES: NOSSOS CAMINHÕES`.toUpperCase();
-                        }
-                    }
-                                         
-                    const chaveFrente = `${nomeCategoria}_${asfalto}_${terra}`;
-                    if (!agrupamentoFrente[chaveFrente]) {
-                        agrupamentoFrente[chaveFrente] = { categoria: nomeCategoria, asfalto: asfalto, terra: terra, tarifa: tarifaTransporte, viagens: 0, volume: 0, receita: 0, ups: [codUp] };
-                    }
-                    agrupamentoFrente[chaveFrente].viagens++;
-                    agrupamentoFrente[chaveFrente].volume += v;
-                    agrupamentoFrente[chaveFrente].receita += totalReceitaItem;
-                    if (!agrupamentoFrente[chaveFrente].ups.includes(codUp)) agrupamentoFrente[chaveFrente].ups.push(codUp);
-                                         
-                    const chaveTabela = `${pl}_${asfalto}_${terra}`;
-                    if (!agrupamentoTabela[chaveTabela]) {
-                        agrupamentoTabela[chaveTabela] = { placa: pl, transp: tr, isSerrana: isSerranaFull, isNossaGrua: isNossaGruaFull, asfalto: asfalto, terra: terra, tarifa: tarifaTransporte, viagens: 0, volume: 0, recTransp: 0, recCarreg: 0 };
-                    }
-                    agrupamentoTabela[chaveTabela].viagens++;
-                    agrupamentoTabela[chaveTabela].volume += v;
-                    agrupamentoTabela[chaveTabela].recTransp += recTransporte;
-                    agrupamentoTabela[chaveTabela].recCarreg += recCarregamento;
-                                         
-                    if (!agrupamentoDiario[keyData]) agrupamentoDiario[keyData] = { volTransp: 0, recTransp: 0, volCarreg: 0, recCarreg: 0 };
-                    if (isSerrana) { agrupamentoDiario[keyData].volTransp += v; agrupamentoDiario[keyData].recTransp += recTransporte; }
-                    if (isNossaGrua) { agrupamentoDiario[keyData].volCarreg += v; agrupamentoDiario[keyData].recCarreg += recCarregamento; }
-                });
-                                 
-                dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => {
-                    if (a.placa === b.placa) return b.viagens - a.viagens; 
-                    return a.placa.localeCompare(b.placa); 
-                });
-                dadosFrentesAtual = Object.values(agrupamentoFrente).sort((a, b) => b.volume - a.volume);
-                agrupamentoDiarioGlobal = agrupamentoDiario;
-                                 
-                const formatMoney = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                                 
-                let hojeTransporte = 0;
-                let hojeCarregamento = 0;
-                                 
-                const dataOntem = new Date();
-                dataOntem.setDate(dataOntem.getDate() - 1);
-                const d1Key = formatarDataChave(dataOntem);
-                                 
-                if (agrupamentoDiario[d1Key]) {
-                    hojeTransporte = agrupamentoDiario[d1Key].recTransp;
-                    hojeCarregamento = agrupamentoDiario[d1Key].recCarreg;
-                } else if (Object.keys(agrupamentoDiario).length > 0) {
-                    const sortedKeys = Object.keys(agrupamentoDiario).sort();
-                    const lastKey = sortedKeys[sortedKeys.length - 1];
-                    hojeTransporte = agrupamentoDiario[lastKey].recTransp;
-                    hojeCarregamento = agrupamentoDiario[lastKey].recCarreg;
-                }
-                                 
-                const metaPeriodoTransporte = metaTransporteDiaria * diasNoPeriodoTransp;
-                const metaPeriodoCarregamento = metaCarregamentoDiaria * diasNoPeriodoCarreg;
-                
-                let dataHojeFim = new Date();
-                dataHojeFim.setHours(23, 59, 59, 999);
-                let timeHoje = dataHojeFim.getTime();
-                
-                let diasDecorridosTransp = timeInicioTransp > timeHoje ? 0 : Math.max(1, Math.ceil((Math.min(timeFimTransp, timeHoje) - timeInicioTransp) / (1000 * 60 * 60 * 24)));
-                let diasDecorridosCarreg = timeInicioCarreg > timeHoje ? 0 : Math.max(1, Math.ceil((Math.min(timeFimCarreg, timeHoje) - timeInicioCarreg) / (1000 * 60 * 60 * 24)));
-                
-                diasDecorridosTransp = Math.min(diasDecorridosTransp, diasNoPeriodoTransp);
-                diasDecorridosCarreg = Math.min(diasDecorridosCarreg, diasNoPeriodoCarreg);
-                
-                const metaAteHojeTransporte = metaTransporteDiaria * diasDecorridosTransp;
-                const metaAteHojeCarregamento = metaCarregamentoDiaria * diasDecorridosCarreg;
+        let queryCount = client.from('historico_viagens').select('*', { count: 'exact', head: true })
+            .gte('created_at', strMinFb).lte('created_at', strMaxISO);
+        if (typeof window.aplicarFiltroLocal === 'function') queryCount = window.aplicarFiltroLocal(queryCount);
+        else if (filialQuery !== null) queryCount = queryCount.eq('filial_id', filialQuery);
 
-                const percTransPeriodo = metaAteHojeTransporte > 0 ? ((tTranspRec / metaAteHojeTransporte) * 100) : 0;
-                const percCarrPeriodo = metaAteHojeCarregamento > 0 ? ((tCarregRec / metaAteHojeCarregamento) * 100) : 0;
-                
-                const percTransHoje = metaTransporteDiaria > 0 ? ((hojeTransporte / metaTransporteDiaria) * 100) : 0;
-                const percCarrHoje = metaCarregamentoDiaria > 0 ? ((hojeCarregamento / metaCarregamentoDiaria) * 100) : 0;
-                                 
-                document.getElementById('valTranspReceita').innerText = formatMoney(tTranspRec);
-                document.getElementById('valCarregReceita').innerText = formatMoney(tCarregRec);
-                document.getElementById('kpi-transporte-hoje').innerText = formatMoney(hojeTransporte);
-                document.getElementById('kpi-carregamento-hoje').innerText = formatMoney(hojeCarregamento);
-                
-                document.getElementById('desc-transporte-periodo').innerText = `Meta Atual (${diasDecorridosTransp}d): ${formatMoney(metaAteHojeTransporte)} | Total (${diasNoPeriodoTransp}d): ${formatMoney(metaPeriodoTransporte)}`;
-                document.getElementById('desc-carregamento-periodo').innerText = `Meta Atual (${diasDecorridosCarreg}d): ${formatMoney(metaAteHojeCarregamento)} | Total (${diasNoPeriodoCarreg}d): ${formatMoney(metaPeriodoCarregamento)}`;
-                
-                document.getElementById('desc-transporte-hoje').innerText = `Meta Diária: ${formatMoney(metaTransporteDiaria)}`;
-                document.getElementById('desc-carregamento-hoje').innerText = `Meta Diária: ${formatMoney(metaCarregamentoDiaria)}`;
-                                 
-                aplicarBadge('badge-transporte-periodo', percTransPeriodo);
-                aplicarBadge('badge-carregamento-periodo', percCarrPeriodo);
-                aplicarBadge('badge-transporte-hoje', percTransHoje);
-                aplicarBadge('badge-carregamento-hoje', percCarrHoje);
-                                 
-                document.getElementById('valTranspViagens').innerText = tTranspViagens.toLocaleString('pt-BR');
-                document.getElementById('valTranspVolume').innerText = tTranspVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
-                document.getElementById('valCarregViagens').innerText = tCarregViagens.toLocaleString('pt-BR');
-                document.getElementById('valCarregVolume').innerText = tCarregVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
-                document.getElementById('valTotalReceita').innerText = formatMoney(tTranspRec + tCarregRec);
-                                 
-                const dadosEvolucao = [];
-                const minTimeEvo = Math.min(timeInicioTransp, timeInicioCarreg);
-                const maxTimeEvo = Math.max(timeFimTransp, timeFimCarreg);
-                let dataCorrente = new Date(minTimeEvo);
-                const dataLimite = new Date(maxTimeEvo);
-                                 
-                while(dataCorrente <= dataLimite) {
-                    const k = formatarDataChave(dataCorrente);
-                    const label = dataCorrente.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                                         
-                    if (agrupamentoDiario[k]) {
-                        dadosEvolucao.push({ 
-                            label: label, 
-                            recTransp: agrupamentoDiario[k].recTransp, 
-                            recCarreg: agrupamentoDiario[k].recCarreg, 
-                            volTransp: agrupamentoDiario[k].volTransp, 
-                            volCarreg: agrupamentoDiario[k].volCarreg 
-                        });
-                    } else {
-                        dadosEvolucao.push({ label: label, recTransp: 0, recCarreg: 0, volTransp: 0, volCarreg: 0 });
-                    }
-                    dataCorrente.setDate(dataCorrente.getDate() + 1);
-                }
-                                 
-                desenharGraficosEvolucao(dadosEvolucao);
-                desenharGrafico7DiasFixo();
-                                 
-                renderizarTabela(dadosAgrupadosAtual);
-                                 
-                if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} rotas analisadas`;
-                             
-            } catch (errInterface) {
-                console.error("[PRODUCAO] Erro Crítico na montagem da tela:", errInterface);
-                mostrarAlerta("Ocorreu um erro ao processar os dados financeiros.", "error");
-                
-                const tbody = document.getElementById('tbodyProducaoFrota');
-                if (tbody) {
-                    tbody.innerHTML = `<tr><td colspan="10" class="text-center p-8 text-red-400 font-bold"><i class="fas fa-exclamation-triangle mr-2"></i> Erro ao processar os dados do período selecionado. Verifique a conexão ou tente um período diferente.</td></tr>`;
-                }
-                const tStatus = document.getElementById('tabelaStatus');
-                if (tStatus) tStatus.innerText = "Falha no processamento.";
+        const { count, error: countErr } = await queryCount;
+        if (countErr) throw countErr;
 
-            } finally {
-                if (overlay) overlay.classList.add('hidden');
+        let dadosBrutos = [];
+        if (count > 0) {
+            const step = 1000;
+            const promises = [];
+            for (let from = 0; from < count; from += step) {
+                let q = client.from('historico_viagens')
+                    .select('transportadora, placa, pesoLiquido, volumeReal, distanciaAsfalto, distanciaTerra, grua, created_at, dtFimDescarFabrica, dataDaBaseExcel, up, valor_cte')
+                    .gte('created_at', strMinFb)
+                    .lte('created_at', strMaxISO)
+                    .range(from, from + step - 1);
+                if (typeof window.aplicarFiltroLocal === 'function') q = window.aplicarFiltroLocal(q);
+                else if (filialQuery !== null) q = q.eq('filial_id', filialQuery);
+                promises.push(q);
             }
-        }, 150); 
+            const responses = await Promise.all(promises);
+            responses.forEach(res => {
+                if (res.data) dadosBrutos = dadosBrutos.concat(res.data);
+            });
+        }
+
+        dadosHistoricoGlobal = dadosBrutos.map(r => {
+            const dtFim = r.dtFimDescarFabrica && String(r.dtFimDescarFabrica).trim() !== '' && String(r.dtFimDescarFabrica).trim() !== '-' ? r.dtFimDescarFabrica : null;
+            const dtBase = r.dataDaBaseExcel && String(r.dataDaBaseExcel).trim() !== '' && String(r.dataDaBaseExcel).trim() !== '-' ? r.dataDaBaseExcel : null;
+            const dStr = dtFim || dtBase || r.created_at;
+            const dInfo = getFastDateInfo(dStr);
+            const tr = (r.transportadora || 'N/A').trim().toUpperCase();
+            const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG') || tr.includes('SERRANA');
+            const gruaStr = (r.grua || '').trim().toUpperCase();
+            const infoGrua = getInfoGruaSerrana(gruaStr);
+            return {
+                dataViagem: dStr,
+                _ts: dInfo.ts,
+                _keyData: dInfo.key,
+                placa: (r.placa || 'N/A').trim().toUpperCase(),
+                transportadora: tr,
+                _isSerrana: isSerrana,
+                grua: gruaStr,
+                _infoGrua: infoGrua,
+                _isNossaGrua: !!infoGrua,
+                distanciaAsfalto: toNumber(r.distanciaAsfalto),
+                distanciaTerra: toNumber(r.distanciaTerra),
+                up: String(r.up || '').trim().toUpperCase(),
+                qtdViagens: 1,
+                volumeReal: toNumber(r.volumeReal) > 0 ? toNumber(r.volumeReal) : toNumber(r.pesoLiquido),
+                valor_cte: toNumber(r.valor_cte)
+            };
+        });
+
+        cacheJanelaMin = minTime;
+        cacheJanelaMax = maxTime;
+        cacheFilialId = filialQuery;
+        popularDropdownTransportadoras(dadosHistoricoGlobal);
+    }
+
+    async function processarFiltrosEExibir(forcarRecarga = false) {
+        const tStatus = document.getElementById('tabelaStatus');
+        try {
+            if (forcarRecarga) {
+                cacheJanelaMin = null;
+                cacheJanelaMax = null;
+            }
+                             
+            const elFiltroTransp = document.getElementById('filtroTransportadora');
+            const filtroTransp = elFiltroTransp ? elFiltroTransp.value : '';
+                             
+            const strInicioTransp = document.getElementById('dataInicioTransp')?.value || '';
+            const strFimTransp = document.getElementById('dataFimTransp')?.value || '';
+            const strInicioCarreg = document.getElementById('dataInicioCarreg')?.value || '';
+            const strFimCarreg = document.getElementById('dataFimCarreg')?.value || '';
+            
+            if (!strInicioTransp || !strFimTransp || !strInicioCarreg || !strFimCarreg) {
+                mostrarAlerta("Selecione períodos válidos para Transporte e Carregamento nas datas.", "error");
+                return;
+            }
+                             
+            let timeInicioTransp = new Date(strInicioTransp.split('-')[0], parseInt(strInicioTransp.split('-')[1]) - 1, strInicioTransp.split('-')[2]).getTime();
+            let timeFimTransp = new Date(strFimTransp.split('-')[0], parseInt(strFimTransp.split('-')[1]) - 1, strFimTransp.split('-')[2], 23, 59, 59).getTime();
+            let timeInicioCarreg = new Date(strInicioCarreg.split('-')[0], parseInt(strInicioCarreg.split('-')[1]) - 1, strInicioCarreg.split('-')[2]).getTime();
+            let timeFimCarreg = new Date(strFimCarreg.split('-')[0], parseInt(strFimCarreg.split('-')[1]) - 1, strFimCarreg.split('-')[2], 23, 59, 59).getTime();
+                             
+            let minTime = Math.min(timeInicioTransp, timeInicioCarreg);
+            let maxTime = Math.max(timeFimTransp, timeFimCarreg);
+            let dataHoje = new Date();
+            let timeSeteDiasAtras = new Date(dataHoje.getFullYear(), dataHoje.getMonth(), dataHoje.getDate() - 7).getTime();
+            minTime = Math.min(minTime, timeSeteDiasAtras);
+            maxTime = Math.max(maxTime, dataHoje.getTime());
+
+            await carregarDadosDoServidor(minTime, maxTime);
+                             
+            let diasNoPeriodoTransp = Math.max(1, Math.ceil(Math.abs(timeFimTransp - timeInicioTransp) / (1000 * 60 * 60 * 24)));
+            let diasNoPeriodoCarreg = Math.max(1, Math.ceil(Math.abs(timeFimCarreg - timeInicioCarreg) / (1000 * 60 * 60 * 24)));
+                             
+            const agrupamentoTabela = {};
+            const agrupamentoFrente = {};
+            const agrupamentoDiario = {};
+            dadosFiltradosAtual = [];
+                             
+            let tTranspViagens = 0, tTranspVol = 0, tTranspRec = 0;
+            let tCarregViagens = 0, tCarregVol = 0, tCarregRec = 0;
+            let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
+            
+            // Passo Único Ultra-Rápido: Filtra e Agrupa em uma só passada usando propriedades pré-calculadas (_ts, _isSerrana)
+            for (let i = 0, len = dadosHistoricoGlobal.length; i < len; i++) {
+                const registro = dadosHistoricoGlobal[i];
+                const trTime = registro._ts;
+                if (trTime === 0) continue;
+
+                const isSerranaFull = registro._isSerrana;
+                const isNossaGruaFull = registro._isNossaGrua;
+                if (!isSerranaFull && !isNossaGruaFull) continue;
+
+                const tr = registro.transportadora;
+                if (filtroTransp === 'SOMENTE_SERRANA' && !isSerranaFull) continue;
+                if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerranaFull) continue;
+                if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) continue;
+
+                const inTranspPeriod = trTime >= timeInicioTransp && trTime <= timeFimTransp;
+                const inCarregPeriod = trTime >= timeInicioCarreg && trTime <= timeFimCarreg;
+                if (!inTranspPeriod && !inCarregPeriod) continue;
+
+                const isSerrana = isSerranaFull && inTranspPeriod;
+                const isNossaGrua = isNossaGruaFull && inCarregPeriod;
+                if (!isSerrana && !isNossaGrua) continue;
+
+                dadosFiltradosAtual.push(registro);
+
+                const keyData = registro._keyData;
+                const pl = registro.placa;
+                const infoGrua = registro._infoGrua;
+                const v = registro.volumeReal;
+                const qtdViagens = registro.qtdViagens;
+                const asfalto = registro.distanciaAsfalto;
+                const terra = registro.distanciaTerra;
+                const codUp = registro.up;
+
+                let tarifaTransporte = 0;
+                let recTransporte = 0;
+                
+                if (isSerrana && tarifadorAtivoGlobal) {
+                    tarifaTransporte = calcularTarifaTransporte(asfalto, terra);
+                    recTransporte = tarifaTransporte * v;
+                } else if (isSerrana) {
+                    recTransporte = registro.valor_cte;
+                    if (v > 0) tarifaTransporte = recTransporte / v;
+                }
+                let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
+                let totalReceitaItem = recTransporte + recCarregamento;
+                                     
+                if (isSerrana) { tTranspViagens += qtdViagens; tTranspVol += v; tTranspRec += recTransporte; }
+                if (isNossaGrua) { tCarregViagens += qtdViagens; tCarregVol += v; tCarregRec += recCarregamento; }
+                                     
+                let nomeFazendaReal = dicionarioUpFazenda[codUp] ? dicionarioUpFazenda[codUp].toUpperCase() : "";
+                
+                let nomeCategoria = "DESCONHECIDO";
+                if (isSerranaFull && isNossaGruaFull) {
+                    let ordem = infoGrua.ordem || 'CX';
+                    let frenteNome = infoGrua.frente || 'FRENTE DESCONHECIDA';
+                    nomeCategoria = `${ordem}: SERRANA - ${frenteNome}`.toUpperCase();
+                } else if (!isSerranaFull && isNossaGruaFull) {
+                    let nomeTr = tr.split(' ')[0];
+                    nomeCategoria = `${nomeTr}: TRANSP. ${tr}`.toUpperCase();
+                } else if (isSerranaFull && !isNossaGruaFull) {
+                    if (nomeFazendaReal) {
+                        nomeCategoria = `TRANSP SERRANA - FAZ. ${nomeFazendaReal}`.toUpperCase();
+                    } else {
+                        nomeCategoria = `OUTRAS FRENTES: NOSSOS CAMINHÕES`;
+                    }
+                }
+                                     
+                const chaveFrente = `${nomeCategoria}_${asfalto}_${terra}`;
+                let itemFrente = agrupamentoFrente[chaveFrente];
+                if (!itemFrente) {
+                    itemFrente = { categoria: nomeCategoria, asfalto: asfalto, terra: terra, tarifa: tarifaTransporte, viagens: 0, volume: 0, receita: 0, ups: [codUp] };
+                    agrupamentoFrente[chaveFrente] = itemFrente;
+                }
+                itemFrente.viagens += qtdViagens;
+                itemFrente.volume += v;
+                itemFrente.receita += totalReceitaItem;
+                if (!itemFrente.ups.includes(codUp)) itemFrente.ups.push(codUp);
+                                     
+                const chaveTabela = `${pl}_${asfalto}_${terra}`;
+                let itemTab = agrupamentoTabela[chaveTabela];
+                if (!itemTab) {
+                    itemTab = { placa: pl, transp: tr, isSerrana: isSerranaFull, isNossaGrua: isNossaGruaFull, asfalto: asfalto, terra: terra, tarifa: tarifaTransporte, viagens: 0, volume: 0, recTransp: 0, recCarreg: 0 };
+                    agrupamentoTabela[chaveTabela] = itemTab;
+                }
+                itemTab.viagens += qtdViagens;
+                itemTab.volume += v;
+                itemTab.recTransp += recTransporte;
+                itemTab.recCarreg += recCarregamento;
+                                     
+                let itemDia = agrupamentoDiario[keyData];
+                if (!itemDia) {
+                    itemDia = { volTransp: 0, recTransp: 0, volCarreg: 0, recCarreg: 0 };
+                    agrupamentoDiario[keyData] = itemDia;
+                }
+                if (isSerrana) { itemDia.volTransp += v; itemDia.recTransp += recTransporte; }
+                if (isNossaGrua) { itemDia.volCarreg += v; itemDia.recCarreg += recCarregamento; }
+            }
+                             
+            dadosAgrupadosAtual = Object.values(agrupamentoTabela).sort((a, b) => {
+                if (a.placa === b.placa) return b.viagens - a.viagens; 
+                return a.placa.localeCompare(b.placa); 
+            });
+            dadosFrentesAtual = Object.values(agrupamentoFrente).sort((a, b) => b.volume - a.volume);
+            agrupamentoDiarioGlobal = agrupamentoDiario;
+                             
+            const formatMoney = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                             
+            let hojeTransporte = 0;
+            let hojeCarregamento = 0;
+                             
+            const dataOntem = new Date();
+            dataOntem.setDate(dataOntem.getDate() - 1);
+            const d1Key = formatarDataChave(dataOntem);
+                             
+            if (agrupamentoDiario[d1Key]) {
+                hojeTransporte = agrupamentoDiario[d1Key].recTransp;
+                hojeCarregamento = agrupamentoDiario[d1Key].recCarreg;
+            } else if (Object.keys(agrupamentoDiario).length > 0) {
+                const sortedKeys = Object.keys(agrupamentoDiario).sort();
+                const lastKey = sortedKeys[sortedKeys.length - 1];
+                hojeTransporte = agrupamentoDiario[lastKey].recTransp;
+                hojeCarregamento = agrupamentoDiario[lastKey].recCarreg;
+            }
+                             
+            const metaPeriodoTransporte = metaTransporteDiaria * diasNoPeriodoTransp;
+            const metaPeriodoCarregamento = metaCarregamentoDiaria * diasNoPeriodoCarreg;
+            
+            let dataHojeFim = new Date();
+            dataHojeFim.setHours(23, 59, 59, 999);
+            let timeHoje = dataHojeFim.getTime();
+            
+            let diasDecorridosTransp = timeInicioTransp > timeHoje ? 0 : Math.max(1, Math.ceil((Math.min(timeFimTransp, timeHoje) - timeInicioTransp) / (1000 * 60 * 60 * 24)));
+            let diasDecorridosCarreg = timeInicioCarreg > timeHoje ? 0 : Math.max(1, Math.ceil((Math.min(timeFimCarreg, timeHoje) - timeInicioCarreg) / (1000 * 60 * 60 * 24)));
+            
+            diasDecorridosTransp = Math.min(diasDecorridosTransp, diasNoPeriodoTransp);
+            diasDecorridosCarreg = Math.min(diasDecorridosCarreg, diasNoPeriodoCarreg);
+            
+            const metaAteHojeTransporte = metaTransporteDiaria * diasDecorridosTransp;
+            const metaAteHojeCarregamento = metaCarregamentoDiaria * diasDecorridosCarreg;
+
+            const percTransPeriodo = metaAteHojeTransporte > 0 ? ((tTranspRec / metaAteHojeTransporte) * 100) : 0;
+            const percCarrPeriodo = metaAteHojeCarregamento > 0 ? ((tCarregRec / metaAteHojeCarregamento) * 100) : 0;
+            
+            const percTransHoje = metaTransporteDiaria > 0 ? ((hojeTransporte / metaTransporteDiaria) * 100) : 0;
+            const percCarrHoje = metaCarregamentoDiaria > 0 ? ((hojeCarregamento / metaCarregamentoDiaria) * 100) : 0;
+                             
+            document.getElementById('valTranspReceita').innerText = formatMoney(tTranspRec);
+            document.getElementById('valCarregReceita').innerText = formatMoney(tCarregRec);
+            document.getElementById('kpi-transporte-hoje').innerText = formatMoney(hojeTransporte);
+            document.getElementById('kpi-carregamento-hoje').innerText = formatMoney(hojeCarregamento);
+            
+            document.getElementById('desc-transporte-periodo').innerText = `Meta Atual (${diasDecorridosTransp}d): ${formatMoney(metaAteHojeTransporte)} | Total (${diasNoPeriodoTransp}d): ${formatMoney(metaPeriodoTransporte)}`;
+            document.getElementById('desc-carregamento-periodo').innerText = `Meta Atual (${diasDecorridosCarreg}d): ${formatMoney(metaAteHojeCarregamento)} | Total (${diasNoPeriodoCarreg}d): ${formatMoney(metaPeriodoCarregamento)}`;
+            
+            document.getElementById('desc-transporte-hoje').innerText = `Meta Diária: ${formatMoney(metaTransporteDiaria)}`;
+            document.getElementById('desc-carregamento-hoje').innerText = `Meta Diária: ${formatMoney(metaCarregamentoDiaria)}`;
+                             
+            aplicarBadge('badge-transporte-periodo', percTransPeriodo);
+            aplicarBadge('badge-carregamento-periodo', percCarrPeriodo);
+            aplicarBadge('badge-transporte-hoje', percTransHoje);
+            aplicarBadge('badge-carregamento-hoje', percCarrHoje);
+                             
+            document.getElementById('valTranspViagens').innerText = tTranspViagens.toLocaleString('pt-BR');
+            document.getElementById('valTranspVolume').innerText = tTranspVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
+            document.getElementById('valCarregViagens').innerText = tCarregViagens.toLocaleString('pt-BR');
+            document.getElementById('valCarregVolume').innerText = tCarregVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
+            document.getElementById('valTotalReceita').innerText = formatMoney(tTranspRec + tCarregRec);
+                             
+            const dadosEvolucao = [];
+            const minTimeEvo = Math.min(timeInicioTransp, timeInicioCarreg);
+            const maxTimeEvo = Math.max(timeFimTransp, timeFimCarreg);
+            let dataCorrente = new Date(minTimeEvo);
+            const dataLimite = new Date(maxTimeEvo);
+                             
+            while(dataCorrente <= dataLimite) {
+                const k = formatarDataChave(dataCorrente);
+                const label = `${String(dataCorrente.getDate()).padStart(2, '0')}/${String(dataCorrente.getMonth() + 1).padStart(2, '0')}`;
+                                     
+                if (agrupamentoDiario[k]) {
+                    dadosEvolucao.push({ 
+                        label: label, 
+                        recTransp: agrupamentoDiario[k].recTransp, 
+                        recCarreg: agrupamentoDiario[k].recCarreg, 
+                        volTransp: agrupamentoDiario[k].volTransp, 
+                        volCarreg: agrupamentoDiario[k].volCarreg 
+                    });
+                } else {
+                    dadosEvolucao.push({ label: label, recTransp: 0, recCarreg: 0, volTransp: 0, volCarreg: 0 });
+                }
+                dataCorrente.setDate(dataCorrente.getDate() + 1);
+            }
+                             
+            desenharGraficosEvolucao(dadosEvolucao);
+            desenharGrafico7DiasFixo();
+                             
+            renderizarTabela(dadosAgrupadosAtual);
+                             
+            if(tStatus) tStatus.innerText = `${dadosAgrupadosAtual.length} rotas consolidadas`;
+                         
+        } catch (errInterface) {
+            console.error("[PRODUCAO] Erro Crítico na montagem da tela:", errInterface);
+            mostrarAlerta("Ocorreu um erro ao processar os dados financeiros.", "error");
+            
+            const tbody = document.getElementById('tbodyProducaoFrota');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center p-8 text-red-400 font-bold"><i class="fas fa-exclamation-triangle mr-2"></i> Erro ao processar os dados do período selecionado. Verifique a conexão ou tente um período diferente.</td></tr>`;
+            }
+            if (tStatus) tStatus.innerText = "Falha no processamento.";
+        }
     }
 
     function aplicarBadge(id, percent) {
@@ -765,9 +934,9 @@ window.initProducaoFrota = async function() {
                          
             const domTransporte = document.getElementById('chartTransporteEvolucao');
             if (domTransporte) {
-                if (chartTransporteEvoObj) chartTransporteEvoObj.dispose();
-                chartTransporteEvoObj = echarts.init(domTransporte);
+                chartTransporteEvoObj = obterInstanciaECharts(domTransporte, chartTransporteEvoObj);
                 chartTransporteEvoObj.setOption({
+                    animationDurationUpdate: 200,
                     backgroundColor: 'transparent',
                     tooltip: { 
                         trigger: 'axis', 
@@ -824,14 +993,14 @@ window.initProducaoFrota = async function() {
                         },
                         { name: 'Meta Diária', type: 'line', data: metaTranspArr, symbol: 'none', lineStyle: { color: '#fbbf24', width: 3, type: 'dashed' }, z: 10 }
                     ]
-                });
+                }, { notMerge: true });
             }
                          
             const domCarregamento = document.getElementById('chartCarregamentoEvolucao');
             if (domCarregamento) {
-                if (chartCarregamentoEvoObj) chartCarregamentoEvoObj.dispose();
-                chartCarregamentoEvoObj = echarts.init(domCarregamento);
+                chartCarregamentoEvoObj = obterInstanciaECharts(domCarregamento, chartCarregamentoEvoObj);
                 chartCarregamentoEvoObj.setOption({
+                    animationDurationUpdate: 200,
                     backgroundColor: 'transparent',
                     tooltip: { 
                         trigger: 'axis', 
@@ -888,14 +1057,14 @@ window.initProducaoFrota = async function() {
                         },
                         { name: 'Meta Diária', type: 'line', data: metaCarregArr, symbol: 'none', lineStyle: { color: '#fbbf24', width: 3, type: 'dashed' }, z: 10 }
                     ]
-                });
+                }, { notMerge: true });
             }
                          
             const domVolumes = document.getElementById('chartVolumes');
             if (domVolumes) {
-                if (chartVolumesObj) chartVolumesObj.dispose();
-                chartVolumesObj = echarts.init(domVolumes);
+                chartVolumesObj = obterInstanciaECharts(domVolumes, chartVolumesObj);
                 chartVolumesObj.setOption({
+                    animationDurationUpdate: 200,
                     backgroundColor: 'transparent',
                     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15, 23, 42, 0.95)', borderColor: 'rgba(51, 65, 85, 0.8)', textStyle: { color: '#f8fafc' }, valueFormatter: (v) => v.toLocaleString('pt-BR') + ' m³' },
                     legend: { top: '0%', left: '0%', textStyle: { color: '#cbd5e1', fontSize: 12 } },
@@ -940,15 +1109,8 @@ window.initProducaoFrota = async function() {
                             itemStyle: { color: '#a855f7', borderRadius: [2, 2, 0, 0] } 
                         }
                     ]
-                });
+                }, { notMerge: true });
             }
-                         
-            setTimeout(() => {
-                if (chartTransporteEvoObj) chartTransporteEvoObj.resize();
-                if (chartCarregamentoEvoObj) chartCarregamentoEvoObj.resize();
-                if (chartVolumesObj) chartVolumesObj.resize();
-                if (chart7DiasObj) chart7DiasObj.resize();
-            }, 150);
                      
         } catch (errEcharts) {
             console.error("Erro ao desenhar gráficos ECharts:", errEcharts);
@@ -969,41 +1131,33 @@ window.initProducaoFrota = async function() {
             let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
             let agg7 = {};
             dias7.forEach(k => agg7[k] = { recTransp: 0, recCarreg: 0 });
-            dadosHistoricoGlobal.forEach(registro => {
-                const dataViagem = registro.dtFimDescarFabrica || registro.dataDaBaseExcel;
-                if (!dataViagem) return;
-                                 
-                const dateVal = converterDataString(dataViagem);
-                const keyData = formatarDataChave(dateVal);
-                if (agg7[keyData]) {
-                    const tr = getCampo(registro, ['transportadora', 'transportador', 'empresa_transporte']).toUpperCase() || 'N/A';
-                    const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG') || tr.includes('SERRANA');
-                                         
-                    const gruaRaw = getCampo(registro, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']);
-                    const infoGrua = getInfoGruaSerrana(gruaRaw);
-                    const isNossaGrua = !!infoGrua;
-                    if (!isSerrana && !isNossaGrua) return;
-                    if (filtroTransp === 'SOMENTE_SERRANA' && !isSerrana) return;
-                    if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) return;
-                    if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) return;
-                    const v = toNumber(getCampo(registro, ['volumeReal', 'pesoLiquido']));
-                    const asfalto = toNumber(getCampo(registro, ['distanciaAsfalto']));
-                    const terra = toNumber(getCampo(registro, ['distanciaTerra']));
-                    let tarifaTransporte = 0;
-                    let recTransporte = 0;
-                    if (isSerrana && tarifadorAtivoGlobal) {
-                        tarifaTransporte = calcularTarifaTransporte(asfalto, terra);
-                        recTransporte = tarifaTransporte * v;
-                    } else if (isSerrana) {
-                        // fallback para valor_cte
-                        recTransporte = toNumber(getCampo(registro, ['valor_cte']));
-                        if (v > 0) tarifaTransporte = recTransporte / v;
-                    }
-                    let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
-                    agg7[keyData].recTransp += recTransporte;
-                    agg7[keyData].recCarreg += recCarregamento;
+
+            for (let i = 0, len = dadosHistoricoGlobal.length; i < len; i++) {
+                const registro = dadosHistoricoGlobal[i];
+                const keyData = registro._keyData;
+                if (!keyData || !agg7[keyData]) continue;
+
+                const isSerrana = registro._isSerrana;
+                const isNossaGrua = registro._isNossaGrua;
+                if (!isSerrana && !isNossaGrua) continue;
+
+                const tr = registro.transportadora;
+                if (filtroTransp === 'SOMENTE_SERRANA' && !isSerrana) continue;
+                if (filtroTransp === 'SOMENTE_TERCEIROS' && isSerrana) continue;
+                if (filtroTransp !== '' && filtroTransp !== 'SOMENTE_SERRANA' && filtroTransp !== 'SOMENTE_TERCEIROS' && tr !== filtroTransp) continue;
+                
+                const v = registro.volumeReal;
+                let recTransporte = 0;
+                if (isSerrana && tarifadorAtivoGlobal) {
+                    recTransporte = calcularTarifaTransporte(registro.distanciaAsfalto, registro.distanciaTerra) * v;
+                } else if (isSerrana) {
+                    recTransporte = registro.valor_cte;
                 }
-            });
+                let recCarregamento = isNossaGrua ? (v * precoCarregamento) : 0;
+                agg7[keyData].recTransp += recTransporte;
+                agg7[keyData].recCarreg += recCarregamento;
+            }
+
             const labels = dias7.map(k => {
                 const p = k.split('-');
                 return `${p[2]}/${p[1]}`;
@@ -1014,9 +1168,9 @@ window.initProducaoFrota = async function() {
             const dataMetaCombinada = dias7.map(() => metaTotalVal);
             const dom7Dias = document.getElementById('chart7DiasFixo');
             if (dom7Dias) {
-                if (chart7DiasObj) chart7DiasObj.dispose();
-                chart7DiasObj = echarts.init(dom7Dias);
+                chart7DiasObj = obterInstanciaECharts(dom7Dias, chart7DiasObj);
                 chart7DiasObj.setOption({
+                    animationDurationUpdate: 200,
                     backgroundColor: 'transparent',
                     tooltip: {
                         trigger: 'axis',
@@ -1128,7 +1282,7 @@ window.initProducaoFrota = async function() {
                             z: 10 
                         }
                     ]
-                });
+                }, { notMerge: true });
             }
         } catch (e) {
             console.error("Erro ao desenhar grafico 7 dias fixo", e);
@@ -1140,21 +1294,17 @@ window.initProducaoFrota = async function() {
             const tbody = document.getElementById('tbodyProducaoFrota');
             if(!tbody) return;
                          
-            tbody.innerHTML = '';
-                         
             if (dados.length === 0) { 
                 tbody.innerHTML = `<tr><td colspan="10" class="text-center p-8 text-slate-500">Nenhum dado encontrado para os filtros selecionados.</td></tr>`; 
                 return; 
             }
                          
-            dados.forEach(l => {
+            const rowsHtml = dados.map(l => {
                 const totalGerado = l.recTransp + l.recCarreg;
                 const isSerranaBadge = l.isSerrana ? `<span class="bg-sky-500/10 text-sky-400 font-bold px-2 py-0.5 rounded text-[10px]">${l.transp}</span>` : `<span class="text-slate-400 text-xs">${l.transp}</span>`;
                 const tarifaStr = l.isSerrana && l.tarifa > 0 ? l.tarifa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-';
                                  
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-700/30 transition-colors";
-                tr.innerHTML = `
+                return `<tr class="hover:bg-slate-700/30 transition-colors">
                     <td class="px-6 py-3 font-bold text-white"><span class="bg-slate-900 px-2 py-1 rounded border border-slate-700 font-mono tracking-widest">${l.placa}</span></td>
                     <td class="px-6 py-3 uppercase">${isSerranaBadge}</td>
                     <td class="px-6 py-3 text-center text-slate-300 font-mono">${l.asfalto.toFixed(1)} km</td>
@@ -1165,9 +1315,10 @@ window.initProducaoFrota = async function() {
                     <td class="px-6 py-3 text-right text-sky-400 font-mono">${l.recTransp.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                     <td class="px-6 py-3 text-right text-emerald-400 font-mono">${l.recCarreg.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                     <td class="px-6 py-3 text-right text-purple-400 font-mono font-black bg-purple-500/5">${totalGerado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+                </tr>`;
+            }).join('');
+
+            tbody.innerHTML = rowsHtml;
         } catch(e) { console.error("[PRODUCAO] Erro ao renderizar tabela:", e); }
     }
 
@@ -1197,17 +1348,15 @@ window.initProducaoFrota = async function() {
         let precoCarregamento = parseFloat(tarifadorAtivoGlobal?.preco_carregamento) || 0;
                  
         dadosFiltradosAtual.forEach(r => {
-            const dataViagem = r.dtFimDescarFabrica || r.dataDaBaseExcel;
-            const tr = getCampo(r, ['transportadora', 'transportador', 'empresa_transporte']).toUpperCase() || 'N/A';
-            const isSerrana = tr.includes('SERRANALOG') || tr.includes('SERRANA LOG') || tr.includes('SERRANA');
+            const dataViagem = r.dataViagem;
+            const tr = r.transportadora || 'N/A';
+            const isSerrana = r._isSerrana;
+            const isNossaGrua = r._isNossaGrua;
                          
-            const gruaRaw = getCampo(r, ['grua', 'equipamento', 'maquina', 'cod_grua', 'codigo_grua']);
-            const infoGrua = getInfoGruaSerrana(gruaRaw);
-            const isNossaGrua = !!infoGrua;
-                         
-            let asfalto = toNumber(getCampo(r, ['distanciaAsfalto']));
-            let terra = toNumber(getCampo(r, ['distanciaTerra']));
-            let v = toNumber(getCampo(r, ['volumeReal', 'pesoLiquido']));
+            let asfalto = r.distanciaAsfalto;
+            let terra = r.distanciaTerra;
+            let v = r.volumeReal;
+            let viagens = r.qtdViagens || 1;
                          
             let tarifaTransp = 0;
             let recTransp = 0;
@@ -1215,8 +1364,7 @@ window.initProducaoFrota = async function() {
                 tarifaTransp = calcularTarifaTransporte(asfalto, terra);
                 recTransp = tarifaTransp * v;
             } else if (isSerrana) {
-                // fallback para valor_cte
-                recTransp = toNumber(getCampo(r, ['valor_cte']));
+                recTransp = r.valor_cte;
                 if (v > 0) tarifaTransp = recTransp / v;
             }
             let recCarreg = isNossaGrua ? (v * precoCarregamento) : 0;
@@ -1224,13 +1372,13 @@ window.initProducaoFrota = async function() {
             const ch = `${dataViagem}_${r.placa}_${asfalto}_${terra}`;
             if(!obj[ch]) obj[ch] = { Data: dataViagem, Placa: r.placa, Transp: tr, Asfalto: asfalto, Terra: terra, Tarifa: tarifaTransp, Viagens: 0, Vol: 0, RecTransp: 0, RecCarreg: 0 };
                          
-            obj[ch].Viagens += 1;
+            obj[ch].Viagens += viagens;
             obj[ch].Vol += v;
             obj[ch].RecTransp += recTransp;
             obj[ch].RecCarreg += recCarreg;
         });
                  
-        const excelArr = Object.values(obj).sort((a,b) => converterDataString(a.Data).getTime() - converterDataString(b.Data).getTime()).map(i => ({
+        const excelArr = Object.values(obj).sort((a,b) => getFastTime(a.Data) - getFastTime(b.Data)).map(i => ({
             "Data": i.Data, "Placa": i.Placa, "Transportadora": i.Transp, "Dist. Asfalto (km)": i.Asfalto, "Dist. Terra (km)": i.Terra, "Tarifa Base (R$)": parseFloat(i.Tarifa.toFixed(4)),
             "Viagens": i.Viagens, "Volume Total (m³)": parseFloat(i.Vol.toFixed(2)), "Receita Transporte (R$)": parseFloat(i.RecTransp.toFixed(2)), "Receita Carregamento (R$)": parseFloat(i.RecCarreg.toFixed(2)),
             "Receita Total (R$)": parseFloat((i.RecTransp + i.RecCarreg).toFixed(2))
@@ -1241,7 +1389,7 @@ window.initProducaoFrota = async function() {
     }
 
     function exportarResumoDiarioExcel() {
-        const chaves = Object.keys(agrupamentoDiarioGlobal).sort((a, b) => converterDataString(a).getTime() - converterDataString(b).getTime());
+        const chaves = Object.keys(agrupamentoDiarioGlobal).sort((a, b) => getFastTime(a) - getFastTime(b));
         if (chaves.length === 0) { alert("Sem dados para resumo."); return; }
         if (typeof XLSX === 'undefined') { alert("A biblioteca Excel ainda não foi carregada. Aguarde."); return; }
                  
