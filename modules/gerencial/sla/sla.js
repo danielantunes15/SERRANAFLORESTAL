@@ -1,10 +1,11 @@
 window.initSLA = async function() {
-    console.log("[SLA] Módulo iniciado (Modo Alta Performance com Indicadores Visuais).");
+    console.log("[SLA] Módulo iniciado (Modo Alta Performance com DM e Indicadores Visuais).");
     const client = window.getSupabaseClient ? window.getSupabaseClient() : (window.db && window.db.supabase ? window.db.supabase : supabaseClient);
     if (!client) return;
 
     let chartSlaObj = null;
     const nomeMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const nomeMesesExtenso = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     
     let tarifadorAtivoGlobal = null;
     let gruasPropriasCache = new Map();
@@ -29,7 +30,6 @@ window.initSLA = async function() {
         if (chartSlaObj) chartSlaObj.resize();
     });
 
-    // Helpers de Formatação no Modal
     function setupFormatadoresModal() {
         const formatCurrency = (val) => val.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
         const formatNumber = (val, label) => val.toLocaleString('pt-BR') + ' ' + label;
@@ -56,9 +56,6 @@ window.initSLA = async function() {
     }
     setupFormatadoresModal();
 
-    // ==========================================
-    // CONTROLE DO MODAL DE METAS E ALERTAS VISUAIS
-    // ==========================================
     window.abrirModalMetasSLA = function() {
         const ano = document.getElementById('slaAnoSelect').value;
         document.getElementById('lblAnoModalMetas').innerText = ano;
@@ -169,9 +166,230 @@ window.initSLA = async function() {
         });
     };
 
+    function corrigirDataSupabaseLocal(dateStr) {
+        if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return null;
+        let str = String(dateStr).trim();
+        if (!str.includes('T')) str = str.replace(' ', 'T');
+        const partes = str.split('T');
+        if (partes.length === 2) {
+            const horaStr = partes[1];
+            if (!horaStr.includes('Z') && !horaStr.includes('+') && !horaStr.includes('-')) {
+                str += 'Z'; 
+            }
+        }
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    function calcularDMMensal(placa, mes, ano) {
+        const resultDefault = { percentDM: 100, hTrabalho:0, mTrabalho:0, hManut:0, mManut:0, htmlLinhas: '' };
+        if (typeof window.ordensServico === 'undefined' || !window.ordensServico) return resultDefault;
+        if (typeof window.frotasManutencao === 'undefined' || !window.frotasManutencao) return resultDefault;
+        
+        const frota = window.frotasManutencao.find(f => f.cavalo === placa);
+        if (!frota) return resultDefault;
+
+        let diaInicio = new Date(ano, mes, 1, 0, 0, 0, 0);
+        let hoje = new Date();
+        let diaFim = new Date(ano, mes + 1, 0, 23, 59, 59, 999);
+        
+        if (diaFim > hoje) diaFim = hoje; 
+        if (diaInicio > hoje) return { percentDM: 0, hTrabalho:0, mTrabalho:0, hManut:0, mManut:0, htmlLinhas: '' };
+
+        let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
+        let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
+        
+        let msValidoVeiculo = 0;
+        let overlapDispInicio = dtEntradaVeiculo > diaInicio ? dtEntradaVeiculo : diaInicio;
+        if (overlapDispInicio < diaFim) {
+            msValidoVeiculo = (diaFim - overlapDispInicio);
+        }
+        
+        let horasValidoVeiculo = msValidoVeiculo / (1000 * 60 * 60);
+        if (horasValidoVeiculo <= 0) return { percentDM: 0, hTrabalho:0, mTrabalho:0, hManut:0, mManut:0, htmlLinhas: '' };
+
+        const todasOS = window.ordensServico.filter(o => o.placa === placa && o.status !== 'Agendada' && o.tipo !== 'Cavalo Disponível S/ Carreta');
+        
+        let htmlLinhas = '';
+        let intervalos = [];
+
+        todasOS.forEach(os => {
+            const osInicio = corrigirDataSupabaseLocal(os.data_abertura);
+            if (!osInicio) return;
+            
+            let osFim = os.data_conclusao ? corrigirDataSupabaseLocal(os.data_conclusao) : hoje;
+            
+            let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
+            const overlapInicio = inicioValido > diaInicio ? inicioValido : diaInicio;
+            const overlapFim = osFim < diaFim ? osFim : diaFim;
+
+            if (overlapInicio < overlapFim) {
+                let duracaoMs = overlapFim - overlapInicio;
+                let h = Math.floor(duracaoMs / (1000 * 60 * 60));
+                let m = Math.round((duracaoMs - (h * 1000 * 60 * 60)) / (1000 * 60));
+
+                let dtIniStr = `${String(overlapInicio.getDate()).padStart(2,'0')}/${String(overlapInicio.getMonth()+1).padStart(2,'0')} ${String(overlapInicio.getHours()).padStart(2,'0')}:${String(overlapInicio.getMinutes()).padStart(2,'0')}`;
+                let dtFimStr = os.data_conclusao ? `${String(overlapFim.getDate()).padStart(2,'0')}/${String(overlapFim.getMonth()+1).padStart(2,'0')} ${String(overlapFim.getHours()).padStart(2,'0')}:${String(overlapFim.getMinutes()).padStart(2,'0')}` : 'Em Andamento';
+
+                intervalos.push([overlapInicio.getTime(), overlapFim.getTime()]);
+
+                htmlLinhas += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.1);">
+                        <td style="padding: 12px; color: #fff; font-weight: bold;">#${os.numero_os || os.id}</td>
+                        <td style="padding: 12px; color: #94a3b8;">${dtIniStr}</td>
+                        <td style="padding: 12px; color: #94a3b8;">${dtFimStr}</td>
+                        <td style="padding: 12px; color: #3b82f6;">${os.tipo || 'Manutenção'}</td>
+                        <td style="padding: 12px; color: #ef4444; font-weight: bold;">${h}h ${m}m</td>
+                    </tr>
+                `;
+            }
+        });
+
+        let tempoManutencaoTotalHoras = 0;
+        if (intervalos.length > 0) {
+            intervalos.sort((a,b) => a[0] - b[0]);
+            let merged = [ [intervalos[0][0], intervalos[0][1]] ];
+            for (let i = 1; i < intervalos.length; i++) {
+                let last = merged[merged.length - 1];
+                let current = intervalos[i];
+                if (current[0] <= last[1]) {
+                    last[1] = Math.max(last[1], current[1]);
+                } else {
+                    merged.push([current[0], current[1]]);
+                }
+            }
+            merged.forEach(iv => {
+                tempoManutencaoTotalHoras += (iv[1] - iv[0]) / (1000 * 60 * 60);
+            });
+        }
+
+        if (tempoManutencaoTotalHoras > horasValidoVeiculo) tempoManutencaoTotalHoras = horasValidoVeiculo;
+
+        let horasDisponivel = horasValidoVeiculo - tempoManutencaoTotalHoras;
+        if (horasDisponivel < 0) horasDisponivel = 0;
+
+        let percentDM = horasValidoVeiculo > 0 ? (horasDisponivel / horasValidoVeiculo) * 100 : 100;
+        
+        let hTrabalho = Math.floor(horasValidoVeiculo);
+        let mTrabalho = Math.round((horasValidoVeiculo - hTrabalho) * 60);
+        let hManut = Math.floor(tempoManutencaoTotalHoras);
+        let mManut = Math.round((tempoManutencaoTotalHoras - hManut) * 60);
+
+        return { percentDM, hTrabalho, mTrabalho, hManut, mManut, htmlLinhas };
+    }
+
+    window.abrirModalDetalhesDMMensalSLA = function(placa, mes, ano) {
+        if (!window.ordensServico || !window.frotasManutencao) {
+            Swal.fire('Atenção', 'Dados de manutenção não carregados ainda no sistema. Aguarde alguns segundos.', 'warning');
+            return;
+        }
+        
+        const dadosDM = calcularDMMensal(placa, mes, ano);
+        if (!dadosDM) return;
+        
+        const periodoTxt = `${nomeMesesExtenso[mes]} de ${ano}`;
+        let corDm = dadosDM.percentDM >= 90 ? '#10b981' : (dadosDM.percentDM >= 80 ? '#f59e0b' : '#ef4444');
+        let htmlLinhas = dadosDM.htmlLinhas || '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #94a3b8;">Nenhuma parada registrada no período.</td></tr>';
+        
+        const modalHtml = `
+            <div id="modalDetalhesDMMaquinaSLA" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+                <div style="background: #1e293b; border: 1px solid #3b82f6; border-radius: 12px; width: 95%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    
+                    <div style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: rgba(59,130,246,0.1); border-radius: 12px 12px 0 0;">
+                        <h3 style="color: #fff; margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-tools" style="color: #3b82f6;"></i> Detalhamento DM: <span style="color: #3b82f6; font-weight: 900; font-size: 1.4rem;">${placa}</span> <span style="font-size: 1rem; color: #94a3b8; font-weight: normal;">(${periodoTxt})</span>
+                        </h3>
+                        <button onclick="document.getElementById('modalDetalhesDMMaquinaSLA').remove()" style="background: transparent; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; transition: 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-around; padding: 20px; background: rgba(0,0,0,0.2);">
+                        <div style="text-align: center;">
+                            <p style="color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; font-weight: bold; margin-bottom: 5px;">Tempo Total Mês</p>
+                            <h4 style="color: #fff; font-size: 1.5rem; margin: 0;">${dadosDM.hTrabalho}h ${dadosDM.mTrabalho}m</h4>
+                        </div>
+                        <div style="text-align: center; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 20px;">
+                            <p style="color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; font-weight: bold; margin-bottom: 5px;">Tempo Parado (O.S.)</p>
+                            <h4 style="color: #ef4444; font-size: 1.5rem; margin: 0;">${dadosDM.hManut}h ${dadosDM.mManut}m</h4>
+                        </div>
+                        <div style="text-align: center; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 20px;">
+                            <p style="color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; font-weight: bold; margin-bottom: 5px;">Índice DM</p>
+                            <h4 style="color: ${corDm}; font-size: 2rem; margin: 0; font-weight: 900;">${dadosDM.percentDM.toFixed(2)}%</h4>
+                        </div>
+                    </div>
+
+                    <div style="padding: 20px; overflow-y: auto; flex: 1;" class="custom-scrollbar">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead style="background: rgba(0,0,0,0.3);">
+                                <tr>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Nº O.S</th>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Início Parada</th>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Fim Parada</th>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Tipo/Classificação</th>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Duração</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${htmlLinhas}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const modalAntigo = document.getElementById('modalDetalhesDMMaquinaSLA');
+        if (modalAntigo) modalAntigo.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
     // ==========================================
-    // BUSCAS INICIAIS E MOTOR
+    // BUSCAS INICIAIS E MOTOR DE CÁLCULO
     // ==========================================
+    async function garantirDadosManutencaoSLA(filialId) {
+        if (!window.ordensServico || window.ordensServico.length === 0 || !window.frotasManutencao || window.frotasManutencao.length === 0) {
+            try {
+                // Tenta reaproveitar a função nativa do sistema se ela existir
+                if (typeof window.carregarDadosOS === 'function') {
+                    await window.carregarDadosOS();
+                } else {
+                    // Fallback com paginação (evita o Erro 500 do Supabase)
+                    let todosOsDados = [];
+                    let inicio = 0;
+                    const tamanhoLote = 1000;
+                    let buscarMais = true;
+                    
+                    while (buscarMais) {
+                        let queryOS = client.from('ordens_servico').select('*').range(inicio, inicio + tamanhoLote - 1);
+                        if (filialId && filialId !== 'CENTRAL') queryOS = queryOS.eq('filial_id', filialId);
+                        
+                        const { data: lote, error: err } = await queryOS;
+                        if (err) throw err;
+                        
+                        if (lote && lote.length > 0) {
+                            todosOsDados.push(...lote);
+                            if (lote.length < tamanhoLote) {
+                                buscarMais = false;
+                            } else {
+                                inicio += tamanhoLote;
+                            }
+                        } else {
+                            buscarMais = false;
+                        }
+                    }
+                    window.ordensServico = todosOsDados.filter(os => os.inativa !== 1 && os.inativa !== true);
+
+                    let qFrota = client.from('frotas_manutencao').select('*');
+                    if (filialId && filialId !== 'CENTRAL') qFrota = qFrota.eq('filial_id', filialId);
+                    const { data: frotas, error: errF } = await qFrota;
+                    if (errF) throw errF;
+                    if (frotas) window.frotasManutencao = frotas;
+                }
+            } catch(e) { console.error("[SLA] Erro ao carregar OS/Frota:", e); }
+        }
+    }
+
     async function buscarMetasSLA(ano, filialId) {
         metasSlaAtuais = { id: null, garantia_minima_volume_mensal: 0, meta_viagens_mensal_grua: 0, meta_viagens_diaria_grua: 0, peso_medio_transportado: 0, custo_hora_improdutiva: 0, faturamento_previsto_mensal: 0 };
         if (!filialId) return;
@@ -339,8 +557,8 @@ window.initSLA = async function() {
         await buscarMetasSLA(ano, filialId);
         await buscarTarifadorAtivoSLA();
         await buscarGruasConfigSLA();
+        await garantirDadosManutencaoSLA(filialId);
 
-        // Atualiza textos nos cards principais com as metas
         const fm = v => v > 0 ? v.toLocaleString('pt-BR') : '0';
         const fmR = v => v > 0 ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
         
@@ -639,6 +857,7 @@ window.initSLA = async function() {
             let totalVolume = 0;
             let maxDias = 0;
             let qtdMaquinasAtivasNoMes = 0; 
+            let totalPercentDM = 0;
 
             gruasNomes.forEach(grua => {
                 const stats = gruasDict[grua][mes];
@@ -681,6 +900,12 @@ window.initSLA = async function() {
                         badgeMediaViagens = `class="p-1.5 w-full inline-flex items-center justify-center"`;
                     }
 
+                    const dadosDM = calcularDMMensal(grua, mes, ano);
+                    totalPercentDM += dadosDM.percentDM;
+                    
+                    let corDm = dadosDM.percentDM >= 90 ? 'text-emerald-400' : (dadosDM.percentDM >= 80 ? 'text-amber-400' : 'text-red-400');
+                    let badgeDM = `<div onclick="window.abrirModalDetalhesDMMensalSLA('${grua}', ${mes}, ${ano})" class="cursor-pointer hover:bg-slate-700/60 p-1.5 rounded transition-all shadow-sm active:scale-95 inline-flex items-center justify-center border border-transparent hover:border-slate-600 w-full" title="Clique para ver o histórico de paradas da máquina"><span class="${corDm} font-black">${dadosDM.percentDM.toFixed(1)}%</span></div>`;
+
                     linhasHtml += `
                     <tr class="hover:bg-slate-700/30 transition-colors border-b border-slate-700/50">
                         <td class="px-3 py-2 font-mono text-sky-400 font-bold tracking-widest bg-slate-900/30 whitespace-nowrap">${grua}</td>
@@ -691,6 +916,7 @@ window.initSLA = async function() {
                         <td class="px-3 py-2 text-center ${corMediaViagens} font-mono font-bold">
                             <div ${badgeMediaViagens}><span>${mediaViagens.toFixed(1)}</span> ${iconMediaViagens}</div>
                         </td>
+                        <td class="px-3 py-2 text-center font-mono">${badgeDM}</td>
                         <td class="px-3 py-2 text-right text-slate-300 font-mono whitespace-nowrap">${stats.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                         <td class="px-3 py-2 text-right text-slate-300 font-mono font-black bg-slate-900/40 whitespace-nowrap">${mediaVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                     </tr>`;
@@ -700,11 +926,17 @@ window.initSLA = async function() {
             if (temGruaNoMes) {
                 let mediaGlobalViagens = 0;
                 let mediaGlobalVolume = 0;
+                let mediaGeralDM = 0;
                 
-                if (qtdMaquinasAtivasNoMes > 0 && maxDias > 0) {
-                    mediaGlobalViagens = (totalViagens / maxDias) / qtdMaquinasAtivasNoMes;
-                    mediaGlobalVolume = (totalVolume / maxDias) / qtdMaquinasAtivasNoMes;
+                if (qtdMaquinasAtivasNoMes > 0) {
+                    mediaGeralDM = totalPercentDM / qtdMaquinasAtivasNoMes;
+                    if (maxDias > 0) {
+                        mediaGlobalViagens = (totalViagens / maxDias) / qtdMaquinasAtivasNoMes;
+                        mediaGlobalVolume = (totalVolume / maxDias) / qtdMaquinasAtivasNoMes;
+                    }
                 }
+                
+                let corMediaDm = mediaGeralDM >= 90 ? 'text-emerald-400' : (mediaGeralDM >= 80 ? 'text-amber-400' : 'text-red-400');
 
                 linhasHtml += `
                 <tr class="bg-slate-900/90 font-bold text-white border-t-2 border-slate-500">
@@ -712,6 +944,7 @@ window.initSLA = async function() {
                     <td class="px-3 py-3 text-center text-slate-400 font-mono text-xs" title="Máximo de dias operados">${maxDias}</td>
                     <td class="px-3 py-3 text-center text-white font-black">${totalViagens}</td>
                     <td class="px-3 py-3 text-center text-amber-400 font-mono font-bold" title="Média global V/Dia por máquina">${mediaGlobalViagens.toFixed(1)}</td>
+                    <td class="px-3 py-3 text-center ${corMediaDm} font-mono font-bold">${mediaGeralDM.toFixed(1)}%</td>
                     <td class="px-3 py-3 text-right text-white font-mono whitespace-nowrap">${totalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                     <td class="px-3 py-3 text-right text-emerald-400 font-mono font-black bg-emerald-500/10 whitespace-nowrap" title="Média global m³/Dia por máquina">${mediaGlobalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                 </tr>`;
@@ -731,6 +964,7 @@ window.initSLA = async function() {
                                     <th class="px-3 py-3 text-center">Dias</th>
                                     <th class="px-3 py-3 text-center">Viagens</th>
                                     <th class="px-3 py-3 text-center" title="Média de Viagens por Dia">V/Dia</th>
+                                    <th class="px-3 py-3 text-center" title="Disponibilidade Mecânica (%)">DM (%)</th>
                                     <th class="px-3 py-3 text-right">Vol (m³)</th>
                                     <th class="px-3 py-3 text-right text-emerald-400 font-bold" title="Média de Volume por Dia">m³/Dia</th>
                                 </tr>
