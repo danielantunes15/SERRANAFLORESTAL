@@ -1,5 +1,5 @@
 window.initSLA = async function() {
-    console.log("[SLA] Módulo iniciado (Modo Alta Performance).");
+    console.log("[SLA] Módulo iniciado (Modo Alta Performance com Indicadores Visuais).");
     const client = window.getSupabaseClient ? window.getSupabaseClient() : (window.db && window.db.supabase ? window.db.supabase : supabaseClient);
     if (!client) return;
 
@@ -9,6 +9,16 @@ window.initSLA = async function() {
     let tarifadorAtivoGlobal = null;
     let gruasPropriasCache = new Map();
     let tarifaCache = new Map();
+    
+    // Armazena as metas do ano atual com os novos campos
+    let metasSlaAtuais = {
+        id: null,
+        garantia_minima_volume_mensal: 0,
+        meta_viagens_mensal_grua: 0,
+        meta_viagens_diaria_grua: 0,
+        peso_medio_transportado: 0,
+        custo_hora_improdutiva: 0
+    };
 
     const btnProcessar = document.getElementById('btnProcessarSLA');
     if (btnProcessar) {
@@ -19,7 +29,133 @@ window.initSLA = async function() {
         if (chartSlaObj) chartSlaObj.resize();
     });
 
-    // 1. Busca do Tarifador Ativo
+    // ==========================================
+    // CONTROLE DO MODAL DE METAS E ALERTAS VISUAIS
+    // ==========================================
+    window.abrirModalMetasSLA = function() {
+        const ano = document.getElementById('slaAnoSelect').value;
+        document.getElementById('lblAnoModalMetas').innerText = ano;
+        
+        document.getElementById('slaMetaId').value = metasSlaAtuais.id || '';
+        document.getElementById('inpSlaGarantia').value = metasSlaAtuais.garantia_minima_volume_mensal || '';
+        document.getElementById('inpSlaViagensMensal').value = metasSlaAtuais.meta_viagens_mensal_grua || '';
+        document.getElementById('inpSlaViagensDiaria').value = metasSlaAtuais.meta_viagens_diaria_grua || '';
+        document.getElementById('inpSlaPesoMedio').value = metasSlaAtuais.peso_medio_transportado || '';
+        document.getElementById('inpSlaHoraImprodutiva').value = metasSlaAtuais.custo_hora_improdutiva || '';
+
+        const modal = document.getElementById('modalMetasSLA');
+        if (modal) modal.style.display = 'flex';
+    };
+
+    window.fecharModalMetasSLA = function() {
+        const modal = document.getElementById('modalMetasSLA');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window.salvarMetasSLA = async function() {
+        const ano = parseInt(document.getElementById('slaAnoSelect').value, 10);
+        const filialId = (window.currentUser && window.currentUser.filial_id) ? parseInt(window.currentUser.filial_id, 10) : null;
+        
+        if (!filialId) {
+            Swal.fire('Atenção', 'Você precisa estar vinculado a uma filial para salvar metas.', 'warning');
+            return;
+        }
+
+        const payload = {
+            filial_id: filialId,
+            ano: ano,
+            garantia_minima_volume_mensal: parseFloat(document.getElementById('inpSlaGarantia').value) || 0,
+            meta_viagens_mensal_grua: parseFloat(document.getElementById('inpSlaViagensMensal').value) || 0,
+            meta_viagens_diaria_grua: parseFloat(document.getElementById('inpSlaViagensDiaria').value) || 0,
+            peso_medio_transportado: parseFloat(document.getElementById('inpSlaPesoMedio').value) || 0,
+            custo_hora_improdutiva: parseFloat(document.getElementById('inpSlaHoraImprodutiva').value) || 0
+        };
+
+        const metaId = document.getElementById('slaMetaId').value;
+
+        try {
+            let res;
+            if (metaId) {
+                res = await client.from('metas_sla').update(payload).eq('id', metaId);
+            } else {
+                res = await client.from('metas_sla').insert([payload]);
+            }
+
+            if (res.error) throw res.error;
+            
+            Swal.fire('Sucesso', 'Metas salvas com sucesso!', 'success');
+            window.fecharModalMetasSLA();
+            carregarDadosSLA(); // Recarrega a tela para aplicar as novas metas visualmente
+        } catch (e) {
+            console.error("Erro ao salvar metas SLA", e);
+            Swal.fire('Erro', 'Não foi possível salvar as metas.', 'error');
+        }
+    };
+
+    // Pop-up Intuitivo para detalhar a Meta ao clicar no ícone/número
+    window.mostrarDetalhesMetaSLA = function(grua, periodo, tipo, realizado, meta) {
+        const atingiu = parseFloat(realizado.replace(',','.')) >= parseFloat(meta.replace(',','.'));
+        const icon = atingiu ? 'success' : 'error';
+        const title = atingiu ? 'Meta Atingida! 🎉' : 'Meta Não Atingida ⚠️';
+        const color = atingiu ? '#10b981' : '#ef4444';
+        const bgResult = atingiu ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+        
+        let text = `
+            <div style="text-align: left; margin-top: 1rem; color: #cbd5e1; font-family: 'Inter', sans-serif;">
+                <p style="margin-bottom: 0.5rem; font-size: 1rem;"><strong>Máquina:</strong> <span style="color: #38bdf8; font-family: monospace; font-size: 1.2rem; font-weight: bold; background: rgba(56,189,248,0.1); padding: 2px 6px; border-radius: 4px;">${grua}</span></p>
+                <p style="margin-bottom: 0.5rem; font-size: 0.95rem;"><strong>Período:</strong> ${periodo}</p>
+                <p style="margin-bottom: 0.5rem; font-size: 0.95rem;"><strong>Indicador (SLA):</strong> ${tipo}</p>
+                
+                <div style="background-color: #0f172a; padding: 1.5rem; border-radius: 1rem; margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; box-shadow: inset 0 2px 10px rgba(0,0,0,0.4);">
+                    <div style="text-align: center; flex: 1;">
+                        <p style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; margin-bottom: 0.4rem; letter-spacing: 1px;">Meta SLA</p>
+                        <p style="font-size: 1.6rem; font-weight: 900; color: #fbbf24; font-family: monospace;">${meta}</p>
+                    </div>
+                    <div style="font-size: 1.5rem; color: #475569; padding: 0 10px;">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                    <div style="text-align: center; flex: 1; background-color: ${bgResult}; padding: 0.8rem; border-radius: 0.75rem; border: 1px solid ${color}50;">
+                        <p style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; margin-bottom: 0.4rem; letter-spacing: 1px;">Realizado</p>
+                        <p style="font-size: 1.8rem; font-weight: 900; color: ${color}; font-family: monospace;">${realizado}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        Swal.fire({
+            title: `<span style="color: #f8fafc; font-size: 1.5rem; font-weight: 800;">${title}</span>`,
+            html: text,
+            icon: icon,
+            background: '#1e293b',
+            confirmButtonColor: '#3b82f6',
+            confirmButtonText: '<i class="fas fa-check"></i> Entendi',
+            customClass: {
+                popup: 'border border-slate-700 rounded-2xl shadow-2xl',
+                confirmButton: 'font-bold rounded-lg px-6'
+            }
+        });
+    };
+
+    // ==========================================
+    // BUSCAS INICIAIS E MOTOR
+    // ==========================================
+    async function buscarMetasSLA(ano, filialId) {
+        metasSlaAtuais = { id: null, garantia_minima_volume_mensal: 0, meta_viagens_mensal_grua: 0, meta_viagens_diaria_grua: 0, peso_medio_transportado: 0, custo_hora_improdutiva: 0 };
+        if (!filialId) return;
+
+        try {
+            const { data } = await client.from('metas_sla')
+                .select('*')
+                .eq('filial_id', filialId)
+                .eq('ano', ano)
+                .maybeSingle();
+
+            if (data) {
+                metasSlaAtuais = data;
+            }
+        } catch (e) { console.error("[SLA] Erro metas:", e); }
+    }
+
     async function buscarTarifadorAtivoSLA() {
         try {
             let query = client.from('tarifadores').select('*').eq('ativo', true).limit(1);
@@ -33,7 +169,6 @@ window.initSLA = async function() {
         } catch(e) { console.error("[SLA] Erro tarifador:", e); }
     }
 
-    // 2. Busca das Configurações de Gruas
     async function buscarGruasConfigSLA() {
         try {
             const { data: gruasData } = await client.from('config_gruas').select('codigos, tipo_frente, ordem, frente');
@@ -66,7 +201,6 @@ window.initSLA = async function() {
         return null;
     }
 
-    // 3. Motor de Cálculo de Tarifa (Cacheado)
     function calcularTarifaTransporteSLA(asfalto, terra) {
         if (!tarifadorAtivoGlobal || !tarifadorAtivoGlobal.dados) return 0;
         const chaveCache = `${asfalto}_${terra}`;
@@ -113,7 +247,6 @@ window.initSLA = async function() {
         return resultado;
     }
 
-    // 4. Tratamento robusto de datas
     function extrairMesData(dataStr, anoDesejado) {
         if (!dataStr) return null;
         const str = String(dataStr).trim();
@@ -147,7 +280,6 @@ window.initSLA = async function() {
         return null;
     }
 
-    // 5. Motor Principal de Busca (RPC + Paginação)
     async function carregarDadosSLA() {
         const btn = document.getElementById('btnProcessarSLA');
         const icon = btn ? btn.querySelector('i') : null;
@@ -155,7 +287,6 @@ window.initSLA = async function() {
 
         if (icon) icon.classList.add('fa-spin');
         if (containerGruas) {
-            // Remove o grid momentaneamente para a mensagem de carregamento ficar centralizada
             containerGruas.className = 'flex flex-col gap-6 pb-8';
             containerGruas.innerHTML = `
                 <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl border border-slate-700/50 p-8 text-center text-slate-400">
@@ -165,20 +296,29 @@ window.initSLA = async function() {
             `;
         }
         
-        const ano = document.getElementById('slaAnoSelect').value;
+        const ano = parseInt(document.getElementById('slaAnoSelect').value, 10);
         const filialId = (window.currentUser && window.currentUser.filial_id) ? parseInt(window.currentUser.filial_id, 10) : null;
         
         const strMinISO = `${ano}-01-01T00:00:00`;
         const strMaxISO = `${ano}-12-31T23:59:59`;
 
         tarifaCache.clear();
+        await buscarMetasSLA(ano, filialId);
         await buscarTarifadorAtivoSLA();
         await buscarGruasConfigSLA();
+
+        // Atualiza textos nos cards principais com as metas
+        const fm = v => v > 0 ? v.toLocaleString('pt-BR') : '0';
+        const fmR = v => v > 0 ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
+        
+        document.getElementById('lblMetaGarantiaVolume').innerText = `Garantia Mensal: ${fm(metasSlaAtuais.garantia_minima_volume_mensal)} m³`;
+        document.getElementById('lblMetaPesoMedio').innerText = `Peso Médio: ${fm(metasSlaAtuais.peso_medio_transportado)} m³/viagem`;
+        document.getElementById('lblMetaViagensGrua').innerText = `Meta Grua: ${fm(metasSlaAtuais.meta_viagens_mensal_grua)}/mês | ${fm(metasSlaAtuais.meta_viagens_diaria_grua)}/dia`;
+        document.getElementById('lblMetaHoraImprodutiva').innerText = `Custo Hora Improdutiva: ${fmR(metasSlaAtuais.custo_hora_improdutiva)}`;
 
         try {
             let dadosFinais = [];
 
-            // A) Tenta usar a RPC (Super Rápida)
             const { data: rpcJson, error: rpcErr } = await client.rpc('get_producao_agrupada_json', {
                 p_filial_id: filialId,
                 p_data_inicio: strMinISO,
@@ -197,8 +337,6 @@ window.initSLA = async function() {
                     valor_cte: parseFloat(r.c) || 0
                 }));
             } else {
-                // B) Fallback de Paginação
-                console.warn("[SLA] RPC falhou, usando paginação robusta.");
                 let queryCount = client.from('historico_viagens').select('*', { count: 'exact', head: true })
                     .gte('created_at', strMinISO).lte('created_at', strMaxISO);
                 if (filialId) queryCount = queryCount.eq('filial_id', filialId);
@@ -243,6 +381,7 @@ window.initSLA = async function() {
         } catch (e) {
             console.error("[SLA] Erro ao buscar dados:", e);
             if (containerGruas) {
+                containerGruas.className = 'flex flex-col gap-6 pb-8';
                 containerGruas.innerHTML = `
                     <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl border border-red-500/30 p-8 text-center text-red-400">
                         <i class="fas fa-exclamation-triangle text-3xl mb-3 text-red-500"></i>
@@ -284,7 +423,6 @@ window.initSLA = async function() {
             const vol = r.volumeReal;
             const qtdViagens = r.qtdViagens;
 
-            // Processamento Transporte
             if (isSerrana) {
                 let recTransporte = 0;
                 if (tarifadorAtivoGlobal) {
@@ -298,7 +436,6 @@ window.initSLA = async function() {
                 mesesDados[mes].viagensTransp += qtdViagens;
             }
 
-            // Processamento Carregamento
             if (isNossaGrua) {
                 let recCarregamento = vol * precoCarregamento;
                 mesesDados[mes].faturamento += recCarregamento; 
@@ -328,7 +465,18 @@ window.initSLA = async function() {
         });
 
         document.getElementById('slaTotalFaturamento').innerText = totalFat.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        document.getElementById('slaTotalVolume').innerText = totalVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
+        
+        // Verifica se bateu a garantia mensal * 12 (pois estamos no quadro Anual)
+        const elVol = document.getElementById('slaTotalVolume');
+        elVol.innerText = totalVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
+        
+        if (metasSlaAtuais.garantia_minima_volume_mensal > 0) {
+            const metaAnualGarantia = metasSlaAtuais.garantia_minima_volume_mensal * 12;
+            elVol.className = totalVol >= metaAnualGarantia ? "text-2xl font-black text-emerald-400 mt-1" : "text-2xl font-black text-red-400 mt-1";
+        } else {
+            elVol.className = "text-2xl font-black text-white mt-1";
+        }
+
         document.getElementById('slaTotalViagensTransp').innerText = totalVT.toLocaleString('pt-BR');
         document.getElementById('slaTotalViagensCarreg').innerText = totalVC.toLocaleString('pt-BR');
     }
@@ -414,17 +562,19 @@ window.initSLA = async function() {
         });
     }
 
-    // Tabela Responsiva em Grid com Média de Viagens e Totais
+    // Tabela Responsiva em Grid com Indicadores Visuais Interativos (Check / Cross)
     function renderizarTabelaGruas(gruasDict, ano) {
         const container = document.getElementById('containerGruasMensal');
         if (!container) return;
         
-        // Altera o layout dinamicamente para Quadros (Cards) na Horizontal
         container.className = 'grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6 pb-8';
         
         let html = '';
         const gruasNomes = Object.keys(gruasDict).sort();
         let possuiAlgumDado = false;
+
+        const metaMensalViagens = metasSlaAtuais.meta_viagens_mensal_grua;
+        const metaDiariaViagens = metasSlaAtuais.meta_viagens_diaria_grua;
 
         for (let mes = 0; mes < 12; mes++) {
             let temGruaNoMes = false;
@@ -452,33 +602,64 @@ window.initSLA = async function() {
                     somaMediaViagens += mediaViagens;
                     if (dias > maxDias) maxDias = dias;
 
+                    // Indicadores Visuais de Viagens Totais e V/Dia (com Botão e Ícone)
+                    let corViagens = "text-slate-300";
+                    let iconViagens = "";
+                    let badgeViagens = "";
+                    
+                    if (metaMensalViagens > 0) {
+                        let atingiu = stats.viagens >= metaMensalViagens;
+                        corViagens = atingiu ? "text-emerald-400" : "text-red-400";
+                        iconViagens = atingiu ? '<i class="fas fa-check-circle text-emerald-500 ml-2"></i>' : '<i class="fas fa-times-circle text-red-500 ml-2"></i>';
+                        badgeViagens = `onclick="window.mostrarDetalhesMetaSLA('${grua}', '${nomeMeses[mes]}/${ano}', 'Viagens Mensais', '${stats.viagens}', '${metaMensalViagens}')" class="cursor-pointer hover:bg-slate-700/60 p-1.5 rounded transition-all shadow-sm active:scale-95 inline-flex items-center justify-center border border-transparent hover:border-slate-600 w-full" title="Clique para detalhes da meta"`;
+                    } else {
+                        badgeViagens = `class="p-1.5 w-full inline-flex items-center justify-center"`;
+                    }
+
+                    let corMediaViagens = "text-amber-400";
+                    let iconMediaViagens = "";
+                    let badgeMediaViagens = "";
+                    
+                    if (metaDiariaViagens > 0) {
+                        let atingiu = mediaViagens >= metaDiariaViagens;
+                        corMediaViagens = atingiu ? "text-emerald-400" : "text-red-400";
+                        iconMediaViagens = atingiu ? '<i class="fas fa-check-circle text-emerald-500 ml-2"></i>' : '<i class="fas fa-times-circle text-red-500 ml-2"></i>';
+                        badgeMediaViagens = `onclick="window.mostrarDetalhesMetaSLA('${grua}', '${nomeMeses[mes]}/${ano}', 'Média Diária de Viagens', '${mediaViagens.toFixed(1)}', '${metaDiariaViagens}')" class="cursor-pointer hover:bg-slate-700/60 p-1.5 rounded transition-all shadow-sm active:scale-95 inline-flex items-center justify-center border border-transparent hover:border-slate-600 w-full" title="Clique para detalhes da meta"`;
+                    } else {
+                        badgeMediaViagens = `class="p-1.5 w-full inline-flex items-center justify-center"`;
+                    }
+
                     linhasHtml += `
                     <tr class="hover:bg-slate-700/30 transition-colors border-b border-slate-700/50">
-                        <td class="px-4 py-2.5 font-mono text-sky-400 font-bold tracking-widest bg-slate-900/30 whitespace-nowrap">${grua}</td>
-                        <td class="px-4 py-2.5 text-center text-slate-300 font-mono">${dias}</td>
-                        <td class="px-4 py-2.5 text-center text-slate-300 font-black">${stats.viagens}</td>
-                        <td class="px-4 py-2.5 text-center text-amber-400 font-mono font-bold">${mediaViagens.toFixed(1)}</td>
-                        <td class="px-4 py-2.5 text-right text-slate-300 font-mono whitespace-nowrap">${stats.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-                        <td class="px-4 py-2.5 text-right text-emerald-400 font-mono font-black bg-emerald-500/5 whitespace-nowrap">${mediaVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                        <td class="px-3 py-2 font-mono text-sky-400 font-bold tracking-widest bg-slate-900/30 whitespace-nowrap">${grua}</td>
+                        <td class="px-3 py-2 text-center text-slate-300 font-mono">${dias}</td>
+                        <td class="px-3 py-2 text-center ${corViagens} font-black">
+                            <div ${badgeViagens}><span>${stats.viagens}</span> ${iconViagens}</div>
+                        </td>
+                        <td class="px-3 py-2 text-center ${corMediaViagens} font-mono font-bold">
+                            <div ${badgeMediaViagens}><span>${mediaViagens.toFixed(1)}</span> ${iconMediaViagens}</div>
+                        </td>
+                        <td class="px-3 py-2 text-right text-slate-300 font-mono whitespace-nowrap">${stats.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                        <td class="px-3 py-2 text-right text-slate-300 font-mono font-black bg-slate-900/40 whitespace-nowrap">${mediaVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                     </tr>`;
                 }
             });
 
             if (temGruaNoMes) {
-                // Adicionando a Linha de Totais no Fim do Mês
+                // Linha de Totais 
                 linhasHtml += `
                 <tr class="bg-slate-900/90 font-bold text-white border-t-2 border-slate-500">
-                    <td class="px-4 py-3 text-left uppercase text-[11px] text-slate-400 tracking-wider">Total</td>
-                    <td class="px-4 py-3 text-center text-slate-400 font-mono text-xs" title="Máximo de dias operados">${maxDias}</td>
-                    <td class="px-4 py-3 text-center text-white font-black">${totalViagens}</td>
-                    <td class="px-4 py-3 text-center text-amber-400 font-mono font-bold">${somaMediaViagens.toFixed(1)}</td>
-                    <td class="px-4 py-3 text-right text-white font-mono whitespace-nowrap">${totalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-                    <td class="px-4 py-3 text-right text-emerald-400 font-mono font-black bg-emerald-500/10 whitespace-nowrap">${somaMediaVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td class="px-3 py-3 text-left uppercase text-[11px] text-slate-400 tracking-wider">Total Mês</td>
+                    <td class="px-3 py-3 text-center text-slate-400 font-mono text-xs" title="Máximo de dias operados">${maxDias}</td>
+                    <td class="px-3 py-3 text-center text-white font-black">${totalViagens}</td>
+                    <td class="px-3 py-3 text-center text-amber-400 font-mono font-bold">${somaMediaViagens.toFixed(1)}</td>
+                    <td class="px-3 py-3 text-right text-white font-mono whitespace-nowrap">${totalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td class="px-3 py-3 text-right text-emerald-400 font-mono font-black bg-emerald-500/10 whitespace-nowrap">${somaMediaVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                 </tr>`;
 
-                // Wrapper do Card
+                // Construção do Card do Mês
                 html += `
-                <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col h-full">
+                <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col h-full hover:border-slate-500/80 transition-colors">
                     <div class="bg-slate-700/40 px-5 py-3 border-b border-slate-600 flex justify-between items-center">
                         <h3 class="font-bold text-white tracking-wide flex items-center text-sm uppercase">
                             <i class="fas fa-calendar-alt text-amber-400 mr-2"></i> ${nomeMeses[mes]}/${ano}
@@ -486,14 +667,14 @@ window.initSLA = async function() {
                     </div>
                     <div class="overflow-x-auto custom-scrollbar flex-1">
                         <table class="min-w-full text-xs text-left">
-                            <thead class="bg-slate-900/80 text-slate-400 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-700 whitespace-nowrap">
+                            <thead class="bg-slate-900/80 text-slate-400 font-semibold uppercase text-[9px] tracking-wider border-b border-slate-700 whitespace-nowrap">
                                 <tr>
-                                    <th class="px-4 py-3">Grua</th>
-                                    <th class="px-4 py-3 text-center">Dias</th>
-                                    <th class="px-4 py-3 text-center">Viagens</th>
-                                    <th class="px-4 py-3 text-center" title="Média de Viagens por Dia">V/Dia</th>
-                                    <th class="px-4 py-3 text-right">Vol (m³)</th>
-                                    <th class="px-4 py-3 text-right text-emerald-400 font-bold" title="Média de Volume por Dia">m³/Dia</th>
+                                    <th class="px-3 py-3">Grua</th>
+                                    <th class="px-3 py-3 text-center">Dias</th>
+                                    <th class="px-3 py-3 text-center">Viagens</th>
+                                    <th class="px-3 py-3 text-center" title="Média de Viagens por Dia">V/Dia</th>
+                                    <th class="px-3 py-3 text-right">Vol (m³)</th>
+                                    <th class="px-3 py-3 text-right text-emerald-400 font-bold" title="Média de Volume por Dia">m³/Dia</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-800/80 text-slate-300">
