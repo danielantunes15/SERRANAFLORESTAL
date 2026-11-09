@@ -344,17 +344,12 @@ window.initSLA = async function() {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
-    // ==========================================
-    // BUSCAS INICIAIS E MOTOR DE CÁLCULO
-    // ==========================================
     async function garantirDadosManutencaoSLA(filialId) {
         if (!window.ordensServico || window.ordensServico.length === 0 || !window.frotasManutencao || window.frotasManutencao.length === 0) {
             try {
-                // Tenta reaproveitar a função nativa do sistema se ela existir
                 if (typeof window.carregarDadosOS === 'function') {
                     await window.carregarDadosOS();
                 } else {
-                    // Fallback com paginação (evita o Erro 500 do Supabase)
                     let todosOsDados = [];
                     let inicio = 0;
                     const tamanhoLote = 1000;
@@ -840,7 +835,7 @@ window.initSLA = async function() {
         const container = document.getElementById('containerGruasMensal');
         if (!container) return;
         
-        container.className = 'grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6 pb-8';
+        container.className = 'grid grid-cols-1 xl:grid-cols-2 gap-6 pb-8';
         
         let html = '';
         const gruasNomes = Object.keys(gruasDict).sort();
@@ -908,17 +903,17 @@ window.initSLA = async function() {
 
                     linhasHtml += `
                     <tr class="hover:bg-slate-700/30 transition-colors border-b border-slate-700/50">
-                        <td class="px-3 py-2 font-mono text-sky-400 font-bold tracking-widest bg-slate-900/30 whitespace-nowrap">${grua}</td>
-                        <td class="px-3 py-2 text-center text-slate-300 font-mono">${dias}</td>
-                        <td class="px-3 py-2 text-center ${corViagens} font-black">
+                        <td class="px-2 py-2 font-mono text-sky-400 font-bold tracking-widest bg-slate-900/30 whitespace-nowrap">${grua}</td>
+                        <td class="px-2 py-2 text-center text-slate-300 font-mono">${dias}</td>
+                        <td class="px-2 py-2 text-center ${corViagens} font-black">
                             <div ${badgeViagens}><span>${stats.viagens}</span> ${iconViagens}</div>
                         </td>
-                        <td class="px-3 py-2 text-center ${corMediaViagens} font-mono font-bold">
+                        <td class="px-2 py-2 text-center ${corMediaViagens} font-mono font-bold">
                             <div ${badgeMediaViagens}><span>${mediaViagens.toFixed(1)}</span> ${iconMediaViagens}</div>
                         </td>
-                        <td class="px-3 py-2 text-center font-mono">${badgeDM}</td>
-                        <td class="px-3 py-2 text-right text-slate-300 font-mono whitespace-nowrap">${stats.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-                        <td class="px-3 py-2 text-right text-slate-300 font-mono font-black bg-slate-900/40 whitespace-nowrap">${mediaVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                        <td class="px-2 py-2 text-center font-mono">${badgeDM}</td>
+                        <td class="px-2 py-2 text-right text-slate-300 font-mono whitespace-nowrap">${stats.volume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                        <td class="px-2 py-2 text-right text-slate-300 font-mono font-black bg-slate-900/40 whitespace-nowrap">${mediaVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                     </tr>`;
                 }
             });
@@ -940,13 +935,13 @@ window.initSLA = async function() {
 
                 linhasHtml += `
                 <tr class="bg-slate-900/90 font-bold text-white border-t-2 border-slate-500">
-                    <td class="px-3 py-3 text-left uppercase text-[11px] text-slate-400 tracking-wider">Média Frota</td>
-                    <td class="px-3 py-3 text-center text-slate-400 font-mono text-xs" title="Máximo de dias operados">${maxDias}</td>
-                    <td class="px-3 py-3 text-center text-white font-black">${totalViagens}</td>
-                    <td class="px-3 py-3 text-center text-amber-400 font-mono font-bold" title="Média global V/Dia por máquina">${mediaGlobalViagens.toFixed(1)}</td>
-                    <td class="px-3 py-3 text-center ${corMediaDm} font-mono font-bold">${mediaGeralDM.toFixed(1)}%</td>
-                    <td class="px-3 py-3 text-right text-white font-mono whitespace-nowrap">${totalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-                    <td class="px-3 py-3 text-right text-emerald-400 font-mono font-black bg-emerald-500/10 whitespace-nowrap" title="Média global m³/Dia por máquina">${mediaGlobalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td class="px-2 py-2 text-left uppercase text-[11px] text-slate-400 tracking-wider">Média Frota</td>
+                    <td class="px-2 py-2 text-center text-slate-400 font-mono text-xs" title="Máximo de dias operados">${maxDias}</td>
+                    <td class="px-2 py-2 text-center text-white font-black">${totalViagens}</td>
+                    <td class="px-2 py-2 text-center text-amber-400 font-mono font-bold" title="Média global V/Dia por máquina">${mediaGlobalViagens.toFixed(1)}</td>
+                    <td class="px-2 py-2 text-center ${corMediaDm} font-mono font-bold">${mediaGeralDM.toFixed(1)}%</td>
+                    <td class="px-2 py-2 text-right text-white font-mono whitespace-nowrap">${totalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td class="px-2 py-2 text-right text-emerald-400 font-mono font-black bg-emerald-500/10 whitespace-nowrap" title="Média global m³/Dia por máquina">${mediaGlobalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                 </tr>`;
 
                 html += `
@@ -960,13 +955,13 @@ window.initSLA = async function() {
                         <table class="min-w-full text-xs text-left">
                             <thead class="bg-slate-900/80 text-slate-400 font-semibold uppercase text-[9px] tracking-wider border-b border-slate-700 whitespace-nowrap">
                                 <tr>
-                                    <th class="px-3 py-3">Grua</th>
-                                    <th class="px-3 py-3 text-center">Dias</th>
-                                    <th class="px-3 py-3 text-center">Viagens</th>
-                                    <th class="px-3 py-3 text-center" title="Média de Viagens por Dia">V/Dia</th>
-                                    <th class="px-3 py-3 text-center" title="Disponibilidade Mecânica (%)">DM (%)</th>
-                                    <th class="px-3 py-3 text-right">Vol (m³)</th>
-                                    <th class="px-3 py-3 text-right text-emerald-400 font-bold" title="Média de Volume por Dia">m³/Dia</th>
+                                    <th class="px-2 py-2">Grua</th>
+                                    <th class="px-2 py-2 text-center">Dias</th>
+                                    <th class="px-2 py-2 text-center">Viagens</th>
+                                    <th class="px-2 py-2 text-center" title="Média de Viagens por Dia">V/Dia</th>
+                                    <th class="px-2 py-2 text-center" title="Disponibilidade Mecânica (%)">DM (%)</th>
+                                    <th class="px-2 py-2 text-right">Vol (m³)</th>
+                                    <th class="px-2 py-2 text-right text-emerald-400 font-bold" title="Média de Volume por Dia">m³/Dia</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-800/80 text-slate-300">
