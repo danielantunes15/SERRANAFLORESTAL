@@ -10,14 +10,14 @@ window.initSLA = async function() {
     let gruasPropriasCache = new Map();
     let tarifaCache = new Map();
     
-    // Armazena as metas do ano atual com os novos campos
     let metasSlaAtuais = {
         id: null,
         garantia_minima_volume_mensal: 0,
         meta_viagens_mensal_grua: 0,
         meta_viagens_diaria_grua: 0,
         peso_medio_transportado: 0,
-        custo_hora_improdutiva: 0
+        custo_hora_improdutiva: 0,
+        faturamento_previsto_mensal: 0
     };
 
     const btnProcessar = document.getElementById('btnProcessarSLA');
@@ -29,6 +29,33 @@ window.initSLA = async function() {
         if (chartSlaObj) chartSlaObj.resize();
     });
 
+    // Helpers de Formatação no Modal
+    function setupFormatadoresModal() {
+        const formatCurrency = (val) => val.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        const formatNumber = (val, label) => val.toLocaleString('pt-BR') + ' ' + label;
+
+        const binds = [
+            { id: 'inpSlaFaturamentoPrevisto', span: 'fmtFaturamentoPrevisto', type: 'currency' },
+            { id: 'inpSlaGarantia', span: 'fmtGarantia', type: 'number', label: 'm³/mês' },
+            { id: 'inpSlaViagensMensal', span: 'fmtViagensMensal', type: 'number', label: 'Cargas/mês' },
+            { id: 'inpSlaViagensDiaria', span: 'fmtViagensDiaria', type: 'number', label: 'Cargas/dia' },
+            { id: 'inpSlaPesoMedio', span: 'fmtPesoMedio', type: 'number', label: 'm³/viagem' },
+            { id: 'inpSlaHoraImprodutiva', span: 'fmtHoraImprodutiva', type: 'currency' }
+        ];
+
+        binds.forEach(b => {
+            const el = document.getElementById(b.id);
+            const span = document.getElementById(b.span);
+            if (el && span) {
+                el.addEventListener('input', () => {
+                    const val = parseFloat(el.value) || 0;
+                    span.innerText = b.type === 'currency' ? formatCurrency(val) : formatNumber(val, b.label);
+                });
+            }
+        });
+    }
+    setupFormatadoresModal();
+
     // ==========================================
     // CONTROLE DO MODAL DE METAS E ALERTAS VISUAIS
     // ==========================================
@@ -37,11 +64,17 @@ window.initSLA = async function() {
         document.getElementById('lblAnoModalMetas').innerText = ano;
         
         document.getElementById('slaMetaId').value = metasSlaAtuais.id || '';
+        document.getElementById('inpSlaFaturamentoPrevisto').value = metasSlaAtuais.faturamento_previsto_mensal || '';
         document.getElementById('inpSlaGarantia').value = metasSlaAtuais.garantia_minima_volume_mensal || '';
         document.getElementById('inpSlaViagensMensal').value = metasSlaAtuais.meta_viagens_mensal_grua || '';
         document.getElementById('inpSlaViagensDiaria').value = metasSlaAtuais.meta_viagens_diaria_grua || '';
         document.getElementById('inpSlaPesoMedio').value = metasSlaAtuais.peso_medio_transportado || '';
         document.getElementById('inpSlaHoraImprodutiva').value = metasSlaAtuais.custo_hora_improdutiva || '';
+
+        ['inpSlaFaturamentoPrevisto', 'inpSlaGarantia', 'inpSlaViagensMensal', 'inpSlaViagensDiaria', 'inpSlaPesoMedio', 'inpSlaHoraImprodutiva'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.dispatchEvent(new Event('input'));
+        });
 
         const modal = document.getElementById('modalMetasSLA');
         if (modal) modal.style.display = 'flex';
@@ -64,6 +97,7 @@ window.initSLA = async function() {
         const payload = {
             filial_id: filialId,
             ano: ano,
+            faturamento_previsto_mensal: parseFloat(document.getElementById('inpSlaFaturamentoPrevisto').value) || 0,
             garantia_minima_volume_mensal: parseFloat(document.getElementById('inpSlaGarantia').value) || 0,
             meta_viagens_mensal_grua: parseFloat(document.getElementById('inpSlaViagensMensal').value) || 0,
             meta_viagens_diaria_grua: parseFloat(document.getElementById('inpSlaViagensDiaria').value) || 0,
@@ -85,14 +119,13 @@ window.initSLA = async function() {
             
             Swal.fire('Sucesso', 'Metas salvas com sucesso!', 'success');
             window.fecharModalMetasSLA();
-            carregarDadosSLA(); // Recarrega a tela para aplicar as novas metas visualmente
+            carregarDadosSLA(); 
         } catch (e) {
             console.error("Erro ao salvar metas SLA", e);
             Swal.fire('Erro', 'Não foi possível salvar as metas.', 'error');
         }
     };
 
-    // Pop-up Intuitivo para detalhar a Meta ao clicar no ícone/número
     window.mostrarDetalhesMetaSLA = function(grua, periodo, tipo, realizado, meta) {
         const atingiu = parseFloat(realizado.replace(',','.')) >= parseFloat(meta.replace(',','.'));
         const icon = atingiu ? 'success' : 'error';
@@ -140,7 +173,7 @@ window.initSLA = async function() {
     // BUSCAS INICIAIS E MOTOR
     // ==========================================
     async function buscarMetasSLA(ano, filialId) {
-        metasSlaAtuais = { id: null, garantia_minima_volume_mensal: 0, meta_viagens_mensal_grua: 0, meta_viagens_diaria_grua: 0, peso_medio_transportado: 0, custo_hora_improdutiva: 0 };
+        metasSlaAtuais = { id: null, garantia_minima_volume_mensal: 0, meta_viagens_mensal_grua: 0, meta_viagens_diaria_grua: 0, peso_medio_transportado: 0, custo_hora_improdutiva: 0, faturamento_previsto_mensal: 0 };
         if (!filialId) return;
 
         try {
@@ -307,14 +340,16 @@ window.initSLA = async function() {
         await buscarTarifadorAtivoSLA();
         await buscarGruasConfigSLA();
 
-        // Atualiza textos nos cards principais com as metas
+        // Atualiza textos nos cards
         const fm = v => v > 0 ? v.toLocaleString('pt-BR') : '0';
         const fmR = v => v > 0 ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
         
         document.getElementById('lblMetaGarantiaVolume').innerText = `Garantia Mensal: ${fm(metasSlaAtuais.garantia_minima_volume_mensal)} m³`;
         document.getElementById('lblMetaPesoMedio').innerText = `Peso Médio: ${fm(metasSlaAtuais.peso_medio_transportado)} m³/viagem`;
         document.getElementById('lblMetaViagensGrua').innerText = `Meta Grua: ${fm(metasSlaAtuais.meta_viagens_mensal_grua)}/mês | ${fm(metasSlaAtuais.meta_viagens_diaria_grua)}/dia`;
-        document.getElementById('lblMetaHoraImprodutiva').innerText = `Custo Hora Improdutiva: ${fmR(metasSlaAtuais.custo_hora_improdutiva)}`;
+        
+        const lblHoraImp = document.getElementById('lblMetaHoraImprodutiva');
+        if(lblHoraImp) lblHoraImp.innerText = `Custo Hora Improdutiva: ${fmR(metasSlaAtuais.custo_hora_improdutiva)}`;
 
         try {
             let dadosFinais = [];
@@ -396,7 +431,9 @@ window.initSLA = async function() {
 
     function processarSLA(dados, ano) {
         const mesesDados = Array.from({length: 12}, () => ({
-            faturamento: 0,
+            faturamentoTransp: 0,
+            faturamentoCarreg: 0,
+            faturamentoTotal: 0,
             volume: 0,
             viagensTransp: 0,
             viagensCarreg: 0
@@ -431,14 +468,16 @@ window.initSLA = async function() {
                 } else {
                     recTransporte = r.valor_cte;
                 }
-                mesesDados[mes].faturamento += recTransporte;
+                mesesDados[mes].faturamentoTransp += recTransporte;
+                mesesDados[mes].faturamentoTotal += recTransporte;
                 mesesDados[mes].volume += vol;
                 mesesDados[mes].viagensTransp += qtdViagens;
             }
 
             if (isNossaGrua) {
                 let recCarregamento = vol * precoCarregamento;
-                mesesDados[mes].faturamento += recCarregamento; 
+                mesesDados[mes].faturamentoCarreg += recCarregamento; 
+                mesesDados[mes].faturamentoTotal += recCarregamento; 
                 mesesDados[mes].viagensCarreg += qtdViagens;
                 
                 if (!gruasDict[gruaRaw]) gruasDict[gruaRaw] = {};
@@ -456,9 +495,11 @@ window.initSLA = async function() {
     }
 
     function renderizarKpis(meses) {
-        let totalFat = 0, totalVol = 0, totalVT = 0, totalVC = 0;
+        let totalFat = 0, totalFatTransp = 0, totalFatCarreg = 0, totalVol = 0, totalVT = 0, totalVC = 0;
         meses.forEach(m => {
-            totalFat += m.faturamento;
+            totalFat += m.faturamentoTotal;
+            totalFatTransp += m.faturamentoTransp;
+            totalFatCarreg += m.faturamentoCarreg;
             totalVol += m.volume;
             totalVT += m.viagensTransp;
             totalVC += m.viagensCarreg;
@@ -466,7 +507,12 @@ window.initSLA = async function() {
 
         document.getElementById('slaTotalFaturamento').innerText = totalFat.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
-        // Verifica se bateu a garantia mensal * 12 (pois estamos no quadro Anual)
+        const elTransp = document.getElementById('slaFatTransporte');
+        if(elTransp) elTransp.innerText = totalFatTransp.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        
+        const elCarreg = document.getElementById('slaFatCarregamento');
+        if(elCarreg) elCarreg.innerText = totalFatCarreg.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        
         const elVol = document.getElementById('slaTotalVolume');
         elVol.innerText = totalVol.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m³';
         
@@ -485,8 +531,11 @@ window.initSLA = async function() {
         const dom = document.getElementById('chartSlaEvolucao');
         if (!dom) return;
         
-        const dataFaturamento = meses.map(m => m.faturamento);
+        const dataFaturamento = meses.map(m => m.faturamentoTotal);
         const dataVolume = meses.map(m => m.volume);
+        
+        // Array com a meta de Faturamento para compor a linha de referência do gráfico
+        const metaFaturamentoArr = meses.map(() => metasSlaAtuais.faturamento_previsto_mensal || 0);
 
         if (chartSlaObj && !chartSlaObj.isDisposed()) {
             chartSlaObj.dispose();
@@ -514,7 +563,7 @@ window.initSLA = async function() {
                 }
             },
             legend: {
-                data: ['Faturamento Transporte (R$)', 'Volume Transportado (m³)'],
+                data: ['Faturamento Mensal (R$)', 'Meta Faturamento (R$)', 'Volume Transportado (m³)'],
                 textStyle: { color: '#94a3b8' },
                 top: 0
             },
@@ -543,10 +592,18 @@ window.initSLA = async function() {
             ],
             series: [
                 {
-                    name: 'Faturamento Transporte (R$)',
+                    name: 'Faturamento Mensal (R$)',
                     type: 'bar',
                     data: dataFaturamento,
                     itemStyle: { color: '#38bdf8', borderRadius: [4, 4, 0, 0] }
+                },
+                {
+                    name: 'Meta Faturamento (R$)',
+                    type: 'line',
+                    data: metaFaturamentoArr,
+                    symbol: 'none',
+                    lineStyle: { color: '#fbbf24', width: 3, type: 'dashed' },
+                    z: 10
                 },
                 {
                     name: 'Volume Transportado (m³)',
@@ -562,7 +619,7 @@ window.initSLA = async function() {
         });
     }
 
-    // Tabela Responsiva em Grid com Indicadores Visuais Interativos (Check / Cross)
+    // Tabela Responsiva em Grid com Média Real e Indicadores Visuais Interativos (Check / Cross)
     function renderizarTabelaGruas(gruasDict, ano) {
         const container = document.getElementById('containerGruasMensal');
         if (!container) return;
@@ -582,8 +639,6 @@ window.initSLA = async function() {
             
             let totalViagens = 0;
             let totalVolume = 0;
-            let somaMediaViagens = 0;
-            let somaMediaVolume = 0;
             let maxDias = 0;
 
             gruasNomes.forEach(grua => {
@@ -598,8 +653,6 @@ window.initSLA = async function() {
                     
                     totalViagens += stats.viagens;
                     totalVolume += stats.volume;
-                    somaMediaVolume += mediaVol;
-                    somaMediaViagens += mediaViagens;
                     if (dias > maxDias) maxDias = dias;
 
                     // Indicadores Visuais de Viagens Totais e V/Dia (com Botão e Ícone)
@@ -646,15 +699,18 @@ window.initSLA = async function() {
             });
 
             if (temGruaNoMes) {
-                // Linha de Totais 
+                // Linha de Totais da Frota do Mês: A média de todos juntos (Total / MaxDias)
+                let totalMediaViagens = maxDias > 0 ? (totalViagens / maxDias) : 0;
+                let totalMediaVolume = maxDias > 0 ? (totalVolume / maxDias) : 0;
+
                 linhasHtml += `
                 <tr class="bg-slate-900/90 font-bold text-white border-t-2 border-slate-500">
-                    <td class="px-3 py-3 text-left uppercase text-[11px] text-slate-400 tracking-wider">Total Mês</td>
+                    <td class="px-3 py-3 text-left uppercase text-[11px] text-slate-400 tracking-wider">Média Frota</td>
                     <td class="px-3 py-3 text-center text-slate-400 font-mono text-xs" title="Máximo de dias operados">${maxDias}</td>
                     <td class="px-3 py-3 text-center text-white font-black">${totalViagens}</td>
-                    <td class="px-3 py-3 text-center text-amber-400 font-mono font-bold">${somaMediaViagens.toFixed(1)}</td>
+                    <td class="px-3 py-3 text-center text-amber-400 font-mono font-bold">${totalMediaViagens.toFixed(1)}</td>
                     <td class="px-3 py-3 text-right text-white font-mono whitespace-nowrap">${totalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-                    <td class="px-3 py-3 text-right text-emerald-400 font-mono font-black bg-emerald-500/10 whitespace-nowrap">${somaMediaVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td class="px-3 py-3 text-right text-emerald-400 font-mono font-black bg-emerald-500/10 whitespace-nowrap">${totalMediaVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                 </tr>`;
 
                 // Construção do Card do Mês
@@ -698,6 +754,5 @@ window.initSLA = async function() {
         container.innerHTML = html;
     }
 
-    // Inicialização automática ao carregar
     carregarDadosSLA();
 };
