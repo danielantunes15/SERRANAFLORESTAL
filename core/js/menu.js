@@ -74,6 +74,7 @@ window.MAPA_MENUS = [
     { id: 'visao_executiva', label: 'Visão Executiva (Global)', setor: 'Gerencial', icon: 'fas fa-globe-americas' },
     { id: 'tarifador', label: 'Tarifador', setor: 'Gerencial', icon: 'fas fa-calculator' },
     { id: 'configuracoes_gerenciais', label: 'Configurações Gerenciais', setor: 'Gerencial', icon: 'fas fa-cog' },
+    { id: 'sla', label: 'SLA', setor: 'Gerencial', icon: 'fas fa-chart-line' },
     
     // --- MÓDULO GLOBAL ---
     { id: 'gestao_filiais', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
@@ -144,6 +145,7 @@ const ROTAS = {
     'visao_executiva': 'modules/gerencial/visao_executiva/visao_executiva.html', 
     'tarifador': 'modules/gerencial/tarifador/tarifador.html',
     'configuracoes_gerenciais': 'modules/gerencial/configuracoes_gerenciais/configuracoes_gerenciais.html',
+    'sla': 'modules/gerencial/sla/sla.html',
     
     'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
     'historico_producao': 'modules/monitoramento/historico/historico.html',
@@ -166,7 +168,7 @@ const ROTAS = {
     'frota_compatibilidade': 'modules/gestao_frotas/compatibilidade/compatibilidade.html'
 };
 
-const VERSAO_SISTEMA = "1.0.27";
+const VERSAO_SISTEMA = "1.0.28";
 
 // =================================================================
 // CONTROLE DE INICIALIZAÇÃO ÚNICA DO RELATÓRIO GERENCIAL
@@ -261,6 +263,7 @@ window.renderizarMenu = async function() {
     
     if (isAdmin) {
         if (!meusMenus.includes('tarifador')) meusMenus.push('tarifador');
+        if (!meusMenus.includes('sla')) meusMenus.push('sla');
     }
 
     // =========================================================
@@ -571,6 +574,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'visao_executiva' && typeof window.initVisaoExecutiva === 'function') window.initVisaoExecutiva();
         if (pagina === 'tarifador' && typeof window.initTarifador === 'function') window.initTarifador();
         if (pagina === 'configuracoes_gerenciais' && typeof window.initConfiguracoesGerenciais === 'function') window.initConfiguracoesGerenciais();
+        if (pagina === 'sla' && typeof window.initSLA === 'function') window.initSLA();
                  
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();
         if (pagina === 'historico_producao' && typeof window.initHistoricoProducao === 'function') window.initHistoricoProducao();
