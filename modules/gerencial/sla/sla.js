@@ -340,7 +340,7 @@ window.initSLA = async function() {
         await buscarTarifadorAtivoSLA();
         await buscarGruasConfigSLA();
 
-        // Atualiza textos nos cards
+        // Atualiza textos nos cards principais com as metas
         const fm = v => v > 0 ? v.toLocaleString('pt-BR') : '0';
         const fmR = v => v > 0 ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
         
@@ -534,7 +534,6 @@ window.initSLA = async function() {
         const dataFaturamento = meses.map(m => m.faturamentoTotal);
         const dataVolume = meses.map(m => m.volume);
         
-        // Array com a meta de Faturamento para compor a linha de referência do gráfico
         const metaFaturamentoArr = meses.map(() => metasSlaAtuais.faturamento_previsto_mensal || 0);
 
         if (chartSlaObj && !chartSlaObj.isDisposed()) {
@@ -619,7 +618,6 @@ window.initSLA = async function() {
         });
     }
 
-    // Tabela Responsiva em Grid com Média Real e Indicadores Visuais Interativos (Check / Cross)
     function renderizarTabelaGruas(gruasDict, ano) {
         const container = document.getElementById('containerGruasMensal');
         if (!container) return;
@@ -640,12 +638,14 @@ window.initSLA = async function() {
             let totalViagens = 0;
             let totalVolume = 0;
             let maxDias = 0;
+            let qtdMaquinasAtivasNoMes = 0; 
 
             gruasNomes.forEach(grua => {
                 const stats = gruasDict[grua][mes];
                 if (stats && stats.viagens > 0) {
                     temGruaNoMes = true;
                     possuiAlgumDado = true;
+                    qtdMaquinasAtivasNoMes++;
                     
                     const dias = stats.diasOperados.size;
                     const mediaVol = dias > 0 ? (stats.volume / dias) : 0;
@@ -655,7 +655,6 @@ window.initSLA = async function() {
                     totalVolume += stats.volume;
                     if (dias > maxDias) maxDias = dias;
 
-                    // Indicadores Visuais de Viagens Totais e V/Dia (com Botão e Ícone)
                     let corViagens = "text-slate-300";
                     let iconViagens = "";
                     let badgeViagens = "";
@@ -699,21 +698,24 @@ window.initSLA = async function() {
             });
 
             if (temGruaNoMes) {
-                // Linha de Totais da Frota do Mês: A média de todos juntos (Total / MaxDias)
-                let totalMediaViagens = maxDias > 0 ? (totalViagens / maxDias) : 0;
-                let totalMediaVolume = maxDias > 0 ? (totalVolume / maxDias) : 0;
+                let mediaGlobalViagens = 0;
+                let mediaGlobalVolume = 0;
+                
+                if (qtdMaquinasAtivasNoMes > 0 && maxDias > 0) {
+                    mediaGlobalViagens = (totalViagens / maxDias) / qtdMaquinasAtivasNoMes;
+                    mediaGlobalVolume = (totalVolume / maxDias) / qtdMaquinasAtivasNoMes;
+                }
 
                 linhasHtml += `
                 <tr class="bg-slate-900/90 font-bold text-white border-t-2 border-slate-500">
                     <td class="px-3 py-3 text-left uppercase text-[11px] text-slate-400 tracking-wider">Média Frota</td>
                     <td class="px-3 py-3 text-center text-slate-400 font-mono text-xs" title="Máximo de dias operados">${maxDias}</td>
                     <td class="px-3 py-3 text-center text-white font-black">${totalViagens}</td>
-                    <td class="px-3 py-3 text-center text-amber-400 font-mono font-bold">${totalMediaViagens.toFixed(1)}</td>
+                    <td class="px-3 py-3 text-center text-amber-400 font-mono font-bold" title="Média global V/Dia por máquina">${mediaGlobalViagens.toFixed(1)}</td>
                     <td class="px-3 py-3 text-right text-white font-mono whitespace-nowrap">${totalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-                    <td class="px-3 py-3 text-right text-emerald-400 font-mono font-black bg-emerald-500/10 whitespace-nowrap">${totalMediaVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                    <td class="px-3 py-3 text-right text-emerald-400 font-mono font-black bg-emerald-500/10 whitespace-nowrap" title="Média global m³/Dia por máquina">${mediaGlobalVolume.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                 </tr>`;
 
-                // Construção do Card do Mês
                 html += `
                 <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col h-full hover:border-slate-500/80 transition-colors">
                     <div class="bg-slate-700/40 px-5 py-3 border-b border-slate-600 flex justify-between items-center">
