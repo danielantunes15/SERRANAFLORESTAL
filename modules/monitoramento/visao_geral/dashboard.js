@@ -895,9 +895,21 @@ function loadDashboardData() {
         }
         if (document.getElementById('metaViagensText')) {
             let mt = document.getElementById('metaViagensText');
-            mt.innerHTML = `<span class="text-sky-400 font-bold text-[12px]">DM: 0.00% (0)</span> <span class="text-slate-600 mx-[6px]">|</span> <span class="text-slate-400 font-bold text-[12px]">META: 0</span>`;
+            mt.innerHTML = `
+                <div class="flex items-center justify-between w-full">
+                    <div class="flex items-center gap-1.5" title="Disponibilidade Mecânica Real e Frota Disponível">
+                        <span class="text-slate-500 font-bold text-[10px] uppercase tracking-widest">DM Real:</span>
+                        <span class="text-slate-400 font-extrabold text-[11px]">0.0%</span>
+                        <span class="text-white text-[10px] font-medium">(0/0)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5" title="Meta Dinâmica no Período">
+                        <span class="text-slate-500 font-bold text-[10px] uppercase tracking-widest">Meta:</span>
+                        <span class="text-slate-400 font-extrabold text-[12px]">0</span>
+                    </div>
+                </div>
+            `;
             mt.classList.remove('hidden');
-            mt.className = "mt-auto pt-3 border-t border-slate-700/50 flex items-center uppercase tracking-wider block whitespace-nowrap overflow-hidden text-ellipsis";
+            mt.className = "mt-auto pt-3 border-t border-slate-700/50 w-full block";
         }
         if(document.getElementById('totalPesoLiq')) document.getElementById('totalPesoLiq').innerHTML = '<span class="text-white">0 t</span>';
         if(document.getElementById('mediaRPV')) document.getElementById('mediaRPV').innerText = '0';
@@ -1014,7 +1026,7 @@ function loadDashboardData() {
     }
 
     // =========================================================================================
-    // CÁLCULO DE DM OPERACIONAL REAL E METAS
+    // CÁLCULO DE DM OPERACIONAL REAL E METAS (REVISADO PARA CONSIDERAR FROTA COMPLETA)
     // =========================================================================================
     let inicioPeriodo = new Date(dataInicioCalc);
     inicioPeriodo.setHours(0, 0, 0, 0);
@@ -1028,7 +1040,7 @@ function loadDashboardData() {
     let msTotalPeriodo = fimParaCalculo.getTime() - inicioPeriodo.getTime();
     if (msTotalPeriodo <= 0) msTotalPeriodo = 1;
 
-    // IDENTIFICAÇÃO DOS CARROS QUE RODARAM E SUAS FRENTES (Base para Metas)
+    // IDENTIFICAÇÃO DOS CARROS E CÁLCULO DA DM BASEADO NA FROTA ATIVA (Para bater com Relatório Gerencial)
     const mapaPlacasRodaram = new Map();
     cardsData.forEach(d => {
         const p = String(d.placa).trim().toUpperCase();
@@ -1048,12 +1060,23 @@ function loadDashboardData() {
         }
     });
 
-    const carrosQueRodaram = Array.from(mapaPlacasRodaram.keys());
-    const totalCarros = carrosQueRodaram.length;
+    let frotasAtivas = [];
+    if (typeof frotasParaMeta !== 'undefined' && frotasParaMeta.length > 0) {
+        frotasAtivas = frotasParaMeta.filter(f => f.status === 'Ativo' && f.categoria && f.categoria.toUpperCase() === 'TRITREM');
+    }
+
+    let carrosParaCalculo = [];
+    if (frotasAtivas.length > 0) {
+        carrosParaCalculo = frotasAtivas;
+    } else {
+        carrosParaCalculo = Array.from(mapaPlacasRodaram.keys()).map(placa => ({ cavalo: placa, data_inicial: '2026-04-01' }));
+    }
+
+    const totalCarros = carrosParaCalculo.length;
 
     let metaTotalViagens = 0;
     let somaDispNoDiaMs = 0;
-    let totalMsExistenciaPeriodo = totalCarros * msTotalPeriodo;
+    let totalMsExistenciaPeriodo = 0;
 
     // Função para obter meta da frente na data filtrada
     function getMetaFrenteData(nomeFrente, dataRef) {
@@ -1076,18 +1099,30 @@ function loadDashboardData() {
             }
         }
         
-        // Fallback caso não haja meta configurada para a frente naquele período
         if (metaValor === null && metasGlobaisObj && metasGlobaisObj.v_prog) {
             metaValor = parseFloat(metasGlobaisObj.v_prog);
         }
         return metaValor || 0;
     }
 
-    carrosQueRodaram.forEach(placa => {
-        // Multiplica a meta encontrada x Quantidade de Dias Ativos no Filtro
-        const f = mapaPlacasRodaram.get(placa);
+    carrosParaCalculo.forEach(frota => {
+        const placa = (frota.cavalo || frota.placa || '').trim().toUpperCase();
+        if (!placa) return;
+
+        const f = mapaPlacasRodaram.get(placa) || 'GERAL';
         const metaDiaria = getMetaFrenteData(f, inicioPeriodo);
         metaTotalViagens += (metaDiaria * diasConsideradosCalc);
+
+        let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
+        let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
+        
+        let overlapDispInicio = dtEntradaVeiculo > inicioPeriodo ? dtEntradaVeiculo : inicioPeriodo;
+        let msExistenciaVeiculo = 0;
+
+        if (overlapDispInicio < fimParaCalculo) {
+            msExistenciaVeiculo = (fimParaCalculo - overlapDispInicio);
+            totalMsExistenciaPeriodo += msExistenciaVeiculo;
+        }
 
         let manutencaoCavalo = 0;
         if (osParaMeta && osParaMeta.length > 0) {
@@ -1096,7 +1131,7 @@ function loadDashboardData() {
                 if (isOSInativa) return;
                 
                 const status = os.status ? os.status.trim().toUpperCase() : '';
-                if (status === 'CANCELADA' || status === 'AGENDADA') return;
+                if (status === 'CANCELADA' || status === 'AGENDADA' || os.tipo === 'Cavalo Disponível S/ Carreta') return;
                 
                 const placaOS = (os.placa || os.placa_cavalo || os.veiculo || os.cavalo || '').trim().toUpperCase().replace(/-/g, '');
                 const placaFormatada = placa.replace(/-/g, '');
@@ -1107,7 +1142,8 @@ function loadDashboardData() {
 
                     let dtConclusaoOS = os.data_conclusao ? tratarFusoDB(os.data_conclusao) : agora;
 
-                    let startOverlap = Math.max(dtAbertura.getTime(), inicioPeriodo.getTime());
+                    let inicioValido = dtAbertura > dtEntradaVeiculo ? dtAbertura : dtEntradaVeiculo;
+                    let startOverlap = Math.max(inicioValido.getTime(), inicioPeriodo.getTime());
                     let endOverlap = Math.min(dtConclusaoOS.getTime(), fimParaCalculo.getTime());
 
                     if (startOverlap < endOverlap) {
@@ -1117,7 +1153,7 @@ function loadDashboardData() {
             });
         }
 
-        let dispNoDiaMs = msTotalPeriodo - manutencaoCavalo;
+        let dispNoDiaMs = msExistenciaVeiculo - manutencaoCavalo;
         if (dispNoDiaMs < 0) dispNoDiaMs = 0;
         somaDispNoDiaMs += dispNoDiaMs;
     });
@@ -1150,12 +1186,20 @@ function loadDashboardData() {
     if (elMetaTexto) {
         let corMetaStr = atingiuMeta ? 'text-emerald-400' : 'text-rose-500';
         elMetaTexto.innerHTML = `
-            <span class="${corDm} font-bold text-[12px]" title="Disponibilidade Mecânica Real e Média de Veículos Disponíveis">DM: ${percentDM.toFixed(2)}% (${mediaVeiculosDispStr})</span> 
-            <span class="text-slate-600 mx-[6px]">|</span> 
-            <span class="${corMetaStr} font-bold text-[12px]" title="Meta Dinâmica por Veículo x Período">META: ${metaTotalViagens}</span>
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center gap-1.5" title="Disponibilidade Mecânica Real e Frota Disponível">
+                    <span class="text-slate-500 font-bold text-[10px] uppercase tracking-widest">DM Real:</span>
+                    <span class="${corDm} font-extrabold text-[11px]">${percentDM.toFixed(1)}%</span>
+                    <span class="text-white text-[10px] font-medium">(${mediaVeiculosDispStr}/${totalCarros})</span>
+                </div>
+                <div class="flex items-center gap-1.5" title="Meta Dinâmica no Período">
+                    <span class="text-slate-500 font-bold text-[10px] uppercase tracking-widest">Meta:</span>
+                    <span class="${corMetaStr} font-extrabold text-[12px]">${metaTotalViagens}</span>
+                </div>
+            </div>
         `;
         elMetaTexto.classList.remove('hidden');
-        elMetaTexto.className = "mt-auto pt-3 border-t border-slate-700/50 flex items-center uppercase tracking-wider block whitespace-nowrap overflow-hidden text-ellipsis";
+        elMetaTexto.className = "mt-auto pt-3 border-t border-slate-700/50 w-full block";
     }
 
     // =========================================================================================

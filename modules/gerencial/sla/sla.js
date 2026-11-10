@@ -23,7 +23,8 @@ window.initSLA = async function() {
 
     const btnProcessar = document.getElementById('btnProcessarSLA');
     if (btnProcessar) {
-        btnProcessar.addEventListener('click', carregarDadosSLA);
+        // Passa true para forçar o recarregamento dos dados de OS do banco quando clica em Atualizar
+        btnProcessar.addEventListener('click', () => carregarDadosSLA(true));
     }
     
     window.addEventListener('resize', () => {
@@ -116,7 +117,7 @@ window.initSLA = async function() {
             
             Swal.fire('Sucesso', 'Metas salvas com sucesso!', 'success');
             window.fecharModalMetasSLA();
-            carregarDadosSLA(); 
+            carregarDadosSLA(true); 
         } catch (e) {
             console.error("Erro ao salvar metas SLA", e);
             Swal.fire('Erro', 'Não foi possível salvar as metas.', 'error');
@@ -166,17 +167,17 @@ window.initSLA = async function() {
         });
     };
 
+    // CORREÇÃO DO FUSO HORÁRIO
     function corrigirDataSupabaseLocal(dateStr) {
         if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return null;
         let str = String(dateStr).trim();
-        if (!str.includes('T')) str = str.replace(' ', 'T');
-        const partes = str.split('T');
-        if (partes.length === 2) {
-            const horaStr = partes[1];
-            if (!horaStr.includes('Z') && !horaStr.includes('+') && !horaStr.includes('-')) {
-                str += 'Z'; 
-            }
+        // Remove a letra T se houver, e trunca no ponto de milissegundos ou fuso (+ ou Z)
+        if (str.includes('T')) {
+            str = str.split('.')[0].split('+')[0].split('Z')[0]; 
+        } else {
+            str = str.replace(' ', 'T').split('.')[0].split('+')[0].split('Z')[0];
         }
+        // Retorna a data no fuso local exato ignorando a conversão UTC (-3h)
         const d = new Date(str);
         return isNaN(d.getTime()) ? null : d;
     }
@@ -235,6 +236,9 @@ window.initSLA = async function() {
 
                 htmlLinhas += `
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.1);">
+                        <td style="padding: 12px; text-align: center; width: 40px;">
+                            <input type="checkbox" class="chk-soma-os cursor-pointer" data-ms="${duracaoMs}" onchange="window.calcularSomaOSModalSLA()" style="width: 16px; height: 16px; accent-color: #3b82f6;">
+                        </td>
                         <td style="padding: 12px; color: #fff; font-weight: bold;">#${os.numero_os || os.id}</td>
                         <td style="padding: 12px; color: #94a3b8;">${dtIniStr}</td>
                         <td style="padding: 12px; color: #94a3b8;">${dtFimStr}</td>
@@ -278,6 +282,28 @@ window.initSLA = async function() {
         return { percentDM, hTrabalho, mTrabalho, hManut, mManut, htmlLinhas };
     }
 
+    // Lógica para soma de checkboxes no modal
+    window.calcularSomaOSModalSLA = function() {
+        const checkboxes = document.querySelectorAll('.chk-soma-os:checked');
+        let totalMs = 0;
+        checkboxes.forEach(chk => {
+            totalMs += parseInt(chk.getAttribute('data-ms') || '0', 10);
+        });
+        let h = Math.floor(totalMs / (1000 * 60 * 60));
+        let m = Math.round((totalMs - (h * 1000 * 60 * 60)) / (1000 * 60));
+        const el = document.getElementById('somaSelecionadaOS');
+        if(el) {
+            if (totalMs === 0) el.innerHTML = '0h 0m';
+            else el.innerHTML = `${h}h ${m}m`;
+        }
+    };
+
+    window.toggleAllOSModalSLA = function(masterChk) {
+        const checkboxes = document.querySelectorAll('.chk-soma-os');
+        checkboxes.forEach(chk => chk.checked = masterChk.checked);
+        window.calcularSomaOSModalSLA();
+    };
+
     window.abrirModalDetalhesDMMensalSLA = function(placa, mes, ano) {
         if (!window.ordensServico || !window.frotasManutencao) {
             Swal.fire('Atenção', 'Dados de manutenção não carregados ainda no sistema. Aguarde alguns segundos.', 'warning');
@@ -289,7 +315,7 @@ window.initSLA = async function() {
         
         const periodoTxt = `${nomeMesesExtenso[mes]} de ${ano}`;
         let corDm = dadosDM.percentDM >= 90 ? '#10b981' : (dadosDM.percentDM >= 80 ? '#f59e0b' : '#ef4444');
-        let htmlLinhas = dadosDM.htmlLinhas || '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #94a3b8;">Nenhuma parada registrada no período.</td></tr>';
+        let htmlLinhas = dadosDM.htmlLinhas || '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #94a3b8;">Nenhuma parada registrada no período.</td></tr>';
         
         const modalHtml = `
             <div id="modalDetalhesDMMaquinaSLA" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center;">
@@ -323,6 +349,9 @@ window.initSLA = async function() {
                         <table style="width: 100%; border-collapse: collapse; text-align: left;">
                             <thead style="background: rgba(0,0,0,0.3);">
                                 <tr>
+                                    <th style="padding: 12px; text-align: center; width: 40px;">
+                                        <input type="checkbox" id="chkAllOS" onchange="window.toggleAllOSModalSLA(this)" style="cursor: pointer; width: 16px; height: 16px; accent-color: #3b82f6;">
+                                    </th>
                                     <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Nº O.S</th>
                                     <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Início Parada</th>
                                     <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Fim Parada</th>
@@ -335,6 +364,15 @@ window.initSLA = async function() {
                             </tbody>
                         </table>
                     </div>
+                    
+                    <div style="padding: 15px 20px; background: rgba(15, 23, 42, 0.95); border-top: 1px solid rgba(255,255,255,0.1); border-radius: 0 0 12px 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-calculator text-sky-500 text-2xl"></i>
+                            <span style="color: #94a3b8; font-weight: bold; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 1px;">Soma Selecionada:</span>
+                        </div>
+                        <span id="somaSelecionadaOS" style="color: #3b82f6; font-size: 1.6rem; font-weight: 900; font-family: monospace; background: rgba(59, 130, 246, 0.1); padding: 4px 12px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">0h 0m</span>
+                    </div>
+
                 </div>
             </div>
         `;
@@ -344,43 +382,41 @@ window.initSLA = async function() {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
-    async function garantirDadosManutencaoSLA(filialId) {
-        if (!window.ordensServico || window.ordensServico.length === 0 || !window.frotasManutencao || window.frotasManutencao.length === 0) {
+    // Adicionado parâmetro 'force' para obrigar a recarregar as OSs atualizadas do Supabase
+    async function garantirDadosManutencaoSLA(filialId, force = false) {
+        if (force || !window.ordensServico || window.ordensServico.length === 0 || !window.frotasManutencao || window.frotasManutencao.length === 0) {
             try {
-                if (typeof window.carregarDadosOS === 'function') {
-                    await window.carregarDadosOS();
-                } else {
-                    let todosOsDados = [];
-                    let inicio = 0;
-                    const tamanhoLote = 1000;
-                    let buscarMais = true;
+                let todosOsDados = [];
+                let inicio = 0;
+                const tamanhoLote = 1000;
+                let buscarMais = true;
+                
+                while (buscarMais) {
+                    let queryOS = client.from('ordens_servico').select('*').range(inicio, inicio + tamanhoLote - 1);
+                    if (filialId && filialId !== 'CENTRAL') queryOS = queryOS.eq('filial_id', filialId);
                     
-                    while (buscarMais) {
-                        let queryOS = client.from('ordens_servico').select('*').range(inicio, inicio + tamanhoLote - 1);
-                        if (filialId && filialId !== 'CENTRAL') queryOS = queryOS.eq('filial_id', filialId);
-                        
-                        const { data: lote, error: err } = await queryOS;
-                        if (err) throw err;
-                        
-                        if (lote && lote.length > 0) {
-                            todosOsDados.push(...lote);
-                            if (lote.length < tamanhoLote) {
-                                buscarMais = false;
-                            } else {
-                                inicio += tamanhoLote;
-                            }
-                        } else {
+                    const { data: lote, error: err } = await queryOS;
+                    if (err) throw err;
+                    
+                    if (lote && lote.length > 0) {
+                        todosOsDados.push(...lote);
+                        if (lote.length < tamanhoLote) {
                             buscarMais = false;
+                        } else {
+                            inicio += tamanhoLote;
                         }
+                    } else {
+                        buscarMais = false;
                     }
-                    window.ordensServico = todosOsDados.filter(os => os.inativa !== 1 && os.inativa !== true);
-
-                    let qFrota = client.from('frotas_manutencao').select('*');
-                    if (filialId && filialId !== 'CENTRAL') qFrota = qFrota.eq('filial_id', filialId);
-                    const { data: frotas, error: errF } = await qFrota;
-                    if (errF) throw errF;
-                    if (frotas) window.frotasManutencao = frotas;
                 }
+                window.ordensServico = todosOsDados.filter(os => os.inativa !== 1 && os.inativa !== true);
+
+                let qFrota = client.from('frotas_manutencao').select('*');
+                if (filialId && filialId !== 'CENTRAL') qFrota = qFrota.eq('filial_id', filialId);
+                const { data: frotas, error: errF } = await qFrota;
+                if (errF) throw errF;
+                if (frotas) window.frotasManutencao = frotas;
+                
             } catch(e) { console.error("[SLA] Erro ao carregar OS/Frota:", e); }
         }
     }
@@ -526,7 +562,7 @@ window.initSLA = async function() {
         return null;
     }
 
-    async function carregarDadosSLA() {
+    async function carregarDadosSLA(forceRefreshOS = false) {
         const btn = document.getElementById('btnProcessarSLA');
         const icon = btn ? btn.querySelector('i') : null;
         const containerGruas = document.getElementById('containerGruasMensal');
@@ -552,7 +588,9 @@ window.initSLA = async function() {
         await buscarMetasSLA(ano, filialId);
         await buscarTarifadorAtivoSLA();
         await buscarGruasConfigSLA();
-        await garantirDadosManutencaoSLA(filialId);
+        
+        // Passa o parâmetro 'forceRefreshOS' para obrigar a recarregar as OS se o usuário clicou no botão "Atualizar"
+        await garantirDadosManutencaoSLA(filialId, forceRefreshOS);
 
         const fm = v => v > 0 ? v.toLocaleString('pt-BR') : '0';
         const fmR = v => v > 0 ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
@@ -625,6 +663,7 @@ window.initSLA = async function() {
             }
 
             processarSLA(dadosFinais, ano);
+            window.consultarDMDiariaSLA(); // Recalcula a tabela de consulta diária caso exista data selecionada
 
         } catch (e) {
             console.error("[SLA] Erro ao buscar dados:", e);
@@ -641,6 +680,139 @@ window.initSLA = async function() {
             if (icon) icon.classList.remove('fa-spin');
         }
     }
+
+    // NOVA FUNÇÃO: CONSULTA DIÁRIA DE DM
+    window.consultarDMDiariaSLA = async function() {
+        const inputData = document.getElementById('inputSlaDataDiaria').value;
+        const tbody = document.getElementById('tbodyDMDiariaSLA');
+        
+        if (!inputData) {
+            return;
+        }
+
+        if (!window.ordensServico || !window.frotasManutencao) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-amber-500 font-bold">Dados de manutenção não carregados. Clique em Atualizar no topo da tela.</td></tr>';
+            return;
+        }
+
+        const [ano, mes, dia] = inputData.split('-');
+        const diaInicio = new Date(ano, mes - 1, dia, 0, 0, 0);
+        const diaFim = new Date(ano, mes - 1, dia, 23, 59, 59, 999);
+        const hoje = new Date();
+
+        let fimParaCalculo = diaFim;
+        let msTotalDia = 24 * 60 * 60 * 1000;
+
+        if (diaInicio.toDateString() === hoje.toDateString()) {
+            fimParaCalculo = hoje;
+            msTotalDia = hoje - diaInicio;
+        } else if (diaInicio > hoje) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-slate-500">A data selecionada é no futuro. Nenhuma operação registrada.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        const frotasValidas = window.frotasManutencao.filter(f => f.status === 'Ativo' && (f.categoria === 'TRITREM' || f.categoria === 'GRUA'));
+
+        frotasValidas.forEach(frota => {
+            const placa = frota.cavalo;
+            let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
+            let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
+
+            let overlapDispInicio = dtEntradaVeiculo > diaInicio ? dtEntradaVeiculo : diaInicio;
+            let msValidoVeiculo = 0;
+            if (overlapDispInicio < fimParaCalculo) {
+                msValidoVeiculo = (fimParaCalculo - overlapDispInicio);
+            }
+            
+            let horasValidoVeiculo = msValidoVeiculo / (1000 * 60 * 60);
+            if (horasValidoVeiculo <= 0) return;
+
+            const todasOS = window.ordensServico.filter(o => o.placa === placa && o.status !== 'Agendada' && o.tipo !== 'Cavalo Disponível S/ Carreta');
+            let intervalos = [];
+            let osDetalhesHTML = '';
+
+            todasOS.forEach(os => {
+                const osInicio = corrigirDataSupabaseLocal(os.data_abertura);
+                if (!osInicio) return;
+                
+                let osFim = os.data_conclusao ? corrigirDataSupabaseLocal(os.data_conclusao) : hoje;
+                
+                let inicioValido = osInicio > dtEntradaVeiculo ? osInicio : dtEntradaVeiculo;
+                const overlapInicio = inicioValido > diaInicio ? inicioValido : diaInicio;
+                const overlapFim = osFim < diaFim ? osFim : diaFim;
+
+                if (overlapInicio < overlapFim) {
+                    intervalos.push([overlapInicio.getTime(), overlapFim.getTime()]);
+                    
+                    let dtIniOS = `${String(osInicio.getDate()).padStart(2,'0')}/${String(osInicio.getMonth()+1).padStart(2,'0')} ${String(osInicio.getHours()).padStart(2,'0')}:${String(osInicio.getMinutes()).padStart(2,'0')}`;
+                    let dtFimOS = os.data_conclusao ? `${String(osFim.getDate()).padStart(2,'0')}/${String(osFim.getMonth()+1).padStart(2,'0')} ${String(osFim.getHours()).padStart(2,'0')}:${String(osFim.getMinutes()).padStart(2,'0')}` : 'Em Andamento';
+
+                    let duracaoMs = overlapFim - overlapInicio;
+                    let hOS = Math.floor(duracaoMs / (1000 * 60 * 60));
+                    let mOS = Math.round((duracaoMs - (hOS * 1000 * 60 * 60)) / (1000 * 60));
+
+                    osDetalhesHTML += `<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 4px 8px; border-radius: 4px; margin-bottom: 4px; font-size: 0.75rem;">
+                        <span class="text-rose-400 font-bold">#${os.numero_os || os.id}</span> | ${os.tipo || 'Manutenção'} | ${dtIniOS} até ${dtFimOS} <span class="text-amber-400 font-bold ml-1">(${hOS}h ${mOS}m)</span>
+                    </div>`;
+                }
+            });
+
+            let tempoManutencaoTotalHoras = 0;
+            if (intervalos.length > 0) {
+                intervalos.sort((a,b) => a[0] - b[0]);
+                let merged = [ [intervalos[0][0], intervalos[0][1]] ];
+                for (let i = 1; i < intervalos.length; i++) {
+                    let last = merged[merged.length - 1];
+                    let current = intervalos[i];
+                    if (current[0] <= last[1]) {
+                        last[1] = Math.max(last[1], current[1]);
+                    } else {
+                        merged.push([current[0], current[1]]);
+                    }
+                }
+                merged.forEach(iv => {
+                    tempoManutencaoTotalHoras += (iv[1] - iv[0]) / (1000 * 60 * 60);
+                });
+            }
+
+            if (tempoManutencaoTotalHoras > horasValidoVeiculo) tempoManutencaoTotalHoras = horasValidoVeiculo;
+
+            let horasDisponivel = horasValidoVeiculo - tempoManutencaoTotalHoras;
+            if (horasDisponivel < 0) horasDisponivel = 0;
+
+            let percentDM = horasValidoVeiculo > 0 ? (horasDisponivel / horasValidoVeiculo) * 100 : 100;
+            
+            let hTrabalho = Math.floor(horasValidoVeiculo);
+            let mTrabalho = Math.round((horasValidoVeiculo - hTrabalho) * 60);
+            let hManut = Math.floor(tempoManutencaoTotalHoras);
+            let mManut = Math.round((tempoManutencaoTotalHoras - hManut) * 60);
+            let hDisp = Math.floor(horasDisponivel);
+            let mDisp = Math.round((horasDisponivel - hDisp) * 60);
+
+            let corDm = percentDM >= 90 ? 'text-emerald-400' : (percentDM >= 80 ? 'text-amber-400' : 'text-rose-400');
+
+            if (!osDetalhesHTML) osDetalhesHTML = '<span class="text-slate-500 text-xs italic">Nenhuma parada registrada. Equipamento 100% disponível no dia.</span>';
+
+            html += `
+                <tr class="hover:bg-slate-700/30 transition-colors border-b border-slate-700/50">
+                    <td class="px-4 py-3 font-mono font-bold text-sky-400">${placa}</td>
+                    <td class="px-4 py-3 text-center text-slate-400 text-[10px] uppercase font-bold tracking-widest">${frota.categoria}</td>
+                    <td class="px-4 py-3 text-center text-slate-300 font-mono">${hTrabalho}h ${mTrabalho}m</td>
+                    <td class="px-4 py-3 text-center text-rose-400 font-bold font-mono">${hManut}h ${mManut}m</td>
+                    <td class="px-4 py-3 text-center text-emerald-400 font-bold font-mono">${hDisp}h ${mDisp}m</td>
+                    <td class="px-4 py-3 text-center ${corDm} font-black font-mono text-base">${percentDM.toFixed(1)}%</td>
+                    <td class="px-4 py-2">${osDetalhesHTML}</td>
+                </tr>
+            `;
+        });
+
+        if (!html) {
+            html = '<tr><td colspan="7" class="text-center py-6 text-slate-500">Nenhum equipamento ativo encontrado para a data.</td></tr>';
+        }
+
+        tbody.innerHTML = html;
+    };
 
     function processarSLA(dados, ano) {
         const mesesDados = Array.from({length: 12}, () => ({

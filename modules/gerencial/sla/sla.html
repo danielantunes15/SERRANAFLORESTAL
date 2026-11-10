@@ -89,6 +89,40 @@
         <div id="chartSlaEvolucao" style="width: 100%; height: 400px;"></div>
     </div>
 
+    <!-- CONSULTA DIÁRIA DE DM (NOVO PANEL) -->
+    <div class="content-panel" style="grid-column: 1 / -1; margin-bottom: 25px; border: 1px solid rgba(16, 185, 129, 0.3); background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); border-radius: 16px; overflow: hidden;">
+        <div class="panel-header" style="padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; gap: 10px;">
+            <h3 style="color: #10b981; margin: 0; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-calendar-day text-emerald-400"></i> Consulta Diária de DM (Frota e Máquinas)
+            </h3>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span style="color: #94a3b8; font-size: 0.85rem; font-weight: 600;">Selecione o Dia:</span>
+                <input type="date" id="inputSlaDataDiaria" class="dark-select" style="background: #1e293b; border: 1px solid #334155; color: white; padding: 5px 12px; border-radius: 6px; height: 34px; font-size: 0.9rem; outline: none; cursor: pointer;">
+                <button class="btn-primary-blue" onclick="window.consultarDMDiariaSLA()" style="border-radius: 6px; background: #3b82f6; color: #fff; padding: 0 16px; font-size: 0.85rem; height: 34px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-search"></i> Buscar Registros
+                </button>
+            </div>
+        </div>
+        <div class="overflow-x-auto custom-scrollbar" style="padding: 0;">
+            <table class="min-w-full text-xs text-left" id="tabelaDMDiariaSLA">
+                <thead class="bg-slate-900/80 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-700 whitespace-nowrap">
+                    <tr>
+                        <th class="px-4 py-3">Placa / Máquina</th>
+                        <th class="px-4 py-3 text-center">Categoria</th>
+                        <th class="px-4 py-3 text-center" title="Horas que o veículo estava cadastrado e devia rodar">Tempo Ref. Base</th>
+                        <th class="px-4 py-3 text-center">Tempo em O.S.</th>
+                        <th class="px-4 py-3 text-center" title="Tempo Líquido para Produção">Tempo Disp.</th>
+                        <th class="px-4 py-3 text-center">DM (%)</th>
+                        <th class="px-4 py-3">Detalhamento O.S. no Dia</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/80 text-slate-300" id="tbodyDMDiariaSLA">
+                    <tr><td colspan="7" class="text-center py-6 text-slate-500 italic">Nenhuma data pesquisada. Selecione uma data e clique em buscar.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- TABELAS MENSAIS DE GRUAS -->
     <div class="mb-4">
         <h3 class="font-bold text-white tracking-wide flex items-center text-sm md:text-base uppercase bg-slate-800/60 p-4 rounded-xl border border-slate-700/50 shadow-md">
