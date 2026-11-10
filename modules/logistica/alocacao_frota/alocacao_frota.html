@@ -1,186 +1,273 @@
 <style>
-    /* Layout Fluido e Amplo */
+    /* Uso máximo do espaço da tela com rolagem vertical */
     .kanban-wrapper {
         display: flex;
         flex-direction: column;
         height: calc(100vh - 75px);
-        padding: 10px 20px 0 20px;
-        overflow: hidden;
-    }
-
-    .kanban-board {
-        display: flex;
-        gap: 20px;
-        overflow-x: auto;
-        overflow-y: hidden;
-        padding-bottom: 10px;
-        flex-grow: 1;
-        align-items: stretch; 
+        padding: 15px 20px 20px 20px;
+        overflow-y: auto;
+        overflow-x: hidden;
         scroll-behavior: smooth;
     }
 
-    .kanban-board::-webkit-scrollbar, .kanban-cards::-webkit-scrollbar { width: 6px; height: 8px; }
+    /* Scrollbars customizados */
+    .kanban-wrapper::-webkit-scrollbar { width: 8px; }
+    .kanban-wrapper::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 4px; }
+    .kanban-wrapper::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 4px; }
+    .kanban-wrapper::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.6); }
+
+    /* Trava Flexbox (Evita que o painel seja esmagado) */
+    .kanban-board {
+        display: flex;
+        gap: 15px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 10px;
+        min-height: 480px; /* Altura mínima garantida */
+        flex-shrink: 0; /* Impede o painel de ser esmagado pela rolagem */
+        align-items: stretch; 
+    }
+
+    .kanban-board::-webkit-scrollbar, .kanban-cards::-webkit-scrollbar { width: 4px; height: 8px; }
     .kanban-board::-webkit-scrollbar-track, .kanban-cards::-webkit-scrollbar-track { background: transparent; }
-    .kanban-board::-webkit-scrollbar-thumb, .kanban-cards::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.2); border-radius: 6px; }
-    .kanban-board::-webkit-scrollbar-thumb:hover, .kanban-cards::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.5); }
+    .kanban-board::-webkit-scrollbar-thumb, .kanban-cards::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+    .kanban-board::-webkit-scrollbar-thumb:hover, .kanban-cards::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
     .kanban-column {
-        min-width: 360px; /* Colunas Mais Largas */
-        width: 360px;
-        background: rgba(15, 23, 42, 0.5);
-        border-radius: 14px;
+        min-width: 320px; 
+        width: 320px;
+        background: rgba(15, 23, 42, 0.4);
+        border-radius: 12px;
         border: 1px solid rgba(255, 255, 255, 0.05);
         display: flex;
         flex-direction: column;
         flex-shrink: 0;
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(8px);
     }
     
     .col-patio {
         position: sticky;
         left: 0;
         z-index: 20;
-        background: rgba(11, 15, 25, 0.95); 
+        background: rgba(11, 15, 25, 0.98); 
         border-right: 2px solid rgba(56, 189, 248, 0.3);
-        box-shadow: 15px 0 25px -5px rgba(0,0,0,0.6);
+        box-shadow: 10px 0 20px -5px rgba(0,0,0,0.5);
     }
 
     .kanban-header {
-        padding: 15px 18px;
+        padding: 12px 15px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
-        border-radius: 14px 14px 0 0;
+        align-items: center;
+        border-radius: 12px 12px 0 0;
     }
 
     .kanban-cards {
-        padding: 12px;
+        padding: 10px;
         flex-grow: 1;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
-        gap: 12px; /* Espaçamento maior entre cards */
+        gap: 10px;
     }
     
-    /* Design Premium dos Cards */
+    /* Design Compacto dos Cards */
     .kanban-card {
         background: rgba(30, 41, 59, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        padding: 14px 18px; /* Cards maiores e mais confortáveis */
-        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 12px 15px;
+        border-radius: 8px;
         cursor: grab;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
+        flex-direction: column;
+        gap: 8px;
     }
 
     .kanban-card:active { cursor: grabbing; transform: scale(0.98); }
     .kanban-card:hover { 
-        border-color: rgba(56, 189, 248, 0.4); 
+        border-color: rgba(255,255,255,0.2); 
         background: rgba(30, 41, 59, 0.9); 
-        transform: translateX(3px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
-    .kanban-card.dragging { opacity: 0.5; border: 2px dashed #38bdf8; z-index: 50; }
-    .column-drag-over { background: rgba(56, 189, 248, 0.05); border: 2px dashed #38bdf8; }
+    .kanban-card.dragging { opacity: 0.5; border: 1px dashed #38bdf8; z-index: 50; }
+    .column-drag-over { background: rgba(255,255,255, 0.05); border: 2px dashed rgba(255,255,255, 0.3); }
     
-    /* Tipografia do Card */
-    .card-main-info { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
-    .placa-text { font-size: 1.25rem; font-weight: 900; color: #f8fafc; letter-spacing: 1px; }
-    .id-text { font-size: 0.75rem; color: #94a3b8; font-family: monospace; font-weight: bold; background: rgba(0,0,0,0.3); padding: 3px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); }
+    /* Textos Frotas */
+    .card-main-info { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; width: 100%; }
+    .placa-text { font-size: 1.15rem; font-weight: 900; color: #f8fafc; letter-spacing: 1px; }
+    .id-text { font-size: 0.7rem; color: #94a3b8; font-family: monospace; font-weight: bold; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 4px; }
     
     .obs-truncate {
         font-size: 0.75rem;
         color: #cbd5e1;
-        display: -webkit-box;
-        -webkit-line-clamp: 2; /* Permite até 2 linhas para o alerta antes de cortar */
-        -webkit-box-orient: vertical;
+        white-space: nowrap;
         overflow: hidden;
-        flex: 1;
-        min-width: 0;
-        line-height: 1.4;
+        text-overflow: ellipsis;
+        width: 100%;
     }
 
-    /* Status e Alertas Modernos */
-    .status-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 6px currentColor; border: 2px solid rgba(255,255,255,0.1); }
+    /* Indicador Visual de Status (Bolinha) */
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 5px currentColor; }
     .dot-ok { color: #34d399; background: #34d399; }
     .dot-patio { color: #38bdf8; background: #38bdf8; }
     .dot-manutencao { color: #ef4444; background: #ef4444; animation: pulse-dot 1.5s infinite; }
 
-    .card-alerta {
-        border: 1px solid rgba(245, 158, 11, 0.6) !important;
-        background: rgba(245, 158, 11, 0.1) !important;
-        box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
-    }
-    .card-alerta:hover { background: rgba(245, 158, 11, 0.15) !important; box-shadow: 0 0 15px rgba(245, 158, 11, 0.3); }
+    /* Alertas Específicos Frotas */
+    .card-alerta { border: 1px solid rgba(245, 158, 11, 0.5) !important; background: rgba(245, 158, 11, 0.1) !important; }
+    .card-manutencao { border: 1px solid rgba(239, 68, 68, 0.5) !important; background: rgba(69, 10, 10, 0.3) !important; }
+
+    @keyframes pulse-dot { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+
+    .stats-header { display: flex; gap: 10px; margin-bottom: 15px; flex-shrink: 0; }
+    .stat-box { background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.05); padding: 8px 15px; border-radius: 8px; flex: 1; display: flex; align-items: center; justify-content: space-between; }
+
+    /* Estilos Adicionais para Recados */
+    .recados-form { background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 15px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; flex-shrink: 0; }
+    .dark-input { flex: 1; min-width: 150px; padding: 10px 15px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; outline: none; transition: border 0.3s; }
+    .dark-input:focus { border-color: #38bdf8; }
     
-    .card-manutencao {
-        border: 1px solid rgba(239, 68, 68, 0.6) !important;
-        background: rgba(69, 10, 10, 0.4) !important;
-        box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
-    }
-    .card-manutencao:hover { background: rgba(69, 10, 10, 0.6) !important; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+    .border-baixa { border-top: 3px solid #3b82f6 !important; }
+    .border-media { border-top: 3px solid #f59e0b !important; }
+    .border-alta { border-top: 3px solid #ef4444 !important; }
+    .border-troca { border-top: 3px solid #a855f7 !important; }
 
-    @keyframes pulse-dot {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.4); opacity: 0.6; }
-        100% { transform: scale(1); opacity: 1; }
-    }
-
-    .stats-header { display: flex; gap: 12px; margin-bottom: 15px; }
-    .stat-box {
-        background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.05);
-        padding: 10px 18px; border-radius: 10px; flex: 1; display: flex; align-items: center; justify-content: space-between;
-    }
+    .tab-btn { background: transparent; border: none; color: #94a3b8; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+    .tab-btn.active { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
+    
+    hr.divider { border: 0; border-top: 1px dashed rgba(255,255,255,0.1); margin: 30px 0; flex-shrink: 0; }
 </style>
 
-<div class="module-container kanban-wrapper" style="animation: fadeInDrop 0.5s ease-out;">
-    <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+<div class="module-container kanban-wrapper custom-scrollbar" style="animation: fadeInDrop 0.5s ease-out;">
+    
+    <!-- ========================================== -->
+    <!-- SESSÃO 1: ALOCAÇÃO DE FROTAS               -->
+    <!-- ========================================== -->
+    <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
         <div>
-            <h2 style="color: #f8fafc; font-size: 1.8rem; font-weight: 800; display: flex; align-items: center; gap: 10px; letter-spacing: -0.5px;">
+            <h2 style="color: #f8fafc; font-size: 1.6rem; font-weight: 800; display: flex; align-items: center; gap: 10px; letter-spacing: -0.5px;">
                 <i class="fas fa-project-diagram text-sky-400"></i> Painel Tático de Frotas
             </h2>
+            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 2px;">Gerencie as alocações arrastando os veículos. Frotas com alertas ou em manutenção ficam no topo.</p>
         </div>
         <div class="header-actions flex gap-3">
-            <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-5 rounded-lg shadow transition-colors flex items-center gap-2 text-sm" onclick="carregarKanbanAlocacao()">
-                <i class="fas fa-sync-alt"></i> Atualizar Painel
+            <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 px-4 rounded-lg shadow transition-colors flex items-center gap-2 text-sm" onclick="carregarKanbanAlocacao()">
+                <i class="fas fa-sync-alt"></i> Atualizar Frotas
             </button>
         </div>
     </div>
 
-    <!-- Indicadores Globais -->
     <div class="stats-header">
         <div class="stat-box border-sky-500/20">
             <div>
-                <div class="text-[10px] text-sky-400/80 uppercase font-bold tracking-widest">Pátio / Disponíveis</div>
+                <div class="text-[10px] text-sky-400/80 uppercase font-bold tracking-widest">Pátio</div>
                 <div class="text-2xl font-black text-sky-400 mt-0.5" id="ind_patio">0</div>
             </div>
-            <i class="fas fa-parking text-4xl text-sky-400/20"></i>
+            <i class="fas fa-parking text-3xl text-sky-400/20"></i>
         </div>
         <div class="stat-box border-emerald-500/20">
             <div>
-                <div class="text-[10px] text-emerald-400/80 uppercase font-bold tracking-widest">Alocados (Operando)</div>
+                <div class="text-[10px] text-emerald-400/80 uppercase font-bold tracking-widest">Alocados</div>
                 <div class="text-2xl font-black text-emerald-400 mt-0.5" id="ind_alocados">0</div>
             </div>
-            <i class="fas fa-truck-loading text-4xl text-emerald-400/20"></i>
+            <i class="fas fa-truck-loading text-3xl text-emerald-400/20"></i>
         </div>
         <div class="stat-box border-rose-500/20 bg-rose-950/20">
             <div>
-                <div class="text-[10px] text-rose-400/80 uppercase font-bold tracking-widest">Parados (Manutenção)</div>
+                <div class="text-[10px] text-rose-400/80 uppercase font-bold tracking-widest">Manutenção</div>
                 <div class="text-2xl font-black text-rose-500 mt-0.5" id="ind_manutencao">0</div>
             </div>
-            <i class="fas fa-tools text-4xl text-rose-500/20"></i>
+            <i class="fas fa-tools text-3xl text-rose-500/20"></i>
         </div>
     </div>
 
-    <!-- Board Kanban -->
+    <!-- Board Kanban Frotas -->
     <div id="kanbanBoard" class="kanban-board">
         <div style="width: 100%; text-align: center; color: #94a3b8; padding: 100px;">
-            <i class="fas fa-circle-notch fa-spin text-5xl mb-4 text-sky-500"></i>
-            <p class="text-xl font-medium">Sincronizando Frotas...</p>
+            <i class="fas fa-circle-notch fa-spin text-4xl mb-4 text-sky-500"></i>
+            <p class="text-lg font-medium">Sincronizando Frotas...</p>
         </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ========================================== -->
+    <!-- SESSÃO 2: MURAL DE RECADOS E ANOTAÇÕES     -->
+    <!-- ========================================== -->
+    <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+        <div>
+            <h2 style="color: #f8fafc; font-size: 1.6rem; font-weight: 800; display: flex; align-items: center; gap: 10px; letter-spacing: -0.5px;">
+                <i class="fas fa-sticky-note text-amber-400"></i> Mural de Recados & Alertas
+            </h2>
+            <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 2px;">Tarefas operacionais, solicitações e passagens de turno.</p>
+        </div>
+        <div class="flex gap-2 bg-slate-800/60 p-1.5 rounded-lg border border-slate-700/50">
+            <button id="btn-tab-quadro" class="tab-btn active" onclick="alternarAbaMuralTatico('quadro')">📋 Kanban</button>
+            <button id="btn-tab-historico" class="tab-btn" onclick="alternarAbaMuralTatico('historico')">🕰️ Histórico</button>
+        </div>
+    </div>
+
+    <form id="form-recado-tatico" class="recados-form">
+        <input type="text" id="titulo-recado-tatico" class="dark-input" placeholder="Título resumido..." required>
+        <input type="text" id="desc-recado-tatico" class="dark-input" style="flex: 2;" placeholder="Descrição detalhada..." required>
+        <select id="prioridade-recado-tatico" class="dark-input" style="flex: 0.5;" required>
+            <option value="baixa">Baixa Prioridade</option>
+            <option value="media" selected>Prioridade Média</option>
+            <option value="alta">ALTA Prioridade</option>
+            <option value="troca">Troca de Turno</option>
+        </select>
+        <input type="datetime-local" id="data-recado-tatico" class="dark-input" style="flex: 0.5;" required>
+        <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 rounded-lg transition-colors shadow">
+            <i class="fas fa-plus"></i> Adicionar
+        </button>
+    </form>
+
+    <!-- Board Kanban Recados -->
+    <div id="view-quadro-mural-tatico" class="kanban-board" style="min-height: 380px;">
+        
+        <div class="kanban-column" style="min-width: 300px;">
+            <div class="kanban-header border-baixa" style="background: rgba(59, 130, 246, 0.05);">
+                <h3 class="font-extrabold text-blue-400 uppercase text-xs tracking-wider">🔵 BAIXA</h3>
+                <span class="bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded text-xs font-black shadow" id="count-baixa-tatico">0</span>
+            </div>
+            <div class="kanban-cards" id="lista-baixa-tatico" ondrop="soltarMuralTatico(event, 'baixa')" ondragover="permitirSoltarMuralTatico(event)" ondragleave="dragLeaveMuralTatico(event)"></div>
+        </div>
+
+        <div class="kanban-column" style="min-width: 300px;">
+            <div class="kanban-header border-media" style="background: rgba(245, 158, 11, 0.05);">
+                <h3 class="font-extrabold text-amber-500 uppercase text-xs tracking-wider">🟡 MÉDIA</h3>
+                <span class="bg-amber-900/50 text-amber-300 px-2 py-0.5 rounded text-xs font-black shadow" id="count-media-tatico">0</span>
+            </div>
+            <div class="kanban-cards" id="lista-media-tatico" ondrop="soltarMuralTatico(event, 'media')" ondragover="permitirSoltarMuralTatico(event)" ondragleave="dragLeaveMuralTatico(event)"></div>
+        </div>
+
+        <div class="kanban-column" style="min-width: 300px;">
+            <div class="kanban-header border-alta" style="background: rgba(239, 68, 68, 0.05);">
+                <h3 class="font-extrabold text-rose-500 uppercase text-xs tracking-wider">🔴 ALTA</h3>
+                <span class="bg-rose-900/50 text-rose-300 px-2 py-0.5 rounded text-xs font-black shadow" id="count-alta-tatico">0</span>
+            </div>
+            <div class="kanban-cards" id="lista-alta-tatico" ondrop="soltarMuralTatico(event, 'alta')" ondragover="permitirSoltarMuralTatico(event)" ondragleave="dragLeaveMuralTatico(event)"></div>
+        </div>
+
+        <div class="kanban-column" style="min-width: 300px;">
+            <div class="kanban-header border-troca" style="background: rgba(168, 85, 247, 0.05);">
+                <h3 class="font-extrabold text-purple-400 uppercase text-xs tracking-wider">🟣 TROCA DE TURNO</h3>
+                <span class="bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded text-xs font-black shadow" id="count-troca-tatico">0</span>
+            </div>
+            <div class="kanban-cards" id="lista-troca-tatico" ondrop="soltarMuralTatico(event, 'troca')" ondragover="permitirSoltarMuralTatico(event)" ondragleave="dragLeaveMuralTatico(event)"></div>
+        </div>
+    </div>
+
+    <!-- Visão Histórico de Recados -->
+    <div id="view-historico-mural-tatico" style="display: none; background: rgba(30, 41, 59, 0.4); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.05); min-height: 380px; flex-shrink: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 class="font-bold text-emerald-400"><i class="fas fa-check-double mr-2"></i> Recados e Alertas Concluídos</h3>
+            <button class="bg-transparent border border-rose-500 text-rose-400 hover:bg-rose-500 hover:text-white font-bold py-1.5 px-4 rounded transition-colors text-sm" onclick="limparHistoricoMuralTatico()">
+                <i class="fas fa-trash-alt"></i> Limpar Histórico
+            </button>
+        </div>
+        <div id="lista-historico-tatico" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;"></div>
     </div>
 </div>
