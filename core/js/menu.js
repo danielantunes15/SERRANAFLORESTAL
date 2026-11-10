@@ -6,7 +6,6 @@ window.MAPA_MENUS = [
     { id: 'troca_turno', label: 'Troca de Turno', setor: 'Logística', icon: 'fas fa-exchange-alt' },
     { id: 'alocacao', label: 'Alocação Geral', setor: 'Logística', icon: 'fas fa-users-cog' },
     { id: 'alocacao_frota', label: 'Alocação de Frota', setor: 'Logística', icon: 'fas fa-truck' },
-    { id: 'recados', label: 'Recados e Anotações', setor: 'Logística', icon: 'fas fa-sticky-note' },
     { id: 'caminhoes', label: 'Conjuntos & Caminhões', setor: 'Logística', icon: 'fas fa-truck' },
     { id: 'documentos_frota', label: 'Documentos da Frota', setor: 'Logística', icon: 'fas fa-file-pdf' },
     
@@ -127,8 +126,6 @@ const ROTAS = {
     'ocorrencias': 'modules/controladoria/ocorrencias/ocorrencias.html',
     'historico_ocorrencias': 'modules/controladoria/ocorrencias/historico_ocorrencias.html',
     'relatorio_ocorrencias': 'modules/controladoria/ocorrencias/relatorio_ocorrencias.html',
-    
-    'recados': 'modules/logistica/recados/recados.html',
     
     'relatorio_gerencial': 'modules/indicadores/relatorio_gerencial/relatorio_gerencial.html',
     'indicadores': 'modules/indicadores/painel_cliente/indicadores.html',
@@ -558,7 +555,6 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'historico_ocorrencias' && typeof window.initHistoricoOcorrencias === 'function') window.initHistoricoOcorrencias();
         if (pagina === 'relatorio_ocorrencias' && typeof window.initRelatorioOcorrencias === 'function') window.initRelatorioOcorrencias();
                  
-        if (pagina === 'recados' && typeof window.carregarRecados === 'function') window.carregarRecados();
         if (pagina === 'indicadores' && typeof window.carregarDadosDashboard === 'function') window.carregarDadosDashboard();
         if (pagina === 'indicadores_serrana' && typeof window.carregarDadosDashboardSerrana === 'function') window.carregarDadosDashboardSerrana();
         if (pagina === 'cadastro_indicadores' && typeof window.initCadastroIndicadores === 'function') window.initCadastroIndicadores();
