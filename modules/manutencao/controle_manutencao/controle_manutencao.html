@@ -74,23 +74,54 @@
     </div>
 
     <!-- CONTEÚDO DA ABA: LISTA -->
-    <div id="tabConteudoLista" class="content-panel" style="padding: 0; overflow-x: auto;">
-        <table class="data-table-modern" style="margin: 0; width: 100%; min-width: 1100px;">
-            <thead>
-                <tr>
-                    <th style="width: 18%;">Equipamento / Placas</th>
-                    <th style="width: 8%;">Categoria</th>
-                    <th style="width: 25%;">Progresso / Score de Risco</th>
-                    <th style="width: 17%;">Inspeção e Elétrica</th>
-                    <th style="width: 8%; text-align: center;">Revisões</th>
-                    <th style="width: 10%; text-align: center;">Status da Máquina</th>
-                    <th style="width: 14%; text-align: right;">Ações Rápidas</th>
-                </tr>
-            </thead>
-            <tbody id="tbControleRevisoes">
-                <tr><td colspan="7" style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Carregando dados de manutenção...</td></tr>
-            </tbody>
-        </table>
+    <div id="tabConteudoLista" class="content-panel" style="padding: 0; overflow-x: auto; display: flex; flex-direction: column; gap: 30px;">
+        
+        <!-- SEÇÃO: CAVALOS E MÁQUINAS -->
+        <div>
+            <h4 style="color: var(--ccol-blue-bright); margin: 15px 20px 10px 20px; font-size: 1.2rem; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-truck"></i> Veículos Motores (Cavalos / Máquinas)
+            </h4>
+            <table class="data-table-modern" style="margin: 0; width: 100%; min-width: 1100px;">
+                <thead>
+                    <tr>
+                        <th style="width: 18%;">Equipamento / Placas</th>
+                        <th style="width: 8%;">Categoria</th>
+                        <th style="width: 25%;">Progresso / Score de Risco</th>
+                        <th style="width: 17%;">Inspeção e Elétrica</th>
+                        <th style="width: 8%; text-align: center;">Revisões</th>
+                        <th style="width: 10%; text-align: center;">Status da Máquina</th>
+                        <th style="width: 14%; text-align: right;">Ações Rápidas</th>
+                    </tr>
+                </thead>
+                <tbody id="tbControleRevisoesCavalos">
+                    <tr><td colspan="7" style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Carregando dados de manutenção...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- SEÇÃO: CARRETAS E CONJUNTOS GO -->
+        <div>
+            <h4 style="color: #10b981; margin: 15px 20px 10px 20px; font-size: 1.2rem; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-trailer"></i> Conjuntos GO (Carretas / Reboques)
+            </h4>
+            <table class="data-table-modern" style="margin: 0; width: 100%; min-width: 1100px;">
+                <thead>
+                    <tr>
+                        <th style="width: 18%;">Equipamento / Placas</th>
+                        <th style="width: 8%;">Categoria</th>
+                        <th style="width: 25%;">Progresso / Score de Risco</th>
+                        <th style="width: 17%;">Inspeção e Elétrica</th>
+                        <th style="width: 8%; text-align: center;">Revisões</th>
+                        <th style="width: 10%; text-align: center;">Status da Máquina</th>
+                        <th style="width: 14%; text-align: right;">Ações Rápidas</th>
+                    </tr>
+                </thead>
+                <tbody id="tbControleRevisoesCarretas">
+                    <tr><td colspan="7" style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Carregando dados de manutenção...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
     </div>
 </div>
 
@@ -278,7 +309,6 @@
                 <textarea id="inputDetalhesRevisao" rows="3" placeholder="Descreva os serviços executados ou pendências..."></textarea>
             </div>
 
-            <!-- NOVO: HISTÓRICO DE REVISÕES DETALHADO NO MODAL -->
             <div style="margin-top: 25px;">
                 <label style="color: var(--text-secondary); font-size: 0.85rem; font-weight: bold; text-transform: uppercase;">Histórico de Revisões</label>
                 <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-dim); border-radius: 8px; margin-top: 8px;">
