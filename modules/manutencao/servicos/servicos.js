@@ -2,10 +2,12 @@
 
 let mOS_Atual = null;
 let mOS_PecasCache = [];
+let mOS_PecasMap = {}; // OTIMIZAÇÃO: Dicionário para busca instantânea de peças
 let mOS_KitsCache = [];
 let mOS_ListaGeral = [];
 let mOS_Requisicoes = []; 
-let mOS_FrotasCache = []; // Cache global de frotas
+let mOS_FrotasCache = []; 
+let mOS_FrotasMap = {}; // OTIMIZAÇÃO: Dicionário para busca instantânea de frotas
 let mOS_AbaAtiva = 'aceite';
 let mapaSOSMecanicoInstance = null;
 window.mecanicoNomeCompletoCache = null; 
@@ -32,55 +34,57 @@ window.renderizarTelaServicos = async function() {
             }
         }
 
+        // OTIMIZAÇÃO: Carregamento Paralelo para reduzir tempo de tela branca
+        const promessasIniciais = [];
+
         if (mMecanicosCache.length === 0) {
-            const { data: setoresData } = await window.supabaseClient
-                .from('setores')
-                .select('id')
-                .ilike('nome', '%Manuten%');
-
-            if (setoresData && setoresData.length > 0) {
-                const setoresIds = setoresData.map(s => s.id);
-                
-                let queryColaboradores = window.supabaseClient
-                    .from('rh_colaboradores')
-                    .select('nome')
-                    .in('setor_id', setoresIds)
-                    .eq('status', 'Ativo')
-                    .order('nome', { ascending: true });
-
-                if (typeof window.aplicarFiltroFilial === 'function') {
-                    queryColaboradores = window.aplicarFiltroFilial(queryColaboradores);
+            promessasIniciais.push((async () => {
+                const { data: setoresData } = await window.supabaseClient.from('setores').select('id').ilike('nome', '%Manuten%');
+                if (setoresData && setoresData.length > 0) {
+                    let qColabs = window.supabaseClient.from('rh_colaboradores').select('nome').in('setor_id', setoresData.map(s => s.id)).eq('status', 'Ativo').order('nome');
+                    if (typeof window.aplicarFiltroFilial === 'function') qColabs = window.aplicarFiltroFilial(qColabs);
+                    const { data } = await qColabs;
+                    if (data) mMecanicosCache = data.map(c => c.nome).filter(n => n && n.trim() !== '');
                 }
-
-                const { data: colabsData } = await queryColaboradores;
-                if (colabsData) {
-                    mMecanicosCache = colabsData
-                        .map(c => c.nome)
-                        .filter(nome => nome && nome.trim() !== '');
-                }
-            }
+            })());
         }
 
         if (mOS_PecasCache.length === 0) {
-            let qPecas = window.supabaseClient.from('almoxarifado_pecas').select('*');
-            if (typeof window.aplicarFiltroFilial === 'function') qPecas = window.aplicarFiltroFilial(qPecas);
-            const { data: cachePecas } = await qPecas;
-            mOS_PecasCache = cachePecas || [];
+            promessasIniciais.push((async () => {
+                let qPecas = window.supabaseClient.from('almoxarifado_pecas').select('*');
+                if (typeof window.aplicarFiltroFilial === 'function') qPecas = window.aplicarFiltroFilial(qPecas);
+                const { data } = await qPecas;
+                mOS_PecasCache = data || [];
+                mOS_PecasMap = {};
+                mOS_PecasCache.forEach(p => mOS_PecasMap[p.id] = p);
+            })());
         }
 
         if (mOS_KitsCache.length === 0) {
-            let qKits = window.supabaseClient.from('almoxarifado_kits').select('*');
-            if (typeof window.aplicarFiltroFilial === 'function') qKits = window.aplicarFiltroFilial(qKits);
-            const { data: cacheKits } = await qKits;
-            mOS_KitsCache = cacheKits || [];
+            promessasIniciais.push((async () => {
+                let qKits = window.supabaseClient.from('almoxarifado_kits').select('*');
+                if (typeof window.aplicarFiltroFilial === 'function') qKits = window.aplicarFiltroFilial(qKits);
+                const { data } = await qKits;
+                mOS_KitsCache = data || [];
+            })());
         }
 
         if (mOS_FrotasCache.length === 0) {
-            let qFrotas = window.supabaseClient.from('frotas_manutencao').select('*');
-            if (typeof window.aplicarFiltroFilial === 'function') qFrotas = window.aplicarFiltroFilial(qFrotas);
-            const { data: cacheFrotas } = await qFrotas;
-            mOS_FrotasCache = cacheFrotas || [];
+            promessasIniciais.push((async () => {
+                let qFrotas = window.supabaseClient.from('frotas_manutencao').select('*');
+                if (typeof window.aplicarFiltroFilial === 'function') qFrotas = window.aplicarFiltroFilial(qFrotas);
+                const { data } = await qFrotas;
+                mOS_FrotasCache = data || [];
+                mOS_FrotasMap = {};
+                mOS_FrotasCache.forEach(f => {
+                    if(f.cavalo) mOS_FrotasMap[f.cavalo] = f;
+                    if(f.go) mOS_FrotasMap[f.go] = f;
+                });
+            })());
         }
+
+        // Aguarda todas as buscas em paralelo
+        await Promise.all(promessasIniciais);
 
         let queryOS = window.supabaseClient.from('ordens_servico')
             .select('*')
@@ -169,7 +173,8 @@ function mecanicoAtualizarContadores() {
 
 function mecanicoObterInfoFrota(placa) {
     if (!placa) return '';
-    const frota = mOS_FrotasCache.find(f => f.cavalo === placa || f.go === placa);
+    // OTIMIZAÇÃO: Busca direta em O(1)
+    const frota = mOS_FrotasMap[placa];
     if (!frota) return '';
     
     let html = `<div style="font-size: 0.85rem; color: #94a3b8; margin-top: 5px; margin-bottom: 8px; background: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">`;
@@ -253,7 +258,8 @@ function mecanicoRenderizarTabelas() {
         }
 
         container.innerHTML = mOS_Requisicoes.map(r => {
-            const pecaObj = mOS_PecasCache.find(p => p.id == r.peca_id);
+            // OTIMIZAÇÃO: Busca direta O(1) da memória
+            const pecaObj = mOS_PecasMap[r.peca_id];
             const pecaNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
             const pecaCod = (pecaObj && pecaObj.codigo) ? `[${pecaObj.codigo}] ` : '';
             let bgCor = r.status === 'Aprovado' ? 'rgba(16, 185, 129, 0.1)' : (r.status === 'Recusado' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)');
@@ -494,19 +500,19 @@ window.mecanicoAbrirApontamento = async function(id, placa, previsao) {
     const modal = document.getElementById('modalApontamentoOS');
     if (modal) modal.style.display = 'flex';
     
-    await mecanicoCarregarPecas();
+    // OTIMIZAÇÃO: Removemos os `await` para o modal abrir instantaneamente
+    mecanicoCarregarPecas();
     mecanicoCarregarKits();
-    await mecanicoMontarPlacasTritrem(placa);
+    mecanicoMontarPlacasTritrem(placa);
     mecanicoAtualizarTabelasModal();
 };
 
-async function mecanicoMontarPlacasTritrem(placaPrincipal) {
+function mecanicoMontarPlacasTritrem(placaPrincipal) {
     const divChecks = document.getElementById('aponCheckboxesServico');
     const selP = document.getElementById('aponCompartimentoPeca');
     
-    let query = window.supabaseClient.from('frotas_manutencao').select('*').or(`cavalo.eq.${placaPrincipal},go.eq.${placaPrincipal}`);
-    if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
-    const { data } = await query.maybeSingle();
+    // OTIMIZAÇÃO: Consulta na memória sem travar a interface chamando o banco
+    const data = mOS_FrotasMap[placaPrincipal];
     
     const baseStyle = "background:rgba(255,255,255,0.05); padding:10px 15px; border-radius:8px; border:1px solid #475569; display:flex; align-items:center; gap:10px; font-weight:bold; cursor:pointer;";
     
@@ -915,7 +921,8 @@ async function mecanicoAtualizarTabelasModal() {
 
     if (tabelaPecas) {
         tabelaPecas.innerHTML = (p && p.length > 0) ? p.map(item => {
-            const pecaObj = mOS_PecasCache.find(x => x.id == item.peca_id);
+            // OTIMIZAÇÃO: Busca rápida na memória sem sobrecarregar o processador
+            const pecaObj = mOS_PecasMap[item.peca_id];
             const pNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
             const pCodigo = (pecaObj && pecaObj.codigo) ? `[${pecaObj.codigo}] ` : '';
             return `
@@ -931,10 +938,16 @@ async function mecanicoAtualizarTabelasModal() {
 }
 
 async function mecanicoCarregarPecas() {
-    let query = window.supabaseClient.from('almoxarifado_pecas').select('*').order('nome');
-    if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
-    const { data } = await query;
-    mOS_PecasCache = data || [];
+    // OTIMIZAÇÃO: Só consulta o banco de dados se a memória (cache) estiver vazia
+    if (mOS_PecasCache.length === 0) {
+        let query = window.supabaseClient.from('almoxarifado_pecas').select('*').order('nome');
+        if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
+        const { data } = await query;
+        mOS_PecasCache = data || [];
+        
+        mOS_PecasMap = {};
+        mOS_PecasCache.forEach(p => mOS_PecasMap[p.id] = p);
+    }
     
     const selectCat = document.getElementById('filtroCategoriaPeca');
     if (selectCat) {
