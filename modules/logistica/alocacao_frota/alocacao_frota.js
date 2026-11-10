@@ -1,5 +1,5 @@
 window.renderizarAlocacaoFrota = async function() {
-    console.log('[Módulo Alocação de Frota] Inicializado Kanban Inteligente.');
+    console.log('[Módulo Alocação de Frota] Inicializado Kanban Inteligente Compacto.');
     await window.carregarKanbanAlocacao();
 };
 
@@ -11,13 +11,22 @@ window.carregarKanbanAlocacao = async function() {
         const filialId = window.currentUser ? window.currentUser.filial_id : null;
 
         // 1. Buscar Frentes de Serviço
-        let queryFrentes = window.supabaseClient.from('config_gruas').select('id, frente').order('frente', { ascending: true });
+        let queryFrentes = window.supabaseClient.from('config_gruas').select('id, frente, tipo_frente');
         if (filialId) queryFrentes = queryFrentes.eq('filial_id', filialId);
         const { data: frentes, error: errFrentes } = await queryFrentes;
         if (errFrentes) throw errFrentes;
 
+        // Ordenação Frentes: Próprias primeiro, depois por ordem alfabética
+        frentes.sort((a, b) => {
+            const tipoA = (a.tipo_frente || '').toUpperCase();
+            const tipoB = (b.tipo_frente || '').toUpperCase();
+            if (tipoA === 'PROPRIA' && tipoB !== 'PROPRIA') return -1;
+            if (tipoA !== 'PROPRIA' && tipoB === 'PROPRIA') return 1;
+            return (a.frente || '').localeCompare(b.frente || '');
+        });
+
         // 2. Buscar Frotas TRITREM Ativas
-        let queryFrotas = window.supabaseClient.from('frotas_manutencao').select('id, cavalo, numero_frota, go, descricao').eq('status', 'Ativo').ilike('categoria', '%TRITREM%');
+        let queryFrotas = window.supabaseClient.from('frotas_manutencao').select('id, cavalo, numero_frota, go').eq('status', 'Ativo').ilike('categoria', '%TRITREM%');
         if (filialId) queryFrotas = queryFrotas.eq('filial_id', filialId);
         const { data: frotas, error: errFrotas } = await queryFrotas;
         if (errFrotas) throw errFrotas;
@@ -28,28 +37,23 @@ window.carregarKanbanAlocacao = async function() {
         const { data: alocacoes, error: errAlocacoes } = await queryAlocacoes;
         if (errAlocacoes) throw errAlocacoes;
 
-        // 4. Buscar Ordens de Serviço (Manutenção) ABERTAS para as frotas
-        // Correção aplicada: utilizando a tabela "ordens_servico" em vez de "ordem_servico"
+        // 4. Buscar Ordens de Serviço (Manutenção) ABERTAS
         let queryOS = window.supabaseClient.from('ordens_servico').select('placa, status').neq('status', 'Concluída').eq('inativa', 0);
         if (filialId) queryOS = queryOS.eq('filial_id', filialId);
         const { data: ordensServico, error: errOS } = await queryOS;
         if (errOS) throw errOS;
 
-        // Mapear Manutenções Ativas (Placa -> true)
+        // Mapear Manutenções Ativas
         const veiculosEmManutencao = {};
         if (ordensServico) {
             ordensServico.forEach(os => {
-                if (os.placa) {
-                    veiculosEmManutencao[os.placa.toUpperCase()] = true;
-                }
+                if (os.placa) veiculosEmManutencao[os.placa.toUpperCase()] = true;
             });
         }
 
         // Mapear Alocações
         const mapAlocacoes = {}; 
-        if (alocacoes) {
-            alocacoes.forEach(a => mapAlocacoes[a.frota_id] = a);
-        }
+        if (alocacoes) alocacoes.forEach(a => mapAlocacoes[a.frota_id] = a);
 
         const frotasPorFrente = { 'disponivel': [] };
         frentes.forEach(f => frotasPorFrente[f.id] = []);
@@ -74,58 +78,71 @@ window.carregarKanbanAlocacao = async function() {
             }
         });
 
-        // Atualiza os painéis indicadores globais no topo
         if(document.getElementById('ind_patio')) document.getElementById('ind_patio').innerText = contPatio;
         if(document.getElementById('ind_alocados')) document.getElementById('ind_alocados').innerText = contAlocados;
         if(document.getElementById('ind_manutencao')) document.getElementById('ind_manutencao').innerText = contManutencao;
 
-        // Função geradora de Cards Modernos
+        // Função geradora de Cards Modernos Compactos (Com ordenação Inteligente)
         const gerarCardsHtml = (frotasArray, isPatio) => {
-            return frotasArray.sort((a, b) => (a.cavalo || '').localeCompare(b.cavalo || '')).map(f => {
-                
-                let badgeClass = isPatio ? 'status-disponivel' : 'status-ok';
-                let badgeText = isPatio ? '<i class="fas fa-check-circle"></i> Disponível' : '<i class="fas fa-truck-loading"></i> Operando';
-                let cardClass = '';
+            // ORDENAÇÃO: 1º Manutenção, 2º Com Observação (Alerta), 3º Alfabética
+            frotasArray.sort((a, b) => {
+                const pesoA = (a.emManutencao ? 3 : (a.observacao ? 2 : 1));
+                const pesoB = (b.emManutencao ? 3 : (b.observacao ? 2 : 1));
+                if (pesoA !== pesoB) return pesoB - pesoA; // Maior peso sobe
+                return (a.cavalo || '').localeCompare(b.cavalo || '');
+            });
 
-                // Se o caminhão tem OS aberta, sobrepõe o status visual
+            return frotasArray.map(f => {
+                let dotClass = isPatio ? 'dot-patio' : 'dot-ok';
+                let cardClass = '';
+                let iconInfo = '';
+
+                // Regras Visuais de Alerta
                 if (f.emManutencao) {
-                    badgeClass = 'status-manutencao';
-                    badgeText = '<i class="fas fa-wrench pulse-icon"></i> Manutenção Ativa';
-                    cardClass = 'em-manutencao';
+                    dotClass = 'dot-manutencao';
+                    cardClass = 'card-manutencao';
+                    iconInfo = `<i class="fas fa-tools text-rose-400 mr-1" title="Em Manutenção"></i>`;
+                } else if (f.observacao) {
+                    cardClass = 'card-alerta';
+                    iconInfo = `<i class="fas fa-exclamation-triangle text-amber-500 mr-1" title="Contém Observação"></i>`;
                 }
 
+                // O tooltip (title) mostrará a observação completa caso o usuário passe o mouse
+                const tooltipText = f.observacao ? f.observacao.replace(/"/g, '&quot;') : (f.emManutencao ? 'Veículo em Manutenção' : 'Operação Normal');
+
                 return `
-                <div class="kanban-card ${cardClass}" draggable="true" ondragstart="dragStartFrota(event, ${f.id})" id="card_frota_${f.id}">
-                    <div class="card-title">
-                        <div>
-                            <div class="placa-text">${f.cavalo || 'S/ PLACA'}</div>
-                            <div class="id-text">ID: ${f.numero_frota || f.go || 'N/A'} | ${f.descricao || ''}</div>
-                        </div>
-                        <div class="flex flex-col items-end gap-2">
-                            <span class="badge-status ${badgeClass}">${badgeText}</span>
-                            <button onclick="adicionarObsAlocacao(${f.id}, '${f.observacao || ''}')" class="text-slate-500 hover:text-amber-400 transition-colors" title="Adicionar Observação">
-                                <i class="fas fa-comment-dots"></i>
-                            </button>
-                        </div>
+                <div class="kanban-card ${cardClass}" draggable="true" ondragstart="dragStartFrota(event, ${f.id})" id="card_frota_${f.id}" title="${tooltipText}">
+                    <div class="status-dot ${dotClass}"></div>
+                    
+                    <div class="card-main-info">
+                        <span class="placa-text">${f.cavalo || 'S/ PLACA'}</span>
+                        <span class="id-text">${f.numero_frota || f.go || 'N/A'}</span>
                     </div>
-                    ${f.observacao ? `<div class="obs-box"><i class="fas fa-info-circle text-amber-500 mr-1"></i> ${f.observacao}</div>` : ''}
+
+                    <div class="obs-truncate">
+                        ${iconInfo} ${f.observacao || ''}
+                    </div>
+                    
+                    <div class="flex-shrink-0 ml-2">
+                        <button onclick="adicionarObsAlocacao(${f.id}, '${f.observacao || ''}')" class="text-slate-400 hover:text-white transition-colors bg-black/20 p-1.5 rounded flex items-center justify-center" title="Editar Observação">
+                            <i class="fas fa-pen text-[10px]"></i>
+                        </button>
+                    </div>
                 </div>
             `}).join('');
         };
 
         board.innerHTML = '';
 
-        // Coluna 1: Disponíveis / Pátio
+        // Coluna 1: Disponíveis / Pátio (COLUNA FIXA)
         board.innerHTML += `
-            <div class="kanban-column" id="col_disponivel" ondragover="allowDropFrota(event)" ondragleave="dragLeaveFrota(event)" ondrop="dropFrota(event, 'disponivel')">
-                <div class="kanban-header" style="background: rgba(100, 116, 139, 0.1);">
-                    <h3 class="font-extrabold text-slate-300 tracking-wide uppercase text-sm"><i class="fas fa-parking text-slate-400 mr-2"></i> Pátio / Disponíveis</h3>
-                    <div class="flex items-center gap-2">
-                        <span class="bg-slate-700 text-white px-2 py-0.5 rounded-md font-black text-sm">${frotasPorFrente['disponivel'].length}</span>
-                    </div>
+            <div class="kanban-column col-patio" id="col_disponivel" ondragover="allowDropFrota(event)" ondragleave="dragLeaveFrota(event)" ondrop="dropFrota(event, 'disponivel')">
+                <div class="kanban-header">
+                    <h3 class="font-extrabold text-slate-200 uppercase text-xs tracking-wider"><i class="fas fa-parking text-sky-400 mr-1.5"></i> Pátio</h3>
+                    <span class="bg-sky-600 text-white px-2 py-0.5 rounded text-xs font-black shadow">${frotasPorFrente['disponivel'].length}</span>
                 </div>
-                <div class="kanban-cards custom-scrollbar">
-                    ${frotasPorFrente['disponivel'].length > 0 ? gerarCardsHtml(frotasPorFrente['disponivel'], true) : '<div class="text-center text-slate-500 text-sm mt-10 italic">Nenhum veículo no pátio</div>'}
+                <div class="kanban-cards">
+                    ${frotasPorFrente['disponivel'].length > 0 ? gerarCardsHtml(frotasPorFrente['disponivel'], true) : '<div class="text-center text-slate-500 text-xs mt-4 italic">Pátio vazio</div>'}
                 </div>
             </div>
         `;
@@ -133,24 +150,35 @@ window.carregarKanbanAlocacao = async function() {
         // Colunas Frentes
         frentes.forEach(f => {
             const arrFrente = frotasPorFrente[f.id];
+            
+            const isPropria = (f.tipo_frente || '').toUpperCase() === 'PROPRIA';
+            const bgHeader = isPropria ? 'rgba(16, 185, 129, 0.05)' : 'rgba(255, 255, 255, 0.02)';
+            const borderTop = isPropria ? 'border-top: 2px solid #10b981;' : '';
+            const tagFrente = isPropria 
+                ? `<span style="background: rgba(16,185,129,0.15); color: #34d399; font-size: 0.6rem; padding: 2px 5px; border-radius: 4px; font-weight: 800;"><i class="fas fa-star mr-1"></i>PRÓPRIA</span>`
+                : '';
+
             board.innerHTML += `
                 <div class="kanban-column" id="col_${f.id}" ondragover="allowDropFrota(event)" ondragleave="dragLeaveFrota(event)" ondrop="dropFrota(event, ${f.id})">
-                    <div class="kanban-header" style="background: rgba(56, 189, 248, 0.05);">
-                        <h3 class="font-extrabold text-sky-400 tracking-wide uppercase text-sm"><i class="fas fa-map-marker-alt mr-2"></i> ${f.frente}</h3>
-                        <div class="flex items-center gap-2" title="Veículos Alocados">
-                            <span class="bg-sky-900/80 text-sky-100 px-2 py-0.5 rounded-md font-black text-sm" id="badge_count_${f.id}">${arrFrente.length}</span>
+                    <div class="kanban-header" style="background: ${bgHeader}; ${borderTop}">
+                        <div class="flex flex-col gap-1">
+                            <h3 class="font-extrabold text-sky-400 uppercase text-xs tracking-wider">
+                                <i class="fas fa-map-marker-alt mr-1"></i> ${f.frente}
+                            </h3>
+                            ${tagFrente}
                         </div>
+                        <span class="bg-slate-700 text-slate-200 px-2 py-0.5 rounded text-xs font-black shadow">${arrFrente.length}</span>
                     </div>
-                    <div class="kanban-cards custom-scrollbar">
-                        ${arrFrente.length > 0 ? gerarCardsHtml(arrFrente, false) : '<div class="text-center text-slate-500/50 text-sm mt-10 italic border border-dashed border-slate-700 rounded-lg p-6">Arraste veículos para cá</div>'}
+                    <div class="kanban-cards">
+                        ${arrFrente.length > 0 ? gerarCardsHtml(arrFrente, false) : '<div class="text-center text-slate-500/40 text-xs mt-6 italic">Arraste os veículos para cá</div>'}
                     </div>
                 </div>
             `;
         });
 
     } catch (err) {
-        console.error('Erro Kanban Inteligente:', err);
-        board.innerHTML = `<div style="width:100%; text-align:center; color:#ef4444; padding:40px; background:rgba(239,68,68,0.1); border-radius:12px;">Erro Crítico ao carregar o painel.<br>${err.message}</div>`;
+        console.error('Erro Kanban Inteligente Compacto:', err);
+        board.innerHTML = `<div style="width:100%; text-align:center; color:#ef4444; padding:40px; font-weight: bold;">Erro ao carregar o painel.<br>${err.message}</div>`;
     }
 };
 
@@ -187,11 +215,6 @@ window.dropFrota = async function(event, destinoId) {
     try {
         const filialId = window.currentUser ? window.currentUser.filial_id : null;
 
-        Swal.fire({
-            toast: true, position: 'top-end', icon: 'info',
-            title: 'Registrando movimentação...', showConfirmButton: false, background: '#1e293b', color: '#fff'
-        });
-
         if (destinoId === 'disponivel') {
             const { error } = await window.supabaseClient.from('alocacao_frotas').delete().eq('frota_id', frotaId);
             if (error) throw error;
@@ -205,20 +228,10 @@ window.dropFrota = async function(event, destinoId) {
             if (error) throw error;
         }
 
-        // Recarrega o painel inteiro para reprocessar os status, contadores e badges corretamente
         window.carregarKanbanAlocacao();
-
-        Swal.fire({
-            toast: true, position: 'top-end', icon: 'success',
-            title: 'Frota realocada!', showConfirmButton: false, timer: 1500, background: '#1e293b', color: '#fff'
-        });
-
     } catch (err) {
         console.error("Erro ao mover frota no banco:", err);
-        Swal.fire({
-            toast: true, position: 'top-end', icon: 'error',
-            title: 'Falha ao salvar!', showConfirmButton: false, timer: 3000, background: '#1e293b', color: '#fff'
-        });
+        Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Falha ao salvar!', showConfirmButton: false, timer: 3000, background: '#1e293b', color: '#fff' });
         window.carregarKanbanAlocacao();
     }
 };
@@ -236,14 +249,14 @@ document.addEventListener('dragend', (e) => {
 window.adicionarObsAlocacao = async function(frotaId, obsAtual) {
     const { value: novaObs, isConfirmed } = await Swal.fire({
         title: 'Observação da Operação',
-        input: 'textarea',
-        inputLabel: 'Informe detalhes táticos para este veículo (Ex: Quebrado na estrada, Aguardando peça, Fila na balança):',
+        input: 'text',
+        inputLabel: 'Breve alerta (ficará em destaque):',
         inputValue: obsAtual && obsAtual !== 'undefined' ? obsAtual : '',
-        inputPlaceholder: 'Digite aqui...',
+        inputPlaceholder: 'Ex: Fila na balança, Pneu furado...',
         showCancelButton: true,
-        confirmButtonText: '<i class="fas fa-save"></i> Salvar',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#0284c7',
+        confirmButtonText: 'Salvar Alerta',
+        cancelButtonText: 'Limpar / Cancelar',
+        confirmButtonColor: '#f59e0b',
         cancelButtonColor: '#475569',
         background: '#1e293b',
         color: '#fff'
@@ -252,21 +265,14 @@ window.adicionarObsAlocacao = async function(frotaId, obsAtual) {
     if (isConfirmed) {
         try {
             const { data: aloc } = await window.supabaseClient.from('alocacao_frotas').select('id').eq('frota_id', frotaId).single();
-            
             if (aloc) {
                 await window.supabaseClient.from('alocacao_frotas').update({ observacao: novaObs }).eq('frota_id', frotaId);
-                Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Observação atualizada!', showConfirmButton: false, timer: 2000, background: '#1e293b', color: '#fff' });
                 window.carregarKanbanAlocacao();
             } else {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Veículo no Pátio',
-                    text: 'O veículo precisa estar alocado em uma frente de serviço para receber uma observação operacional.',
-                    background: '#1e293b', color: '#fff'
-                });
+                Swal.fire({ icon: 'warning', title: 'Veículo no Pátio', text: 'Veículo precisa estar alocado para receber alerta.', background: '#1e293b', color: '#fff' });
             }
         } catch (err) {
-            Swal.fire('Erro', 'Falha ao salvar a observação.', 'error');
+            Swal.fire('Erro', 'Falha ao salvar o alerta.', 'error');
         }
     }
 };
