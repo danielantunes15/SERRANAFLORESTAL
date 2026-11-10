@@ -5,6 +5,7 @@ window.MAPA_MENUS = [
     { id: 'escala', label: 'Escala Semanal', setor: 'Logística', icon: 'fas fa-calendar-alt' },
     { id: 'troca_turno', label: 'Troca de Turno', setor: 'Logística', icon: 'fas fa-exchange-alt' },
     { id: 'alocacao', label: 'Alocação Geral', setor: 'Logística', icon: 'fas fa-users-cog' },
+    { id: 'alocacao_frota', label: 'Alocação de Frota', setor: 'Logística', icon: 'fas fa-truck' },
     { id: 'recados', label: 'Recados e Anotações', setor: 'Logística', icon: 'fas fa-sticky-note' },
     { id: 'caminhoes', label: 'Conjuntos & Caminhões', setor: 'Logística', icon: 'fas fa-truck' },
     { id: 'documentos_frota', label: 'Documentos da Frota', setor: 'Logística', icon: 'fas fa-file-pdf' },
@@ -91,6 +92,7 @@ const ROTAS = {
     'escala': 'modules/logistica/escala/escala.html',
     'troca_turno': 'modules/logistica/troca_turno/troca_turno.html',
     'alocacao': 'modules/logistica/alocacao/alocacao.html',
+    'alocacao_frota': 'modules/logistica/alocacao_frota/alocacao_frota.html',
     'caminhoes': 'modules/manutencao/caminhoes/caminhoes.html',
     'cadastro_frota': 'modules/logistica/frota_conjuntos/cadastro_frota.html',
     'documentos_frota': 'modules/logistica/documentos_frota/documentos_frota.html',
@@ -498,6 +500,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'escala' && typeof window.renderizarEscala === 'function') window.renderizarEscala();
         if (pagina === 'troca_turno' && typeof window.renderizarTrocaTurno === 'function') window.renderizarTrocaTurno();
         if (pagina === 'alocacao' && typeof window.renderizarAlocacao === 'function') window.renderizarAlocacao();
+        if (pagina === 'alocacao_frota' && typeof window.renderizarAlocacaoFrota === 'function') window.renderizarAlocacaoFrota();
         if (pagina === 'caminhoes' && typeof window.renderizarConjuntos === 'function') window.renderizarConjuntos();
                  
         if (pagina === 'almoxarifado' && typeof window.renderizarAlmoxarifado === 'function') window.renderizarAlmoxarifado();

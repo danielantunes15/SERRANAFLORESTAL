@@ -1,0 +1,195 @@
+<style>
+    /* Estilos Modernos do Kanban */
+    .kanban-wrapper {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 120px);
+    }
+
+    .kanban-board {
+        display: flex;
+        gap: 24px;
+        overflow-x: auto;
+        padding-bottom: 20px;
+        flex-grow: 1;
+        align-items: flex-start;
+        scroll-behavior: smooth;
+    }
+
+    .kanban-column {
+        min-width: 340px;
+        width: 340px;
+        background: rgba(30, 41, 59, 0.4);
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
+        max-height: 100%;
+        flex-shrink: 0;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+    }
+
+    .kanban-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 16px 16px 0 0;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .kanban-header::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 3px;
+        background: linear-gradient(90deg, transparent, var(--ccol-blue-bright), transparent);
+        opacity: 0.5;
+    }
+
+    .kanban-cards {
+        padding: 16px;
+        flex-grow: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-height: 200px;
+    }
+    
+    /* Design dos Cards */
+    .kanban-card {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 16px;
+        border-radius: 12px;
+        cursor: grab;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .kanban-card::before {
+        content: '';
+        position: absolute;
+        left: 0; top: 10%; bottom: 10%; width: 3px;
+        border-radius: 0 4px 4px 0;
+        background: #10b981; 
+        transition: background 0.3s;
+    }
+
+    .kanban-card:active { cursor: grabbing; transform: scale(0.96); box-shadow: 0 0 0 rgba(0,0,0,0); }
+    .kanban-card:hover { 
+        border-color: rgba(56, 189, 248, 0.4); 
+        background: rgba(30, 41, 59, 0.8); 
+        box-shadow: 0 8px 20px rgba(0,0,0,0.3); 
+        transform: translateY(-2px);
+    }
+    .kanban-card.dragging { opacity: 0.4; border: 2px dashed #38bdf8; transform: scale(0.95); }
+    
+    .column-drag-over { background: rgba(56, 189, 248, 0.05); border: 1px dashed #38bdf8; }
+    
+    /* Indicadores e Badges */
+    .card-title { display: flex; justify-content: space-between; align-items: flex-start; }
+    .placa-text { font-size: 1.3rem; font-weight: 800; color: #f8fafc; letter-spacing: 1px; }
+    .id-text { font-size: 0.75rem; color: #94a3b8; font-family: monospace; }
+    
+    .badge-status { 
+        padding: 4px 10px; 
+        border-radius: 20px; 
+        font-size: 0.7rem; 
+        font-weight: 700; 
+        text-transform: uppercase; 
+        letter-spacing: 0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .status-ok { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .status-manutencao { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .status-disponivel { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3); }
+
+    /* Estilo Específico para Card em Manutenção */
+    .kanban-card.em-manutencao::before { background: #ef4444; }
+    .kanban-card.em-manutencao { border-color: rgba(239, 68, 68, 0.2); }
+    .kanban-card.em-manutencao:hover { border-color: rgba(239, 68, 68, 0.5); }
+
+    .obs-box { 
+        padding: 10px 12px; 
+        background: rgba(0, 0, 0, 0.3); 
+        border-left: 3px solid #f59e0b; 
+        border-radius: 6px; 
+        font-size: 0.75rem; 
+        color: #cbd5e1; 
+        line-height: 1.4;
+    }
+
+    .pulse-icon { animation: pulse-red 2s infinite; }
+    @keyframes pulse-red {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.6; color: #ef4444; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    .stats-header {
+        display: flex; gap: 15px; margin-bottom: 20px;
+    }
+    .stat-box {
+        background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.05);
+        padding: 12px 20px; border-radius: 12px; flex: 1; display: flex; align-items: center; justify-content: space-between;
+    }
+</style>
+
+<div class="module-container kanban-wrapper" style="padding: 20px; animation: fadeInDrop 0.5s ease-out;">
+    <div class="module-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <div>
+            <h2 style="color: #f8fafc; font-size: 1.8rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-project-diagram text-sky-400"></i> Alocação Dinâmica de Frota
+            </h2>
+            <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 5px;">Arraste os veículos entre as colunas para alocá-los nas frentes de serviço.</p>
+        </div>
+        <div class="header-actions flex gap-3">
+            <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-5 rounded-lg shadow-lg transition-colors flex items-center gap-2" onclick="carregarKanbanAlocacao()">
+                <i class="fas fa-sync-alt"></i> Atualizar Painel
+            </button>
+        </div>
+    </div>
+
+    <!-- Indicadores Globais -->
+    <div class="stats-header">
+        <div class="stat-box">
+            <div>
+                <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Disponíveis no Pátio</div>
+                <div class="text-2xl font-black text-sky-400" id="ind_patio">0</div>
+            </div>
+            <i class="fas fa-parking text-3xl text-sky-400/20"></i>
+        </div>
+        <div class="stat-box">
+            <div>
+                <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Alocados em Operação</div>
+                <div class="text-2xl font-black text-emerald-400" id="ind_alocados">0</div>
+            </div>
+            <i class="fas fa-truck-loading text-3xl text-emerald-400/20"></i>
+        </div>
+        <div class="stat-box" style="border-color: rgba(239,68,68,0.2);">
+            <div>
+                <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Parados p/ Manutenção</div>
+                <div class="text-2xl font-black text-rose-400" id="ind_manutencao">0</div>
+            </div>
+            <i class="fas fa-tools text-3xl text-rose-400/20"></i>
+        </div>
+    </div>
+
+    <!-- Board Kanban -->
+    <div id="kanbanBoard" class="kanban-board custom-scrollbar">
+        <div style="width: 100%; text-align: center; color: #94a3b8; padding: 60px;">
+            <i class="fas fa-circle-notch fa-spin text-4xl mb-4 text-sky-500"></i>
+            <p class="text-lg font-medium">Renderizando Centro Tático...</p>
+        </div>
+    </div>
+</div>
