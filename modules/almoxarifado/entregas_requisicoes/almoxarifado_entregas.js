@@ -808,21 +808,41 @@ window.finalizarEntregaAssinadaEntregas = async function() {
             let colabUrl = null;
             let entregadorUrl = null;
 
+            // 1. FORMATAR O NOME DA PASTA DO COLABORADOR
+            const nomeOriginal = itensPendentesParaAssinaturaEntregas[0].colaborador_nome || 'DESCONHECIDO';
+            // Remove acentos, troca espaços por _ e deixa tudo maiúsculo. Ex: JOAO_SILVA
+            const pastaColab = nomeOriginal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').toUpperCase();
+
+            // NOVO FLUXO: Envia para o storage dentro da pasta do colaborador
             if (hasColabSig) {
-                const blobColab = base64ParaBlob(canvasColab.toDataURL('image/png'), 'image/png');
-                const nomeArqColab = `sig_colab_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
+                const base64Colab = canvasColab.toDataURL('image/png');
+                const blobColab = base64ParaBlob(base64Colab, 'image/png');
+                
+                // Inclui o nome da pasta antes do arquivo
+                const nomeArqColab = `${pastaColab}/sig_colab_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
+                
                 const { error: err1 } = await window.supabaseClient.storage.from('assinaturas').upload(nomeArqColab, blobColab, { contentType: 'image/png' });
                 if (!err1) {
                     colabUrl = window.supabaseClient.storage.from('assinaturas').getPublicUrl(nomeArqColab).data.publicUrl;
+                } else {
+                    console.warn("Storage do Supabase falhou ou não existe. Salvando assinatura como Base64 (Texto).", err1);
+                    colabUrl = base64Colab; 
                 }
             }
 
             if (hasEntregadorSig) {
-                const blobEnt = base64ParaBlob(canvasEntregador.toDataURL('image/png'), 'image/png');
-                const nomeArqEnt = `sig_ent_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
+                const base64Ent = canvasEntregador.toDataURL('image/png');
+                const blobEnt = base64ParaBlob(base64Ent, 'image/png');
+                
+                // Inclui a mesma pasta para a assinatura do entregador também ficar junta
+                const nomeArqEnt = `${pastaColab}/sig_ent_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
+                
                 const { error: err2 } = await window.supabaseClient.storage.from('assinaturas').upload(nomeArqEnt, blobEnt, { contentType: 'image/png' });
                 if (!err2) {
                     entregadorUrl = window.supabaseClient.storage.from('assinaturas').getPublicUrl(nomeArqEnt).data.publicUrl;
+                } else {
+                    console.warn("Storage do Supabase falhou ou não existe. Salvando assinatura como Base64 (Texto).", err2);
+                    entregadorUrl = base64Ent;
                 }
             }
 

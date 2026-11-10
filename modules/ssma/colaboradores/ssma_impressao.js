@@ -43,6 +43,20 @@ window.imprimirOS_SSMA = async function(idColaborador) {
         const os = osData[0];
         const dataAdmissaoFormatada = colab.data_admissao ? colab.data_admissao.split('-').reverse().join('/') : '-';
         
+        // Procura assinatura do colaborador para a OS
+        let srcAssinaturaColab = colab.assinatura_url || colab.assinatura || colab.foto_assinatura;
+        if (!srcAssinaturaColab) {
+            for (let key in colab) {
+                if (key.toLowerCase().includes('assinatura') && colab[key] && typeof colab[key] === 'string') {
+                    srcAssinaturaColab = colab[key];
+                    break;
+                }
+            }
+        }
+        let imgAssinaturaHTML = srcAssinaturaColab 
+            ? `<img src="${srcAssinaturaColab}" style="max-height: 40px; object-fit: contain;"><br>` 
+            : ``;
+        
         // Monta o HTML
         const html = `
         <html>
@@ -110,7 +124,8 @@ window.imprimirOS_SSMA = async function(idColaborador) {
             <table style="margin-top: 40px; border: none;">
                 <tr style="border: none;">
                     <td style="border: none; text-align: center; width: 50%;">
-                        <div style="border-top: 1px solid #000; width: 80%; margin: 0 auto 5px auto;"></div>
+                        ${imgAssinaturaHTML}
+                        ${!srcAssinaturaColab ? '<div style="border-top: 1px solid #000; width: 80%; margin: 0 auto 5px auto;"></div>' : ''}
                         <strong>Assinatura do Colaborador</strong><br>
                         ${colab.nome}
                     </td>
@@ -130,7 +145,6 @@ window.imprimirOS_SSMA = async function(idColaborador) {
         </html>
         `;
 
-        // Escreve na janela que já foi aberta e chama a impressão
         win.document.open();
         win.document.write(html);
         win.document.close();
@@ -149,7 +163,6 @@ window.imprimirOS_SSMA = async function(idColaborador) {
 
 // ==================== IMPRESSÃO DE FICHA DE EPI (SSMA) ====================
 window.imprimirEPI_SSMA = async function(idColaborador) {
-    // 1. ABRE A JANELA IMEDIATAMENTE (Evita o bloqueador de pop-ups)
     const win = window.open('', '_blank');
     win.document.write('<h3 style="font-family: Arial, sans-serif; padding: 20px; color: #333;">Processando registros de EPI, aguarde...</h3>');
 
@@ -164,7 +177,7 @@ window.imprimirEPI_SSMA = async function(idColaborador) {
         let pecas = [];
         let reqs = [];
 
-        // Busca o texto das atividades na base de SSMA para preencher a ficha de EPI
+        // Busca o texto das atividades na base de SSMA
         if (colab.funcao) {
             const { data: cData } = await window.supabaseClient.from('cargos').select('id').ilike('nome', colab.funcao).limit(1);
             if (cData && cData.length > 0) {
@@ -173,12 +186,23 @@ window.imprimirEPI_SSMA = async function(idColaborador) {
             }
         }
 
-        // Busca Equipamentos e Requisições do almoxarifado
+        // Busca Equipamentos e Requisições
         const resPecas = await window.supabaseClient.from('almoxarifado_pecas').select('id, codigo, nome, unidade');
         if (resPecas.data) pecas = resPecas.data;
         
         const resReqs = await window.supabaseClient.from('almoxarifado_requisicoes').select('*').eq('colaborador_nome', colab.nome).eq('status', 'Aprovado');
         if (resReqs.data) reqs = resReqs.data;
+
+        // Tenta encontrar a assinatura mestra no cadastro do colaborador (RH)
+        let srcAssinaturaColab = colab.assinatura_url || colab.assinatura || colab.foto_assinatura;
+        if (!srcAssinaturaColab) {
+            for (let key in colab) {
+                if (key.toLowerCase().includes('assinatura') && colab[key] && typeof colab[key] === 'string') {
+                    srcAssinaturaColab = colab[key];
+                    break;
+                }
+            }
+        }
 
         const dataNasc = colab.data_nascimento ? colab.data_nascimento.split('-').reverse().join('/') : '-';
         
@@ -255,7 +279,13 @@ window.imprimirEPI_SSMA = async function(idColaborador) {
             reqs.forEach(req => {
                 let peca = pecas.find(p => p.id == req.peca_id);
                 let dataEntrega = req.created_at ? new Date(req.created_at).toLocaleDateString('pt-BR') : '-';
-                let imgAssinatura = req.assinatura_url ? `<img src="${req.assinatura_url}" style="max-height: 25px; object-fit: contain;">` : '<span style="color:#aaa;">___________________</span>';
+                
+                // Pega a assinatura específica da requisição OU usa a geral do Colaborador
+                let srcAssinaturaFinal = req.assinatura_url || req.assinatura || srcAssinaturaColab;
+
+                let imgAssinatura = srcAssinaturaFinal 
+                    ? `<img src="${srcAssinaturaFinal}" style="max-height: 25px; object-fit: contain;">` 
+                    : '<span style="color:#aaa;">___________________</span>';
 
                 html += `
                     <tr>
@@ -269,6 +299,10 @@ window.imprimirEPI_SSMA = async function(idColaborador) {
             });
         }
 
+        let imgAssinaturaMaster = srcAssinaturaColab 
+            ? `<img src="${srcAssinaturaColab}" style="max-height: 40px; object-fit: contain;"><br>` 
+            : ``;
+
         html += `
                 </tbody>
             </table>
@@ -276,7 +310,8 @@ window.imprimirEPI_SSMA = async function(idColaborador) {
             <table style="margin-top: 40px; border: none;">
                 <tr style="border: none;">
                     <td style="border: none; text-align: center; width: 100%;">
-                        <div style="border-top: 1px solid #000; width: 40%; margin: 0 auto 5px auto;"></div>
+                        ${imgAssinaturaMaster}
+                        ${!srcAssinaturaColab ? '<div style="border-top: 1px solid #000; width: 40%; margin: 0 auto 5px auto;"></div>' : ''}
                         <strong>Assinatura do colaborador</strong>
                     </td>
                 </tr>
