@@ -234,16 +234,19 @@ window.initSLA = async function() {
 
                 intervalos.push([overlapInicio.getTime(), overlapFim.getTime()]);
 
+                let desc = (os.problema || os.observacoes || os.descricao || 'Sem descrição.').replace(/"/g, '&quot;');
+
                 htmlLinhas += `
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.1);">
                         <td style="padding: 12px; text-align: center; width: 40px;">
                             <input type="checkbox" class="chk-soma-os cursor-pointer" data-ms="${duracaoMs}" onchange="window.calcularSomaOSModalSLA()" style="width: 16px; height: 16px; accent-color: #3b82f6;">
                         </td>
-                        <td style="padding: 12px; color: #fff; font-weight: bold;">#${os.numero_os || os.id}</td>
-                        <td style="padding: 12px; color: #94a3b8;">${dtIniStr}</td>
-                        <td style="padding: 12px; color: #94a3b8;">${dtFimStr}</td>
-                        <td style="padding: 12px; color: #3b82f6;">${os.tipo || 'Manutenção'}</td>
-                        <td style="padding: 12px; color: #ef4444; font-weight: bold;">${h}h ${m}m</td>
+                        <td style="padding: 12px; color: #fff; font-weight: bold; white-space: nowrap;">#${os.numero_os || os.id}</td>
+                        <td style="padding: 12px; color: #94a3b8; white-space: nowrap;">${dtIniStr}</td>
+                        <td style="padding: 12px; color: #94a3b8; white-space: nowrap;">${dtFimStr}</td>
+                        <td style="padding: 12px; color: #3b82f6; white-space: nowrap;">${os.tipo || 'Manutenção'}</td>
+                        <td style="padding: 12px; color: #cbd5e1; font-size: 0.85rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${desc}">${desc}</td>
+                        <td style="padding: 12px; color: #ef4444; font-weight: bold; white-space: nowrap;">${h}h ${m}m</td>
                     </tr>
                 `;
             }
@@ -315,11 +318,11 @@ window.initSLA = async function() {
         
         const periodoTxt = `${nomeMesesExtenso[mes]} de ${ano}`;
         let corDm = dadosDM.percentDM >= 90 ? '#10b981' : (dadosDM.percentDM >= 80 ? '#f59e0b' : '#ef4444');
-        let htmlLinhas = dadosDM.htmlLinhas || '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #94a3b8;">Nenhuma parada registrada no período.</td></tr>';
+        let htmlLinhas = dadosDM.htmlLinhas || '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #94a3b8;">Nenhuma parada registrada no período.</td></tr>';
         
         const modalHtml = `
             <div id="modalDetalhesDMMaquinaSLA" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 9999; display: flex; align-items: center; justify-content: center;">
-                <div style="background: #1e293b; border: 1px solid #3b82f6; border-radius: 12px; width: 95%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <div style="background: #1e293b; border: 1px solid #3b82f6; border-radius: 12px; width: 95%; max-width: 1200px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                     
                     <div style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: rgba(59,130,246,0.1); border-radius: 12px 12px 0 0;">
                         <h3 style="color: #fff; margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 10px;">
@@ -352,11 +355,12 @@ window.initSLA = async function() {
                                     <th style="padding: 12px; text-align: center; width: 40px;">
                                         <input type="checkbox" id="chkAllOS" onchange="window.toggleAllOSModalSLA(this)" style="cursor: pointer; width: 16px; height: 16px; accent-color: #3b82f6;">
                                     </th>
-                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Nº O.S</th>
-                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Início Parada</th>
-                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Fim Parada</th>
-                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Tipo/Classificação</th>
-                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold;">Duração</th>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold; white-space: nowrap;">Nº O.S</th>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold; white-space: nowrap;">Início Parada</th>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold; white-space: nowrap;">Fim Parada</th>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold; white-space: nowrap;">Tipo/Classificação</th>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold; white-space: nowrap;">Descrição do Problema</th>
+                                    <th style="padding: 12px; color: #94a3b8; text-transform: uppercase; font-size: 0.8rem; font-weight: bold; white-space: nowrap;">Duração</th>
                                 </tr>
                             </thead>
                             <tbody>
