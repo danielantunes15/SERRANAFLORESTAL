@@ -11,8 +11,8 @@
     .almo-header h2 i { color: #3b82f6; }
     
     /* Abas e Filtros */
-    .almo-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #334155; }
-    .almo-tab { padding: 10px 20px; cursor: pointer; color: #94a3b8; font-weight: 600; border-bottom: 2px solid transparent; transition: 0.2s; }
+    .almo-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #334155; overflow-x: auto; white-space: nowrap; padding-bottom: 5px; }
+    .almo-tab { padding: 10px 20px; cursor: pointer; color: #94a3b8; font-weight: 600; border-bottom: 2px solid transparent; transition: 0.2s; white-space: nowrap; }
     .almo-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
     .almo-tab:hover:not(.active) { color: #e2e8f0; }
 
@@ -27,14 +27,14 @@
     .almo-search input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
     
     .almo-table-container { background: #1e293b; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); overflow-x: auto; border: 1px solid #334155; }
-    .almo-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .almo-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 700px; }
     .almo-table th { background-color: #0f172a; padding: 14px 20px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #334155; white-space: nowrap; }
     .almo-table td { padding: 14px 20px; border-bottom: 1px solid #334155; vertical-align: middle; color: #e2e8f0; }
     .almo-table tr:last-child td { border-bottom: none; }
     .almo-table tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
     
-    .badge { padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
-    .btn-modern { padding: 10px 18px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; font-size: 0.9rem; }
+    .badge { padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .btn-modern { padding: 10px 18px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; font-size: 0.9rem; }
     .btn-modern:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: #3b82f6; color: white; }
     .btn-success { background: #10b981; color: white; }
@@ -42,13 +42,13 @@
     .btn-dark { background: #475569; color: white; }
     .btn-action-sm { padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; transition: 0.2s; color: white; }
     
-    .almo-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
+    .almo-modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 10px; }
     .almo-modal-content { background: #1e293b; color: #e2e8f0; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); padding: 30px; position: relative; border: 1px solid #334155; }
-    .almo-close { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; color: #94a3b8; cursor: pointer; transition: 0.2s; }
+    .almo-close { position: absolute; top: 15px; right: 20px; font-size: 1.8rem; color: #94a3b8; cursor: pointer; transition: 0.2s; z-index: 10; }
     .almo-close:hover { color: #fff; }
 
     /* Paginação */
-    .almo-pagination { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px; }
+    .almo-pagination { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px; flex-wrap: wrap; }
     .almo-pagination span { color: #cbd5e1; font-weight: 600; font-size: 0.9rem; }
 
     /* Modificações Entrega Expressa (Efeito do Leitor) */
@@ -58,6 +58,41 @@
     .camera-wrapper { position: relative; width: 100%; max-width: 400px; margin: 0 auto; border-radius: 12px; overflow: hidden; border: 4px solid #1e293b; }
     .scanner-line { position: absolute; top: 0; left: 0; width: 100%; height: 3px; background: #10b981; box-shadow: 0 0 20px #10b981; animation: scanAnim 2.5s infinite linear; z-index: 10; pointer-events: none; }
     @keyframes scanAnim { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+
+    /* --- RESPONSIVIDADE ADICIONADA --- */
+    @media (max-width: 768px) {
+        .almo-header { flex-direction: column; align-items: stretch; text-align: center; }
+        .almo-header h2 { font-size: 1.4rem; justify-content: center; }
+        
+        .almo-history-filters { flex-direction: column; align-items: stretch; padding: 15px 10px; }
+        .almo-history-filters input, .almo-history-filters select { width: 100%; min-width: unset; }
+        
+        .almo-controls { flex-direction: column; align-items: stretch; }
+        .almo-search { width: 100%; }
+        
+        .btn-modern { width: 100%; padding: 12px; margin-bottom: 5px; }
+        
+        .almo-modal-content { padding: 20px 15px; }
+        
+        .express-grid { grid-template-columns: 1fr !important; }
+        .express-input { font-size: 1rem; padding: 12px; }
+        
+        /* Ajuste específico para o Canvas de Assinatura não transbordar a tela verticalmente */
+        canvas#canvasAssinaturaColab, 
+        canvas#canvasAssinaturaEntregador {
+            height: 180px !important;
+            max-width: 100%;
+        }
+        
+        /* Alinhamento dos botões abaixo da assinatura em tela de celular */
+        .assinatura-botoes {
+            flex-direction: column;
+            gap: 10px;
+        }
+        .assinatura-botoes .btn-modern {
+            margin-bottom: 0;
+        }
+    }
 </style>
 
 <div class="almo-container">
@@ -141,24 +176,23 @@
                 <div class="scanner-line" id="scannerLineEffect"></div>
             </div>
             <div style="text-align: center; margin-top: 20px;">
-                <button class="btn-modern btn-dark" onclick="pararLeituraCamera()" style="font-size: 1.1rem; padding: 10px 25px; display: inline-flex;"><i class="fas fa-times"></i> Fechar Leitor</button>
+                <button class="btn-modern btn-dark" onclick="pararLeituraCamera()" style="font-size: 1.1rem; padding: 10px 25px; display: inline-flex; width: auto;"><i class="fas fa-times"></i> Fechar Leitor</button>
             </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+        <div class="express-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
             <div style="background: rgba(59, 130, 246, 0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(59, 130, 246, 0.3);">
                 <label style="color: #60a5fa; font-weight: bold; font-size: 0.95rem; display: block; margin-bottom: 10px; text-transform: uppercase;">1. Ler QR Code da O.S.</label>
                 <div style="display: flex; gap: 10px;">
                     <input type="text" id="inputExpressOS" placeholder="Ex: OS-2323" class="express-input" style="border: 2px solid #3b82f6;" onkeyup="verificarLeituraOS(event)" autocomplete="off">
-                    <button class="btn-modern btn-primary" onclick="abrirCameraLeitor('OS')" title="Ligar Câmera para O.S" style="padding: 0 20px;"><i class="fas fa-camera fa-lg"></i></button>
+                    <button class="btn-modern btn-primary" onclick="abrirCameraLeitor('OS')" title="Ligar Câmera para O.S" style="padding: 0 20px; width: auto;"><i class="fas fa-camera fa-lg"></i></button>
                 </div>
             </div>
             <div style="background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.3);">
                 <label style="color: #34d399; font-weight: bold; font-size: 0.95rem; display: block; margin-bottom: 10px; text-transform: uppercase;">2. Ler Cód. Barras da Peça</label>
                 <div style="display: flex; gap: 10px;">
                     <input type="text" id="inputExpressPeca" placeholder="Aguardando O.S..." class="express-input" style="border: 2px solid #64748b;" disabled onkeyup="verificarLeituraPeca(event)" autocomplete="off">
-                    <!-- Botão grandão e destacado para a câmera de peças -->
-                    <button id="btnCameraPeca" class="btn-modern btn-success" onclick="abrirCameraLeitor('PECA')" disabled title="Ligar Câmera Modo Contínuo" style="padding: 0 20px; background: #10b981; border: 2px solid #059669;">
+                    <button id="btnCameraPeca" class="btn-modern btn-success" onclick="abrirCameraLeitor('PECA')" disabled title="Ligar Câmera Modo Contínuo" style="padding: 0 20px; background: #10b981; border: 2px solid #059669; width: auto;">
                         <i class="fas fa-barcode fa-lg"></i>
                     </button>
                 </div>
@@ -182,7 +216,7 @@
             </table>
         </div>
 
-        <div style="margin-top:30px; display:flex; gap:15px; justify-content:flex-end;">
+        <div class="assinatura-botoes" style="margin-top:30px; display:flex; gap:15px; justify-content:flex-end;">
             <button class="btn-modern btn-dark" onclick="fecharModalEntregas('modalEntregaExpressa')" style="font-size: 1.1rem; padding: 12px 25px;">Cancelar</button>
             <button class="btn-modern btn-success" id="btnConfirmarExpress" onclick="confirmarEntregaExpressa()" disabled style="font-size: 1.1rem; padding: 12px 25px;"><i class="fas fa-check-double"></i> Confirmar Baixa e Entrega</button>
         </div>
@@ -204,7 +238,7 @@
                 <canvas id="canvasAssinaturaColab" width="500" height="200" style="border: 2px dashed #cbd5e1; cursor: crosshair; touch-action: none; width: 100%; border-radius: 6px;"></canvas>
             </div>
             
-            <div style="display: flex; gap: 15px; justify-content: center;">
+            <div class="assinatura-botoes" style="display: flex; gap: 15px; justify-content: center;">
                 <button type="button" class="btn-modern btn-warning" onclick="limparAssinaturaColab()"><i class="fas fa-eraser"></i> Limpar</button>
                 <button type="button" class="btn-modern btn-primary" onclick="irParaPassoEntregador()">Próximo Passo <i class="fas fa-arrow-right"></i></button>
             </div>
@@ -219,7 +253,7 @@
                 <canvas id="canvasAssinaturaEntregador" width="500" height="200" style="border: 2px dashed #cbd5e1; cursor: crosshair; touch-action: none; width: 100%; border-radius: 6px;"></canvas>
             </div>
 
-            <div style="display: flex; gap: 15px; justify-content: center;">
+            <div class="assinatura-botoes" style="display: flex; gap: 15px; justify-content: center;">
                 <button type="button" class="btn-modern btn-dark" onclick="voltarParaPassoColab()"><i class="fas fa-arrow-left"></i> Voltar</button>
                 <button type="button" class="btn-modern btn-warning" onclick="limparAssinaturaEntregador()"><i class="fas fa-eraser"></i> Limpar</button>
                 <button type="button" class="btn-modern btn-success" id="btnSalvarAssinaturaEntregas" onclick="finalizarEntregaAssinadaEntregas()"><i class="fas fa-check"></i> Finalizar Entrega</button>

@@ -24,30 +24,32 @@ window.renderizarAlmoxarifadoEntregas = async function() {
 }
 
 function injetarModalAprovacaoEntregas() {
-    if(document.getElementById('modalAprovacaoReqEntregas')) return;
+    if(document.getElementById('modalAprovacaoReqEntregas')) {
+        document.getElementById('modalAprovacaoReqEntregas').remove(); // Remove o antigo para injetar o responsivo
+    }
     const modalHtml = `
-    <div id="modalAprovacaoReqEntregas" class="almo-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); z-index:10000; align-items:center; justify-content:center;">
-        <div class="almo-modal-content" style="background:#1e293b; color:#e2e8f0; width:100%; max-width:800px; max-height:90vh; overflow-y:auto; border-radius:16px; padding:30px; border:1px solid #334155; position:relative; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
-            <span class="almo-close" onclick="fecharModalEntregas('modalAprovacaoReqEntregas')" style="position:absolute; top:20px; right:20px; font-size:1.5rem; cursor:pointer; color:#94a3b8;">&times;</span>
-            <h3 style="color:#38bdf8; margin-top:0; font-size:1.5rem; display:flex; align-items:center; gap:10px;"><i class="fas fa-clipboard-check"></i> Avaliar e Registrar Entrega <span id="modalApOrigemEntregas" style="font-size:1rem; color:#94a3b8; font-weight:normal;"></span></h3>
-            <p style="color:#94a3b8; font-size:1rem; margin-bottom:20px;">Destino / Solicitante: <strong id="modalApDestinoEntregas" style="color:#f8fafc; font-size:1.1rem;"></strong></p>
+    <div id="modalAprovacaoReqEntregas" class="almo-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(5px); z-index:10000; align-items:center; justify-content:center; padding: 10px;">
+        <div class="almo-modal-content" style="background:#1e293b; color:#e2e8f0; width:100%; max-width:800px; max-height:90vh; overflow-y:auto; border-radius:16px; padding:20px; border:1px solid #334155; position:relative; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+            <span class="almo-close" onclick="fecharModalEntregas('modalAprovacaoReqEntregas')" style="position:absolute; top:15px; right:15px; font-size:1.8rem; cursor:pointer; color:#94a3b8; z-index: 10;">&times;</span>
+            <h3 style="color:#38bdf8; margin-top:0; font-size:1.4rem; display:flex; align-items:center; gap:10px; flex-wrap: wrap;"><i class="fas fa-clipboard-check"></i> Avaliar Entrega <span id="modalApOrigemEntregas" style="font-size:0.9rem; color:#94a3b8; font-weight:normal;"></span></h3>
+            <p style="color:#94a3b8; font-size:0.95rem; margin-bottom:15px;">Destino / Solicitante: <strong id="modalApDestinoEntregas" style="color:#f8fafc; font-size:1rem;"></strong></p>
             
-            <div class="almo-table-container" style="background:#0f172a; border-radius:8px; border:1px solid #334155; overflow:hidden;">
-                <table class="almo-table" style="width:100%; text-align:left; border-collapse:collapse;">
+            <div class="almo-table-container" style="background:#0f172a; border-radius:8px; border:1px solid #334155; overflow-x:auto; width: 100%;">
+                <table class="almo-table" style="width:100%; min-width: 500px; text-align:left; border-collapse:collapse;">
                     <thead style="background:#1e293b;">
                         <tr>
-                            <th style="padding:12px; border-bottom:1px solid #334155; color:#94a3b8;">Produto</th>
-                            <th style="padding:12px; text-align:center; border-bottom:1px solid #334155; color:#94a3b8;">Qtd. Solicitada</th>
-                            <th style="padding:12px; text-align:center; border-bottom:1px solid #334155; color:#94a3b8;">Estoque Atual</th>
-                            <th style="padding:12px; text-align:center; border-bottom:1px solid #334155; color:#94a3b8;">Decisão (Individual)</th>
+                            <th style="padding:12px; border-bottom:1px solid #334155; color:#94a3b8; font-size:0.8rem;">Produto</th>
+                            <th style="padding:12px; text-align:center; border-bottom:1px solid #334155; color:#94a3b8; font-size:0.8rem;">Qtd.</th>
+                            <th style="padding:12px; text-align:center; border-bottom:1px solid #334155; color:#94a3b8; font-size:0.8rem;">Estoque</th>
+                            <th style="padding:12px; text-align:center; border-bottom:1px solid #334155; color:#94a3b8; font-size:0.8rem;">Decisão</th>
                         </tr>
                     </thead>
                     <tbody id="tbodyAprovacaoGrupoEntregas"></tbody>
                 </table>
             </div>
-            <div style="margin-top:25px; display:flex; gap:15px; justify-content:flex-end;">
-                <button class="btn-modern btn-dark" onclick="fecharModalEntregas('modalAprovacaoReqEntregas')" style="padding:10px 20px;">Cancelar</button>
-                <button class="btn-modern btn-primary" id="btnConfirmarAvaliacaoEntregas" onclick="confirmarAvaliacaoGrupoEntregas()" style="padding:10px 20px;"><i class="fas fa-arrow-right"></i> Prosseguir para Assinatura</button>
+            <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end; flex-wrap: wrap;">
+                <button class="btn-modern btn-dark" onclick="fecharModalEntregas('modalAprovacaoReqEntregas')" style="padding:12px 20px; flex: 1; min-width: 120px;">Cancelar</button>
+                <button class="btn-modern btn-primary" id="btnConfirmarAvaliacaoEntregas" onclick="confirmarAvaliacaoGrupoEntregas()" style="padding:12px 20px; flex: 2; min-width: 200px;"><i class="fas fa-arrow-right"></i> Ir p/ Assinatura</button>
             </div>
         </div>
     </div>`;
@@ -57,7 +59,6 @@ function injetarModalAprovacaoEntregas() {
 // ==================== LÓGICA MODO EXPRESSO (QR CODE / BARRAS / CAMERA) ====================
 
 window.abrirEntregaExpressa = function() {
-    // Reseta todo o estado e UI do modal
     document.getElementById('inputExpressOS').value = '';
     document.getElementById('inputExpressOS').disabled = false;
     document.getElementById('inputExpressOS').style.borderColor = '#3b82f6';
@@ -84,9 +85,7 @@ window.abrirEntregaExpressa = function() {
 
 window.processarLeituraOS = async function(valorLido) {
     let val = valorLido.trim().toUpperCase();
-    
     let osIdStr = val.replace('OS-', '').replace(/^0+/, ''); 
-    
     const inputOS = document.getElementById('inputExpressOS');
     inputOS.value = val;
 
@@ -97,7 +96,6 @@ window.processarLeituraOS = async function(valorLido) {
     }
 
     const numeroLido = parseInt(osIdStr, 10);
-
     Swal.fire({ title: 'Buscando...', text: 'Sincronizando com a Oficina...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
     
     try {
@@ -113,7 +111,6 @@ window.processarLeituraOS = async function(valorLido) {
         }
 
         const idsReais = osData.map(o => String(o.id));
-
         await carregarDadosEntregas();
         Swal.close();
 
@@ -129,7 +126,6 @@ window.processarLeituraOS = async function(valorLido) {
         }
 
         osExpressaLida = pendentes[0].os_id;
-
         itensExpressosAtuais = pendentes.map(req => {
             const peca = pecasEstoqueEntregas.find(p => String(p.id) === String(req.peca_id));
             return {
@@ -151,7 +147,7 @@ window.processarLeituraOS = async function(valorLido) {
         const btnCamPeca = document.getElementById('btnCameraPeca');
         inputPeca.disabled = false;
         inputPeca.style.borderColor = '#3b82f6';
-        inputPeca.placeholder = 'Bipe o Cód. de Barras da peça...';
+        inputPeca.placeholder = 'Bipe o Cód. de Barras...';
         btnCamPeca.disabled = false;
         inputPeca.focus();
         
@@ -162,9 +158,7 @@ window.processarLeituraOS = async function(valorLido) {
 };
 
 window.verificarLeituraOS = function(event) {
-    if (event.key === 'Enter') {
-        window.processarLeituraOS(event.target.value);
-    }
+    if (event.key === 'Enter') window.processarLeituraOS(event.target.value);
 };
 
 window.processarLeituraPeca = function(valorLido) {
@@ -172,7 +166,6 @@ window.processarLeituraPeca = function(valorLido) {
     if(!val) return;
 
     const inputPeca = document.getElementById('inputExpressPeca');
-
     let indexItem = itensExpressosAtuais.findIndex(i => !i.checked && i.peca_codigo.toUpperCase() === val);
 
     if (indexItem === -1) {
@@ -190,7 +183,6 @@ window.processarLeituraPeca = function(valorLido) {
             Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Peça Confirmada!', text: itensExpressosAtuais[indexItem].peca_nome, showConfirmButton: false, timer: 1500 });
             renderizarTabelaModoExpresso();
 
-            // Verifica se TODAS as peças foram checadas
             const todosChecados = itensExpressosAtuais.every(i => i.checked || i.falta_estoque);
             if (todosChecados) {
                 if (typeof window.pararLeituraCamera === 'function') window.pararLeituraCamera();
@@ -198,15 +190,12 @@ window.processarLeituraPeca = function(valorLido) {
             }
         }
     }
-
     inputPeca.value = '';
     inputPeca.focus();
 };
 
 window.verificarLeituraPeca = function(event) {
-    if (event.key === 'Enter') {
-        window.processarLeituraPeca(event.target.value);
-    }
+    if (event.key === 'Enter') window.processarLeituraPeca(event.target.value);
 };
 
 window.toggleCheckManualExpresso = function(index) {
@@ -217,7 +206,6 @@ window.toggleCheckManualExpresso = function(index) {
     itensExpressosAtuais[index].checked = !itensExpressosAtuais[index].checked;
     renderizarTabelaModoExpresso();
     
-    // Verifica se TODAS as peças foram checadas manualmente também
     const todosChecados = itensExpressosAtuais.every(i => i.checked || i.falta_estoque);
     if (todosChecados) {
         if (typeof window.pararLeituraCamera === 'function') window.pararLeituraCamera();
@@ -261,14 +249,12 @@ window.renderizarTabelaModoExpresso = function() {
     });
 
     const btnConfirmar = document.getElementById('btnConfirmarExpress');
-    
     const algumChecado = itensExpressosAtuais.some(i => i.checked);
     btnConfirmar.disabled = !algumChecado;
 };
 
 window.confirmarEntregaExpressa = async function() {
     const itensParaBaixar = itensExpressosAtuais.filter(i => i.checked);
-    
     if(itensParaBaixar.length === 0) return;
 
     if(itensParaBaixar.length < itensExpressosAtuais.length) {
@@ -294,30 +280,23 @@ window.confirmarEntregaExpressa = async function() {
 
         for(let req of itensParaBaixar) {
             const tabelaBase = req.source_table === 'almoxarifado_requisicoes' ? 'almoxarifado_requisicoes' : 'os_pecas_utilizadas';
-            
             await window.supabaseClient.from(tabelaBase).update({ status: 'Aprovado' }).eq('id', req.id);
             
             const pecaObj = pecasEstoqueEntregas.find(p => String(p.id) === String(req.peca_id));
             const precoMedio = pecaObj ? pecaObj.preco_medio : 0;
 
             let movSaida = {
-                peca_id: req.peca_id, 
-                tipo: 'saida', 
-                quantidade: req.quantidade, 
+                peca_id: req.peca_id, tipo: 'saida', quantidade: req.quantidade, 
                 valor_unitario: req.valor_unitario || precoMedio,
-                usuario: username, 
-                data_movimentacao: dataBaixa,
-                cavalo: req.placa || 'Oficina',
-                os_id: req.os_id,
+                usuario: username, data_movimentacao: dataBaixa,
+                cavalo: req.placa || 'Oficina', os_id: req.os_id,
                 nota_fiscal: `O.S #${req.os_id} (Expresso)`
             };
-
             await db.addMovimentacao(movSaida);
         }
 
         fecharModalEntregas('modalEntregaExpressa');
         Swal.fire('Baixa Concluída!', 'Os produtos separados foram baixados do estoque com sucesso.', 'success');
-        
         await carregarDadosEntregas();
 
     } catch(e) {
@@ -447,7 +426,6 @@ window.renderizarTabelaPorAba = function() {
 
     if (abaAtualEntregas === 'historico') {
         const totalPaginas = Math.ceil(gruposArray.length / itensPorPagina) || 1;
-        
         if (paginaAtualHistorico < 1) paginaAtualHistorico = 1;
         if (paginaAtualHistorico > totalPaginas) paginaAtualHistorico = totalPaginas;
 
@@ -514,7 +492,7 @@ window.renderizarTabelaPorAba = function() {
             statusBadge = '<span class="badge" style="background:#10b981; color:#fff;"><i class="fas fa-check"></i> Entregue</span>';
             btnAcao = `
                 <div style="display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end;">
-                    ${grupo.origem === 'almoxarifado_requisicoes' ? `<button class="btn-action-sm" style="background:#8b5cf6;" title="Reimprimir Termo" onclick="reimprimirTermoGrupoEntregas('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome}')"><i class="fas fa-print"></i></button>` : ''}
+                    <button class="btn-action-sm" style="background:#8b5cf6;" title="Reimprimir Termo" onclick="reimprimirTermoGrupoEntregas('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome || grupo.os_id || grupo.centro_custo}')"><i class="fas fa-print"></i></button>
                     <button class="btn-action-sm" style="background:#f59e0b; color:#fff;" title="Cancelar Pedido e Devolver ao Estoque" onclick="estornarRequisicaoGrupoEntregas('${grupo.data}', '${grupo.origem}', '${grupo.colaborador_nome || grupo.os_id || grupo.centro_custo}')"><i class="fas fa-undo"></i> Estornar</button>
                 </div>`;
         } else if (stat === 'Devolvido') {
@@ -619,7 +597,7 @@ window.irParaPassoEntregador = function() {
     if (!hasColabSig) {
         Swal.fire({
             title: 'Assinatura Ausente',
-            text: "O colaborador ainda não assinou. Tem certeza que deseja pular esta assinatura?",
+            text: "O colaborador/mecânico ainda não assinou. Tem certeza que deseja pular esta assinatura?",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#3085d6',
@@ -696,7 +674,7 @@ window.abrirModalAprovacaoGrupoEntregas = function(dataReq, sourceTable, identif
         let selectBg = faltaEstoque ? 'rgba(239, 68, 68, 0.2)' : '#0f172a';
 
         let htmlSelect = `
-            <select id="decisaoEntregas_${index}" class="input-table-sm" style="background:${selectBg}; padding:8px; border-radius:6px; color:#fff; border:1px solid ${selectColor}; width:100%; outline:none; font-weight:bold;">
+            <select id="decisaoEntregas_${index}" class="input-table-sm" style="background:${selectBg}; padding:8px; border-radius:6px; color:#fff; border:1px solid ${selectColor}; width:100%; min-width: 150px; outline:none; font-weight:bold;">
                 ${faltaEstoque ? '' : '<option value="Aprovado" style="background:#0f172a; color:#fff;">✅ Aprovar e Entregar</option>'}
                 <option value="Recusado" ${faltaEstoque ? 'selected' : ''} style="background:#0f172a; color:#fff;">❌ Recusar Item</option>
                 <option value="Pendente" ${!faltaEstoque ? 'selected' : ''} style="background:#0f172a; color:#fff;">⏳ Deixar Pendente</option>
@@ -708,7 +686,7 @@ window.abrirModalAprovacaoGrupoEntregas = function(dataReq, sourceTable, identif
                 <td style="padding:12px; color:#f8fafc;">${nome} <br><small style="color:#94a3b8; font-family:monospace;">${peca ? peca.codigo || 'S/N' : ''}</small>${faltaEstoque ? '<br><span style="color:#ef4444; font-size:0.8rem; font-weight:bold;"><i class="fas fa-exclamation-triangle"></i> Estoque Insuficiente</span>' : ''}</td>
                 <td style="padding:12px; text-align:center; font-weight:bold; color:#60a5fa; font-size:1.1rem;">${req.quantidade}</td>
                 <td style="padding:12px; text-align:center; font-weight:bold; color:${faltaEstoque ? '#ef4444' : '#34d399'}; font-size:1.1rem;">${estoque}</td>
-                <td style="padding:12px; text-align:center; min-width: 170px;">${htmlSelect}</td>
+                <td style="padding:12px; text-align:center;">${htmlSelect}</td>
             </tr>
         `;
     });
@@ -760,7 +738,8 @@ window.confirmarAvaliacaoGrupoEntregas = async function() {
 
         fecharModalEntregas('modalAprovacaoReqEntregas');
         
-        if (aprovouAlgo && grupoAvaliacaoAtualEntregas[0].source_table === 'almoxarifado_requisicoes') {
+        // Agora ABRE A ASSINATURA para TODOS os tipos (Oficina e RH)
+        if (aprovouAlgo) {
             itensPendentesParaAssinaturaEntregas = itensAprovadosParaTermo;
             
             document.getElementById('passoAssinaturaColab').style.display = 'block';
@@ -783,7 +762,7 @@ window.confirmarAvaliacaoGrupoEntregas = async function() {
         console.error(e); 
         Swal.fire('Erro', 'Erro ao salvar avaliação.', 'error');
     } 
-    finally { btn.innerHTML = '<i class="fas fa-arrow-right"></i> Prosseguir para Assinatura'; btn.disabled = false; }
+    finally { btn.innerHTML = '<i class="fas fa-arrow-right"></i> Ir p/ Assinatura'; btn.disabled = false; }
 }
 
 function base64ParaBlob(base64, mimeType) {
@@ -807,25 +786,19 @@ window.finalizarEntregaAssinadaEntregas = async function() {
         if (idsParaAtualizar.length > 0) {
             let colabUrl = null;
             let entregadorUrl = null;
-
-            // 1. FORMATAR O NOME DA PASTA DO COLABORADOR
-            const nomeOriginal = itensPendentesParaAssinaturaEntregas[0].colaborador_nome || 'DESCONHECIDO';
-            // Remove acentos, troca espaços por _ e deixa tudo maiúsculo. Ex: JOAO_SILVA
+            const reqBase = itensPendentesParaAssinaturaEntregas[0];
+            const nomeOriginal = reqBase.colaborador_nome || reqBase.mecanico_responsavel || `OFICINA_OS_${reqBase.os_id}` || 'DESCONHECIDO';
             const pastaColab = nomeOriginal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').toUpperCase();
 
-            // NOVO FLUXO: Envia para o storage dentro da pasta do colaborador
             if (hasColabSig) {
                 const base64Colab = canvasColab.toDataURL('image/png');
                 const blobColab = base64ParaBlob(base64Colab, 'image/png');
-                
-                // Inclui o nome da pasta antes do arquivo
                 const nomeArqColab = `${pastaColab}/sig_colab_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
                 
                 const { error: err1 } = await window.supabaseClient.storage.from('assinaturas').upload(nomeArqColab, blobColab, { contentType: 'image/png' });
                 if (!err1) {
                     colabUrl = window.supabaseClient.storage.from('assinaturas').getPublicUrl(nomeArqColab).data.publicUrl;
                 } else {
-                    console.warn("Storage do Supabase falhou ou não existe. Salvando assinatura como Base64 (Texto).", err1);
                     colabUrl = base64Colab; 
                 }
             }
@@ -833,15 +806,12 @@ window.finalizarEntregaAssinadaEntregas = async function() {
             if (hasEntregadorSig) {
                 const base64Ent = canvasEntregador.toDataURL('image/png');
                 const blobEnt = base64ParaBlob(base64Ent, 'image/png');
-                
-                // Inclui a mesma pasta para a assinatura do entregador também ficar junta
                 const nomeArqEnt = `${pastaColab}/sig_ent_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
                 
                 const { error: err2 } = await window.supabaseClient.storage.from('assinaturas').upload(nomeArqEnt, blobEnt, { contentType: 'image/png' });
                 if (!err2) {
                     entregadorUrl = window.supabaseClient.storage.from('assinaturas').getPublicUrl(nomeArqEnt).data.publicUrl;
                 } else {
-                    console.warn("Storage do Supabase falhou ou não existe. Salvando assinatura como Base64 (Texto).", err2);
                     entregadorUrl = base64Ent;
                 }
             }
@@ -854,12 +824,9 @@ window.finalizarEntregaAssinadaEntregas = async function() {
             if (colabUrl) updatePayload.assinatura_url = colabUrl;
             if (entregadorUrl) updatePayload.assinatura_entregador_url = entregadorUrl;
 
-            for (let idReq of idsParaAtualizar) {
-                const { error: dbError } = await window.supabaseClient.from('almoxarifado_requisicoes')
-                    .update(updatePayload)
-                    .eq('id', idReq);
-                    
-                if (dbError) throw dbError;
+            for (let item of itensPendentesParaAssinaturaEntregas) {
+                const table = item.source_table === 'almoxarifado_requisicoes' ? 'almoxarifado_requisicoes' : 'os_pecas_utilizadas';
+                await window.supabaseClient.from(table).update(updatePayload).eq('id', item.id);
             }
             
             fecharModalEntregas('modalAssinaturaEntregas');
@@ -968,6 +935,8 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
     const win = window.open('', '_blank', 'width=850,height=600');
     const dataAtual = new Date().toLocaleDateString('pt-BR');
     
+    const nomeRecebedor = reqBase.colaborador_nome || reqBase.mecanico_responsavel || reqBase.usuario_solicitante || 'Mecânico / Solicitante';
+
     let linhasTabela = '';
     itensGrupo.forEach(item => {
         const peca = pecasEstoqueEntregas.find(p => String(p.id) === String(item.peca_id)) || {unidade:'UN', codigo:'S/N', nome:'Produto Desconhecido'};
@@ -980,7 +949,7 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
     win.document.write(`
     <html>
     <head>
-        <title>Termo de Entrega - ${reqBase.colaborador_nome}</title>
+        <title>Termo de Entrega - ${nomeRecebedor}</title>
         <style>
             body { font-family: 'Arial', sans-serif; margin: 40px; color: #000; display: flex; flex-direction: column; min-height: 90vh; } 
             .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; } 
@@ -1011,7 +980,7 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
             <img src="assets/logoverde.png" class="logo" alt="Serrana Florestal">
         </div>
         <div class="content">
-            <p>Eu, <strong>${reqBase.colaborador_nome}</strong>, declaro para os devidos fins legais que recebi da empresa Serrana Florestal, o(s) equipamento(s)/material(is) abaixo discriminado(s), de forma gratuita, em perfeito estado de conservação e funcionamento.</p>
+            <p>Eu, <strong>${nomeRecebedor}</strong>, declaro para os devidos fins legais que recebi da empresa Serrana Florestal, o(s) equipamento(s)/material(is) abaixo discriminado(s), de forma gratuita, em perfeito estado de conservação e funcionamento.</p>
             <p>Comprometo-me a utilizá-lo(s) estritamente para a finalidade a que se destina(m) em minhas atividades laborais, responsabilizando-me por sua guarda, correta utilização e conservação. Estou ciente de que, em caso de dano por mau uso ou extravio, deverei comunicar imediatamente a liderança. Em caso de desligamento da empresa, me comprometo a devolver os materiais não descartáveis.</p>
             <table class="table-info">
                 <thead>
@@ -1030,8 +999,8 @@ window.imprimirTermoEntregaGrupoEntregas = function(itensGrupo, assinaturaColabU
             <div class="signature-box">
                 <div class="img-wrapper">${imgColab}</div>
                 <div class="signature-line"></div>
-                <div class="signature-name">${reqBase.colaborador_nome}</div>
-                <div class="signature-role">Assinatura do Colaborador</div>
+                <div class="signature-name">${nomeRecebedor}</div>
+                <div class="signature-role">Assinatura do Recebedor</div>
             </div>
             
             <div class="signature-box">
