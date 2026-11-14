@@ -1081,6 +1081,24 @@ window.abrirModalFaltaLogistica = async function() {
     }
 };
 
+window.abrirModalAtestadoLogistica = async function() {
+    if (!window.listaParaSelectColaboradores || window.listaParaSelectColaboradores.length === 0) {
+        if (typeof window.carregarListaBaseColaboradores === 'function') {
+            const btn = document.getElementById('btnLancarAtestadoLogistica');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Aguarde...';
+            await window.carregarListaBaseColaboradores();
+            btn.innerHTML = originalHtml;
+        }
+    }
+    
+    if (typeof window.abrirModalAbsenteismo === 'function') {
+        window.abrirModalAbsenteismo('ATESTADO');
+    } else {
+        alert("Erro: O módulo de Absenteísmo (RH) não está carregado no sistema.");
+    }
+};
+
 window.abrirModalBancoHoras = function() {
     document.getElementById('bhData').value = '';
     document.getElementById('bhMotorista').innerHTML = '<option value="">Selecione uma data primeiro...</option>';
