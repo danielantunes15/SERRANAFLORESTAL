@@ -170,7 +170,13 @@
             </h2>
             <p style="color: #94a3b8; font-size: 0.95rem; margin-top: 6px;">Gerencie as alocações. Frotas com alertas ou em manutenção ficam no topo.</p>
         </div>
-        <div class="header-actions flex gap-4">
+        <div class="header-actions flex gap-4 items-center">
+            <!-- Barra de Pesquisa de Frotas -->
+            <div class="relative flex items-center">
+                <i class="fas fa-search absolute left-3 text-slate-400"></i>
+                <input type="text" id="searchInputFrota" onkeyup="filtrarFrotasTatico()" placeholder="Buscar placa, ID ou GO..." class="bg-slate-900/60 border border-slate-700 text-white rounded-lg pl-10 pr-4 py-3 outline-none focus:border-sky-500 transition-colors w-72 shadow-inner text-sm font-medium" autocomplete="off">
+            </div>
+
             <!-- Botão Pátio atua como Dropzone também -->
             <button class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all flex items-center gap-3 text-sm border-2 border-transparent"
                 onclick="abrirModalPatio()"

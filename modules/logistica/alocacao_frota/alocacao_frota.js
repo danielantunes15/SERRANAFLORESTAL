@@ -183,6 +183,11 @@ window.carregarKanbanAlocacao = async function() {
             `;
         });
 
+        // Reaplica o filtro de pesquisa automaticamente caso o painel sofra um reload
+        if (document.getElementById('searchInputFrota') && document.getElementById('searchInputFrota').value) {
+            window.filtrarFrotasTatico();
+        }
+
     } catch (err) {
         board.innerHTML = `<div style="width:100%; text-align:center; color:#ef4444; padding:40px; font-size: 1.2rem; font-weight: bold;">Erro ao carregar Frotas.<br>${err.message}</div>`;
     }
@@ -658,4 +663,24 @@ window.limparHistoricoMuralTatico = async function() {
         window.carregarHistoricoMuralTatico();
         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Histórico Limpo', showConfirmButton: false, timer: 2000, background: '#1e293b', color: '#fff' });
     }
+};
+
+// ============================================================================
+// 3. PESQUISA E FILTRO DE FROTAS
+// ============================================================================
+window.filtrarFrotasTatico = function() {
+    const input = document.getElementById('searchInputFrota');
+    if (!input) return;
+    
+    const termo = input.value.toUpperCase();
+    const cards = document.querySelectorAll('#kanbanBoard .kanban-card');
+    
+    cards.forEach(card => {
+        const texto = card.innerText.toUpperCase();
+        if (texto.includes(termo)) {
+            card.style.display = 'flex';
+        } else {
+            card.style.display = 'none';
+        }
+    });
 };
