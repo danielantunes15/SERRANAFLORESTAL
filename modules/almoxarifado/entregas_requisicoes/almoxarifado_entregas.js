@@ -738,22 +738,53 @@ window.confirmarAvaliacaoGrupoEntregas = async function() {
 
         fecharModalEntregas('modalAprovacaoReqEntregas');
         
-        // Agora ABRE A ASSINATURA para TODOS os tipos (Oficina e RH)
         if (aprovouAlgo) {
-            itensPendentesParaAssinaturaEntregas = itensAprovadosParaTermo;
-            
-            document.getElementById('passoAssinaturaColab').style.display = 'block';
-            document.getElementById('passoAssinaturaEntregador').style.display = 'none';
-            document.getElementById('modalAssinaturaEntregas').style.display = 'flex';
-            
-            setTimeout(() => { 
-                if(!canvasColab || !canvasEntregador) initSignaturePadEntregas(); 
-                limparAssinaturaColab();
-                limparAssinaturaEntregador();
-            }, 200);
-            
+            // VERIFICA SE EXISTE ALGUM ITEM QUE EXIGE ASSINATURA (E.P.I / almoxarifado_requisicoes)
+            const precisaAssinatura = itensAprovadosParaTermo.some(item => item.source_table === 'almoxarifado_requisicoes');
+
+            if (precisaAssinatura) {
+                itensPendentesParaAssinaturaEntregas = itensAprovadosParaTermo;
+                
+                document.getElementById('passoAssinaturaColab').style.display = 'block';
+                document.getElementById('passoAssinaturaEntregador').style.display = 'none';
+                document.getElementById('modalAssinaturaEntregas').style.display = 'flex';
+                
+                setTimeout(() => { 
+                    if(!canvasColab || !canvasEntregador) initSignaturePadEntregas(); 
+                    limparAssinaturaColab();
+                    limparAssinaturaEntregador();
+                }, 200);
+            } else {
+                // ITENS DA OFICINA / MECÂNICO NÃO PRECISAM DE ASSINATURA - FINALIZAR DIRETO
+                let updatePayload = { 
+                    data_assinatura: new Date().toISOString(),
+                    usuario_entregador: window.currentUser ? window.currentUser.username : 'Almoxarifado'
+                };
+                for (let item of itensAprovadosParaTermo) {
+                    await window.supabaseClient.from('os_pecas_utilizadas').update(updatePayload).eq('id', item.id);
+                }
+                
+                Swal.fire({
+                    title: 'Sucesso!',
+                    text: 'Materiais da oficina liberados com sucesso (assinatura dispensada). Deseja imprimir o Termo de Entrega?',
+                    icon: 'success',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-print"></i> Sim, Imprimir',
+                    cancelButtonText: 'Não, apenas fechar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const itensAtualizadosTemporariamente = itensAprovadosParaTermo.map(i => {
+                            return { ...i, usuario_entregador: updatePayload.usuario_entregador };
+                        });
+                        imprimirTermoEntregaGrupoEntregas(itensAtualizadosTemporariamente, null, null); 
+                    }
+                    carregarDadosEntregas();
+                });
+            }
         } else {
-            Swal.fire('Sucesso!', 'Avaliação processada e materiais liberados com sucesso!', 'success').then(() => {
+            Swal.fire('Sucesso!', 'Avaliação processada com sucesso!', 'success').then(() => {
                 carregarDadosEntregas();
             });
         }
