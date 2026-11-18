@@ -3,6 +3,23 @@
 window.currentUser = null;
 window.permissoesGlobais = null; 
 
+// Auxiliar para ler as filiais extras do usuário de qualquer formato salvo no banco
+window.extrairFiliaisExtrasPermissoes = function(permissoesObj, userId, username) {
+    if (!permissoesObj) return [];
+    const keyId = `filiais_user_${userId}`;
+    const keyName = username ? `filiais_username_${String(username).trim().toUpperCase()}` : '';
+
+    let raw = permissoesObj[keyId] || (keyName ? permissoesObj[keyName] : null) || [];
+    if (typeof raw === 'string') {
+        try { raw = JSON.parse(raw); } catch (e) { raw = raw.split(','); }
+    }
+    if (!Array.isArray(raw)) return [];
+
+    return raw
+        .map(v => parseInt(String(v).trim(), 10))
+        .filter(n => !isNaN(n) && n > 0);
+};
+
 window.fazerLogout = async function() {
     if(confirm('Deseja realmente sair do sistema?')) {
         try {
@@ -24,23 +41,33 @@ window.fazerLogout = async function() {
 }
 
 window.trocarFilialSuperAdmin = async function(novoFilialIdRaw) {
-    const filial_id = novoFilialIdRaw === 'CENTRAL' ? null : parseInt(novoFilialIdRaw);
+    const filial_id = novoFilialIdRaw === 'CENTRAL' ? null : parseInt(novoFilialIdRaw, 10);
     let nomeFilial = "ADMINISTRADOR";
 
     if (filial_id !== null) {
         const filiais = await db.getFiliais();
-        const f = filiais.find(x => x.id == filial_id);
+        const f = filiais.find(x => Number(x.id) === Number(filial_id));
         if (f) nomeFilial = f.nome;
     }
 
+    const eraGlobalReal = (
+        window.currentUser.role === 'SuperAdmin' ||
+        window.currentUser.role === 'Admin' ||
+        window.currentUser.filial_base_id === null ||
+        window.currentUser.is_global_session === true
+    );
+
     if (typeof window.registrarLogAuditoria === 'function') {
-        await window.registrarLogAuditoria('Sistema', 'Troca de Contexto', `O Administrador trocou o acesso para a visualização da: ${nomeFilial}`, 'Alerta');
+        await window.registrarLogAuditoria('Sistema', 'Troca de Contexto', `O usuário ${window.currentUser.username} trocou a visualização para a filial: ${nomeFilial}`, 'Alerta');
     }
 
     window.currentUser.filial_id = filial_id;
     window.currentUser.filiais = { nome: nomeFilial };
-    // Preserva o poder global mesmo após mudar de filial
-    window.currentUser.is_global_session = true; 
+
+    if (eraGlobalReal) {
+        window.currentUser.is_global_session = true;
+    }
+
     localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
     window.location.reload();
 }
@@ -49,28 +76,74 @@ async function iniciarSistemaAutorizado() {
     document.getElementById('appLayout').style.display = 'flex';
     
     const filialNome = window.currentUser.filiais ? window.currentUser.filiais.nome : 'Matriz';
+    const cargoExibicao = window.currentUser.cargo_nome || window.currentUser.role || 'Operacional';
 
-    document.getElementById('loggedUserName').innerHTML = `<i class="fas fa-user-circle"></i> ${window.currentUser.username} <span style="font-size:0.7rem; color:#94a3b8;">(${window.currentUser.role})</span>`;
+    document.getElementById('loggedUserName').innerHTML = `<i class="fas fa-user-circle"></i> ${window.currentUser.username} <span style="font-size:0.7rem; color:#94a3b8;">(${cargoExibicao})</span>`;
     
     const roleSpan = document.getElementById('loggedUserRole');
 
-    // Libera o seletor para Admin, SuperAdmin ou qualquer usuário criado na base Corporativa (null)
+    const permissoesDoBanco = await db.getPermissoesDB();
+    window.permissoesGlobais = { ...permissoesPadrao, ...permissoesDoBanco };
+
+    // Verifica se é usuário Global (SuperAdmin / Admin / Corporativo)
     const isGlobalUser = (
         window.currentUser.role === 'SuperAdmin' || 
         window.currentUser.role === 'Admin' || 
+        window.currentUser.filial_base_id === null ||
         window.currentUser.filial_id === null || 
         window.currentUser.is_global_session === true
     );
+
+    // Extrai todas as filiais adicionais liberadas para este usuário
+    const extrasBanco = window.extrairFiliaisExtrasPermissoes(
+        window.permissoesGlobais,
+        window.currentUser.id,
+        window.currentUser.username
+    );
+    const extrasSessao = Array.isArray(window.currentUser.filiais_permitidas)
+        ? window.currentUser.filiais_permitidas.map(v => parseInt(v, 10)).filter(n => !isNaN(n))
+        : [];
+
+    const filialBaseUsuario = (window.currentUser.filial_base_id !== undefined && window.currentUser.filial_base_id !== null)
+        ? parseInt(window.currentUser.filial_base_id, 10)
+        : (window.currentUser.filial_id !== null ? parseInt(window.currentUser.filial_id, 10) : null);
+
+    const todasFiliaisPermitidasUsuario = [...new Set([
+        ...(filialBaseUsuario !== null && !isNaN(filialBaseUsuario) ? [filialBaseUsuario] : []),
+        ...extrasBanco,
+        ...extrasSessao
+    ])];
+
+    // Atualiza na sessão para manter sincronizado
+    window.currentUser.filiais_permitidas = todasFiliaisPermitidasUsuario;
+    localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
 
     if (isGlobalUser) {
         db.getFiliais().then(filiais => {
             let options = `<option value="CENTRAL" ${window.currentUser.filial_id === null ? 'selected' : ''}>ADMINISTRADOR</option>`;
             filiais.forEach(f => {
-                options += `<option value="${f.id}" ${window.currentUser.filial_id == f.id ? 'selected' : ''}>Navegar p/ ${f.nome}</option>`;
+                options += `<option value="${f.id}" ${Number(window.currentUser.filial_id) === Number(f.id) ? 'selected' : ''}>Navegar p/ ${f.nome}</option>`;
             });
 
             roleSpan.innerHTML = `
                 <select class="dark-select" style="font-size: 0.75rem; padding: 4px 6px; height: auto; background: #0f172a; border: 1px solid rgba(59, 130, 246, 0.5); border-radius: 4px; color: #38bdf8; font-weight: bold; margin-top: 4px; cursor: pointer; outline: none; width: 100%; max-width: 250px;" onchange="trocarFilialSuperAdmin(this.value)">
+                    ${options}
+                </select>
+            `;
+        });
+    } else if (todasFiliaisPermitidasUsuario.length > 1) {
+        // Usuário com acesso Multi-Filial (Ex.: Eunápolis + Mucuri) -> Mostra o dropdown igual ao SuperAdmin com as filiais dele!
+        const buscarListaFiliais = (typeof db.getTodasFiliaisAdmin === 'function') ? db.getTodasFiliaisAdmin() : db.getFiliais();
+        buscarListaFiliais.then(filiais => {
+            const filiaisLiberadas = (filiais || []).filter(f => todasFiliaisPermitidasUsuario.includes(Number(f.id)));
+            let options = '';
+            filiaisLiberadas.forEach(f => {
+                const isSelected = Number(window.currentUser.filial_id) === Number(f.id) ? 'selected' : '';
+                options += `<option value="${f.id}" ${isSelected}>Navegar p/ ${f.nome}</option>`;
+            });
+
+            roleSpan.innerHTML = `
+                <select class="dark-select" style="font-size: 0.75rem; padding: 4px 6px; height: auto; background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.5); border-radius: 4px; color: #38bdf8; font-weight: bold; margin-top: 4px; cursor: pointer; outline: none; width: 100%; max-width: 260px;" onchange="trocarFilialSuperAdmin(this.value)" title="Alternar entre suas filiais liberadas">
                     ${options}
                 </select>
             `;
@@ -87,9 +160,6 @@ async function iniciarSistemaAutorizado() {
             statsHeader.style.display = 'flex'; 
         }
     }
-
-    const permissoesDoBanco = await db.getPermissoesDB();
-    window.permissoesGlobais = { ...permissoesPadrao, ...permissoesDoBanco };
 
     try {
         const resp = await fetch('https://api.ipify.org?format=json');
@@ -142,8 +212,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
+        window.currentUser.id = dbUser.id;
         window.currentUser.role = dbUser.role;
+        window.currentUser.filial_base_id = dbUser.filial_id;
         if (dbUser.cargo_id) window.currentUser.cargo_id = dbUser.cargo_id;
+
+        // Busca o nome do cargo para exibir no topo
+        if (dbUser.cargo_id && window.supabaseClient) {
+            const { data: cargoRow } = await window.supabaseClient
+                .from('cargos')
+                .select('nome')
+                .eq('id', dbUser.cargo_id)
+                .maybeSingle();
+            if (cargoRow && cargoRow.nome) {
+                window.currentUser.cargo_nome = cargoRow.nome;
+            }
+        }
         
         localStorage.setItem('ccol_user_session', JSON.stringify(window.currentUser));
 

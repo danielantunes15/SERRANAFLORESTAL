@@ -119,18 +119,10 @@ window.realizarLogin = async function(event) {
                 if (signUpError) {
                     console.error("ERRO NO SUPABASE AUTH (signUp):", signUpError);
                 } else if (signUpData && signUpData.user) {
-                    console.log("Conta criada no Auth com sucesso! ID:", signUpData.user.id);
                     authIdSeguro = signUpData.user.id;
-                    
-                    const { error: updateError } = await window.supabaseClient.from('usuarios')
+                    await window.supabaseClient.from('usuarios')
                         .update({ auth_id: authIdSeguro })
                         .eq('id', dbUser.id);
-                        
-                    if (updateError) {
-                        console.error("ERRO AO ATUALIZAR TABELA (RLS/Permissão):", updateError);
-                    } else {
-                        console.log("Coluna auth_id preenchida com sucesso no banco!");
-                    }
                 }
             }
         } else {
@@ -138,7 +130,6 @@ window.realizarLogin = async function(event) {
             dbUser = await db.getUsuarioByUsername(userStr);
             
             if (dbUser && !dbUser.auth_id) {
-                console.log("Sincronizando auth_id com o banco de dados...");
                 await window.supabaseClient.from('usuarios')
                     .update({ auth_id: authIdSeguro })
                     .eq('id', dbUser.id);
@@ -147,11 +138,32 @@ window.realizarLogin = async function(event) {
 
         if (dbUser) {
             tentativasFalhas = 0;
-            const isGlobalAdmin = (dbUser.role === 'SuperAdmin');
-            
-            const filialIdComparacao = (filialId === 'CENTRAL') ? null : filialId;
+            const isGlobalAdmin = (dbUser.role === 'SuperAdmin' || dbUser.filial_id === null);
+            const filialIdComparacao = (filialId === 'CENTRAL') ? null : parseInt(filialId, 10);
 
-            if (!isGlobalAdmin && dbUser.filial_id != filialIdComparacao) {
+            // Busca filiais adicionais liberadas para este usuário (por ID ou Username)
+            let filiaisExtrasLiberadas = [];
+            try {
+                if (typeof db !== 'undefined' && typeof db.getPermissoesDB === 'function') {
+                    const perms = await db.getPermissoesDB();
+                    const rawById = perms ? perms[`filiais_user_${dbUser.id}`] : null;
+                    const rawByName = perms ? perms[`filiais_username_${String(dbUser.username).trim().toUpperCase()}`] : null;
+                    const rawList = rawById || rawByName || [];
+                    if (Array.isArray(rawList)) {
+                        filiaisExtrasLiberadas = rawList.map(v => parseInt(String(v).trim(), 10)).filter(n => !isNaN(n) && n > 0);
+                    }
+                }
+            } catch (errPerm) {
+                console.warn("Aviso ao checar filiais extras no login:", errPerm);
+            }
+
+            const temAcessoFilialSelecionada = (
+                isGlobalAdmin ||
+                Number(dbUser.filial_id) === Number(filialIdComparacao) ||
+                (filialIdComparacao !== null && filiaisExtrasLiberadas.includes(Number(filialIdComparacao)))
+            );
+
+            if (!temAcessoFilialSelecionada) {
                 alert('Acesso Negado! Seu usuário não tem permissão para a filial selecionada.');
                 await window.supabaseClient.auth.signOut();
                 btn.innerHTML = prevText; btn.disabled = false; return;
@@ -163,15 +175,23 @@ window.realizarLogin = async function(event) {
             if (filialId === 'CENTRAL') {
                 nomeFilialFinal = "ADMINISTRADOR";
             } else {
-                const filialSelecionada = listaFiliais.find(f => f.id == filialId);
+                const filialSelecionada = listaFiliais.find(f => Number(f.id) === Number(filialId));
                 if (filialSelecionada) nomeFilialFinal = filialSelecionada.nome;
             }
+
+            const todasFiliaisPermitidas = [...new Set([
+                ...(dbUser.filial_id !== null ? [Number(dbUser.filial_id)] : []),
+                ...filiaisExtrasLiberadas
+            ])];
 
             const sessaoData = {
                 id: dbUser.id,
                 username: dbUser.username,
                 role: dbUser.role || 'Operacional', 
+                cargo_id: dbUser.cargo_id || null,
                 filial_id: filialIdFinal,
+                filial_base_id: dbUser.filial_id,
+                filiais_permitidas: todasFiliaisPermitidas,
                 filiais: { nome: nomeFilialFinal },
                 primeiro_acesso: dbUser.primeiro_acesso,
                 auth_id: authIdSeguro || dbUser.auth_id

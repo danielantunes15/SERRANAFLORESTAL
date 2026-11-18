@@ -21,14 +21,49 @@ window.isEstritamenteSuperAdmin = function() {
     );
 };
 
-// Retorna array de IDs das filiais extras vinculadas ao usuário
+// Salva de forma garantida na tabela permissoes_perfis (Delete + Insert para evitar erro de onConflict no Supabase e converte para String[])
+window.salvarFiliaisExtrasNoBanco = async function(userId, username, arrayIdsExtras) {
+    const listaStrings = (arrayIdsExtras || []).map(x => String(x).trim()).filter(Boolean);
+    const keyId = `filiais_user_${userId}`;
+    const keyUser = username ? `filiais_username_${String(username).trim().toUpperCase()}` : null;
+
+    const chaves = [keyId];
+    if (keyUser) chaves.push(keyUser);
+
+    for (const chave of chaves) {
+        try {
+            // Remove registro anterior com essa chave para nunca dar conflito de constraint
+            await supabaseClient.from('permissoes_perfis').delete().eq('perfil', chave);
+            if (listaStrings.length > 0) {
+                const { error: insErr } = await supabaseClient
+                    .from('permissoes_perfis')
+                    .insert([{ perfil: chave, menus: listaStrings }]);
+                if (insErr) {
+                    // Fallback para upsert padrão
+                    await db.updatePermissoesDB(chave, listaStrings);
+                }
+            }
+            cachePermissoesFiliais[chave] = listaStrings;
+            if (window.permissoesGlobais) {
+                window.permissoesGlobais[chave] = listaStrings;
+            }
+        } catch (err) {
+            console.error("Erro ao gravar filiais extras na chave " + chave, err);
+        }
+    }
+};
+
+// Retorna array de IDs numéricos das filiais extras vinculadas ao usuário
 window.obterFiliaisExtrasDoUsuario = function(userObj) {
     if (!userObj) return [];
-    const key = `filiais_user_${userObj.id}`;
+    const keyId = `filiais_user_${userObj.id}`;
+    const keyUser = userObj.username ? `filiais_username_${String(userObj.username).trim().toUpperCase()}` : '';
     let raw = [];
 
-    if (cachePermissoesFiliais && Array.isArray(cachePermissoesFiliais[key])) {
-        raw = cachePermissoesFiliais[key];
+    if (cachePermissoesFiliais && Array.isArray(cachePermissoesFiliais[keyId])) {
+        raw = cachePermissoesFiliais[keyId];
+    } else if (keyUser && cachePermissoesFiliais && Array.isArray(cachePermissoesFiliais[keyUser])) {
+        raw = cachePermissoesFiliais[keyUser];
     } else if (Array.isArray(userObj.filiais_extras)) {
         raw = userObj.filiais_extras;
     } else if (typeof userObj.filiais_extras === 'string' && userObj.filiais_extras.trim() !== '') {
@@ -36,8 +71,8 @@ window.obterFiliaisExtrasDoUsuario = function(userObj) {
     }
 
     return raw
-        .map(v => (v === 'CENTRAL' || v === null) ? 'CENTRAL' : Number(v))
-        .filter(v => v === 'CENTRAL' || !isNaN(v));
+        .map(v => (v === 'CENTRAL' || v === null) ? 'CENTRAL' : parseInt(String(v).trim(), 10))
+        .filter(v => v === 'CENTRAL' || (!isNaN(v) && v > 0));
 };
 
 // Função global de segurança para checar se a ação é permitida
@@ -84,7 +119,6 @@ window.carregarFiliaisFormulario = async function() {
         selectFilial.innerHTML = options;
         selectFilial.disabled = false;
 
-        // Somente SuperAdmin pode visualizar e definir filiais adicionais
         if (containerNovoExtras) {
             if (window.isEstritamenteSuperAdmin()) {
                 containerNovoExtras.style.display = 'block';
@@ -232,7 +266,6 @@ window.carregarCargosParaFilial = async function(filialId) {
     }
 };
 
-// Busca Inteligente na Tabela
 window.filtrarUsuariosTabela = function(termo) {
     termo = termo.toLowerCase().trim();
     const tbody = document.getElementById('tabelaUsuarios');
@@ -403,7 +436,7 @@ window.renderizarUsuarios = async function() {
                     ? '<span style="color:#fde047; font-weight:600;"><i class="fas fa-globe"></i> Corporativo (Todas)</span>'
                     : `<span style="color:#f8fafc; font-weight:600;">${group.nome}</span>`;
 
-                const idsExtras = window.obterFiliaisExtrasDoUsuario(u).filter(idEx => idEx !== Number(u.filial_id));
+                const idsExtras = window.obterFiliaisExtrasDoUsuario(u).filter(idEx => Number(idEx) !== Number(u.filial_id));
                 let badgesExtrasHtml = '';
                 if (u.filial_id !== null && idsExtras.length > 0) {
                     const nomesExtras = idsExtras.map(idEx => mapaNomesFiliais[Number(idEx)] || `Filial ${idEx}`);
@@ -506,12 +539,11 @@ window.adicionarUsuario = async function() {
 
     if (listaUsuarios.some(u => u.username === nome)) { alert('⚠️ Este usuário já existe!'); return; }
 
-    // Trava estrita: Apenas SuperAdmin pode atribuir filiais adicionais
     let filiaisExtrasIds = [];
     if (window.isEstritamenteSuperAdmin()) {
         const chksExtras = document.querySelectorAll('.chk-novo-filial-extra:checked');
         filiaisExtrasIds = Array.from(chksExtras)
-            .map(chk => parseInt(chk.value))
+            .map(chk => parseInt(chk.value, 10))
             .filter(id => !isNaN(id) && id !== filialSelecionada);
     }
 
@@ -533,7 +565,7 @@ window.adicionarUsuario = async function() {
         if (window.isEstritamenteSuperAdmin() && filiaisExtrasIds.length > 0) {
             const usuarioCriado = await db.getUsuarioByUsername(nome);
             if (usuarioCriado && usuarioCriado.id) {
-                await db.updatePermissoesDB(`filiais_user_${usuarioCriado.id}`, filiaisExtrasIds);
+                await window.salvarFiliaisExtrasNoBanco(usuarioCriado.id, nome, filiaisExtrasIds);
             }
         }
         
@@ -632,7 +664,6 @@ window.abrirModalEdicaoUsuario = async function(id) {
 
     await window.carregarCargosParaFilialEdicao(userFilialValue, u.cargo_id);
 
-    // Exibe e carrega filiais extras no modal APENAS se o usuário logado for estritamente SuperAdmin
     const boxExtras = document.getElementById('containerEditFiliaisExtras');
     if (window.isEstritamenteSuperAdmin()) {
         const extrasAtuais = window.obterFiliaisExtrasDoUsuario(u);
@@ -688,7 +719,7 @@ window.carregarCargosParaFilialEdicao = async function(filialId, cargoIdSelecion
 };
 
 window.salvarEdicaoUsuario = async function() {
-    const id = parseInt(document.getElementById('editUserId').value);
+    const id = parseInt(document.getElementById('editUserId').value, 10);
     const nomeCompleto = document.getElementById('editNomeCompleto').value.trim().toUpperCase();
     const nome = document.getElementById('editUsername').value.trim().toUpperCase();
     const selectFilial = document.getElementById('editUserFilial');
@@ -699,11 +730,11 @@ window.salvarEdicaoUsuario = async function() {
     if (!selectFilial || selectFilial.value === '') { alert('⚠️ Selecione a Filial de Atuação.'); return; }
     if (!selectCargo || selectCargo.value === '') { alert('⚠️ Selecione a nova Função/Cargo.'); return; }
 
-    const filialSelecionada = selectFilial.value === 'CENTRAL' ? null : parseInt(selectFilial.value);
+    const filialSelecionada = selectFilial.value === 'CENTRAL' ? null : parseInt(selectFilial.value, 10);
     const cargoOption = selectCargo.options[selectCargo.selectedIndex];
     const systemRole = cargoOption.getAttribute('data-role'); 
     const centroCustoId = cargoOption.getAttribute('data-cc');
-    const cargoId = parseInt(selectCargo.value);
+    const cargoId = parseInt(selectCargo.value, 10);
     const cargoNome = cargoOption.text;
 
     if ((systemRole === 'Gerente' || systemRole === 'SuperAdmin') && !window.isUsuarioGlobal()) {
@@ -718,26 +749,19 @@ window.salvarEdicaoUsuario = async function() {
             filial_id: filialSelecionada,
             cargo_id: cargoId,
             role: systemRole,
-            centro_custo_id: centroCustoId ? parseInt(centroCustoId) : null
+            centro_custo_id: centroCustoId ? parseInt(centroCustoId, 10) : null
         }).eq('id', id);
 
         if (error) throw error;
 
-        // Trava estrita: Apenas SuperAdmin pode gravar ou alterar filiais adicionais de um usuário
         let logFiliaisExtras = '';
         if (window.isEstritamenteSuperAdmin()) {
             const chksExtras = document.querySelectorAll('.chk-edit-filial-extra:checked');
             const filiaisExtrasIds = Array.from(chksExtras)
-                .map(chk => parseInt(chk.value))
+                .map(chk => parseInt(chk.value, 10))
                 .filter(fId => !isNaN(fId) && fId !== filialSelecionada);
 
-            if (typeof db !== 'undefined' && typeof db.updatePermissoesDB === 'function') {
-                await db.updatePermissoesDB(`filiais_user_${id}`, filiaisExtrasIds);
-                cachePermissoesFiliais[`filiais_user_${id}`] = filiaisExtrasIds;
-                if (window.permissoesGlobais) {
-                    window.permissoesGlobais[`filiais_user_${id}`] = filiaisExtrasIds;
-                }
-            }
+            await window.salvarFiliaisExtrasNoBanco(id, nome, filiaisExtrasIds);
             logFiliaisExtras = ` | Filiais Extras: ${filiaisExtrasIds.join(',') || 'Nenhuma'}`;
         }
 
@@ -745,9 +769,9 @@ window.salvarEdicaoUsuario = async function() {
             window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Usuário', `Dados atualizados para: ${nomeCompleto} (${nome}) (Cargo: ${cargoNome}${logFiliaisExtras})`);
         }
 
-        alert('✅ Cadastro do colaborador atualizado com sucesso!');
+        alert('✅ Cadastro e filiais adicionais do colaborador salvos com sucesso!');
         window.fecharModalEdicaoUsuario();
-        window.renderizarUsuarios();
+        await window.renderizarUsuarios();
         
     } catch (e) {
         console.error("Erro ao salvar edição do usuário no Supabase:", e);
