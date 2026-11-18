@@ -1,27 +1,56 @@
-// ==================== MÓDULO: GESTÃO DE USUÁRIOS ====================
+// ==================== MÓDULO: GESTÃO DE USUÁRIOS (COM MULTI-FILIAL EXCLUSIVO SUPERADMIN) ====================
 
 let listaUsuarios = [];
+let cacheFiliaisSistema = [];
+let cachePermissoesFiliais = {};
+let filiaisExtrasSelecionadasEdicao = [];
 
-// Reconhece o Administrador Global independente do nome do cargo
+// Reconhece o Administrador Global
 window.isUsuarioGlobal = function() {
     if (!window.currentUser) return false;
     return (window.currentUser.role === 'SuperAdmin' || window.currentUser.filial_id === null || window.currentUser.is_global_session === true);
 };
 
+// Trava estrita: Verifica se o usuário logado é EXCLUSIVAMENTE SuperAdmin
+window.isEstritamenteSuperAdmin = function() {
+    if (!window.currentUser) return false;
+    return (
+        window.currentUser.role === 'SuperAdmin' ||
+        window.currentUser.filial_base_id === null ||
+        (window.currentUser.filial_id === null && window.currentUser.is_global_session === true)
+    );
+};
+
+// Retorna array de IDs das filiais extras vinculadas ao usuário
+window.obterFiliaisExtrasDoUsuario = function(userObj) {
+    if (!userObj) return [];
+    const key = `filiais_user_${userObj.id}`;
+    let raw = [];
+
+    if (cachePermissoesFiliais && Array.isArray(cachePermissoesFiliais[key])) {
+        raw = cachePermissoesFiliais[key];
+    } else if (Array.isArray(userObj.filiais_extras)) {
+        raw = userObj.filiais_extras;
+    } else if (typeof userObj.filiais_extras === 'string' && userObj.filiais_extras.trim() !== '') {
+        try { raw = JSON.parse(userObj.filiais_extras); } catch (e) { raw = userObj.filiais_extras.split(','); }
+    }
+
+    return raw
+        .map(v => (v === 'CENTRAL' || v === null) ? 'CENTRAL' : Number(v))
+        .filter(v => v === 'CENTRAL' || !isNaN(v));
+};
+
 // Função global de segurança para checar se a ação é permitida
 window.verificarPermissaoAcao = function(targetUser) {
     if (!window.currentUser) return false;
-    // Administrador Global pode tudo
     if (window.isUsuarioGlobal()) return true;
     
-    // Trava 1: Ninguém mexe no SuperAdmin, exceto ele mesmo
     const isTargetSuperAdmin = (targetUser.role === 'SuperAdmin' || (targetUser.cargos && targetUser.cargos.nivel_acesso === 'SuperAdmin'));
     if (isTargetSuperAdmin) {
-        alert('⚠️ Acesso Negado: Apenas um Administrador Global pode modificar outro Administrador.');
+        alert('⚠️ Acesso Negado: Apenas um SuperAdmin pode modificar outro SuperAdmin.');
         return false;
     }
     
-    // Trava 2: Bloqueio de Filial e Matriz
     if (targetUser.filial_id != window.currentUser.filial_id) {
         alert('⚠️ Acesso Negado: Você não tem permissão para alterar usuários de outras filiais ou da Matriz Global.');
         return false;
@@ -42,6 +71,9 @@ window.carregarFiliaisFormulario = async function() {
     } catch (e) {
         console.error("Erro ao listar filiais:", e);
     }
+    cacheFiliaisSistema = filiaisBanco || [];
+
+    const containerNovoExtras = document.getElementById('containerNovoFiliaisExtras');
 
     if (window.isUsuarioGlobal()) {
         let options = '<option value="" disabled selected>-- Selecione a Filial --</option>';
@@ -51,7 +83,19 @@ window.carregarFiliaisFormulario = async function() {
         }
         selectFilial.innerHTML = options;
         selectFilial.disabled = false;
+
+        // Somente SuperAdmin pode visualizar e definir filiais adicionais
+        if (containerNovoExtras) {
+            if (window.isEstritamenteSuperAdmin()) {
+                containerNovoExtras.style.display = 'block';
+                window.atualizarCheckboxesFiliaisExtrasNovo();
+            } else {
+                containerNovoExtras.style.display = 'none';
+            }
+        }
     } else if (window.currentUser) {
+        if (containerNovoExtras) containerNovoExtras.style.display = 'none';
+
         const fValue = window.currentUser.filial_id === null ? 'CENTRAL' : window.currentUser.filial_id;
         
         let nomeFilial = 'Minha Filial Base';
@@ -68,6 +112,89 @@ window.carregarFiliaisFormulario = async function() {
         selectFilial.disabled = true;
         window.carregarCargosParaFilial(fValue);
     }
+};
+
+window.atualizarCheckboxesFiliaisExtrasNovo = function() {
+    if (!window.isEstritamenteSuperAdmin()) return;
+
+    const containerLista = document.getElementById('listaCheckboxesNovoFiliaisExtras');
+    const selectPrincipal = document.getElementById('novoUserFilial');
+    if (!containerLista) return;
+
+    const filialPrincipal = selectPrincipal ? selectPrincipal.value : '';
+
+    if (filialPrincipal === 'CENTRAL') {
+        containerLista.innerHTML = `<span style="font-size: 0.78rem; color: #fde047;"><i class="fas fa-crown"></i> Usuários lotados na Administração Corporativa já possuem acesso a todas as filiais automaticamente.</span>`;
+        return;
+    }
+
+    let html = '';
+    cacheFiliaisSistema.forEach(f => {
+        const isMesmaPrincipal = String(f.id) === String(filialPrincipal);
+        const disabledAttr = isMesmaPrincipal ? 'disabled' : '';
+        const opacityStyle = isMesmaPrincipal ? 'opacity: 0.4; cursor: not-allowed;' : 'cursor: pointer;';
+
+        html += `
+            <label style="display: inline-flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.1); padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; color: #f8fafc; ${opacityStyle}">
+                <input type="checkbox" class="chk-novo-filial-extra" value="${f.id}" ${disabledAttr} style="accent-color: #38bdf8; width: 16px; height: 16px;">
+                <span>${f.nome} ${isMesmaPrincipal ? '(Principal)' : ''}</span>
+            </label>
+        `;
+    });
+
+    containerLista.innerHTML = html || '<span style="font-size:0.8rem; color:#94a3b8;">Nenhuma filial adicional disponível.</span>';
+};
+
+window.atualizarCheckboxesFiliaisExtrasEdicao = function(filiaisMarcadas = null) {
+    const boxContainer = document.getElementById('containerEditFiliaisExtras');
+    if (!window.isEstritamenteSuperAdmin()) {
+        if (boxContainer) boxContainer.style.display = 'none';
+        return;
+    }
+    if (boxContainer) boxContainer.style.display = 'block';
+
+    if (Array.isArray(filiaisMarcadas)) {
+        filiaisExtrasSelecionadasEdicao = filiaisMarcadas.map(v => String(v));
+    }
+
+    const containerLista = document.getElementById('listaCheckboxesEditFiliaisExtras');
+    const selectPrincipal = document.getElementById('editUserFilial');
+    if (!containerLista) return;
+
+    const filialPrincipal = selectPrincipal ? selectPrincipal.value : '';
+
+    if (filialPrincipal === 'CENTRAL') {
+        containerLista.innerHTML = `<div style="grid-column: 1 / -1; font-size: 0.8rem; color: #fde047; padding: 6px;"><i class="fas fa-crown"></i> Usuários da Administração Corporativa já navegam em todas as filiais.</div>`;
+        return;
+    }
+
+    let html = '';
+    cacheFiliaisSistema.forEach(f => {
+        const strId = String(f.id);
+        const isMesmaPrincipal = strId === String(filialPrincipal);
+        const isChecked = !isMesmaPrincipal && filiaisExtrasSelecionadasEdicao.includes(strId);
+
+        const disabledAttr = isMesmaPrincipal ? 'disabled' : '';
+        const checkedAttr = isChecked ? 'checked' : '';
+        const borderStyle = isChecked ? 'border-color: #38bdf8; background: rgba(56, 189, 248, 0.12);' : 'border-color: rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);';
+        const opacityStyle = isMesmaPrincipal ? 'opacity: 0.4; cursor: not-allowed;' : 'cursor: pointer;';
+
+        html += `
+            <label style="display: flex; align-items: center; gap: 8px; border: 1px solid; ${borderStyle} padding: 8px 10px; border-radius: 6px; font-size: 0.8rem; color: #f8fafc; transition: all 0.2s; ${opacityStyle}">
+                <input type="checkbox" class="chk-edit-filial-extra" value="${f.id}" ${checkedAttr} ${disabledAttr} onchange="window.sincronizarSelecaoEdicaoFiliaisExtras()" style="accent-color: #38bdf8; width: 16px; height: 16px;">
+                <span style="font-weight: 500;">${f.nome} ${isMesmaPrincipal ? '<small style="color:#94a3b8;">(Base)</small>' : ''}</span>
+            </label>
+        `;
+    });
+
+    containerLista.innerHTML = html || '<span style="font-size:0.8rem; color:#94a3b8;">Nenhuma filial cadastrada.</span>';
+};
+
+window.sincronizarSelecaoEdicaoFiliaisExtras = function() {
+    if (!window.isEstritamenteSuperAdmin()) return;
+    const chks = document.querySelectorAll('.chk-edit-filial-extra:checked');
+    filiaisExtrasSelecionadasEdicao = Array.from(chks).map(c => String(c.value));
+    window.atualizarCheckboxesFiliaisExtrasEdicao();
 };
 
 window.carregarCargosParaFilial = async function(filialId) {
@@ -112,19 +239,16 @@ window.filtrarUsuariosTabela = function(termo) {
     if (!tbody) return;
 
     const rows = tbody.querySelectorAll('tr.user-row');
-    let hasVisibleUser = false;
 
     rows.forEach(row => {
         const textContent = row.innerText.toLowerCase();
         if (textContent.includes(termo)) {
             row.style.display = '';
-            hasVisibleUser = true;
         } else {
             row.style.display = 'none';
         }
     });
 
-    // Trata os cabeçalhos de grupos (Filiais)
     const groupHeaders = tbody.querySelectorAll('tr.group-header');
     groupHeaders.forEach(header => {
         let nextSibling = header.nextElementSibling;
@@ -149,6 +273,10 @@ window.renderizarUsuarios = async function() {
     if (typeof window.carregarPerfisPermissao === 'function') await window.carregarPerfisPermissao();
 
     try {
+        if (typeof db !== 'undefined' && typeof db.getPermissoesDB === 'function') {
+            cachePermissoesFiliais = await db.getPermissoesDB();
+        }
+
         let mapaCargos = {};
         try {
             const { data: cargosData, error: errCargos } = await supabaseClient.from('cargos').select('id, nome');
@@ -161,12 +289,18 @@ window.renderizarUsuarios = async function() {
 
         const todosUsuarios = await db.getUsuarios('TODAS'); 
         
-        let filiaisBanco = [];
-        try {
-            if (typeof db !== 'undefined' && typeof db.getTodasFiliaisAdmin === 'function') {
-                filiaisBanco = await db.getTodasFiliaisAdmin();
-            }
-        } catch (e) { console.error("Erro ao carregar filiais banco", e); }
+        let filiaisBanco = cacheFiliaisSistema;
+        if (!filiaisBanco || filiaisBanco.length === 0) {
+            try {
+                if (typeof db !== 'undefined' && typeof db.getTodasFiliaisAdmin === 'function') {
+                    filiaisBanco = await db.getTodasFiliaisAdmin();
+                    cacheFiliaisSistema = filiaisBanco || [];
+                }
+            } catch (e) { console.error("Erro ao carregar filiais banco", e); }
+        }
+
+        const mapaNomesFiliais = {};
+        (filiaisBanco || []).forEach(f => { mapaNomesFiliais[Number(f.id)] = f.nome; });
 
         const filtroContainer = document.getElementById('filtroFilialContainer');
         const filtroSelect = document.getElementById('filtroUsuariosFilial');
@@ -199,7 +333,10 @@ window.renderizarUsuarios = async function() {
             
             if (filtroSelect && filtroSelect.value !== 'TODAS') {
                 const fVal = filtroSelect.value === 'CENTRAL' ? null : parseInt(filtroSelect.value);
-                listaUsuarios = listaUsuarios.filter(u => u.filial_id === fVal);
+                listaUsuarios = listaUsuarios.filter(u => {
+                    const extras = window.obterFiliaisExtrasDoUsuario(u);
+                    return u.filial_id === fVal || (fVal !== null && extras.includes(Number(fVal)));
+                });
             }
         }
 
@@ -207,7 +344,6 @@ window.renderizarUsuarios = async function() {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 30px; color: var(--text-secondary);">Nenhum usuário encontrado para o filtro atual.</td></tr>'; return;
         }
 
-        // ORDENAÇÃO ALFABÉTICA
         listaUsuarios.sort((a, b) => {
             const nomeA = (a.nome_completo || a.username || '').toLowerCase();
             const nomeB = (b.nome_completo || b.username || '').toLowerCase();
@@ -263,7 +399,20 @@ window.renderizarUsuarios = async function() {
                     statusBadge = `<span style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 5px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 500;">Ativo</span>`;
                 }
                 
-                const filialNome = u.filial_id === null ? '<span style="color:#fde047; font-weight:500;">Corporativo</span>' : group.nome;
+                const filialBaseHtml = u.filial_id === null
+                    ? '<span style="color:#fde047; font-weight:600;"><i class="fas fa-globe"></i> Corporativo (Todas)</span>'
+                    : `<span style="color:#f8fafc; font-weight:600;">${group.nome}</span>`;
+
+                const idsExtras = window.obterFiliaisExtrasDoUsuario(u).filter(idEx => idEx !== Number(u.filial_id));
+                let badgesExtrasHtml = '';
+                if (u.filial_id !== null && idsExtras.length > 0) {
+                    const nomesExtras = idsExtras.map(idEx => mapaNomesFiliais[Number(idEx)] || `Filial ${idEx}`);
+                    badgesExtrasHtml = `
+                        <div style="margin-top: 5px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px;">
+                            ${nomesExtras.map(n => `<span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); padding: 2px 7px; border-radius: 12px; font-size: 0.68rem; font-weight: 600;"><i class="fas fa-plus" style="font-size:0.6rem;"></i> ${n}</span>`).join('')}
+                        </div>
+                    `;
+                }
                 
                 const nomeDoCargo = (u.cargo_id && mapaCargos[u.cargo_id]) 
                     ? mapaCargos[u.cargo_id] 
@@ -292,7 +441,6 @@ window.renderizarUsuarios = async function() {
                     `;
                 }
 
-                // A MÁGICA DO ALINHAMENTO ESTÁ NESTA PRIMEIRA <td>
                 htmlFinal += `
                 <tr class="user-row" style="border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.2s;">
                     <td style="padding: 12px 20px; text-align: left;">
@@ -305,7 +453,10 @@ window.renderizarUsuarios = async function() {
                         </div>
                     </td>
                     <td style="text-align: center;"><span style="font-size: 0.8rem; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.1);">${nomeDoCargo}</span></td>
-                    <td style="font-size: 0.8rem; color: #94a3b8; text-align: center;">${filialNome}</td>
+                    <td style="font-size: 0.8rem; color: #94a3b8; text-align: center;">
+                        ${filialBaseHtml}
+                        ${badgesExtrasHtml}
+                    </td>
                     <td style="text-align: center;">${statusBadge}</td>
                     <td style="text-align: right;">${botoesAcao}</td>
                 </tr>`;
@@ -314,7 +465,6 @@ window.renderizarUsuarios = async function() {
 
         tbody.innerHTML = htmlFinal;
 
-        // Limpa a busca ao re-renderizar para evitar bugs visuais
         const inputBusca = document.getElementById('buscaUsuario');
         if (inputBusca) inputBusca.value = '';
 
@@ -356,6 +506,15 @@ window.adicionarUsuario = async function() {
 
     if (listaUsuarios.some(u => u.username === nome)) { alert('⚠️ Este usuário já existe!'); return; }
 
+    // Trava estrita: Apenas SuperAdmin pode atribuir filiais adicionais
+    let filiaisExtrasIds = [];
+    if (window.isEstritamenteSuperAdmin()) {
+        const chksExtras = document.querySelectorAll('.chk-novo-filial-extra:checked');
+        filiaisExtrasIds = Array.from(chksExtras)
+            .map(chk => parseInt(chk.value))
+            .filter(id => !isNaN(id) && id !== filialSelecionada);
+    }
+
     try {
         const novoUsuarioObj = { 
             nome_completo: nomeCompleto,
@@ -370,16 +529,24 @@ window.adicionarUsuario = async function() {
         };
 
         await db.addUsuario(novoUsuarioObj);
+
+        if (window.isEstritamenteSuperAdmin() && filiaisExtrasIds.length > 0) {
+            const usuarioCriado = await db.getUsuarioByUsername(nome);
+            if (usuarioCriado && usuarioCriado.id) {
+                await db.updatePermissoesDB(`filiais_user_${usuarioCriado.id}`, filiaisExtrasIds);
+            }
+        }
         
         if (typeof window.registrarLogAuditoria === 'function') {
-            window.registrarLogAuditoria('Gestão de Usuários', 'Criação de Usuário', `Novo usuário de sistema cadastrado: ${nomeCompleto} (${nome}) (Permissão Base: ${systemRole})`);
+            window.registrarLogAuditoria('Gestão de Usuários', 'Criação de Usuário', `Novo usuário cadastrado: ${nomeCompleto} (${nome}) (Permissão Base: ${systemRole} | Filiais Extras: ${filiaisExtrasIds.join(',') || 'Nenhuma'})`);
         }
 
         document.getElementById('novoNomeCompleto').value = '';
         document.getElementById('novoUsername').value = '';
         selectCargo.value = '';
+        document.querySelectorAll('.chk-novo-filial-extra').forEach(c => c.checked = false);
         
-        alert(`✅ Usuário ${nomeCompleto} criado e integrado ao Organograma com sucesso!\nSenha provisória: 12345`);
+        alert(`✅ Usuário ${nomeCompleto} criado com sucesso!\nSenha provisória: 12345`);
         window.renderizarUsuarios();
     } catch(e) { 
         console.error(e);
@@ -433,6 +600,7 @@ window.abrirModalEdicaoUsuario = async function(id) {
     if (window.isUsuarioGlobal()) {
         try {
             const filiais = await db.getTodasFiliaisAdmin();
+            cacheFiliaisSistema = filiais || [];
             let options = '<option value="" disabled>-- Selecione a Filial --</option>';
             options += '<option value="CENTRAL">ADMINISTRAÇÃO (Corporativo / Global)</option>';
             if (filiais && filiais.length > 0) {
@@ -463,6 +631,15 @@ window.abrirModalEdicaoUsuario = async function(id) {
     selectFilial.value = userFilialValue;
 
     await window.carregarCargosParaFilialEdicao(userFilialValue, u.cargo_id);
+
+    // Exibe e carrega filiais extras no modal APENAS se o usuário logado for estritamente SuperAdmin
+    const boxExtras = document.getElementById('containerEditFiliaisExtras');
+    if (window.isEstritamenteSuperAdmin()) {
+        const extrasAtuais = window.obterFiliaisExtrasDoUsuario(u);
+        window.atualizarCheckboxesFiliaisExtrasEdicao(extrasAtuais);
+    } else if (boxExtras) {
+        boxExtras.style.display = 'none';
+    }
 
     document.getElementById('modalEdicaoUsuario').style.display = 'flex';
 };
@@ -546,11 +723,29 @@ window.salvarEdicaoUsuario = async function() {
 
         if (error) throw error;
 
-        if (typeof window.registrarLogAuditoria === 'function') {
-            window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Usuário', `Dados e permissões atualizadas para o usuário: ${nomeCompleto} (${nome}) (Novo cargo: ${cargoNome})`);
+        // Trava estrita: Apenas SuperAdmin pode gravar ou alterar filiais adicionais de um usuário
+        let logFiliaisExtras = '';
+        if (window.isEstritamenteSuperAdmin()) {
+            const chksExtras = document.querySelectorAll('.chk-edit-filial-extra:checked');
+            const filiaisExtrasIds = Array.from(chksExtras)
+                .map(chk => parseInt(chk.value))
+                .filter(fId => !isNaN(fId) && fId !== filialSelecionada);
+
+            if (typeof db !== 'undefined' && typeof db.updatePermissoesDB === 'function') {
+                await db.updatePermissoesDB(`filiais_user_${id}`, filiaisExtrasIds);
+                cachePermissoesFiliais[`filiais_user_${id}`] = filiaisExtrasIds;
+                if (window.permissoesGlobais) {
+                    window.permissoesGlobais[`filiais_user_${id}`] = filiaisExtrasIds;
+                }
+            }
+            logFiliaisExtras = ` | Filiais Extras: ${filiaisExtrasIds.join(',') || 'Nenhuma'}`;
         }
 
-        alert('✅ Cadastro do funcionário atualizado e readequado no organograma com sucesso!');
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Usuário', `Dados atualizados para: ${nomeCompleto} (${nome}) (Cargo: ${cargoNome}${logFiliaisExtras})`);
+        }
+
+        alert('✅ Cadastro do colaborador atualizado com sucesso!');
         window.fecharModalEdicaoUsuario();
         window.renderizarUsuarios();
         
