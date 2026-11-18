@@ -75,6 +75,7 @@ window.MAPA_MENUS = [
     { id: 'tarifador', label: 'Tarifador', setor: 'Gerencial', icon: 'fas fa-calculator' },
     { id: 'configuracoes_gerenciais', label: 'Configurações Gerenciais', setor: 'Gerencial', icon: 'fas fa-cog' },
     { id: 'sla', label: 'SLA', setor: 'Gerencial', icon: 'fas fa-chart-line' },
+    { id: 'qdp_dif', label: 'QDP - DIF', setor: 'Gerencial', icon: 'fas fa-chart-bar' },
     
     // --- MÓDULO GLOBAL ---
     { id: 'gestao_filiais', label: 'Gestão de Filiais', setor: 'Global', icon: 'fas fa-network-wired' },
@@ -145,6 +146,7 @@ const ROTAS = {
     'tarifador': 'modules/gerencial/tarifador/tarifador.html',
     'configuracoes_gerenciais': 'modules/gerencial/configuracoes_gerenciais/configuracoes_gerenciais.html',
     'sla': 'modules/gerencial/sla/sla.html',
+    'qdp_dif': 'modules/gerencial/qdp_dif/qdp_dif.html',
     
     'jornadas': 'modules/monitoramento/jornadas/jornadas.html',
     'historico_producao': 'modules/monitoramento/historico/historico.html',
@@ -574,6 +576,7 @@ window.navegarPara = async function(pagina, elementoClicado) {
         if (pagina === 'tarifador' && typeof window.initTarifador === 'function') window.initTarifador();
         if (pagina === 'configuracoes_gerenciais' && typeof window.initConfiguracoesGerenciais === 'function') window.initConfiguracoesGerenciais();
         if (pagina === 'sla' && typeof window.initSLA === 'function') window.initSLA();
+        if (pagina === 'qdp_dif' && typeof window.initQdpDif === 'function') window.initQdpDif();
                  
         if (pagina === 'jornadas' && typeof window.initJornadas === 'function') window.initJornadas();
         if (pagina === 'historico_producao' && typeof window.initHistoricoProducao === 'function') window.initHistoricoProducao();

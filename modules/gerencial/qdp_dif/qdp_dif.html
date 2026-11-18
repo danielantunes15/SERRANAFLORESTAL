@@ -1,0 +1,298 @@
+<div class="max-w-[96rem] mx-auto px-6 py-8 relative">          
+    <div class="flex justify-between items-center mb-6 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50 backdrop-blur-sm flex-wrap gap-4">
+        <div class="flex items-center gap-4 flex-wrap">
+            <div>
+                <h1 class="text-2xl font-extrabold text-white">QDP - DIF (Auditoria Executiva Suzano vs SGF)</h1>
+                <p class="text-sm text-slate-400 font-medium">Conciliação financeira e operacional automática com diagnóstico de causas e exportação tabulada</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+            <div id="badgeTarifadorQdp" class="bg-indigo-600/20 text-indigo-400 border border-indigo-500/50 font-bold px-3 py-2 rounded-xl flex items-center gap-2 text-xs shadow-md">
+                <i class="fas fa-calculator"></i> <span id="nomeTarifadorQdpDisplay">Carregando Tarifador...</span>
+            </div>
+
+            <!-- Seletor de Coluna Base do QDP (Valor Líquido vs Valor Condição) -->
+            <div class="bg-slate-900/90 border border-sky-500/40 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-md">
+                <label for="selectColunaValorQdp" class="text-[10px] font-bold text-sky-400 uppercase tracking-wider whitespace-nowrap">
+                    <i class="fas fa-coins"></i> Base Cálculo QDP:
+                </label>
+                <select id="selectColunaValorQdp" onchange="reprocessarOpcoesQdp()" class="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white text-xs font-bold outline-none focus:border-sky-400 cursor-pointer">
+                    <option value="LIQUIDO" selected>Coluna "Valor líquido" (Pago c/ Desconto)</option>
+                    <option value="CONDICAO">Coluna "Valor condição" (Sem Desconto)</option>
+                </select>
+            </div>
+
+            <label class="bg-amber-500/10 border border-amber-500/40 text-amber-300 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer select-none shadow-md" title="Na planilha QDP da Suzano a coluna Distância Asfalto mostra Terra e Distância Terra mostra Asfalto">
+                <input type="checkbox" id="chkInverterDistQdp" checked onchange="reprocessarOpcoesQdp()" class="rounded bg-slate-900 border-amber-500 text-amber-500 focus:ring-0 cursor-pointer">
+                <i class="fas fa-exchange-alt"></i> Desinverter Asfalto/Terra
+            </label>
+
+            <input type="file" id="inputArquivoQdp" accept=".xlsx, .xls, .csv" class="hidden">
+            <button onclick="document.getElementById('inputArquivoQdp').click()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded-xl border border-sky-500 transition-all shadow-md flex items-center gap-2 text-xs cursor-pointer">
+                <i class="fas fa-file-upload"></i> Importar QDP
+            </button>
+            <button id="btnResumoEmailQdp" onclick="abrirModalResumoEmailQdp()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl border border-indigo-500 transition-all shadow-md flex items-center gap-2 text-xs hidden cursor-pointer">
+                <i class="fas fa-envelope-open-text"></i> Resumo Executivo (E-mail / Tabela)
+            </button>
+            <button id="btnExportarQdpDif" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl border border-emerald-500 transition-all shadow-md flex items-center gap-2 text-xs hidden cursor-pointer">
+                <i class="fas fa-file-excel"></i> Exportar Excel Formatado
+            </button>
+            <button id="btnLimparCacheQdp" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white font-bold px-3 py-2 rounded-xl border border-rose-500/40 transition-all shadow-md flex items-center gap-1.5 text-xs hidden cursor-pointer" title="Limpar planilha da memória">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
+    </div>
+    
+    <section class="animate-fade-in space-y-5">                  
+        
+        <!-- CARDS DE KPIs DE VIAGENS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">                          
+            
+            <div class="bg-slate-800/60 border border-slate-600/40 rounded-2xl p-4 shadow-lg relative overflow-hidden cursor-pointer hover:bg-slate-800 transition-all" onclick="filtrarPorCardQdp('TODOS')">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <p class="text-slate-400 text-[11px] font-bold uppercase tracking-widest">Viagens no QDP</p>
+                        <h3 id="kpi-total-qdp" class="text-2xl font-black text-white mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded-lg border border-slate-700 text-slate-300"><i class="fas fa-file-invoice"></i></div>
+                </div>
+                <p class="text-[11px] font-mono text-slate-400" id="sub-vol-qdp">Volume QDP: 0,00 m³</p>
+            </div>
+            
+            <div class="bg-slate-800/60 border border-sky-500/30 rounded-2xl p-4 shadow-lg relative overflow-hidden cursor-pointer hover:bg-slate-800 transition-all" onclick="filtrarPorCardQdp('OK')">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <p class="text-slate-400 text-[11px] font-bold uppercase tracking-widest">Viagens no SGF (Período)</p>
+                        <h3 id="kpi-total-sist" class="text-2xl font-black text-sky-400 mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded-lg border border-slate-700 text-sky-400"><i class="fas fa-database"></i></div>
+                </div>
+                <p class="text-[11px] font-mono text-emerald-400" id="sub-batidas-sist">Conciliadas OK: 0 viagens</p>
+            </div>
+
+            <div class="bg-slate-800/60 border border-rose-500/40 rounded-2xl p-4 shadow-lg relative overflow-hidden cursor-pointer hover:bg-slate-800 transition-all" onclick="filtrarPorCardQdp('FALTANTE_SGF')">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <p class="text-rose-300 text-[11px] font-bold uppercase tracking-widest">Faltando no SGF</p>
+                        <h3 id="kpi-faltantes-sgf" class="text-2xl font-black text-rose-400 mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded-lg border border-rose-500/30 text-rose-400"><i class="fas fa-exclamation-triangle"></i></div>
+                </div>
+                <p class="text-[11px] font-mono text-rose-300/80" id="sub-faltantes-sgf">Estão no QDP, mas não no SGF</p>
+            </div>
+
+            <div class="bg-slate-800/60 border border-purple-500/40 rounded-2xl p-4 shadow-lg relative overflow-hidden cursor-pointer hover:bg-slate-800 transition-all" onclick="filtrarPorCardQdp('FALTANTE_QDP')">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <p class="text-purple-300 text-[11px] font-bold uppercase tracking-widest">Faltando no QDP</p>
+                        <h3 id="kpi-faltantes-qdp" class="text-2xl font-black text-purple-400 mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded-lg border border-purple-500/30 text-purple-400"><i class="fas fa-search-minus"></i></div>
+                </div>
+                <p class="text-[11px] font-mono text-purple-300/80" id="sub-faltantes-qdp">Estão no SGF, mas faltam no QDP</p>
+            </div>
+            
+            <div class="bg-slate-800/60 border border-amber-500/40 rounded-2xl p-4 shadow-lg relative overflow-hidden cursor-pointer hover:bg-slate-800 transition-all" onclick="filtrarPorCardQdp('DIVERGENTE')">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <p class="text-amber-300 text-[11px] font-bold uppercase tracking-widest">Com Divergência</p>
+                        <h3 id="kpi-divergentes" class="text-2xl font-black text-amber-400 mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded-lg border border-amber-500/30 text-amber-400"><i class="fas fa-balance-scale-right"></i></div>
+                </div>
+                <p class="text-[11px] font-mono text-amber-300/80" id="sub-divergentes">Distância, Tarifa, Vol ou Líquido</p>
+            </div>
+            
+        </div>
+
+        <!-- RESUMO FINANCEIRO PRINCIPAL -->
+        <div class="bg-slate-800/60 rounded-xl border border-slate-700/50 p-4 shadow-md grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 text-center">
+            <div class="border-r border-slate-700/50 pr-2">
+                <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Período Filtrado (QDP)</p>
+                <h4 class="text-xs font-black text-sky-400 font-mono mt-1.5" id="periodoQdpIdentificado">Aguardando planilha...</h4>
+            </div>
+            <div class="border-r border-slate-700/50 pr-2">
+                <p class="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">Nosso Valor SGF (Deveria Ser)</p>
+                <h4 class="text-base font-black text-emerald-400 font-mono mt-1" id="valTotalCalculadoSgf">R$ 0,00</h4>
+            </div>
+            <div class="border-r border-slate-700/50 pr-2" id="boxCardCondicaoQdp">
+                <p class="text-[10px] text-slate-300 uppercase font-bold tracking-wider">Valor QDP (Valor Condição)</p>
+                <h4 class="text-base font-black text-white font-mono mt-1" id="valTotalBrutoQdp">R$ 0,00</h4>
+            </div>
+            <div class="border-r border-slate-700/50 pr-2" id="boxCardLiquidoQdp">
+                <p class="text-[10px] text-amber-300 uppercase font-bold tracking-wider">Valor Líquido QDP (Considerado)</p>
+                <h4 class="text-base font-black text-amber-300 font-mono mt-1" id="valTotalLiqQdp">R$ 0,00</h4>
+            </div>
+            <div class="border-r border-slate-700/50 pr-2">
+                <p class="text-[10px] text-rose-300 uppercase font-bold tracking-wider" title="Diferença entre a coluna Valor condição e a coluna Valor líquido na própria planilha QDP">Corte no QDP (Cond. - Líq.)</p>
+                <h4 class="text-base font-black text-rose-400 font-mono mt-1" id="valDescontoIndevidoQdp">R$ 0,00</h4>
+            </div>
+            <div>
+                <p class="text-[10px] text-white uppercase font-bold tracking-wider" id="lblTituloDiferencaFin">Diferença (QDP Líquido vs SGF)</p>
+                <h4 class="text-base font-black text-rose-400 font-mono mt-1" id="valDiferencaFinanceira">R$ 0,00</h4>
+                <p class="text-[10px] font-mono text-slate-400 mt-0.5" id="subDiferencaFinanceira">Falta pagar: R$ 0,00</p>
+            </div>
+        </div>
+
+        <!-- DIAGNÓSTICO EXECUTIVO POR CAUSA RAIZ (VISÃO IMEDIATA) -->
+        <div id="painelCausasRaizQdp" class="bg-slate-900/70 rounded-xl border border-slate-700/60 p-4 shadow-md hidden">
+            <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                <h4 class="text-[11px] font-extrabold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fas fa-microscope text-indigo-400"></i> Diagnóstico Executivo: De onde vem a diferença financeira? (Clique para filtrar)
+                </h4>
+                <span class="text-[10px] font-mono text-slate-400">Composição do impacto por causa raiz</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-left">
+                <div onclick="filtrarPorMotivoDiretoQdp('DESCONTO_LIQUIDO')" class="bg-slate-800/70 hover:bg-slate-800 border border-rose-500/30 rounded-lg p-3 cursor-pointer transition-all">
+                    <p class="text-[10px] font-bold text-rose-300 uppercase">1. Corte no Valor Líquido</p>
+                    <p id="causa-val-liquido" class="text-sm font-black text-rose-400 font-mono mt-1">R$ 0,00</p>
+                    <p id="causa-qtd-liquido" class="text-[10px] text-slate-400 font-mono mt-0.5">0 viagens afetadas</p>
+                </div>
+                <div onclick="filtrarPorMotivoDiretoQdp('TARIFA')" class="bg-slate-800/70 hover:bg-slate-800 border border-amber-500/30 rounded-lg p-3 cursor-pointer transition-all">
+                    <p class="text-[10px] font-bold text-amber-300 uppercase">2. Divergência de Tarifa</p>
+                    <p id="causa-val-tarifa" class="text-sm font-black text-amber-400 font-mono mt-1">R$ 0,00</p>
+                    <p id="causa-qtd-tarifa" class="text-[10px] text-slate-400 font-mono mt-0.5">0 viagens afetadas</p>
+                </div>
+                <div onclick="filtrarPorMotivoDiretoQdp('DISTANCIA')" class="bg-slate-800/70 hover:bg-slate-800 border border-sky-500/30 rounded-lg p-3 cursor-pointer transition-all">
+                    <p class="text-[10px] font-bold text-sky-300 uppercase">3. Erro Distância (Asf/Ter)</p>
+                    <p id="causa-val-distancia" class="text-sm font-black text-sky-400 font-mono mt-1">0 viagens</p>
+                    <p id="causa-qtd-distancia" class="text-[10px] text-slate-400 font-mono mt-0.5">Impacta raio/tarifa</p>
+                </div>
+                <div onclick="filtrarPorCardQdp('FALTANTE_QDP')" class="bg-slate-800/70 hover:bg-slate-800 border border-purple-500/30 rounded-lg p-3 cursor-pointer transition-all">
+                    <p class="text-[10px] font-bold text-purple-300 uppercase">4. Viagens Faltando no QDP</p>
+                    <p id="causa-val-faltam-qdp" class="text-sm font-black text-purple-400 font-mono mt-1">R$ 0,00</p>
+                    <p id="causa-qtd-faltam-qdp" class="text-[10px] text-slate-400 font-mono mt-0.5">0 viagens não pagas</p>
+                </div>
+                <div onclick="filtrarPorCardQdp('FALTANTE_SGF')" class="bg-slate-800/70 hover:bg-slate-800 border border-emerald-500/30 rounded-lg p-3 cursor-pointer transition-all">
+                    <p class="text-[10px] font-bold text-emerald-300 uppercase">5. Viagens Faltando no SGF</p>
+                    <p id="causa-val-faltam-sgf" class="text-sm font-black text-emerald-400 font-mono mt-1">R$ 0,00</p>
+                    <p id="causa-qtd-faltam-sgf" class="text-[10px] text-slate-400 font-mono mt-0.5">0 viagens sem lançamento</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- BARRA DE FILTROS DA TABELA -->
+        <div class="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 shadow-lg flex flex-wrap items-end justify-between gap-4 w-full">
+            <div class="flex flex-wrap items-end gap-4">
+                <div class="flex flex-col min-w-[230px]">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-filter text-sky-400"></i> Status da Conciliação</label>
+                    <select id="filtroStatusQdp" onchange="renderizarTabelaQdp()" class="bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white text-xs font-bold outline-none focus:border-sky-500 shadow-inner cursor-pointer w-full">
+                        <option value="TODOS">Mostrar Todos os Registros</option>
+                        <option value="PROBLEMAS">⚠️ Todos com Erro (Faltantes + Divergentes)</option>
+                        <option value="FALTANTE_SGF">❌ Faltando no SGF (Não lançadas no sistema)</option>
+                        <option value="FALTANTE_QDP">🟣 Faltando no QDP (Lançadas no SGF, sem QDP)</option>
+                        <option value="DIVERGENTE">⚖️ Com Divergência (Distância / Tarifa / Valor)</option>
+                        <option value="OK">✅ Conciliadas Corretamente (Batidas)</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col min-w-[210px]">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-tags text-amber-400"></i> Motivo Específico</label>
+                    <select id="filtroMotivoQdp" onchange="renderizarTabelaQdp()" class="bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white text-xs font-bold outline-none focus:border-amber-500 shadow-inner cursor-pointer w-full">
+                        <option value="">Todos os Motivos</option>
+                        <option value="DESCONTO_LIQUIDO">Corte no Valor Líquido (Líquido ≠ Condição)</option>
+                        <option value="DISTANCIA">Erro de Distância (Asfalto ou Terra)</option>
+                        <option value="TARIFA">Erro de Tarifa (R$/m³)</option>
+                        <option value="VOLUME">Erro de Volume (m³)</option>
+                        <option value="VALOR">Erro de Valor Total (R$)</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col min-w-[160px]">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-map-marker-alt text-emerald-400"></i> Filtrar UP / Fazenda</label>
+                    <select id="filtroUpQdp" onchange="renderizarTabelaQdp()" class="bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white text-xs font-bold outline-none focus:border-emerald-500 shadow-inner cursor-pointer w-full">
+                        <option value="">Todas as UPs</option>
+                    </select>
+                </div>
+
+                <div class="flex flex-col min-w-[220px]">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5"><i class="fas fa-search text-indigo-400"></i> Buscar Movimento / Placa</label>
+                    <input type="text" id="inputBuscaQdp" oninput="renderizarTabelaQdp()" placeholder="Digite Nº Movimento ou Placa..." class="bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-white text-xs font-bold outline-none focus:border-indigo-500 shadow-inner w-full">
+                </div>
+            </div>
+
+            <div class="text-right">
+                <span id="contadorLinhasQdp" class="text-xs font-mono text-slate-300 bg-slate-900 px-3 py-1.5 rounded border border-slate-700">0 registros exibidos</span>
+            </div>
+        </div>
+
+        <!-- TABELA DETALHADA DE COMPARAÇÃO -->
+        <div class="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col mt-4">
+            <div class="bg-slate-800/80 px-6 py-3.5 border-b border-slate-700 flex justify-between items-center flex-wrap gap-2">
+                <h3 class="font-bold text-white tracking-wide flex items-center text-xs uppercase">
+                    <i class="fas fa-search-dollar text-sky-400 mr-2 text-base"></i> Espelho de Conciliação Linha a Linha (QDP Suzano vs Nossa Base SGF)
+                </h3>
+                <span id="infoAbaLidaQdp" class="text-[11px] text-slate-400 font-mono">Nenhuma planilha carregada</span>
+            </div>
+            <div class="overflow-x-auto max-h-[620px] overflow-y-auto custom-scrollbar">
+                <table class="min-w-full text-xs text-left border-collapse">
+                    <thead class="bg-slate-900/95 text-slate-300 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-700 sticky top-0 z-10 shadow-md backdrop-blur-sm">
+                        <tr class="divide-x divide-slate-800">
+                            <th class="px-3 py-3 text-center">Status</th>
+                            <th class="px-3 py-3 text-center">Nº Movimento</th>
+                            <th class="px-3 py-3 text-center">Data</th>
+                            <th class="px-3 py-3 text-center">Placa</th>
+                            <th class="px-3 py-3 text-center">UP</th>
+                            <th class="px-3 py-3 text-center">Volume m³<br><span class="text-[9px] text-slate-500">(QDP / SGF)</span></th>
+                            <th class="px-3 py-3 text-center">Asfalto km<br><span class="text-[9px] text-amber-400/80">(QDP Corrig. / SGF)</span></th>
+                            <th class="px-3 py-3 text-center">Terra km<br><span class="text-[9px] text-amber-400/80">(QDP Corrig. / SGF)</span></th>
+                            <th class="px-3 py-3 text-center text-sky-300">Tarifa QDP<br><span class="text-[9px] text-slate-400">(Considerada)</span></th>
+                            <th class="px-3 py-3 text-center text-emerald-400">Nossa Tarifa<br><span class="text-[9px] text-slate-400">(Deveria Ser)</span></th>
+                            <th class="px-3 py-3 text-center">Valor Condição<br><span class="text-[9px] text-slate-500">(QDP s/ Desc.)</span></th>
+                            <th class="px-3 py-3 text-center">Valor Líquido<br><span class="text-[9px] text-amber-400/80">(QDP c/ Desc.)</span></th>
+                            <th class="px-3 py-3 text-center text-emerald-400">Nosso Valor<br><span class="text-[9px] text-slate-500">(SGF Deveria)</span></th>
+                            <th class="px-3 py-3 text-center" id="thColunaDifValor">Dif. R$<br><span class="text-[9px] text-slate-400">(QDP - SGF)</span></th>
+                            <th class="px-3 py-3">Diagnóstico / Motivo da Divergência</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyQdpDif" class="divide-y divide-slate-800/80 text-slate-300">
+                        <tr>
+                            <td colspan="15" class="text-center p-10 text-slate-500 font-medium tracking-wide">
+                                <i class="fas fa-file-excel text-4xl block mb-3 text-sky-500/50"></i>
+                                Selecione a <b>Base de Cálculo QDP</b> (Valor Líquido ou Valor Condição) e clique em <b>"Importar QDP"</b>.<br/>
+                                <span class="text-xs text-slate-600 mt-1 block">O sistema corrige automaticamente a inversão de Asfalto/Terra do QDP, cruza pelo Nº de Movimento e gera a planilha formatada com bordas e moeda R$.</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- MODAL DE RESUMO EXECUTIVO PARA E-MAIL -->
+    <div id="modalResumoEmailQdp" class="fixed inset-0 z-[9998] bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div class="px-6 py-4 bg-slate-800/80 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="text-white font-bold text-base flex items-center gap-2">
+                    <i class="fas fa-envelope-open-text text-indigo-400"></i> Resumo Executivo Completo (Pronto para E-mail)
+                </h3>
+                <button onclick="fecharModalResumoEmailQdp()" class="text-slate-400 hover:text-white text-xl font-bold px-2 cursor-pointer">&times;</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+                <p class="text-xs text-slate-400">
+                    Você pode copiar tanto a <b>Tabela Formatada</b> (para colar direto no Outlook/Gmail mantendo as cores e bordas) quanto o <b>Texto Executivo</b> abaixo:
+                </p>
+                <div id="containerTabelaHtmlEmail" class="bg-slate-950 p-4 rounded-xl border border-slate-800 overflow-x-auto"></div>
+                <textarea id="textoResumoEmailQdp" readonly class="w-full h-[280px] bg-slate-950 border border-slate-700 rounded-xl p-4 text-xs font-mono text-slate-200 outline-none focus:border-indigo-500 custom-scrollbar leading-relaxed"></textarea>
+            </div>
+            <div class="px-6 py-4 bg-slate-800/60 border-t border-slate-700 flex justify-end gap-3 flex-wrap">
+                <button onclick="fecharModalResumoEmailQdp()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 py-2 rounded-xl text-xs cursor-pointer">
+                    Fechar
+                </button>
+                <button onclick="copiarTabelaHtmlEmailQdp()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-lg cursor-pointer">
+                    <i class="fas fa-table"></i> Copiar Tabela Formatada (p/ Outlook/Gmail)
+                </button>
+                <button onclick="copiarResumoEmailQdp()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-lg cursor-pointer">
+                    <i class="fas fa-copy"></i> Copiar Texto Completo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY DE CARREGAMENTO -->
+    <div id="loadingOverlayQdp" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-md hidden">
+        <i class="fas fa-circle-notch fa-spin text-sky-500 text-6xl mb-4"></i>
+        <h2 id="loadingTitleQdp" class="text-white text-xl font-bold tracking-widest uppercase">Lendo Planilha QDP...</h2>
+        <p class="text-sky-400 mt-2 font-mono text-xs">Cruzando viagens e tarifas com o banco de dados. Aguarde...</p>
+    </div>
+</div>
