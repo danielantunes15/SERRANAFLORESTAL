@@ -87,7 +87,7 @@
         border: 1px solid rgba(148, 163, 184, 0.16);
         padding: 5px 12px;
         border-radius: 8px;
-        font-size: 0.78rem;
+        font-size: 0.8rem;
         color: #cbd5e1;
         font-weight: 700;
         display: flex;
@@ -96,6 +96,11 @@
         text-transform: uppercase;
         letter-spacing: 0.4px;
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    }
+
+    #dash-data, #dash-hora, #dash-controlador-nome, #dash-turno-nome {
+        font-size: 0.82rem !important;
+        line-height: 1.2 !important;
     }
 
     /* CARDS DE KPI SUPERIORES */
@@ -331,8 +336,8 @@
 
     /* SEÇÃO INFERIOR (GRÁFICO + MANUTENÇÃO) */
     .serrana-bottom-grid {
-        display: grid;
-        grid-template-columns: 1.3fr 1fr;
+        display: grid !important;
+        grid-template-columns: 1.3fr 1fr !important;
         gap: 20px;
         align-items: stretch;
         width: 100%;
@@ -340,9 +345,11 @@
 
     .serrana-panel-card {
         padding: 0;
-        display: flex;
+        display: flex !important;
         flex-direction: column;
         min-height: 390px;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
 
     .panel-header-flex {
@@ -423,11 +430,6 @@
         display: flex;
         flex-direction: column;
         gap: 9px;
-        transition: transform 0.15s ease, border-color 0.15s ease;
-    }
-
-    .parada-item-card:hover {
-        border-color: rgba(148, 163, 184, 0.32);
     }
 
     .parada-top-row {
@@ -514,7 +516,7 @@
         .header-left, .header-right { align-items: center; justify-content: center; }
         .dash-pro-kpis { grid-template-columns: 1fr; }
         .serrana-card.card-frentes { grid-column: span 1; }
-        .serrana-bottom-grid { grid-template-columns: 1fr; }
+        .serrana-bottom-grid { grid-template-columns: 1fr !important; }
     }
 </style>
 
@@ -667,7 +669,7 @@
     </section>
 
     <!-- SEÇÃO INFERIOR: GRÁFICO DM 24H + EQUIPAMENTOS PARADOS -->
-    <section class="serrana-bottom-grid">
+    <section id="serrana-bottom-grid" class="serrana-bottom-grid">
         <!-- ESQUERDA: GRÁFICO DM 24H -->
         <div class="serrana-card serrana-panel-card">
             <div class="panel-header-flex">
@@ -687,7 +689,7 @@
         </div>
 
         <!-- DIREITA: EQUIPAMENTOS EM MANUTENÇÃO -->
-        <div class="serrana-card card-paradas serrana-panel-card">
+        <div id="painel-manutencao-serrana" class="serrana-card card-paradas serrana-panel-card">
             <div class="panel-header-flex">
                 <h3 style="color: #f87171;">
                     <i class="fas fa-tools"></i>

@@ -35,10 +35,65 @@ function normalizarCategoriaSerrana(categoria) {
     return String(categoria || '').trim().toUpperCase();
 }
 
+// GARANTE QUE A JANELA DE EQUIPAMENTOS EM MANUTENÇÃO SEMPRE EXISTA E FIQUE VISÍVEL
+function garantirPainelManutencaoSerrana() {
+    let containerLista = document.getElementById('lista-frotas-paradas');
+    let painel = document.getElementById('painel-manutencao-serrana');
+
+    if (painel && containerLista) {
+        painel.style.display = 'flex';
+        painel.style.visibility = 'visible';
+        painel.style.opacity = '1';
+        return containerLista;
+    }
+
+    const gridInferior = document.getElementById('serrana-bottom-grid')
+        || document.querySelector('.serrana-bottom-grid')
+        || document.querySelector('.dash-bottom-split');
+
+    if (!gridInferior) return containerLista;
+
+    gridInferior.style.display = 'grid';
+    gridInferior.style.gridTemplateColumns = '1.3fr 1fr';
+    gridInferior.style.gap = '20px';
+
+    if (!painel) {
+        painel = document.createElement('div');
+        painel.id = 'painel-manutencao-serrana';
+        painel.className = 'serrana-card card-paradas serrana-panel-card';
+        painel.innerHTML = `
+            <div class="panel-header-flex">
+                <h3 style="color: #f87171;">
+                    <i class="fas fa-tools"></i>
+                    Equipamentos em Manutenção
+                </h3>
+                <div class="filter-pills-group" id="filtros-paradas-serrana">
+                    <button type="button" class="filter-pill-btn active" onclick="alterarFiltroParadasSerrana('TODOS', this)">
+                        Todos <span id="badge-paradas-todos" style="opacity: 0.85;">(0)</span>
+                    </button>
+                    <button type="button" class="filter-pill-btn" onclick="alterarFiltroParadasSerrana('TRITREM', this)">
+                        Tritrem <span id="badge-paradas-tritrem" style="opacity: 0.85;">(0)</span>
+                    </button>
+                    <button type="button" class="filter-pill-btn" onclick="alterarFiltroParadasSerrana('GRUA', this)">
+                        Grua <span id="badge-paradas-grua" style="opacity: 0.85;">(0)</span>
+                    </button>
+                </div>
+            </div>
+            <div id="lista-frotas-paradas" class="lista-scroll" style="flex-grow: 1; padding: 14px; overflow-y: auto; max-height: 360px; display: flex; flex-direction: column; gap: 10px;">
+                <div class="empty-state" style="color: #94a3b8; font-size: 0.9rem;">Buscando equipamentos parados...</div>
+            </div>
+        `;
+        gridInferior.appendChild(painel);
+    }
+
+    return document.getElementById('lista-frotas-paradas');
+}
+
 window.carregarDadosDashboardSerrana = async function() {
     if (window._intervalRelogioSerrana) clearInterval(window._intervalRelogioSerrana);
     if (window._intervalDadosSerrana) clearInterval(window._intervalDadosSerrana);
 
+    garantirPainelManutencaoSerrana();
     atualizarRelogioSerrana();
     window._intervalRelogioSerrana = setInterval(atualizarRelogioSerrana, 1000);
 
@@ -80,7 +135,6 @@ window.atualizarRelogioSerrana = function() {
 // CARREGA FROTAS (TRITREM + GRUA), O.S. ATIVAS, PARADAS E CÁLCULO DE DM 24H
 async function carregarIndicadoresFrotaEDMSerrana() {
     try {
-        // 1. Buscar todas as frotas ativas da filial (TRITREM e GRUA)
         let queryFrota = supabaseClient
             .from('frotas_manutencao')
             .select('cavalo, categoria, status')
@@ -112,7 +166,6 @@ async function carregarIndicadoresFrotaEDMSerrana() {
             }
         });
 
-        // 2. Buscar Ordens de Serviço não inativas e não agendadas
         let queryOS = supabaseClient
             .from('ordens_servico')
             .select('placa, problema, status, tipo, data_abertura, data_conclusao')
@@ -135,7 +188,6 @@ async function carregarIndicadoresFrotaEDMSerrana() {
             return mapaPlacaCategoria.has(placaNorm);
         });
 
-        // 3. Processar KPIs em tempo real (Ativas x Manutenção) por Categoria
         const statusParada = ['Aguardando Oficina', 'Em Manutenção', 'Sinistrado'];
         const osAbertas = osValidas.filter(os => statusParada.includes(os.status));
 
@@ -170,7 +222,6 @@ async function carregarIndicadoresFrotaEDMSerrana() {
         atualizarCardCategoriaSVG('tritrem', resumoTritrem);
         atualizarCardCategoriaSVG('grua', resumoGrua);
 
-        // 4. Processar Lista de Equipamentos em Manutenção
         const agora = new Date();
         const listaParadas = osAbertas.map(os => {
             const placaNorm = normalizarPlacaSerrana(os.placa);
@@ -208,7 +259,6 @@ async function carregarIndicadoresFrotaEDMSerrana() {
         window._serranaState.cacheParadas = listaParadas;
         renderizarListaParadasSerrana();
 
-        // 5. Calcular Disponibilidade Mecânica (24h) para TRITREM e GRUA
         const dmTritrem = calcularSerieDM24h(setTritrem, osValidas, agora);
         const dmGrua = calcularSerieDM24h(setGrua, osValidas, agora);
 
@@ -240,7 +290,7 @@ function atualizarCardCategoriaSVG(prefixo, dados) {
     const elManut = document.getElementById(`texto-${prefixo}-manut`);
     const elTotal = document.getElementById(`texto-${prefixo}-total`);
 
-    const comprimentoArco = 251.33; // π * r (r = 80)
+    const comprimentoArco = 251.33;
     if (arc) {
         const offset = comprimentoArco - (comprimentoArco * (dados.percentual / 100));
         arc.style.strokeDashoffset = offset.toFixed(2);
@@ -505,7 +555,7 @@ window.alterarFiltroParadasSerrana = function(filtro, btnEl) {
 };
 
 function renderizarListaParadasSerrana() {
-    const container = document.getElementById('lista-frotas-paradas');
+    const container = garantirPainelManutencaoSerrana();
     if (!container) return;
 
     const todas = window._serranaState.cacheParadas || [];
@@ -569,7 +619,7 @@ function renderizarListaParadasSerrana() {
                     <span class="parada-placa">
                         <i class="${iconStatus}" style="color: ${corBorder}; margin-right: 6px; font-size: 0.95rem;"></i>${os.placa || 'N/I'}
                     </span>
-                    <span style="font-size: 0.68rem; background: ${corCatBg}; color: ${corCatText}; border: 1px solid ${corCatBorder}; padding: 3px 8px; border-radius: 6px; font-weight: 800; letter-spacing: 0.4px; white-space: nowrap;">
+                    <span class="parada-cat-badge" style="font-size: 0.68rem; background: ${corCatBg}; color: ${corCatText}; border: 1px solid ${corCatBorder}; padding: 3px 8px; border-radius: 6px; font-weight: 800; letter-spacing: 0.4px; white-space: nowrap;">
                         <i class="${iconCat}" style="margin-right: 4px;"></i>${os.categoria}
                     </span>
                 </div>
@@ -586,10 +636,10 @@ function renderizarListaParadasSerrana() {
             </div>
 
             <div class="parada-meta-row">
-                <span style="font-size: 0.72rem; background: rgba(148, 163, 184, 0.1); color: #cbd5e1; padding: 3px 8px; border-radius: 6px; font-weight: 700; border: 1px solid rgba(148, 163, 184, 0.2);">
+                <span class="parada-meta-badge" style="font-size: 0.72rem; background: rgba(148, 163, 184, 0.1); color: #cbd5e1; padding: 3px 8px; border-radius: 6px; font-weight: 700; border: 1px solid rgba(148, 163, 184, 0.2);">
                     <i class="fas fa-tag" style="margin-right: 4px; opacity: 0.75;"></i>${tipoTexto}
                 </span>
-                <span style="font-size: 0.72rem; background: ${corBorder}22; color: ${corBorder}; padding: 3px 8px; border-radius: 6px; font-weight: 800; border: 1px solid ${corBorder}44;">
+                <span class="parada-meta-badge" style="font-size: 0.72rem; background: ${corBorder}22; color: ${corBorder}; padding: 3px 8px; border-radius: 6px; font-weight: 800; border: 1px solid ${corBorder}44;">
                     ${os.status}
                 </span>
             </div>
@@ -683,7 +733,7 @@ async function carregarFrentesTvSerrana() {
             let htmlCaixinhas = '';
             data.forEach(f => {
                 htmlCaixinhas += `
-                <div style="background: rgba(34, 197, 94, 0.12); padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; font-weight: 800; border: 1px solid rgba(34, 197, 94, 0.35); display: flex; align-items: center; gap: 10px; color: #4ade80; text-align: left; width: 100%; box-sizing: border-box;">
+                <div class="frente-item-pill" style="background: rgba(34, 197, 94, 0.12); padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; font-weight: 800; border: 1px solid rgba(34, 197, 94, 0.35); display: flex; align-items: center; gap: 10px; color: #4ade80; text-align: left; width: 100%; box-sizing: border-box;">
                     <i class="fas fa-truck-loading" style="font-size: 1rem; color: #22c55e;"></i>
                     <span style="flex-grow: 1;">${f.nome}</span>
                 </div>`;
@@ -701,7 +751,7 @@ async function carregarFrentesTvSerrana() {
     }
 }
 
-// EXPORTAÇÃO PNG EM ALTA DEFINIÇÃO (SEM PRENSAR ÍCONES OU NÚMEROS)
+// EXPORTAÇÃO PNG EM ALTA DEFINIÇÃO (ALINHAMENTO COMPENSADO PARA HTML2CANVAS)
 window.exportarDashboardPNGSerrana = async function() {
     const elemento = document.getElementById('area-print-dash');
     const botaoPrint = document.getElementById('btn-gerar-print');
@@ -718,7 +768,6 @@ window.exportarDashboardPNGSerrana = async function() {
             await document.fonts.ready;
         }
 
-        // Captura snapshot em alta resolução do gráfico ECharts antes de clonar
         let chartImgDataUrl = null;
         const chartDom = document.getElementById('graficoEvolucaoDmSerrana');
         if (chartDom && typeof echarts !== 'undefined') {
@@ -745,7 +794,6 @@ window.exportarDashboardPNGSerrana = async function() {
                 const cloneRoot = clonedDoc.getElementById('area-print-dash');
                 if (!cloneRoot) return;
 
-                // Trava largura widescreen para nada ficar espremido
                 cloneRoot.style.width = '1600px';
                 cloneRoot.style.minWidth = '1600px';
                 cloneRoot.style.maxWidth = '1600px';
@@ -753,11 +801,9 @@ window.exportarDashboardPNGSerrana = async function() {
                 cloneRoot.style.borderRadius = '0px';
                 cloneRoot.style.boxSizing = 'border-box';
 
-                // Esconde botão de print no arquivo gerado
                 const cloneBtn = clonedDoc.getElementById('btn-gerar-print');
                 if (cloneBtn) cloneBtn.style.display = 'none';
 
-                // Garante grid desktop fixo no clone
                 const kpis = cloneRoot.querySelector('.dash-pro-kpis');
                 if (kpis) {
                     kpis.style.display = 'grid';
@@ -765,14 +811,21 @@ window.exportarDashboardPNGSerrana = async function() {
                     kpis.style.gap = '22px';
                 }
 
-                const bottomGrid = cloneRoot.querySelector('.serrana-bottom-grid');
+                const bottomGrid = clonedDoc.getElementById('serrana-bottom-grid') || cloneRoot.querySelector('.serrana-bottom-grid');
                 if (bottomGrid) {
                     bottomGrid.style.display = 'grid';
                     bottomGrid.style.gridTemplateColumns = '1.3fr 1fr';
                     bottomGrid.style.gap = '22px';
                 }
 
-                // Corrige SVGs dos gauges (html2canvas precisa de width/height explícitos)
+                const painelManut = clonedDoc.getElementById('painel-manutencao-serrana');
+                if (painelManut) {
+                    painelManut.style.display = 'flex';
+                    painelManut.style.visibility = 'visible';
+                    painelManut.style.opacity = '1';
+                }
+
+                // Corrige SVGs dos gauges
                 cloneRoot.querySelectorAll('.svg-gauge').forEach(svg => {
                     svg.setAttribute('width', '190');
                     svg.setAttribute('height', '114');
@@ -780,33 +833,66 @@ window.exportarDashboardPNGSerrana = async function() {
                     svg.style.height = '114px';
                 });
 
-                // Evita desalinhamento vertical de números grandes e ícones FontAwesome
-                cloneRoot.querySelectorAll('.gauge-main-num').forEach(el => {
-                    el.style.lineHeight = '1.15';
-                    el.style.marginBottom = '2px';
+                // COMPENSAÇÃO DE BASELINE DO HTML2CANVAS (EVITA ÍCONES E NÚMEROS DESLOCADOS PARA BAIXO)
+                cloneRoot.querySelectorAll('.cat-icon-box').forEach(box => {
+                    box.style.display = 'flex';
+                    box.style.alignItems = 'center';
+                    box.style.justifyContent = 'center';
+                    box.style.paddingTop = '0px';
+                    box.style.paddingBottom = '8px';
                 });
 
-                cloneRoot.querySelectorAll('.mini-stat-val').forEach(el => {
-                    el.style.lineHeight = '1.2';
-                    el.style.paddingLeft = '10px';
+                cloneRoot.querySelectorAll('.frentes-header-count').forEach(el => {
+                    el.style.padding = '2px 12px 10px 12px';
+                    el.style.lineHeight = '1';
                 });
 
                 cloneRoot.querySelectorAll('.mini-stat-box').forEach(el => {
-                    el.style.padding = '10px 14px';
+                    el.style.padding = '5px 14px 12px 14px';
                 });
 
-                cloneRoot.querySelectorAll('.dm-pill, .header-badge-small, .parada-tempo-badge').forEach(el => {
-                    el.style.lineHeight = '1.3';
+                cloneRoot.querySelectorAll('.mini-stat-val').forEach(el => {
+                    el.style.lineHeight = '1';
+                    el.style.paddingLeft = '10px';
+                });
+
+                cloneRoot.querySelectorAll('.mini-stat-label').forEach(el => {
+                    el.style.lineHeight = '1';
+                });
+
+                cloneRoot.querySelectorAll('.dm-pill, .header-badge-small, .parada-tempo-badge, .filter-pill-btn').forEach(el => {
+                    el.style.lineHeight = '1.1';
+                    el.style.paddingTop = '3px';
+                    el.style.paddingBottom = '8px';
                     el.style.whiteSpace = 'nowrap';
+                });
+
+                cloneRoot.querySelectorAll('.parada-cat-badge, .parada-meta-badge').forEach(el => {
+                    el.style.lineHeight = '1.1';
+                    el.style.paddingTop = '2px';
+                    el.style.paddingBottom = '7px';
+                    el.style.display = 'inline-flex';
+                    el.style.alignItems = 'center';
+                });
+
+                cloneRoot.querySelectorAll('.frente-item-pill').forEach(item => {
+                    item.style.paddingTop = '5px';
+                    item.style.paddingBottom = '11px';
+                    item.style.lineHeight = '1.1';
+                });
+
+                cloneRoot.querySelectorAll('.gauge-main-num').forEach(el => {
+                    el.style.lineHeight = '1.1';
+                    el.style.marginBottom = '2px';
                 });
 
                 cloneRoot.querySelectorAll('i.fas, i.far, i.fab').forEach(ic => {
                     ic.style.display = 'inline-block';
                     ic.style.lineHeight = '1';
-                    ic.style.verticalAlign = 'middle';
+                    ic.style.position = 'relative';
+                    ic.style.top = '-2px';
                 });
 
-                // Expande listas para não cortar itens com barra de rolagem
                 const listaFrentes = clonedDoc.getElementById('kpi-lista-frentes-nomes');
                 if (listaFrentes) {
                     listaFrentes.style.maxHeight = 'none';
@@ -819,7 +905,6 @@ window.exportarDashboardPNGSerrana = async function() {
                     listaParadas.style.overflow = 'visible';
                 }
 
-                // Substitui o canvas do ECharts pela imagem HD capturada
                 if (chartImgDataUrl) {
                     const cloneChart = clonedDoc.getElementById('graficoEvolucaoDmSerrana');
                     if (cloneChart) {
