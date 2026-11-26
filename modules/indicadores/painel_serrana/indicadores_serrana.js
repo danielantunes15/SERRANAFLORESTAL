@@ -751,7 +751,7 @@ async function carregarFrentesTvSerrana() {
     }
 }
 
-// EXPORTAÇÃO PNG EM ALTA DEFINIÇÃO (ALINHAMENTO COMPENSADO PARA HTML2CANVAS)
+// EXPORTAÇÃO PNG EM ALTA DEFINIÇÃO (LAYOUT ADAPTATIVO E PROPORCIONAL)
 window.exportarDashboardPNGSerrana = async function() {
     const elemento = document.getElementById('area-print-dash');
     const botaoPrint = document.getElementById('btn-gerar-print');
@@ -768,6 +768,11 @@ window.exportarDashboardPNGSerrana = async function() {
             await document.fonts.ready;
         }
 
+        const qtdParadas = elemento.querySelectorAll('#lista-frotas-paradas .parada-item-card').length;
+        const modoWidescreen = qtdParadas >= 4;
+        const modoEmpilhado = qtdParadas > 10;
+        const exportWidth = modoWidescreen ? 1920 : 1600;
+
         let chartImgDataUrl = null;
         const chartDom = document.getElementById('graficoEvolucaoDmSerrana');
         if (chartDom && typeof echarts !== 'undefined') {
@@ -783,23 +788,24 @@ window.exportarDashboardPNGSerrana = async function() {
 
         const canvas = await html2canvas(elemento, {
             backgroundColor: '#070b14',
-            scale: 2.5,
+            scale: modoWidescreen ? 2 : 2.5,
             useCORS: true,
             allowTaint: true,
             logging: false,
-            windowWidth: 1680,
+            windowWidth: exportWidth + 80,
             scrollX: 0,
             scrollY: 0,
             onclone: (clonedDoc) => {
                 const cloneRoot = clonedDoc.getElementById('area-print-dash');
                 if (!cloneRoot) return;
 
-                cloneRoot.style.width = '1600px';
-                cloneRoot.style.minWidth = '1600px';
-                cloneRoot.style.maxWidth = '1600px';
-                cloneRoot.style.padding = '28px 32px';
+                cloneRoot.style.width = `${exportWidth}px`;
+                cloneRoot.style.minWidth = `${exportWidth}px`;
+                cloneRoot.style.maxWidth = `${exportWidth}px`;
+                cloneRoot.style.padding = '26px 32px';
                 cloneRoot.style.borderRadius = '0px';
                 cloneRoot.style.boxSizing = 'border-box';
+                cloneRoot.style.minHeight = 'auto';
 
                 const cloneBtn = clonedDoc.getElementById('btn-gerar-print');
                 if (cloneBtn) cloneBtn.style.display = 'none';
@@ -814,8 +820,14 @@ window.exportarDashboardPNGSerrana = async function() {
                 const bottomGrid = clonedDoc.getElementById('serrana-bottom-grid') || cloneRoot.querySelector('.serrana-bottom-grid');
                 if (bottomGrid) {
                     bottomGrid.style.display = 'grid';
-                    bottomGrid.style.gridTemplateColumns = '1.3fr 1fr';
                     bottomGrid.style.gap = '22px';
+                    if (modoEmpilhado) {
+                        bottomGrid.style.gridTemplateColumns = '1fr';
+                    } else if (modoWidescreen) {
+                        bottomGrid.style.gridTemplateColumns = '1fr 1.45fr';
+                    } else {
+                        bottomGrid.style.gridTemplateColumns = '1.3fr 1fr';
+                    }
                 }
 
                 const painelManut = clonedDoc.getElementById('painel-manutencao-serrana');
@@ -823,6 +835,7 @@ window.exportarDashboardPNGSerrana = async function() {
                     painelManut.style.display = 'flex';
                     painelManut.style.visibility = 'visible';
                     painelManut.style.opacity = '1';
+                    painelManut.style.minHeight = 'auto';
                 }
 
                 // Corrige SVGs dos gauges
@@ -903,12 +916,66 @@ window.exportarDashboardPNGSerrana = async function() {
                 if (listaParadas) {
                     listaParadas.style.maxHeight = 'none';
                     listaParadas.style.overflow = 'visible';
+
+                    if (modoWidescreen) {
+                        const colunas = modoEmpilhado ? (qtdParadas > 15 ? 4 : 3) : 2;
+                        listaParadas.style.display = 'grid';
+                        listaParadas.style.gridTemplateColumns = `repeat(${colunas}, minmax(0, 1fr))`;
+                        listaParadas.style.gap = '10px';
+                        listaParadas.style.padding = '12px 14px';
+                        listaParadas.style.alignContent = 'start';
+
+                        // Compacta os cards de manutenção para ficarem modernos e proporcionais
+                        listaParadas.querySelectorAll('.parada-item-card').forEach(card => {
+                            card.style.padding = '9px 11px';
+                            card.style.gap = '6px';
+                            card.style.borderRadius = '10px';
+                            card.style.justifyContent = 'space-between';
+                        });
+
+                        listaParadas.querySelectorAll('.parada-placa').forEach(el => {
+                            el.style.fontSize = '0.96rem';
+                        });
+
+                        listaParadas.querySelectorAll('.parada-cat-badge').forEach(el => {
+                            el.style.fontSize = '0.62rem';
+                            el.style.padding = '2px 6px 6px 6px';
+                        });
+
+                        listaParadas.querySelectorAll('.parada-tempo-badge').forEach(el => {
+                            el.style.fontSize = '0.68rem';
+                            el.style.padding = '2px 7px 6px 7px';
+                        });
+
+                        listaParadas.querySelectorAll('.parada-desc-box').forEach(el => {
+                            el.style.padding = '6px 8px';
+                            el.style.fontSize = '0.74rem';
+                            el.style.lineHeight = '1.32';
+                            el.style.wordBreak = 'break-word';
+                            el.style.flexGrow = '1';
+                        });
+
+                        listaParadas.querySelectorAll('.parada-desc-label').forEach(el => {
+                            el.style.fontSize = '0.6rem';
+                            el.style.marginBottom = '2px';
+                        });
+
+                        listaParadas.querySelectorAll('.parada-meta-badge').forEach(el => {
+                            el.style.fontSize = '0.64rem';
+                            el.style.padding = '2px 6px 6px 6px';
+                        });
+                    }
                 }
 
                 if (chartImgDataUrl) {
                     const cloneChart = clonedDoc.getElementById('graficoEvolucaoDmSerrana');
                     if (cloneChart) {
-                        cloneChart.innerHTML = `<img src="${chartImgDataUrl}" style="width: 100%; height: 320px; object-fit: contain; display: block;" />`;
+                        const alturaGrafico = modoEmpilhado ? '320px' : (modoWidescreen ? '400px' : '320px');
+                        cloneChart.style.display = 'flex';
+                        cloneChart.style.alignItems = 'center';
+                        cloneChart.style.justifyContent = 'center';
+                        cloneChart.style.minHeight = alturaGrafico;
+                        cloneChart.innerHTML = `<img src="${chartImgDataUrl}" style="width: 100%; height: ${alturaGrafico}; object-fit: contain; display: block;" />`;
                     }
                 }
             }
