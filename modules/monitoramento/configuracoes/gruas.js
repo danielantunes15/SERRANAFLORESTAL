@@ -3,6 +3,8 @@
 // ==========================================
 
 (function() {
+    window._mostrarFrentesOcultas = false;
+
     function aplicarFiltroLocal(query) {
         if (!window.currentUser) return query; 
         if (window.currentUser.filial_id === null && (window.currentUser.role === 'SuperAdmin' || window.currentUser.role === 'Admin')) {
@@ -13,6 +15,11 @@
         }
         return query.eq('filial_id', window.currentUser.filial_id);
     }
+
+    window.toggleMostrarFrentesOcultas = function() {
+        window._mostrarFrentesOcultas = !window._mostrarFrentesOcultas;
+        window.carregarGruas();
+    };
 
     window.carregarGruas = async function() {
         const container = document.getElementById('container_frentes_dinamico');
@@ -33,21 +40,75 @@
             containerFreshen.innerHTML = '';
 
             if (data && data.length > 0) {
-                data.forEach(item => {
+                const frentesAtivas = data.filter(item => item.ativo !== false);
+                const frentesInativas = data.filter(item => item.ativo === false);
+                const listaExibir = window._mostrarFrentesOcultas
+                    ? [...frentesAtivas, ...frentesInativas]
+                    : frentesAtivas;
+
+                if (frentesInativas.length > 0) {
+                    const btnTexto = window._mostrarFrentesOcultas
+                        ? `<i class="fas fa-eye-slash mr-1.5"></i> Ocultar Inativas (${frentesInativas.length})`
+                        : `<i class="fas fa-eye mr-1.5"></i> Mostrar Inativas (${frentesInativas.length})`;
+                    const btnEstilo = window._mostrarFrentesOcultas
+                        ? 'bg-amber-600/20 text-amber-300 border-amber-500/40 hover:bg-amber-600/30'
+                        : 'bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white';
+
+                    containerFreshen.insertAdjacentHTML('beforeend', `
+                        <div class="col-span-full flex flex-wrap justify-between items-center gap-2 bg-slate-800/40 border border-slate-700/60 rounded-xl px-4 py-2.5">
+                            <span class="text-xs text-slate-400 font-medium">
+                                Exibindo <strong class="text-white">${frentesAtivas.length}</strong> frente(s) ativa(s)
+                                ${frentesInativas.length > 0 ? `• <span class="text-amber-400 font-semibold">${frentesInativas.length} oculta(s)</span>` : ''}
+                            </span>
+                            <button onclick="window.toggleMostrarFrentesOcultas()" class="${btnEstilo} border text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+                                ${btnTexto}
+                            </button>
+                        </div>
+                    `);
+                }
+
+                if (listaExibir.length === 0) {
+                    containerFreshen.insertAdjacentHTML('beforeend', `
+                        <div class="col-span-full text-center py-6 text-slate-500 italic text-sm">
+                            Todas as frentes estão ocultas no momento. Clique em "Mostrar Inativas" acima para visualizar ou reativar.
+                        </div>
+                    `);
+                    return;
+                }
+
+                listaExibir.forEach(item => {
                     const id = item.id;
                     const nomeFrente = String(item.frente || '').toUpperCase();
                     const tipoFrente = item.tipo_frente || 'Outros'; 
                     const ordemFrente = item.ordem ? item.ordem.toUpperCase() : '';
+                    const isAtiva = item.ativo !== false;
                     const codigosArr = (item.codigos || '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
 
                     const isPropria = tipoFrente === 'Propria';
-                    const cardBorder = isPropria ? 'border-emerald-700/50' : 'border-indigo-700/50';
-                    const headerText = isPropria ? 'text-emerald-400' : 'text-indigo-400';
+                    const cardBorder = !isAtiva
+                        ? 'border-slate-600/60 opacity-70'
+                        : (isPropria ? 'border-emerald-700/50' : 'border-indigo-700/50');
+                    const headerText = !isAtiva
+                        ? 'text-slate-400'
+                        : (isPropria ? 'text-emerald-400' : 'text-indigo-400');
                     const icon = isPropria ? 'fa-star' : 'fa-leaf';
-                    const badgeColor = isPropria ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
+                    const badgeColor = !isAtiva
+                        ? 'bg-slate-700/40 text-slate-400 border-slate-600/50'
+                        : (isPropria ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30');
                     const btnColor = isPropria ? 'bg-emerald-600 hover:bg-emerald-500 focus:border-emerald-500' : 'bg-indigo-600 hover:bg-indigo-500 focus:border-indigo-500';
 
                     const ordemBadge = ordemFrente ? `<span class="absolute top-3 left-3 bg-slate-900 ${headerText} font-bold px-2 py-0.5 rounded text-[10px] border ${cardBorder} shadow-lg">${ordemFrente}</span>` : '';
+                    const statusBadge = !isAtiva
+                        ? `<span class="inline-block ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">OCULTA</span>`
+                        : '';
+
+                    const btnOcultarHtml = isAtiva
+                        ? `<button onclick="window.alternarStatusFrente('${id}', '${nomeFrente}', true)" class="text-slate-400 hover:text-amber-400 transition-colors text-xs" title="Ocultar Frente (Inativar)">
+                               <i class="fas fa-eye-slash"></i>
+                           </button>`
+                        : `<button onclick="window.alternarStatusFrente('${id}', '${nomeFrente}', false)" class="text-emerald-400 hover:text-emerald-300 transition-colors text-xs" title="Reativar Frente">
+                               <i class="fas fa-eye"></i>
+                           </button>`;
 
                     let chipsHtml = codigosArr.map(c => `
                         <div class="${badgeColor} px-2.5 py-1 rounded-lg text-xs font-mono flex items-center gap-1.5 mt-1 mb-1">
@@ -65,12 +126,15 @@
                     const cardHtml = `
                         <div class="bg-slate-800/60 border ${cardBorder} rounded-xl p-5 flex flex-col h-full shadow-inner relative group animate-fade-in pt-8">
                             ${ordemBadge}
-                            <button onclick="window.deletarFrente('${id}', '${nomeFrente}')" class="absolute top-3 right-3 text-slate-500 hover:text-rose-400 transition-colors text-xs" title="Excluir Frente Inteira">
-                                <i class="fas fa-trash"></i>
-                            </button>
+                            <div class="absolute top-3 right-3 flex items-center gap-2.5">
+                                ${btnOcultarHtml}
+                                <button onclick="window.deletarFrente('${id}', '${nomeFrente}')" class="text-slate-500 hover:text-rose-400 transition-colors text-xs" title="Excluir Frente Inteira">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                             
                             <h4 class="${headerText} font-extrabold uppercase text-xs mb-1 text-center tracking-widest mt-1">
-                                <i class="fas ${icon} mr-1"></i> ${nomeFrente}
+                                <i class="fas ${icon} mr-1"></i> ${nomeFrente} ${statusBadge}
                             </h4>
                             <div class="text-[9px] text-slate-400 text-center border-b border-slate-700/50 pb-3 mb-4 uppercase tracking-widest">${tipoFrente}</div>
 
@@ -93,6 +157,30 @@
         } catch (err) {
             console.error("Erro ao carregar frentes:", err);
             if(container) container.innerHTML = `<div class="col-span-full text-center py-6 text-rose-400 text-sm">Erro ao carregar frentes do banco de dados.</div>`;
+        }
+    };
+
+    window.alternarStatusFrente = async function(idRow, nomeFrente, ativoAtual) {
+        const novoStatus = !ativoAtual;
+        const acaoTexto = novoStatus ? 'reativar' : 'ocultar (inativar)';
+
+        if (!confirm(`Deseja ${acaoTexto} a frente "${nomeFrente}"?`)) return;
+
+        try {
+            const { error } = await window.supabaseClient
+                .from('config_gruas')
+                .update({ ativo: novoStatus })
+                .eq('id', idRow);
+
+            if (error) throw error;
+
+            window.carregarGruas();
+            if (typeof window.carregarDropdownFrentes === 'function') {
+                window.carregarDropdownFrentes();
+            }
+        } catch (err) {
+            console.error("Erro ao alterar status da frente:", err);
+            alert("Erro ao atualizar status no banco: " + err.message);
         }
     };
 
@@ -127,6 +215,7 @@
                 tipo_frente: tipo,
                 ordem: ordem,
                 codigos: '',
+                ativo: true,
                 filial_id: window.currentUser ? window.currentUser.filial_id : null
             };
 
@@ -136,6 +225,9 @@
             if (inputOrdem) inputOrdem.value = '';
             inputNome.value = '';
             window.carregarGruas();
+            if (typeof window.carregarDropdownFrentes === 'function') {
+                window.carregarDropdownFrentes();
+            }
 
         } catch (err) {
             console.error("Erro ao criar frente:", err);
@@ -150,6 +242,9 @@
             const { error } = await window.supabaseClient.from('config_gruas').delete().eq('id', idRow);
             if (error) throw error;
             window.carregarGruas();
+            if (typeof window.carregarDropdownFrentes === 'function') {
+                window.carregarDropdownFrentes();
+            }
         } catch (err) {
             console.error("Erro ao deletar frente:", err);
             alert("Erro ao excluir: " + err.message);

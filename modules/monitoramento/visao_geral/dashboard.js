@@ -575,6 +575,7 @@ function renderizarTabelaComparativo(dadosFiltrados) {
 
     const filialId = window.currentUser ? parseInt(window.currentUser.filial_id) : null;
     let cenarios = [];
+    let codesInativas = [];
 
     // ==============================================================
     // MONTAGEM DA TABELA (DIVISÃO BRACELL VS VERACEL VS SUZANO)
@@ -620,7 +621,15 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         let cenariosOutros = [];
 
         if (configGruasObj && configGruasObj.length > 0) {
-            const gruasSorted = [...configGruasObj].sort((a, b) => {
+            const gruasAtivas = configGruasObj.filter(item => item.ativo !== false);
+            const gruasInativas = configGruasObj.filter(item => item.ativo === false);
+
+            gruasInativas.forEach(item => {
+                const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
+                codesInativas.push(...codes);
+            });
+
+            const gruasSorted = [...gruasAtivas].sort((a, b) => {
                 const oa = a.ordem || 'ZZZ';
                 const ob = b.ordem || 'ZZZ';
                 return oa.localeCompare(ob);
@@ -659,7 +668,7 @@ function renderizarTabelaComparativo(dadosFiltrados) {
         let codesPropria = [];
         if (configGruasObj && configGruasObj.length > 0) {
             configGruasObj.forEach(item => {
-                if(item.tipo_frente === 'Propria' || item.tipo_frente === 'Própria') {
+                if(item.ativo !== false && (item.tipo_frente === 'Propria' || item.tipo_frente === 'Própria')) {
                     const codes = (item.codigos || '').split(',').map(c => c.trim().toUpperCase().replace(/\s+/g, '')).filter(Boolean);
                     codesPropria.push(...codes);
                 }
@@ -694,7 +703,11 @@ function renderizarTabelaComparativo(dadosFiltrados) {
     });
 
     const setMapeadas = new Set(todasViagensValidas.map(d => d.id || d.movimento));
-    let dadosNaoMapeados = dadosFiltrados.filter(d => !setMapeadas.has(d.id || d.movimento) && isTransportadoraPropria(d));
+    let dadosNaoMapeados = dadosFiltrados.filter(d =>
+        !setMapeadas.has(d.id || d.movimento) &&
+        isTransportadoraPropria(d) &&
+        !checkLoaderDynamic(d, codesInativas)
+    );
     
     if (dadosNaoMapeados.length > 0 && filialId !== 6) { 
         let cenarioNaoMapeado = {
