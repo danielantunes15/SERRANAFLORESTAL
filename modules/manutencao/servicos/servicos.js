@@ -1,23 +1,64 @@
-// ==================== js/servicos.js ====================
+// ==================== modules/manutencao/servicos/servicos.js ====================
 
 let mOS_Atual = null;
 let mOS_PecasCache = [];
-let mOS_PecasMap = {}; // OTIMIZAÇÃO: Dicionário para busca instantânea de peças
+let mOS_PecasMap = {};
 let mOS_KitsCache = [];
 let mOS_ListaGeral = [];
-let mOS_Requisicoes = []; 
-let mOS_FrotasCache = []; 
-let mOS_FrotasMap = {}; // OTIMIZAÇÃO: Dicionário para busca instantânea de frotas
+let mOS_Requisicoes = [];
+let mOS_FrotasCache = [];
+let mOS_FrotasMap = {};
 let mOS_AbaAtiva = 'aceite';
+let mOS_ApenasMinhas = false;
+let mOS_FiltroStatusReq = '';
+let mOS_StatusReqAnterior = {};
+let timerAutoRefreshServicos = null;
 let mapaSOSMecanicoInstance = null;
-window.mecanicoNomeCompletoCache = null; 
-let mMecanicosCache = []; 
+window.mecanicoNomeCompletoCache = null;
+let mMecanicosCache = [];
 
-// Variáveis para gerenciar o Modal de Revisão de Kit
 window.itensKitRevisaoAtual = [];
 window.kitRevisaoContexto = {};
 
-window.renderizarTelaServicos = async function() {
+// ==================== HELPERS DE TEMPO / SLA E SOM ====================
+function calcularTempoDecorrido(dataStr) {
+    if (!dataStr) return '-';
+    const inicio = new Date(dataStr);
+    if (isNaN(inicio.getTime())) return '-';
+    const diffMs = Math.max(0, Date.now() - inicio.getTime());
+    const totalMin = Math.floor(diffMs / 60000);
+    const dias = Math.floor(totalMin / 1440);
+    const horas = Math.floor((totalMin % 1440) / 60);
+    const mins = totalMin % 60;
+    if (dias > 0) return `${dias}d ${String(horas).padStart(2, '0')}h`;
+    return `${String(horas).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m`;
+}
+
+function verificarPrevisaoEstourada(previsaoStr) {
+    if (!previsaoStr || previsaoStr === 'null' || previsaoStr === 'undefined') return false;
+    const prev = new Date(previsaoStr);
+    return !isNaN(prev.getTime()) && prev.getTime() < Date.now();
+}
+
+function tocarAlertaPecaAprovada() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        setTimeout(() => osc.stop(), 180);
+    } catch (e) {}
+}
+
+// ==================== CARREGAMENTO PRINCIPAL ====================
+window.renderizarTelaServicos = async function(mostrarToast = false, silencioso = false) {
     try {
         if (!window.mecanicoNomeCompletoCache) {
             const s = localStorage.getItem('ccol_user_session');
@@ -34,7 +75,6 @@ window.renderizarTelaServicos = async function() {
             }
         }
 
-        // OTIMIZAÇÃO: Carregamento Paralelo para reduzir tempo de tela branca
         const promessasIniciais = [];
 
         if (mMecanicosCache.length === 0) {
@@ -49,7 +89,8 @@ window.renderizarTelaServicos = async function() {
             })());
         }
 
-        if (mOS_PecasCache.length === 0) {
+        // Atualiza peças sempre no refresh manual ou se cache vazio para manter saldos reais
+        if (mOS_PecasCache.length === 0 || mostrarToast) {
             promessasIniciais.push((async () => {
                 let qPecas = window.supabaseClient.from('almoxarifado_pecas').select('*');
                 if (typeof window.aplicarFiltroFilial === 'function') qPecas = window.aplicarFiltroFilial(qPecas);
@@ -60,7 +101,7 @@ window.renderizarTelaServicos = async function() {
             })());
         }
 
-        if (mOS_KitsCache.length === 0) {
+        if (mOS_KitsCache.length === 0 || mostrarToast) {
             promessasIniciais.push((async () => {
                 let qKits = window.supabaseClient.from('almoxarifado_kits').select('*');
                 if (typeof window.aplicarFiltroFilial === 'function') qKits = window.aplicarFiltroFilial(qKits);
@@ -77,13 +118,12 @@ window.renderizarTelaServicos = async function() {
                 mOS_FrotasCache = data || [];
                 mOS_FrotasMap = {};
                 mOS_FrotasCache.forEach(f => {
-                    if(f.cavalo) mOS_FrotasMap[f.cavalo] = f;
-                    if(f.go) mOS_FrotasMap[f.go] = f;
+                    if (f.cavalo) mOS_FrotasMap[f.cavalo] = f;
+                    if (f.go) mOS_FrotasMap[f.go] = f;
                 });
             })());
         }
 
-        // Aguarda todas as buscas em paralelo
         await Promise.all(promessasIniciais);
 
         let queryOS = window.supabaseClient.from('ordens_servico')
@@ -102,21 +142,80 @@ window.renderizarTelaServicos = async function() {
         const osEmExecucao = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção').map(os => os.id);
         
         if (osEmExecucao.length > 0) {
-            let queryReq = window.supabaseClient.from('os_pecas_utilizadas').select(`*`).in('os_id', osEmExecucao).order('id', { ascending: false });
+            let queryReq = window.supabaseClient.from('os_pecas_utilizadas').select('*').in('os_id', osEmExecucao).order('id', { ascending: false });
             if (typeof window.aplicarFiltroFilial === 'function') queryReq = window.aplicarFiltroFilial(queryReq);
             const { data: reqData } = await queryReq;
             mOS_Requisicoes = reqData || [];
         } else {
             mOS_Requisicoes = [];
         }
+
+        // Detecta se alguma peça mudou de Pendente para Aprovado durante auto-refresh
+        if (silencioso && Object.keys(mOS_StatusReqAnterior).length > 0) {
+            const recemAprovadas = mOS_Requisicoes.filter(r =>
+                r.status === 'Aprovado' && mOS_StatusReqAnterior[r.id] === 'Pendente'
+            );
+            if (recemAprovadas.length > 0) {
+                tocarAlertaPecaAprovada();
+                const pecaRef = mOS_PecasMap[recemAprovadas[0].peca_id];
+                Swal.fire({
+                    toast: true, position: 'top-end', icon: 'success',
+                    title: `${recemAprovadas.length} peça(s) liberada(s) no Almoxarifado!`,
+                    text: pecaRef ? pecaRef.nome : 'Pronta para retirada no balcão.',
+                    showConfirmButton: false, timer: 4500, background: '#1e293b', color: '#fff'
+                });
+            }
+        }
+        mOS_StatusReqAnterior = {};
+        mOS_Requisicoes.forEach(r => { mOS_StatusReqAnterior[r.id] = r.status || 'Pendente'; });
         
         mecanicoAtualizarContadores();
         mecanicoRenderizarTabelas();
+
+        if (mostrarToast) {
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Ordens atualizadas!', showConfirmButton: false, timer: 1500, background: '#1e293b', color: '#fff' });
+        }
     } catch (e) {
         console.error("Erro ao carregar serviços:", e);
     }
 };
 
+// ==================== CONTROLES DA TOOLBAR ====================
+window.mecanicoToggleAutoRefresh = function(ativo) {
+    const lbl = document.getElementById('lblAutoRefreshServ');
+    if (lbl) lbl.classList.toggle('ativo', ativo);
+
+    if (timerAutoRefreshServicos) {
+        clearInterval(timerAutoRefreshServicos);
+        timerAutoRefreshServicos = null;
+    }
+    if (ativo) {
+        timerAutoRefreshServicos = setInterval(() => {
+            if (document.getElementById('tabelaServicosDisponiveis')) {
+                renderizarTelaServicos(false, true);
+            } else {
+                clearInterval(timerAutoRefreshServicos);
+                timerAutoRefreshServicos = null;
+            }
+        }, 30000);
+    }
+};
+
+window.mecanicoToggleMinhasOS = function(ativo) {
+    mOS_ApenasMinhas = ativo;
+    const lbl = document.getElementById('lblApenasMinhasOS');
+    if (lbl) lbl.classList.toggle('ativo', ativo);
+    mecanicoRenderizarTabelas();
+};
+
+window.mecanicoFiltrarStatusReq = function(status, btn) {
+    mOS_FiltroStatusReq = status;
+    document.querySelectorAll('.req-filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    mecanicoRenderizarTabelas();
+};
+
+// ==================== NAVEGAÇÃO DE ABAS ====================
 window.mecanicoMudarAba = function(aba) {
     mOS_AbaAtiva = aba;
     
@@ -129,6 +228,9 @@ window.mecanicoMudarAba = function(aba) {
     document.getElementById('divServAbertas').style.display = aba === 'abertas' ? 'flex' : 'none';
     document.getElementById('divServRequisicoes').style.display = aba === 'requisicoes' ? 'flex' : 'none';
     document.getElementById('divServSOS').style.display = aba === 'sos' ? 'block' : 'none';
+
+    const lblMinhas = document.getElementById('lblApenasMinhasOS');
+    if (lblMinhas) lblMinhas.style.display = aba === 'abertas' ? 'inline-flex' : 'none';
     
     if (aba === 'sos') setTimeout(() => mecanicoInicializarMapaSOS(), 300);
     mecanicoRenderizarTabelas();
@@ -143,13 +245,13 @@ window.mecanicoInicializarMapaSOS = function() {
     const bounds = [];
 
     sosAbertas.forEach(os => {
-        let local = os.localizacao_sos || '';
+        const local = os.localizacao_sos || '';
         if (local.includes('http')) {
-            let parts = local.split(' | Ref: ');
-            let match = parts[0].trim().match(/(-?\d+\.\d+),(-?\d+\.\d+)/);
+            const parts = local.split(' | Ref: ');
+            const match = parts[0].trim().match(/(-?\d+\.\d+),(-?\d+\.\d+)/);
             if (match) {
-                let lat = parseFloat(match[1]); let lng = parseFloat(match[2]);
-                let popupMsg = `<div style="text-align:center;"><b>🚨 S.O.S O.S #${os.numero_os || os.id}</b><br><b>Placa:</b> ${os.placa}<br><a href="${parts[0].trim()}" target="_blank">Abrir GPS</a></div>`;
+                const lat = parseFloat(match[1]); const lng = parseFloat(match[2]);
+                const popupMsg = `<div style="text-align:center;"><b>🚨 S.O.S O.S #${os.numero_os || os.id}</b><br><b>Placa:</b> ${os.placa}<br><a href="${parts[0].trim()}" target="_blank">Abrir GPS</a></div>`;
                 L.marker([lat, lng]).addTo(mapaSOSMecanicoInstance).bindPopup(popupMsg);
                 bounds.push([lat, lng]);
             }
@@ -160,9 +262,9 @@ window.mecanicoInicializarMapaSOS = function() {
 };
 
 function mecanicoAtualizarContadores() {
-    document.getElementById('countAceite').innerText = mOS_ListaGeral.filter(os => 
-        os.status !== 'Em Manutenção' && 
-        os.status !== 'Agendada' && 
+    document.getElementById('countAceite').innerText = mOS_ListaGeral.filter(os =>
+        os.status !== 'Em Manutenção' &&
+        os.status !== 'Agendada' &&
         !(os.tipo && os.tipo.startsWith('S.O.S'))
     ).length;
     
@@ -173,7 +275,6 @@ function mecanicoAtualizarContadores() {
 
 function mecanicoObterInfoFrota(placa) {
     if (!placa) return '';
-    // OTIMIZAÇÃO: Busca direta em O(1)
     const frota = mOS_FrotasMap[placa];
     if (!frota) return '';
     
@@ -186,25 +287,40 @@ function mecanicoObterInfoFrota(placa) {
     return html;
 }
 
-function mecanicoRenderizarTabelas() {
+// ==================== RENDERIZAÇÃO DAS ABAS ====================
+window.mecanicoRenderizarTabelas = function() {
+    const termo = (document.getElementById('servSearchInput')?.value || '').toLowerCase().trim();
+
+    const matchBuscaOS = (os) => {
+        if (!termo) return true;
+        return (os.placa || '').toLowerCase().includes(termo) ||
+            String(os.numero_os || os.id).toLowerCase().includes(termo) ||
+            (os.motorista || '').toLowerCase().includes(termo) ||
+            (os.mecanico_responsavel || '').toLowerCase().includes(termo) ||
+            (os.problema || '').toLowerCase().includes(termo);
+    };
+
     if (mOS_AbaAtiva === 'aceite') {
         const container = document.getElementById('tabelaServicosDisponiveis');
-        const osDisp = mOS_ListaGeral.filter(os => 
-            os.status !== 'Em Manutenção' && 
+        const osDisp = mOS_ListaGeral.filter(os =>
+            os.status !== 'Em Manutenção' &&
             os.status !== 'Agendada' &&
-            !(os.tipo && os.tipo.startsWith('S.O.S'))
+            !(os.tipo && os.tipo.startsWith('S.O.S')) &&
+            matchBuscaOS(os)
         );
         
         if (osDisp.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#94a3b8; width:100%; grid-column:1/-1;">Nenhuma O.S. aguardando aceite.</p>';
+            container.innerHTML = '<p style="text-align:center; color:#94a3b8; width:100%; grid-column:1/-1; padding:20px;">Nenhuma O.S. aguardando aceite.</p>';
             return;
         }
 
-        container.innerHTML = osDisp.map(os => `
+        container.innerHTML = osDisp.map(os => {
+            const tempoEspera = calcularTempoDecorrido(os.data_abertura);
+            return `
             <div class="tablet-card" style="border-left: 5px solid #3b82f6;">
                 <div class="card-header-flex">
                     <span class="card-badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">#${os.numero_os || os.id}</span>
-                    <span style="color:#94a3b8; font-size:0.85rem;"><i class="fas fa-clock"></i> ${formatarDataHoraBrasil(os.data_abertura)}</span>
+                    <span class="sla-pill" title="Tempo aguardando atendimento"><i class="fas fa-stopwatch"></i> ${tempoEspera}</span>
                 </div>
                 <div class="card-placa">${os.placa} <span style="font-size:0.85rem; color:#94a3b8; font-weight:normal; vertical-align:middle;">(${os.status})</span></div>
                 ${mecanicoObterInfoFrota(os.placa)}
@@ -213,87 +329,116 @@ function mecanicoRenderizarTabelas() {
                 <div class="card-actions">
                     <button class="btn-acao-grande" style="background: #10b981; color: white;" onclick="abrirModalAssumirOS(${os.id}, '${os.placa}')"><i class="fas fa-hand-holding-medical"></i> Assumir Serviço</button>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
         
     } else if (mOS_AbaAtiva === 'abertas') {
         const container = document.getElementById('listaMinhasOSAbertas');
-        const abertasOs = mOS_ListaGeral.filter(os => os.status === 'Em Manutenção');
+        const usuarioAtual = mecanicoPegarUsuario();
+        const abertasOs = mOS_ListaGeral.filter(os => {
+            if (os.status !== 'Em Manutenção') return false;
+            if (mOS_ApenasMinhas && os.mecanico_responsavel !== usuarioAtual) return false;
+            return matchBuscaOS(os);
+        });
         
         if (abertasOs.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#94a3b8; width:100%; grid-column:1/-1;">Não há O.S. em execução.</p>';
+            container.innerHTML = '<p style="text-align:center; color:#94a3b8; width:100%; grid-column:1/-1; padding:20px;">Não há O.S. em execução para o filtro atual.</p>';
             return;
         }
 
         container.innerHTML = abertasOs.map(os => {
             const isSOS = os.tipo && os.tipo.startsWith('S.O.S');
-            const colorBorder = isSOS ? '#f97316' : '#10b981';
-            const meucard = os.mecanico_responsavel === mecanicoPegarUsuario();
+            const atrasada = verificarPrevisaoEstourada(os.previsao_entrega);
+            const colorBorder = atrasada ? '#ef4444' : (isSOS ? '#f97316' : '#10b981');
+            const meucard = os.mecanico_responsavel === usuarioAtual;
+            const tempoParado = calcularTempoDecorrido(os.data_inicio_manutencao || os.data_abertura);
+            const qtdPendOS = mOS_Requisicoes.filter(r => String(r.os_id) === String(os.id) && (r.status === 'Pendente' || !r.status)).length;
 
             return `
-            <div class="tablet-card" style="border-left: 6px solid ${colorBorder}; ${meucard ? 'background: rgba(16, 185, 129, 0.05);' : ''}">
+            <div class="tablet-card ${atrasada ? 'card-atrasada' : ''}" style="border-left: 6px solid ${colorBorder}; ${meucard ? 'background: rgba(16, 185, 129, 0.06);' : ''}">
                 <div class="card-header-flex">
-                    <span class="card-badge" style="background: ${colorBorder};">#${os.numero_os || os.id} ${isSOS ? 'S.O.S' : 'EM EXECUÇÃO'}</span>
-                    <span style="color:#94a3b8; font-size:0.85rem;">Responsável: <strong style="color:#fff;">${os.mecanico_responsavel}</strong></span>
+                    <span class="card-badge" style="background: ${colorBorder};">#${os.numero_os || os.id} ${atrasada ? 'ATRASADA' : (isSOS ? 'S.O.S' : 'EM EXECUÇÃO')}</span>
+                    <span class="sla-pill ${atrasada ? 'atraso' : ''}"><i class="fas fa-stopwatch"></i> ${tempoParado}</span>
                 </div>
-                <div class="card-placa" style="color: ${colorBorder};">${os.placa}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                    <div class="card-placa" style="color: ${colorBorder};">${os.placa}</div>
+                    ${qtdPendOS > 0 ? `<span class="card-badge" style="background:#f59e0b; font-size:0.75rem;"><i class="fas fa-box-open"></i> ${qtdPendOS} peça(s) pend.</span>` : ''}
+                </div>
+                <div style="color:#94a3b8; font-size:0.85rem; margin-bottom:6px;">Responsável: <strong style="color:#fff;">${os.mecanico_responsavel || '-'}</strong></div>
                 ${mecanicoObterInfoFrota(os.placa)}
-                <div class="card-info-text" style="height: 40px; overflow: hidden; text-overflow: ellipsis;">${os.problema}</div>
+                <div class="card-info-text" style="min-height: 38px; overflow: hidden; text-overflow: ellipsis;">${os.problema || 'Sem descrição'}</div>
                 
-                <div style="border-top: 1px solid #334155; margin-top: 15px; padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="border-top: 1px solid #334155; margin-top: 12px; padding-top: 12px; display: flex; flex-direction: column; gap: 10px;">
                     <div class="card-actions row-tablet" style="margin-top: 0;">
                         <button class="btn-acao-grande" style="background: #3b82f6; color: white; font-size:1rem;" onclick="mecanicoAbrirApontamento(${os.id}, '${os.placa}', '${os.previsao_entrega}')"><i class="fas fa-edit"></i> Preencher</button>
                         <button class="btn-acao-grande" style="background: #10b981; color: white; font-size:1rem;" onclick="abrirModalFinalizarOS(${os.id}, '${os.placa}')"><i class="fas fa-flag-checkered"></i> Finalizar</button>
                     </div>
-                    <button style="background:transparent; border:1px solid #ef4444; color:#ef4444; padding:12px; border-radius:10px; font-weight:bold; width:100%; display:flex; justify-content:center; align-items:center; gap:8px;" onclick="mecanicoDevolverOS(${os.id}, '${os.placa}')"><i class="fas fa-undo"></i> Devolver O.S.</button>
+                    <button style="background:transparent; border:1px solid #ef4444; color:#ef4444; padding:11px; border-radius:10px; font-weight:bold; width:100%; display:flex; justify-content:center; align-items:center; gap:8px; cursor:pointer;" onclick="mecanicoDevolverOS(${os.id}, '${os.placa}')"><i class="fas fa-undo"></i> Devolver O.S.</button>
                 </div>
             </div>`;
         }).join('');
 
     } else if (mOS_AbaAtiva === 'requisicoes') {
         const container = document.getElementById('tabelaMinhasRequisicoes');
-        if (mOS_Requisicoes.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#94a3b8; width:100%; grid-column:1/-1;">Nenhuma requisição feita ainda.</p>';
+        const filtradas = mOS_Requisicoes.filter(r => {
+            const st = r.status || 'Pendente';
+            if (mOS_FiltroStatusReq && st !== mOS_FiltroStatusReq) return false;
+            if (!termo) return true;
+            const pecaObj = mOS_PecasMap[r.peca_id];
+            const osRef = mOS_ListaGeral.find(o => String(o.id) === String(r.os_id));
+            return (pecaObj && ((pecaObj.nome || '').toLowerCase().includes(termo) || (pecaObj.codigo || '').toLowerCase().includes(termo))) ||
+                String(r.os_id || '').includes(termo) ||
+                (osRef && (osRef.placa || '').toLowerCase().includes(termo)) ||
+                (r.mecanico || '').toLowerCase().includes(termo);
+        });
+
+        if (filtradas.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#94a3b8; width:100%; grid-column:1/-1; padding:20px;">Nenhuma requisição encontrada para este filtro.</p>';
             return;
         }
 
-        container.innerHTML = mOS_Requisicoes.map(r => {
-            // OTIMIZAÇÃO: Busca direta O(1) da memória
+        container.innerHTML = filtradas.map(r => {
             const pecaObj = mOS_PecasMap[r.peca_id];
             const pecaNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
             const pecaCod = (pecaObj && pecaObj.codigo) ? `[${pecaObj.codigo}] ` : '';
-            let bgCor = r.status === 'Aprovado' ? 'rgba(16, 185, 129, 0.1)' : (r.status === 'Recusado' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)');
-            let borderCor = r.status === 'Aprovado' ? '#10b981' : (r.status === 'Recusado' ? '#ef4444' : '#f59e0b');
+            const osRef = mOS_ListaGeral.find(o => String(o.id) === String(r.os_id));
+            const placaOS = osRef ? osRef.placa : (r.placa || 'Frota');
+            const st = r.status || 'Pendente';
+            const bgCor = st === 'Aprovado' ? 'rgba(16, 185, 129, 0.1)' : (st === 'Recusado' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)');
+            const borderCor = st === 'Aprovado' ? '#10b981' : (st === 'Recusado' ? '#ef4444' : '#f59e0b');
 
             return `
-            <div class="tablet-card" style="background: ${bgCor}; border-color: ${borderCor}; padding: 12px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
-                    <strong style="color:#fff;">Ref. ID OS: #${r.os_id || 'N/A'}</strong>
-                    <span style="background:${borderCor}; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">${r.status || 'Pendente'}</span>
+            <div class="tablet-card" style="background: ${bgCor}; border-color: ${borderCor}; padding: 14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; gap:8px;">
+                    <strong style="color:#fff;">O.S. #${r.os_id || 'N/A'} • <span style="color:#60a5fa;">${placaOS}</span></strong>
+                    <span style="background:${borderCor}; color:#fff; padding:3px 9px; border-radius:6px; font-size:0.78rem; font-weight:bold;">${st}</span>
                 </div>
-                <div style="color:#3b82f6; font-size:1.1rem; font-weight:bold; margin-bottom:5px;">${pecaCod}${pecaNome}</div>
+                <div style="color:#f8fafc; font-size:1.05rem; font-weight:bold; margin-bottom:6px;">${pecaCod}${pecaNome}</div>
                 <div style="display:flex; justify-content:space-between; color:#cbd5e1; font-size:0.9rem;">
                     <span>Qtd: <strong>${r.quantidade}</strong></span>
                     <span>Local: <strong>${r.compartimento || 'GERAL'}</strong></span>
                 </div>
-                <div style="color:#94a3b8; font-size:0.8rem; margin-top:5px;"><i class="fas fa-user"></i> Solicitante: ${r.mecanico || 'Não registrado'}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                    <span style="color:#94a3b8; font-size:0.8rem;"><i class="fas fa-user"></i> ${r.mecanico || 'Não registrado'}</span>
+                    ${st === 'Pendente' ? `<button type="button" onclick="mecanicoCancelarPeca(${r.id})" style="background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#fca5a5; padding:5px 10px; border-radius:6px; font-size:0.8rem; font-weight:700; cursor:pointer;"><i class="fas fa-trash"></i> Cancelar</button>` : ''}
+                </div>
             </div>`;
         }).join('');
         
     } else if (mOS_AbaAtiva === 'sos') {
         const container = document.getElementById('tabelaServicosSOS');
-        const sosAbertas = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S'));
+        const sosAbertas = mOS_ListaGeral.filter(os => os.tipo && os.tipo.startsWith('S.O.S') && matchBuscaOS(os));
         
         if (sosAbertas.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#94a3b8; width:100%; grid-column:1/-1;">Nenhum chamado S.O.S em aberto.</p>';
+            container.innerHTML = '<p style="text-align:center; color:#94a3b8; width:100%; grid-column:1/-1; padding:20px;">Nenhum chamado S.O.S em aberto.</p>';
             return;
         }
 
         container.innerHTML = sosAbertas.map(os => {
-            let local = os.localizacao_sos || '';
+            const local = os.localizacao_sos || '';
             let linkMapa = ''; let ref = '';
             if (local.includes('http')) {
-                let partes = local.split(' | Ref: ');
+                const partes = local.split(' | Ref: ');
                 linkMapa = partes[0].trim();
                 ref = partes.length > 1 ? partes[1].trim() : '';
             }
@@ -309,7 +454,7 @@ function mecanicoRenderizarTabelas() {
             <div class="tablet-card" style="border-left: 5px solid #f97316; background: #1e293b;">
                 <div class="card-header-flex">
                     <span class="card-badge" style="background: #f97316;">S.O.S #${os.numero_os || os.id}</span>
-                    <span style="color:#94a3b8; font-size:0.85rem;">${formatarDataHoraBrasil(os.data_abertura)}</span>
+                    <span class="sla-pill"><i class="fas fa-stopwatch"></i> ${calcularTempoDecorrido(os.data_abertura)}</span>
                 </div>
                 <div class="card-placa" style="color: #f97316;">${os.placa} <span style="font-size:0.85rem; color:#94a3b8; font-weight:normal;">(${os.status})</span></div>
                 ${mecanicoObterInfoFrota(os.placa)}
@@ -320,41 +465,31 @@ function mecanicoRenderizarTabelas() {
             </div>`;
         }).join('');
     }
-}
+};
 
+// ==================== ASSUMIR, FINALIZAR E DEVOLVER O.S. ====================
 window.abrirModalAssumirOS = function(id, placa) {
     const inputId = document.getElementById('assumirOsId');
     const spanPlaca = document.getElementById('assumirOsPlaca');
     const select = document.getElementById('selMecanicoAssumir');
     const modal = document.getElementById('modalAssumirOS');
-
     if (!inputId || !select || !modal) return;
 
     inputId.value = id;
     if (spanPlaca) spanPlaca.innerText = placa;
     
-    let optionsHtml = '';
     const userAtual = mecanicoPegarUsuario();
-    let listaMecs = [...mMecanicosCache];
-    
-    if (!listaMecs.includes(userAtual)) {
-        listaMecs.push(userAtual);
-        listaMecs.sort();
-    }
+    const listaMecs = [...mMecanicosCache];
+    if (!listaMecs.includes(userAtual)) { listaMecs.push(userAtual); listaMecs.sort(); }
 
-    listaMecs.forEach(nome => {
-        optionsHtml += `<option value="${nome}">${nome}</option>`;
-    });
-    
-    select.innerHTML = optionsHtml;
-    select.value = userAtual; 
-
+    select.innerHTML = listaMecs.map(nome => `<option value="${nome}">${nome}</option>`).join('');
+    select.value = userAtual;
     modal.style.display = 'flex';
 };
 
 window.fecharModalAssumirOS = () => {
     const modal = document.getElementById('modalAssumirOS');
-    if(modal) modal.style.display = 'none';
+    if (modal) modal.style.display = 'none';
 };
 
 window.confirmarAssumirOS = async function(e) {
@@ -365,29 +500,28 @@ window.confirmarAssumirOS = async function(e) {
     const res = await Swal.fire({
         title: 'Assumir O.S.',
         text: `Deseja assumir esta O.S. como ${nomeParaSalvar}?`,
-        icon: 'question',
-        showCancelButton: true,
+        icon: 'question', showCancelButton: true,
         background: '#1e293b', color: '#fff',
         confirmButtonColor: '#3b82f6', cancelButtonColor: '#475569',
         confirmButtonText: 'Sim, Assumir', cancelButtonText: 'Cancelar'
     });
-    
-    if(!res.isConfirmed) return;
+    if (!res.isConfirmed) return;
     
     try {
-        const { error } = await window.supabaseClient.from('ordens_servico').update({ 
-            status: 'Em Manutenção', 
-            mecanico_responsavel: nomeParaSalvar, 
+        const { error } = await window.supabaseClient.from('ordens_servico').update({
+            status: 'Em Manutenção',
+            mecanico_responsavel: nomeParaSalvar,
             data_inicio_manutencao: new Date().toISOString()
         }).eq('id', id);
-        
         if (error) throw error;
         
-        Swal.fire({icon: 'success', title: 'Sucesso', text: 'O.S. Assumida com sucesso!', background: '#1e293b', color: '#fff', timer: 2000, showConfirmButton: false});
+        Swal.fire({ icon: 'success', title: 'Sucesso', text: 'O.S. Assumida com sucesso!', background: '#1e293b', color: '#fff', timer: 1800, showConfirmButton: false });
         fecharModalAssumirOS();
         await renderizarTelaServicos();
-        mecanicoMudarAba('abertas'); 
-    } catch (err) { Swal.fire({icon: 'error', title: 'Erro', text: 'Erro ao tentar assumir a O.S.', background: '#1e293b', color: '#fff'}); }
+        mecanicoMudarAba('abertas');
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Erro', text: 'Erro ao tentar assumir a O.S.', background: '#1e293b', color: '#fff' });
+    }
 };
 
 window.abrirModalFinalizarOS = function(id, placa) {
@@ -407,122 +541,146 @@ window.mecanicoConfirmarFinalizacao = async function(e) {
     const dataConclusao = document.getElementById('finDataConclusao').value;
     const obsOficina = document.getElementById('finObservacoes').value.trim();
 
+    // Trava de segurança: verifica peças pendentes e mão de obra lançada
+    let avisos = [];
+    const pecasPendentes = mOS_Requisicoes.filter(r => String(r.os_id) === String(id) && (r.status === 'Pendente' || !r.status));
+    if (pecasPendentes.length > 0) {
+        avisos.push(`• Existem <b>${pecasPendentes.length} peça(s) pendente(s)</b> aguardando o almoxarifado.`);
+    }
+    try {
+        const { count } = await window.supabaseClient.from('os_servicos_executados').select('id', { count: 'exact', head: true }).eq('os_id', id);
+        if (!count || count === 0) {
+            avisos.push(`• <b>Nenhuma mão de obra</b> foi lançada nesta O.S. ainda.`);
+        }
+    } catch (err) {}
+
+    const htmlAviso = avisos.length > 0
+        ? `<div style="text-align:left; background:rgba(245,158,11,0.15); border:1px solid #f59e0b; padding:12px; border-radius:8px; margin-bottom:12px; color:#fde68a; font-size:0.9rem;">${avisos.join('<br>')}</div>Deseja finalizar e liberar o veículo mesmo assim?`
+        : 'Tem certeza que deseja FINALIZAR esta O.S.? O veículo será liberado.';
+
     const res = await Swal.fire({
         title: 'Finalizar O.S.',
-        text: 'Tem certeza que deseja FINALIZAR esta O.S.? O veículo será liberado.',
-        icon: 'warning',
+        html: htmlAviso,
+        icon: avisos.length > 0 ? 'warning' : 'question',
         showCancelButton: true,
         background: '#1e293b', color: '#fff',
         confirmButtonColor: '#10b981', cancelButtonColor: '#475569',
         confirmButtonText: 'Sim, Concluir', cancelButtonText: 'Cancelar'
     });
-    
-    if(!res.isConfirmed) return;
+    if (!res.isConfirmed) return;
 
     try {
         const osOriginal = mOS_ListaGeral.find(o => o.id == id);
-        let observacoesAtualizadas = osOriginal.observacoes || '';
+        let observacoesAtualizadas = osOriginal ? (osOriginal.observacoes || '') : '';
         if (obsOficina !== '') observacoesAtualizadas += `\n[Oficina - ${mecanicoPegarUsuario()}]: ${obsOficina}`;
 
         const { error } = await window.supabaseClient.from('ordens_servico').update({
             status: 'Concluída', data_conclusao: dataConclusao, observacoes: observacoesAtualizadas.trim()
         }).eq('id', id);
+        if (error) throw error;
 
-        if(error) throw error;
-
-        Swal.fire({icon: 'success', title: 'Concluída!', text: 'O.S. Finalizada com sucesso!', background: '#1e293b', color: '#fff', timer: 2000, showConfirmButton: false});
+        Swal.fire({ icon: 'success', title: 'Concluída!', text: 'O.S. Finalizada com sucesso!', background: '#1e293b', color: '#fff', timer: 1800, showConfirmButton: false });
         fecharModalFinalizarOS();
-        await renderizarTelaServicos(); 
-    } catch(err) { Swal.fire({icon: 'error', title: 'Erro', text: 'Erro ao tentar finalizar a O.S.', background: '#1e293b', color: '#fff'}); }
+        await renderizarTelaServicos();
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Erro', text: 'Erro ao tentar finalizar a O.S.', background: '#1e293b', color: '#fff' });
+    }
 };
 
 window.mecanicoDevolverOS = async function(id, placa) {
     const res = await Swal.fire({
         title: 'Devolver O.S.',
-        text: 'Deseja DEVOLVER a O.S. para disponíveis?',
-        icon: 'warning',
-        showCancelButton: true,
+        text: `Deseja DEVOLVER a O.S. da placa ${placa} para disponíveis?`,
+        icon: 'warning', showCancelButton: true,
         background: '#1e293b', color: '#fff',
         confirmButtonColor: '#ef4444', cancelButtonColor: '#475569',
         confirmButtonText: 'Sim, Devolver', cancelButtonText: 'Cancelar'
     });
-    
-    if(!res.isConfirmed) return;
+    if (!res.isConfirmed) return;
     
     try {
-        await window.supabaseClient.from('ordens_servico').update({ 
+        await window.supabaseClient.from('ordens_servico').update({
             status: 'Aguardando Oficina', mecanico_responsavel: null, data_inicio_manutencao: null
         }).eq('id', id);
         await renderizarTelaServicos();
         mecanicoMudarAba('aceite');
-    } catch (e) { Swal.fire({icon: 'error', title: 'Erro', text: 'Erro ao devolver OS.', background: '#1e293b', color: '#fff'}); }
+    } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Erro', text: 'Erro ao devolver OS.', background: '#1e293b', color: '#fff' });
+    }
 };
 
+// ==================== MODAL APONTAMENTO ====================
 window.mecanicoAbrirApontamento = async function(id, placa, previsao) {
     mOS_Atual = id;
     const elPlaca = document.getElementById('apontPlaca');
     if (elPlaca) elPlaca.innerText = placa;
     
-    let optionsHtml = '';
     const userAtual = mecanicoPegarUsuario();
-    let listaMecs = [...mMecanicosCache];
-    
-    if (!listaMecs.includes(userAtual)) {
-        listaMecs.push(userAtual);
-        listaMecs.sort();
-    }
-
-    listaMecs.forEach(nome => {
-        optionsHtml += `<option value="${nome}">${nome}</option>`;
-    });
+    const listaMecs = [...mMecanicosCache];
+    if (!listaMecs.includes(userAtual)) { listaMecs.push(userAtual); listaMecs.sort(); }
+    const optionsHtml = listaMecs.map(nome => `<option value="${nome}">${nome}</option>`).join('');
 
     const selectServico = document.getElementById('aponMecanicoServico');
     const selectPeca = document.getElementById('aponMecanicoPeca');
-    
-    if (selectServico) {
-        selectServico.innerHTML = optionsHtml;
-        selectServico.value = userAtual;
-    }
-    if (selectPeca) {
-        selectPeca.innerHTML = optionsHtml;
-        selectPeca.value = userAtual;
-    }
+    if (selectServico) { selectServico.innerHTML = optionsHtml; selectServico.value = userAtual; }
+    if (selectPeca) { selectPeca.innerHTML = optionsHtml; selectPeca.value = userAtual; }
     
     const inputPrev = document.getElementById('aponPrevisaoGlobal');
     if (inputPrev) {
         if (previsao && previsao !== 'null' && previsao !== 'undefined') {
-            inputPrev.value = new Date(new Date(previsao).getTime() - (3 * 3600000)).toISOString().slice(0, 16);
-        } else { 
-            inputPrev.value = ''; 
+            const dt = new Date(previsao);
+            dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+            inputPrev.value = dt.toISOString().slice(0, 16);
+        } else {
+            inputPrev.value = '';
         }
     }
     
     const modal = document.getElementById('modalApontamentoOS');
     if (modal) modal.style.display = 'flex';
     
-    // OTIMIZAÇÃO: Removemos os `await` para o modal abrir instantaneamente
     mecanicoCarregarPecas();
     mecanicoCarregarKits();
     mecanicoMontarPlacasTritrem(placa);
     mecanicoAtualizarTabelasModal();
 };
 
+window.mecanicoAplicarAtalhoPrevisao = function(atalho) {
+    const inputPrev = document.getElementById('aponPrevisaoGlobal');
+    if (!inputPrev) return;
+    const alvo = new Date();
+    if (atalho === 'amanha08') {
+        alvo.setDate(alvo.getDate() + 1);
+        alvo.setHours(8, 0, 0, 0);
+    } else {
+        alvo.setHours(alvo.getHours() + Number(atalho));
+    }
+    alvo.setMinutes(alvo.getMinutes() - alvo.getTimezoneOffset());
+    inputPrev.value = alvo.toISOString().slice(0, 16);
+    mecanicoSalvarPrevisaoOS();
+};
+
+window.mecanicoAlterarQtdAvulsa = function(delta) {
+    const inp = document.getElementById('aponQtdPeca');
+    if (!inp) return;
+    const atual = parseFloat(inp.value) || 0;
+    const novo = Math.max(1, Math.round((atual + delta) * 100) / 100);
+    inp.value = novo;
+};
+
 function mecanicoMontarPlacasTritrem(placaPrincipal) {
     const divChecks = document.getElementById('aponCheckboxesServico');
     const selP = document.getElementById('aponCompartimentoPeca');
-    
-    // OTIMIZAÇÃO: Consulta na memória sem travar a interface chamando o banco
     const data = mOS_FrotasMap[placaPrincipal];
+    const baseStyle = "background:rgba(255,255,255,0.05); padding:10px 14px; border-radius:8px; border:1px solid #475569; display:flex; align-items:center; gap:10px; font-weight:bold; cursor:pointer;";
     
-    const baseStyle = "background:rgba(255,255,255,0.05); padding:10px 15px; border-radius:8px; border:1px solid #475569; display:flex; align-items:center; gap:10px; font-weight:bold; cursor:pointer;";
-    
-    let htmlChecks = `<label style="${baseStyle}"><input type="checkbox" class="chk-comp-servico" value="FROTA (${placaPrincipal})" checked style="transform: scale(1.5);"> 🚚 FROTA</label>`;
+    let htmlChecks = `<label style="${baseStyle}"><input type="checkbox" class="chk-comp-servico" value="FROTA (${placaPrincipal})" checked style="transform: scale(1.4);"> 🚚 FROTA</label>`;
     let optsPeca = `<option value="FROTA - ${placaPrincipal}">FROTA</option>`;
     
     if (data) {
-        if (data.carreta1) { htmlChecks += `<label style="${baseStyle}"><input type="checkbox" class="chk-comp-servico" value="1ª C (${data.carreta1})" style="transform: scale(1.5);"> 🔗 1ª C</label>`; optsPeca += `<option value="1ª C - ${data.carreta1}">1ª C</option>`; }
-        if (data.carreta2) { htmlChecks += `<label style="${baseStyle}"><input type="checkbox" class="chk-comp-servico" value="2ª C (${data.carreta2})" style="transform: scale(1.5);"> 🔗 2ª C</label>`; optsPeca += `<option value="2ª C - ${data.carreta2}">2ª C</option>`; }
-        if (data.carreta3) { htmlChecks += `<label style="${baseStyle}"><input type="checkbox" class="chk-comp-servico" value="3ª C (${data.carreta3})" style="transform: scale(1.5);"> 🔗 3ª C</label>`; optsPeca += `<option value="3ª C - ${data.carreta3}">3ª C</option>`; }
+        if (data.carreta1) { htmlChecks += `<label style="${baseStyle}"><input type="checkbox" class="chk-comp-servico" value="1ª C (${data.carreta1})" style="transform: scale(1.4);"> 🔗 1ª C</label>`; optsPeca += `<option value="1ª C - ${data.carreta1}">1ª C</option>`; }
+        if (data.carreta2) { htmlChecks += `<label style="${baseStyle}"><input type="checkbox" class="chk-comp-servico" value="2ª C (${data.carreta2})" style="transform: scale(1.4);"> 🔗 2ª C</label>`; optsPeca += `<option value="2ª C - ${data.carreta2}">2ª C</option>`; }
+        if (data.carreta3) { htmlChecks += `<label style="${baseStyle}"><input type="checkbox" class="chk-comp-servico" value="3ª C (${data.carreta3})" style="transform: scale(1.4);"> 🔗 3ª C</label>`; optsPeca += `<option value="3ª C - ${data.carreta3}">3ª C</option>`; }
     }
     
     if (divChecks) divChecks.innerHTML = htmlChecks;
@@ -531,61 +689,46 @@ function mecanicoMontarPlacasTritrem(placaPrincipal) {
 
 window.mecanicoSalvarPrevisaoOS = async function() {
     const inputPrev = document.getElementById('aponPrevisaoGlobal');
-    if (!inputPrev) return;
-    const novaPrev = inputPrev.value;
-    
-    if(!novaPrev) {
-        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Defina a data e hora previstas.', background: '#1e293b', color: '#fff'});
+    if (!inputPrev || !inputPrev.value) {
+        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Defina a data e hora previstas.', background: '#1e293b', color: '#fff' });
         return;
     }
-    
-    await window.supabaseClient.from('ordens_servico').update({ previsao_entrega: novaPrev }).eq('id', mOS_Atual);
-    Swal.fire({icon: 'success', title: 'Ok', text: 'Previsão salva com sucesso!', background: '#1e293b', color: '#fff', timer: 1500, showConfirmButton: false});
+    await window.supabaseClient.from('ordens_servico').update({ previsao_entrega: inputPrev.value }).eq('id', mOS_Atual);
+    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Previsão salva!', background: '#1e293b', color: '#fff', timer: 1500, showConfirmButton: false });
 };
 
 window.mecanicoAddTextoServico = function(texto) {
     const input = document.getElementById('aponDescServico');
-    if (input) {
-        if (input.value) {
-            input.value = input.value + ", " + texto;
-        } else {
-            input.value = texto;
-        }
-    }
+    if (input) input.value = input.value ? `${input.value}, ${texto}` : texto;
 };
 
 window.mecanicoAddServico = async function() {
     const elDesc = document.getElementById('aponDescServico');
     const elPrev = document.getElementById('aponPrevisaoGlobal');
     const elMecServ = document.getElementById('aponMecanicoServico');
-
     if (!elDesc) return;
     
     const desc = elDesc.value.trim();
-    const previsao = elPrev ? elPrev.value : 'Ver Previsão Global';
     const mecExecutante = elMecServ ? elMecServ.value : mecanicoPegarUsuario();
     
     if (elPrev && !elPrev.value) {
-        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Defina a Previsão no topo antes de adicionar serviços.', background: '#1e293b', color: '#fff'});
+        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Defina a Previsão no topo antes de adicionar serviços.', background: '#1e293b', color: '#fff' });
         return;
     }
-    
     const checks = document.querySelectorAll('.chk-comp-servico:checked');
     if (!desc) {
-        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Descreva o serviço ou selecione um atalho.', background: '#1e293b', color: '#fff'});
+        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Descreva o serviço ou selecione um atalho.', background: '#1e293b', color: '#fff' });
         return;
     }
     if (checks.length === 0) {
-        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Marque ao menos um compartimento.', background: '#1e293b', color: '#fff'});
+        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Marque ao menos um compartimento.', background: '#1e293b', color: '#fff' });
         return;
     }
 
     const comps = Array.from(checks).map(c => c.value).join(' / ');
-    const descricaoFinal = `[${comps}] ${desc}`;
-    
-    let insertData = { 
-        os_id: mOS_Atual, 
-        descricao: descricaoFinal, 
+    let insertData = {
+        os_id: mOS_Atual,
+        descricao: `[${comps}] ${desc}`,
         tempo_gasto: 'Ver Previsão Global',
         mecanico: mecExecutante
     };
@@ -599,39 +742,34 @@ window.mecanicoAddServico = async function() {
 function mecanicoCarregarKits() {
     const selectKit = document.getElementById('aponKitSelecionado');
     if (!selectKit) return;
-    selectKit.innerHTML = '<option value="">Selecione um KIT...</option>' + 
+    selectKit.innerHTML = '<option value="">Selecione um KIT...</option>' +
         mOS_KitsCache.map(k => `<option value="${k.id}">${k.nome}</option>`).join('');
 }
 
-// ---------------------------------------------------------------------
-// ROTINA DE REVISÃO E LANÇAMENTO DE KIT NO PAINEL DO MECÂNICO
-// ---------------------------------------------------------------------
-
+// ==================== REVISÃO E LANÇAMENTO DE KIT (COM ESTOQUE E STEPPER) ====================
 window.mecanicoAddKit = function() {
     const kitId = document.getElementById('aponKitSelecionado').value;
     const elComp = document.getElementById('aponCompartimentoPeca');
     const elMecPeca = document.getElementById('aponMecanicoPeca');
 
     if (!kitId) {
-        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Selecione um KIT para lançar.', background: '#1e293b', color: '#fff'});
+        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Selecione um KIT para lançar.', background: '#1e293b', color: '#fff' });
         return;
     }
-
     const kit = mOS_KitsCache.find(k => k.id == kitId);
-    if (!kit) return Swal.fire({icon: 'error', title: 'Erro', text: 'Kit não encontrado.', background: '#1e293b', color: '#fff'});
+    if (!kit) return Swal.fire({ icon: 'error', title: 'Erro', text: 'Kit não encontrado.', background: '#1e293b', color: '#fff' });
 
     const comp = elComp ? elComp.value : 'GERAL';
     const mecSolicitante = elMecPeca ? elMecPeca.value : mecanicoPegarUsuario();
 
     let itensParsed = [];
-    try { itensParsed = typeof kit.itens === 'string' ? JSON.parse(kit.itens) : kit.itens; } catch(e) {}
+    try { itensParsed = typeof kit.itens === 'string' ? JSON.parse(kit.itens) : kit.itens; } catch (e) {}
 
     if (itensParsed.length === 0) {
-        Swal.fire({icon: 'error', title: 'Erro', text: 'Este KIT não possui peças cadastradas.', background: '#1e293b', color: '#fff'});
+        Swal.fire({ icon: 'error', title: 'Erro', text: 'Este KIT não possui peças cadastradas.', background: '#1e293b', color: '#fff' });
         return;
     }
 
-    // Copia profunda dos itens para o estado do modal
     window.itensKitRevisaoAtual = JSON.parse(JSON.stringify(itensParsed));
     window.kitRevisaoContexto = { comp, mecanico: mecSolicitante };
 
@@ -642,9 +780,15 @@ window.mecanicoAddKit = function() {
 
 window.fecharModalRevisaoKit = function() {
     document.getElementById('modalRevisaoKit').style.display = 'none';
-    // Limpa a seleção do Kit no painel debaixo para permitir que o usuário possa selecionar de novo se quiser
     const selKit = document.getElementById('aponKitSelecionado');
-    if(selKit) selKit.value = '';
+    if (selKit) selKit.value = '';
+};
+
+window.mecanicoAlterarQtdKit = function(index, delta) {
+    const item = window.itensKitRevisaoAtual[index];
+    if (!item) return;
+    item.quantidade = Math.max(1, Math.round((parseFloat(item.quantidade || 0) + delta) * 100) / 100);
+    window.renderizarItensKitRevisao();
 };
 
 window.renderizarItensKitRevisao = function() {
@@ -658,18 +802,25 @@ window.renderizarItensKitRevisao = function() {
 
     container.innerHTML = window.itensKitRevisaoAtual.map((item, index) => {
         const codigo = item.codigo ? `[${item.codigo}] ` : '';
+        const pecaReal = mOS_PecasMap[item.peca_id];
+        const saldo = pecaReal ? parseFloat(pecaReal.quantidade || 0) : 0;
+        const temSaldo = saldo >= parseFloat(item.quantidade || 0);
+        const badgeSaldo = `<span style="display:inline-block; margin-top:4px; font-size:0.78rem; font-weight:700; padding:2px 7px; border-radius:4px; background:${temSaldo ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.2)'}; color:${temSaldo ? '#34d399' : '#fca5a5'};">Estoque: ${saldo} ${pecaReal ? pecaReal.unidade || 'UN' : 'UN'}</span>`;
+
         return `
-        <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; gap: 10px;">
-            <div style="flex: 1; line-height: 1.3;">
-                <strong style="color:#fff; font-size: 0.95rem;">${codigo}${item.nome}</strong>
+        <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; gap: 10px; flex-wrap:wrap;">
+            <div style="flex: 1; min-width:180px; line-height: 1.3;">
+                <strong style="color:#fff; font-size: 0.95rem;">${codigo}${item.nome}</strong><br>
+                ${badgeSaldo}
             </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="display: flex; align-items: center; background: #0f172a; border: 1px solid #475569; border-radius: 8px; overflow: hidden;">
-                    <input type="number" step="0.01" min="0.01" value="${item.quantidade}" 
-                        onchange="window.itensKitRevisaoAtual[${index}].quantidade = parseFloat(this.value)"
-                        style="width: 70px; background: transparent; border: none; color: #fff; text-align: center; padding: 8px; outline: none; font-weight: bold;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div class="qty-stepper" style="height:40px;">
+                    <button type="button" style="width:36px; font-size:1.1rem;" onclick="mecanicoAlterarQtdKit(${index}, -1)">−</button>
+                    <input type="number" step="0.01" min="0.01" value="${item.quantidade}" style="width:55px; font-size:0.95rem;"
+                        onchange="window.itensKitRevisaoAtual[${index}].quantidade = parseFloat(this.value); window.renderizarItensKitRevisao();">
+                    <button type="button" style="width:36px; font-size:1.1rem;" onclick="mecanicoAlterarQtdKit(${index}, 1)">+</button>
                 </div>
-                <button type="button" onclick="mecanicoRemoverItemKitRevisao(${index})" style="background:rgba(239,68,68,0.1); border:1px solid #ef4444; color:#ef4444; font-size:1.1rem; padding:8px 12px; border-radius:8px; cursor: pointer;">
+                <button type="button" onclick="mecanicoRemoverItemKitRevisao(${index})" style="background:rgba(239,68,68,0.1); border:1px solid #ef4444; color:#ef4444; font-size:1.05rem; padding:8px 11px; border-radius:8px; cursor: pointer;">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -684,18 +835,18 @@ window.mecanicoRemoverItemKitRevisao = function(index) {
 
 window.mecanicoConfirmarKitRevisao = async function() {
     if (window.itensKitRevisaoAtual.length === 0) {
-        Swal.fire({icon: 'warning', title: 'Atenção', text: 'O KIT está vazio. Cancele a operação ou adicione peças manualmente.', background: '#1e293b', color: '#fff'});
+        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'O KIT está vazio.', background: '#1e293b', color: '#fff' });
         return;
     }
 
-    let inserts = [];
+    const inserts = [];
     window.itensKitRevisaoAtual.forEach(item => {
-        if(item.quantidade > 0) {
-            let insertPeca = { 
-                os_id: mOS_Atual, 
-                peca_id: item.peca_id, 
-                quantidade: item.quantidade, 
-                compartimento: window.kitRevisaoContexto.comp, 
+        if (item.quantidade > 0) {
+            let insertPeca = {
+                os_id: mOS_Atual,
+                peca_id: item.peca_id,
+                quantidade: item.quantidade,
+                compartimento: window.kitRevisaoContexto.comp,
                 status: 'Pendente',
                 mecanico: window.kitRevisaoContexto.mecanico
             };
@@ -704,54 +855,35 @@ window.mecanicoConfirmarKitRevisao = async function() {
         }
     });
 
-    if (inserts.length === 0) {
-        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Nenhuma quantidade válida encontrada para ser lançada.', background: '#1e293b', color: '#fff'});
-        return;
-    }
+    if (inserts.length === 0) return;
 
-    let res = await window.supabaseClient.from('os_pecas_utilizadas').insert(inserts);
-
-    if(res.error) {
-        Swal.fire({icon: 'error', title: 'Erro', text: "Erro ao requisitar KIT: " + res.error.message, background: '#1e293b', color: '#fff'});
+    const res = await window.supabaseClient.from('os_pecas_utilizadas').insert(inserts);
+    if (res.error) {
+        Swal.fire({ icon: 'error', title: 'Erro', text: "Erro ao requisitar KIT: " + res.error.message, background: '#1e293b', color: '#fff' });
         return;
     }
 
     window.fecharModalRevisaoKit();
-    
-    Swal.fire({
-        icon: 'success', title: 'Lançado!', 
-        text: 'KIT requisitado com sucesso ao almoxarifado.', 
-        background: '#1e293b', color: '#fff', timer: 2000, showConfirmButton: false
-    });
-    
+    Swal.fire({ icon: 'success', title: 'Lançado!', text: 'KIT requisitado com sucesso ao almoxarifado.', background: '#1e293b', color: '#fff', timer: 1800, showConfirmButton: false });
     renderizarTelaServicos();
     mecanicoAtualizarTabelasModal();
 };
 
-// ---------------------------------------------------------------------
-
+// ==================== AUTOCOMPLETE DE PEÇAS ====================
 window.mecanicoToggleLista = function() {
     const container = document.getElementById('listaPecasCustom');
     const inputPeca = document.getElementById('pesquisaPeca');
     if (!container || !inputPeca) return;
-
-    if (container.style.display === 'block') {
-        container.style.display = 'none';
-    } else {
-        inputPeca.focus();
-        mecanicoFiltrarPecasDebounced(true);
-    }
+    if (container.style.display === 'block') container.style.display = 'none';
+    else { inputPeca.focus(); mecanicoFiltrarPecasDebounced(true); }
 };
 
 let timerPecasDebounce;
 window.mecanicoFiltrarPecasDebounced = function(forcarMostrar = false) {
     clearTimeout(timerPecasDebounce);
-    timerPecasDebounce = setTimeout(() => {
-        mecanicoFiltrarPecasExec(forcarMostrar);
-    }, 300);
+    timerPecasDebounce = setTimeout(() => mecanicoFiltrarPecasExec(forcarMostrar), 250);
 };
 
-// ADICIONADO: Alias para evitar erro de cache no domínio onde o HTML ainda procura o nome antigo da função
 window.mecanicoFiltrarPecas = function(forcarMostrar = false) {
     window.mecanicoFiltrarPecasDebounced(forcarMostrar);
 };
@@ -761,22 +893,12 @@ function mecanicoFiltrarPecasExec(forcarMostrar = false) {
     const elCat = document.getElementById('filtroCategoriaPeca');
     const container = document.getElementById('listaPecasCustom');
     const btnLimpar = document.getElementById('btnLimparPesquisa');
-
     if (!input || !container) return;
 
     const termo = input.value.trim().toLowerCase();
     const cat = elCat ? elCat.value : '';
-
-    if (termo.length > 0 && btnLimpar) {
-        btnLimpar.style.display = 'flex';
-    } else if (btnLimpar) {
-        btnLimpar.style.display = 'none';
-    }
-
-    if (termo.length === 0 && !forcarMostrar) {
-        container.style.display = 'none';
-        return;
-    }
+    if (btnLimpar) btnLimpar.style.display = termo.length > 0 ? 'flex' : 'none';
+    if (termo.length === 0 && !forcarMostrar) { container.style.display = 'none'; return; }
 
     let filtradas = mOS_PecasCache.filter(p => {
         const matchTermo = termo === "" || p.nome.toLowerCase().includes(termo) || (p.codigo && p.codigo.toLowerCase().includes(termo));
@@ -785,7 +907,6 @@ function mecanicoFiltrarPecasExec(forcarMostrar = false) {
     });
 
     let msgLimite = '';
-    // Limite otimizado para tablets (50 itens de renderização inicial)
     if (filtradas.length > 50 && termo === "") {
         filtradas = filtradas.slice(0, 50);
         msgLimite = `<div style="padding:10px; text-align:center; color:#fbbf24; font-size:0.85rem; background:rgba(245, 158, 11, 0.1); border-bottom:1px solid #334155;">Mostrando as primeiras 50 peças. Digite para buscar.</div>`;
@@ -796,19 +917,19 @@ function mecanicoFiltrarPecasExec(forcarMostrar = false) {
     } else {
         container.innerHTML = msgLimite + filtradas.map(x => {
             const codigo = x.codigo ? x.codigo : '';
+            const corEst = parseFloat(x.quantidade || 0) > 0 ? '#10b981' : '#f87171';
             return `
             <div class="peca-item" onclick="mecanicoSelecionarPecaCustom(${x.id}, '${x.nome.replace(/'/g, "\\'")}', '${codigo}')">
                 <div class="peca-item-info">
                     <span class="peca-item-nome">${x.nome}</span>
                     ${codigo ? `<span class="peca-item-codigo"><i class="fas fa-barcode"></i> ${codigo}</span>` : ''}
                 </div>
-                <div class="peca-item-estoque">
-                    <i class="fas fa-box"></i> ${x.quantidade} ${x.unidade||'UN'}
+                <div class="peca-item-estoque" style="color:${corEst};">
+                    <i class="fas fa-box"></i> ${x.quantidade} ${x.unidade || 'UN'}
                 </div>
             </div>`;
         }).join('');
     }
-    
     container.style.display = 'block';
 }
 
@@ -818,17 +939,10 @@ window.mecanicoSelecionarPecaCustom = function(id, nome, codigo) {
     const listCustom = document.getElementById('listaPecasCustom');
     const inputQtd = document.getElementById('aponQtdPeca');
 
-    if(inputId) inputId.value = id;
-    
-    const desc = codigo ? `[${codigo}] ${nome}` : nome;
-    if(inputPesquisa) inputPesquisa.value = desc;
-    
-    if(listCustom) listCustom.style.display = 'none';
-    
-    if(inputQtd) {
-        inputQtd.focus();
-        inputQtd.select();
-    }
+    if (inputId) inputId.value = id;
+    if (inputPesquisa) inputPesquisa.value = codigo ? `[${codigo}] ${nome}` : nome;
+    if (listCustom) listCustom.style.display = 'none';
+    if (inputQtd) { inputQtd.focus(); inputQtd.select(); }
 };
 
 window.mecanicoLimparPesquisaPeca = function() {
@@ -836,28 +950,27 @@ window.mecanicoLimparPesquisaPeca = function() {
     const inputId = document.getElementById('aponPecaId');
     const listaCustom = document.getElementById('listaPecasCustom');
     const btnLimpar = document.getElementById('btnLimparPesquisa');
-
-    if(inputPeca) inputPeca.value = '';
-    if(inputId) inputId.value = '';
-    if(listaCustom) listaCustom.style.display = 'none';
-    if(btnLimpar) btnLimpar.style.display = 'none';
+    if (inputPeca) inputPeca.value = '';
+    if (inputId) inputId.value = '';
+    if (listaCustom) listaCustom.style.display = 'none';
+    if (btnLimpar) btnLimpar.style.display = 'none';
 };
 
 document.addEventListener('click', function(e) {
     const searchBox = document.getElementById('pesquisaPeca');
     const list = document.getElementById('listaPecasCustom');
     const btnShow = document.getElementById('btnMostrarLista');
-    if(searchBox && list && e.target !== searchBox && !list.contains(e.target) && e.target !== btnShow && !(btnShow && btnShow.contains(e.target))) {
+    if (searchBox && list && e.target !== searchBox && !list.contains(e.target) && e.target !== btnShow && !(btnShow && btnShow.contains(e.target))) {
         list.style.display = 'none';
     }
 });
 
+// ==================== ADICIONAR / CANCELAR PEÇA E LISTAR ====================
 window.mecanicoAddPeca = async function() {
     const elPecaId = document.getElementById('aponPecaId');
     const elComp = document.getElementById('aponCompartimentoPeca');
     const elMecPeca = document.getElementById('aponMecanicoPeca');
     const elQtd = document.getElementById('aponQtdPeca');
-
     if (!elPecaId || !elQtd) return;
 
     const pecaIdVal = elPecaId.value;
@@ -866,44 +979,57 @@ window.mecanicoAddPeca = async function() {
     const qtd = parseFloat(elQtd.value);
 
     if (!pecaIdVal || qtd <= 0) {
-        Swal.fire({icon: 'warning', title: 'Atenção', text: 'Por favor, pesquise e SELECIONE a peça clicando nela na lista, e informe a quantidade.', background: '#1e293b', color: '#fff'});
+        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Pesquise e SELECIONE a peça na lista, e informe a quantidade.', background: '#1e293b', color: '#fff' });
         return;
     }
-    
-    const pecaId = Number(pecaIdVal);
 
-    let insertPeca = { 
-        os_id: mOS_Atual, 
-        peca_id: pecaId, 
-        quantidade: qtd, 
-        compartimento: comp, 
+    let insertPeca = {
+        os_id: mOS_Atual,
+        peca_id: Number(pecaIdVal),
+        quantidade: qtd,
+        compartimento: comp,
         status: 'Pendente',
         mecanico: mecSolicitante
     };
-    
     if (typeof window.injetarFilial === 'function') insertPeca = window.injetarFilial(insertPeca);
 
-    let res = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
-
-    if(res.error) {
-        Swal.fire({icon: 'error', title: 'Erro', text: "Erro ao requisitar peça. Mensagem do BD: " + res.error.message, background: '#1e293b', color: '#fff'});
+    const res = await window.supabaseClient.from('os_pecas_utilizadas').insert([insertPeca]);
+    if (res.error) {
+        Swal.fire({ icon: 'error', title: 'Erro', text: "Erro ao requisitar peça: " + res.error.message, background: '#1e293b', color: '#fff' });
         return;
     }
 
     elQtd.value = '1';
     mecanicoLimparPesquisaPeca();
-    
-    const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, background: '#1e293b', color: '#fff' });
-    Toast.fire({ icon: 'success', title: 'Peça solicitada!' });
-
+    Swal.fire({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1800, background: '#1e293b', color: '#fff', icon: 'success', title: 'Peça solicitada!' });
     renderizarTelaServicos();
     mecanicoAtualizarTabelasModal();
+};
+
+window.mecanicoCancelarPeca = async function(reqId) {
+    const res = await Swal.fire({
+        title: 'Cancelar Requisição',
+        text: 'Deseja cancelar este pedido pendente antes da separação?',
+        icon: 'warning', showCancelButton: true,
+        background: '#1e293b', color: '#fff',
+        confirmButtonColor: '#ef4444', cancelButtonColor: '#475569',
+        confirmButtonText: 'Sim, Cancelar', cancelButtonText: 'Manter'
+    });
+    if (!res.isConfirmed) return;
+
+    const { error } = await window.supabaseClient.from('os_pecas_utilizadas').delete().eq('id', reqId);
+    if (error) {
+        Swal.fire({ icon: 'error', title: 'Erro', text: 'Não foi possível cancelar a requisição.', background: '#1e293b', color: '#fff' });
+        return;
+    }
+    Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Requisição cancelada!', showConfirmButton: false, timer: 1600, background: '#1e293b', color: '#fff' });
+    if (mOS_Atual) mecanicoAtualizarTabelasModal();
+    renderizarTelaServicos();
 };
 
 async function mecanicoAtualizarTabelasModal() {
     const { data: s } = await window.supabaseClient.from('os_servicos_executados').select('*').eq('os_id', mOS_Atual).order('id');
     const tabelaServicos = document.getElementById('tabelaServicosLancados');
-    
     if (tabelaServicos) {
         tabelaServicos.innerHTML = (s && s.length > 0) ? s.map(item => `
             <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
@@ -911,40 +1037,41 @@ async function mecanicoAtualizarTabelasModal() {
                     <strong style="color:#fff; font-size: 0.95rem;">${item.descricao}</strong>
                     <span style="color:#94a3b8; font-size:0.8rem; display:block; margin-top:4px;"><i class="fas fa-user-wrench"></i> ${item.mecanico || mecanicoPegarUsuario()}</span>
                 </div>
-                <button onclick="mecanicoRemoverServico(${item.id})" style="background:transparent; border:none; color:#ef4444; font-size:1.4rem; padding:5px;"><i class="fas fa-trash"></i></button>
+                <button type="button" onclick="mecanicoRemoverServico(${item.id})" style="background:transparent; border:none; color:#ef4444; font-size:1.35rem; padding:5px; cursor:pointer;"><i class="fas fa-trash"></i></button>
             </div>
         `).join('') : '<p style="padding:15px; text-align:center; color:#94a3b8;">Nenhum serviço lançado.</p>';
     }
 
-    const { data: p } = await window.supabaseClient.from('os_pecas_utilizadas').select(`*`).eq('os_id', mOS_Atual).order('id');
+    const { data: p } = await window.supabaseClient.from('os_pecas_utilizadas').select('*').eq('os_id', mOS_Atual).order('id');
     const tabelaPecas = document.getElementById('tabelaPecasLancadas');
-
     if (tabelaPecas) {
         tabelaPecas.innerHTML = (p && p.length > 0) ? p.map(item => {
-            // OTIMIZAÇÃO: Busca rápida na memória sem sobrecarregar o processador
             const pecaObj = mOS_PecasMap[item.peca_id];
             const pNome = pecaObj ? pecaObj.nome : 'Peça Indisponível';
             const pCodigo = (pecaObj && pecaObj.codigo) ? `[${pecaObj.codigo}] ` : '';
+            const st = item.status || 'Pendente';
+            const corBadge = st === 'Pendente' ? '#f59e0b' : (st === 'Aprovado' ? '#10b981' : '#ef4444');
             return `
-            <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
-                <div style="flex: 1; padding-right: 10px;">
-                    <span style="color:#10b981; font-weight:bold; font-size:0.8rem;">[${item.compartimento||'GERAL'}]</span> <strong style="color:#fff;">${item.quantidade}x ${pCodigo}${pNome}</strong>
+            <div style="padding:12px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <div style="flex: 1;">
+                    <span style="color:#10b981; font-weight:bold; font-size:0.8rem;">[${item.compartimento || 'GERAL'}]</span> <strong style="color:#fff;">${item.quantidade}x ${pCodigo}${pNome}</strong>
                     <span style="color:#94a3b8; font-size:0.8rem; display:block; margin-top:4px;"><i class="fas fa-user"></i> Solicitado por: ${item.mecanico || mecanicoPegarUsuario()}</span>
                 </div>
-                <span style="background:${(item.status==='Pendente'||!item.status)?'#f59e0b':(item.status==='Aprovado'?'#10b981':'#ef4444')}; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold; height: fit-content;">${item.status || 'Pendente'}</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="background:${corBadge}; color:#fff; padding:4px 8px; border-radius:4px; font-size:0.78rem; font-weight:bold;">${st}</span>
+                    ${st === 'Pendente' ? `<button type="button" onclick="mecanicoCancelarPeca(${item.id})" title="Cancelar pedido" style="background:transparent; border:none; color:#ef4444; font-size:1.25rem; padding:4px; cursor:pointer;"><i class="fas fa-trash"></i></button>` : ''}
+                </div>
             </div>`;
         }).join('') : '<p style="padding:15px; text-align:center; color:#94a3b8;">Nenhuma peça requisitada.</p>';
     }
 }
 
 async function mecanicoCarregarPecas() {
-    // OTIMIZAÇÃO: Só consulta o banco de dados se a memória (cache) estiver vazia
     if (mOS_PecasCache.length === 0) {
         let query = window.supabaseClient.from('almoxarifado_pecas').select('*').order('nome');
         if (typeof window.aplicarFiltroFilial === 'function') query = window.aplicarFiltroFilial(query);
         const { data } = await query;
         mOS_PecasCache = data || [];
-        
         mOS_PecasMap = {};
         mOS_PecasCache.forEach(p => mOS_PecasMap[p.id] = p);
     }
@@ -952,46 +1079,41 @@ async function mecanicoCarregarPecas() {
     const selectCat = document.getElementById('filtroCategoriaPeca');
     if (selectCat) {
         const categorias = [...new Set(mOS_PecasCache.map(p => p.categoria).filter(Boolean))].sort();
-        selectCat.innerHTML = '<option value="">Buscar em Todas</option>' + 
+        selectCat.innerHTML = '<option value="">Buscar em Todas</option>' +
             categorias.map(c => `<option value="${c}">${c}</option>`).join('');
         selectCat.value = '';
     }
-
-    mecanicoLimparPesquisaPeca(); 
+    mecanicoLimparPesquisaPeca();
 }
 
-window.mecanicoFecharModal = () => { 
+window.mecanicoFecharModal = () => {
     const modal = document.getElementById('modalApontamentoOS');
-    if(modal) modal.style.display = 'none'; 
-    mOS_Atual = null; 
-    renderizarTelaServicos(); 
+    if (modal) modal.style.display = 'none';
+    mOS_Atual = null;
+    renderizarTelaServicos();
 };
 
-function mecanicoPegarUsuario() { 
-    if (window.mecanicoNomeCompletoCache) {
-        return window.mecanicoNomeCompletoCache;
-    }
-    const s = localStorage.getItem('ccol_user_session'); 
+function mecanicoPegarUsuario() {
+    if (window.mecanicoNomeCompletoCache) return window.mecanicoNomeCompletoCache;
+    const s = localStorage.getItem('ccol_user_session');
     if (s) {
         const sessionObj = JSON.parse(s);
         return sessionObj.nome_completo || sessionObj.nome || sessionObj.username;
     }
-    return 'Mecânico'; 
+    return 'Mecânico';
 }
 
-window.mecanicoRemoverServico = async (id) => { 
+window.mecanicoRemoverServico = async (id) => {
     const res = await Swal.fire({
         title: 'Remover Serviço',
         text: 'Deseja realmente remover esta Mão de Obra?',
-        icon: 'warning',
-        showCancelButton: true,
+        icon: 'warning', showCancelButton: true,
         background: '#1e293b', color: '#fff',
         confirmButtonColor: '#ef4444', cancelButtonColor: '#475569',
         confirmButtonText: 'Sim, Remover'
     });
-    
-    if(res.isConfirmed) { 
-        await window.supabaseClient.from('os_servicos_executados').delete().eq('id', id); 
+    if (res.isConfirmed) {
+        await window.supabaseClient.from('os_servicos_executados').delete().eq('id', id);
         mecanicoAtualizarTabelasModal();
-    } 
+    }
 };

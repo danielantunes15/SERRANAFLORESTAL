@@ -8,11 +8,148 @@
     --danger-glow: rgba(239, 68, 68, 0.15);
 }
 
+/* Barra Superior de Controles (Busca, Filtros e Auto-Refresh) */
+.serv-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 12px 15px;
+    margin-bottom: 14px;
+}
+
+.serv-toolbar-left {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    flex: 1;
+    min-width: 240px;
+}
+
+.serv-toolbar-right {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.serv-search-box {
+    position: relative;
+    flex: 1;
+    min-width: 220px;
+    max-width: 380px;
+}
+
+.serv-search-box i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 1rem;
+}
+
+.serv-search-box input {
+    width: 100%;
+    padding: 11px 14px 11px 40px;
+    background: #0f172a;
+    border: 1px solid #475569;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.98rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.serv-search-box input:focus {
+    border-color: #6366f1;
+}
+
+.serv-toggle-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #0f172a;
+    border: 1px solid #475569;
+    padding: 9px 14px;
+    border-radius: 10px;
+    color: #cbd5e1;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s;
+}
+
+.serv-toggle-pill input {
+    accent-color: #10b981;
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+}
+
+.serv-toggle-pill.ativo {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.12);
+    color: #34d399;
+}
+
+.btn-toolbar-sync {
+    background: #334155;
+    color: #f8fafc;
+    border: 1px solid #475569;
+    padding: 10px 15px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.btn-toolbar-sync:active {
+    transform: scale(0.96);
+    background: #475569;
+}
+
+/* Filtros da Aba Requisições */
+.req-status-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.req-filter-btn {
+    background: #1e293b;
+    color: #94a3b8;
+    border: 1px solid #334155;
+    padding: 9px 16px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.req-filter-btn.active {
+    background: #3b82f6;
+    color: #fff;
+    border-color: #3b82f6;
+}
+
 /* Ajuste das Abas de Navegação - Scroll Horizontal Touch */
 .serv-tabs {
     display: flex;
     gap: 8px;
-    margin-bottom: 15px;
+    margin-bottom: 14px;
     border-bottom: 2px solid #1e293b;
     padding-bottom: 0;
     flex-wrap: nowrap;
@@ -25,7 +162,7 @@
 .serv-tab-btn {
     background: transparent; border: none; color: #94a3b8;
     font-size: 1.05rem; font-weight: 700; cursor: pointer;
-    padding: 16px 20px; border-bottom: 4px solid transparent;
+    padding: 15px 18px; border-bottom: 4px solid transparent;
     transition: all 0.2s ease-in-out; display: flex; align-items: center;
     gap: 10px; flex: 1 0 auto; justify-content: center;
     min-width: 160px; white-space: nowrap; border-radius: 8px 8px 0 0;
@@ -73,20 +210,26 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     will-change: transform;
 }
-.tablet-card:active { transform: scale(0.98); }
+.tablet-card:active { transform: scale(0.99); }
+.tablet-card.card-atrasada {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.4), 0 6px 14px rgba(239, 68, 68, 0.15);
+}
 
-.card-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
-.card-badge { padding: 4px 10px; border-radius: 6px; font-weight: 800; font-size: 0.85rem; color: #fff; }
-.card-placa { font-size: 1.6rem; font-weight: 900; color: #3b82f6; margin: 5px 0; }
-.card-info-text { color: #cbd5e1; font-size: 0.95rem; line-height: 1.4; margin-bottom: 5px; }
-.card-actions { margin-top: 15px; display: flex; gap: 10px; flex-direction: column; }
+.card-header-flex { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+.card-badge { padding: 4px 10px; border-radius: 6px; font-weight: 800; font-size: 0.82rem; color: #fff; display: inline-flex; align-items: center; gap: 5px; }
+.sla-pill { background: rgba(15, 23, 42, 0.8); border: 1px solid #475569; color: #cbd5e1; padding: 3px 9px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
+.sla-pill.atraso { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #fca5a5; }
+.card-placa { font-size: 1.55rem; font-weight: 900; color: #3b82f6; margin: 4px 0; }
+.card-info-text { color: #cbd5e1; font-size: 0.94rem; line-height: 1.4; margin-bottom: 5px; }
+.card-actions { margin-top: 14px; display: flex; gap: 10px; flex-direction: column; }
 
 @media(min-width: 768px) {
     .card-actions.row-tablet { flex-direction: row; }
     .card-actions.row-tablet button { flex: 1; }
 }
 
-/* Modals Responsivos (Sem backdrop-filter para melhorar performance no tablet) */
+/* Modals Responsivos */
 .modal-overlay-fullscreen {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(15, 23, 42, 0.95);
@@ -102,7 +245,7 @@
 
 @media (min-width: 768px) {
     .custom-modal-responsive { height: 96vh; }
-    .modal-pequeno { height: auto; max-height: 80vh; max-width: 600px; margin: auto; }
+    .modal-pequeno { height: auto; max-height: 85vh; max-width: 640px; margin: auto; }
 }
 
 .modal-header-responsive {
@@ -136,14 +279,14 @@
 
 /* Inputs e Botões Gigantes para Dedos Sujos/Luvas */
 .input-otimizado {
-    width: 100%; padding: 16px; background: #0f172a; border: 2px solid #475569;
-    border-radius: 10px; color: #fff; font-size: 1.1rem; outline: none; margin-bottom: 15px;
+    width: 100%; padding: 14px; background: #0f172a; border: 2px solid #475569;
+    border-radius: 10px; color: #fff; font-size: 1.05rem; outline: none; margin-bottom: 15px;
 }
 .input-otimizado:focus { border-color: #6366f1; background: #1e293b; }
 
 .input-com-icone { position: relative; width: 100%; display: flex; align-items: center; }
 .input-com-icone i.icone-busca { position: absolute; left: 16px; color: #94a3b8; font-size: 1.2rem; }
-.input-com-icone input { padding-left: 50px; padding-right: 85px; }
+.input-com-icone input { padding-left: 48px; padding-right: 85px; }
 
 .btn-icone-input {
     background: rgba(255,255,255,0.05); border: none; width: 34px; height: 34px; 
@@ -155,23 +298,87 @@
 select.input-otimizado {
     appearance: none;
     background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat; background-position: right 16px center; background-size: 20px;
+    background-repeat: no-repeat; background-position: right 14px center; background-size: 20px;
 }
 select.input-otimizado option { background: #0f172a; color: #fff; }
 
 .btn-acao-grande {
-    width: 100%; min-height: 55px; font-size: 1.15rem; font-weight: 800;
+    width: 100%; min-height: 52px; font-size: 1.08rem; font-weight: 800;
     border-radius: 10px; cursor: pointer; display: flex; align-items: center;
     justify-content: center; gap: 10px; border: none; text-transform: uppercase;
 }
-.btn-acao-grande:active { transform: scale(0.97); opacity: 0.8; }
+.btn-acao-grande:active { transform: scale(0.97); opacity: 0.85; }
+
+/* Stepper de Quantidade (+ / -) para Tablet */
+.qty-stepper {
+    display: flex;
+    align-items: stretch;
+    background: #0f172a;
+    border: 2px solid #475569;
+    border-radius: 10px;
+    overflow: hidden;
+    height: 52px;
+}
+
+.qty-stepper button {
+    background: #334155;
+    color: #fff;
+    border: none;
+    width: 48px;
+    font-size: 1.35rem;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.qty-stepper button:active {
+    background: #6366f1;
+}
+
+.qty-stepper input {
+    width: 68px;
+    background: transparent;
+    border: none;
+    color: #fff;
+    text-align: center;
+    font-size: 1.15rem;
+    font-weight: 800;
+    outline: none;
+}
+
+/* Atalhos de Previsão */
+.previsao-atalhos {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.btn-atalho-prev {
+    background: rgba(99, 102, 241, 0.2);
+    border: 1px solid #6366f1;
+    color: #c7d2fe;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-atalho-prev:active {
+    background: #6366f1;
+    color: #fff;
+}
 
 /* Listas Internas */
-.lista-lancamentos { max-height: 250px; overflow-y: auto; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
+.lista-lancamentos { max-height: 260px; overflow-y: auto; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
 
 /* Atalhos Rápidos (Mão de Obra) */
 .quick-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-.quick-tag { background: #334155; color: #cbd5e1; padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; font-weight: 700; border: none; cursor: pointer; border: 1px solid transparent; transition: all 0.2s;}
+.quick-tag { background: #334155; color: #cbd5e1; padding: 8px 14px; border-radius: 20px; font-size: 0.88rem; font-weight: 700; border: 1px solid transparent; cursor: pointer; transition: all 0.2s; }
 .quick-tag:active { background: #4f46e5; color: white; transform: scale(0.95); }
 .quick-tag:hover { border-color: #6366f1; }
 
@@ -188,7 +395,7 @@ select.input-otimizado option { background: #0f172a; color: #fff; }
     box-shadow: 0 10px 20px rgba(0,0,0,0.3);
 }
 .peca-item {
-    padding: 15px;
+    padding: 14px;
     border-bottom: 1px solid #1e293b;
     cursor: pointer;
     display: flex;
@@ -198,6 +405,6 @@ select.input-otimizado option { background: #0f172a; color: #fff; }
 }
 .peca-item:active { background: rgba(59,130,246,0.2); }
 .peca-item-info { display: flex; flex-direction: column; gap: 4px; }
-.peca-item-nome { font-weight: 800; color: #f8fafc; font-size: 1.05rem; }
-.peca-item-codigo { font-size: 0.85rem; color: #60a5fa; background: rgba(59,130,246,0.1); padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content; }
+.peca-item-nome { font-weight: 800; color: #f8fafc; font-size: 1rem; }
+.peca-item-codigo { font-size: 0.82rem; color: #60a5fa; background: rgba(59,130,246,0.1); padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content; }
 .peca-item-estoque { font-size: 0.9rem; font-weight: 700; color: #10b981; }
