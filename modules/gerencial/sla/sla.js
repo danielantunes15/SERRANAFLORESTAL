@@ -1,5 +1,5 @@
 window.initSLA = async function() {
-    console.log("[SLA] Módulo iniciado (Modo Alta Performance com DM e Indicadores Visuais).");
+    console.log("[SLA] Módulo iniciado (Modo Alta Performance com DM, Indicadores Visuais e Exportação Excel Executiva).");
     const client = window.getSupabaseClient ? window.getSupabaseClient() : (window.db && window.db.supabase ? window.db.supabase : supabaseClient);
     if (!client) return;
 
@@ -19,6 +19,15 @@ window.initSLA = async function() {
         peso_medio_transportado: 0,
         custo_hora_improdutiva: 0,
         faturamento_previsto_mensal: 0
+    };
+
+    // Estado consolidado para exportação gerencial em Excel
+    let estadoExportacaoSLA = {
+        ano: null,
+        mesesDados: [],
+        gruasDict: {},
+        dmDiariaRegistros: [],
+        dmDiariaData: null
     };
 
     const btnProcessar = document.getElementById('btnProcessarSLA');
@@ -183,7 +192,18 @@ window.initSLA = async function() {
     }
 
     function calcularDMMensal(placa, mes, ano) {
-        const resultDefault = { percentDM: 100, hTrabalho:0, mTrabalho:0, hManut:0, mManut:0, htmlLinhas: '' };
+        const resultDefault = {
+            percentDM: 100,
+            hTrabalho: 0,
+            mTrabalho: 0,
+            hManut: 0,
+            mManut: 0,
+            horasBase: 0,
+            horasManut: 0,
+            horasDisp: 0,
+            htmlLinhas: '',
+            listaOS: []
+        };
         if (typeof window.ordensServico === 'undefined' || !window.ordensServico) return resultDefault;
         if (typeof window.frotasManutencao === 'undefined' || !window.frotasManutencao) return resultDefault;
         
@@ -195,7 +215,7 @@ window.initSLA = async function() {
         let diaFim = new Date(ano, mes + 1, 0, 23, 59, 59, 999);
         
         if (diaFim > hoje) diaFim = hoje; 
-        if (diaInicio > hoje) return { percentDM: 0, hTrabalho:0, mTrabalho:0, hManut:0, mManut:0, htmlLinhas: '' };
+        if (diaInicio > hoje) return { ...resultDefault, percentDM: 0 };
 
         let frotaInicioStr = frota.data_inicial ? frota.data_inicial : '2026-04-01';
         let dtEntradaVeiculo = new Date(frotaInicioStr + 'T00:00:00');
@@ -207,12 +227,13 @@ window.initSLA = async function() {
         }
         
         let horasValidoVeiculo = msValidoVeiculo / (1000 * 60 * 60);
-        if (horasValidoVeiculo <= 0) return { percentDM: 0, hTrabalho:0, mTrabalho:0, hManut:0, mManut:0, htmlLinhas: '' };
+        if (horasValidoVeiculo <= 0) return { ...resultDefault, percentDM: 0 };
 
         const todasOS = window.ordensServico.filter(o => o.placa === placa && o.status !== 'Agendada' && o.tipo !== 'Cavalo Disponível S/ Carreta');
         
         let htmlLinhas = '';
         let intervalos = [];
+        let listaOS = [];
 
         todasOS.forEach(os => {
             const osInicio = corrigirDataSupabaseLocal(os.data_abertura);
@@ -226,6 +247,7 @@ window.initSLA = async function() {
 
             if (overlapInicio < overlapFim) {
                 let duracaoMs = overlapFim - overlapInicio;
+                let duracaoHoras = duracaoMs / (1000 * 60 * 60);
                 let h = Math.floor(duracaoMs / (1000 * 60 * 60));
                 let m = Math.round((duracaoMs - (h * 1000 * 60 * 60)) / (1000 * 60));
 
@@ -234,7 +256,18 @@ window.initSLA = async function() {
 
                 intervalos.push([overlapInicio.getTime(), overlapFim.getTime()]);
 
-                let desc = (os.problema || os.observacoes || os.descricao || 'Sem descrição.').replace(/"/g, '&quot;');
+                let descRaw = (os.problema || os.observacoes || os.descricao || 'Sem descrição.');
+                let desc = descRaw.replace(/"/g, '&quot;');
+
+                listaOS.push({
+                    numero_os: `#${os.numero_os || os.id}`,
+                    dtIniStr,
+                    dtFimStr,
+                    tipo: os.tipo || 'Manutenção',
+                    descricao: descRaw,
+                    duracaoHoras,
+                    duracaoFormatada: `${h}h ${m}m`
+                });
 
                 htmlLinhas += `
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.1);">
@@ -282,7 +315,18 @@ window.initSLA = async function() {
         let hManut = Math.floor(tempoManutencaoTotalHoras);
         let mManut = Math.round((tempoManutencaoTotalHoras - hManut) * 60);
 
-        return { percentDM, hTrabalho, mTrabalho, hManut, mManut, htmlLinhas };
+        return {
+            percentDM,
+            hTrabalho,
+            mTrabalho,
+            hManut,
+            mManut,
+            horasBase: horasValidoVeiculo,
+            horasManut: tempoManutencaoTotalHoras,
+            horasDisp: horasDisponivel,
+            htmlLinhas,
+            listaOS
+        };
     }
 
     // Lógica para soma de checkboxes no modal
@@ -384,7 +428,7 @@ window.initSLA = async function() {
         const modalAntigo = document.getElementById('modalDetalhesDMMaquinaSLA');
         if (modalAntigo) modalAntigo.remove();
         document.body.insertAdjacentHTML('beforeend', modalHtml);
-    }
+    };
 
     // Adicionado parâmetro 'force' para obrigar a recarregar as OSs atualizadas do Supabase
     async function garantirDadosManutencaoSLA(filialId, force = false) {
@@ -691,6 +735,8 @@ window.initSLA = async function() {
         const tbody = document.getElementById('tbodyDMDiariaSLA');
         
         if (!inputData) {
+            estadoExportacaoSLA.dmDiariaRegistros = [];
+            estadoExportacaoSLA.dmDiariaData = null;
             return;
         }
 
@@ -705,17 +751,18 @@ window.initSLA = async function() {
         const hoje = new Date();
 
         let fimParaCalculo = diaFim;
-        let msTotalDia = 24 * 60 * 60 * 1000;
 
         if (diaInicio.toDateString() === hoje.toDateString()) {
             fimParaCalculo = hoje;
-            msTotalDia = hoje - diaInicio;
         } else if (diaInicio > hoje) {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-slate-500">A data selecionada é no futuro. Nenhuma operação registrada.</td></tr>';
+            estadoExportacaoSLA.dmDiariaRegistros = [];
+            estadoExportacaoSLA.dmDiariaData = null;
             return;
         }
 
         let html = '';
+        const registrosDiarios = [];
         const frotasValidas = window.frotasManutencao.filter(f => f.status === 'Ativo' && (f.categoria === 'TRITREM' || f.categoria === 'GRUA'));
 
         frotasValidas.forEach(frota => {
@@ -735,6 +782,7 @@ window.initSLA = async function() {
             const todasOS = window.ordensServico.filter(o => o.placa === placa && o.status !== 'Agendada' && o.tipo !== 'Cavalo Disponível S/ Carreta');
             let intervalos = [];
             let osDetalhesHTML = '';
+            let osDetalhesTexto = [];
 
             todasOS.forEach(os => {
                 const osInicio = corrigirDataSupabaseLocal(os.data_abertura);
@@ -755,6 +803,8 @@ window.initSLA = async function() {
                     let duracaoMs = overlapFim - overlapInicio;
                     let hOS = Math.floor(duracaoMs / (1000 * 60 * 60));
                     let mOS = Math.round((duracaoMs - (hOS * 1000 * 60 * 60)) / (1000 * 60));
+
+                    osDetalhesTexto.push(`#${os.numero_os || os.id} | ${os.tipo || 'Manutenção'} | ${dtIniOS} até ${dtFimOS} (${hOS}h ${mOS}m)`);
 
                     osDetalhesHTML += `<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 4px 8px; border-radius: 4px; margin-bottom: 4px; font-size: 0.75rem;">
                         <span class="text-rose-400 font-bold">#${os.numero_os || os.id}</span> | ${os.tipo || 'Manutenção'} | ${dtIniOS} até ${dtFimOS} <span class="text-amber-400 font-bold ml-1">(${hOS}h ${mOS}m)</span>
@@ -794,6 +844,19 @@ window.initSLA = async function() {
             let hDisp = Math.floor(horasDisponivel);
             let mDisp = Math.round((horasDisponivel - hDisp) * 60);
 
+            registrosDiarios.push({
+                placa,
+                categoria: frota.categoria,
+                tempoBaseFmt: `${hTrabalho}h ${mTrabalho}m`,
+                tempoManutFmt: `${hManut}h ${mManut}m`,
+                tempoDispFmt: `${hDisp}h ${mDisp}m`,
+                horasBase: horasValidoVeiculo,
+                horasManut: tempoManutencaoTotalHoras,
+                horasDisp: horasDisponivel,
+                percentDM,
+                detalhes: osDetalhesTexto.length > 0 ? osDetalhesTexto.join(' ; ') : '100% Disponível (Sem paradas)'
+            });
+
             let corDm = percentDM >= 90 ? 'text-emerald-400' : (percentDM >= 80 ? 'text-amber-400' : 'text-rose-400');
 
             if (!osDetalhesHTML) osDetalhesHTML = '<span class="text-slate-500 text-xs italic">Nenhuma parada registrada. Equipamento 100% disponível no dia.</span>';
@@ -810,6 +873,9 @@ window.initSLA = async function() {
                 </tr>
             `;
         });
+
+        estadoExportacaoSLA.dmDiariaRegistros = registrosDiarios;
+        estadoExportacaoSLA.dmDiariaData = `${dia}/${mes}/${ano}`;
 
         if (!html) {
             html = '<tr><td colspan="7" class="text-center py-6 text-slate-500">Nenhum equipamento ativo encontrado para a data.</td></tr>';
@@ -877,6 +943,11 @@ window.initSLA = async function() {
                 gruasDict[gruaRaw][mes].diasOperados.add(diaKey);
             }
         });
+
+        // Armazena no estado global do módulo para exportação Excel instantânea
+        estadoExportacaoSLA.ano = ano;
+        estadoExportacaoSLA.mesesDados = mesesDados;
+        estadoExportacaoSLA.gruasDict = gruasDict;
 
         renderizarKpis(mesesDados);
         renderizarGraficoEvolucao(mesesDados, ano);
@@ -1160,6 +1231,953 @@ window.initSLA = async function() {
 
         container.innerHTML = html;
     }
+
+    // =========================================================================
+    // EXPORTAÇÃO EXECUTIVA PARA EXCEL (ExcelJS - FORMATADO, TABULADO E CENTRALIZADO)
+    // =========================================================================
+    function carregarExcelJS() {
+        return new Promise((resolve, reject) => {
+            if (window.ExcelJS) return resolve(window.ExcelJS);
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+            script.onload = () => {
+                if (window.ExcelJS) resolve(window.ExcelJS);
+                else reject(new Error('ExcelJS não inicializado após carregamento.'));
+            };
+            script.onerror = () => reject(new Error('Falha ao carregar biblioteca ExcelJS via CDN.'));
+            document.head.appendChild(script);
+        });
+    }
+
+    window.exportarExcelSLA = async function() {
+        const btn = document.getElementById('btnExportarExcelSLA');
+        const originalHtml = btn ? btn.innerHTML : '';
+
+        if (!estadoExportacaoSLA.ano || !estadoExportacaoSLA.mesesDados || estadoExportacaoSLA.mesesDados.length === 0) {
+            Swal.fire('Atenção', 'Os dados do SLA ainda estão sendo carregados. Aguarde ou clique em Atualizar.', 'warning');
+            return;
+        }
+
+        try {
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gerando Excel...';
+            }
+
+            const ExcelJS = await carregarExcelJS();
+            const wb = new ExcelJS.Workbook();
+            wb.creator = 'Sistema de Gestão Florestal - Serrana Florestal';
+            wb.created = new Date();
+            wb.modified = new Date();
+
+            const ano = estadoExportacaoSLA.ano;
+            const mesesDados = estadoExportacaoSLA.mesesDados;
+            const gruasDict = estadoExportacaoSLA.gruasDict;
+            const gruasNomes = Object.keys(gruasDict).sort();
+            const metaFatMensal = parseFloat(metasSlaAtuais.faturamento_previsto_mensal) || 0;
+            const metaGarantiaVol = parseFloat(metasSlaAtuais.garantia_minima_volume_mensal) || 0;
+            const metaMensalGrua = parseFloat(metasSlaAtuais.meta_viagens_mensal_grua) || 0;
+            const metaDiariaGrua = parseFloat(metasSlaAtuais.meta_viagens_diaria_grua) || 0;
+            const metaPesoMedio = parseFloat(metasSlaAtuais.peso_medio_transportado) || 0;
+            const custoHoraImp = parseFloat(metasSlaAtuais.custo_hora_improdutiva) || 0;
+
+            const filialLabel = (window.currentUser && (window.currentUser.filial_nome || window.currentUser.filial_id))
+                ? `Filial: ${window.currentUser.filial_nome || 'ID ' + window.currentUser.filial_id}`
+                : 'Filial: Geral';
+            const dataEmissao = new Date().toLocaleString('pt-BR');
+
+            // Paleta Executiva
+            const CORES = {
+                navyEscuro: 'FF0F172A',
+                navyMedio: 'FF1E293B',
+                azulCorp: 'FF1E3A5F',
+                azulDestaque: 'FF0284C7',
+                cinzaZebra: 'FFF8FAFC',
+                cinzaTotal: 'FFE2E8F0',
+                bordaSuave: 'FFCBD5E1',
+                bordaEscura: 'FF334155',
+                branco: 'FFFFFFFF',
+                textoEscuro: 'FF0F172A',
+                textoSuave: 'FF475569',
+                verdeFundo: 'FFDCFCE7',
+                verdeTexto: 'FF166534',
+                ambarFundo: 'FFFEF3C7',
+                ambarTexto: 'FF92400E',
+                vermelhoFundo: 'FFFEE2E2',
+                vermelhoTexto: 'FF991B1B'
+            };
+
+            const bordaPadrao = {
+                top: { style: 'thin', color: { argb: CORES.bordaSuave } },
+                left: { style: 'thin', color: { argb: CORES.bordaSuave } },
+                bottom: { style: 'thin', color: { argb: CORES.bordaSuave } },
+                right: { style: 'thin', color: { argb: CORES.bordaSuave } }
+            };
+
+            const bordaTotal = {
+                top: { style: 'medium', color: { argb: CORES.bordaEscura } },
+                left: { style: 'thin', color: { argb: CORES.bordaSuave } },
+                bottom: { style: 'double', color: { argb: CORES.bordaEscura } },
+                right: { style: 'thin', color: { argb: CORES.bordaSuave } }
+            };
+
+            const alinharCentro = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+            const aplicarEstiloBanner = (ws, totalCols, titulo, subtitulo) => {
+                ws.mergeCells(1, 1, 1, totalCols);
+                const c1 = ws.getCell(1, 1);
+                c1.value = titulo;
+                c1.font = { name: 'Calibri', size: 15, bold: true, color: { argb: CORES.branco } };
+                c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.navyEscuro } };
+                c1.alignment = { vertical: 'middle', horizontal: 'center' };
+                ws.getRow(1).height = 32;
+
+                ws.mergeCells(2, 1, 2, totalCols);
+                const c2 = ws.getCell(2, 1);
+                c2.value = subtitulo;
+                c2.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FFCBD5E1' } };
+                c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.navyMedio } };
+                c2.alignment = { vertical: 'middle', horizontal: 'center' };
+                ws.getRow(2).height = 22;
+            };
+
+            const aplicarEstiloHeaderTabela = (row, colCount) => {
+                row.height = 28;
+                for (let c = 1; c <= colCount; c++) {
+                    const cell = row.getCell(c);
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.branco } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.azulCorp } };
+                    cell.alignment = alinharCentro;
+                    cell.border = {
+                        top: { style: 'medium', color: { argb: CORES.navyEscuro } },
+                        left: { style: 'thin', color: { argb: 'FF334155' } },
+                        bottom: { style: 'medium', color: { argb: CORES.navyEscuro } },
+                        right: { style: 'thin', color: { argb: 'FF334155' } }
+                    };
+                }
+            };
+
+            const aplicarCorDM = (cell, percentDM) => {
+                if (percentDM >= 90) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.verdeFundo } };
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.verdeTexto } };
+                } else if (percentDM >= 80) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.ambarFundo } };
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.ambarTexto } };
+                } else {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.vermelhoFundo } };
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.vermelhoTexto } };
+                }
+            };
+
+            const aplicarCorMeta = (cell, atingiu) => {
+                if (atingiu) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.verdeFundo } };
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.verdeTexto } };
+                } else {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.vermelhoFundo } };
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.vermelhoTexto } };
+                }
+            };
+
+            // Pré-cálculo consolidado de Gruas, DM mensal e lista de O.S.
+            const dmMedioPorMes = Array(12).fill(null);
+            const resumoAnualGruas = {};
+            const todasOSAnuais = [];
+
+            for (let mes = 0; mes < 12; mes++) {
+                let somaDM = 0;
+                let qtdGruasMes = 0;
+
+                gruasNomes.forEach(grua => {
+                    const stats = gruasDict[grua][mes];
+                    if (stats && stats.viagens > 0) {
+                        const dadosDM = calcularDMMensal(grua, mes, ano);
+                        somaDM += dadosDM.percentDM;
+                        qtdGruasMes++;
+
+                        if (!resumoAnualGruas[grua]) {
+                            resumoAnualGruas[grua] = {
+                                mesesAtivos: 0,
+                                dias: 0,
+                                viagens: 0,
+                                volume: 0,
+                                horasBase: 0,
+                                horasManut: 0,
+                                horasDisp: 0,
+                                somaDM: 0
+                            };
+                        }
+                        resumoAnualGruas[grua].mesesAtivos++;
+                        resumoAnualGruas[grua].dias += stats.diasOperados.size;
+                        resumoAnualGruas[grua].viagens += stats.viagens;
+                        resumoAnualGruas[grua].volume += stats.volume;
+                        resumoAnualGruas[grua].horasBase += dadosDM.horasBase;
+                        resumoAnualGruas[grua].horasManut += dadosDM.horasManut;
+                        resumoAnualGruas[grua].horasDisp += dadosDM.horasDisp;
+                        resumoAnualGruas[grua].somaDM += dadosDM.percentDM;
+
+                        if (dadosDM.listaOS && dadosDM.listaOS.length > 0) {
+                            dadosDM.listaOS.forEach(os => {
+                                todasOSAnuais.push({
+                                    mesIdx: mes,
+                                    periodo: `${nomeMeses[mes]}/${ano}`,
+                                    grua,
+                                    ...os
+                                });
+                            });
+                        }
+                    }
+                });
+
+                if (qtdGruasMes > 0) {
+                    dmMedioPorMes[mes] = somaDM / qtdGruasMes;
+                }
+            }
+
+            // =================================================================
+            // ABA 1: RESUMO EXECUTIVO & EVOLUÇÃO ANUAL (MÊS A MÊS)
+            // =================================================================
+            const ws1 = wb.addWorksheet('Resumo e Evolução Anual', {
+                views: [{ state: 'frozen', ySplit: 12 }],
+                pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+            });
+
+            aplicarEstiloBanner(
+                ws1,
+                13,
+                `SERRANA FLORESTAL — RELATÓRIO GERENCIAL SLA (${ano})`,
+                `Evolução Anual Mês a Mês, Metas Contratuais, Produção e DM | ${filialLabel} | Emitido em: ${dataEmissao}`
+            );
+
+            // Totais para bloco de KPIs
+            let totFatTransp = 0, totFatCarreg = 0, totFat = 0, totVol = 0, totVT = 0, totVC = 0;
+            mesesDados.forEach(m => {
+                totFatTransp += m.faturamentoTransp;
+                totFatCarreg += m.faturamentoCarreg;
+                totFat += m.faturamentoTotal;
+                totVol += m.volume;
+                totVT += m.viagensTransp;
+                totVC += m.viagensCarreg;
+            });
+            const pesoMedioAnual = totVT > 0 ? (totVol / totVT) : 0;
+
+            ws1.getRow(3).height = 10;
+
+            // Bloco Superior: KPIs Consolidados (Linha 4 a 6) + Metas Contratuais (Linha 7 a 9)
+            ws1.mergeCells('A4:M4');
+            const secKpi = ws1.getCell('A4');
+            secKpi.value = 'INDICADORES CONSOLIDADOS DO EXERCÍCIO & PARÂMETROS DE CONTRATO SLA';
+            secKpi.font = { name: 'Calibri', size: 11, bold: true, color: { argb: CORES.branco } };
+            secKpi.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.azulDestaque } };
+            secKpi.alignment = alinharCentro;
+            ws1.getRow(4).height = 24;
+
+            const kpiLabels = [
+                { range: 'A5:B5', valRange: 'A6:B6', label: 'FATURAMENTO TOTAL', val: totFat, fmt: '"R$ "#,##0.00' },
+                { range: 'C5:D5', valRange: 'C6:D6', label: 'FAT. TRANSPORTE', val: totFatTransp, fmt: '"R$ "#,##0.00' },
+                { range: 'E5:F5', valRange: 'E6:F6', label: 'FAT. CARREGAMENTO', val: totFatCarreg, fmt: '"R$ "#,##0.00' },
+                { range: 'G5:H5', valRange: 'G6:H6', label: 'VOLUME ANUAL (m³)', val: totVol, fmt: '#,##0.0" m³"' },
+                { range: 'I5:J5', valRange: 'I6:J6', label: 'VIAGENS TRANSPORTE', val: totVT, fmt: '#,##0' },
+                { range: 'K5:L5', valRange: 'K6:L6', label: 'VIAGENS CARREGAMENTO', val: totVC, fmt: '#,##0' },
+                { range: 'M5:M5', valRange: 'M6:M6', label: 'PESO MÉDIO REAL', val: pesoMedioAnual, fmt: '#,##0.00" m³"' }
+            ];
+
+            ws1.getRow(5).height = 20;
+            ws1.getRow(6).height = 26;
+            kpiLabels.forEach(k => {
+                if (k.range !== 'M5:M5') ws1.mergeCells(k.range);
+                if (k.valRange !== 'M6:M6') ws1.mergeCells(k.valRange);
+                const cLbl = ws1.getCell(k.range.split(':')[0]);
+                cLbl.value = k.label;
+                cLbl.font = { name: 'Calibri', size: 9, bold: true, color: { argb: CORES.textoSuave } };
+                cLbl.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.cinzaTotal } };
+                cLbl.alignment = alinharCentro;
+                cLbl.border = bordaPadrao;
+
+                const cVal = ws1.getCell(k.valRange.split(':')[0]);
+                cVal.value = k.val;
+                cVal.numFmt = k.fmt;
+                cVal.font = { name: 'Calibri', size: 12, bold: true, color: { argb: CORES.navyEscuro } };
+                cVal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.branco } };
+                cVal.alignment = alinharCentro;
+                cVal.border = bordaPadrao;
+            });
+
+            // Linha 7 e 8: Parâmetros SLA
+            const metaLabels = [
+                { range: 'A7:B7', valRange: 'A8:B8', label: 'META FATURAMENTO / MÊS', val: metaFatMensal, fmt: '"R$ "#,##0.00' },
+                { range: 'C7:D7', valRange: 'C8:D8', label: 'GARANTIA VOL. / MÊS', val: metaGarantiaVol, fmt: '#,##0.0" m³"' },
+                { range: 'E7:F7', valRange: 'E8:F8', label: 'META MENSAL GRUA', val: metaMensalGrua, fmt: '#,##0" cargas"' },
+                { range: 'G7:H7', valRange: 'G8:H8', label: 'META DIÁRIA GRUA', val: metaDiariaGrua, fmt: '#,##0" cargas"' },
+                { range: 'I7:J7', valRange: 'I8:J8', label: 'PESO MÉDIO CONTRATO', val: metaPesoMedio, fmt: '#,##0.00" m³"' },
+                { range: 'K7:M7', valRange: 'K8:M8', label: 'CUSTO HORA IMPRODUTIVA', val: custoHoraImp, fmt: '"R$ "#,##0.00' }
+            ];
+
+            ws1.getRow(7).height = 20;
+            ws1.getRow(8).height = 24;
+            metaLabels.forEach(m => {
+                ws1.mergeCells(m.range);
+                ws1.mergeCells(m.valRange);
+                const cLbl = ws1.getCell(m.range.split(':')[0]);
+                cLbl.value = m.label;
+                cLbl.font = { name: 'Calibri', size: 9, bold: true, color: { argb: CORES.ambarTexto } };
+                cLbl.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.ambarFundo } };
+                cLbl.alignment = alinharCentro;
+                cLbl.border = bordaPadrao;
+
+                const cVal = ws1.getCell(m.valRange.split(':')[0]);
+                cVal.value = m.val;
+                cVal.numFmt = m.fmt;
+                cVal.font = { name: 'Calibri', size: 11, bold: true, color: { argb: CORES.textoEscuro } };
+                cVal.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.cinzaZebra } };
+                cVal.alignment = alinharCentro;
+                cVal.border = bordaPadrao;
+            });
+
+            ws1.getRow(9).height = 12;
+
+            // Título da Tabela de Evolução Anual
+            ws1.mergeCells('A10:M10');
+            const secEvol = ws1.getCell('A10');
+            secEvol.value = `EVOLUÇÃO ANUAL — MÊS A MÊS (${ano})`;
+            secEvol.font = { name: 'Calibri', size: 11, bold: true, color: { argb: CORES.branco } };
+            secEvol.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.navyMedio } };
+            secEvol.alignment = alinharCentro;
+            ws1.getRow(10).height = 24;
+
+            ws1.getRow(11).height = 6;
+
+            // Cabeçalho da Tabela (Linha 12)
+            const headersEvol = [
+                'Mês / Ano',
+                'Fat. Transporte (R$)',
+                'Fat. Carregamento (R$)',
+                'Faturamento Total (R$)',
+                'Meta Faturamento (R$)',
+                'Ating. Fat. (%)',
+                'Volume Real (m³)',
+                'Garantia Mín. (m³)',
+                'Ating. Vol. (%)',
+                'Viagens Transp.',
+                'Peso Médio (m³/v)',
+                'Viagens Carreg.',
+                'DM Médio Gruas (%)'
+            ];
+            const rowHeaderEvol = ws1.getRow(12);
+            headersEvol.forEach((h, idx) => rowHeaderEvol.getCell(idx + 1).value = h);
+            aplicarEstiloHeaderTabela(rowHeaderEvol, headersEvol.length);
+
+            const primeiraLinhaDados = 13;
+            for (let mes = 0; mes < 12; mes++) {
+                const rNum = primeiraLinhaDados + mes;
+                const m = mesesDados[mes];
+                const dmMes = dmMedioPorMes[mes];
+                const row = ws1.getRow(rNum);
+                row.height = 22;
+
+                const atingFatVal = metaFatMensal > 0 ? (m.faturamentoTotal / metaFatMensal) : 0;
+                const atingVolVal = metaGarantiaVol > 0 ? (m.volume / metaGarantiaVol) : 0;
+                const pesoMedVal = m.viagensTransp > 0 ? (m.volume / m.viagensTransp) : 0;
+
+                row.getCell(1).value = `${nomeMesesExtenso[mes]}/${ano}`;
+                row.getCell(2).value = m.faturamentoTransp;
+                row.getCell(3).value = m.faturamentoCarreg;
+                row.getCell(4).value = { formula: `B${rNum}+C${rNum}`, result: m.faturamentoTotal };
+                row.getCell(5).value = metaFatMensal;
+                row.getCell(6).value = metaFatMensal > 0 ? { formula: `IFERROR(D${rNum}/E${rNum},0)`, result: atingFatVal } : 0;
+                row.getCell(7).value = m.volume;
+                row.getCell(8).value = metaGarantiaVol;
+                row.getCell(9).value = metaGarantiaVol > 0 ? { formula: `IFERROR(G${rNum}/H${rNum},0)`, result: atingVolVal } : 0;
+                row.getCell(10).value = m.viagensTransp;
+                row.getCell(11).value = { formula: `IFERROR(G${rNum}/J${rNum},0)`, result: pesoMedVal };
+                row.getCell(12).value = m.viagensCarreg;
+                row.getCell(13).value = dmMes !== null ? (dmMes / 100) : '-';
+
+                const fillZebra = mes % 2 === 1 ? CORES.cinzaZebra : CORES.branco;
+                for (let c = 1; c <= 13; c++) {
+                    const cell = row.getCell(c);
+                    cell.font = { name: 'Calibri', size: 10, bold: c === 1 || c === 4, color: { argb: CORES.textoEscuro } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillZebra } };
+                    cell.alignment = alinharCentro;
+                    cell.border = bordaPadrao;
+                }
+
+                // Formatos numéricos
+                [2, 3, 4, 5].forEach(c => row.getCell(c).numFmt = '"R$ "#,##0.00');
+                [6, 9].forEach(c => row.getCell(c).numFmt = '0.0%');
+                [7, 8].forEach(c => row.getCell(c).numFmt = '#,##0.0');
+                [10, 12].forEach(c => row.getCell(c).numFmt = '#,##0');
+                row.getCell(11).numFmt = '#,##0.00';
+                if (dmMes !== null) {
+                    row.getCell(13).numFmt = '0.0%';
+                    aplicarCorDM(row.getCell(13), dmMes);
+                }
+
+                // Destaques condicionais em Atingimento (quando há operação no mês)
+                if (m.faturamentoTotal > 0 && metaFatMensal > 0) {
+                    aplicarCorMeta(row.getCell(6), m.faturamentoTotal >= metaFatMensal);
+                }
+                if (m.volume > 0 && metaGarantiaVol > 0) {
+                    aplicarCorMeta(row.getCell(9), m.volume >= metaGarantiaVol);
+                }
+            }
+
+            // Linha TOTAL ANUAL (Linha 25)
+            const rTotal = 25;
+            const rowTot = ws1.getRow(rTotal);
+            rowTot.height = 26;
+            const dmMesesValidos = dmMedioPorMes.filter(v => v !== null);
+            const mediaDMAnual = dmMesesValidos.length > 0 ? (dmMesesValidos.reduce((a, b) => a + b, 0) / dmMesesValidos.length) : null;
+
+            rowTot.getCell(1).value = `TOTAL ANUAL ${ano}`;
+            rowTot.getCell(2).value = { formula: `SUM(B13:B24)`, result: totFatTransp };
+            rowTot.getCell(3).value = { formula: `SUM(C13:C24)`, result: totFatCarreg };
+            rowTot.getCell(4).value = { formula: `SUM(D13:D24)`, result: totFat };
+            rowTot.getCell(5).value = { formula: `SUM(E13:E24)`, result: metaFatMensal * 12 };
+            rowTot.getCell(6).value = metaFatMensal > 0 ? { formula: `IFERROR(D25/E25,0)`, result: totFat / (metaFatMensal * 12) } : 0;
+            rowTot.getCell(7).value = { formula: `SUM(G13:G24)`, result: totVol };
+            rowTot.getCell(8).value = { formula: `SUM(H13:H24)`, result: metaGarantiaVol * 12 };
+            rowTot.getCell(9).value = metaGarantiaVol > 0 ? { formula: `IFERROR(G25/H25,0)`, result: totVol / (metaGarantiaVol * 12) } : 0;
+            rowTot.getCell(10).value = { formula: `SUM(J13:J24)`, result: totVT };
+            rowTot.getCell(11).value = { formula: `IFERROR(G25/J25,0)`, result: pesoMedioAnual };
+            rowTot.getCell(12).value = { formula: `SUM(L13:L24)`, result: totVC };
+            rowTot.getCell(13).value = mediaDMAnual !== null ? (mediaDMAnual / 100) : '-';
+
+            for (let c = 1; c <= 13; c++) {
+                const cell = rowTot.getCell(c);
+                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.navyEscuro } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.cinzaTotal } };
+                cell.alignment = alinharCentro;
+                cell.border = bordaTotal;
+            }
+            [2, 3, 4, 5].forEach(c => rowTot.getCell(c).numFmt = '"R$ "#,##0.00');
+            [6, 9].forEach(c => rowTot.getCell(c).numFmt = '0.0%');
+            [7, 8].forEach(c => rowTot.getCell(c).numFmt = '#,##0.0');
+            [10, 12].forEach(c => rowTot.getCell(c).numFmt = '#,##0');
+            rowTot.getCell(11).numFmt = '#,##0.00';
+            if (mediaDMAnual !== null) {
+                rowTot.getCell(13).numFmt = '0.0%';
+                aplicarCorDM(rowTot.getCell(13), mediaDMAnual);
+            }
+
+            // Linha MÉDIA MENSAL (somente meses com movimento)
+            const mesesComFat = mesesDados.filter(m => m.faturamentoTotal > 0).length || 1;
+            const rMedia = 26;
+            const rowMed = ws1.getRow(rMedia);
+            rowMed.height = 24;
+            rowMed.getCell(1).value = `MÉDIA MENSAL (${mesesComFat}m ativos)`;
+            rowMed.getCell(2).value = totFatTransp / mesesComFat;
+            rowMed.getCell(3).value = totFatCarreg / mesesComFat;
+            rowMed.getCell(4).value = totFat / mesesComFat;
+            rowMed.getCell(5).value = metaFatMensal;
+            rowMed.getCell(6).value = metaFatMensal > 0 ? ((totFat / mesesComFat) / metaFatMensal) : 0;
+            rowMed.getCell(7).value = totVol / mesesComFat;
+            rowMed.getCell(8).value = metaGarantiaVol;
+            rowMed.getCell(9).value = metaGarantiaVol > 0 ? ((totVol / mesesComFat) / metaGarantiaVol) : 0;
+            rowMed.getCell(10).value = totVT / mesesComFat;
+            rowMed.getCell(11).value = pesoMedioAnual;
+            rowMed.getCell(12).value = totVC / mesesComFat;
+            rowMed.getCell(13).value = mediaDMAnual !== null ? (mediaDMAnual / 100) : '-';
+
+            for (let c = 1; c <= 13; c++) {
+                const cell = rowMed.getCell(c);
+                cell.font = { name: 'Calibri', size: 10, italic: true, bold: true, color: { argb: CORES.textoSuave } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.cinzaZebra } };
+                cell.alignment = alinharCentro;
+                cell.border = bordaPadrao;
+            }
+            [2, 3, 4, 5].forEach(c => rowMed.getCell(c).numFmt = '"R$ "#,##0.00');
+            [6, 9].forEach(c => rowMed.getCell(c).numFmt = '0.0%');
+            [7, 8, 10, 12].forEach(c => rowMed.getCell(c).numFmt = '#,##0.0');
+            rowMed.getCell(11).numFmt = '#,##0.00';
+            if (mediaDMAnual !== null) rowMed.getCell(13).numFmt = '0.0%';
+
+            ws1.columns = [
+                { width: 20 }, { width: 20 }, { width: 21 }, { width: 21 }, { width: 20 },
+                { width: 15 }, { width: 17 }, { width: 17 }, { width: 15 }, { width: 16 },
+                { width: 17 }, { width: 16 }, { width: 18 }
+            ];
+
+            // =================================================================
+            // ABA 2: RESUMO ANUAL CONSOLIDADO POR GRUA
+            // =================================================================
+            const ws2 = wb.addWorksheet('Resumo Anual por Grua', {
+                views: [{ state: 'frozen', ySplit: 4 }],
+                pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+            });
+
+            aplicarEstiloBanner(
+                ws2,
+                11,
+                `RESUMO ANUAL CONSOLIDADO POR GRUA — ${ano}`,
+                `Produtividade Acumulada, Médias Diárias e Disponibilidade Mecânica (DM) | ${filialLabel}`
+            );
+            ws2.getRow(3).height = 10;
+
+            const headersResumoGrua = [
+                'Grua / Máquina',
+                'Meses Ativos',
+                'Total Dias Operados',
+                'Total Viagens',
+                'Média Viagens/Dia',
+                'Meta V/Dia',
+                'Status V/Dia',
+                'Volume Total (m³)',
+                'Média Vol. (m³/Dia)',
+                'Horas Paradas (O.S.)',
+                'DM Médio Anual (%)'
+            ];
+            const rowH2 = ws2.getRow(4);
+            headersResumoGrua.forEach((h, i) => rowH2.getCell(i + 1).value = h);
+            aplicarEstiloHeaderTabela(rowH2, headersResumoGrua.length);
+
+            let linhaAtualWs2 = 5;
+            const gruasListaAnual = Object.keys(resumoAnualGruas).sort();
+            let totDiasG = 0, totViagensG = 0, totVolG = 0, totHorasManutG = 0, somaDMGeralG = 0;
+
+            gruasListaAnual.forEach((grua, idx) => {
+                const g = resumoAnualGruas[grua];
+                const medVDia = g.dias > 0 ? (g.viagens / g.dias) : 0;
+                const medVolDia = g.dias > 0 ? (g.volume / g.dias) : 0;
+                const dmAnual = g.mesesAtivos > 0 ? (g.somaDM / g.mesesAtivos) : 100;
+                const atingiuDiaria = metaDiariaGrua > 0 ? medVDia >= metaDiariaGrua : null;
+
+                totDiasG += g.dias;
+                totViagensG += g.viagens;
+                totVolG += g.volume;
+                totHorasManutG += g.horasManut;
+                somaDMGeralG += dmAnual;
+
+                const row = ws2.getRow(linhaAtualWs2);
+                row.height = 22;
+
+                row.getCell(1).value = grua;
+                row.getCell(2).value = g.mesesAtivos;
+                row.getCell(3).value = g.dias;
+                row.getCell(4).value = g.viagens;
+                row.getCell(5).value = medVDia;
+                row.getCell(6).value = metaDiariaGrua > 0 ? metaDiariaGrua : '-';
+                row.getCell(7).value = atingiuDiaria === null ? 'N/D' : (atingiuDiaria ? 'ATINGIDA' : 'ABAIXO');
+                row.getCell(8).value = g.volume;
+                row.getCell(9).value = medVolDia;
+                row.getCell(10).value = g.horasManut;
+                row.getCell(11).value = dmAnual / 100;
+
+                const fillZebra = idx % 2 === 1 ? CORES.cinzaZebra : CORES.branco;
+                for (let c = 1; c <= 11; c++) {
+                    const cell = row.getCell(c);
+                    cell.font = { name: 'Calibri', size: 10, bold: c === 1 || c === 4, color: { argb: CORES.textoEscuro } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillZebra } };
+                    cell.alignment = alinharCentro;
+                    cell.border = bordaPadrao;
+                }
+
+                [2, 3, 4].forEach(c => row.getCell(c).numFmt = '#,##0');
+                row.getCell(5).numFmt = '#,##0.0';
+                if (metaDiariaGrua > 0) row.getCell(6).numFmt = '#,##0.0';
+                row.getCell(8).numFmt = '#,##0.0';
+                row.getCell(9).numFmt = '#,##0.0';
+                row.getCell(10).numFmt = '#,##0.0" h"';
+                row.getCell(11).numFmt = '0.0%';
+
+                if (atingiuDiaria !== null) aplicarCorMeta(row.getCell(7), atingiuDiaria);
+                aplicarCorDM(row.getCell(11), dmAnual);
+
+                linhaAtualWs2++;
+            });
+
+            if (gruasListaAnual.length > 0) {
+                const rowT2 = ws2.getRow(linhaAtualWs2);
+                rowT2.height = 26;
+                const medDMFinal = somaDMGeralG / gruasListaAnual.length;
+                const medVGlobal = totDiasG > 0 ? (totViagensG / totDiasG) : 0;
+                const medVolGlobal = totDiasG > 0 ? (totVolG / totDiasG) : 0;
+
+                rowT2.getCell(1).value = 'CONSOLIDADO FROTA';
+                rowT2.getCell(2).value = '-';
+                rowT2.getCell(3).value = totDiasG;
+                rowT2.getCell(4).value = totViagensG;
+                rowT2.getCell(5).value = medVGlobal;
+                rowT2.getCell(6).value = metaDiariaGrua > 0 ? metaDiariaGrua : '-';
+                rowT2.getCell(7).value = metaDiariaGrua > 0 ? (medVGlobal >= metaDiariaGrua ? 'ATINGIDA' : 'ABAIXO') : 'N/D';
+                rowT2.getCell(8).value = totVolG;
+                rowT2.getCell(9).value = medVolGlobal;
+                rowT2.getCell(10).value = totHorasManutG;
+                rowT2.getCell(11).value = medDMFinal / 100;
+
+                for (let c = 1; c <= 11; c++) {
+                    const cell = rowT2.getCell(c);
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.navyEscuro } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.cinzaTotal } };
+                    cell.alignment = alinharCentro;
+                    cell.border = bordaTotal;
+                }
+                [3, 4].forEach(c => rowT2.getCell(c).numFmt = '#,##0');
+                [5, 8, 9].forEach(c => rowT2.getCell(c).numFmt = '#,##0.0');
+                rowT2.getCell(10).numFmt = '#,##0.0" h"';
+                rowT2.getCell(11).numFmt = '0.0%';
+                aplicarCorDM(rowT2.getCell(11), medDMFinal);
+            }
+
+            ws2.autoFilter = { from: 'A4', to: 'K4' };
+            ws2.columns = [
+                { width: 18 }, { width: 14 }, { width: 19 }, { width: 15 }, { width: 18 },
+                { width: 13 }, { width: 14 }, { width: 18 }, { width: 18 }, { width: 19 }, { width: 18 }
+            ];
+
+            // =================================================================
+            // ABA 3: RESUMO DE PRODUÇÃO POR GRUA (MÊS A MÊS) + DM
+            // =================================================================
+            const ws3 = wb.addWorksheet('Gruas Mês a Mês', {
+                views: [{ state: 'frozen', ySplit: 4 }],
+                pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+            });
+
+            aplicarEstiloBanner(
+                ws3,
+                14,
+                `RESUMO DE PRODUÇÃO POR GRUA (MÊS A MÊS) & DM — ${ano}`,
+                `Tabulação Mensal Detalhada com Metas de Viagens, Volume e Disponibilidade Mecânica | ${filialLabel}`
+            );
+            ws3.getRow(3).height = 10;
+
+            const headersGruasMes = [
+                'Mês / Ano',
+                'Grua',
+                'Dias Operados',
+                'Viagens',
+                'Meta Mensal',
+                'Status Mensal',
+                'Média V/Dia',
+                'Meta Diária',
+                'Status Diária',
+                'Tempo Base (h)',
+                'Parado O.S. (h)',
+                'DM (%)',
+                'Volume (m³)',
+                'Média m³/Dia'
+            ];
+            const rowH3 = ws3.getRow(4);
+            headersGruasMes.forEach((h, i) => rowH3.getCell(i + 1).value = h);
+            aplicarEstiloHeaderTabela(rowH3, headersGruasMes.length);
+
+            let linhaAtualWs3 = 5;
+
+            for (let mes = 0; mes < 12; mes++) {
+                const gruasDoMes = gruasNomes.filter(g => gruasDict[g][mes] && gruasDict[g][mes].viagens > 0);
+                if (gruasDoMes.length === 0) continue;
+
+                let totalViagens = 0, totalVolume = 0, maxDias = 0, totalPercentDM = 0, totalHBase = 0, totalHManut = 0;
+
+                gruasDoMes.forEach((grua, idx) => {
+                    const stats = gruasDict[grua][mes];
+                    const dias = stats.diasOperados.size;
+                    const mediaViagens = dias > 0 ? (stats.viagens / dias) : 0;
+                    const mediaVol = dias > 0 ? (stats.volume / dias) : 0;
+                    const dadosDM = calcularDMMensal(grua, mes, ano);
+
+                    totalViagens += stats.viagens;
+                    totalVolume += stats.volume;
+                    if (dias > maxDias) maxDias = dias;
+                    totalPercentDM += dadosDM.percentDM;
+                    totalHBase += dadosDM.horasBase;
+                    totalHManut += dadosDM.horasManut;
+
+                    const atingMensal = metaMensalGrua > 0 ? stats.viagens >= metaMensalGrua : null;
+                    const atingDiaria = metaDiariaGrua > 0 ? mediaViagens >= metaDiariaGrua : null;
+
+                    const row = ws3.getRow(linhaAtualWs3);
+                    row.height = 21;
+
+                    row.getCell(1).value = `${nomeMeses[mes]}/${ano}`;
+                    row.getCell(2).value = grua;
+                    row.getCell(3).value = dias;
+                    row.getCell(4).value = stats.viagens;
+                    row.getCell(5).value = metaMensalGrua > 0 ? metaMensalGrua : '-';
+                    row.getCell(6).value = atingMensal === null ? 'N/D' : (atingMensal ? 'ATINGIDA' : 'ABAIXO');
+                    row.getCell(7).value = mediaViagens;
+                    row.getCell(8).value = metaDiariaGrua > 0 ? metaDiariaGrua : '-';
+                    row.getCell(9).value = atingDiaria === null ? 'N/D' : (atingDiaria ? 'ATINGIDA' : 'ABAIXO');
+                    row.getCell(10).value = dadosDM.horasBase;
+                    row.getCell(11).value = dadosDM.horasManut;
+                    row.getCell(12).value = dadosDM.percentDM / 100;
+                    row.getCell(13).value = stats.volume;
+                    row.getCell(14).value = mediaVol;
+
+                    const fillZebra = idx % 2 === 1 ? CORES.cinzaZebra : CORES.branco;
+                    for (let c = 1; c <= 14; c++) {
+                        const cell = row.getCell(c);
+                        cell.font = { name: 'Calibri', size: 10, bold: c === 2 || c === 4, color: { argb: CORES.textoEscuro } };
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillZebra } };
+                        cell.alignment = alinharCentro;
+                        cell.border = bordaPadrao;
+                    }
+
+                    [3, 4].forEach(c => row.getCell(c).numFmt = '#,##0');
+                    if (metaMensalGrua > 0) row.getCell(5).numFmt = '#,##0';
+                    row.getCell(7).numFmt = '#,##0.0';
+                    if (metaDiariaGrua > 0) row.getCell(8).numFmt = '#,##0.0';
+                    [10, 11].forEach(c => row.getCell(c).numFmt = '#,##0.0" h"');
+                    row.getCell(12).numFmt = '0.0%';
+                    [13, 14].forEach(c => row.getCell(c).numFmt = '#,##0.0');
+
+                    if (atingMensal !== null) aplicarCorMeta(row.getCell(6), atingMensal);
+                    if (atingDiaria !== null) aplicarCorMeta(row.getCell(9), atingDiaria);
+                    aplicarCorDM(row.getCell(12), dadosDM.percentDM);
+
+                    linhaAtualWs3++;
+                });
+
+                // Subtotal / Média Frota do Mês
+                const qtdMaq = gruasDoMes.length;
+                const mediaGlobalV = maxDias > 0 ? (totalViagens / maxDias) / qtdMaq : 0;
+                const mediaGlobalVol = maxDias > 0 ? (totalVolume / maxDias) / qtdMaq : 0;
+                const mediaGeralDM = totalPercentDM / qtdMaq;
+
+                const rowSub = ws3.getRow(linhaAtualWs3);
+                rowSub.height = 24;
+                rowSub.getCell(1).value = `RESUMO ${nomeMeses[mes].toUpperCase()}/${ano}`;
+                rowSub.getCell(2).value = `MÉDIA FROTA (${qtdMaq})`;
+                rowSub.getCell(3).value = maxDias;
+                rowSub.getCell(4).value = totalViagens;
+                rowSub.getCell(5).value = '-';
+                rowSub.getCell(6).value = '-';
+                rowSub.getCell(7).value = mediaGlobalV;
+                rowSub.getCell(8).value = '-';
+                rowSub.getCell(9).value = '-';
+                rowSub.getCell(10).value = totalHBase;
+                rowSub.getCell(11).value = totalHManut;
+                rowSub.getCell(12).value = mediaGeralDM / 100;
+                rowSub.getCell(13).value = totalVolume;
+                rowSub.getCell(14).value = mediaGlobalVol;
+
+                for (let c = 1; c <= 14; c++) {
+                    const cell = rowSub.getCell(c);
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.navyEscuro } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.cinzaTotal } };
+                    cell.alignment = alinharCentro;
+                    cell.border = bordaTotal;
+                }
+                [3, 4].forEach(c => rowSub.getCell(c).numFmt = '#,##0');
+                [7, 13, 14].forEach(c => rowSub.getCell(c).numFmt = '#,##0.0');
+                [10, 11].forEach(c => rowSub.getCell(c).numFmt = '#,##0.0" h"');
+                rowSub.getCell(12).numFmt = '0.0%';
+                aplicarCorDM(rowSub.getCell(12), mediaGeralDM);
+
+                linhaAtualWs3 += 2; // Linha em branco entre os meses para leitura executiva
+            }
+
+            ws3.autoFilter = { from: 'A4', to: 'N4' };
+            ws3.columns = [
+                { width: 16 }, { width: 18 }, { width: 14 }, { width: 12 }, { width: 14 },
+                { width: 14 }, { width: 13 }, { width: 13 }, { width: 14 }, { width: 15 },
+                { width: 15 }, { width: 12 }, { width: 16 }, { width: 15 }
+            ];
+
+            // =================================================================
+            // ABA 4: DETALHAMENTO DM & ORDENS DE SERVIÇO (AUDITORIA DE PARADAS)
+            // =================================================================
+            const ws4 = wb.addWorksheet('Detalhamento DM (O.S.)', {
+                views: [{ state: 'frozen', ySplit: 4 }],
+                pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+            });
+
+            aplicarEstiloBanner(
+                ws4,
+                8,
+                `DETALHAMENTO DE PARADAS (O.S.) QUE IMPACTARAM A DM DAS GRUAS — ${ano}`,
+                `Auditoria de Disponibilidade Mecânica por Máquina e Período | ${filialLabel}`
+            );
+            ws4.getRow(3).height = 10;
+
+            const headersOS = [
+                'Mês / Ano',
+                'Grua / Placa',
+                'Nº O.S.',
+                'Início Parada (Mês)',
+                'Fim Parada (Mês)',
+                'Tipo / Classificação',
+                'Descrição do Problema',
+                'Duração no Mês (h)'
+            ];
+            const rowH4 = ws4.getRow(4);
+            headersOS.forEach((h, i) => rowH4.getCell(i + 1).value = h);
+            aplicarEstiloHeaderTabela(rowH4, headersOS.length);
+
+            let linhaAtualWs4 = 5;
+            if (todasOSAnuais.length === 0) {
+                ws4.mergeCells('A5:H5');
+                const cVazio = ws4.getCell('A5');
+                cVazio.value = 'Nenhuma Ordem de Serviço registrada para as gruas ativas no período.';
+                cVazio.font = { name: 'Calibri', size: 10, italic: true, color: { argb: CORES.textoSuave } };
+                cVazio.alignment = alinharCentro;
+                ws4.getRow(5).height = 26;
+            } else {
+                let somaHorasOS = 0;
+                todasOSAnuais.forEach((os, idx) => {
+                    somaHorasOS += os.duracaoHoras;
+                    const row = ws4.getRow(linhaAtualWs4);
+                    row.height = 22;
+
+                    row.getCell(1).value = os.periodo;
+                    row.getCell(2).value = os.grua;
+                    row.getCell(3).value = os.numero_os;
+                    row.getCell(4).value = os.dtIniStr;
+                    row.getCell(5).value = os.dtFimStr;
+                    row.getCell(6).value = os.tipo;
+                    row.getCell(7).value = os.descricao;
+                    row.getCell(8).value = os.duracaoHoras;
+
+                    const fillZebra = idx % 2 === 1 ? CORES.cinzaZebra : CORES.branco;
+                    for (let c = 1; c <= 8; c++) {
+                        const cell = row.getCell(c);
+                        cell.font = { name: 'Calibri', size: 10, bold: c === 2 || c === 3, color: { argb: c === 8 ? CORES.vermelhoTexto : CORES.textoEscuro } };
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillZebra } };
+                        cell.alignment = c === 7 ? { vertical: 'middle', horizontal: 'left', wrapText: true } : alinharCentro;
+                        cell.border = bordaPadrao;
+                    }
+                    row.getCell(8).numFmt = '#,##0.00" h"';
+                    linhaAtualWs4++;
+                });
+
+                const rowTotOS = ws4.getRow(linhaAtualWs4);
+                rowTotOS.height = 25;
+                ws4.mergeCells(linhaAtualWs4, 1, linhaAtualWs4, 7);
+                rowTotOS.getCell(1).value = `TOTAL DE O.S. LISTADAS: ${todasOSAnuais.length}`;
+                rowTotOS.getCell(8).value = { formula: `SUM(H5:H${linhaAtualWs4 - 1})`, result: somaHorasOS };
+                for (let c = 1; c <= 8; c++) {
+                    const cell = rowTotOS.getCell(c);
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.navyEscuro } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.cinzaTotal } };
+                    cell.alignment = alinharCentro;
+                    cell.border = bordaTotal;
+                }
+                rowTotOS.getCell(8).numFmt = '#,##0.00" h"';
+            }
+
+            ws4.autoFilter = { from: 'A4', to: 'H4' };
+            ws4.columns = [
+                { width: 14 }, { width: 16 }, { width: 14 }, { width: 20 },
+                { width: 20 }, { width: 22 }, { width: 48 }, { width: 18 }
+            ];
+
+            // =================================================================
+            // ABA 5 (OPCIONAL): CONSULTA DIÁRIA DE DM (SE HOUVER DATA PESQUISADA)
+            // =================================================================
+            if (estadoExportacaoSLA.dmDiariaRegistros && estadoExportacaoSLA.dmDiariaRegistros.length > 0) {
+                const ws5 = wb.addWorksheet('DM Diária (Frota)', {
+                    views: [{ state: 'frozen', ySplit: 4 }],
+                    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+                });
+
+                aplicarEstiloBanner(
+                    ws5,
+                    7,
+                    `CONSULTA DIÁRIA DE DM — FROTA E MÁQUINAS (${estadoExportacaoSLA.dmDiariaData})`,
+                    `Disponibilidade Mecânica Diária por Equipamento Ativo | ${filialLabel}`
+                );
+                ws5.getRow(3).height = 10;
+
+                const headersDiaria = [
+                    'Placa / Máquina',
+                    'Categoria',
+                    'Tempo Ref. Base',
+                    'Tempo em O.S.',
+                    'Tempo Disponível',
+                    'DM (%)',
+                    'Detalhamento O.S. no Dia'
+                ];
+                const rowH5 = ws5.getRow(4);
+                headersDiaria.forEach((h, i) => rowH5.getCell(i + 1).value = h);
+                aplicarEstiloHeaderTabela(rowH5, headersDiaria.length);
+
+                let linhaAtualWs5 = 5;
+                let somaDMDiaria = 0;
+
+                estadoExportacaoSLA.dmDiariaRegistros.forEach((reg, idx) => {
+                    somaDMDiaria += reg.percentDM;
+                    const row = ws5.getRow(linhaAtualWs5);
+                    row.height = 22;
+
+                    row.getCell(1).value = reg.placa;
+                    row.getCell(2).value = reg.categoria;
+                    row.getCell(3).value = reg.tempoBaseFmt;
+                    row.getCell(4).value = reg.tempoManutFmt;
+                    row.getCell(5).value = reg.tempoDispFmt;
+                    row.getCell(6).value = reg.percentDM / 100;
+                    row.getCell(7).value = reg.detalhes;
+
+                    const fillZebra = idx % 2 === 1 ? CORES.cinzaZebra : CORES.branco;
+                    for (let c = 1; c <= 7; c++) {
+                        const cell = row.getCell(c);
+                        cell.font = { name: 'Calibri', size: 10, bold: c === 1, color: { argb: CORES.textoEscuro } };
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillZebra } };
+                        cell.alignment = c === 7 ? { vertical: 'middle', horizontal: 'left', wrapText: true } : alinharCentro;
+                        cell.border = bordaPadrao;
+                    }
+                    row.getCell(6).numFmt = '0.0%';
+                    aplicarCorDM(row.getCell(6), reg.percentDM);
+                    linhaAtualWs5++;
+                });
+
+                const medDMDiaria = somaDMDiaria / estadoExportacaoSLA.dmDiariaRegistros.length;
+                const rowT5 = ws5.getRow(linhaAtualWs5);
+                rowT5.height = 25;
+                ws5.mergeCells(linhaAtualWs5, 1, linhaAtualWs5, 5);
+                rowT5.getCell(1).value = `MÉDIA GERAL DM DO DIA (${estadoExportacaoSLA.dmDiariaRegistros.length} EQUIPAMENTOS)`;
+                rowT5.getCell(6).value = medDMDiaria / 100;
+                rowT5.getCell(7).value = '';
+                for (let c = 1; c <= 7; c++) {
+                    const cell = rowT5.getCell(c);
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: CORES.navyEscuro } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CORES.cinzaTotal } };
+                    cell.alignment = alinharCentro;
+                    cell.border = bordaTotal;
+                }
+                rowT5.getCell(6).numFmt = '0.0%';
+                aplicarCorDM(rowT5.getCell(6), medDMDiaria);
+
+                ws5.autoFilter = { from: 'A4', to: 'G4' };
+                ws5.columns = [
+                    { width: 18 }, { width: 15 }, { width: 17 }, { width: 17 },
+                    { width: 17 }, { width: 13 }, { width: 52 }
+                ];
+            }
+
+            // Download do arquivo .xlsx
+            const buffer = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const hojeStr = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `Relatorio_Gerencial_SLA_${ano}_${hojeStr}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Relatório Excel Gerado!',
+                text: `Arquivo Relatorio_Gerencial_SLA_${ano}_${hojeStr}.xlsx baixado com sucesso.`,
+                timer: 2800,
+                showConfirmButton: false,
+                background: '#1e293b',
+                color: '#f8fafc'
+            });
+
+        } catch (err) {
+            console.error('[SLA] Erro ao gerar Excel:', err);
+            Swal.fire('Erro', 'Não foi possível gerar o relatório Excel. Verifique a conexão e tente novamente.', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+    };
 
     carregarDadosSLA();
 };

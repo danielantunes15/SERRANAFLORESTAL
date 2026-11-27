@@ -4,7 +4,7 @@
             <h1 class="text-2xl font-extrabold text-white">SLA - Acordo de Nível de Serviço</h1>
             <p class="text-sm text-slate-400 font-medium">Acompanhamento Anual: Faturamento, Volume, Viagens e Desempenho por Grua</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
             <select id="slaAnoSelect" class="bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm font-bold outline-none focus:border-sky-500 shadow-inner cursor-pointer">
                 <option value="2027">2027</option>
                 <option value="2026" selected>2026</option>
@@ -12,6 +12,9 @@
             </select>
             <button onclick="window.abrirModalMetasSLA()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded border border-amber-500 transition-all shadow-md flex items-center gap-2 text-sm">
                 <i class="fas fa-bullseye"></i> Metas SLA
+            </button>
+            <button id="btnExportarExcelSLA" onclick="window.exportarExcelSLA()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded border border-emerald-500 transition-all shadow-md flex items-center gap-2 text-sm">
+                <i class="fas fa-file-excel"></i> Exportar Excel
             </button>
             <button id="btnProcessarSLA" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded border border-sky-500 transition-all shadow-md flex items-center gap-2 text-sm">
                 <i class="fas fa-sync-alt"></i> Atualizar
