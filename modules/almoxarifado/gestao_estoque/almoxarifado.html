@@ -1,53 +1,68 @@
 <style>
     /* ================= DESIGN MODERNO ALMOXARIFADO ================= */
-    .almo-container { font-family: 'Segoe UI', system-ui, sans-serif; color: #e2e8f0; animation: fadeIn 0.4s ease-in-out; }
+    .almo-container { font-family: 'Segoe UI', system-ui, sans-serif; color: #e2e8f0; animation: fadeIn 0.4s ease-in-out; width: 100%; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .almo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 15px; border-bottom: 1px solid #334155; flex-wrap: wrap; gap: 15px; }
     .almo-header h2 { margin: 0; color: #ffffff; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; font-weight: bold; }
     .almo-header h2 i { color: #3b82f6; }
     
     .almo-btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
-    .btn-modern { padding: 10px 18px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; font-size: 0.9rem; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .btn-modern { padding: 10px 16px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s ease; font-size: 0.9rem; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
     .btn-modern:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.4); }
     .btn-primary { background: #3b82f6; color: white; } .btn-primary:hover { background: #2563eb; }
     .btn-success { background: #10b981; color: white; } .btn-success:hover { background: #059669; }
     .btn-warning { background: #f59e0b; color: white; } .btn-warning:hover { background: #d97706; }
     .btn-info { background: #6366f1; color: white; } .btn-info:hover { background: #4f46e5; }
     .btn-dark { background: #475569; color: white; } .btn-dark:hover { background: #334155; }
+    .btn-purple { background: #8b5cf6; color: white; } .btn-purple:hover { background: #7c3aed; }
+    .btn-teal { background: #14b8a6; color: white; } .btn-teal:hover { background: #0d9488; }
     
-    .btn-action-sm { padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; transition: 0.2s; color: white; }
+    .btn-action-sm { padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; transition: 0.2s; color: white; display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; }
     .btn-edit { background: #64748b; } .btn-edit:hover { background: #475569; }
     .btn-delete { background: #ef4444; } .btn-delete:hover { background: #dc2626; }
-    .almo-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px; }
-    .almo-kpi-card { background: #1e293b; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); border: 1px solid #334155; transition: transform 0.2s; }
-    .almo-kpi-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); }
-    .almo-kpi-icon { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+
+    .almo-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .almo-kpi-card { background: #1e293b; border-radius: 12px; padding: 18px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); border: 1px solid #334155; transition: transform 0.2s, border-color 0.2s; cursor: pointer; }
+    .almo-kpi-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); border-color: #3b82f6; }
+    .almo-kpi-card.kpi-ativo { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
+    .almo-kpi-icon { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
     .icon-blue { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
     .icon-red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .icon-amber { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
     .icon-green { background: rgba(16, 185, 129, 0.2); color: #34d399; }
     .icon-purple { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
-    .almo-kpi-info h3 { margin: 0; font-size: 1.8rem; color: #f8fafc; font-weight: 700; line-height: 1.2; }
-    .almo-kpi-info p { margin: 0; color: #94a3b8; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-    .almo-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; background: #1e293b; padding: 10px 20px; border-radius: 10px; border: 1px solid #334155; }
-    .almo-tabs { display: flex; gap: 20px; overflow-x: auto; white-space: nowrap; }
-    .almo-tab-btn { background: none; border: none; padding: 10px 5px; font-size: 1rem; font-weight: 600; color: #94a3b8; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; position: relative; }
+    .almo-kpi-info h3 { margin: 0; font-size: 1.6rem; color: #f8fafc; font-weight: 700; line-height: 1.2; }
+    .almo-kpi-info p { margin: 0; color: #94a3b8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+
+    .almo-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 15px; background: #1e293b; padding: 10px 20px; border-radius: 10px; border: 1px solid #334155; }
+    .almo-tabs { display: flex; gap: 18px; overflow-x: auto; white-space: nowrap; }
+    .almo-tab-btn { background: none; border: none; padding: 10px 4px; font-size: 0.95rem; font-weight: 600; color: #94a3b8; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; position: relative; display: inline-flex; align-items: center; gap: 6px; }
     .almo-tab-btn:hover { color: #60a5fa; }
     .almo-tab-btn.active { color: #3b82f6; border-bottom-color: #3b82f6; }
     
-    .almo-search { position: relative; width: 300px; }
+    .almo-search-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .almo-search { position: relative; width: 280px; }
     .almo-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; }
     .almo-search input { width: 100%; padding: 10px 10px 10px 35px; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 8px; outline: none; transition: 0.2s; font-family: inherit; }
     .almo-search input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+
+    /* Barra de Filtros Avançados */
+    .almo-filter-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; background: #1e293b; padding: 12px 18px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 16px; }
+    .almo-filter-inputs { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; flex: 1; }
+    .almo-filter-bar select, .almo-filter-bar input[type="date"] { padding: 8px 12px; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 6px; outline: none; font-size: 0.85rem; }
+    .almo-filter-bar select:focus, .almo-filter-bar input[type="date"]:focus { border-color: #3b82f6; }
+
     .almo-table-container { background: #1e293b; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3); overflow-x: auto; border: 1px solid #334155; }
     .almo-table { width: 100%; border-collapse: collapse; text-align: left; }
-    .almo-table th { background-color: #0f172a; padding: 14px 20px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #334155; white-space: nowrap; }
-    .almo-table td { padding: 14px 20px; border-bottom: 1px solid #334155; vertical-align: middle; color: #e2e8f0; }
+    .almo-table th { background-color: #0f172a; padding: 14px 16px; font-size: 0.82rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #334155; white-space: nowrap; }
+    .almo-table td { padding: 12px 16px; border-bottom: 1px solid #334155; vertical-align: middle; color: #e2e8f0; font-size: 0.92rem; }
     .almo-table tr:last-child td { border-bottom: none; }
     .almo-table tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
     
-    .badge { padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; }
+    .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
     .badge-ok { background: rgba(16, 185, 129, 0.2); color: #34d399; }
     .badge-alert { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .badge-warn { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
     .badge-in { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
     .badge-out { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
     .badge-abc-A { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid #ef4444; }
@@ -55,33 +70,39 @@
     .badge-abc-C { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid #10b981; }
     
     /* Modal Styles */
-    .almo-modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 1000; align-items: center; justify-content: center; }
-    .almo-modal-content { background: #1e293b; color: #e2e8f0; width: 100%; max-width: 900px; max-height: 90vh; overflow-y: auto; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); padding: 30px; position: relative; border: 1px solid #334155; }
-    .almo-close { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; color: #94a3b8; cursor: pointer; transition: 0.2s; }
+    .almo-modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.92); z-index: 1000; align-items: center; justify-content: center; padding: 15px; }
+    .almo-modal-content { background: #1e293b; color: #e2e8f0; width: 100%; max-width: 950px; max-height: 92vh; overflow-y: auto; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); padding: 28px; position: relative; border: 1px solid #334155; }
+    .almo-close { position: absolute; top: 18px; right: 20px; font-size: 1.6rem; color: #94a3b8; cursor: pointer; transition: 0.2s; }
     .almo-close:hover { color: #fff; }
-    .almo-modal h3 { margin-top: 0; margin-bottom: 20px; color: #ffffff; font-size: 1.4rem; }
+    .almo-modal h3 { margin-top: 0; margin-bottom: 18px; color: #ffffff; font-size: 1.35rem; display: flex; align-items: center; gap: 10px; }
     
-    .almo-form-group { margin-bottom: 15px; }
-    .almo-form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: #cbd5e1; font-size: 0.9rem; }
+    .almo-form-group { margin-bottom: 14px; }
+    .almo-form-group label { display: block; font-weight: 600; margin-bottom: 6px; color: #cbd5e1; font-size: 0.88rem; }
     .almo-form-group input, .almo-form-group select { width: 100%; padding: 10px 12px; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 8px; outline: none; font-family: inherit; transition: 0.2s; }
     .almo-form-group input:focus, .almo-form-group select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
     .almo-form-group input:read-only { background: #334155; cursor: not-allowed; }
     
-    .input-table-sm { width: 100%; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 4px; padding: 5px; outline: none; }
-    .almo-pagination { padding: 15px; display: flex; justify-content: center; gap: 8px; background: #0f172a; border-top: 1px solid #334155; border-radius: 0 0 12px 12px; }
+    .input-table-sm { width: 100%; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 4px; padding: 6px; outline: none; }
+    .almo-pagination { padding: 14px; display: flex; justify-content: center; align-items: center; gap: 8px; background: #0f172a; border-top: 1px solid #334155; border-radius: 0 0 12px 12px; flex-wrap: wrap; }
 
-    /* Autocomplete Inteligente (Busca Peça do KIT) */
-    .pecas-autocomplete-container { max-height: 250px; overflow-y: auto; background: #0f172a; border: 1px solid #3b82f6; border-radius: 8px; display: none; box-shadow: 0 10px 20px rgba(0,0,0,0.3); position: absolute; width: 100%; z-index: 100; top: 100%; margin-top: 5px; }
-    .peca-item { padding: 12px 15px; border-bottom: 1px solid #1e293b; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
-    .peca-item:hover { background: rgba(59,130,246,0.1); }
+    /* Autocomplete Inteligente */
+    .pecas-autocomplete-container { max-height: 250px; overflow-y: auto; background: #0f172a; border: 1px solid #3b82f6; border-radius: 8px; display: none; box-shadow: 0 10px 20px rgba(0,0,0,0.4); position: absolute; width: 100%; z-index: 200; top: 100%; margin-top: 5px; }
+    .peca-item { padding: 11px 14px; border-bottom: 1px solid #1e293b; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
+    .peca-item:hover { background: rgba(59,130,246,0.15); }
     .peca-item-info { display: flex; flex-direction: column; gap: 4px; }
-    .peca-item-nome { font-weight: 700; color: #f8fafc; font-size: 0.95rem; }
-    .peca-item-codigo { font-size: 0.8rem; color: #60a5fa; background: rgba(59,130,246,0.1); padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content; }
+    .peca-item-nome { font-weight: 700; color: #f8fafc; font-size: 0.92rem; }
+    .peca-item-codigo { font-size: 0.78rem; color: #60a5fa; background: rgba(59,130,246,0.12); padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content; }
     .peca-item-estoque { font-size: 0.85rem; font-weight: 700; color: #10b981; }
     .input-com-icone { position: relative; width: 100%; }
     .input-com-icone i.icone-busca { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; }
-    .btn-icone-input { background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 0 5px; transition: 0.2s; }
+    .btn-icone-input { background: transparent; border: none; cursor: pointer; font-size: 1.05rem; padding: 0 5px; transition: 0.2s; }
     .btn-icone-input:active { transform: scale(0.9); }
+
+    /* Container Câmera QR */
+    #containerLeitorCamera { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.96); z-index: 2000; align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
+    .camera-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 20px; width: 100%; max-width: 480px; text-align: center; position: relative; }
+    #boxLeitorCamera { width: 100%; border-radius: 10px; overflow: hidden; margin: 15px 0; background: #000; min-height: 260px; }
+    #scannerLineEffect { height: 3px; width: 100%; border-radius: 2px; margin-bottom: 10px; }
 </style>
 
 <div class="almo-container">
@@ -92,33 +113,43 @@
             <button class="btn-modern btn-info" onclick="abrirModalPneu()"><i class="fas fa-tire"></i> Cadastrar Pneu</button>
             <button class="btn-modern btn-primary" onclick="prepararModalMovimentacao('entrada')"><i class="fas fa-arrow-down"></i> Lançar NF</button>
             <button class="btn-modern btn-warning" onclick="prepararModalMovimentacao('saida')"><i class="fas fa-arrow-up"></i> Saída Estoque</button>
-            <button class="btn-modern btn-dark" onclick="prepararModalMovimentacao('ajuste')"><i class="fas fa-balance-scale"></i> Ajuste Balanço</button>
-            <button class="btn-modern" style="background:#8b5cf6; color:white;" onclick="abrirModalQrLote()"><i class="fas fa-qrcode"></i> QRs em Lote</button>
+            <button class="btn-modern btn-dark" onclick="prepararModalMovimentacao('ajuste')"><i class="fas fa-balance-scale"></i> Ajuste / Inventário</button>
+            <button class="btn-modern btn-teal" onclick="abrirModalTransferencia()"><i class="fas fa-truck-moving"></i> Transferir Filial</button>
+            <button class="btn-modern btn-purple" onclick="abrirModalQrLote()"><i class="fas fa-qrcode"></i> QRs em Lote</button>
         </div>
     </div>
+
+    <!-- KPIS CLICÁVEIS -->
     <div class="almo-kpi-grid">
-        <div class="almo-kpi-card">
+        <div class="almo-kpi-card" id="cardKpiTotal" onclick="aplicarFiltroKpi('todos')" title="Clique para ver todas as peças">
             <div class="almo-kpi-icon icon-blue"><i class="fas fa-boxes"></i></div>
             <div class="almo-kpi-info">
                 <p>Peças em Estoque</p>
                 <h3 id="kpiTotalItens">0</h3>
             </div>
         </div>
-        <div class="almo-kpi-card">
+        <div class="almo-kpi-card" id="cardKpiBaixo" onclick="aplicarFiltroKpi('baixo')" title="Clique para filtrar estoque baixo">
             <div class="almo-kpi-icon icon-red"><i class="fas fa-exclamation-triangle"></i></div>
             <div class="almo-kpi-info">
                 <p>Alertas (Estoque Baixo)</p>
                 <h3 id="kpiEstoqueMinimo">0</h3>
             </div>
         </div>
-        <div class="almo-kpi-card">
+        <div class="almo-kpi-card" id="cardKpiValidade" onclick="aplicarFiltroKpi('validade')" title="Clique para filtrar vencidos ou a vencer em 30 dias">
+            <div class="almo-kpi-icon icon-amber"><i class="fas fa-calendar-times"></i></div>
+            <div class="almo-kpi-info">
+                <p>Validade Crítica (30d)</p>
+                <h3 id="kpiValidadeCritica">0</h3>
+            </div>
+        </div>
+        <div class="almo-kpi-card" onclick="mudarAbaPorId('pneus')" title="Clique para ir para Gestão de Pneus">
             <div class="almo-kpi-icon icon-purple"><i class="fas fa-truck-loading"></i></div>
             <div class="almo-kpi-info">
                 <p>Pneus em Uso / Estoque</p>
                 <h3 id="kpiPneusResumo">0 / 0</h3>
             </div>
         </div>
-        <div class="almo-kpi-card">
+        <div class="almo-kpi-card" onclick="aplicarFiltroKpi('curvaA')" title="Clique para filtrar Curva A (maior valor)">
             <div class="almo-kpi-icon icon-green"><i class="fas fa-dollar-sign"></i></div>
             <div class="almo-kpi-info">
                 <p>Capital (Peças e Pneus)</p>
@@ -126,43 +157,114 @@
             </div>
         </div>
     </div>
+
+    <!-- ABAS E BUSCA + CÂMERA -->
     <div class="almo-controls">
         <div class="almo-tabs">
-            <button class="almo-tab-btn active" onclick="mudarAbaAlmoxarifado('estoque', this)"><i class="fas fa-box-open"></i> Estoque Atual</button>
-            <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('notas', this)"><i class="fas fa-file-invoice-dollar"></i> Notas Fiscais</button>
-            <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('movimentacoes', this)"><i class="fas fa-exchange-alt"></i> Histórico & Auditoria</button>
-            <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('pneus', this)"><i class="fas fa-tire"></i> Gestão de Pneus</button>
-            <button class="almo-tab-btn" onclick="mudarAbaAlmoxarifado('kits', this)"><i class="fas fa-layer-group"></i> Kits de Revisão</button>
+            <button class="almo-tab-btn active" data-aba="estoque" onclick="mudarAbaAlmoxarifado('estoque', this)"><i class="fas fa-box-open"></i> Estoque Atual</button>
+            <button class="almo-tab-btn" data-aba="compras" onclick="mudarAbaAlmoxarifado('compras', this)"><i class="fas fa-shopping-cart"></i> Sugestão de Compras</button>
+            <button class="almo-tab-btn" data-aba="notas" onclick="mudarAbaAlmoxarifado('notas', this)"><i class="fas fa-file-invoice-dollar"></i> Notas Fiscais</button>
+            <button class="almo-tab-btn" data-aba="movimentacoes" onclick="mudarAbaAlmoxarifado('movimentacoes', this)"><i class="fas fa-exchange-alt"></i> Histórico & Auditoria</button>
+            <button class="almo-tab-btn" data-aba="pneus" onclick="mudarAbaAlmoxarifado('pneus', this)"><i class="fas fa-tire"></i> Gestão de Pneus</button>
+            <button class="almo-tab-btn" data-aba="kits" onclick="mudarAbaAlmoxarifado('kits', this)"><i class="fas fa-layer-group"></i> Kits de Revisão</button>
         </div>
-        <div class="almo-search">
-            <i class="fas fa-search"></i>
-            <input type="text" id="almoSearchInput" onkeyup="filtrarAlmoxarifado()" placeholder="Pesquisar em qualquer aba...">
+        <div class="almo-search-group">
+            <div class="almo-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="almoSearchInput" onkeyup="filtrarAlmoxarifado()" placeholder="Pesquisar em qualquer aba...">
+            </div>
+            <button type="button" class="btn-modern btn-purple" style="padding: 9px 12px;" title="Bipar QR Code para buscar peça" onclick="iniciarLeituraBusca()">
+                <i class="fas fa-camera"></i>
+            </button>
         </div>
     </div>
     
-    <div id="abaEstoque" class="almo-table-container">
-        <table class="almo-table">
-            <thead>
-                <tr>
-                    <th>Código/SKU/CA</th>
-                    <th>Descrição do Item</th>
-                    <th>Categoria</th>
-                    <th>Unid.</th>
-                    <th>Curva</th>
-                    <th>Localização</th>
-                    <th>Validade</th>
-                    <th>Qtd. Atual</th>
-                    <th>Mínimo</th>
-                    <th>Preço Médio</th>
-                    <th>Status</th>
-                    <th style="text-align: right;">Ações</th>
-                </tr>
-            </thead>
-            <tbody id="tabelaPecasBody"></tbody>
-        </table>
-        <div id="paginacaoEstoque" class="almo-pagination"></div>
+    <!-- ABA ESTOQUE ATUAL -->
+    <div id="abaEstoque">
+        <div class="almo-filter-bar">
+            <div class="almo-filter-inputs">
+                <select id="filtroEstCategoria" onchange="filtrarAlmoxarifado()">
+                    <option value="">Todas Categorias</option>
+                </select>
+                <select id="filtroEstLocalizacao" onchange="filtrarAlmoxarifado()">
+                    <option value="">Todas Localizações</option>
+                </select>
+                <select id="filtroEstCurva" onchange="filtrarAlmoxarifado()">
+                    <option value="">Todas Curvas ABC</option>
+                    <option value="A">Curva A (Alto Valor)</option>
+                    <option value="B">Curva B (Médio Valor)</option>
+                    <option value="C">Curva C (Baixo Valor)</option>
+                </select>
+                <select id="filtroEstStatus" onchange="filtrarAlmoxarifado()">
+                    <option value="">Todos Status</option>
+                    <option value="baixo">Estoque Baixo</option>
+                    <option value="normal">Estoque Normal</option>
+                    <option value="vencido">Vencidos</option>
+                    <option value="vencer30">A Vencer (30 dias)</option>
+                </select>
+                <button type="button" class="btn-action-sm btn-edit" onclick="limparFiltrosEstoque()" title="Limpar Filtros"><i class="fas fa-eraser"></i> Limpar</button>
+            </div>
+            <button type="button" class="btn-modern btn-success" style="padding: 8px 14px; font-size: 0.85rem;" onclick="exportarEstoqueExcel()">
+                <i class="fas fa-file-excel"></i> Exportar Estoque
+            </button>
+        </div>
+
+        <div class="almo-table-container">
+            <table class="almo-table">
+                <thead>
+                    <tr>
+                        <th>Código/SKU/CA</th>
+                        <th>Descrição do Item</th>
+                        <th>Categoria</th>
+                        <th>Unid.</th>
+                        <th>Curva</th>
+                        <th>Localização</th>
+                        <th>Validade</th>
+                        <th>Qtd. Atual</th>
+                        <th>Mínimo</th>
+                        <th>Preço Médio</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaPecasBody"></tbody>
+            </table>
+            <div id="paginacaoEstoque" class="almo-pagination"></div>
+        </div>
+    </div>
+
+    <!-- ABA SUGESTÃO DE COMPRAS -->
+    <div id="abaCompras" style="display: none;">
+        <div class="almo-filter-bar">
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                <span style="color: #cbd5e1; font-size: 0.95rem;"><i class="fas fa-info-circle" style="color: #38bdf8;"></i> Itens com saldo igual ou abaixo do mínimo definido.</span>
+                <strong style="color: #34d399; font-size: 1rem;">Investimento Estimado: <span id="totalEstimadoCompras">R$ 0,00</span></strong>
+            </div>
+            <button type="button" class="btn-modern btn-success" style="padding: 8px 14px; font-size: 0.85rem;" onclick="exportarSugestaoComprasExcel()">
+                <i class="fas fa-file-excel"></i> Exportar Pedido de Compras
+            </button>
+        </div>
+        <div class="almo-table-container">
+            <table class="almo-table">
+                <thead>
+                    <tr>
+                        <th>Código/SKU</th>
+                        <th>Descrição da Peça</th>
+                        <th>Categoria</th>
+                        <th>Curva</th>
+                        <th>Qtd. Atual</th>
+                        <th>Estoque Mín.</th>
+                        <th>Qtd. Sugerida</th>
+                        <th>Preço Médio</th>
+                        <th>Custo Estimado</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaComprasBody"></tbody>
+            </table>
+        </div>
     </div>
     
+    <!-- ABA NOTAS FISCAIS -->
     <div id="abaNotas" class="almo-table-container" style="display: none;">
         <table class="almo-table">
             <thead>
@@ -178,44 +280,85 @@
             </thead>
             <tbody id="tabelaNotasBody"></tbody>
         </table>
+        <div id="paginacaoNotas" class="almo-pagination"></div>
     </div>
     
-    <div id="abaMovimentacoes" class="almo-table-container" style="display: none;">
-        <table class="almo-table">
-            <thead>
-                <tr>
-                    <th>Data e Hora</th>
-                    <th>Usuário (Resp.)</th>
-                    <th>Tipo</th>
-                    <th>Peça Movimentada</th>
-                    <th>Qtd.</th>
-                    <th>Valor Unit.</th>
-                    <th>Nota Fiscal / Motivo</th>
-                    <th>Destino (Frota/Setor)</th>
-                </tr>
-            </thead>
-            <tbody id="tabelaMovimentacoesBody"></tbody>
-        </table>
+    <!-- ABA HISTÓRICO & AUDITORIA -->
+    <div id="abaMovimentacoes" style="display: none;">
+        <div class="almo-filter-bar">
+            <div class="almo-filter-inputs">
+                <label style="color: #94a3b8; font-size: 0.85rem;">De:</label>
+                <input type="date" id="filtroMovInicio" onchange="filtrarAlmoxarifado()">
+                <label style="color: #94a3b8; font-size: 0.85rem;">Até:</label>
+                <input type="date" id="filtroMovFim" onchange="filtrarAlmoxarifado()">
+                <select id="filtroMovTipo" onchange="filtrarAlmoxarifado()">
+                    <option value="">Todos os Tipos</option>
+                    <option value="entrada">Entrada</option>
+                    <option value="saida">Saída</option>
+                    <option value="ajuste">Ajuste</option>
+                </select>
+                <button type="button" class="btn-action-sm btn-edit" onclick="limparFiltrosMov()"><i class="fas fa-eraser"></i> Limpar</button>
+            </div>
+            <button type="button" class="btn-modern btn-success" style="padding: 8px 14px; font-size: 0.85rem;" onclick="exportarMovimentacoesExcel()">
+                <i class="fas fa-file-excel"></i> Exportar Histórico
+            </button>
+        </div>
+        <div class="almo-table-container">
+            <table class="almo-table">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Usuário (Resp.)</th>
+                        <th>Tipo</th>
+                        <th>Peça Movimentada</th>
+                        <th>Qtd.</th>
+                        <th>Valor Unit.</th>
+                        <th>Nota Fiscal / Motivo</th>
+                        <th>Destino (Frota/Setor)</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaMovimentacoesBody"></tbody>
+            </table>
+            <div id="paginacaoMovimentacoes" class="almo-pagination"></div>
+        </div>
     </div>
     
-    <div id="abaPneus" class="almo-table-container" style="display: none;">
-        <table class="almo-table">
-            <thead>
-                <tr>
-                    <th>Nº Fogo</th>
-                    <th>Marca / Medida</th>
-                    <th>Status</th>
-                    <th>Vida</th>
-                    <th>Custo Total</th>
-                    <th>Local Atual (Frota / Estoque)</th>
-                    <th>Eixo / Pos.</th>
-                    <th style="text-align: right;">Ações</th>
-                </tr>
-            </thead>
-            <tbody id="tabelaPneusBody"></tbody>
-        </table>
+    <!-- ABA GESTÃO DE PNEUS -->
+    <div id="abaPneus" style="display: none;">
+        <div class="almo-filter-bar">
+            <div class="almo-filter-inputs">
+                <select id="filtroPneuStatus" onchange="filtrarAlmoxarifado()">
+                    <option value="">Todos os Status</option>
+                    <option value="Estoque">No Estoque</option>
+                    <option value="Rodando">Rodando</option>
+                    <option value="Recapagem">Em Recapagem</option>
+                    <option value="Sucata">Sucata</option>
+                </select>
+            </div>
+            <button type="button" class="btn-modern btn-success" style="padding: 8px 14px; font-size: 0.85rem;" onclick="exportarPneusExcel()">
+                <i class="fas fa-file-excel"></i> Exportar Pneus
+            </button>
+        </div>
+        <div class="almo-table-container">
+            <table class="almo-table">
+                <thead>
+                    <tr>
+                        <th>Nº Fogo</th>
+                        <th>Marca / Medida</th>
+                        <th>Status</th>
+                        <th>Vida</th>
+                        <th>Custo Total</th>
+                        <th>Local Atual (Frota / Estoque)</th>
+                        <th>Eixo / Pos.</th>
+                        <th style="text-align: right;">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaPneusBody"></tbody>
+            </table>
+        </div>
     </div>
 
+    <!-- ABA KITS DE REVISÃO -->
     <div id="abaKits" class="almo-table-container" style="display: none;">
         <div style="padding: 15px; border-bottom: 1px solid #334155; display: flex; gap: 10px;">
             <button class="btn-modern btn-success" onclick="abrirModalKit()"><i class="fas fa-plus"></i> Novo KIT</button>
@@ -231,6 +374,19 @@
             </thead>
             <tbody id="tabelaKitsBody"></tbody>
         </table>
+    </div>
+</div>
+
+<!-- OVERLAY CÂMERA LEITOR QR CODE -->
+<div id="containerLeitorCamera">
+    <div class="camera-card">
+        <span class="almo-close" onclick="pararLeituraCamera()">&times;</span>
+        <h3 id="labelCameraAlvo" style="justify-content: center; margin-bottom: 10px;"><i class="fas fa-camera"></i> Leitor QR Code</h3>
+        <div id="scannerLineEffect"></div>
+        <div id="boxLeitorCamera"></div>
+        <button type="button" class="btn-modern btn-delete" style="width: 100%; justify-content: center;" onclick="pararLeituraCamera()">
+            <i class="fas fa-stop-circle"></i> Fechar Câmera
+        </button>
     </div>
 </div>
 
@@ -292,7 +448,88 @@
     </div>
 </div>
 
-<!-- MODAL CADASTRAR KIT (ATUALIZADO COM BUSCA INTELIGENTE) -->
+<!-- MODAL FICHA / KARDEX DA PEÇA -->
+<div id="modalKardexPeca" class="almo-modal">
+    <div class="almo-modal-content" style="max-width: 900px;">
+        <span class="almo-close" onclick="fecharModalAlmox('modalKardexPeca')">&times;</span>
+        <h3><i class="fas fa-history" style="color: #38bdf8;"></i> Ficha Kardex: <span id="kardexNomePeca" style="color:#60a5fa;"></span></h3>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 18px;">
+            <div style="background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color:#94a3b8; font-size:0.8rem;">CÓDIGO / LOCAL</span><br>
+                <strong id="kardexCodigoLocal" style="color:#f8fafc;">---</strong>
+            </div>
+            <div style="background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color:#94a3b8; font-size:0.8rem;">SALDO ATUAL</span><br>
+                <strong id="kardexSaldoAtual" style="color:#34d399; font-size:1.1rem;">0</strong>
+            </div>
+            <div style="background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color:#94a3b8; font-size:0.8rem;">PREÇO MÉDIO</span><br>
+                <strong id="kardexPrecoMedio" style="color:#f8fafc; font-size:1.1rem;">R$ 0,00</strong>
+            </div>
+            <div style="background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color:#94a3b8; font-size:0.8rem;">MAIOR CONSUMIDOR</span><br>
+                <strong id="kardexMaiorConsumidor" style="color:#fbbf24;">---</strong>
+            </div>
+        </div>
+
+        <div class="almo-table-container" style="max-height: 360px; overflow-y: auto;">
+            <table class="almo-table" style="font-size: 0.85rem;">
+                <thead style="position: sticky; top: 0; z-index: 10;">
+                    <tr>
+                        <th>Data / Hora</th>
+                        <th>Tipo</th>
+                        <th>Qtd.</th>
+                        <th>Valor Unit.</th>
+                        <th>NF / Motivo</th>
+                        <th>Destino / Fornecedor</th>
+                        <th>Responsável</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaKardexBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL TRANSFERÊNCIA ENTRE FILIAIS -->
+<div id="modalTransferencia" class="almo-modal">
+    <div class="almo-modal-content" style="max-width: 650px; overflow: visible;">
+        <span class="almo-close" onclick="fecharModalAlmox('modalTransferencia')">&times;</span>
+        <h3><i class="fas fa-truck-moving" style="color: #14b8a6;"></i> Transferência entre Filiais</h3>
+        <form id="formTransferencia" onsubmit="executarTransferenciaFilial(event)">
+            <div class="almo-form-group" style="position: relative;">
+                <label>Peça a Transferir</label>
+                <select id="transfPecaId" required onchange="atualizarSaldoTransferencia()"></select>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="almo-form-group">
+                    <label>Saldo Disponível na Filial Atual</label>
+                    <input type="text" id="transfSaldoAtual" readonly>
+                </div>
+                <div class="almo-form-group">
+                    <label>Quantidade a Enviar</label>
+                    <input type="number" step="0.01" min="0.01" id="transfQuantidade" required placeholder="0.00">
+                </div>
+            </div>
+            <div class="almo-form-group">
+                <label>Filial de Destino</label>
+                <select id="transfFilialDestino" required>
+                    <option value="">Carregando filiais...</option>
+                </select>
+            </div>
+            <div class="almo-form-group">
+                <label>Observação / Nº Guia</label>
+                <input type="text" id="transfObs" placeholder="Ex: Envio urgente via caminhão apoio" required>
+            </div>
+            <button type="submit" id="btnConfirmarTransf" class="btn-modern btn-teal" style="width: 100%; justify-content: center; padding: 12px;">
+                <i class="fas fa-exchange-alt"></i> Confirmar Transferência
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL CADASTRAR KIT -->
 <div id="modalKit" class="almo-modal">
     <div class="almo-modal-content" style="max-width: 800px; overflow: visible;">
         <span class="almo-close" onclick="fecharModalAlmox('modalKit')">&times;</span>
@@ -389,9 +626,9 @@
     </div>
 </div>
 
-<!-- MODAL MOVIMENTAÇÃO DE ESTOQUE -->
+<!-- MODAL MOVIMENTAÇÃO DE ESTOQUE (NF / SAÍDA EM LOTE / INVENTÁRIO) -->
 <div id="modalMovimentacao" class="almo-modal">
-    <div class="almo-modal-content">
+    <div class="almo-modal-content" style="overflow: visible;">
         <span class="almo-close" onclick="fecharModalAlmox('modalMovimentacao')">&times;</span>
         <h3 id="modalMovTitulo">Movimentar Estoque</h3>
         <form id="formMovimentacao" onsubmit="salvarMovimentacao(event)">
@@ -426,66 +663,141 @@
                 <button type="button" class="btn-modern btn-edit" onclick="adicionarLinhaLoteNF()"><i class="fas fa-plus"></i> Add Manual</button>
             </div>
 
-            <!-- SAÍDA -->
+            <!-- SAÍDA EM LOTE (CARRINHO DE SAÍDA + CÂMERA + AUTOCOMPLETE) -->
             <div id="divSaidaOS" style="display: none;">
                 <div class="almo-form-group">
                     <label>Para onde vai este material?</label>
-                    <select id="movTipoSaida" class="dark-select" onchange="toggleTipoSaida()" style="background: #334155;">
+                    <select id="movTipoSaida" onchange="toggleTipoSaida()" style="background: #0f172a;">
                         <option value="frota">Aplicação em Caminhão / Máquina (Requer O.S)</option>
                         <option value="setor">Consumo Interno (Centro de Custo Corporativo)</option>
                     </select>
                 </div>
                 
-                <div id="camposFrotaSaida" style="display: flex; gap: 15px; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
-                    <div class="almo-form-group" style="flex: 1;">
+                <div id="camposFrotaSaida" style="display: flex; gap: 12px; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; margin-bottom: 15px; align-items: flex-end;">
+                    <div class="almo-form-group" style="flex: 1; margin-bottom: 0;">
                         <label>Nº da O.S. (Obrigatório)</label>
-                        <input type="number" id="movOS" placeholder="Aperte Enter p/ buscar a Placa">
+                        <div style="display: flex; gap: 6px;">
+                            <input type="number" id="movOS" placeholder="Digite ou bipe a O.S.">
+                            <button type="button" class="btn-modern btn-primary" style="padding: 8px 12px;" title="Ler QR da O.S." onclick="iniciarLeituraOS()">
+                                <i class="fas fa-qrcode"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="almo-form-group" style="flex: 1;">
+                    <div class="almo-form-group" style="flex: 1; margin-bottom: 0;">
                         <label>Frota Destino</label>
                         <input type="text" id="movCavalo" placeholder="Aguardando O.S..." readonly>
                     </div>
                 </div>
-                <div id="camposSetorSaida" style="display: none; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
-                    <div class="almo-form-group">
+                <div id="camposSetorSaida" style="display: none; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                    <div class="almo-form-group" style="margin-bottom: 0;">
                         <label>Centro de Custo / Setor</label>
-                        <select id="movCentroCusto" class="dark-select" style="width: 100%;">
+                        <select id="movCentroCusto" style="width: 100%;">
                             <option value="">Carregando Centros de Custo...</option>
                         </select>
                     </div>
                 </div>
-                <div class="almo-form-group">
-                    <label>Peça / Material (Lote Específico)</label>
-                    <select id="movPecaId"></select>
+
+                <!-- Adicionar Peça ao Carrinho -->
+                <div style="background: rgba(0,0,0,0.2); padding: 14px; border-radius: 8px; margin-bottom: 14px; border: 1px dashed #475569;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <strong style="color: #fbbf24; font-size: 0.92rem;"><i class="fas fa-cart-plus"></i> Adicionar Peças à Saída</strong>
+                        <button type="button" class="btn-action-sm btn-purple" onclick="iniciarLeituraPecaSaida()">
+                            <i class="fas fa-camera"></i> Bipar Peças (Contínuo)
+                        </button>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="almo-form-group" style="flex: 3; min-width: 240px; margin-bottom: 0; position: relative;">
+                            <label>Pesquisar Peça (Código ou Nome)</label>
+                            <div class="input-com-icone">
+                                <i class="fas fa-search icone-busca"></i>
+                                <input type="text" id="pesquisaPecaSaida" style="padding-left: 35px;" placeholder="Digite ou clique na seta..." onkeyup="filtrarPecasSaidaDebounced()" onclick="filtrarPecasSaidaDebounced(true)" autocomplete="off">
+                                <div style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: flex; gap: 5px;">
+                                    <button type="button" id="btnLimparPesquisaSaida" class="btn-icone-input" style="color: #ef4444; display:none;" onclick="limparPesquisaPecaSaida()"><i class="fas fa-times"></i></button>
+                                    <button type="button" id="btnMostrarListaSaida" class="btn-icone-input" style="color: #3b82f6;" onclick="toggleListaPecasSaida()"><i class="fas fa-chevron-down"></i></button>
+                                </div>
+                            </div>
+                            <div id="listaPecasSaidaCustom" class="pecas-autocomplete-container"></div>
+                            <input type="hidden" id="movPecaId" value="">
+                        </div>
+                        <div class="almo-form-group" style="flex: 1; min-width: 90px; margin-bottom: 0;">
+                            <label>Qtd.</label>
+                            <input type="number" step="0.01" id="movQuantidade" value="1" min="0.01">
+                        </div>
+                        <div class="almo-form-group" style="flex: 1; min-width: 100px; margin-bottom: 0;">
+                            <label>V. Médio</label>
+                            <input type="number" step="0.01" id="movValor" readonly>
+                        </div>
+                        <button type="button" class="btn-modern btn-success" style="padding: 10px 14px;" onclick="adicionarItemCarrinhoSaida()">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </div>
                 </div>
-                
-                <div style="display: flex; gap: 15px;">
-                    <div class="almo-form-group" style="flex: 1;"><label>Qtd Retirar</label><input type="number" step="0.01" id="movQuantidade" placeholder="0"></div>
-                    <div class="almo-form-group" style="flex: 1;"><label>Valor Médio (R$)</label><input type="number" step="0.01" id="movValor" readonly style="background: #334155;"></div>
+
+                <!-- Tabela Carrinho de Saída -->
+                <div class="almo-table-container" style="max-height: 220px; overflow-y: auto; margin-bottom: 10px;">
+                    <table class="almo-table" style="font-size: 0.85rem;">
+                        <thead style="position: sticky; top: 0; z-index: 10;">
+                            <tr><th>Código</th><th>Peça</th><th>Saldo</th><th>Qtd. Saída</th><th>Subtotal</th><th style="text-align:center;">Remover</th></tr>
+                        </thead>
+                        <tbody id="tabelaCarrinhoSaidaBody"></tbody>
+                    </table>
                 </div>
             </div>
 
-            <!-- AJUSTE -->
+            <!-- AJUSTE DE BALANÇO (INDIVIDUAL OU INVENTÁRIO EM LOTE) -->
             <div id="divAjusteEstoque" style="display: none;">
-                <div class="almo-form-group">
-                    <label>Selecione a Peça (Lote) para Ajuste</label>
-                    <select id="ajustePecaId" onchange="carregarEstoqueAtualAjuste()"></select>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button type="button" id="btnModoAjusteIndiv" class="btn-modern btn-primary" onclick="mudarModoAjuste('individual')">Ajuste Individual</button>
+                    <button type="button" id="btnModoAjusteLote" class="btn-modern btn-dark" onclick="mudarModoAjuste('lote')"><i class="fas fa-clipboard-list"></i> Inventário por Localização (Lote)</button>
                 </div>
-                <div style="display: flex; gap: 15px; align-items: flex-end;">
-                    <div class="almo-form-group" style="flex: 1;">
-                        <label>Estoque no Sistema</label>
-                        <input type="text" id="ajusteQtdAtual" readonly style="background: #334155;">
+
+                <!-- Modo Individual -->
+                <div id="subDivAjusteIndividual">
+                    <div class="almo-form-group">
+                        <label>Selecione a Peça (Lote) para Ajuste</label>
+                        <select id="ajustePecaId" onchange="carregarEstoqueAtualAjuste()"></select>
                     </div>
-                    <div class="almo-form-group" style="flex: 1;">
-                        <label>Nova Qtd. Física (Real)</label>
-                        <input type="number" step="0.01" id="ajusteQtdReal" placeholder="Ex: 5" required>
+                    <div style="display: flex; gap: 15px; align-items: flex-end;">
+                        <div class="almo-form-group" style="flex: 1;">
+                            <label>Estoque no Sistema</label>
+                            <input type="text" id="ajusteQtdAtual" readonly>
+                        </div>
+                        <div class="almo-form-group" style="flex: 1;">
+                            <label>Nova Qtd. Física (Real)</label>
+                            <input type="number" step="0.01" id="ajusteQtdReal" placeholder="Ex: 5">
+                        </div>
+                    </div>
+                    <div class="almo-form-group">
+                        <label>Motivo do Ajuste</label>
+                        <input type="text" id="ajusteMotivo" placeholder="Ex: Inventário Mensal, Peça Quebrada...">
                     </div>
                 </div>
-                <div class="almo-form-group">
-                    <label>Motivo do Ajuste</label>
-                    <input type="text" id="ajusteMotivo" placeholder="Ex: Inventário Mensal, Peça Quebrada..." required>
+
+                <!-- Modo Inventário em Lote -->
+                <div id="subDivAjusteLote" style="display: none;">
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-end;">
+                        <div class="almo-form-group" style="flex: 1; margin-bottom: 0;">
+                            <label>Filtrar Prateleira / Localização</label>
+                            <select id="invLocalizacaoFiltro" onchange="renderizarTabelaInventarioLote()">
+                                <option value="">Todas as Localizações</option>
+                            </select>
+                        </div>
+                        <div class="almo-form-group" style="flex: 1; margin-bottom: 0;">
+                            <label>Motivo Padrão do Inventário</label>
+                            <input type="text" id="invMotivoLote" value="Inventário Rotativo" placeholder="Ex: Inventário Mensal">
+                        </div>
+                    </div>
+                    <div class="almo-table-container" style="max-height: 280px; overflow-y: auto;">
+                        <table class="almo-table" style="font-size: 0.85rem;">
+                            <thead style="position: sticky; top: 0; z-index: 10;">
+                                <tr><th>Código</th><th>Peça</th><th>Local</th><th>Sistema</th><th>Contagem Física</th><th>Dif.</th></tr>
+                            </thead>
+                            <tbody id="tabelaInventarioLoteBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+
             <button type="submit" id="btnConfirmaMov" class="btn-modern btn-primary" style="width: 100%; justify-content: center; margin-top: 15px; padding: 12px;"><i class="fas fa-check"></i> Salvar Movimentação</button>
         </form>
     </div>
@@ -601,7 +913,7 @@
             <h4 id="qrItemNome" style="color:#f8fafc; margin-bottom:5px; font-size: 1.1rem;"></h4>
             <p id="qrItemCodigo" style="color:#94a3b8; font-family:monospace; margin-top:0; font-size: 1.2rem; font-weight: bold;"></p>
         </div>
-        <button type="button" class="btn-modern" style="background:#8b5cf6; color:white; width: 100%; justify-content: center; padding: 12px; font-size: 1.05rem;" onclick="executarGeracaoQr()">
+        <button type="button" class="btn-modern btn-purple" style="width: 100%; justify-content: center; padding: 12px; font-size: 1.05rem;" onclick="executarGeracaoQr()">
             <i class="fas fa-print"></i> Gerar e Imprimir
         </button>
     </div>
