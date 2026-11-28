@@ -1,9 +1,36 @@
-// ==================== MÓDULO: GESTÃO DE USUÁRIOS (COM MULTI-FILIAL EXCLUSIVO SUPERADMIN) ====================
+// ==================== MÓDULO: GESTÃO DE USUÁRIOS (INTEGRADO AO RH + WHATSAPP + MULTI-FILIAL SUPERADMIN) ====================
 
 let listaUsuarios = [];
 let cacheFiliaisSistema = [];
 let cachePermissoesFiliais = {};
+let cacheColaboradoresRH = [];
 let filiaisExtrasSelecionadasEdicao = [];
+
+// ==================== UTILITÁRIOS DE NORMALIZAÇÃO E USERNAME ====================
+window.normalizarNomeComparacao = function(texto) {
+    if (!texto) return '';
+    return String(texto)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toUpperCase();
+};
+
+window.gerarUsernamePrimeiroUltimo = function(nomeCompleto) {
+    const limpo = window.normalizarNomeComparacao(nomeCompleto).replace(/[^A-Z\s]/g, '');
+    if (!limpo) return '';
+    const partes = limpo.split(' ').filter(Boolean);
+    if (partes.length === 1) return partes[0];
+    return `${partes[0]}.${partes[partes.length - 1]}`;
+};
+
+window.obterSaudacaoHorario = function() {
+    const hora = new Date().getHours();
+    if (hora < 12) return 'Bom dia';
+    if (hora < 18) return 'Boa tarde';
+    return 'Boa noite';
+};
 
 // Reconhece o Administrador Global
 window.isUsuarioGlobal = function() {
@@ -21,7 +48,262 @@ window.isEstritamenteSuperAdmin = function() {
     );
 };
 
-// Salva de forma garantida na tabela permissoes_perfis (Delete + Insert para evitar erro de onConflict no Supabase e converte para String[])
+// ==================== INTEGRAÇÃO COM COLABORADORES DO RH ====================
+window.carregarColaboradoresRHParaUsuarios = async function() {
+    try {
+        if (!window.supabaseClient) return [];
+        const { data, error } = await supabaseClient
+            .from('rh_colaboradores')
+            .select('id, nome, status, filial_id, funcao, telefone, data_desligamento')
+            .order('nome', { ascending: true });
+
+        if (error) throw error;
+        cacheColaboradoresRH = data || [];
+        return cacheColaboradoresRH;
+    } catch (e) {
+        console.error("Erro ao carregar colaboradores do RH:", e);
+        cacheColaboradoresRH = [];
+        return [];
+    }
+};
+
+window.encontrarColaboradorRHDoUsuario = function(userObj) {
+    if (!userObj || !cacheColaboradoresRH || cacheColaboradoresRH.length === 0) return null;
+    const nomeNorm = window.normalizarNomeComparacao(userObj.nome_completo);
+    if (!nomeNorm) return null;
+
+    // Prioriza o colaborador da mesma filial; se não achar, busca pelo nome normalizado geral
+    let colab = cacheColaboradoresRH.find(c =>
+        window.normalizarNomeComparacao(c.nome) === nomeNorm &&
+        (userObj.filial_id === null || String(c.filial_id) === String(userObj.filial_id))
+    );
+    if (!colab) {
+        colab = cacheColaboradoresRH.find(c => window.normalizarNomeComparacao(c.nome) === nomeNorm);
+    }
+    return colab || null;
+};
+
+window.sincronizarInativosComRH = async function(todosUsuarios) {
+    if (!todosUsuarios || todosUsuarios.length === 0 || !cacheColaboradoresRH || cacheColaboradoresRH.length === 0) return 0;
+
+    let totalInativadosAgora = 0;
+
+    for (const u of todosUsuarios) {
+        // Nunca inativa SuperAdmin ou o próprio usuário logado
+        const isTargetSuperAdmin = (u.role === 'SuperAdmin' || (u.cargos && u.cargos.nivel_acesso === 'SuperAdmin'));
+        if (isTargetSuperAdmin || (window.currentUser && u.id === window.currentUser.id)) continue;
+
+        const colabRH = window.encontrarColaboradorRHDoUsuario(u);
+        if (!colabRH) continue;
+
+        const colabInativoNoRH = (colabRH.status === 'Inativo' || colabRH.status === 'Desligado');
+        if (colabInativoNoRH && u.status !== 'Inativo') {
+            try {
+                await db.updateUsuarioStatus(u.id, 'Inativo');
+                u.status = 'Inativo';
+                totalInativadosAgora++;
+
+                if (typeof window.registrarLogAuditoria === 'function') {
+                    window.registrarLogAuditoria(
+                        'Gestão de Usuários',
+                        'Inativação Automática (RH)',
+                        `Usuário ${u.username} (${u.nome_completo}) inativado automaticamente porque o colaborador consta como ${colabRH.status} no RH.`
+                    );
+                }
+            } catch (errSync) {
+                console.error(`Erro ao inativar automaticamente ${u.username}:`, errSync);
+            }
+        }
+    }
+
+    const avisoSync = document.getElementById('avisoSincronizacaoRH');
+    if (avisoSync) {
+        avisoSync.style.display = 'inline-flex';
+        if (totalInativadosAgora > 0) {
+            avisoSync.style.color = '#f59e0b';
+            avisoSync.innerHTML = `<i class="fas fa-sync-alt"></i> ${totalInativadosAgora} acesso(s) inativado(s) automaticamente pelo RH`;
+        } else {
+            avisoSync.style.color = '#10b981';
+            avisoSync.innerHTML = `<i class="fas fa-check-circle"></i> Sincronizado com o RH`;
+        }
+    }
+
+    return totalInativadosAgora;
+};
+
+window.popularSelectColaboradoresRH = function(filialId) {
+    const selColab = document.getElementById('selectColaboradorRH');
+    if (!selColab) return;
+
+    if (!filialId) {
+        selColab.innerHTML = '<option value="">-- Selecione a Filial primeiro --</option>';
+        return;
+    }
+
+    // Filtra apenas colaboradores Ativos da filial selecionada (ou todos ativos se CENTRAL)
+    let ativos = (cacheColaboradoresRH || []).filter(c => c.status === 'Ativo' || !c.status);
+
+    if (filialId !== 'CENTRAL') {
+        ativos = ativos.filter(c => String(c.filial_id) === String(filialId));
+    }
+
+    // Remove da lista quem já tem usuário cadastrado (comparando nome normalizado)
+    const nomesJaComUsuario = new Set(
+        (listaUsuarios || []).map(u => window.normalizarNomeComparacao(u.nome_completo))
+    );
+
+    const disponiveis = ativos.filter(c => !nomesJaComUsuario.has(window.normalizarNomeComparacao(c.nome)));
+
+    if (disponiveis.length === 0) {
+        selColab.innerHTML = '<option value="">Nenhum colaborador ativo sem usuário nesta filial</option>';
+        return;
+    }
+
+    let options = `<option value="">-- Clique para escolher um colaborador ativo (${disponiveis.length} disponíveis) --</option>`;
+    disponiveis.forEach(c => {
+        const cargoTxt = c.funcao ? ` — ${c.funcao}` : '';
+        options += `<option value="${c.id}">${c.nome}${cargoTxt}</option>`;
+    });
+
+    selColab.innerHTML = options;
+};
+
+window.aoMudarFilialNovoUsuario = function(filialValue) {
+    window.carregarCargosParaFilial(filialValue);
+    window.atualizarCheckboxesFiliaisExtrasNovo();
+    window.popularSelectColaboradoresRH(filialValue);
+};
+
+window.selecionarColaboradorRHParaUsuario = function(colabId) {
+    if (!colabId) return;
+    const colab = (cacheColaboradoresRH || []).find(c => String(c.id) === String(colabId));
+    if (!colab) return;
+
+    const inputNome = document.getElementById('novoNomeCompleto');
+    const inputUser = document.getElementById('novoUsername');
+    const selectCargo = document.getElementById('novoUserCargo');
+
+    if (inputNome) inputNome.value = (colab.nome || '').toUpperCase();
+    if (inputUser) inputUser.value = window.gerarUsernamePrimeiroUltimo(colab.nome);
+
+    // Preenche automaticamente o Cargo / Função Corporativa se existir na lista da filial
+    if (selectCargo && colab.funcao) {
+        const funcaoNorm = window.normalizarNomeComparacao(colab.funcao);
+        const opcoes = Array.from(selectCargo.options);
+        const match = opcoes.find(opt => {
+            if (!opt.value) return false;
+            const nomeCargoOpt = opt.getAttribute('data-nome') || opt.textContent.split('(')[0];
+            return window.normalizarNomeComparacao(nomeCargoOpt) === funcaoNorm;
+        });
+
+        if (match) {
+            selectCargo.value = match.value;
+        }
+    }
+};
+
+window.limparSelecaoColaboradorRH = function() {
+    const sel = document.getElementById('selectColaboradorRH');
+    const inputNome = document.getElementById('novoNomeCompleto');
+    const inputUser = document.getElementById('novoUsername');
+    const selectCargo = document.getElementById('novoUserCargo');
+    if (sel) sel.value = '';
+    if (inputNome) inputNome.value = '';
+    if (inputUser) inputUser.value = '';
+    if (selectCargo) selectCargo.value = '';
+};
+
+window.sugerirUsernameAoDigitar = function(valor) {
+    const inputUser = document.getElementById('novoUsername');
+    if (!inputUser) return;
+    inputUser.value = window.gerarUsernamePrimeiroUltimo(valor);
+};
+
+// ==================== WHATSAPP: MENSAGEM PRONTA ====================
+window.abrirModalWhatsAppUsuario = function(username, nomeCompleto = '', telefone = '', isReset = false) {
+    const saudacao = window.obterSaudacaoHorario();
+    const primeiroNome = nomeCompleto ? String(nomeCompleto).trim().split(' ')[0] : '';
+    const saudacaoCompleta = primeiroNome
+        ? `${saudacao} ${primeiroNome.charAt(0).toUpperCase() + primeiroNome.slice(1).toLowerCase()}, tudo bem?`
+        : `${saudacao}, tudo bem?`;
+
+    const intro = isReset
+        ? 'Estou enviando os seus novos dados de acesso (senha resetada) para o SGC - Sistema de Gestão Corporativo:'
+        : 'Estou enviando os seus dados para acessar o SGC - Sistema de Gestão Corporativo:';
+
+    const mensagem =
+`${saudacaoCompleta}
+
+${intro}
+
+Link de acesso: https://serranaflorestal.com
+
+Usuário: ${username}
+Senha provisória: 12345
+
+Assim que você fizer o primeiro login, o sistema pedirá para você alterar essa senha padrão para uma nova da sua escolha.
+
+Me avise se tiver algum problema para acessar!`;
+
+    const elTel = document.getElementById('wppTelefoneDestino');
+    const elTxt = document.getElementById('wppTextoMensagem');
+    if (elTel) elTel.value = telefone || '';
+    if (elTxt) elTxt.value = mensagem;
+
+    const modal = document.getElementById('modalMensagemWhatsApp');
+    if (modal) modal.style.display = 'flex';
+};
+
+window.abrirWhatsAppPorIdUsuario = function(userId) {
+    const u = listaUsuarios.find(item => item.id === userId);
+    if (!u) return;
+    const colabRH = window.encontrarColaboradorRHDoUsuario(u);
+    const telefone = colabRH && colabRH.telefone ? colabRH.telefone : '';
+    window.abrirModalWhatsAppUsuario(u.username, u.nome_completo || '', telefone, false);
+};
+
+window.fecharModalWhatsAppUsuario = function() {
+    const modal = document.getElementById('modalMensagemWhatsApp');
+    if (modal) modal.style.display = 'none';
+};
+
+window.copiarMensagemWhatsApp = async function() {
+    const elTxt = document.getElementById('wppTextoMensagem');
+    if (!elTxt) return;
+
+    try {
+        await navigator.clipboard.writeText(elTxt.value);
+        const btn = document.getElementById('btnCopiarTextoWpp');
+        if (btn) {
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+            setTimeout(() => { btn.innerHTML = original; }, 2000);
+        }
+    } catch (e) {
+        elTxt.select();
+        document.execCommand('copy');
+        alert('✅ Mensagem copiada para a área de transferência!');
+    }
+};
+
+window.abrirNoWhatsAppWeb = function() {
+    const elTxt = document.getElementById('wppTextoMensagem');
+    const elTel = document.getElementById('wppTelefoneDestino');
+    const texto = elTxt ? elTxt.value : '';
+    let telLimpo = elTel ? elTel.value.replace(/\D/g, '') : '';
+
+    if (telLimpo && telLimpo.length <= 11 && !telLimpo.startsWith('55')) {
+        telLimpo = '55' + telLimpo;
+    }
+
+    const url = telLimpo
+        ? `https://wa.me/${telLimpo}?text=${encodeURIComponent(texto)}`
+        : `https://wa.me/?text=${encodeURIComponent(texto)}`;
+
+    window.open(url, '_blank');
+};
+
+// ==================== MULTI-FILIAL (SUPERADMIN) ====================
 window.salvarFiliaisExtrasNoBanco = async function(userId, username, arrayIdsExtras) {
     const listaStrings = (arrayIdsExtras || []).map(x => String(x).trim()).filter(Boolean);
     const keyId = `filiais_user_${userId}`;
@@ -32,14 +314,12 @@ window.salvarFiliaisExtrasNoBanco = async function(userId, username, arrayIdsExt
 
     for (const chave of chaves) {
         try {
-            // Remove registro anterior com essa chave para nunca dar conflito de constraint
             await supabaseClient.from('permissoes_perfis').delete().eq('perfil', chave);
             if (listaStrings.length > 0) {
                 const { error: insErr } = await supabaseClient
                     .from('permissoes_perfis')
                     .insert([{ perfil: chave, menus: listaStrings }]);
                 if (insErr) {
-                    // Fallback para upsert padrão
                     await db.updatePermissoesDB(chave, listaStrings);
                 }
             }
@@ -53,7 +333,6 @@ window.salvarFiliaisExtrasNoBanco = async function(userId, username, arrayIdsExt
     }
 };
 
-// Retorna array de IDs numéricos das filiais extras vinculadas ao usuário
 window.obterFiliaisExtrasDoUsuario = function(userObj) {
     if (!userObj) return [];
     const keyId = `filiais_user_${userObj.id}`;
@@ -75,7 +354,6 @@ window.obterFiliaisExtrasDoUsuario = function(userObj) {
         .filter(v => v === 'CENTRAL' || (!isNaN(v) && v > 0));
 };
 
-// Função global de segurança para checar se a ação é permitida
 window.verificarPermissaoAcao = function(targetUser) {
     if (!window.currentUser) return false;
     if (window.isUsuarioGlobal()) return true;
@@ -111,6 +389,7 @@ window.carregarFiliaisFormulario = async function() {
     const containerNovoExtras = document.getElementById('containerNovoFiliaisExtras');
 
     if (window.isUsuarioGlobal()) {
+        const valorAtual = selectFilial.value;
         let options = '<option value="" disabled selected>-- Selecione a Filial --</option>';
         options += '<option value="CENTRAL">ADMINISTRAÇÃO (Corporativo / Global)</option>';
         if (filiaisBanco && filiaisBanco.length > 0) {
@@ -118,6 +397,11 @@ window.carregarFiliaisFormulario = async function() {
         }
         selectFilial.innerHTML = options;
         selectFilial.disabled = false;
+
+        if (valorAtual) {
+            selectFilial.value = valorAtual;
+            window.popularSelectColaboradoresRH(valorAtual);
+        }
 
         if (containerNovoExtras) {
             if (window.isEstritamenteSuperAdmin()) {
@@ -145,6 +429,7 @@ window.carregarFiliaisFormulario = async function() {
         selectFilial.innerHTML = `<option value="${fValue}" selected>${nomeFilial}</option>`;
         selectFilial.disabled = true;
         window.carregarCargosParaFilial(fValue);
+        window.popularSelectColaboradoresRH(fValue);
     }
 };
 
@@ -254,7 +539,8 @@ window.carregarCargosParaFilial = async function(filialId) {
         if (data && data.length > 0) {
             data.forEach(c => {
                 const ccAttr = c.centro_custo_id ? c.centro_custo_id : '';
-                options += `<option value="${c.id}" data-role="${c.nivel_acesso}" data-cc="${ccAttr}">${c.nome} (${c.nivel_hierarquico})</option>`;
+                const nomeEscapado = String(c.nome || '').replace(/"/g, '&quot;');
+                options += `<option value="${c.id}" data-nome="${nomeEscapado}" data-role="${c.nivel_acesso}" data-cc="${ccAttr}">${c.nome} (${c.nivel_hierarquico})</option>`;
             });
         } else {
             options = '<option value="" disabled selected>Nenhum Cargo Cadastrado</option>';
@@ -302,8 +588,7 @@ window.renderizarUsuarios = async function() {
     const tbody = document.getElementById('tabelaUsuarios');
     if (!tbody) return;
 
-    await window.carregarFiliaisFormulario();
-    if (typeof window.carregarPerfisPermissao === 'function') await window.carregarPerfisPermissao();
+    await window.carregarColaboradoresRHParaUsuarios();
 
     try {
         if (typeof db !== 'undefined' && typeof db.getPermissoesDB === 'function') {
@@ -320,8 +605,11 @@ window.renderizarUsuarios = async function() {
             console.error("Erro ao buscar cargos para o mapeamento:", e);
         }
 
-        const todosUsuarios = await db.getUsuarios('TODAS'); 
-        
+        const todosUsuarios = await db.getUsuarios('TODAS');
+
+        // Sincronização automática: inativa usuários cujo colaborador foi desligado/inativado no RH
+        await window.sincronizarInativosComRH(todosUsuarios);
+
         let filiaisBanco = cacheFiliaisSistema;
         if (!filiaisBanco || filiaisBanco.length === 0) {
             try {
@@ -373,6 +661,10 @@ window.renderizarUsuarios = async function() {
             }
         }
 
+        // Atualiza o formulário de filiais e o dropdown de colaboradores do RH (já filtrando quem tem usuário)
+        await window.carregarFiliaisFormulario();
+        if (typeof window.carregarPerfisPermissao === 'function') await window.carregarPerfisPermissao();
+
         if (listaUsuarios.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 30px; color: var(--text-secondary);">Nenhum usuário encontrado para o filtro atual.</td></tr>'; return;
         }
@@ -421,11 +713,20 @@ window.renderizarUsuarios = async function() {
                 const lockedByBranch = !amISuperAdmin && (u.filial_id != window.currentUser.filial_id);
                 const isLocked = isCurrent || lockedByBranch;
 
+                const colabRH = window.encontrarColaboradorRHDoUsuario(u);
+                const colabInativoNoRH = colabRH && (colabRH.status === 'Inativo' || colabRH.status === 'Desligado');
                 const isAtivo = u.status !== 'Inativo';
                 
                 let statusBadge = '';
                 if (!isAtivo) {
-                    statusBadge = `<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 5px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 500;">Inativo</span>`;
+                    let motivoInativoHtml = '';
+                    if (colabInativoNoRH) {
+                        const dtDesl = colabRH.data_desligamento ? ` em ${colabRH.data_desligamento.split('-').reverse().join('/')}` : '';
+                        motivoInativoHtml = `<div style="font-size: 0.68rem; color: #f87171; margin-top: 4px; font-weight: 600;"><i class="fas fa-user-slash"></i> ${colabRH.status} no RH${dtDesl}</div>`;
+                    } else {
+                        motivoInativoHtml = `<div style="font-size: 0.68rem; color: #94a3b8; margin-top: 4px;">Inativado manualmente</div>`;
+                    }
+                    statusBadge = `<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 5px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 600;">Inativo</span>${motivoInativoHtml}`;
                 } else if (u.primeiro_acesso) {
                     statusBadge = `<span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 5px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid rgba(245, 158, 11, 0.3); font-weight: 500;">1º Acesso</span>`;
                 } else {
@@ -463,6 +764,8 @@ window.renderizarUsuarios = async function() {
 
                     botoesAcao = `
                         <div style="display: flex; gap: 6px; justify-content: flex-end; padding-right: 20px;">
+                            <button onclick="window.abrirWhatsAppPorIdUsuario(${u.id})" style="background: rgba(37, 211, 102, 0.12); border: 1px solid rgba(37, 211, 102, 0.35); color: #25d366; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; transition: all 0.2s;" title="Gerar mensagem de acesso p/ WhatsApp" onmouseover="this.style.background='rgba(37, 211, 102, 0.25)'" onmouseout="this.style.background='rgba(37, 211, 102, 0.12)'"><i class="fab fa-whatsapp"></i></button>
+
                             <button onclick="window.abrirModalEdicaoUsuario(${u.id})" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: #3b82f6; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;" title="Editar informações do colaborador" onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'" onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'"><i class="fas fa-edit"></i></button>
                             
                             <button onclick="window.resetarSenhaUsuario(${u.id})" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;" title="Resetar senha para 12345" onmouseover="this.style.background='rgba(245, 158, 11, 0.2)'" onmouseout="this.style.background='rgba(245, 158, 11, 0.1)'"><i class="fas fa-key"></i></button>
@@ -511,7 +814,7 @@ window.adicionarUsuario = async function() {
     const nomeCompleto = document.getElementById('novoNomeCompleto').value.trim().toUpperCase();
     const nome = document.getElementById('novoUsername').value.trim().toUpperCase();
 
-    if (!nomeCompleto) { alert('⚠️ Preencha o nome completo do colaborador.'); return; }
+    if (!nomeCompleto) { alert('⚠️ Preencha ou selecione o nome completo do colaborador.'); return; }
     if (!nome) { alert('⚠️ Preencha o nome de usuário (username).'); return; }
 
     const selectFilial = document.getElementById('novoUserFilial');
@@ -537,7 +840,7 @@ window.adicionarUsuario = async function() {
         return;
     }
 
-    if (listaUsuarios.some(u => u.username === nome)) { alert('⚠️ Este usuário já existe!'); return; }
+    if (listaUsuarios.some(u => u.username === nome)) { alert('⚠️ Este usuário (username) já existe! Altere o nome de acesso.'); return; }
 
     let filiaisExtrasIds = [];
     if (window.isEstritamenteSuperAdmin()) {
@@ -545,6 +848,14 @@ window.adicionarUsuario = async function() {
         filiaisExtrasIds = Array.from(chksExtras)
             .map(chk => parseInt(chk.value, 10))
             .filter(id => !isNaN(id) && id !== filialSelecionada);
+    }
+
+    // Resgata telefone do colaborador selecionado no RH (se houver)
+    const selColabId = document.getElementById('selectColaboradorRH')?.value;
+    let telefoneColab = '';
+    if (selColabId) {
+        const colabObj = cacheColaboradoresRH.find(c => String(c.id) === String(selColabId));
+        if (colabObj && colabObj.telefone) telefoneColab = colabObj.telefone;
     }
 
     try {
@@ -575,11 +886,14 @@ window.adicionarUsuario = async function() {
 
         document.getElementById('novoNomeCompleto').value = '';
         document.getElementById('novoUsername').value = '';
+        if (document.getElementById('selectColaboradorRH')) document.getElementById('selectColaboradorRH').value = '';
         selectCargo.value = '';
         document.querySelectorAll('.chk-novo-filial-extra').forEach(c => c.checked = false);
         
-        alert(`✅ Usuário ${nomeCompleto} criado com sucesso!\nSenha provisória: 12345`);
-        window.renderizarUsuarios();
+        await window.renderizarUsuarios();
+
+        // Abre automaticamente o modal com o texto pronto para enviar no WhatsApp
+        window.abrirModalWhatsAppUsuario(nome, nomeCompleto, telefoneColab, false);
     } catch(e) { 
         console.error(e);
         alert('❌ Erro ao registrar o usuário na estrutura corporativa. Verifique o console.'); 
@@ -590,15 +904,18 @@ window.resetarSenhaUsuario = async function(id) {
     const u = listaUsuarios.find(user => user.id === id);
     if (!u || !window.verificarPermissaoAcao(u)) return;
 
-    if(confirm(`Deseja resetar a senha deste usuário para "12345"? Ele precisará criar uma nova senha ao logar.`)) {
+    if(confirm(`Deseja resetar a senha de ${u.username} para "12345"? Ele precisará criar uma nova senha ao logar.`)) {
         await db.updateUsuarioSenhaEReset(id, "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5");
         
         if (typeof window.registrarLogAuditoria === 'function') {
             window.registrarLogAuditoria('Gestão de Usuários', 'Edição de Segurança', `Senha do usuário ${u.username} foi resetada para a senha padrão.`);
         }
 
-        alert(`Senha resetada com sucesso.`); 
-        window.renderizarUsuarios();
+        const colabRH = window.encontrarColaboradorRHDoUsuario(u);
+        const telefone = colabRH && colabRH.telefone ? colabRH.telefone : '';
+
+        await window.renderizarUsuarios();
+        window.abrirModalWhatsAppUsuario(u.username, u.nome_completo || '', telefone, true);
     }
 };
 
@@ -782,6 +1099,15 @@ window.salvarEdicaoUsuario = async function() {
 window.alternarStatusUsuario = async function(id, novoStatus) {
     const u = listaUsuarios.find(user => user.id === id);
     if (!u || !window.verificarPermissaoAcao(u)) return;
+
+    // Trava de segurança: impede reativar usuário que está Inativo/Desligado no RH
+    if (novoStatus === 'Ativo') {
+        const colabRH = window.encontrarColaboradorRHDoUsuario(u);
+        if (colabRH && (colabRH.status === 'Inativo' || colabRH.status === 'Desligado')) {
+            alert(`⚠️ Bloqueado pelo RH!\n\nO colaborador "${colabRH.nome}" consta como ${colabRH.status} no módulo de RH.\nPara reativar o acesso ao sistema, primeiro reative o cadastro dele no RH.`);
+            return;
+        }
+    }
 
     const acaoTexto = novoStatus === 'Inativo' ? 'INATIVAR' : 'ATIVAR';
     if(confirm(`Deseja realmente ${acaoTexto} o acesso do usuário ${u.username}?`)) {

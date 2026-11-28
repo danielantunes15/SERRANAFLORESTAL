@@ -5,26 +5,49 @@
     
     <!-- ÁREA DE CADASTRO -->
     <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 20px; margin-top: 20px; margin-bottom: 25px;">
-        <h3 style="margin-top: 0; color: var(--ccol-blue-bright); font-size: 1.1rem; margin-bottom: 15px;">
-            <i class="fas fa-user-plus"></i> Cadastrar Novo Usuário
-        </h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: var(--ccol-blue-bright); font-size: 1.1rem;">
+                <i class="fas fa-user-plus"></i> Cadastrar Novo Usuário
+            </h3>
+            <span style="font-size: 0.78rem; color: #38bdf8; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); padding: 4px 10px; border-radius: 20px;">
+                <i class="fas fa-link"></i> Integrado ao Cadastro de Colaboradores (RH)
+            </span>
+        </div>
+
+        <!-- LINHA 1: FILIAL + SELEÇÃO DO COLABORADOR DO RH -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; align-items: end; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed rgba(255,255,255,0.08);">
+            <div class="form-group-dark" style="margin-bottom: 0;">
+                <label style="font-size: 0.85rem; color: var(--text-secondary);">1. Filial de Lotação (Principal)</label>
+                <select id="novoUserFilial" class="dark-select" onchange="window.aoMudarFilialNovoUsuario(this.value)">
+                    <option value="" disabled selected>Carregando filiais...</option>
+                </select>
+            </div>
+
+            <div class="form-group-dark" style="margin-bottom: 0; grid-column: span 2;">
+                <label style="font-size: 0.85rem; color: #38bdf8; font-weight: 600;">
+                    <i class="fas fa-id-badge"></i> 2. Selecionar Colaborador Ativo do RH (Opcional p/ preenchimento automático)
+                </label>
+                <div style="display: flex; gap: 8px;">
+                    <select id="selectColaboradorRH" class="dark-select" style="flex: 1;" onchange="window.selecionarColaboradorRHParaUsuario(this.value)">
+                        <option value="">-- Selecione um colaborador ativo do RH --</option>
+                    </select>
+                    <button type="button" class="btn-secondary-dark" onclick="window.limparSelecaoColaboradorRH()" title="Limpar seleção para digitar manualmente" style="padding: 0 12px; height: 42px;">
+                        <i class="fas fa-eraser"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
         
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; align-items: end;">
+        <!-- LINHA 2: DADOS DO ACESSO -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 15px; align-items: end;">
             <div class="form-group-dark" style="margin-bottom: 0;">
                 <label style="font-size: 0.85rem; color: var(--text-secondary);">Nome Completo</label>
-                <input type="text" id="novoNomeCompleto" class="dark-select" placeholder="Ex: JOÃO DA SILVA" autocomplete="off">
+                <input type="text" id="novoNomeCompleto" class="dark-select" placeholder="Ex: TAINAN PEREIRA DOS SANTOS" autocomplete="off" oninput="window.sugerirUsernameAoDigitar(this.value)">
             </div>
 
             <div class="form-group-dark" style="margin-bottom: 0;">
                 <label style="font-size: 0.85rem; color: var(--text-secondary);">Nome de Acesso (Username)</label>
-                <input type="text" id="novoUsername" class="dark-select" placeholder="Ex: JOAO.SILVA" autocomplete="off">
-            </div>
-            
-            <div class="form-group-dark" style="margin-bottom: 0;">
-                <label style="font-size: 0.85rem; color: var(--text-secondary);">Filial de Lotação (Principal)</label>
-                <select id="novoUserFilial" class="dark-select" onchange="window.carregarCargosParaFilial(this.value); window.atualizarCheckboxesFiliaisExtrasNovo();">
-                    <option value="" disabled selected>Carregando filiais...</option>
-                </select>
+                <input type="text" id="novoUsername" class="dark-select" placeholder="Ex: TAINAN.SANTOS" autocomplete="off">
             </div>
             
             <div class="form-group-dark" style="margin-bottom: 0;">
@@ -50,10 +73,15 @@
             </div>
         </div>
         
-        <div style="margin-top: 15px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); display: flex; align-items: center; gap: 8px;">
-            <i class="fas fa-info-circle" style="color: var(--text-secondary);"></i>
-            <span style="font-size: 0.8rem; color: var(--text-secondary);">
-                A senha padrão para novos acessos é <strong>12345</strong>. O colaborador deverá alterá-la no primeiro login.
+        <div style="margin-top: 15px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-info-circle" style="color: var(--text-secondary);"></i>
+                <span style="font-size: 0.8rem; color: var(--text-secondary);">
+                    A senha padrão para novos acessos é <strong>12345</strong>. O colaborador deverá alterá-la no primeiro login.
+                </span>
+            </div>
+            <span id="avisoSincronizacaoRH" style="font-size: 0.78rem; color: #10b981; display: none;">
+                <i class="fas fa-sync-alt"></i> Sincronizado com o RH
             </span>
         </div>
     </div>
@@ -65,7 +93,7 @@
         </h3>
         
         <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-            <!-- Nova Barra de Busca -->
+            <!-- Barra de Busca -->
             <div class="form-group-dark" style="margin-bottom: 0; min-width: 250px;">
                 <div style="position: relative;">
                     <i class="fas fa-search" style="position: absolute; left: 12px; top: 12px; color: var(--text-secondary);"></i>
@@ -153,6 +181,42 @@
             <button class="btn-primary-green" onclick="window.salvarEdicaoUsuario()" style="padding: 10px 20px;">
                 <i class="fas fa-check"></i> Salvar Alterações
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE MENSAGEM PRONTA PARA WHATSAPP -->
+<div id="modalMensagemWhatsApp" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); align-items: center; justify-content: center; z-index: 10000;">
+    <div class="custom-modal" style="background: #1e293b; border: 1px solid rgba(37, 211, 102, 0.35); padding: 25px; border-radius: 12px; width: 100%; max-width: 540px; box-shadow: 0 15px 35px rgba(0,0,0,0.6);">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 18px;">
+            <h3 style="color: #f8fafc; margin: 0; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                <i class="fab fa-whatsapp" style="color: #25d366; font-size: 1.4rem;"></i> Enviar Dados de Acesso (WhatsApp)
+            </h3>
+            <button onclick="window.fecharModalWhatsAppUsuario()" style="background: none; border: none; color: #cbd5e1; font-size: 1.4rem; cursor: pointer;">&times;</button>
+        </div>
+
+        <div class="modal-body" style="padding: 0;">
+            <div class="form-group-dark" style="margin-bottom: 14px;">
+                <label style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Telefone / WhatsApp do Colaborador (Opcional para envio direto)</label>
+                <input type="text" id="wppTelefoneDestino" placeholder="Ex: (73) 99999-9999" style="width: 100%; background: #0f172a; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 10px 12px; font-size: 0.9rem; outline: none;">
+            </div>
+
+            <div class="form-group-dark" style="margin-bottom: 10px;">
+                <label style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-bottom: 6px;">Mensagem Pronta (você pode editar se desejar)</label>
+                <textarea id="wppTextoMensagem" rows="10" style="width: 100%; background: #0f172a; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; resize: vertical; line-height: 1.5; font-family: inherit; font-size: 0.9rem; padding: 12px; outline: none;"></textarea>
+            </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 18px; margin-top: 15px; flex-wrap: wrap;">
+            <button class="btn-secondary-dark" onclick="window.fecharModalWhatsAppUsuario()" style="padding: 10px 16px;">Fechar</button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary-blue" id="btnCopiarTextoWpp" onclick="window.copiarMensagemWhatsApp()" style="padding: 10px 18px;">
+                    <i class="fas fa-copy"></i> Copiar Texto
+                </button>
+                <button class="btn-primary-green" onclick="window.abrirNoWhatsAppWeb()" style="padding: 10px 18px; background: #25d366; border-color: #25d366; color: #0f172a; font-weight: 700;">
+                    <i class="fab fa-whatsapp"></i> Abrir no WhatsApp
+                </button>
+            </div>
         </div>
     </div>
 </div>
