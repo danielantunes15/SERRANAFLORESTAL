@@ -27,6 +27,127 @@
     }
 
     /* ========================================================== */
+    /* MINI-CARDS KPI DO MENU SUPERIOR                            */
+    /* ========================================================== */
+    .rh-kpi-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+    .rh-kpi-card {
+        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid var(--border-dim);
+        border-radius: 10px;
+        padding: 14px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .rh-kpi-card:hover {
+        border-color: var(--ccol-blue-bright);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+    }
+    .rh-kpi-card.ativo-filtro {
+        border-color: #60a5fa;
+        background: rgba(59, 130, 246, 0.12);
+    }
+    .rh-kpi-card.alerta-ativo {
+        border-color: #ef4444;
+        background: rgba(239, 68, 68, 0.12);
+    }
+    .rh-kpi-card.dup-ativo {
+        border-color: #f59e0b;
+        background: rgba(245, 158, 11, 0.12);
+    }
+    .rh-kpi-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
+        font-weight: 700;
+        display: block;
+        margin-bottom: 4px;
+    }
+    .rh-kpi-value {
+        font-size: 1.6rem;
+        font-weight: 900;
+        color: #fff;
+        line-height: 1;
+    }
+    .rh-kpi-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+    }
+
+    /* ========================================================== */
+    /* BARRA DE MENU E FILTROS MELHORADA                          */
+    /* ========================================================== */
+    .rh-toolbar-wrapper {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid var(--border-dim);
+        border-radius: 10px;
+        padding: 15px 18px;
+        margin-bottom: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .rh-toolbar-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        padding-bottom: 12px;
+    }
+    .rh-toolbar-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+
+    /* Badge de Duplicidade */
+    .badge-duplicado {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(245, 158, 11, 0.15);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        margin-left: 6px;
+        vertical-align: middle;
+    }
+    .alerta-duplicidade-inline {
+        margin-top: 6px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        color: #f87171;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: none;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* ========================================================== */
     /* AÇÕES RÁPIDAS (DROPDOWN DA TABELA)                         */
     /* ========================================================== */
     .action-dropdown-menu {
@@ -37,7 +158,7 @@
         border: 1px solid var(--border-dim);
         border-radius: 8px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        min-width: 200px;
+        min-width: 220px;
         z-index: 9999;
         display: none;
         flex-direction: column;
@@ -48,7 +169,7 @@
         background: transparent;
         border: none;
         color: var(--text-primary);
-        padding: 14px 15px;
+        padding: 13px 15px;
         text-align: left;
         cursor: pointer;
         font-size: 0.85rem;
@@ -63,13 +184,13 @@
         border-bottom: none;
     }
     .action-dropdown-menu button:hover {
-        background: rgba(255,255,255,0.05);
+        background: rgba(255,255,255,0.06);
         color: #fff;
     }
     
     .table-paginated-wrapper {
         min-height: 400px;
-        padding-bottom: 50px;
+        padding-bottom: 80px;
     }
 
     /* ========================================================== */
@@ -184,36 +305,110 @@
 
 <!-- TELA PRINCIPAL (LISTA PAGINADA) -->
 <div id="viewListagemColaboradores" style="animation: terminalFadeIn 0.3s ease-out;">
-    <div class="action-bar" style="display: flex; flex-wrap: wrap; gap: 15px;">
-        <div class="filter-group" style="flex: 1; display: flex; gap: 10px; min-width: 300px; align-items: center;">
-            <h2 style="color: #fff; margin-right: 15px; white-space: nowrap;"><i class="fas fa-users"></i> Colaboradores</h2>
-            
+
+    <!-- MINI-CARDS DE INDICADORES RÁPIDOS -->
+    <div class="rh-kpi-bar">
+        <div class="rh-kpi-card" id="kpiCardTodos" onclick="window.limparTodosFiltrosRH()" title="Clique para ver todos os colaboradores">
+            <div>
+                <span class="rh-kpi-label">Total Cadastrados</span>
+                <span class="rh-kpi-value" id="kpiTotalColab">0</span>
+            </div>
+            <div class="rh-kpi-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">
+                <i class="fas fa-users"></i>
+            </div>
+        </div>
+
+        <div class="rh-kpi-card" id="kpiCardAtivos" onclick="window.aplicarFiltroStatusRapido('Ativo')" title="Filtrar apenas Ativos">
+            <div>
+                <span class="rh-kpi-label">Colaboradores Ativos</span>
+                <span class="rh-kpi-value" id="kpiAtivosColab" style="color: #10b981;">0</span>
+            </div>
+            <div class="rh-kpi-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                <i class="fas fa-user-check"></i>
+            </div>
+        </div>
+
+        <div class="rh-kpi-card" id="kpiCardPendencias" onclick="window.toggleFiltroPendencias()" title="Filtrar colaboradores com pendências ou vencimentos">
+            <div>
+                <span class="rh-kpi-label">Com Pendências</span>
+                <span class="rh-kpi-value" id="kpiPendenciasColab" style="color: #ef4444;">0</span>
+            </div>
+            <div class="rh-kpi-icon" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+        </div>
+
+        <div class="rh-kpi-card" id="kpiCardDuplicados" onclick="window.toggleFiltroDuplicados()" title="Filtrar colaboradores com nomes duplicados">
+            <div>
+                <span class="rh-kpi-label">Nomes Duplicados</span>
+                <span class="rh-kpi-value" id="kpiDuplicadosColab" style="color: #f59e0b;">0</span>
+            </div>
+            <div class="rh-kpi-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                <i class="fas fa-clone"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- MENU SUPERIOR E FILTROS -->
+    <div class="rh-toolbar-wrapper">
+        <div class="rh-toolbar-top">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <h2 style="color: #fff; margin: 0; font-size: 1.35rem; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-users" style="color: var(--ccol-blue-bright);"></i> Gestão de Colaboradores
+                </h2>
+            </div>
+
+            <div class="button-group" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button id="btnFiltroPendencias" class="btn-danger-outline" onclick="window.toggleFiltroPendencias()">
+                    <i class="fas fa-exclamation-triangle"></i> Pendências
+                </button>
+
+                <button id="btnFiltroDuplicados" class="btn-secondary-dark" style="border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;" onclick="window.toggleFiltroDuplicados()">
+                    <i class="fas fa-clone"></i> Duplicados
+                </button>
+                
+                <!-- MENU SUSPENSO DE EXPORTAÇÃO -->
+                <div class="action-menu-container" style="position: relative; display: inline-block; text-align: left;">
+                    <button class="btn-secondary-dark" onclick="window.toggleActionMenu('export-lote')">
+                        <i class="fas fa-download"></i> Exportar <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 5px;"></i>
+                    </button>
+                    <div id="action-menu-export-lote" class="action-dropdown-menu">
+                        <button onclick="window.exportarTodasFichas()"><i class="fas fa-file-pdf" style="color: #ef4444; width: 15px;"></i> Fichas PDF (Lote)</button>
+                        <button onclick="window.exportarExcelColaboradores('todos')"><i class="fas fa-file-excel" style="color: #10b981; width: 15px;"></i> Planilha Excel (Todos)</button>
+                        <button onclick="window.exportarExcelColaboradores('ativos')"><i class="fas fa-file-excel" style="color: #10b981; width: 15px;"></i> Planilha Excel (Ativos)</button>
+                        <button onclick="window.exportarExcelColaboradores('inativos')"><i class="fas fa-file-excel" style="color: #10b981; width: 15px;"></i> Planilha Excel (Inativos)</button>
+                    </div>
+                </div>
+                
+                <button class="btn-secondary-dark" onclick="window.abrirModalGerenciarCursos()">
+                    <i class="fas fa-book"></i> Cursos
+                </button>
+                <button class="btn-primary-blue" onclick="window.abrirFichaCompleta()">
+                    <i class="fas fa-plus"></i> Novo Cadastro
+                </button>
+            </div>
+        </div>
+
+        <div class="rh-toolbar-filters">
             <input type="text" id="filtroMatricula" class="search-input-dark" style="width: 120px;" placeholder="Matrícula..." onkeyup="window.filtrarColaboradoresLista()">
             
-            <select id="filtroSetorLista" class="search-input-dark" style="width: 160px;" onchange="window.filtrarColaboradoresLista()">
+            <select id="filtroSetorLista" class="search-input-dark" style="width: 180px;" onchange="window.filtrarColaboradoresLista()">
                 <option value="">Todos os Setores</option>
             </select>
+
+            <select id="filtroStatusLista" class="search-input-dark" style="width: 150px;" onchange="window.filtrarColaboradoresLista()">
+                <option value="">Todos os Status</option>
+                <option value="Ativo">Ativo</option>
+                <option value="Inativo">Inativo / Desligado</option>
+                <option value="Férias">Férias</option>
+                <option value="Afastado">Afastado</option>
+            </select>
             
-            <input type="text" id="filtroNome" class="search-input-dark" style="flex: 1;" placeholder="Buscar por Nome ou Função..." onkeyup="window.filtrarColaboradoresLista()">
-        </div>
-        <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button id="btnFiltroPendencias" class="btn-danger-outline" onclick="window.toggleFiltroPendencias()"><i class="fas fa-exclamation-triangle"></i> Pendências</button>
-            
-            <!-- MENU SUSPENSO DE EXPORTAÇÃO -->
-            <div class="action-menu-container" style="position: relative; display: inline-block; text-align: left;">
-                <button class="btn-secondary-dark" onclick="window.toggleActionMenu('export-lote')">
-                    <i class="fas fa-download"></i> Exportar <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 5px;"></i>
-                </button>
-                <div id="action-menu-export-lote" class="action-dropdown-menu">
-                    <button onclick="window.exportarTodasFichas()"><i class="fas fa-file-pdf" style="color: #ef4444; width: 15px;"></i> Fichas PDF (Lote)</button>
-                    <button onclick="window.exportarExcelColaboradores('todos')"><i class="fas fa-file-excel" style="color: #10b981; width: 15px;"></i> Planilha Excel (Todos)</button>
-                    <button onclick="window.exportarExcelColaboradores('ativos')"><i class="fas fa-file-excel" style="color: #10b981; width: 15px;"></i> Planilha Excel (Ativos)</button>
-                    <button onclick="window.exportarExcelColaboradores('inativos')"><i class="fas fa-file-excel" style="color: #10b981; width: 15px;"></i> Planilha Excel (Inativos)</button>
-                </div>
-            </div>
-            
-            <button class="btn-secondary-dark" onclick="window.abrirModalGerenciarCursos()"><i class="fas fa-book"></i> Cursos</button>
-            <button class="btn-primary-blue" onclick="window.abrirFichaCompleta()"><i class="fas fa-plus"></i> Novo Cadastro</button>
+            <input type="text" id="filtroNome" class="search-input-dark" style="flex: 1; min-width: 240px;" placeholder="Buscar por Nome, Função ou CPF..." onkeyup="window.filtrarColaboradoresLista()">
+
+            <button class="btn-secondary-dark" style="padding: 8px 12px;" onclick="window.limparTodosFiltrosRH()" title="Limpar todos os filtros">
+                <i class="fas fa-eraser"></i> Limpar
+            </button>
         </div>
     </div>
     
@@ -251,9 +446,10 @@
 
 <!-- TELA DE DOSSIÊ DO COLABORADOR -->
 <div id="viewFichaColaborador" style="display: none; animation: terminalFadeIn 0.3s ease-out;">
-    <div class="action-bar" style="display: flex; justify-content: space-between;">
+    <div class="action-bar" style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
         <button class="btn-secondary-dark" onclick="window.voltarParaListagem()"><i class="fas fa-arrow-left"></i> Voltar para Lista</button>
-        <div class="button-group" style="display: flex; gap: 10px;">
+        <div class="button-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn-secondary-dark" id="btnTransferirFicha" style="border-color: rgba(168, 85, 247, 0.5); color: #c084fc;" onclick="window.abrirModalTransferenciaAtual()"><i class="fas fa-exchange-alt"></i> Transferir Filial</button>
             <button class="btn-danger-outline" id="btnExcluirFicha" onclick="window.excluirColaboradorAtual()"><i class="fas fa-trash"></i> Excluir Registro</button>
             <button class="btn-primary-blue" onclick="window.salvarColaboradorFicha()"><i class="fas fa-save"></i> Salvar Dossiê</button>
         </div>
@@ -299,7 +495,14 @@
         <div id="tabPessoais" class="rh-tab-content active content-panel" style="padding: 30px;">
             <div class="rh-section-title"><i class="fas fa-address-card" style="color: var(--ccol-blue-bright);"></i> Identificação Básica</div>
             <div class="form-grid-conjunto" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px;">
-                <div class="form-group-dark" style="grid-column: span 2;"><label>Nome Completo *</label><input type="text" id="colNome" placeholder="Digite o nome completo" oninput="document.getElementById('tituloFicha').innerText = this.value || 'Novo Colaborador'"></div>
+                <div class="form-group-dark" style="grid-column: span 2;">
+                    <label>Nome Completo *</label>
+                    <input type="text" id="colNome" placeholder="Digite o nome completo" oninput="window.aoDigitarNomeColaborador(this.value)">
+                    <div id="alertaNomeDuplicadoInline" class="alerta-duplicidade-inline">
+                        <i class="fas fa-shield-alt"></i>
+                        <span id="txtAlertaNomeDuplicado">Já existe um colaborador cadastrado com este nome.</span>
+                    </div>
+                </div>
                 <div class="form-group-dark"><label>CPF *</label><input type="text" id="colCpf" placeholder="000.000.000-00" oninput="window.mascaraCPF(this)" maxlength="14"></div>
                 <div class="form-group-dark"><label>RG *</label><input type="text" id="colRg" placeholder="Número do RG"></div>
                 <div class="form-group-dark">
@@ -497,6 +700,7 @@
     </div>
 </div>
 
+<!-- MODAL GERENCIAR CURSOS -->
 <div id="modalGerenciarCursos" class="modal-overlay">
     <div class="custom-modal" style="max-width: 500px; width: 90%;">
         <div class="modal-header">
@@ -516,6 +720,50 @@
         </div>
         <div class="modal-footer">
             <button class="btn-secondary-dark" onclick="window.fecharModalGerenciarCursos()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL TRANSFERIR COLABORADOR DE FILIAL -->
+<div id="modalTransferirFilial" class="modal-overlay">
+    <div class="custom-modal" style="max-width: 520px; width: 92%;">
+        <div class="modal-header">
+            <h3><i class="fas fa-exchange-alt" style="color: #c084fc;"></i> Transferir Colaborador de Filial</h3>
+            <button class="close-modal" onclick="window.fecharModalTransferirFilial()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="transfColabId">
+            
+            <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.3); padding: 14px; border-radius: 8px; margin-bottom: 18px;">
+                <div style="font-size: 0.78rem; color: #c084fc; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Colaborador Selecionado</div>
+                <div id="transfColabNome" style="color: #fff; font-size: 1.1rem; font-weight: 800;">-</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
+                    Filial Atual: <strong id="transfFilialAtual" style="color: #fff;">-</strong>
+                </div>
+            </div>
+
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label>Filial de Destino *</label>
+                <select id="transfFilialDestino" class="dark-select">
+                    <option value="">Carregando filiais...</option>
+                </select>
+            </div>
+
+            <div class="form-group-dark" style="margin-bottom: 15px;">
+                <label>Motivo / Observação da Transferência</label>
+                <textarea id="transfMotivo" rows="3" placeholder="Ex: Remanejamento operacional, solicitação do gestor..."></textarea>
+            </div>
+
+            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 10px 12px; border-radius: 6px; font-size: 0.8rem; color: #fbbf24; display: flex; gap: 10px; align-items: flex-start;">
+                <i class="fas fa-info-circle" style="margin-top: 2px;"></i>
+                <span>Ao transferir, o setor atual será limpo para evitar conflitos com os setores da nova filial. O histórico da transferência será salvo automaticamente nas observações do dossiê.</span>
+            </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn-secondary-dark" onclick="window.fecharModalTransferirFilial()">Cancelar</button>
+            <button class="btn-primary-blue" id="btnConfirmarTransferencia" onclick="window.confirmarTransferenciaFilial()">
+                <i class="fas fa-check"></i> Confirmar Transferência
+            </button>
         </div>
     </div>
 </div>

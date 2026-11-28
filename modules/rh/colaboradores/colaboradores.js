@@ -2,8 +2,12 @@
 window.listaColaboradoresDb = [];
 window.colaboradoresFiltradosRH = [];
 window.listaCursosAtivos = [];
-window.cargosCadastradosDb = []; // Adicionado: Armazenar cargos para o filtro em cascata
+window.cargosCadastradosDb = [];
+window.listaFiliaisRH = [];
+window.mapaNomesDuplicadosRH = new Set();
+
 window.filtroPendenciasAtivo = false;
+window.filtroDuplicadosAtivo = false;
 
 // Variáveis de Paginação
 window.paginaAtualRH = 1;
@@ -23,6 +27,71 @@ window.camposBaseObrigatorios = [
     { key: 'toxicologico_vencimento', id: 'colToxicologico' }
 ];
 
+// ==================== UTILITÁRIOS DE NORMALIZAÇÃO E DUPLICIDADE ====================
+window.normalizarTextoRH = function(texto) {
+    if (!texto) return '';
+    return String(texto)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+};
+
+window.mapearNomesDuplicadosRH = function() {
+    const contagem = {};
+    window.mapaNomesDuplicadosRH = new Set();
+
+    (window.listaColaboradoresDb || []).forEach(c => {
+        const norm = window.normalizarTextoRH(c.nome);
+        if (!norm) return;
+        contagem[norm] = (contagem[norm] || 0) + 1;
+    });
+
+    Object.keys(contagem).forEach(norm => {
+        if (contagem[norm] > 1) {
+            window.mapaNomesDuplicadosRH.add(norm);
+        }
+    });
+};
+
+window.isNomeDuplicadoRH = function(nome) {
+    const norm = window.normalizarTextoRH(nome);
+    return norm ? window.mapaNomesDuplicadosRH.has(norm) : false;
+};
+
+window.aoDigitarNomeColaborador = function(valor) {
+    document.getElementById('tituloFicha').innerText = valor || 'Novo Colaborador';
+    
+    const alertaBox = document.getElementById('alertaNomeDuplicadoInline');
+    const txtAlerta = document.getElementById('txtAlertaNomeDuplicado');
+    const inputNome = document.getElementById('colNome');
+    if (!alertaBox || !txtAlerta || !inputNome) return;
+
+    const norm = window.normalizarTextoRH(valor);
+    const idAtual = document.getElementById('colaboradorId').value;
+
+    if (!norm || norm.length < 3) {
+        alertaBox.style.display = 'none';
+        inputNome.classList.remove('campo-pendente');
+        return;
+    }
+
+    const existente = (window.listaColaboradoresDb || []).find(c => 
+        window.normalizarTextoRH(c.nome) === norm && String(c.id) !== String(idAtual)
+    );
+
+    if (existente) {
+        const mat = existente.cod_funcionario ? String(existente.cod_funcionario).padStart(4, '0') : 'S/N';
+        txtAlerta.innerText = `ALERTA DE SEGURANÇA: Já existe um colaborador com este nome (Matrícula: ${mat} | Status: ${existente.status || 'Ativo'}). O sistema não permitirá salvar cadastro duplicado.`;
+        alertaBox.style.display = 'flex';
+        inputNome.classList.add('campo-pendente');
+    } else {
+        alertaBox.style.display = 'none';
+        inputNome.classList.remove('campo-pendente');
+    }
+};
+
 // Funções para o Filtro em Cascata de Setor -> Cargo
 window.filtrarCargosPorSetorEvent = function() {
     window.filtrarCargosPorSetor(this.value);
@@ -34,21 +103,17 @@ window.filtrarCargosPorSetor = function(setorId) {
 
     let cargosFiltrados = window.cargosCadastradosDb || [];
     
-    // Filtra os cargos somente se um setor tiver sido selecionado
     if (setorId) {
         cargosFiltrados = cargosFiltrados.filter(c => String(c.setor_id) === String(setorId));
     }
 
     const valorAtual = selCargo.value;
     
-    // Atualiza o HTML do campo de cargos com os resultados do filtro
     selCargo.innerHTML = '<option value="">Selecione um cargo...</option>' + cargosFiltrados.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
     
-    // Mantém o cargo previamente selecionado se ele continuar válido no novo filtro
     if (valorAtual && cargosFiltrados.some(c => c.nome === valorAtual)) {
         selCargo.value = valorAtual;
     } else if (valorAtual && !setorId && window.cargosCadastradosDb.some(c => c.nome === valorAtual)) {
-        // Garante que o valor não se perca caso venha preenchido
         selCargo.innerHTML += `<option value="${valorAtual}">${valorAtual}</option>`;
         selCargo.value = valorAtual;
     }
@@ -60,26 +125,49 @@ window.obterFilialUsuarioLogadoRH = function() {
         ? parseInt(window.currentUser.filial_id) : null;
 };
 
+window.carregarFiliaisRH = async function() {
+    try {
+        if (!window.supabaseClient) return;
+        const { data, error } = await window.supabaseClient
+            .from('filiais')
+            .select('id, nome')
+            .order('nome', { ascending: true });
+        if (error) throw error;
+        window.listaFiliaisRH = data || [];
+    } catch (e) {
+        console.error("Erro ao carregar filiais no RH:", e);
+        window.listaFiliaisRH = [];
+    }
+};
+
+window.obterNomeFilialPorIdRH = function(filialId) {
+    if (!filialId) return 'Matriz / Sem Filial';
+    const f = (window.listaFiliaisRH || []).find(item => String(item.id) === String(filialId));
+    return f ? f.nome : `Filial #${filialId}`;
+};
+
 window.initRHColaboradores = async function() {
     document.getElementById('viewListagemColaboradores').style.display = 'block';
     document.getElementById('viewFichaColaborador').style.display = 'none';
     
-    // Limpa campos da barra antes de carregar
     const elNome = document.getElementById('filtroNome');
     const elMat = document.getElementById('filtroMatricula');
+    const elStatus = document.getElementById('filtroStatusLista');
     if(elNome) elNome.value = '';
     if(elMat) elMat.value = '';
+    if(elStatus) elStatus.value = '';
     
     window.filtroPendenciasAtivo = false;
+    window.filtroDuplicadosAtivo = false;
     window.paginaAtualRH = 1;
     
-    // Listener do Filtro Dinâmico de Cargos
     const selSetor = document.getElementById('colSetorId');
     if(selSetor) {
         selSetor.removeEventListener('change', window.filtrarCargosPorSetorEvent);
         selSetor.addEventListener('change', window.filtrarCargosPorSetorEvent);
     }
     
+    await window.carregarFiliaisRH();
     await window.carregarSetoresGlobal(); 
     await window.carregarCursosGlobais();
     await window.carregarCargosControladoria(); 
@@ -87,7 +175,7 @@ window.initRHColaboradores = async function() {
     await window.carregarColaboradoresLista();
 };
 
-// ==================== AÇÕES RÁPIDAS E EFETIVAÇÃO ====================
+// ==================== AÇÕES RÁPIDAS, EFETIVAÇÃO E TRANSFERÊNCIA ====================
 window.toggleActionMenu = function(id) {
     document.querySelectorAll('.action-dropdown-menu').forEach(m => {
         if (m.id !== `action-menu-${id}`) m.style.display = 'none';
@@ -118,13 +206,204 @@ window.efetivarColaborador = async function(id, nome) {
     }
 };
 
-// ==================== PAGINAÇÃO E FILTROS ====================
+window.abrirModalTransferenciaAtual = function() {
+    const id = document.getElementById('colaboradorId').value;
+    if (!id) return;
+    window.abrirModalTransferirFilial(id);
+};
+
+window.abrirModalTransferirFilial = async function(id) {
+    const colab = window.listaColaboradoresDb.find(c => String(c.id) === String(id));
+    if (!colab) return alert("Colaborador não encontrado.");
+
+    if (!window.listaFiliaisRH || window.listaFiliaisRH.length === 0) {
+        await window.carregarFiliaisRH();
+    }
+
+    document.getElementById('transfColabId').value = colab.id;
+    document.getElementById('transfColabNome').innerText = colab.nome;
+    document.getElementById('transfFilialAtual').innerText = window.obterNomeFilialPorIdRH(colab.filial_id);
+    document.getElementById('transfMotivo').value = '';
+
+    const selDestino = document.getElementById('transfFilialDestino');
+    const filiaisDisponiveis = (window.listaFiliaisRH || []).filter(f => String(f.id) !== String(colab.filial_id));
+
+    if (filiaisDisponiveis.length === 0) {
+        selDestino.innerHTML = '<option value="">Nenhuma outra filial disponível</option>';
+    } else {
+        selDestino.innerHTML = '<option value="">Selecione a filial de destino...</option>' +
+            filiaisDisponiveis.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
+    }
+
+    document.getElementById('modalTransferirFilial').classList.add('show');
+};
+
+window.fecharModalTransferirFilial = function() {
+    document.getElementById('modalTransferirFilial').classList.remove('show');
+};
+
+window.confirmarTransferenciaFilial = async function() {
+    const id = document.getElementById('transfColabId').value;
+    const novaFilialId = document.getElementById('transfFilialDestino').value;
+    const motivo = document.getElementById('transfMotivo').value.trim();
+
+    if (!novaFilialId) {
+        alert("Selecione a filial de destino para realizar a transferência.");
+        return;
+    }
+
+    const colab = window.listaColaboradoresDb.find(c => String(c.id) === String(id));
+    if (!colab) return;
+
+    const nomeFilialOrigem = window.obterNomeFilialPorIdRH(colab.filial_id);
+    const nomeFilialDestino = window.obterNomeFilialPorIdRH(novaFilialId);
+
+    if (!confirm(`Confirmar transferência de ${colab.nome}?\n\nDe: ${nomeFilialOrigem}\nPara: ${nomeFilialDestino}`)) {
+        return;
+    }
+
+    const btn = document.getElementById('btnConfirmarTransferencia');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transferindo...';
+    }
+
+    try {
+        const dataHora = new Date().toLocaleString('pt-BR');
+        const responsavel = (window.currentUser && window.currentUser.nome) ? window.currentUser.nome : 'Sistema';
+        const registroHist = `[TRANSFERÊNCIA ${dataHora}] De: ${nomeFilialOrigem} -> Para: ${nomeFilialDestino} (Por: ${responsavel})${motivo ? ' | Motivo: ' + motivo : ''}`;
+        const novaObs = colab.observacoes ? `${colab.observacoes}\n${registroHist}` : registroHist;
+
+        await db.updateColaborador(id, {
+            filial_id: parseInt(novaFilialId),
+            setor_id: null,
+            observacoes: novaObs
+        });
+
+        if (typeof window.registrarLogAuditoria === 'function') {
+            window.registrarLogAuditoria('RH', 'Transferência', `Colaborador ${colab.nome} transferido de ${nomeFilialOrigem} para ${nomeFilialDestino}`, 'Info');
+        }
+
+        alert(`Colaborador transferido com sucesso para ${nomeFilialDestino}!`);
+        window.fecharModalTransferirFilial();
+        await window.carregarColaboradoresLista();
+        window.voltarParaListagem();
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao transferir colaborador. Verifique sua conexão ou permissões.");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check"></i> Confirmar Transferência';
+        }
+    }
+};
+
+// ==================== KPIs, PAGINAÇÃO E FILTROS ====================
+window.atualizarKPIsRH = function() {
+    const todos = window.listaColaboradoresDb || [];
+    const ativos = todos.filter(c => c.status === 'Ativo' || !c.status).length;
+    
+    let comPendencias = 0;
+    let duplicados = 0;
+
+    todos.forEach(c => {
+        if (c.status !== 'Inativo' && c.status !== 'Desligado') {
+            const f1 = window.verificarPendenciasCadastro(c);
+            const f2 = window.analisarVencimentosColaborador(c);
+            if (f1.length > 0 || f2.length > 0) comPendencias++;
+        }
+        if (window.isNomeDuplicadoRH(c.nome)) {
+            duplicados++;
+        }
+    });
+
+    const elTotal = document.getElementById('kpiTotalColab');
+    const elAtivos = document.getElementById('kpiAtivosColab');
+    const elPend = document.getElementById('kpiPendenciasColab');
+    const elDup = document.getElementById('kpiDuplicadosColab');
+
+    if (elTotal) elTotal.innerText = todos.length;
+    if (elAtivos) elAtivos.innerText = ativos;
+    if (elPend) elPend.innerText = comPendencias;
+    if (elDup) elDup.innerText = duplicados;
+
+    const btnDup = document.getElementById('btnFiltroDuplicados');
+    if (btnDup && !window.filtroDuplicadosAtivo) {
+        btnDup.innerHTML = `<i class="fas fa-clone"></i> Duplicados (${duplicados})`;
+    }
+};
+
+window.aplicarFiltroStatusRapido = function(status) {
+    const elStatus = document.getElementById('filtroStatusLista');
+    if (elStatus) {
+        elStatus.value = elStatus.value === status ? '' : status;
+    }
+    window.filtrarColaboradoresLista();
+};
+
+window.limparTodosFiltrosRH = function() {
+    const elNome = document.getElementById('filtroNome');
+    const elMat = document.getElementById('filtroMatricula');
+    const elSetor = document.getElementById('filtroSetorLista');
+    const elStatus = document.getElementById('filtroStatusLista');
+
+    if (elNome) elNome.value = '';
+    if (elMat) elMat.value = '';
+    if (elSetor) elSetor.value = '';
+    if (elStatus) elStatus.value = '';
+
+    window.filtroPendenciasAtivo = false;
+    window.filtroDuplicadosAtivo = false;
+
+    window.atualizarEstiloBotoesFiltroRH();
+    window.filtrarColaboradoresLista();
+};
+
+window.atualizarEstiloBotoesFiltroRH = function() {
+    const btnPend = document.getElementById('btnFiltroPendencias');
+    const cardPend = document.getElementById('kpiCardPendencias');
+    if (btnPend) {
+        if (window.filtroPendenciasAtivo) {
+            btnPend.classList.remove('btn-danger-outline');
+            btnPend.classList.add('btn-danger-block');
+            btnPend.innerHTML = '<i class="fas fa-filter"></i> Filtrando Pendências';
+            if (cardPend) cardPend.classList.add('alerta-ativo');
+        } else {
+            btnPend.classList.remove('btn-danger-block');
+            btnPend.classList.add('btn-danger-outline');
+            btnPend.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Pendências';
+            if (cardPend) cardPend.classList.remove('alerta-ativo');
+        }
+    }
+
+    const btnDup = document.getElementById('btnFiltroDuplicados');
+    const cardDup = document.getElementById('kpiCardDuplicados');
+    const qtdDup = (window.listaColaboradoresDb || []).filter(c => window.isNomeDuplicadoRH(c.nome)).length;
+    if (btnDup) {
+        if (window.filtroDuplicadosAtivo) {
+            btnDup.style.background = '#f59e0b';
+            btnDup.style.color = '#0f172a';
+            btnDup.innerHTML = `<i class="fas fa-filter"></i> Filtrando Duplicados (${qtdDup})`;
+            if (cardDup) cardDup.classList.add('dup-ativo');
+        } else {
+            btnDup.style.background = '';
+            btnDup.style.color = '#fbbf24';
+            btnDup.innerHTML = `<i class="fas fa-clone"></i> Duplicados (${qtdDup})`;
+            if (cardDup) cardDup.classList.remove('dup-ativo');
+        }
+    }
+};
+
 window.carregarColaboradoresLista = async function() {
     try {
         const tbody = document.getElementById('tbListaColaboradores');
         if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Carregando banco de dados...</td></tr>`;
         
         window.listaColaboradoresDb = await db.getColaboradores();
+        window.mapearNomesDuplicadosRH();
+        window.atualizarKPIsRH();
+        window.atualizarEstiloBotoesFiltroRH();
         window.filtrarColaboradoresLista(); 
     } catch (e) {
         console.error(e);
@@ -134,16 +413,13 @@ window.carregarColaboradoresLista = async function() {
 
 window.toggleFiltroPendencias = function() {
     window.filtroPendenciasAtivo = !window.filtroPendenciasAtivo;
-    const btn = document.getElementById('btnFiltroPendencias');
-    if(window.filtroPendenciasAtivo) {
-        btn.classList.remove('btn-danger-outline');
-        btn.classList.add('btn-danger-block');
-        btn.innerHTML = '<i class="fas fa-filter"></i> Filtrando Pendências';
-    } else {
-        btn.classList.remove('btn-danger-block');
-        btn.classList.add('btn-danger-outline');
-        btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Pendências';
-    }
+    window.atualizarEstiloBotoesFiltroRH();
+    window.filtrarColaboradoresLista();
+};
+
+window.toggleFiltroDuplicados = function() {
+    window.filtroDuplicadosAtivo = !window.filtroDuplicadosAtivo;
+    window.atualizarEstiloBotoesFiltroRH();
     window.filtrarColaboradoresLista();
 };
 
@@ -151,17 +427,31 @@ window.filtrarColaboradoresLista = function() {
     const elNome = document.getElementById('filtroNome');
     const elMat = document.getElementById('filtroMatricula');
     const elSetor = document.getElementById('filtroSetorLista');
+    const elStatus = document.getElementById('filtroStatusLista');
     
     if (!elNome || !elMat || !elSetor) return;
 
     const termoNome = elNome.value.toLowerCase().trim();
     const termoMatricula = elMat.value.toLowerCase().trim();
     const termoSetor = elSetor.value; 
+    const termoStatus = elStatus ? elStatus.value : '';
     
     window.colaboradoresFiltradosRH = window.listaColaboradoresDb.filter(c => {
-        const nomeMatch = !termoNome || (c.nome && c.nome.toLowerCase().includes(termoNome)) || (c.funcao && c.funcao.toLowerCase().includes(termoNome));
+        const nomeMatch = !termoNome || 
+            (c.nome && c.nome.toLowerCase().includes(termoNome)) || 
+            (c.funcao && c.funcao.toLowerCase().includes(termoNome)) ||
+            (c.cpf && c.cpf.toLowerCase().includes(termoNome));
         const matMatch = !termoMatricula || (c.cod_funcionario && String(c.cod_funcionario).includes(termoMatricula));
         const setorMatch = !termoSetor || (String(c.setor_id) === String(termoSetor));
+        
+        let statusMatch = true;
+        if (termoStatus) {
+            if (termoStatus === 'Inativo') {
+                statusMatch = (c.status === 'Inativo' || c.status === 'Desligado');
+            } else {
+                statusMatch = ((c.status || 'Ativo') === termoStatus);
+            }
+        }
         
         let pendenciaMatch = true;
         if (window.filtroPendenciasAtivo) {
@@ -173,9 +463,19 @@ window.filtrarColaboradoresLista = function() {
                 pendenciaMatch = (f1.length > 0 || f2.length > 0);
             }
         }
+
+        let duplicadoMatch = true;
+        if (window.filtroDuplicadosAtivo) {
+            duplicadoMatch = window.isNomeDuplicadoRH(c.nome);
+        }
         
-        return nomeMatch && matMatch && setorMatch && pendenciaMatch;
+        return nomeMatch && matMatch && setorMatch && statusMatch && pendenciaMatch && duplicadoMatch;
     });
+
+    // Se estiver filtrando duplicados, ordena por nome para agrupar os iguais juntos
+    if (window.filtroDuplicadosAtivo) {
+        window.colaboradoresFiltradosRH.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+    }
     
     window.paginaAtualRH = 1;
     window.renderizarTabelaPaginadaRH();
@@ -242,7 +542,11 @@ window.renderizarTabelaPaginadaRH = function() {
         
         let alertasHTML = (badgeAlertaFaltando || badgeVencimentos) ? (badgeAlertaFaltando + badgeVencimentos) : '<span style="color: #10b981; font-size:0.85rem;"><i class="fas fa-check-circle"></i> Tudo OK</span>';
         
-        const imgAvatar = c.foto_url ? `<img src="${c.foto_url}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-dim);">` : `<div style="width: 32px; height: 32px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 0.8rem;">${c.nome.charAt(0)}</div>`;
+        const imgAvatar = c.foto_url ? `<img src="${c.foto_url}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-dim);">` : `<div style="width: 32px; height: 32px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 0.8rem;">${c.nome ? c.nome.charAt(0) : '?'}</div>`;
+
+        const badgeDuplicado = window.isNomeDuplicadoRH(c.nome)
+            ? `<span class="badge-duplicado" title="Existem mais colaboradores cadastrados com este mesmo nome"><i class="fas fa-clone"></i> Duplicado</span>`
+            : '';
 
         let nomeSetor = 'Sem Setor';
         if (c.setor_id) {
@@ -291,7 +595,7 @@ window.renderizarTabelaPaginadaRH = function() {
 
         let btnEfetivar = '';
         if (c.status === 'Ativo' && c.tipo_contrato === 'Temporário') {
-            btnEfetivar = `<button onclick="window.efetivarColaborador('${c.id}', '${c.nome}')"><i class="fas fa-check-double" style="color: #10b981; width: 15px;"></i> Efetivar (Mudar p/ CLT)</button>`;
+            btnEfetivar = `<button onclick="window.efetivarColaborador('${c.id}', '${String(c.nome).replace(/'/g, "\\'")}')"><i class="fas fa-check-double" style="color: #10b981; width: 15px;"></i> Efetivar (Mudar p/ CLT)</button>`;
         }
 
         const tr = document.createElement('tr');
@@ -300,7 +604,10 @@ window.renderizarTabelaPaginadaRH = function() {
             <td style="text-align: left; font-weight: bold; font-size: 1rem;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     ${imgAvatar}
-                    ${c.nome}
+                    <div>
+                        <span>${c.nome}</span>
+                        ${badgeDuplicado}
+                    </div>
                 </div>
             </td>
             <td>${funcaoHtml}</td>
@@ -314,6 +621,7 @@ window.renderizarTabelaPaginadaRH = function() {
                     </button>
                     <div id="action-menu-${c.id}" class="action-dropdown-menu">
                         <button onclick="window.abrirFichaCompleta('${c.id}')"><i class="fas fa-folder-open" style="color: var(--ccol-blue-bright); width: 15px;"></i> Abrir Dossiê / Editar</button>
+                        <button onclick="window.abrirModalTransferirFilial('${c.id}')"><i class="fas fa-exchange-alt" style="color: #c084fc; width: 15px;"></i> Transferir de Filial</button>
                         ${btnEfetivar}
                         <button onclick="window.imprimirFichaColaborador('${c.id}')"><i class="fas fa-id-card" style="color: #10b981; width: 15px;"></i> Imprimir Ficha RH</button>
                         <button onclick="window.imprimirFichaEPI('${c.id}')"><i class="fas fa-hard-hat" style="color: #f59e0b; width: 15px;"></i> Imprimir Entrega de EPI</button>
@@ -602,7 +910,6 @@ window.carregarSetoresGlobal = async function() {
     try {
         let query = window.supabaseClient.from('setores').select('id, nome, filial_id').eq('status', 'Ativo');
         
-        // Aplica o filtro de filial para o setor (RH)
         const filialLogada = window.obterFilialUsuarioLogadoRH();
         if (filialLogada !== null) {
             query = query.eq('filial_id', filialLogada);
@@ -621,10 +928,8 @@ window.carregarSetoresGlobal = async function() {
 
 window.carregarCargosControladoria = async function() {
     try {
-        // Alterado: Adicionado 'setor_id' na query para permitir o funcionamento do filtro cascata
         let query = window.supabaseClient.from('cargos').select('id, nome, filial_id, setor_id').eq('status', 'Ativo').order('nome', { ascending: true });
         
-        // Aplica o filtro de filial para os cargos (RH)
         const filialLogada = window.obterFilialUsuarioLogadoRH();
         if (filialLogada !== null) {
             query = query.eq('filial_id', filialLogada);
@@ -633,10 +938,8 @@ window.carregarCargosControladoria = async function() {
         const { data, error } = await query;
         if (error) throw error;
 
-        // Armazena globalmente a lista completa
         window.cargosCadastradosDb = data || [];
         
-        // Aplica o filtro inicial baseando-se no que estiver marcado no campo 'Setor'
         const setorAtual = document.getElementById('colSetorId') ? document.getElementById('colSetorId').value : '';
         window.filtrarCargosPorSetor(setorAtual);
 
@@ -646,7 +949,6 @@ window.carregarCargosControladoria = async function() {
 window.verificarPendenciasCadastro = function(colaborador) {
     let camposFaltando = [];
     
-    // Verificação de campos cadastrais base
     window.camposBaseObrigatorios.forEach(campo => {
         if (!colaborador[campo.key] || String(colaborador[campo.key]).trim() === '') {
             camposFaltando.push({
@@ -657,12 +959,10 @@ window.verificarPendenciasCadastro = function(colaborador) {
         }
     });
 
-    // Validação de CPF
     if (colaborador.cpf && !window.validarCPF(colaborador.cpf)) {
         camposFaltando.push({ key: 'cpf', id: 'colCpf', nome: 'CPF Inválido' });
     }
 
-    // Validação de Cursos Globais Dinâmicos (Data Pendente)
     if (window.listaCursosAtivos && window.listaCursosAtivos.length > 0) {
         const cursosSalvos = colaborador.cursos_vencimentos || {};
         window.listaCursosAtivos.forEach(curso => {
@@ -684,6 +984,11 @@ window.verificarPendenciasCadastro = function(colaborador) {
 
 window.limparValidacaoVisualFicha = function() {
     document.getElementById('alertaCamposPendentes').style.display = 'none';
+    const alertaDup = document.getElementById('alertaNomeDuplicadoInline');
+    if (alertaDup) alertaDup.style.display = 'none';
+    const inputNome = document.getElementById('colNome');
+    if (inputNome) inputNome.classList.remove('campo-pendente');
+
     window.camposBaseObrigatorios.forEach(campo => {
         const el = document.getElementById(campo.id);
         if (el) {
@@ -742,6 +1047,9 @@ window.abrirFichaCompleta = async function(id = null) {
         document.getElementById('avatarPreviewRH').src = c.foto_url ? c.foto_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(c.nome)}&background=1e293b&color=60a5fa&size=150`;
         
         document.getElementById('btnExcluirFicha').style.display = 'flex';
+        const btnTransf = document.getElementById('btnTransferirFicha');
+        if (btnTransf) btnTransf.style.display = 'flex';
+
         document.getElementById('colaboradorId').value = c.id;
         
         document.getElementById('colStatus').value = c.status || 'Ativo';
@@ -750,7 +1058,6 @@ window.abrirFichaCompleta = async function(id = null) {
         document.getElementById('colTipoContrato').value = c.tipo_contrato || 'CLT';
         document.getElementById('colSetorId').value = c.setor_id || '';
         
-        // Aciona o filtro de Cargos para refletir apenas os compatíveis com o setor armazenado no banco
         window.filtrarCargosPorSetor(c.setor_id);
         
         document.getElementById('colPlanoSaude').value = c.plano_saude || 'Não';
@@ -839,12 +1146,16 @@ window.abrirFichaCompleta = async function(id = null) {
                 }
             });
         }
+
+        window.aoDigitarNomeColaborador(c.nome);
     } else {
         document.getElementById('tituloFicha').innerText = 'Novo Colaborador';
         document.getElementById('displayCargoHeader').innerText = 'Função a definir';
         document.getElementById('avatarPreviewRH').src = 'https://ui-avatars.com/api/?name=Colaborador&background=1e293b&color=60a5fa&size=150';
         
         document.getElementById('btnExcluirFicha').style.display = 'none';
+        const btnTransf = document.getElementById('btnTransferirFicha');
+        if (btnTransf) btnTransf.style.display = 'none';
         
         document.getElementById('colaboradorId').value = '';
         const proximoCod = window.calcularProximaMatriculaFull();
@@ -867,7 +1178,7 @@ window.abrirFichaCompleta = async function(id = null) {
         window.atualizarBadgeStatusHeader();
         
         document.getElementById('colSetorId').value = '';
-        window.filtrarCargosPorSetor(''); // Aciona filtro sem setor (reseta lista de cargos)
+        window.filtrarCargosPorSetor('');
 
         document.getElementById('colPlanoSaude').value = 'Não';
         document.getElementById('colSindicato').value = 'Não';
@@ -882,6 +1193,52 @@ window.salvarColaboradorFicha = async function() {
     
     const getValue = (elId) => document.getElementById(elId).value;
     const getDateValue = (elId) => { const val = document.getElementById(elId).value; return val ? val : null; };
+    
+    const nomeLimpo = getValue('colNome').trim();
+    if (!nomeLimpo) {
+        alert('O Nome Completo é obrigatório para salvar a ficha.');
+        window.mudarAbaFichaRH('tabPessoais');
+        document.getElementById('colNome').focus();
+        return;
+    }
+
+    // ==================== BLOQUEIO DE SEGURANÇA: NOME DUPLICADO ====================
+    const nomeNormalizado = window.normalizarTextoRH(nomeLimpo);
+    let duplicadoEncontrado = (window.listaColaboradoresDb || []).find(c => 
+        window.normalizarTextoRH(c.nome) === nomeNormalizado && String(c.id) !== String(id)
+    );
+
+    // Verifica também globalmente no banco (todas as filiais) para evitar duplicidade entre filiais
+    if (!duplicadoEncontrado && window.supabaseClient) {
+        try {
+            const { data: todosNomes } = await window.supabaseClient
+                .from('colaboradores')
+                .select('id, nome, cod_funcionario, filial_id, status');
+            if (todosNomes && Array.isArray(todosNomes)) {
+                duplicadoEncontrado = todosNomes.find(c => 
+                    window.normalizarTextoRH(c.nome) === nomeNormalizado && String(c.id) !== String(id)
+                );
+            }
+        } catch (errCheck) {
+            console.warn("Não foi possível verificar duplicidade global:", errCheck);
+        }
+    }
+
+    if (duplicadoEncontrado) {
+        const filialNome = window.obterNomeFilialPorIdRH(duplicadoEncontrado.filial_id);
+        const matDup = duplicadoEncontrado.cod_funcionario ? String(duplicadoEncontrado.cod_funcionario).padStart(4, '0') : 'S/N';
+        alert(
+            `BLOQUEIO DE SEGURANÇA - CADASTRO DUPLICADO!\n\n` +
+            `Já existe um colaborador cadastrado com o nome "${duplicadoEncontrado.nome}".\n` +
+            `• Matrícula: ${matDup}\n` +
+            `• Filial: ${filialNome}\n` +
+            `• Status: ${duplicadoEncontrado.status || 'Ativo'}\n\n` +
+            `Por segurança, não é permitido cadastrar colaboradores com o mesmo nome. Caso ele tenha mudado de unidade, utilize a opção "Transferir de Filial".`
+        );
+        window.mudarAbaFichaRH('tabPessoais');
+        document.getElementById('colNome').focus();
+        return;
+    }
     
     let cpfInput = getValue('colCpf');
     if (cpfInput && !window.validarCPF(cpfInput)) {
@@ -904,7 +1261,7 @@ window.salvarColaboradorFicha = async function() {
         tipo_contrato: getValue('colTipoContrato'),
         plano_saude: getValue('colPlanoSaude'),
         ativo_sindicato: getValue('colSindicato'),
-        nome: getValue('colNome'),
+        nome: nomeLimpo,
         cpf: cpfInput,
         rg: getValue('colRg'),
         data_nascimento: getDateValue('colDataNascimento'),
@@ -945,18 +1302,13 @@ window.salvarColaboradorFicha = async function() {
     };
 
     if (!id) dados.cod_funcionario = window.calcularProximaMatriculaFull();
-    if (!dados.nome) {
-        alert('O Nome Completo é obrigatório para salvar a ficha.');
-        window.mudarAbaFichaRH('tabPessoais');
-        return;
-    }
 
     try {
         const inputFoto = document.getElementById('colFoto');
         const inputAnexos = document.getElementById('colAnexos');
         
         if (window.supabaseClient && (inputFoto.files.length > 0 || inputAnexos.files.length > 0)) {
-            let basePath = `colab_${dados.cod_funcionario}_${Date.now()}`;
+            let basePath = `colab_${dados.cod_funcionario || id}_${Date.now()}`;
             
             if (inputFoto.files.length > 0) {
                 const file = inputFoto.files[0];
@@ -985,7 +1337,6 @@ window.salvarColaboradorFicha = async function() {
             }
         }
         
-        // Garante que todo colaborador criado tenha a filial atrelada (a do usuário ou null se matriz)
         if (!id) {
             dados.filial_id = window.obterFilialUsuarioLogadoRH();
         }
@@ -1058,7 +1409,6 @@ window.carregarCursosGlobais = async function() {
     try {
         let query = window.supabaseClient.from('rh_cursos').select('*').order('nome', { ascending: true });
         
-        // Aplica o filtro de filial (RH)
         const filialLogada = window.obterFilialUsuarioLogadoRH();
         if (filialLogada !== null) {
             query = query.eq('filial_id', filialLogada);
@@ -1108,7 +1458,7 @@ window.salvarNovoCursoGlobal = async function() {
     try {
         let dados = { 
             nome: nome,
-            filial_id: window.obterFilialUsuarioLogadoRH() // Associa o curso apenas à filial
+            filial_id: window.obterFilialUsuarioLogadoRH()
         };
         
         await window.supabaseClient.from('rh_cursos').insert([dados]);
@@ -1271,12 +1621,10 @@ window.exportarTodasFichas = function() {
 
 // ==================== EXPORTAÇÃO EXCEL ====================
 window.exportarExcelColaboradores = function(statusExportacao = 'todos') {
-    // Base de dados a ser exportada
     let baseDados = window.colaboradoresFiltradosRH && window.colaboradoresFiltradosRH.length > 0 
                           ? window.colaboradoresFiltradosRH 
                           : window.listaColaboradoresDb;
 
-    // Aplica o filtro de status (Ativos, Inativos, ou Todos) de acordo com o botão clicado
     let colaboradores = baseDados;
     
     if (statusExportacao === 'ativos') {
@@ -1290,7 +1638,6 @@ window.exportarExcelColaboradores = function(statusExportacao = 'todos') {
         return;
     }
 
-    // Função auxiliar para resgatar o nome do setor
     const getNomeSetor = (setor_id) => {
         if (!setor_id) return 'Sem Setor';
         const selectSetor = document.getElementById('filtroSetorLista');
@@ -1301,12 +1648,10 @@ window.exportarExcelColaboradores = function(statusExportacao = 'todos') {
         return 'Sem Setor';
     };
 
-    // Função auxiliar para formatar a data
     const formatarData = (dataIso) => {
         return dataIso ? dataIso.split('-').reverse().join('/') : '-';
     };
 
-    // Mapeando as colunas solicitadas
     const dadosMapeados = colaboradores.map(c => {
         return {
             "Nome do Colaborador": c.nome || "",
@@ -1319,12 +1664,10 @@ window.exportarExcelColaboradores = function(statusExportacao = 'todos') {
         };
     });
 
-    // Construção do arquivo CSV (com marcação UTF-8 BOM para garantir o suporte de acentuação no Excel)
     let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
     csvContent += "Nome do Colaborador;Cargo;Setor;Status;Data de Admissao;Vencimento ASO;Vencimento Toxicologico\n"; 
 
     dadosMapeados.forEach(row => {
-        // Limpa possíveis ponto e vírgulas já existentes nos textos para não quebrar as colunas no Excel
         const nome = String(row["Nome do Colaborador"]).replace(/;/g, ",");
         const cargo = String(row["Cargo"]).replace(/;/g, ",");
         const setor = String(row["Setor"]).replace(/;/g, ",");
@@ -1336,7 +1679,6 @@ window.exportarExcelColaboradores = function(statusExportacao = 'todos') {
         csvContent += `${nome};${cargo};${setor};${status};${admissao};${aso};${tox}\n`;
     });
 
-    // Cria um link invisível e força o Download
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -1348,7 +1690,6 @@ window.exportarExcelColaboradores = function(statusExportacao = 'todos') {
     link.click();
     document.body.removeChild(link);
     
-    // Fecha o menu suspenso de exportação após o clique
     const menuExport = document.getElementById('action-menu-export-lote');
     if (menuExport) menuExport.style.display = 'none';
 };
